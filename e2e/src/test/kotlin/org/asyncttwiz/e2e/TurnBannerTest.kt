@@ -100,7 +100,7 @@ class TurnBannerTest : E2e() {
         val bobs = bob.banners("Your turn")
         alice.playsAMountain()
         alice.hold("To combat")
-        waitUntil("Alice's turn over") { alice.state.turn.active == bob.me }
+        waitUntil("Alice's turn over, all of it on the server") { alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() } }
         bob.back()
         waitUntil("Bob's centre text") { bob.showsWatch() }
         assertEquals(bobs, bob.banners("Your turn"), "nothing played yet")

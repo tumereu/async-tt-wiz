@@ -1,0 +1,1 @@
+Portrait Edit cube screen with rune typed in the filter and the Creature chip chosen: the counts line still says 7 main and 2 maybe, the sections show and count only the matching cards.

@@ -91,6 +91,7 @@ class EngineTableScreenTest {
         // STK-047 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
         compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Storm Spark"))
         compose.onNodeWithContentDescription("Question: Storm Spark deals 3 damage to any target.").assertExists()
+            .assert(!hasClickAction()) // STK-047: a sentence that fits takes no taps
         compose.onNodeWithContentDescription("Hide bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()

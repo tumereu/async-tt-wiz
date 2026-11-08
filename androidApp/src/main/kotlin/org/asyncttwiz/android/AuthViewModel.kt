@@ -18,6 +18,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
         acceptedDefinitions = { deck, definitions -> prefetchDeckArtwork(application, deck, definitions) }
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
+        search.cardData = { this@AuthViewModel.catalog.repository.searchData(it) }
     }
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
     private val local = AndroidAccountLocalData(application).also { local ->
@@ -76,6 +77,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         controller::sessionToken, cubeResolver::resolve, cubeResolver::resolve,
         Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } }).apply {
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
+        search.cardData = { this@AuthViewModel.catalog.repository.searchData(it) }
         supportCheck = cardListSupport
     }
     val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),

@@ -89,7 +89,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
@@ -153,7 +153,7 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
                          verticalArrangement = Arrangement.spacedBy(12.dp)) {
                          BoxWithConstraints(Modifier.fillMaxWidth()) {
                              val face = definition.faces.first()
-                             DeckThumbnail(ArtworkReference(face.scryfallId, 0, entry.definition, "small", face.imageUri),
+                             DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri),
                                  definition.name, maxWidth, 64.dp)
                          }
                         Text(definition.name)
@@ -172,7 +172,7 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
                         OutlinedCard(Modifier.fillMaxWidth(), colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val face = definition.faces.first()
-                                DeckThumbnail(ArtworkReference(face.scryfallId, 0, digest, "small", face.imageUri), definition.name, 120.dp, 64.dp)
+                                DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name, 120.dp, 64.dp)
                                 Text(definition.name, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -224,7 +224,7 @@ private fun SavedDeckRow(deck: DeckSummary, open: () -> Unit) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val cover = deck.cover
-            DeckThumbnail(cover?.let { ArtworkReference(it.scryfallId, 0, it.definition, "small", it.imageUri) }, cover?.name ?: deck.name, 40.dp, 52.dp)
+            DeckThumbnail(cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, cover?.name ?: deck.name, 40.dp, 52.dp)
             Column(Modifier.weight(1f)) {
                 Text(deck.name, fontWeight = FontWeight.Bold)
                 Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

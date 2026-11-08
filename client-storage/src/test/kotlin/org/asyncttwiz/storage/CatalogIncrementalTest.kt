@@ -57,7 +57,7 @@ class CatalogIncrementalTest {
         dropped.forEach { assertFalse(stored.has(it), it) }
         assertEquals(setOf("scryfallId", "scryfallOracleId"), stored.getAsJsonObject("identifiers").keySet())
         assertTrue(record.json.length < card.toString().length / 2)
-        assertEquals(record.scryfallId, ArtworkReference.from(record, metadata.date)!!.printing)
+        assertEquals(record.scryfallId, ArtworkReference.from(record)!!.printing)
         val result = DeckImportResolver(repo()).resolve("1 ${record.name} (${record.set}) ${record.number}")
         assertTrue(result.resolved, result.issues.toString())
         assertTrue(result.entries.single().faces.all { face -> face.otherFaces.all { repo().printing(it) != null } })

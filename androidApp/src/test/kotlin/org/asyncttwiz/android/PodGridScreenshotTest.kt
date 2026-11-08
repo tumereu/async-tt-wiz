@@ -111,7 +111,7 @@ class PodGridScreenshotTest {
         for ((grid, copies) in boards) copies.forEachIndexed { index, copy ->
             val size = compose.onNodeWithTag("pod-grid-$grid-slot-$index").fetchSemanticsNode().size
             val number = all.indexOf(copy)
-            val reference = ArtworkReference("print-$number", 0, copy.definition, "normal", null, null)
+            val reference = ArtworkReference("print-$number", 0, "normal", null, null)
             service.loader.memoryCache!![MemoryCache.Key(CardArtworkRequest(reference, size.width, size.height).key)] =
                 MemoryCache.Value(cardBitmap(size.width, size.height, palette[number]).asImage())
         }

@@ -15,12 +15,12 @@ import kotlinx.serialization.json.*
 internal fun ArtworkReference.forTable() = copy(size = if (customUrl != null) "normal" else "art_crop")
 
 /** Server definitions support more faces than the artwork provider. Keep the ordinary fallback. */
-internal fun DefinitionFace.tableArtwork(index: Int, digest: String): ArtworkReference? =
-    if (scryfallId == null && imageUri == null) null else artwork(index, digest)
+internal fun DefinitionFace.tableArtwork(index: Int): ArtworkReference? =
+    if (scryfallId == null && imageUri == null) null else artwork(index)
 
 /** MTGJSON side letters describe provider rows, not necessarily physical image sides. Retain
  * the exact provider face name as well, notably for meld and separately printed token sides. */
-internal fun DefinitionFace.artwork(index: Int, digest: String, size: String = "normal"): ArtworkReference? {
+internal fun DefinitionFace.artwork(index: Int, size: String = "normal"): ArtworkReference? {
     if (index !in 0..15) return null
     val source = sourceData?.let { runCatching { DeckJson.format.parseToJsonElement(it).jsonObject }.getOrNull() }
     val side = (source?.get("side") as? JsonPrimitive)?.contentOrNull
@@ -28,7 +28,7 @@ internal fun DefinitionFace.artwork(index: Int, digest: String, size: String = "
     val providerName = (source?.get("faceName") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         ?: (source?.get("name") as? JsonPrimitive)?.contentOrNull
     return providerIndex?.takeIf { it in 0..15 }?.let {
-        ArtworkReference(scryfallId, it, digest, size, imageUri, providerName)
+        ArtworkReference(scryfallId, it, size, imageUri, providerName)
     }
 }
 
@@ -45,7 +45,7 @@ internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Bool
  * every face, in definition order: all table images first, since they are what a player sees first. */
 internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> {
     val faces = definitions.flatMap { submitted ->
-        submitted.definition.faces.mapIndexedNotNull { index, face -> face.tableArtwork(index, submitted.digest) }
+        submitted.definition.faces.mapIndexedNotNull { index, face -> face.tableArtwork(index) }
     }
     return (faces.map { it.forTable() } + faces.map { it.copy(size = "large") }).distinct()
 }

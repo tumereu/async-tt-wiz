@@ -20,11 +20,11 @@ class PodArtworkTest {
                         "type":"${if (layout == "battle") "Battle — Siege" else "Creature"}"}""")
             }
             val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, rows, emptyList()).definition(null)
-            val inspected = InspectedCard.retained("snapshot", definition)
+            val inspected = InspectedCard.retained(definition)
             assertNotNull(inspected.artwork.first(), layout)
             inspected.artwork.forEachIndexed { index, reference ->
-                assertEquals(ArtworkReference.from(rows[index], "snapshot", "large"), reference, layout)
-                assertEquals(reference?.copy(size = "normal"), definition.faces[index].tableArtwork(index, "snapshot"), layout)
+                assertEquals(ArtworkReference.from(rows[index], "large"), reference, layout)
+                assertEquals(reference?.copy(size = "normal"), definition.faces[index].tableArtwork(index), layout)
             }
             val doubleSided = layout in setOf("transform", "modal_dfc", "meld", "battle", "double_faced_token")
             assertEquals(if (doubleSided) listOf(0, 1) else listOf(0), podPreviewFaces(definition), layout)
@@ -35,10 +35,10 @@ class PodArtworkTest {
         val face = DefinitionFace("back", "Back", scryfallId = id,
             sourceData = """{"faceName":"Back","side":"b"}""")
         val definition = CardDefinition("Back", listOf(face), layout = "transform")
-        val artwork = InspectedCard.retained("snapshot", definition).artwork.single()!!
+        val artwork = InspectedCard.retained(definition).artwork.single()!!
         assertEquals(1, artwork.face)
         assertEquals("Back", artwork.faceName)
-        assertEquals(artwork.copy(size = "normal"), face.tableArtwork(0, "snapshot"))
+        assertEquals(artwork.copy(size = "normal"), face.tableArtwork(0))
     }
 
     @Test fun meldPreviewDoesNotInsertTheOtherFrontComponentBetweenFrontAndResult() {

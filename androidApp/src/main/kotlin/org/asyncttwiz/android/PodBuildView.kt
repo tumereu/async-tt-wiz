@@ -224,7 +224,7 @@ fun PodBuildView(
                                             Box(Modifier.podBuildSlide(sliding)) {
                                                 PodBuildCard(tile, category, editable, move, onInspect = { open ->
                                                     val card = tile.definition?.takeIf { it.faces.isNotEmpty() }
-                                                        ?.let { InspectedCard.retained(tile.digest, it) }
+                                                        ?.let { InspectedCard.retained(it) }
                                                     if (open && card != null) {
                                                         menus.open = null
                                                         previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
@@ -347,7 +347,7 @@ private fun PodBuildLeavingCard(leaving: PodBuildLeaving, done: () -> Unit) {
     LaunchedEffect(Unit) { alpha.animateTo(0f, tween(PodBuildSettleMillis)); currentDone() }
     val density = LocalDensity.current
     val name = leaving.tile.definition?.name ?: "Card details unavailable"
-    val reference = remember(leaving.tile) { podTileArtwork(leaving.tile.digest, leaving.tile.definition) }
+    val reference = remember(leaving.tile) { podTileArtwork(leaving.tile.definition) }
     Box(Modifier.offset { leaving.bounds.topLeft.round() }
         .size(with(density) { leaving.bounds.width.toDp() }, with(density) { leaving.bounds.height.toDp() })
         .graphicsLayer { this.alpha = alpha.value }.testTag("pod-build-leaving-${leaving.tile.copyIds.first()}")
@@ -432,7 +432,7 @@ internal fun PodBuildCard(
         val density = LocalDensity.current
         val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
-        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
+        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .onGloballyPositioned { anchor.coordinates = it }
             .graphicsLayer { alpha = appear.value }

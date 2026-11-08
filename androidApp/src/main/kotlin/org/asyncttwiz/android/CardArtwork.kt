@@ -145,7 +145,7 @@ open class CardArtworkService(context: Context, directory: File = File(context.c
     private val decodes = Semaphore(2)
     open val loader: ImageLoader = ImageLoader.Builder(application)
         .memoryCache { MemoryCache.Builder().maxSizeBytes(memoryBudget).weakReferencesEnabled(false).build() }
-        .diskCache(null) // Our encoded cache owns retry windows, conditional validators and versions.
+        .diskCache(null) // Our encoded cache owns the kept pictures and the retry windows.
         .components {
             add(Keyer<CardArtworkRequest> { data, _ -> data.key })
             add(Fetcher.Factory<CardArtworkRequest> { data, _, _ -> Fetcher {

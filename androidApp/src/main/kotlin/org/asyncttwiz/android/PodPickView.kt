@@ -535,7 +535,7 @@ private fun PodPickTray(
 @Composable
 private fun PodPickArtwork(copy: DraftCopy, definition: CardDefinition?, modifier: Modifier, reuseArtwork: Boolean = false,
     crop: Boolean = false) {
-    val reference = remember(copy.definition, definition) { podTileArtwork(copy.definition, definition) }
+    val reference = remember(copy.definition, definition) { podTileArtwork(definition) }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         CardArtwork(reference,

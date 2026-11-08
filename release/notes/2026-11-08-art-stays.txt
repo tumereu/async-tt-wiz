@@ -1,0 +1,1 @@
+mod: Card pictures stay on your phone once downloaded and show at once, up to 1 GB of them. Pictures you already have download one more time.

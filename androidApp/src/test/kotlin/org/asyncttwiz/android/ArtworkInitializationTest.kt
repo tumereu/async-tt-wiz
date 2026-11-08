@@ -27,7 +27,7 @@ class ArtworkInitializationTest {
         val directory = File(root, "public-artwork").apply { mkdirs() }
         val partial = File(directory, "${"a".repeat(64)}.art.part").apply { writeText("interrupted") }
         val oversized = File(directory, "${"b".repeat(64)}.art").apply {
-            java.io.RandomAccessFile(this, "rw").use { it.setLength(256L * 1024 * 1024 + 1) }
+            java.io.RandomAccessFile(this, "rw").use { it.setLength(org.asyncttwiz.storage.ArtworkDiskCache.MAX_BUDGET + 1) }
         }
         var cacheThread: Thread? = null
         val cacheLookups = AtomicInteger()

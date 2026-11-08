@@ -39,6 +39,24 @@ class CardListEditsTest {
         assertNull(CardListEdits.add(CardListKind.CUBE, full, listOf(printing("Rune Wall")), DeckSection.MAYBEBOARD).refused)
     }
 
+    // LOB-142, LOB-108: the filter reads a listed card as search does: the catalog's card down to the entry's own
+    // printing, otherwise its definition, which holds no rarity or legalities
+    @Test fun aListedCardMatchesTheFilterAsSearchReadsIt() {
+        fun query(text: String) = (CardSearchQuery.parse(text) as CardSearchParse.Valid).query
+        val definition = CardDefinition("Rune Bear", listOf(DefinitionFace("face", "Rune Bear", typeLine = "Creature — Bear",
+            manaCost = "{1}{G}", rulesText = "Vigilance", power = "2", toughness = "2")))
+        val entry = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing("Rune Bear", set = "AAA")), listOf(1))
+        val read = listSearchCard(entry, definition, null)
+        for (text in listOf("rune", "t:bear", "o:vigilance", "c:g", "id:g", "mv=2", "pow=2", "s:aaa", "c:g t:creature", "-t:land"))
+            assertTrue(query(text).matches(read), text)
+        for (text in listOf("t:land", "c:r", "s:bbb", "r:rare", "f:modern")) assertFalse(query(text).matches(read), text)
+        val known = CardSearchCard("Rune Bear", faces = read.faces, identity = 16, legal = setOf("modern"),
+            printings = listOf(CardSearchPrinting("bbb", "rare"), CardSearchPrinting("aaa", "common")))
+        val catalog = listSearchCard(entry, definition, known)
+        for (text in listOf("f:modern", "r:common", "s:aaa", "id:g")) assertTrue(query(text).matches(catalog), text)
+        for (text in listOf("r:rare", "s:bbb")) assertFalse(query(text).matches(catalog), "$text is another printing, not this entry's")
+    }
+
     // LOB-105: the card menu's +1, −1, Remove all and Move to…
     @Test fun menuEditsChangeOneEntryAndMovesJoinTheTargetSection() {
         val list = listOf(entry("Rune Bear", 2), entry("Rune Bolt", 1), entry("Rune Bear", 1, DeckSection.SIDEBOARD))

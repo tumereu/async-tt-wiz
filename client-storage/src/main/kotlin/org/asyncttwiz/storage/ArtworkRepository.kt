@@ -10,48 +10,53 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /** Retained definition consumers can construct this without consulting a newer local catalog.
- * Face is an explicit provider face index, not a name search or first-face guess. */
-data class ArtworkReference(val printing: String?, val face: Int, val version: String,
+ * Face is an explicit provider face index, not a name search or first-face guess.
+ * These fields are what tells two pictures apart: a card's definition or the catalog's edition does not (LOB-097).
+ * [faceName] stays because it can pick another picture than [face] alone (meld results, misnumbered faces). */
+data class ArtworkReference(val printing: String?, val face: Int,
     val size: String = "normal", val customUrl: String? = null, val faceName: String? = null) {
-    init { require(face in 0..15 && version.length <= 256 && size in listOf("small", "normal", "large", "png", "art_crop")) }
-    val key: String get() = "$printing|$face|$size|$version|$customUrl|$faceName"
+    init { require(face in 0..15 && size in listOf("small", "normal", "large", "png", "art_crop")) }
+    val key: String get() = "$printing|$face|$size|$customUrl|$faceName"
     companion object {
-        fun from(record: CatalogPrinting, version: String, size: String = "normal"): ArtworkReference? {
+        fun from(record: CatalogPrinting, size: String = "normal"): ArtworkReference? {
             val face = if (record.side.isEmpty()) 0 else record.side.singleOrNull()?.let { it - 'a' } ?: return null
             if (face !in 0..15) return null
             val name = runCatching { JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString }
                 .getOrNull()?.takeIf { it.isNotBlank() } ?: record.name
-            return ArtworkReference(record.scryfallId, face, version, size, faceName = name)
+            return ArtworkReference(record.scryfallId, face, size, faceName = name)
         }
     }
 }
 
-internal data class ArtworkEntry(val status: Int, val expires: Long, val failures: Int,
-    val type: String, val etag: String, val modified: String, val bytes: ByteArray)
+/** [expires] ends a failure's retry window; a success (status 200) is kept for good and never expires. */
+internal data class ArtworkEntry(val status: Int, val expires: Long, val failures: Int, val type: String, val bytes: ByteArray)
 
-/** Disposable public-only disk LRU. A single atomic entry includes bytes and validators.
+/** Disposable public-only disk LRU, oldest used first out. A single atomic entry per picture or lookup.
  * Essential catalog/private databases cannot be reached by eviction. */
-class ArtworkDiskCache(private val directory: File, val budget: Long = 256L * 1024 * 1024,
+class ArtworkDiskCache(private val directory: File, val budget: Long = MAX_BUDGET,
     private val now: () -> Long = System::currentTimeMillis) {
+    private var total = 0L
     init {
-        require(budget in 1..256L * 1024 * 1024); check(directory.isDirectory || directory.mkdirs())
+        require(budget in 1..MAX_BUDGET); check(directory.isDirectory || directory.mkdirs())
         // One application service owns this disposable directory. A process-killed write is not
         // an entry and must not accumulate outside the LRU budget across subsequent launches.
         directory.listFiles()?.filter { Regex("[a-f0-9]{64}\\.art\\.part").matches(it.name) }
             ?.forEach { check(it.delete()) }
         trim()
     }
-    @Synchronized internal fun read(key: String): ArtworkEntry? = runCatching {
+    /** Not synchronized, so a kept picture never waits for another one's write: entries appear by an
+     * atomic rename, and one deleted meanwhile reads as absent. */
+    internal fun read(key: String): ArtworkEntry? = runCatching {
         val file = File(directory, "${hash(key)}.art")
         if (!file.isFile || file.length() > MAX_ENTRY) return null
         DataInputStream(file.inputStream().buffered()).use { input ->
-            check(input.readInt() == 1)
+            check(input.readInt() == FORMAT)
             val status = input.readInt(); val expiry = input.readLong(); val failures = input.readInt()
-            val type = input.readUTF(); val etag = input.readUTF(); val modified = input.readUTF()
+            val type = input.readUTF()
             val count = input.readInt(); check(count in 0..HttpArtworkRepository.MAX_IMAGE.toInt())
             val bytes = ByteArray(count); input.readFully(bytes); check(input.read() == -1)
             file.setLastModified(now())
-            ArtworkEntry(status, expiry, failures, type, etag, modified, bytes)
+            ArtworkEntry(status, expiry, failures, type, bytes)
         }
     }.getOrNull()
     @Synchronized internal fun write(key: String, entry: ArtworkEntry) {
@@ -60,36 +65,48 @@ class ArtworkDiskCache(private val directory: File, val budget: Long = 256L * 10
         try {
             FileOutputStream(part).use { output ->
                 DataOutputStream(output.buffered()).apply {
-                    writeInt(1); writeInt(entry.status); writeLong(entry.expires); writeInt(entry.failures)
-                    writeUTF(entry.type.take(1024)); writeUTF(entry.etag.take(1024)); writeUTF(entry.modified.take(1024))
+                    writeInt(FORMAT); writeInt(entry.status); writeLong(entry.expires); writeInt(entry.failures)
+                    writeUTF(entry.type.take(1024))
                     writeInt(entry.bytes.size); write(entry.bytes); flush()
                 }
                 output.fd.sync()
             }
+            val replaced = file.length()
             check(part.renameTo(file)); file.setLastModified(now())
-            trim()
+            total += file.length() - replaced
+            if (total > budget) trim()
         } finally { part.delete() }
     }
+    /** A full cache holds tens of thousands of entries, so the directory is only read when over budget,
+     * and then a little more goes than needed so the next writes don't read it again. */
     @Synchronized fun trim() {
+        class Kept(val file: File, val length: Long, val used: Long)
         val files = directory.listFiles()?.filter { Regex("[a-f0-9]{64}\\.art").matches(it.name) }.orEmpty()
-        var total = files.sumOf { it.length() }
-        for (file in files.sortedBy { it.lastModified() }) {
-            if (total <= budget) break
-            val length = file.length(); check(file.delete()); total -= length
+            .map { Kept(it, it.length(), it.lastModified()) }
+        total = files.sumOf { it.length }
+        if (total <= budget) return
+        val target = budget - budget / 20
+        for (kept in files.sortedBy { it.used }) {
+            if (total <= target) break
+            check(kept.file.delete()); total -= kept.length
         }
     }
     @Synchronized internal fun remove(key: String) {
         val file = File(directory, "${hash(key)}.art")
-        check(!file.exists() || file.delete())
+        val length = file.length()
+        check(!file.exists() || file.delete()); total -= length
     }
     companion object {
+        /** The most card art kept on the phone: 1 GB. */
+        const val MAX_BUDGET = 1024L * 1024 * 1024
+        private const val FORMAT = 2
         private const val MAX_ENTRY = HttpArtworkRepository.MAX_IMAGE + 8192
         fun hash(key: String): String = MessageDigest.getInstance("SHA-256").digest(key.toByteArray())
             .joinToString("") { "%02x".format(it) }
     }
 }
 
-/** One artwork network request. [failure] is null when it produced usable bytes (or a 304). */
+/** One artwork network request. [failure] is null when it produced usable bytes. */
 data class ArtworkAttempt(val image: Boolean, val url: String, val failure: String?, val millis: Long,
     val bytes: Int, val failures: Int, val retryInMillis: Long)
 
@@ -152,9 +169,9 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
             val marker = cache.read("decode|$key")?.takeIf { it.expires > now() }
             val failures = ((marker?.failures ?: 0) + 1).coerceAtMost(6)
             val delay = ArtworkRetrySchedule.backoff(failures)
-            cache.write(key, ArtworkEntry(503, now() + delay, failures, "", "", "", byteArrayOf()))
+            cache.write(key, ArtworkEntry(503, now() + delay, failures, "", byteArrayOf()))
             failedConnections[key] = connection.get()
-            cache.write("decode|$key", ArtworkEntry(503, now() + DAY, failures, "", "", "", byteArrayOf()))
+            cache.write("decode|$key", ArtworkEntry(503, now() + DAY, failures, "", byteArrayOf()))
         }
     }
 
@@ -170,8 +187,20 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
     private fun resolve(reference: ArtworkReference, priority: ArtworkPriority, visited: Set<String> = emptySet()): List<String> {
         val id = reference.printing ?: return emptyList()
         if (id in visited || visited.size >= 3 || runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false).not()) return emptyList()
-        val entry = fetch("metadata-v2|$apiBase|$id|${reference.version}", "$apiBase$id", 1024 * 1024, image = false, priority)
+        val key = "metadata|$apiBase|$id"
+        val entry = fetch(key, "$apiBase$id", 1024 * 1024, image = false, priority)
             ?.takeIf { it.status == 200 } ?: return emptyList()
+        return try { imageUrls(reference, entry, id, priority, visited) }
+        catch (interrupted: InterruptedException) { throw interrupted }
+        catch (failure: Exception) {
+            // Kept lookups are never checked again, so one that can't be read is a failure to retry, not to keep.
+            val failures = 6
+            cache.write(key, ArtworkEntry(503, now() + ArtworkRetrySchedule.backoff(failures), failures, "", byteArrayOf()))
+            failedConnections[key] = connection.get()
+            throw failure
+        }
+    }
+    private fun imageUrls(reference: ArtworkReference, entry: ArtworkEntry, id: String, priority: ArtworkPriority, visited: Set<String>): List<String> {
         val card = JsonParser.parseString(entry.bytes.toString(Charsets.UTF_8)).asJsonObject
         check(card.get("object")?.asString == "card" && card.get("id")?.asString == id)
         val top = card.getAsJsonObject("image_uris")
@@ -234,13 +263,15 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
 
     private fun download(key: String, url: String, maximum: Long, image: Boolean, ticket: ArtworkGate.Ticket): ArtworkEntry {
         val old = cache.read(key)
+        // Card art is permanent: what once came is used as it is, at once, with no request (LOB-097).
+        if (old?.status == 200) return old
         val generation = connection.get()
         val sameConnection = (failedConnections[key] ?: 0L) == generation
-        if (old != null && old.expires > now() && (old.status == 200 || sameConnection)) return old
+        if (old != null && old.expires > now() && sameConnection) return old
         if (Thread.currentThread().isInterrupted) throw InterruptedException()
         var error: Exception? = null
         var started = now()
-        val response = try { gate.run(ticket) { started = now(); transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) } }
+        val response = try { gate.run(ticket) { started = now(); transport.get(url, maximum) } }
             catch (failure: Exception) {
                 // A cancelled request (interrupted wait, throttle sleep or socket) is not an outage.
                 if (failure is InterruptedException || Thread.currentThread().isInterrupted) throw InterruptedException()
@@ -249,23 +280,14 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
             }
         val valid = response.status == 200 && response.bytes.size <= maximum &&
             if (image) raster(response.bytes, response.type) && imageCheck(response.bytes, response.type) else validMetadata(response.bytes)
-        val failures = if (valid || response.status == 304) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(6)
-        val expiry = now() + when {
-            valid || response.status == 304 -> DAY
-            else -> ArtworkRetrySchedule.backoff(failures)
-        }
-        val entry = when {
-            valid -> ArtworkEntry(200, expiry, 0, response.type, response.etag, response.modified, response.bytes)
-            response.status == 304 && old?.status == 200 -> old.copy(expires = expiry, failures = 0)
-            // Reuse good cached bytes during an outage, with backoff before revalidation.
-            old?.status == 200 -> old.copy(expires = maxOf(expiry, response.retryAt), failures = failures)
-            else -> ArtworkEntry(if (response.status == 404) 404 else 503, maxOf(expiry, response.retryAt),
-                failures, "", "", "", byteArrayOf())
-        }
+        val failures = if (valid) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(6)
+        val entry = if (valid) ArtworkEntry(200, Long.MAX_VALUE, 0, response.type, response.bytes)
+            else ArtworkEntry(if (response.status == 404) 404 else 503,
+                maxOf(now() + ArtworkRetrySchedule.backoff(failures), response.retryAt), failures, "", byteArrayOf())
         cache.write(key, entry)
         if (entry.status != 200) failedConnections[key] = generation else failedConnections.remove(key)
         val failure = when {
-            valid || response.status == 304 -> null
+            valid -> null
             error != null -> describe(error)
             response.status == 200 -> if (image) "not a usable image" else "unusable card data"
             else -> "HTTP ${response.status}"

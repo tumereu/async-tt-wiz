@@ -115,7 +115,24 @@ class CardListScreenshotTest {
         compose.onNodeWithText("7 main · 2 maybe").assertIsDisplayed()
         compose.onNodeWithTag("delete-list").assertIsDisplayed()
         captureShot(path("cube-edit-cards", landscape), "${orientation(landscape)} Edit cube screen for the Runes cube on its Cards tab: " +
-            "Delete cube at the top right, Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.")
+            "Delete cube at the top right, the filter's empty field and chips, Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.")
+        // LOB-142: the filter narrows the sections; the counts line stays the whole list's. Set on the controller, so
+        // no focused field's blinking cursor gets into the pictures
+        compose.runOnIdle { cubes.search.filterText("rune"); cubes.search.filterToggle(SearchType.CREATURE) }
+        compose.waitForIdle()
+        compose.onNodeWithText("7 main · 2 maybe").assertIsDisplayed()
+        compose.onNode(hasContentDescription("Rune Bear, ", substring = true)).assertExists()
+        compose.onNode(hasContentDescription("Ember Adept, ", substring = true)).assertDoesNotExist()
+        captureShot(path("cube-edit-filtered", landscape), "${orientation(landscape)} Edit cube screen with rune typed in the filter and the Creature " +
+            "chip chosen: the counts line still says 7 main and 2 maybe, the sections show and count only the matching cards.")
+        // LOB-105: the card menu's icons
+        compose.runOnIdle { cubes.search.filterText(""); cubes.search.filterToggle(SearchType.CREATURE) }
+        compose.waitForIdle()
+        compose.onNode(hasContentDescription("Rune Bear, ", substring = true)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Remove all").assertIsDisplayed()
+        if (!landscape) captureShot(path("cube-edit-card-menu", landscape), "Portrait Edit cube screen's card menu " +
+            "after tapping Rune Bear: +1, −1, Remove all and Move to…, each with its icon.")
     }
 
     // DRF-141, DRF-142, SYS-054

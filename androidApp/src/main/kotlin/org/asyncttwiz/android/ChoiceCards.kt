@@ -65,7 +65,7 @@ internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: S
         ?: return ChoiceCardData(key, null, if (shown) fallback else "Hidden card", null, shown, tapped = tapped)
     val definition = play.definitions.firstOrNull { it.digest == card.definition }?.definition
     val face = definition?.faces?.firstOrNull { it.faceId == card.faceId } ?: definition?.faces?.firstOrNull()
-    val art = if (shown && definition != null && face != null) face.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable() else null
+    val art = if (shown && definition != null && face != null) face.tableArtwork(definition.faces.indexOf(face))?.forTable() else null
     return ChoiceCardData(key, card.id, if (shown) face?.name ?: fallback else "Hidden card", art, shown, card.token,
         card.owner == viewer, tapped, if (shown) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
 }

@@ -67,7 +67,7 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
-                            InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
+                            InspectedCard.retained(definition).artwork[face] else null
                         val ability = entry.ability
                         val described = Modifier.semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" }
                         // STK-046: an ability is its token (the source's art and the marker), never the source card

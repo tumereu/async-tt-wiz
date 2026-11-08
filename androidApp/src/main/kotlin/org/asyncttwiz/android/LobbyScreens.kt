@@ -390,7 +390,7 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
             val definition = cover?.let { digest -> preparation.definitions.find { it.digest == digest }?.definition }
             val face = definition?.faces?.firstOrNull()
             if (cover != null && face != null) {
-                CardArtwork(ArtworkReference(face.scryfallId, 0, cover, "small", face.imageUri), definition.name,
+                CardArtwork(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name,
                     48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
             } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
             Column(Modifier.weight(1f, fill = false)) {
@@ -440,7 +440,7 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                     border = BorderStroke(if (chosen) 3.dp else 1.dp,
                         if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.medium) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        deck.cover?.let { cover -> CardArtwork(ArtworkReference(cover.scryfallId, 0, cover.definition, "small", cover.imageUri),
+                        deck.cover?.let { cover -> CardArtwork(ArtworkReference(cover.scryfallId, 0, "small", cover.imageUri),
                             cover.name, 48, 68, Modifier.size(48.dp, 68.dp)) } ?: EntryIcon(null, "decks")
                          Column(Modifier.weight(1f)) { Text(deck.name, fontWeight = FontWeight.SemiBold)
                              Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }

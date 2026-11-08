@@ -1,0 +1,1 @@
+add: The Cards tab of the deck and cube editors has a filter, with the same words and chips as card search. Editing while filtered keeps every card in the list.

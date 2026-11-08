@@ -43,7 +43,7 @@ class ArtworkDiagnosticsTest {
         assertEquals(listOf(false to "Retrying artwork now (app opened)",
             false to "Downloads work again: image cards.scryfall.io/…/1234.jpg in 120 ms"), lines.drop(1))
         lines.clear()
-        diagnostics.failed(ArtworkReference("abc", 0, "v1"), IllegalStateException("bad card"))
+        diagnostics.failed(ArtworkReference("abc", 0), IllegalStateException("bad card"))
         clock += 1_000
         diagnostics.roll(force = true)
         assertEquals(listOf(true to "No art for printing abc face 0: IllegalStateException: bad card",

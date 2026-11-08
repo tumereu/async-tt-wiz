@@ -64,4 +64,81 @@ class DraftHistoryTest : E2e() {
                 picks.map { Triple(it.pick, it.takenSince.isNotEmpty(), it.automatic) }.toSet())
         }
     }
+
+    /** Asserts Inspect is up, in a window of the dialog [dialog] and so drawn over it, not in the app's window behind it. */
+    private fun assertInspectOverDialog(player: E2ePlayer, dialog: String) {
+        fun viewOf(matcher: androidx.compose.ui.test.SemanticsMatcher) =
+            (player.node(matcher).fetchSemanticsNode().root as androidx.compose.ui.node.RootForTest as androidx.compose.ui.platform.ViewRootForTest).view
+        val inspect = hasContentDescription("Card inspection content")
+        kotlin.test.assertTrue(player.shows(inspect), "Inspect is up: ${player.screen()}")
+        val parent = (viewOf(inspect).rootView.layoutParams as android.view.WindowManager.LayoutParams).token
+        kotlin.test.assertEquals(viewOf(hasTestTag(dialog)).windowToken, parent, "Inspect's window hangs on the dialog's, so it draws over the dialog")
+    }
+
+    // DRF-165 (owner, beta9): holding a card in the draft history shows it over the dialog, not behind it
+    @Test fun holdingACardInTheHistoryShowsItOverTheDialog() {
+        launchPlayers()
+        val name = "E2E History hold ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftingPod(alice.account, bob.account, name, settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 3))
+        val kept = pickOver(pod, alice)
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
+        alice.tagged("menu-PODS").performClick()
+        waitUntil("the pod in Alice's list") { alice.showsText(name) }
+        alice.text(name).performScrollTo().performClick()
+        waitUntil("Alice's History button") { alice.shows(hasTestTag("pod-history")) }
+        alice.tagged("pod-history").performClick()
+        val card = hasTestTag("pod-history-0-$kept")
+        waitUntil("her pick in the history") { alice.shows(card) }
+        holding(alice.node(card)) { assertInspectOverDialog(alice, "pod-history-dialog") }
+        kotlin.test.assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "closed on release")
+    }
+
+    /** [player] takes the first card of the pack in front of them, over the server. */
+    private fun pickOver(pod: String, player: E2ePlayer): String = runBlocking {
+        org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            val detail = api.detail(player.account.token, pod)
+            val head = detail.draft!!.head!!
+            val card = head.cards.first().id
+            api.pick(player.account.token, pod, PickPod(UUID.randomUUID().toString(), detail.draftAttemptId!!, head.id, listOf(card)))
+            card
+        }
+    }
+
+    // DRF-165 (owner, beta9): with the draft over, the History button is in the pod's header on the tabs a builder uses, and
+    // the history still says what was taken from a pack that came round again: what the opponent may be building
+    @Test fun historyIsThereWhileBuildingAndAfter() {
+        launchPlayers()
+        val name = "E2E History build ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftingPod(alice.account, bob.account, name, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
+        // Everyone takes what's in front of them until the draft is over
+        repeat(8) {
+            for (player in listOf(alice, bob)) runCatching { pickOver(pod, player) }
+        }
+        val drafted = runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.detail(alice.account.token, pod) } }
+        kotlin.test.assertEquals(PodPhase.DRAFTED, drafted.phase, "the draft is over")
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
+        alice.tagged("menu-PODS").performClick()
+        waitUntil("the pod in Alice's list") { alice.showsText(name) }
+        alice.text(name).performScrollTo().performClick()
+        waitUntil("the Build tab with Alice's History button") {
+            alice.shows(hasTestTag("pod-build") or hasTestTag("pod-tabs")) && alice.shows(hasTestTag("pod-history"))
+        }
+        // The Stats tab has it too, and it opens from there
+        alice.text("Stats").performClick()
+        waitUntil("History on the Stats tab") { alice.shows(hasTestTag("pod-history")) }
+        alice.text("Build").performClick()
+        waitUntil("History on the Build tab") { alice.shows(hasTestTag("pod-history")) }
+        alice.tagged("pod-history").performClick()
+        waitUntil("the picks and the wheel in the history") {
+            val picks = alice.pods.history?.picks.orEmpty()
+            val wheel = picks.indexOfFirst { it.takenSince.isNotEmpty() }
+            alice.showsText("Pack 1 · Pick 1") && wheel >= 0 && alice.shows(hasTestTag("pod-history-since-$wheel"))
+        }
+        val picks = alice.pods.history!!.picks
+        val first = hasTestTag("pod-history-0-${picks.first().kept.single()}")
+        waitUntil("her first pick") { alice.shows(first) }
+        holding(alice.node(first)) { assertInspectOverDialog(alice, "pod-history-dialog") }
+        alice.described("Close draft history").performClick()
+        waitUntil("the history closed, back at Build") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.shows(hasTestTag("pod-history")) }
+    }
 }

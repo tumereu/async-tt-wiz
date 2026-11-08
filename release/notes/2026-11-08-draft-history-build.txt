@@ -1,0 +1,1 @@
+add: The draft history can also be opened while building and after it, from the icon at the top of the pod.

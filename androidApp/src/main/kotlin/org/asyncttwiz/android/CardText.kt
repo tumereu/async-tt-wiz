@@ -40,7 +40,8 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
-    maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified) {
+    maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified,
+    onTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit = {}) {
     val parts = remember(text) { parseCardText(text) }
     val annotated = remember(parts) { buildAnnotatedString {
         for (part in parts) when (part) {
@@ -52,7 +53,7 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
     val inline = symbols.associate { symbol -> symbol.token to InlineTextContent(
         Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)
     ) { CardSymbol(symbol.token) } }
-    Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline)
+    Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline, onTextLayout = onTextLayout)
 }
 
 /**

@@ -1,0 +1,1 @@
+A spell whose sentence doesn't fit the target bar's four lines, after a tap on it: the bar above the hand has grown to show the whole sentence under Choose any target, with the eye at its left.

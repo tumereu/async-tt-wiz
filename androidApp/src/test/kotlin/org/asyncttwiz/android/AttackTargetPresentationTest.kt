@@ -206,7 +206,7 @@ class AttackTargetPresentationTest {
             else g.copy(recipient = g.recipient.copy(avatar = Avatar("avatar-print", 1))) }
         val lane = TablePresentation.scene(game, tableBoard(state), "a", 412f, 892f, false).combatLabels.single()
         assertEquals(defender, lane.accountId)
-        assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "avatar-v1", "art_crop"), lane.artwork)
+        assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "art_crop"), lane.artwork)
         val plain = TablePresentation.scene(TableFixture.game, tableBoard(state), "a", 412f, 892f, false).combatLabels.single()
         // CMB-013 (owner playtest 2026-11-06): without a profile avatar the chip shows the player's initial in their colour
         assertEquals(defender, plain.accountId)

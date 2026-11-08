@@ -1,0 +1,1 @@
+add: Cards and players now show their rarer states: a word on the card (Ring-bearer, goaded, monstrous...), chips by the life square (monarch, speed, the Ring's level, poison...), day or night above the Stack, and what a card can't or must do when you hold it. Hold a chip to see what it means.

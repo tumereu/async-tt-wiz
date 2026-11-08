@@ -11,6 +11,10 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
 Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Engine.explain(state, ids): Map<ObjectId, Explanation> // the same for several objects, one run of the layers
+Engine.restrictions(state, view, id): List<AppliedRestriction> // what continuous effects tell it it can't or must do ("can't block"), from the view at hand
+Engine.speed(state, player), ringTemptations(state, player), dungeonsCompleted(state, player): Int // rules state kept for a player
+Engine.dayOrNight(state): DayOrNight?            // CR 731; null while it is neither
+Engine.classLevel(state, id): Int?               // the level a Class has gained (CR 716.2)
 Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
 Engine.costMayFall(state): Boolean // whether the waiting cast's cost may still fall with a choice not made yet (CR 601.2f)
 Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
@@ -84,6 +88,9 @@ seeded random games of cube cards, failing on any open player decision without a
   by effect (`Explanation.effects`, `AppliedEffect`: one entry per effect with its steps in every layer, the object that
   made it and its duration, so a host can list "+3/+3 and trample until end of turn" and name the source on request);
   `Engine.explain(state, ids)` explains several objects from one run of the layers;
+  `AppliedRestriction` (`Engine.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
+  (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's
+  own printed text and what a keyword means aren't listed (the host lists the keyword);
   the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated

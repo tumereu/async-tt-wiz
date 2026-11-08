@@ -30,9 +30,6 @@ Table batch (owner, 2026-11-08):
 - Combat stays readable (HIS-104, HIS-112, TBL-125, LOB-082): a combat that goes by itself holds your view (never the game, as plays shown does) on the attackers shown and on the damage, for the "Show the other player's plays" time (the same setting, 0 = no hold), a tap skipping it. Declaring no attackers holds nothing.
 - Chat bubbles (LOB-136, LOB-137, LOB-140): bubbles always start at the life square and may cover anything, hand cards included; the rule finding other room goes. Write (LOB-139) focuses the chat's input and opens the keyboard.
 
-Card states batch (owner, 2026-11-08; own implementor):
-
-- Audit what the rules state holds and the table doesn't show, then show it (TBL-113, TBL-104, TRN-053). Card states such as Ring-bearer, goaded, monstrous, renowned, suspected, saddled: a word on the chip, a line in Inspect, the hold explanation (TBL-132). Player states such as monarch, initiative, city's blessing, speed, day/night, the Ring's level: chips by the life square, like emblems. Restrictions such as "can't block", "can't attack", "can't be blocked", "doesn't untap": lines in Inspect, adding what Arcanum's public view needs (owner reviews the API addition with the results).
 
 Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):
 

@@ -42,6 +42,7 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 - **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties. (r45)
 - **ZON-049** The graveyard/exile view's cards sit in up to 3 columns, left to right then down; a partial last row starts at the left. (r45)
 - **ZON-058** Tapping a card in the graveyard/exile view opens its card menu (TBL-116): what Automatum offers for it (a flashback cast, say) as rows, nothing else; a card Automatum offers nothing for opens no menu. Holding it inspects it (TBL-104). (r52)
+- **ZON-094** A card in the exile view shows its state as a word on its chip before its counters, and as a line in Inspect (TBL-104): "Plotted", "Foretold" (also on a card exiled face down: that it is foretold is public, what it is stays hidden) or "Warped"; copies with a different state keep their own places. (r60)
 - **ZON-091** A card in the exile view shows its counters, any kind, as a battlefield card does (TBL-113): one violet-text chip under its title ("time ×3"), sized with the card; copies with different counters keep their own places. Holding it lists them (TBL-104). (r58)
 - **ZON-061** A drag on empty space in the view, a double-tap-drag anywhere in it or two fingers scroll it; there is no selection box. (r45)
 

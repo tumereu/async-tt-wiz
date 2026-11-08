@@ -151,3 +151,9 @@ number	item	screenshot	catalog	decisions
 150	Draft: Booster draft history	pod-draft-history.png	DRF-165 DRF-160
 151	Draft: Stats mana curve by colour	pod-stats-color.png	DRF-111
 152	Draft: Basics dialog with its basics and lands count	pod-build-basics-dialog.png	DRF-103
+153	Card states on the chip	states/card-state-chips.png	TBL-133 TBL-113
+154	Inspect with states and a restriction	states/card-state-inspect.png	TBL-133 TBL-134 TBL-104
+155	Player state chips	states/player-chips-portrait.png	TRN-072 TRN-073 TRN-053
+156	Player state chips in landscape	states/player-chips-landscape.png	TRN-072 TRN-073 TBL-009
+157	Player state chips on a narrow screen	states/player-chips-narrow.png	TRN-072 TRN-053 TRN-069
+158	Holding a player state chip	states/player-chip-explained.png	TRN-072 TBL-132

@@ -1,8 +1,9 @@
 package arcanum.api
 
 /**
- * Plain-words explanations of the keywords ([KeywordKind]) and keyword actions ([KeywordAction], and scry, surveil, mill
- * and fight, which are effects of their own) the libraries know, for players who hold a keyword to see what it means.
+ * Plain-words explanations of the keywords ([KeywordKind]), keyword actions ([KeywordAction], and scry, surveil, mill
+ * and fight, which are effects of their own) and states ([states]) the libraries know, for players who hold one to see
+ * what it means.
  *
  * Every text here is written for this library in its own words: a short summary of what the keyword does in play, never
  * the Comprehensive Rules' text or a card's reminder text. They simplify (corner cases are left out); the rules and the
@@ -28,11 +29,35 @@ object RulesGlossary {
     fun action(id: String): Entry? = actions[id]
 
     /**
+     * What the states the rules keep mean, by id: an object's states (a permanent's marks, by their serial name:
+     * "ring-bearer", "monstrous", "goaded", ...) and a player's or the game's ("monarch", "speed", "the-ring", "day", ...).
+     * Written and kept like the keywords' explanations. A test checks that every [ObjectMark] and [Designation] has one, but
+     * [ObjectMark.Named] and the face-down marks ([ObjectMark.Manifested], [ObjectMark.Cloaked]).
+     */
+    val states: Map<String, Entry> by lazy { (CARD_STATES + PLAYER_STATES).associate { (id, name, text) -> id to Entry(id, name, text) } }
+
+    /** The explanation of the state with id [id] ([states]), null when it has none. */
+    fun state(id: String): Entry? = states[id]
+
+    /**
+     * What a Ring-bearer gets at each of the Ring's levels (CR 701.54c), in plain words: a host shows as many as the Ring has
+     * tempted the player, the first for one temptation.
+     */
+    val ringLevels: List<String> = listOf(
+        "legendary, can't be blocked by creatures with greater power",
+        "when it attacks, you draw a card, then discard a card",
+        "a creature that blocks it is sacrificed at end of combat",
+        "when it deals combat damage to a player, each opponent loses 3 life",
+    )
+
+    /**
      * The explanations [text] names, in the order it names them: each keyword or keyword action whose printed name is
      * in it as whole words, case aside ("flying" → Flying; "+3/+3, trample until end of turn" → Trample; "Forage" →
      * Forage; "Crew 3" → Crew; "Protection from red" → Protection). Longer names win over the shorter names inside them
      * ("Double strike" is not "Double", "Manifest dread" not "Manifest"); each entry is listed once. A keyword's variants
-     * name it too: "Megamorph" morph, "Multikicker" kicker, "Swampcycling" cycling, "Forestwalk" landwalk.
+     * name it too: "Megamorph" morph, "Multikicker" kicker, "Swampcycling" cycling, "Forestwalk" landwalk. An object's states
+     * are named the same way ("Goaded by Bob" → Goaded, "Ring-bearer: legendary" → Ring-bearer); a player's aren't, their
+     * words ("day", "speed") being common.
      */
     fun named(text: String): List<Entry> {
         val lower = text.lowercase()
@@ -66,13 +91,50 @@ object RulesGlossary {
 
     /** Every name an entry goes by, lower case (variants too), longest first. */
     private val names: List<Pair<String, Entry>> by lazy {
-        ((keywords.values + actions.values).map { it.name.lowercase().trimEnd('!') to it } +
+        ((keywords.values + actions.values + CARD_STATES.map { (id, _, _) -> states.getValue(id) }).map { it.name.lowercase().trimEnd('!') to it } +
             VARIANTS.map { (name, id) -> name to keywords.getValue(id) })
             .sortedWith(compareByDescending<Pair<String, Entry>> { it.first.length }.thenBy { it.second.id })
     }
 
     /** Keyword variants printed under names of their own, and the keyword they are (CR 702.33c, 702.37b). */
     private val VARIANTS = listOf("multikicker" to "kicker", "megamorph" to "morph")
+
+    // An object's states (CR 701, 702, 709, 719, 722): (id, name as a player reads it, explanation)
+    private val CARD_STATES: List<Triple<String, String, String>> = listOf(
+        Triple("ring-bearer", "Ring-bearer", "The creature its controller chose when the Ring tempted them. It stays the Ring-bearer until they choose another or someone else gains control of it, and it gets more with each of the Ring's levels."),
+        Triple("goaded", "Goaded", "It must attack each combat if it can, and must go after someone other than the player who goaded it if it can. It lasts until that player's next turn."),
+        Triple("monstrous", "Monstrous", "It has used its monstrosity: it can't do so again, and its abilities that care about being monstrous work."),
+        Triple("renowned", "Renowned", "It has dealt combat damage to a player and got its renown counters; it can't become renowned again."),
+        Triple("suspected", "Suspected", "It has menace and can't block for as long as it is suspected."),
+        Triple("saddled", "Saddled", "A Mount that creatures tapped to saddle. It stays saddled until the end of the turn, and its abilities that care about it work."),
+        Triple("solved", "Solved", "This Case's goal was met at an end step: its \"solved\" abilities work from now on."),
+        Triple("prepared", "Prepared", "Its controller may cast the copy of its prepare spell, once; casting it unprepares this permanent."),
+        Triple("harnessed", "Harnessed", "It stays harnessed until it leaves the battlefield, and its abilities with the infinity symbol work."),
+        Triple("unlocked", "Unlocked", "This half of the Room is unlocked: its abilities work. A locked half does nothing until its door is unlocked."),
+        Triple("phased-out", "Phased out", "It acts as though it doesn't exist. It phases back in during its controller's next untap step."),
+        Triple("plotted", "Plotted", "Its owner may cast it from exile without paying its mana cost, in a main phase of a later turn while the Stack is empty."),
+        Triple("foretold", "Foretold", "Exiled face down; its owner may look at it and cast it for its foretell cost on a later turn."),
+        Triple("warped", "Warped", "Exiled at the end step of the turn it was cast for its warp cost; its owner may cast it on a later turn."),
+    )
+
+    // A player's and the game's states: (id, name as a player reads it, explanation)
+    private val PLAYER_STATES: List<Triple<String, String, String>> = listOf(
+        Triple("monarch", "Monarch", "This player draws an extra card at each of their end steps. A creature that deals combat damage to the monarch makes its controller the monarch."),
+        Triple("initiative", "Initiative", "This player ventures into the Undercity when they take it and at each of their upkeeps. A creature that deals combat damage to them takes it for its controller."),
+        Triple("citys-blessing", "City's blessing", "This player controlled ten or more permanents with ascend. They keep the blessing for the rest of the game, and their ascend abilities work."),
+        Triple("enduring-story", "Enduring story", "Storied gave this player a story that lasts for the rest of the game."),
+        Triple("speed", "Speed", "A player's speed runs from 1 to 4. It goes up by one the first time an opponent loses life on each of their turns. Some abilities work only at the highest speed."),
+        Triple("the-ring", "The Ring", "Each time the Ring tempts a player they choose a Ring-bearer and the Ring gains a level, up to 4, giving their Ring-bearer more."),
+        Triple("day", "Day", "It stays day while each turn's active player casts a spell. A turn with no spell cast makes it night; daybound permanents then transform."),
+        Triple("night", "Night", "It stays night until a player casts two or more spells during their own turn, which makes it day; nightbound permanents then transform."),
+        Triple("poison", "Poison", "A player with ten or more poison counters loses the game."),
+        Triple("energy", "Energy", "Counters a player keeps and pays with for abilities that cost {E}."),
+        Triple("rad", "Rad", "At the start of their first main phase the player mills that many cards, loses 1 life and removes one rad counter for each nonland card milled."),
+        Triple("experience", "Experience", "Counters a player keeps for the cards that count them."),
+        Triple("dungeons-completed", "Dungeons completed", "How many dungeons this player has finished this game. Some cards care."),
+        Triple("extra-turn", "Extra turn", "This player takes that many extra turns after the current one."),
+        Triple("skipped-turn", "Skips a turn", "This player skips that many of their next turns."),
+    )
 
     // Keywords (CR 702), in [KeywordKind.all]'s order: (id, printed name, explanation)
     private val KEYWORDS: List<Triple<String, String, String>> = listOf(

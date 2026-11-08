@@ -39,6 +39,7 @@ Arcanum engine generalisation (owner, 2026-11-08; after castability merges; revi
 
 Small, not urgent (owner, 2026-11-08):
 
+- X stepper gaps (STK-052; found in castability's review, the owner told by session async-tt-wiz-74): a value that can't be paid (X=1 where a reducer starts applying at X=2) reaches the payment with Cast greyed and only Undo gets out, against "an earlier choice is never a dead end": grey Cast at the X step when `finishableWith` says false, or have the stepper skip those values. `HandCasts.mostAnnounced` stops after 20 failing values in a row, a bound that answers "no": when it runs out, leave the stepper open up to `top`, since the final check is exact.
 - Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)

@@ -82,6 +82,10 @@ internal class Sentences(
                 Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = Filters.all(ObjectFilter.WasCast(Zone.Exile), notOwned), anyType = true)),
                     condition = arcanum.api.Condition.YourTurn, affects = Affected.Players(Players.You)))
         }
+        // fdn chunk 10a: "Skeletons you control and other Zombies you control get +1/+1 and have deathtouch.": the same static on each group
+        Fdn.TWO_GROUPS_YOU_CONTROL_GET.matchEntire(line)?.let { m ->
+            return listOf(static("${m.groupValues[1]} ${m.groupValues[3]}") ?: return@let, static("${m.groupValues[2].replaceFirstChar { it.uppercase() }} ${m.groupValues[3]}") ?: return@let)
+        }
         // fdn chunk 05: "As long as X, Elenda gets +1/+1 and has menace. Elenda gets an additional +5/+5 as long as Y.": two static abilities on one line
         Fdn.TWO_AS_LONG_AS.matchEntire(line)?.let { m ->
             return listOf(static(m.groupValues[1]) ?: return@let, static(m.groupValues[2]) ?: return@let)
@@ -1676,6 +1680,20 @@ internal class Sentences(
             val condition = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null }
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = modify)), affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        // fdn chunk 10a: "You have hexproof." (CR 702.11c)
+        if (Fdn.YOU_HAVE_HEXPROOF.matches(line))
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))), affects = Affected.Players(Players.You))
+        // fdn chunk 10a: "Prevent all noncombat damage that would be dealt to other creatures you control." (CR 615.1)
+        Fdn.PREVENT_ALL_NONCOMBAT_DAMAGE_TO.matchEntire(line)?.let { m ->
+            val to = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = to), combat = false))), affects = Affected.Objects(Objects.Self))
+        }
+        // fdn chunk 10a: "Instant and sorcery spells you control can't be countered." (CR 101.2)
+        Fdn.SPELLS_YOU_CONTROL_CANT_BE_COUNTERED.matchEntire(line)?.let { m ->
+            val kinds = listOf(m.groupValues[1], m.groupValues[2]).map { Filters.noun(it.lowercase()) ?: return null }
+            return Ability.Static(listOf(Mechanic.CantBeCountered), affects = Affected.Objects(Objects.Each(
+                Filters.all(ObjectFilter.Or(kinds), ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You)))))
         }
         // chunk 40: "Green spells you control can't be countered."
         GROUP_CANT_BE_COUNTERED.matchEntire(line)?.let { m ->
@@ -4015,6 +4033,24 @@ internal class Sentences(
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
                     Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("dead"), Destination(Zone.Battlefield,
                         counters = listOf(arcanum.api.CountersToPut(kind, Value.Difference(had, Value.Fixed(1))))), postBind = "returned")))))))
+        }
+        // fdn chunk 10a: "you may have target creature get +2/+0 until end of turn": the same pump, if its controller chooses it
+        Fdn.MAY_HAVE_TARGET_GET.matchEntire(sentence)?.let { m ->
+            val steps = effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} gets ${m.groupValues[2]}", context) ?: return@let
+            return listOf(Step.May(steps, player = Players.You))
+        }
+        // fdn chunk 10a: "Each creature you control gets +3/+3 until end of turn and must be blocked this turn if able." (CR 509.1c, 611.2c)
+        Fdn.GETS_UNTIL_EOT_MUST_BE_BLOCKED.matchEntire(sentence)?.let { m ->
+            val pump = effect("${m.groupValues[1]} ${m.groupValues[2]} until end of turn.", context)?.singleOrNull() as? Step.Do ?: return@let
+            val apply = pump.effect as? Effect.ApplyMechanics ?: return@let
+            return listOf(Step.Do(apply.copy(mechanics = apply.mechanics + Mechanic.MustBeBlocked)))
+        }
+        // fdn chunk 10a: "Then you may have it become a 0/0 Elemental creature until end of turn." (layers 4 and 7b; "It's still a land." changes nothing)
+        Fdn.MAY_HAVE_IT_BECOME_PT_SUBTYPE_CREATURE.matchEntire(sentence)?.let { m ->
+            val subtypes = m.groupValues[3].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
+            return listOf(Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn))), player = Players.You))
         }
         // fdn chunk 04: "you may have it fight target creature you don't control": the same fight, if its controller chooses it (CR 701.14)
         Fdn.MAY_HAVE_IT_FIGHT.matchEntire(sentence)?.let { m ->
@@ -15851,6 +15887,20 @@ internal class Sentences(
         }
         // sos chunk 11: "It's still a land." after "if this land isn't a creature, it becomes …": a reminder (CR 205.1b)
         if (sentence == "It's still a land." && ((steps.lastOrNull() as? Step.If)?.then?.singleOrNull() as? Step.Do)?.effect is Effect.ApplyMechanics) return steps.toList()
+        // fdn chunk 10a: "Return that card to the battlefield … It has flying and is an Angel in addition to its other types.": the returned
+        // permanent is a new object (CR 400.7), so the type and ability stay on it for good (layers 4 and 6)
+        Fdn.IT_HAS_AND_IS_IN_ADDITION.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (move.to.zone != Zone.Battlefield) return@let
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
+            val subtypes = m.groupValues[2].trim().split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
+            val bind = move.postBind ?: "returned"
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords),
+                Mechanic.SetTypes(addSubtypes = subtypes)), Affected.Objects(Objects.Bound(bind)), arcanum.api.Duration.Indefinitely))
+        }
+        // fdn chunk 10a: the same after "Then you may have it become a 0/0 Elemental creature until end of turn."
+        if (sentence == "It's still a land." && (((steps.lastOrNull() as? Step.May)?.steps?.singleOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics)?.mechanics?.any { it is Mechanic.SetTypes } == true)
+            return steps.toList()
         // sos chunk 13: "Create a 3/3 … token with flying. It gains haste until end of turn." ("it" is the token)
         Sos.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let

@@ -56,4 +56,13 @@ internal object Fdn {
     val EXILE_UP_TO_ONE_ATTACHED_TO_THAT_CREATURE = Regex("""[Ee]xile up to one target (.+?) attached to that creature\.""")
     val DESTROY_EACH_MV_X_CONTROLLER_DEALT_COMBAT = Regex("""[Dd]estroy each (.+?) with mana value X whose controller was dealt combat damage by (.+?) this turn\.""")
     val EXILE_PUT_THERE_THIS_TURN_COPY_EXCEPT_SUBTYPE_EXILE_OTHERS = Regex("""[Ee]xile target (.+?) from a graveyard that was put there this turn\. Create a token that's a copy of it, except it's an? ([A-Z]\w+) in addition to its other types\. Then exile all other \2 tokens you control\.""")
+    // chunk 10a
+    val MAY_HAVE_TARGET_GET = Regex("""[Yy]ou may have (target .+?) get (.+)""")
+    val GETS_UNTIL_EOT_MUST_BE_BLOCKED = Regex("""(.+? gets?|.+? get) ([+-]\d+/[+-]\d+) until end of turn and must be blocked this turn if able\.""")
+    val MAY_HAVE_IT_BECOME_PT_SUBTYPE_CREATURE = Regex("""(?:Then )?[Yy]ou may have it become an? (\d+)/(\d+) ([A-Z]\w+(?: [A-Z]\w+)*) creature until end of turn\.""")
+    val YOU_HAVE_HEXPROOF = Regex("""You have hexproof\.""")
+    val PREVENT_ALL_NONCOMBAT_DAMAGE_TO = Regex("""Prevent all noncombat damage that would be dealt to (.+)\.""")
+    val SPELLS_YOU_CONTROL_CANT_BE_COUNTERED = Regex("""(\w+) and (\w+) spells you control can't be countered\.""")
+    val TWO_GROUPS_YOU_CONTROL_GET = Regex("""(.+? you control) and (other .+? you control) (get .+)""")
+    val IT_HAS_AND_IS_IN_ADDITION = Regex("""It has ([a-z ,]+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
 }

@@ -63,6 +63,10 @@ internal object Filters {
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
         }
         gtcNoun(phrase)?.let { return it }
+        // fdn chunk 10a: "creatures you control of the chosen color" (the color chosen as this permanent entered, CR 105.1)
+        OF_CHOSEN_COLOR.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Remembered("color")))
+        }
         // blb chunk 12: "creatures you control of the chosen type" (the creature type chosen as this permanent entered)
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
@@ -442,6 +446,7 @@ internal object Filters {
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
+    private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")

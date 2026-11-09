@@ -167,6 +167,10 @@ class SharedFlow private constructor(
         return CombatFlow.division(view)
     }
 
+    /** What may be picked in the open choice of objects with [picked] so far, and whether [picked] is a finished selection
+     * ([Engine.selection]). Blocking: the app runs it on the Automatum worker. */
+    fun selection(picked: List<TargetRef>): arcanum.engine.Selection = Engine.selection(state, picked)
+
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
      * and creature types only of objects the deciding player may see ([ShownAnswers], I-D27). Worked out once per flow
      * (final cast review #9: a panel asks on every recomposition). */

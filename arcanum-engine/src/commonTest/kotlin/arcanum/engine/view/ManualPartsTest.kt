@@ -36,6 +36,11 @@ class ManualPartsTest {
         assertEquals(listOf("by hand: Do the odd thing"), Engine.manualParts(spell(Step.Manual("Do the odd thing"))))
     }
 
+    // CR 701.48a: the engine plays learn by its expansion, the host bringing the cards outside the game
+    @Test fun learnIsNotLeftToThePlayers() {
+        assertEquals(emptyList(), Engine.manualParts(spell(Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Learn)))))
+    }
+
     // CR 107.3: a cost paid on resolution with an X the definition doesn't set is left to the players; set, it isn't
     @Test fun aResolutionCostNeedsItsX() {
         val x = ManaCost.parse("{X}")!!

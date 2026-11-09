@@ -135,7 +135,7 @@ object ServerSetup {
 
     /**
      * A pod [name] of [a] (its creator) and [b] drafting: a cube of [TestCards] (a booster draft of three packs of two
-     * cards each, or [settings]), [b] invited and accepted, the draft started. [cards]: the cube's cards, twelve in all, evenly.
+     * cards each, or [settings]), [b] invited and accepted, the draft started. [cards]: the cube's cards, as many in all as the draft takes, evenly.
      * Returns the pod's id.
      */
     fun draftingPod(a: TestAccount, b: TestAccount, name: String,
@@ -145,7 +145,7 @@ object ServerSetup {
         lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
         val cube = DeckApi(origin).use { api ->
             api.submit(a.token, SubmitDefinitions(id(), cards))
-            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 2 * settings.packsPerPlayer * settings.cardsPerPack / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { api ->
             val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id
@@ -248,17 +248,39 @@ object ServerSetup {
         invitation
     }
 
-    /** A pod [name] of [a] and [b] whose draft has finished (each picked the first card of every pack and has [mainPlains]
-     * Plains in Main), neither deck submitted yet ([submitPodDeck]). */
-    fun draftedPod(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): String = runBlocking {
+    /**
+     * LOB-141: a pod game of [a] and [b] with a cube of nothing but [card], so every hand holds it: each drafts 45 copies into
+     * Main (no basics there; an unlimited sideboard's Side basics, DRF-104), and [a] moves one copy to Side and one to Maybe.
+     * Returns the game, in its lobby.
+     */
+    fun podGameOfOneCard(a: TestAccount, b: TestAccount, name: String, card: SubmittedDefinition): GameSummary = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        val pod = draftingPod(a, b, name)
+        val pod = draftedPod(a, b, "$name pod", mainPlains = 0, cards = listOf(card), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 15))
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            val detail = api.detail(a.token, pod)
+            val copies = detail.build!!.copies
+            api.move(a.token, pod, MovePodCopy(id(), detail.draftAttemptId!!, copies[0].copyId, PodDeckCategory.SIDE))
+            api.move(a.token, pod, MovePodCopy(id(), detail.draftAttemptId!!, copies[1].copyId, PodDeckCategory.MAYBE))
+        }
+        for (who in listOf(a, b)) submitPodDeck(who, pod)
+        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(id(), b.id, name, basics)) }
+        Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
+        invitation
+    }
+
+    /** A pod [name] of [a] and [b] whose draft has finished (each picked the first card of every pack and has [mainPlains]
+     * Plains in Main), neither deck submitted yet ([submitPodDeck]). [cards], [settings]: as [draftingPod]. */
+    fun draftedPod(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40,
+        cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
+        settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        val pod = draftingPod(a, b, name, cards, settings)
         // As the app does, the basics' card data goes up before the pod deck and the challenge that name them
         DeckApi(origin).use { api -> for (who in listOf(a, b)) api.submit(who.token, SubmitDefinitions(id(), basics)) }
         org.asyncttwiz.android.PodApi(origin).use { api ->
             var picks = 0
             while (api.detail(a.token, pod).phase != PodPhase.DRAFTED) {
-                check(picks++ < 50) { "the draft didn't finish" }
+                check(picks++ < 2 * settings.packsPerPlayer * settings.cardsPerPack + 50) { "the draft didn't finish" }
                 for (who in listOf(a, b)) {
                     val detail = api.detail(who.token, pod)
                     val pack = detail.draft?.head ?: continue

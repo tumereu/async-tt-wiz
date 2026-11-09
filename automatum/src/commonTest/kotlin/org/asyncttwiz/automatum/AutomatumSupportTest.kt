@@ -34,6 +34,15 @@ class AutomatumSupportTest {
         assertEquals(emptyList(), AutomatumSupport.handParts(definition))
     }
 
+    // LOB-141, CR 701.48a: a card with learn is supported: the Lessons it fetches are the deck's Side and Maybe
+    @Test fun aCardThatLearnsIsSupported() {
+        val reminder = "(You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
+        for (definition in listOf(card("Draw a card.\nLearn. $reminder", type = "Sorcery"), card("When this creature enters, learn. $reminder"))) {
+            assertTrue(definition.faces.single().abilities.none { it is arcanum.api.Ability.Unparsed }, "the parser reads it")
+            assertEquals(emptyList(), AutomatumSupport.handParts(definition))
+        }
+    }
+
     @Test fun aManualStepIsPlayedByHand() {
         val definition = CardDefinition(Layout.Normal, listOf(arcanum.api.FaceDefinition("Odd Rite", types = listOf(arcanum.api.CardType.Sorcery),
             abilities = listOf(arcanum.api.Ability.Spell(arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Manual("Do the odd thing"))))))))

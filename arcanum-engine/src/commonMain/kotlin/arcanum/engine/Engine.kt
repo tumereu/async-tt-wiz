@@ -26,7 +26,7 @@ object Engine {
      * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
      * engine keeps them per this version (and the parser's), so a new engine works them out again.
      */
-    const val SUPPORT_VERSION: Int = 10
+    const val SUPPORT_VERSION: Int = 11
 
     /** The parts of [definition] this engine leaves to the players, one short line each (empty: it plays all of the card
      * by the rules): text the parser couldn't read, `Manual` steps and cost parts, keywords done by hand, and the shapes
@@ -108,8 +108,9 @@ object Engine {
      * What may be picked next in the open choice of targets or objects with [picked] picked so far (castability §3, CR 601.2c,
      * 601.2f): a candidate is listed when some finished selection including it and [picked] can be paid and is legal, not when the
      * selection is payable right now, since a cost can fall as more are picked. A search bound keeps a candidate listed;
-     * [Selection.done] is for [picked] itself. Blocking: run it off the main thread. Picked candidates stay listed (they can be
-     * taken back).
+     * [Selection.done] is for [picked] itself, false until a total the choice asks is reached (at any later point too, CR 701.59a:
+     * [arcanum.engine.decision.Decision.ChooseObjects.total]). Blocking: run it off the main thread. Picked candidates stay listed
+     * (they can be taken back).
      */
     fun selection(state: GameState, picked: List<arcanum.engine.state.TargetRef>): Selection = Options.selection(state, picked)
 

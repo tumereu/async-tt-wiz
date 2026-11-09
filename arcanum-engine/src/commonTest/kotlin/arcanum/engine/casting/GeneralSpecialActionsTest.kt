@@ -1,29 +1,39 @@
 package arcanum.engine.casting
 
 import arcanum.api.Ability
+import arcanum.api.Affected
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
+import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.Effect
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.KeywordAction
+import arcanum.api.KeywordActionKind
 import arcanum.api.Layout
 import arcanum.api.ManaCost
 import arcanum.api.MarkClear
 import arcanum.api.MarkRules
+import arcanum.api.Mechanic
+import arcanum.api.NumericProperty
 import arcanum.api.ObjectFilter
 import arcanum.api.ObjectMark
 import arcanum.api.Objects
 import arcanum.api.Players
+import arcanum.api.PrintedNumber
 import arcanum.api.Step
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
 import arcanum.api.Timing
+import arcanum.api.Total
 import arcanum.api.Value
 import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
+import arcanum.engine.change.Change
+import arcanum.engine.change.GameEvent
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.foretell.Foretell
@@ -31,9 +41,11 @@ import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.ObjectId
+import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityOrigin
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -311,12 +323,16 @@ class GeneralSpecialActionsTest {
         assertIs<Decision.May>(pending)
         answer(Answer.YesNo(true))
         assertFalse(pending is Decision.Manual, "nothing by hand: $pending")
-        answer(Answer.Objects(listOf(card(one))))
-        // 1 of 4: one more is needed
-        assertEquals(1, decision<Decision.ChooseObjects>().min)
+        // One selection: any number, its total asked of the answer
+        val choice = decision<Decision.ChooseObjects>()
+        assertEquals(1 to null, choice.min to choice.max)
+        assertEquals(Total(NumericProperty.ManaValue, Value.Fixed(4)), choice.total)
+        assertEquals(setOf(card(one), card(four), card(two)), choice.options.toSet())
+        // 1 of 4 is refused, and nothing has changed
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
         expect { alice.hand lacks "Forest" }
-        answer(Answer.Objects(listOf(card(four))))
-        answer(Answer.Objects(emptyList()))
+        answer(Answer.Objects(listOf(card(one), card(four))))
+        assertEquals(null, pending)
         expect {
             alice.exile has one
             alice.exile has four
@@ -333,14 +349,184 @@ class GeneralSpecialActionsTest {
         alice.library("Forest")
         toTheChoice()
         answer(Answer.YesNo(true))
+        answer(Answer.Objects(listOf(card(four), card(one))))
+        assertEquals(null, pending)
+        expect {
+            alice.exile has four
+            alice.exile has one
+            alice.hand has "Forest"
+        }
+    }
+
+    // CR 701.59a: enough is enough: one card that reaches the total alone needs no other
+    @Test
+    fun collectingEvidenceNeedntExileMore() = scenario {
+        alice.hand(monitor)
+        alice.graveyard(four, one)
+        alice.library("Forest")
+        toTheChoice()
+        answer(Answer.YesNo(true))
         answer(Answer.Objects(listOf(card(four))))
-        assertEquals(0, decision<Decision.ChooseObjects>().min)
-        answer(Answer.Objects(emptyList()))
         expect {
             alice.exile has four
             alice.graveyard has one
             alice.hand has "Forest"
         }
+    }
+
+    // CR 701.59a, CR 603.2: collecting evidence as it resolves happens once, however many cards go, for "whenever you collect evidence"
+    @Test
+    fun collectingEvidenceAsItResolvesIsOneEvent() = scenario {
+        alice.hand(monitor)
+        alice.graveyard(one, two, four)
+        alice.library("Forest")
+        toTheChoice()
+        answer(Answer.YesNo(true))
+        answer(Answer.Objects(listOf(card(one), card(two), card(four))))
+        val done = applied.filterIsInstance<Change.Happened>().map { it.event }.filterIsInstance<GameEvent.KeywordActionDone>()
+            .filter { it.action == KeywordActionKind.CollectEvidence }
+        assertEquals(listOf(alice.id), done.map { it.player })
+    }
+
+    // CR 701.59a: collecting evidence as a cost is the same choice: its decision carries the total, refused below it
+    @Test
+    fun evidenceAsACostCarriesItsTotal() = scenario {
+        val desk = Cards.invent("Quiet Desk", "{0}", "Artifact", "Collect evidence 4: You gain 3 life.")
+        alice.battlefield(desk)
+        alice.graveyard(one, four)
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(desk) })
+        val choice = decision<Decision.ChooseObjects>()
+        assertEquals(1 to null, choice.min to choice.max)
+        assertEquals(Total(NumericProperty.ManaValue, Value.Fixed(4)), choice.total)
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
+        answer(Answer.Objects(listOf(card(four), card(one))))
+        expect {
+            alice.exile has four
+            alice.exile has one
+        }
+    }
+
+    // CR 702.122a: so is crew's, with its power
+    @Test
+    fun crewCarriesItsTotal() = scenario {
+        val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
+        alice.battlefield(skiff, one, two)
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        val choice = decision<Decision.ChooseObjects>()
+        assertEquals(Total(NumericProperty.PowerFor(Keyword.Crew.Kind), Value.Fixed(2)), choice.total)
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
+        answer(Answer.Objects(listOf(card(two))))
+        assertTrue(state.objOrThrow(card(two)).tapped)
+    }
+
+    // CR 602.2a, 702.122a: costs are chosen with the ability already on the Stack: a creature whose power rises while something is there
+    // reaches crew's total only then, and its answer is accepted, though the live state has nothing on the Stack
+    @Test
+    fun aCostsTotalIsReadWithItsAbilityOnTheStack() = scenario {
+        val eager = Cards.define("Quiet Eager Hand", CardDefinition(Layout.Normal, listOf(FaceDefinition("Quiet Eager Hand", ManaCost.parse("{G}"),
+            types = listOf(CardType.Creature), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1),
+            abilities = listOf(Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(0))), Affected.Objects(Objects.Self),
+                condition = Condition.Exists(ObjectFilter.InZone(Zone.Stack), 1)))))))
+        val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
+        alice.battlefield(skiff, eager)
+        expect { eager.power shouldBe 1 }
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(eager)))).done)
+        answer(Answer.Objects(listOf(card(eager))))
+        assertTrue(state.objOrThrow(card(eager)).tapped)
+        assertEquals(1, state.stack.size, "crew on the Stack")
+    }
+
+    // CR 701.59a: the selection is done only from the total on, more cards too; every card stays a candidate
+    @Test
+    fun selectionIsDoneOnlyFromTheTotalOn() = scenario {
+        alice.hand(monitor)
+        alice.graveyard(one, two, four)
+        toTheChoice()
+        answer(Answer.YesNo(true))
+        fun done(vararg names: String) = Engine.selection(state, names.map { TargetRef.Object(card(it)) }).done
+        assertFalse(done())
+        assertFalse(done(one))
+        assertFalse(done(one, two))
+        assertTrue(done(four))
+        assertTrue(done(four, one))
+        assertTrue(done(one, two, four))
+        val all = setOf(one, two, four).map { TargetRef.Object(card(it)) }.toSet()
+        assertEquals(all, Engine.selection(state, emptyList()).candidates.toSet())
+        assertEquals(all, Engine.selection(state, listOf(TargetRef.Object(card(four)))).candidates.toSet())
+    }
+
+    // CR 701.59a, I-D18: the graveyard's one card is exactly what is needed: still asked, either way the skip is set, and confirmed.
+    // Nothing is hidden in a graveyard, so the setting isn't what asks; the choice is the player's
+    @Test
+    fun exactlyTheGraveyardNeededIsStillAsked() = listOf(true, false).forEach { skip ->
+        scenario {
+            alice.skipWhenNoChoice = skip
+            alice.hand(monitor)
+            alice.graveyard(four)
+            alice.library("Forest")
+            toTheChoice()
+            answer(Answer.YesNo(true))
+            val choice = decision<Decision.ChooseObjects>()
+            assertEquals(listOf(card(four)), choice.options)
+            assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(four)))).done)
+            answer(Answer.Objects(listOf(card(four))))
+            expect {
+                alice.exile has four
+                alice.hand has "Forest"
+            }
+        }
+    }
+
+    // CR 701.59a: a total only all the cards reach: asked, refused short of all, and the engine lists that one working answer
+    @Test
+    fun aTotalOnlyAllTheCardsReachIsStillAsked() = scenario {
+        val three = Cards.invent("Quiet Three", "{2}{G}", "Creature — Bear", "", "3/3")
+        alice.hand(monitor)
+        alice.graveyard(one, three)
+        alice.library("Forest")
+        toTheChoice()
+        answer(Answer.YesNo(true))
+        val choice = decision<Decision.ChooseObjects>()
+        val all = setOf(card(one), card(three))
+        assertEquals(all, Engine.options(state, alice.id).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen.toSet() }.single())
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(three)))) }
+        assertEquals(choice, pending)
+        answer(Answer.Objects(listOf(card(three), card(one))))
+        expect {
+            alice.exile has one
+            alice.exile has three
+            alice.hand has "Forest"
+        }
+    }
+
+    // CR 701.59a: the listed answers hold a working one when no single card reaches the total
+    @Test
+    fun theListedAnswersReachTheTotal() = scenario {
+        alice.hand(monitor)
+        alice.graveyard(one, two, two, four)
+        toTheChoice()
+        answer(Answer.YesNo(true))
+        val listed = Engine.options(state, alice.id).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen }
+        assertTrue(listed.isNotEmpty())
+        val mv = mapOf(card(one) to 1, card(four) to 4).withDefault { 2 }
+        assertTrue(listed.all { answer -> answer.sumOf { mv.getValue(it) } >= 4 }, "$listed")
+    }
+
+    // CR 701.59b: collecting evidence no choice offers, with no way to reach the total: nothing is exiled, and it hasn't happened
+    @Test
+    fun evidenceThatCantBeReachedExilesNothing() = scenario {
+        val rite = Cards.define("Quiet Rite", CardDefinition(Layout.Normal, listOf(FaceDefinition("Quiet Rite", ManaCost.parse("{0}"),
+            types = listOf(CardType.Sorcery), abilities = listOf(Ability.Spell(Instructions(steps = listOf(
+                Step.Do(Effect.Action(KeywordAction.CollectEvidence(Value.Fixed(4))))))))))))
+        alice.hand(rite)
+        alice.graveyard(one)
+        alice.casts(rite)
+        allPass()
+        assertEquals(null, pending)
+        expect { alice.graveyard has one }
+        assertTrue(applied.filterIsInstance<Change.Happened>().map { it.event }.filterIsInstance<GameEvent.KeywordActionDone>()
+            .none { it.action == KeywordActionKind.CollectEvidence })
     }
 
     // CR 701.59b: a player who can't reach the total can't choose to collect evidence

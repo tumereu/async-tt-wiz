@@ -455,6 +455,8 @@ sealed interface KeywordAction {
     @Serializable @SerialName("endure") data class Endure(val objects: Objects, val count: Value) : KeywordAction
     /** "Exile three cards from your graveyard or sacrifice a Food" (CR 701.61a). */
     @Serializable @SerialName("forage") data object Forage : KeywordAction
+    /** Exile this card from its owner's hand face down; it becomes foretold: what the foretell special action does once its {2} is paid (CR 702.143a, b). */
+    @Serializable @SerialName("foretell") data object Foretell : KeywordAction
     @Serializable @SerialName("cloak") data class Cloak(val count: Value) : KeywordAction
     @Serializable @SerialName("time-travel") data object TimeTravel : KeywordAction
     @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordAction

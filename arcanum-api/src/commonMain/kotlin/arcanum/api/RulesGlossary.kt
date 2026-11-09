@@ -348,6 +348,7 @@ object RulesGlossary {
         Triple("detain", "Detain", "Until your next turn the detained permanent is held back: no attacking, no blocking, and none of its activated abilities."),
         Triple("endure", "Endure", "Choose: the creature gets N +1/+1 counters, or its controller gets a white Spirit creature token that is N/N instead."),
         Triple("forage", "Forage", "Pay by giving up a Food (sacrifice it) or by exiling three cards of your graveyard."),
+        Triple("foretell", "Foretell", "Exile the card from your hand face down; on a later turn you may cast it for its foretell cost."),
         Triple("cloak", "Cloak", "The card enters face down as a nameless 2/2 creature with ward {2}; a creature card can later be turned face up by paying its mana cost."),
         Triple("time-travel", "Time travel", "Each of your suspended cards and permanents with time counters may get one time counter more or one fewer, as you like."),
         Triple("ring-tempts", "The Ring tempts you", "Choose a creature as your Ring-bearer; each time the Ring tempts you, your Ring-bearer gains the next of the Ring's abilities."),

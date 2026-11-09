@@ -425,38 +425,5 @@ internal object Legality {
     /** The origin of an ability instance by key, for lookups that survive the object changing zones. */
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
-            ?: faceDownActions(snap, id).firstOrNull { it.origin == origin }
-            ?: arcanum.engine.foretell.Foretell.actions(snap, id, forwarded = true).firstOrNull { it.origin == origin }
-
-    /**
-     * The special actions a face-down permanent's own card offers (CR 702.37e, 116.2b: turning it face up for its
-     * morph cost): its characteristics show no abilities (CR 708.2a), so they are read from its front face, keyword
-     * expansions included.
-     */
-    fun faceDownActions(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
-        val o = snap.state.obj(id) ?: return emptyList()
-        // CR 709.5e: unlocking a Room's locked door
-        if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.view[id])
-        val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
-        // CR 701.40b: a manifested creature card turns face up for its mana cost
-        // CR 701.58b: so does a cloaked one
-        val manifested = if ((arcanum.api.ObjectMark.Manifested in o.marks || arcanum.api.ObjectMark.Cloaked in o.marks) &&
-            CardType.Creature in face.types && face.manaCost != null)
-            listOf(AbilityInstance(Ability.SpecialAction(arcanum.api.Cost.mana(face.manaCost!!),
-                arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.TurnFaceUp(arcanum.api.Objects.Self)))),
-                timing = Timing.Any, functionsIn = listOf(arcanum.api.Zone.Battlefield),
-                condition = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, arcanum.api.ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)),
-                text = "Turn it face up for its mana cost"), AbilityOrigin.Rule("manifested")))
-            else emptyList()
-        return manifested + face.abilities.flatMapIndexed { i, ability ->
-            val printed = AbilityOrigin.Printed(0, i)
-            when (ability) {
-                is Ability.SpecialAction -> listOf(AbilityInstance(ability, printed))
-                is Keyword -> arcanum.engine.view.KeywordMeanings.expand(ability).mapIndexedNotNull { j, a ->
-                    (a as? Ability.SpecialAction)?.let { AbilityInstance(it, AbilityOrigin.Expansion(printed, j)) }
-                }
-                else -> emptyList()
-            }
-        }
-    }
+            ?: SpecialActions.of(snap, id, forwarded = true).firstOrNull { it.origin == origin }
 }

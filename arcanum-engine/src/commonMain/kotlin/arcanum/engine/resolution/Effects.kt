@@ -61,8 +61,8 @@ import arcanum.engine.trigger.Triggers
 /**
  * Every one-shot [Effect] of arcanum-api (CR 610), performed through the event pipeline ([Actions]). Objects that left
  * their zone can be read (last known information, CR 608.2h) but not acted on (CR 400.7). Effects that produce objects
- * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21). Parts that can't be automated
- * yet stop with a [arcanum.engine.decision.Decision.Manual] (D61).
+ * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21). What the engine can't carry out stops with a
+ * [arcanum.engine.decision.Decision.Manual] (D61): only on a card [arcanum.engine.Engine.manualParts] names as unsupported.
  */
 internal object Effects {
     fun perform(scope: Scope, effect: Effect) {
@@ -198,17 +198,21 @@ internal object Effects {
                 act.record(if (o.definition?.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
                     else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
-            is Effect.TurnFaceUp -> onBattlefield(scope, effect.objects).forEach { id ->
+            // CR 116.2b, j: every way a permanent or a conspiracy in the command zone is turned face up, special actions included (CR 702.37e, 702.106c)
+            is Effect.TurnFaceUp -> scope.objects(effect.objects).distinct().filter { act.state.obj(it)?.zone.let { z -> z == Zone.Battlefield || z == Zone.Command } }.forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (!o.faceDown) return@forEach
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
-                // CR 701.40a: no longer a manifested permanent once face up
-                if (ObjectMark.Manifested in o.marks) Actions.tapStatus(act, id, StatusFlag.Marked(ObjectMark.Manifested), false)
                 // CR 708.8: turned face up, everyone sees it (D60)
                 act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
                 act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
+                // CR 701.40a, 701.58a: what lasts only while it is face down ends
+                o.marks.filter { arcanum.api.MarkClear.TurnedFaceUp in arcanum.api.MarkRules.of(it).clears }.forEach { Actions.tapStatus(act, id, StatusFlag.Marked(it), false) }
+                // CR 613.7f: it gets a new timestamp
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 effect.counters.forEach { c -> Actions.putCounters(act, cause, TargetRef.Object(id), c.kind, scope.value(c.amount)) }
+                // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
+                arcanum.engine.conspiracy.Conspiracies.revealed(act, id)
             }
             is Effect.TurnFaceDown -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
@@ -1366,12 +1370,13 @@ internal object Effects {
      * Does [action], then records that it is done ([GameEvent.KeywordActionDone]), for every verb, so a new verb needs nothing here. Who did it
      * and with what is worked out first (an amount can change as the action happens). A few say so themselves, as they know more:
      * [KeywordAction.Explore] and [KeywordAction.Blight] per permanent, as each is done; [KeywordAction.ManifestDread] per player;
-     * [KeywordAction.Airbend], [KeywordAction.Earthbend] and [KeywordAction.Forage] only when they happened (CR 701.65b, 701.66b, 701.61a).
+     * [KeywordAction.Airbend], [KeywordAction.Earthbend] and [KeywordAction.Forage] only when they happened (CR 701.65b, 701.66b, 701.61a);
+     * [KeywordAction.Foretell] with the card as it is in exile (CR 702.143c).
      */
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
         val done = when (action) {
             is KeywordAction.Explore, is KeywordAction.Blight, is KeywordAction.ManifestDread, is KeywordAction.Airbend, is KeywordAction.Earthbend,
-            KeywordAction.Forage -> emptyList()
+            KeywordAction.Forage, KeywordAction.Foretell -> emptyList()
             else -> doers(scope, action)
         }
         // A connive some replacement replaced says so itself, for the ones that still connived
@@ -1577,7 +1582,27 @@ internal object Effects {
             KeywordAction.Venture -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, null)
             is KeywordAction.VentureInto -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, action.dungeons)
             is KeywordAction.Meld -> meld(scope, action)
-            else -> act.manual(scope.actor, scope.self, "Do by hand: ${arcanum.engine.decision.Texts.className(action)}")
+            // CR 702.143a, b: exile this card from its owner's hand face down; it becomes foretold
+            KeywordAction.Foretell -> scope.self?.let { id -> scope.bind(bind, NamedValue.Objects(listOfNotNull(arcanum.engine.foretell.Foretell.exile(act, cause, id)))) }
+            // Done above by what they are made of ([KeywordExpansions.expand]) or their own code
+            is KeywordAction.Investigate, is KeywordAction.Connive, is KeywordAction.Discover, KeywordAction.Learn, is KeywordAction.Bolster, is KeywordAction.Support,
+            is KeywordAction.Endure, is KeywordAction.EmpowerJace, KeywordAction.Recruit, is KeywordAction.Airbend, is KeywordAction.Earthbend ->
+                error("$action is done by its expansion")
+            // CR 701.59a: exile any number of cards from your graveyard with total mana value N or greater, one at a time so each answer is a
+            // legal one (a cost on casting or activating is the exile it is, casting's Costs.asCostPart)
+            is KeywordAction.CollectEvidence -> {
+                val needed = scope.value(action.amount)
+                val exiled = mutableListOf<ObjectId>()
+                var total = 0
+                while (true) {
+                    val left = act.state.player(scope.actor).graveyard - exiled.toSet()
+                    val more = act.chooseObjects(scope.actor, scope.self, left, if (total < needed) 1 else 0, 1, "Exile from your graveyard to collect evidence $needed").firstOrNull() ?: break
+                    exiled += more
+                    total += scope.eval().property(arcanum.api.NumericProperty.ManaValue, more)
+                }
+                val moved = Actions.moveTo(act, cause, exiled, Zone.Exile)
+                scope.bind(bind, NamedValue.Objects(exiled.mapNotNull { moved[it] }))
+            }
         }
     }
 

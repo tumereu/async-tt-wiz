@@ -111,7 +111,7 @@ internal object Payment {
         val names = Bindings(bound)
         return when {
             plan.isManaAbility -> finishManaAbility(act, plan, names, nested, triggered)
-            plan.isSpecialAction -> finishSpecialAction(act, plan)
+            plan.isSpecialAction -> finishSpecialAction(act, plan, names)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
         }
@@ -742,50 +742,25 @@ internal object Payment {
         }
     }
 
-    /** CR 116.2: a special action happens at once; turning face up and moving itself are done here, the rest by hand. */
-    private fun finishSpecialAction(act: Act, plan: Plan): Progress {
+    /**
+     * CR 116.1, 116.2: a special action doesn't use the Stack: its steps run at once through the step runner, as a resolution's do, and
+     * what they ask stops the payment like anything else asked while paying ([Paying]). "This" is the object it was taken from, also
+     * after a step has moved it ("It becomes a plotted card", CR 702.170a). CR 116.3: its player has priority afterward.
+     */
+    private fun finishSpecialAction(act: Act, plan: Plan, bound: Bindings): Progress {
         val recorder = act.recorder
         val action = plan.ability as Ability.SpecialAction
-        val leftover = mutableListOf<Step>()
+        countActivation(recorder, plan.sourceId, plan.origin!!, loyalty = false)
         var self = plan.sourceId
-        countActivation(recorder, self, plan.origin!!, loyalty = false)
-        // CR 702.143a: foretelling exiles the card face down
-        if (arcanum.engine.foretell.Foretell.isForetell(plan.origin)) {
-            arcanum.engine.foretell.Foretell.exile(act, costCause(plan), self)
-            Casting.keepPriority(recorder, plan.player)
-            return Progress.Done
-        }
+        var names = plan.names.with(bound)
         action.instructions.steps.forEach { step ->
-            val effect = (step as? Step.Do)?.effect
-            when {
-                effect is Effect.TurnFaceUp && effect.objects == Objects.Self -> {
-                    // CR 708.8, 702.37e: turning face up; it gets a new timestamp (CR 613.7f); everyone sees it (D60)
-                    act.fill(plan.player, self, listOf(self), "turned face up", public = true)
-                    recorder.record(Change.Status(self, arcanum.engine.state.StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
-                    val o = recorder.state.objOrThrow(self)
-                    recorder.record(Change.Restamped(self, o.timestamp, recorder.state.nextTimestamp()))
-                    effect.counters.forEach { c ->
-                        Actions.putCounters(act, costCause(plan), TargetRef.Object(self), c.kind, plan.eval.value(c.amount))
-                    }
-                    // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
-                    arcanum.engine.conspiracy.Conspiracies.revealed(act, self)
-                }
-                // CR 709.5e: paying a locked door's unlock cost unlocks it
-                effect is Effect.UnlockDoor && effect.objects == Objects.Self && effect.door != null ->
-                    arcanum.engine.room.Rooms.unlock(act, self, effect.door!!, plan.player)
-                effect is Effect.Move && effect.objects == Objects.Self && effect.to.attacking == null -> {
-                    val counters = effect.to.counters.map { it.kind to plan.eval.value(it.amount) }
-                    val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))
-                    self = moved[self] ?: (self as ObjectId.Card).next()
-                }
-                // CR 702.170a: "It becomes a plotted card."
-                effect is Effect.Mark && effect.objects == Objects.Self ->
-                    Actions.tapStatus(act, self, arcanum.engine.state.StatusFlag.Marked(effect.mark), !effect.remove)
-                else -> leftover += step
-            }
+            val scope = arcanum.engine.resolution.Scope(act, costCause(plan).copy(source = self), names, null)
+            arcanum.engine.resolution.Steps.run(scope, step)
+            names = scope.names
+            if (recorder.state.obj(self) == null) self = (self as? ObjectId.Card)?.next() ?: self
         }
         Casting.keepPriority(recorder, plan.player)
-        return if (leftover.isEmpty()) Progress.Done else manual(recorder, plan, action.text ?: "Do the rest of the special action by hand")
+        return Progress.Done
     }
 
     /** Stops with a [Decision.Manual] for what the engine doesn't do yet (D61); answered Done, it's finished. */

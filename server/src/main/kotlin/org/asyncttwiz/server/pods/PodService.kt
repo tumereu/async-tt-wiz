@@ -562,6 +562,25 @@ class PodService(private val runtime: ServiceRuntime) {
             save(sql, row); detail(sql, row, owner)
         }
 
+    /** DRF-166: the private cover, chosen from the member's Main and Side cards, also after submitting. */
+    fun deckCover(principal: AccountService.Principal, id: String, input: SetPodDeckCover): Result =
+        mutate(principal, id, input.requestId, "setPodDeckCover", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (row.phase !in listOf("DRAFTING", "DRAFTED")) return@mutate error(409, "not_drafting")
+            val member = members(sql, row.id!!).first { it.accountId == owner }
+            if (input.definition !in coverChoices(row, build(row, member.build!!.data()))) return@mutate error(400, "invalid_cover")
+            sql.update(MEMBER).set(MEMBER.DECK_COVER, input.definition).where(MEMBER.POD_ID.eq(row.id))
+                .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            // The draft deck kept from this membership's submitted deck follows the cover, as it does the name.
+            if (member.submittedDeck != null) DraftDeckStore.cover(sql, owner, row.id!!, input.definition)
+            save(sql, row); detail(sql, row, owner)
+        }
+
+    private fun coverChoices(row: PodRecord, build: PodDeckBuild): List<String> {
+        val definitions = copies(row).associate { it.id to it.definition }
+        return PodDeckRules.coverChoices(build, definitions::get)
+    }
+
     private fun editBuild(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,
         attempt: String, edit: (PodDeckBuild) -> PodDeckBuild?): Result = mutate(principal, id, request, kind, input, attempt) { sql, owner, row ->
         member(sql, row, owner)?.let { return@mutate it }
@@ -590,7 +609,8 @@ class PodService(private val runtime: ServiceRuntime) {
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(build)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             if (basics != null) storeDefinitions(sql, input.basicDefinitions)
             DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft",
-                DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics))
+                DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics),
+                member.deckCover?.takeIf { it in coverChoices(row, build) })
             releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
@@ -704,8 +724,12 @@ class PodService(private val runtime: ServiceRuntime) {
                 PreparedEntry(basics.getValue(land), section, index.toString(), count, land).also { index += count }
             } }
         }
+        // DRF-166: the member's chosen cover while it is still in Main or Side, else the first card as before
+        val chosenCover = sql.select(MEMBER.DECK_COVER).from(MEMBER).where(MEMBER.POD_ID.eq(row.id))
+            .and(MEMBER.ACCOUNT_ID.eq(UUID.fromString(player))).fetchSingle(MEMBER.DECK_COVER)
+            ?.takeIf { it in coverChoices(row, build) }
         val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
-            row.name!!, entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
+            row.name!!, chosenCover ?: entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
         val definitions = PreparationStore.definitions(sql, entries.map { it.definition }.toSet()) + basicDefinitions
         PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(summary.id, summary.preparationRound,
             listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
@@ -769,7 +793,7 @@ class PodService(private val runtime: ServiceRuntime) {
         notify(sql, row, ActivityKind.POD_DRAFT_CANCELLED, author)
         row.phase = "SETUP"; row.draftAttemptId = null; row.draftState = null
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckBuild())).set(MEMBER.SUBMITTED_DECK, null as JSONB?)
-            .set(MEMBER.DECK_NAME, null as String?)
+            .set(MEMBER.DECK_NAME, null as String?).set(MEMBER.DECK_COVER, null as String?)
             .where(MEMBER.POD_ID.eq(row.id)).execute()
         save(sql, row)
     }
@@ -988,7 +1012,7 @@ class PodService(private val runtime: ServiceRuntime) {
             row.phase == "SETUP" && row.autoStart == true,
             row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
                 ?.let { PodAutoStartOff(it, offAccount?.let(names::getValue)) },
-            notes(sql, row, owner), limitedView)
+            notes(sql, row, owner), limitedView, mine.deckCover)
         return Result(status, json.encodeToString(result))
     }
 

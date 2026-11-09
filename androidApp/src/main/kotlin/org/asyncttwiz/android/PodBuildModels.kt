@@ -67,6 +67,9 @@ private fun podBuildLandTitle(label: String, build: PodDeckBuild, category: PodD
         else "$label ${cards.size - drafted} + $lands = ${cards.size + basics.total}"
 }
 
+/** DRF-166: the card showing as the deck's cover: the chosen one while it is in Main or Side, else the first of them. */
+internal fun podBuildCover(choices: List<String>, chosen: String?): String? = chosen?.takeIf { it in choices } ?: choices.firstOrNull()
+
 internal fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()

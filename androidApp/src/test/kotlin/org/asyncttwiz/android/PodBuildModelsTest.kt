@@ -5,6 +5,14 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
+    // DRF-166: the chosen card while it is in Main or Side, else the first of them
+    @Test fun theCoverIsTheChosenCardWhileItIsAmongTheChoices() {
+        assertEquals("b", podBuildCover(listOf("a", "b"), "b"))
+        assertEquals("a", podBuildCover(listOf("a", "b"), "gone"))
+        assertEquals("a", podBuildCover(listOf("a", "b"), null))
+        assertEquals(null, podBuildCover(emptyList(), "gone"))
+    }
+
     // DRF-103: the basics dialog's line counts the section it was opened for, every land of it, nonbasics too
     @Test fun basicsLineCountsTheSectionsBasicsAndAllItsLands() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))

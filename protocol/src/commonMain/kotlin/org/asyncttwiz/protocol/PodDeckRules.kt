@@ -48,6 +48,12 @@ object PodDeckRules {
         })
     }
 
+    /** DRF-166: what a draft deck's cover is chosen from: the definitions of Main's copies, then Side's, each once. */
+    fun coverChoices(build: PodDeckBuild, definitionOf: (String) -> String?): List<String> =
+        listOf(PodDeckCategory.MAIN, PodDeckCategory.SIDE).flatMap { category ->
+            build.copies.filter { it.category == category }.mapNotNull { definitionOf(it.copyId) }
+        }.distinct()
+
     /** All drafted copies, including Maybe, must be assigned exactly once. Every copy and basic goes to the pod's games (Maybe
      * outside the game), so all of them count toward the deck size bound; the sideboard limit counts Side only (DRF-025).
      * Lifecycle/locking is the server's job. */

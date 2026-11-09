@@ -115,6 +115,11 @@ class PodControllerTest {
             if (failName) throw PodFailure("invalid_name")
             saved = saved.copy(deckName = input.name); return saved
         }
+        override suspend fun deckCover(token: String, id: String, input: SetPodDeckCover): PodDetail {
+            calls += "cover" to input
+            if (failName) throw PodFailure("invalid_cover")
+            saved = saved.copy(deckCover = input.definition); return saved
+        }
         override suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail { calls += "submit" to input; saved = saved.copy(submitted = true); return saved }
         override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
         override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "leave" to input; missing = true; return PodAcknowledged(id) }
@@ -191,6 +196,21 @@ class PodControllerTest {
         f.controller.refresh(requested = true); f.deliver()
         assertEquals(quickRetryDelays, f.waits)
         assertNotNull(f.controller.state.error)
+    }
+
+    // DRF-166: shown at once and undone when the server refuses it, as the name is
+    @Test fun coverEditsPredictImmediatelyAndRevertOnRejection(): Unit = Fixture().use { f ->
+        f.open()
+        f.controller.deckCover("chosen")
+        assertEquals("chosen", f.controller.state.detail!!.deckCover)
+        f.deliver()
+        assertEquals("chosen", f.controller.state.detail!!.deckCover)
+        assertEquals("chosen", (f.api.calls.single { it.first == "cover" }.second as SetPodDeckCover).definition)
+        f.api.failName = true
+        f.controller.deckCover("refused")
+        assertEquals("refused", f.controller.state.detail!!.deckCover)
+        f.deliver()
+        assertEquals("chosen", f.controller.state.detail!!.deckCover)
     }
 
     @Test fun nameEditsPredictImmediatelyAndRevertOnRejection(): Unit = Fixture().use { f ->

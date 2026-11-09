@@ -160,6 +160,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-102** Tapping a card opens a menu with its two destinations; after submitting they are disabled. Holding inspects the card like the pick screen. (r52)
 - **DRF-103** A W/U/B/R/G basics row under Main (and one under Side) opens one dialog with five −/+ steppers and Done, with "Basics N · Lands M" left of Done updating live (the section it was opened for, M counting every land there, drafted ones too); basics are unlimited and not drafted. (r23)
 - **DRF-104** New drafts with an unlimited sideboard start with 17 of each basic in Side; Side basics count toward a finite sideboard limit. (r23)
+- **DRF-166** A cover thumbnail sits beside the deck's name in Build; a tap lists your Main and Side cards, basics not among them, to choose it from, also after submitting. It is private as the name is (DRF-125) and goes to your draft deck (LOB-040) and to the pod games prepared after it; without a choice, or once the chosen card has gone to Maybe, the first Main card shows. (r61)
 - **DRF-105** The deck name row has a pen button; the name (default "<pod name> deck") is private to you and can be changed even after submitting. (r17)
 - **DRF-106** A fixed bottom bar across the full screen width (not inset by the columns' side margins) holds an Undo button at its left edge (always there, dimmed when empty) and "Submit deck (N)"; Undo takes back card moves and basic changes one at a time, during and after the draft. (r36)
 

@@ -322,7 +322,10 @@ class PodBuildViewTest {
         val basics = compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()
         assertEquals(bounds.left + 48.dp, basics.left)
         assertEquals(bounds.right - 48.dp, basics.right)
-        assertEquals(basics.left, compose.onNodeWithText("Deck").getUnclippedBoundsInRoot().left)
+        // DRF-166: the name row starts with the cover, the name right after it
+        val cover = compose.onNodeWithTag("pod-build-cover").getUnclippedBoundsInRoot()
+        assertEquals(basics.left, cover.left)
+        assertEquals(cover.right, compose.onNodeWithText("Deck").getUnclippedBoundsInRoot().left)
         assertEquals(basics.left, compose.onNodeWithText("Main 0 + 1 = 1").getUnclippedBoundsInRoot().left)
         for (category in PodDeckCategory.entries) {
             compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-${category.name}"))
@@ -399,6 +402,46 @@ class PodBuildViewTest {
             assertEquals(4, preferences.getInt("columns-2", 0))
             assertEquals(3, preferences.getInt("columns-1", 0))
         }
+    }
+
+    // DRF-166, LOB-058: the thumbnail beside the name lists Main's and Side's cards to choose the cover from, Maybe's not
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun theCoverThumbnailChoosesFromMainAndSideCards() {
+        fun named(name: String) = CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = "Creature", manaCost = "{1}")))
+        var cover by mutableStateOf<String?>(null)
+        compose.setContent { NoRipples { ScreenTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("a"), PodDeckCopy("a2"), PodDeckCopy("s", PodDeckCategory.SIDE), PodDeckCopy("m", PodDeckCategory.MAYBE))),
+                mapOf("a" to DraftCopy("a", "main"), "a2" to DraftCopy("a2", "main"), "s" to DraftCopy("s", "side"), "m" to DraftCopy("m", "maybe")),
+                mapOf("main" to named("Main card"), "side" to named("Side card"), "maybe" to named("Maybe card")),
+                null, true, false, { _, _ -> }, { _, _ -> }, {}, deckName = "Friday deck", deckCover = cover, onCover = { cover = it })
+        } } }
+        val thumbnail = compose.onNodeWithTag("pod-build-cover").assert(hasContentDescription("Choose deck cover", substring = true)).getUnclippedBoundsInRoot()
+        assertTrue(thumbnail.right <= compose.onNodeWithText("Friday deck").getUnclippedBoundsInRoot().left)
+        compose.onNodeWithTag("pod-build-cover").performClick()
+        compose.onNodeWithTag("pod-build-cover-main").assert(hasText("Main card")).assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-cover-side").assert(hasText("Side card")).assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-cover-maybe").assertDoesNotExist()
+        // Without a choice the first Main card is the cover
+        compose.onNode(hasTestTag("pod-build-cover-main") and hasAnyDescendant(hasContentDescription("Selected cover")), useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-build-cover-side").performClick()
+        compose.runOnIdle { assertEquals("side", cover) }
+        compose.onNodeWithTag("pod-build-cover-dialog").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-cover").performClick()
+        compose.onNode(hasTestTag("pod-build-cover-side") and hasAnyDescendant(hasContentDescription("Selected cover")), useUnmergedTree = true).assertExists()
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/pod-build-cover.png", "The Build tab's cover thumbnail beside the deck name tapped after choosing " +
+            "the Side card: the Choose cover list holds the Main and Side cards, the chosen one marked, the Maybe card not among them.")
+    }
+
+    // DRF-166: nothing to choose from while Main and Side are empty
+    @Test fun theCoverThumbnailDoesNothingWithoutCards() {
+        compose.setContent { ScreenTheme {
+            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithTag("pod-build-cover").performClick()
+        compose.onNodeWithTag("pod-build-cover-dialog").assertDoesNotExist()
     }
 
     @Test

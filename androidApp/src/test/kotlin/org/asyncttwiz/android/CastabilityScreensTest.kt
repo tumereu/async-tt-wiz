@@ -170,7 +170,7 @@ class CastabilityScreensTest {
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         refresh()
         captureShot("$SCREENSHOTS/castability/signet-chain.png",
-            "Alice cast her Blue Note ({U}) with Autotap off, the table panned up, and tapped her Ember Signet and an Ember Shard: the panel says \"Paid with Ember Signet, Ember Shard\", the Shard paying the Signet's {1} and the Signet's {U} the Note.")
+            "Alice cast her Blue Note ({U}) with Autotap off, the table panned up, and tapped her Ember Signet and an Ember Shard: both are outlined in amber on the table and the panel names neither, the Shard paying the Signet's {1} and the Signet's {U} the Note.")
     }
 
     // STK-024 (owner 2026-11-08): a pick stays and Autotap fills in the rest

@@ -1,1 +1,1 @@
-A narrow 320 dp phone with the same states, emblems and a dungeon: the opponent's row by their life square as the emblems are, under the room chip and beside the emblem; yours still right of your piles, over two lines.
+A narrow 320 dp phone with the same states, emblems and a dungeon: the opponent's chips stay in their row right of the piles, which scroll under them, Initiative and a +3 chip above their room chip and emblem, clear of their hand; yours right of your piles, over two lines.

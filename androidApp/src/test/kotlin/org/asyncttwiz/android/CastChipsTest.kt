@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
 import org.junit.After
@@ -238,9 +239,12 @@ class CastChipsTest {
         kit.tap(kit.item(card, PlayZone.HAND))
         assertTrue(toolkit.cast.handExtra(0))
         refresh()
-        // STK-024 (owner 2026-11-07, open issue for the owner): unpanned, the portrait cast panel covers her land row
+        // STK-024 (owner 2026-11-07, open issue for the owner): unpanned, the portrait cast panel covers her land row: the source
+        // Autotap chose can't be seen, so it is the one thing the panel names (gallery review 2026-11-09)
+        val covered = toolkit.cast.paySources().single()
+        compose.onNodeWithText("Out of view: ${if (covered == shard) Choices.SHARD else "Mountain"}").assertExists()
         captureShot("$SCREENSHOTS/cast-panel/covers-lands.png",
-            "Alice tapped her raised Ember Kit to open its cast panel and turned on its Offspring extra, the table not panned: the panel's \"Mana · {R}\" section asks her to tap sources on the table, but the panel covers the bottom of her battlefield, her Mountain and Ember Shard hidden under it.")
+            "Alice tapped her raised Ember Kit to open its cast panel and turned on its Offspring extra, the table not panned: the panel covers the bottom of her battlefield, so her Mountain paying is hidden under it and only that is named, \"Out of view: Mountain\" under \"Mana · {R}\".")
         // In portrait the panel covers the bottom of her battlefield: she pans the table up to see her sources above it
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         val suggested = toolkit.cast.paySources().single()
@@ -254,8 +258,12 @@ class CastChipsTest {
         refresh()
         assertEquals(setOf(shard), toolkit.cast.paySources())
         compose.onNodeWithContentDescription("Payment: Paid with ${Choices.SHARD}").assertExists()
+        // STK-024 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outline: no sentence naming it
+        compose.onNodeWithText("Paid with", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Out of view", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Outlined sources pay. Tap sources on the table to change them.").assertExists()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsEnabled()
         captureShot("$SCREENSHOTS/cast-panel/payment-chosen.png",
-            "Alice tapped her raised Ember Kit to open its cast panel, turned on its Offspring extra, panned the table up above the panel, took out both sources and tapped her Ember Shard on the table: the panel says \"Paid with Ember Shard\" under \"Mana · {R}\", the Shard is outlined in amber on the table and Cast is enabled.")
+            "Alice tapped her raised Ember Kit to open its cast panel, turned on its Offspring extra, panned the table up above the panel, took out both sources and tapped her Ember Shard on the table: the Shard is outlined in amber on the table, the panel says only \"Outlined sources pay. Tap sources on the table to change them.\" under \"Mana · {R}\" and Cast is enabled.")
     }
 }

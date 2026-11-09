@@ -141,8 +141,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         else -> listOfNotNull(values.faces.getOrNull(values.up)?.let { IndexedFace(values.up, it) })
     } + gainedPart(values)
 
-    /** CR 730.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). Its
-     * copiable values have them all on the face up; it is one object, not double-faced (CR 701.27g), though its own card may be. */
+    /** CR 730.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). In its
+     * copiable values those are [CopiableValues.gained] with its own card on top, its faces as printed, so no face or door decides
+     * whether it has them; with another card on top that card's face holds them all. It is one object, not double-faced (CR 701.27g). */
     private fun merged(o: GameObject, own: Worked): Worked {
         fun part(p: arcanum.engine.state.MergedPart): IndexedFace? =
             p.definition?.faces?.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
@@ -150,11 +151,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         val others = (o.mergedAbove.drop(1) + o.mergedBelow).mapNotNull(::part) +
             (if (o.mergedAbove.isEmpty()) emptyList() else own.faces)
         val all = top + others.map { it.copy(abilitiesOnly = true) }
-        val face = copiedFace(all) ?: return Worked(own.values, all)
-        val keepsLayout = o.mergedAbove.isEmpty() && !doubleFaced(own.values.layout) && own.values.up in own.values.faces.indices
-        val values = if (keepsLayout) own.values.copy(faces = own.values.faces.mapIndexed { i, f -> if (i == own.values.up) face else f })
-            else CopiableValues.of(face)
-        return Worked(values, all)
+        if (o.mergedAbove.isEmpty() && !doubleFaced(own.values.layout))
+            return Worked(own.values.copy(gained = own.values.gained + others.flatMap { it.face.abilities }), all)
+        return Worked(copiedFace(all)?.let(CopiableValues::of) ?: own.values, all)
     }
 
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
@@ -206,8 +205,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         val evaluator = Evaluator(PrintedBoard(state, this), Context(you = effect.controller, self = effect.source, names = effect.names))
         val original = worked(evaluator.objects(copy.objects).firstOrNull() ?: return null, visiting) ?: return null
         val values = copiedByEffect(original.values, o.flipped)
-        // Halves and flip versions are chosen by the copy itself; else it has what the original has (a merged permanent's parts too)
-        return Worked(values, if (values.layout == Layout.Split || values.layout == Layout.Flip) inEffect(values, o) else original.faces)
+        // Halves, flip versions and what is in no face come from the values themselves; else it has what the original has
+        val own = values.layout == Layout.Split || values.layout == Layout.Flip || values.gained.isNotEmpty()
+        return Worked(values, if (own) inEffect(values, o) else original.faces)
     }
 
     companion object {
@@ -241,9 +241,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
          */
         fun exceptions(values: CopiableValues, except: List<CopyException>): CopiableValues {
             val faces = values.faces.mapIndexed { i, f -> if (values.layout == Layout.Prepare && i > 0) f else exceptions(f, onEachFace(values.layout, except)) }
-            if (values.layout != Layout.Split) return values.copy(faces = faces)
             return values.copy(faces = faces, gained = except.fold(values.gained) { gained, e -> when (e) {
-                is CopyException.AddAbilities -> gained + e.abilities
+                is CopyException.AddAbilities -> if (values.layout == Layout.Split) gained + e.abilities else gained
                 is CopyException.WithoutKeyword -> gained.filterNot { it is Keyword && it.kind == e.keyword }
                 else -> gained
             } })

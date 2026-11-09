@@ -550,10 +550,95 @@ class CopiableValuesScenariosTest {
         val part = state.objOrThrow(card(flyer))
         state.objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(part.id, part.owner, part.definition, timestamp = 1)))
         assertEquals(1, flyingOn(id))
-        assertTrue(seen(id).copiable!!.faces.flatMap { it.abilities }.any { it == arcanum.api.Keyword.Flying }, "ObjectView.copiable has them")
+        assertEquals(listOf<Ability>(arcanum.api.Keyword.Flying), seen(id).copiable!!.gained, "ObjectView.copiable has them")
         alice.activates(mold, target = clay)
         allPass()
         assertEquals(1, flyingOn(token()), "the token has them")
+    }
+
+    private val skyPart = Cards.invent("Sky Part", "{0}", "Creature — Bird", "Flying", "1/1")
+    private val widerMold = Cards.invent("Wider Mold", "{0}", "Artifact", "{0}: Create a token that's a copy of target permanent you control.")
+
+    private fun Scenario.mergeOnto(onto: String, part: String) {
+        val p = state.objOrThrow(card(part))
+        val id = card(onto) as ObjectId.Card
+        state.objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(p.id, p.owner, p.definition, timestamp = 1)))
+    }
+
+    // CR 702.140e, 709.5: a merged Room with its own card on top has its other part's abilities with both doors locked
+    @Test
+    fun aMergedRoomHasThePartsAbilityWithDoorsLocked() = scenario {
+        alice.battlefield(room, skyPart)
+        mergeOnto(room, skyPart)
+        assertNull(seen(card(room)).characteristics!!.name)
+        assertEquals(1, flyingOn(card(room)))
+    }
+
+    // CR 702.140e, 707.2: a copy of a merged Room has them too, doors locked: they are no door's
+    @Test
+    fun aCopyOfAMergedRoomHasThePartsAbilityWithDoorsLocked() = scenario {
+        alice.battlefield(room, skyPart, blank)
+        mergeOnto(room, skyPart)
+        effect(alice, copyMechanic, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        assertEquals(1, flyingOn(card(blank)))
+        assertEquals(listOf("Lantern Foyer", "Quiet Pantry"), seen(card(blank)).copiable!!.faces.map { it.name })
+    }
+
+    // CR 702.140e, 707.2, 709.5d: a token copy of a merged Room enters locked and has them
+    @Test
+    fun aTokenCopyOfAMergedRoomHasThePartsAbilityWithDoorsLocked() = scenario {
+        alice.battlefield(room, skyPart, widerMold)
+        mergeOnto(room, skyPart)
+        alice.activates(widerMold, target = room)
+        allPass()
+        assertNull(seen(token()).characteristics!!.name)
+        assertEquals(1, flyingOn(token()))
+    }
+
+    // CR 702.140e, 707.3, 110.5b: a token copy of a merged flipped flip card enters unflipped and has them
+    @Test
+    fun aTokenCopyOfAMergedFlippedFlipCardHasThePartsAbility() = scenario {
+        alice.battlefield(novice, skyPart, widerMold)
+        alice.hand(turningWord)
+        mergeOnto(novice, skyPart)
+        alice.castsWithoutCosts(turningWord, target = novice)
+        resolve()
+        assertEquals(1, flyingOn(card(novice)))
+        alice.activates(widerMold, target = novice)
+        allPass()
+        assertEquals("Glass Novice", seen(token()).characteristics!!.name)
+        assertEquals(1, flyingOn(token()))
+    }
+
+    // CR 702.140e, 707.9a: what a token gained in copying and what it merged with count once each, and go on to a copy once each
+    @Test
+    fun aTokenThatGainedAnAbilityAndMergesHasEachOnce() = scenario {
+        val walker = Cards.invent("Soft Walker", "{0}", "Creature — Bird", "Vigilance", "1/1")
+        alice.battlefield(room, walker, blank)
+        val id = card(room) as ObjectId.Card
+        val p = state.objOrThrow(card(walker))
+        state.objects[id] = state.objOrThrow(id).copy(token = true, gainedInCopying = listOf(arcanum.api.Keyword.Flying),
+            mergedBelow = listOf(arcanum.engine.state.MergedPart(p.id, p.owner, p.definition, timestamp = 1)))
+        effect(alice, copyMechanic, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        fun vigilance(of: ObjectId) = seen(of).characteristics!!.abilities.count { it.ability == arcanum.api.Keyword.Vigilance }
+        for (of in listOf(id, card(blank))) {
+            assertEquals(1, flyingOn(of))
+            assertEquals(1, vigilance(of))
+            assertEquals(listOf<Ability>(arcanum.api.Keyword.Flying, arcanum.api.Keyword.Vigilance), seen(of).copiable!!.gained)
+        }
+    }
+
+    // CR 707.9a, 709.5, 602: an activated ability gained in copying can be activated with the doors locked, and resolves
+    @Test
+    fun anAddedActivatedAbilityWorksWithDoorsLocked() = scenario {
+        val donor = Cards.definition(Cards.invent("Life Donor", "{0}", "Artifact", "{0}: You gain 5 life.")).faces.single().abilities.single()
+        alice.battlefield(room, blank)
+        effect(alice, Mechanic.CopyOf(Objects.Bound("original"), listOf(CopyException.AddAbilities(listOf(donor)))),
+            on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        val before = state.player(alice.id).life
+        alice.activates(blank)
+        allPass()
+        assertEquals(before + 5, state.player(alice.id).life)
     }
 
     // ---- What stays as it was

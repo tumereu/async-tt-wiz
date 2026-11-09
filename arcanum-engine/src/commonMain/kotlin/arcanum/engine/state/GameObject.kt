@@ -75,7 +75,7 @@ data class GameObject(
     val protector: PlayerId? = null,
     /** A permanent that isn't a flip card flipped while a copy of one (CR 707.3, 110.5c); its [face] stays what is up. */
     val flippedStatus: Boolean = false,
-    /** What a token copy of a split card gained in copying, in neither half ([CopiableValues.gained], CR 707.9a). */
+    /** A token's copiable abilities that are in none of its faces ([CopiableValues.gained], CR 707.9a, 702.140e). */
     val gainedInCopying: List<arcanum.api.Ability> = emptyList(),
 ) {
     val card: CardId get() = id.card

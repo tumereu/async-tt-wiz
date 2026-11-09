@@ -42,9 +42,10 @@ internal object AtwTokens {
         return SubmittedDefinition(DeckJson.digest(card), card)
     }
 
-    fun submitted(definition: CardDefinition, token: Boolean = true): SubmittedDefinition {
+    fun submitted(definition: CardDefinition, token: Boolean = true, gained: List<Ability> = emptyList()): SubmittedDefinition {
         val separate = definition.layout == Layout.Transform || definition.layout == Layout.ModalDoubleFaced
-        val shown = definition.faces
+        // What it has in no face ([arcanum.engine.state.GameObject.gainedInCopying]) reads with every part: it counts whichever is in use
+        val shown = definition.faces.map { if (gained.isEmpty()) it else it.copy(abilities = it.abilities + gained) }
         val ids = shown.mapIndexed { i, face -> CommandIds.uuidV5(NAMESPACE, "${face.name}/$i/${shown.size}") }
         val faces = shown.mapIndexed { i, face ->
             DefinitionFace(ids[i], face.name, otherFaceIds = ids - ids[i], typeLine = typeLine(face, token),

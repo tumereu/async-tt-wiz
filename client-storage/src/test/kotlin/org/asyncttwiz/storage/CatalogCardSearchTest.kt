@@ -195,6 +195,14 @@ class CatalogCardSearchTest {
         assertEquals(listOf(CatalogNamedPart("Kitchen Finks", "Creature — Ouphe")), page(repository, "!\"kitchen finks\"").cards.single().namedParts())
     }
 
+    // STK-041: the exact term the name picker also runs finds a card by one face's name or its whole name, accents aside
+    @Test fun anExactNameFindsTheCardByAFaceOrWholeNameWithoutAccents() {
+        val repository = install()
+        assertEquals(listOf("Fire // Ice"), names(repository, "!\"ice\""))
+        assertEquals(listOf("Fire // Ice"), names(repository, "!\"Fire // Ice\""))
+        assertEquals(listOf("Æther Vial"), names(repository, "!\"aether vial\""))
+    }
+
     @Test fun traitsFromTheDownloadDriveColourIdentityFormatAndRarityFilters() {
         val repository = install()
         val rows = listOf(

@@ -32,6 +32,14 @@ class AtwTokensTest {
         assertTrue("Glows." in face.rulesText && "Hushes." in face.rulesText, face.rulesText)
     }
 
+    // SYS-080: what a token has in no face reads on the card, with both doors
+    @Test
+    fun whatATokenHasInNoFaceIsReadOnIt() {
+        val face = AtwTokens.submitted(CardDefinition(Layout.Split, listOf(face("Lantern Foyer", "Glows."), face("Quiet Pantry", "Hushes."))),
+            gained = listOf(Ability.Unparsed("Soars."))).definition.faces.single()
+        assertTrue(face.parts.all { "Soars." in it.rulesText }, face.rulesText)
+    }
+
     // A one-faced token stays as it was
     @Test
     fun aOneFacedTokenHasOneFace() {

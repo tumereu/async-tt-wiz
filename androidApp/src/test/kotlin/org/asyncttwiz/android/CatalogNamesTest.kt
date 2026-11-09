@@ -25,7 +25,35 @@ class CatalogNamesTest {
     fun aSplitCardOffersEachHalfAndNeverBoth() {
         assertEquals(listOf("Dawn", "Dusk"), catalogNames(listOf(split), "d", ObjectFilter.Any))
         assertEquals(listOf("Dusk"), catalogNames(listOf(split), "dus", ObjectFilter.Any))
-        assertEquals(emptyList(), catalogNames(listOf(split), "Dawn // Dusk", ObjectFilter.Any))
+    }
+
+    // STK-041: what spans the two names reaches the card, offering each of its names by itself, never the whole
+    @Test
+    fun whatIsWrittenAcrossBothNamesOffersEachName() {
+        assertEquals(listOf("Dawn", "Dusk"), catalogNames(listOf(split), "Dawn //", ObjectFilter.Any))
+        assertEquals(listOf("Dawn", "Dusk"), catalogNames(listOf(split), "Dawn // Dusk", ObjectFilter.Any))
+    }
+
+    // STK-041: a name behind more cards containing it than a search brings is still offered, first (the search's exact term finds it)
+    @Test
+    fun aNameBehindManyCardsContainingItIsOfferedFirst() {
+        val before = (1..40).map { n -> CatalogCard("c$n", "A Dawn Card %02d".format(n), listOf(printing("A Dawn Card %02d".format(n), null, "Creature — Bear"))) }
+        val queries = mutableListOf<String>()
+        val names = searchedNames("Dawn", ObjectFilter.Any) { query ->
+            queries += query
+            if (query.startsWith("!")) listOf(split) else before
+        }
+        assertEquals(listOf("!\"Dawn\"", "\"Dawn\""), queries)
+        assertEquals("Dawn", names.first())
+        assertEquals(41, names.size)
+    }
+
+    // STK-041: accents don't count, as in the search
+    @Test
+    fun anAccentedNameIsFoundWithoutItsAccents() {
+        val accented = CatalogCard("accent", "Déjà Vu", listOf(printing("Déjà Vu", null, "Sorcery")))
+        assertEquals(listOf("Déjà Vu"), catalogNames(listOf(accented), "deja vu", ObjectFilter.Any))
+        assertEquals(listOf("Déjà Vu"), catalogNames(listOf(accented), "DÉJÀ", ObjectFilter.Any))
     }
 
     // CR 201.4b, 201.4d: the restriction is judged by the part that has the name

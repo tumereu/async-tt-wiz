@@ -56,7 +56,7 @@ internal data class PodSetPickerState(
 
 internal class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
     private val post: (() -> Unit) -> Unit, private val choosing: (DraftableSet) -> Unit = {},
-    private val failed: () -> Unit = {}, private val selected: (SetSourceUpload) -> Unit) {
+    private val failed: (String) -> Unit = {}, private val selected: (SetSourceUpload) -> Unit) {
     var state by mutableStateOf(PodSetPickerState())
         private set
     private var generation = 0L
@@ -73,7 +73,8 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
     fun query(value: String) { state = state.copy(query = value) }
     fun retry() { if (!state.busy) retryAction?.invoke() }
     private fun list() = work("Loading installed sets…", ::list, action = {
-        val support = runCatching { checkNotNull(repository).automatum() }.getOrDefault(emptyMap())
+        val support = runCatching { checkNotNull(repository).automatum() }
+            .onFailure { AppLog.warn("sets", "Reading the sets' support failed", it) }.getOrDefault(emptyMap())
         checkNotNull(repository).sets().map { set ->
             PodSetRow(set, repository.isCached(set.code), support[set.code]?.let { CardListSupport(CardDefinitions.parserVersion, it, arcanum.engine.Engine.SUPPORT_VERSION) })
         } to support
@@ -98,10 +99,15 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         val source = repository ?: return
         if (code != null) showing(listOf(code))
         worker.execute {
-            val support = runCatching { source.automatum() }.getOrNull() ?: return@execute
+            val support = runCatching { source.automatum() }
+                .onFailure { AppLog.warn("sets", "Reading the sets' support failed", it) }.getOrNull() ?: return@execute
             post { state = state.copy(support = support) }
         }
     }
+
+    private fun supportOf(source: PodSetRepository, code: String) = runCatching { source.automatum() }
+        .onSuccess { AppLog.info("sets", "$code: Automatum can't play ${it[code]?.size?.toString() ?: "an unknown number of"} cards: ${it[code]?.take(20)}") }
+        .onFailure { AppLog.warn("sets", "$code: reading its support failed", it) }.getOrNull()
 
     fun choose(code: String) {
         val set = state.rows.firstOrNull { it.set.code == code && it.set.draftable }?.set ?: return
@@ -109,12 +115,12 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         // Displayed rows remain selectable during refresh. Fence its queued result before choosing.
         generation++
         state = state.copy(busy = false)
-        work("Loading $code: downloading if needed and preparing card definitions…", { choose(code) }, detached = true, action = {
+        work("Loading $code: downloading if needed and preparing card definitions…", { choose(code) }, code, detached = true, action = {
                 val source = checkNotNull(repository)
                 val upload = source.load(code)
                 // DRF-161: the chosen set's support goes with it (I-D52), worked out now when it isn't known yet
                 source.automatumNow(code)
-                upload to runCatching { source.automatum() }.getOrNull()
+                upload to supportOf(source, code)
             }) { (upload, support) ->
             if (support != null) state = state.copy(support = support)
             state = state.copy(rows = state.rows.map { if (it.set.code == code) it.copy(cached = true) else it }, warnings = upload.warnings)
@@ -135,15 +141,18 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
                 val source = checkNotNull(repository)
                 val upload = source.load(code)
                 source.automatumNow(code)
-                val support = runCatching { source.automatum() }.getOrNull()
+                val support = supportOf(source, code)
                 post { if (current == generation) { if (support != null) state = state.copy(support = support); selected(upload) } }
-            } catch (_: Exception) {
-                post { if (current == generation) failed() }
+            } catch (failure: Exception) {
+                AppLog.warn("sets", "Loading $code ($name) for a preset failed", failure)
+                val message = setSourceFailureMessage(code, failure)
+                post { if (current == generation) failed(message) }
             }
         }
     }
 
-    private fun <T> work(status: String, retry: () -> Unit, detached: Boolean = false, action: () -> T, apply: (T) -> Unit) {
+    /** [code]: the set being loaded, whose failure [setSourceFailureMessage] explains. */
+    private fun <T> work(status: String, retry: () -> Unit, code: String? = null, detached: Boolean = false, action: () -> T, apply: (T) -> Unit) {
         if (!state.open || state.busy) return
         val current = generation
         retryAction = retry
@@ -156,10 +165,12 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
                     state = state.copy(busy = false, status = null, error = null)
                     apply(result)
                 } }
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
+                AppLog.warn("sets", "$status failed", failure)
+                val message = code?.let { setSourceFailureMessage(it, failure) } ?: "Could not load source."
                 post { if (current == generation && (state.open || detached)) {
-                    state = state.copy(busy = false, status = null, error = "Could not load source.")
-                    if (detached) failed()
+                    state = state.copy(busy = false, status = null, error = message)
+                    if (detached) failed(message)
                 } }
             }
         }

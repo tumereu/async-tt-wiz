@@ -107,7 +107,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
-        failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
+        failed = { message -> state = state.copy(sourcePreview = null, error = message) }) { upload ->
+        AppLog.info("sets", "${upload.snapshot.setCode} chosen as the source: ${upload.snapshot.cards.size} cards, ${upload.definitions.definitions.size} definitions")
         // I-D52 (pivot review #2): the set's support as this device worked it out goes with it, for the server to check
         val source = PodSetSource(upload.snapshot, upload.definitions.definitions, setPicker.state.support(upload.snapshot.setCode))
         state = state.copy(sourcePreview = null, sourceHint = null)

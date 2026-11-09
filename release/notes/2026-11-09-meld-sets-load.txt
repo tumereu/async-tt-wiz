@@ -1,0 +1,1 @@
+fix: Sets with meld cards, such as Final Fantasy, can be chosen as draft sets again, and a set that can't be loaded now says why.

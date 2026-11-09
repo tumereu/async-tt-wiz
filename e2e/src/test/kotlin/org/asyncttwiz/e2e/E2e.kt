@@ -109,11 +109,11 @@ abstract class E2e {
     }
 
     /** Alice and Bob with their phones (the app launched, signed in, on the main menu), and no game set up (say, for a
-     * pod: [ServerSetup.draftingPod]). */
-    internal fun launchPlayers() {
+     * pod: [ServerSetup.draftingPod]). [aliceSets]: the draft sets on Alice's phone (none without card records). */
+    internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
-        alice = E2ePlayer(a, compose).also(players::add)
+        alice = E2ePlayer(a, compose, setRepository = aliceSets).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         alice.launch(); bob.launch()
     }

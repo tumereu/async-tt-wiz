@@ -1,8 +1,10 @@
 package arcanum.engine.casting
 
 import arcanum.api.Ability
+import arcanum.api.Affected
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
+import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.Effect
 import arcanum.api.FaceDefinition
@@ -14,11 +16,13 @@ import arcanum.api.Layout
 import arcanum.api.ManaCost
 import arcanum.api.MarkClear
 import arcanum.api.MarkRules
+import arcanum.api.Mechanic
 import arcanum.api.NumericProperty
 import arcanum.api.ObjectFilter
 import arcanum.api.ObjectMark
 import arcanum.api.Objects
 import arcanum.api.Players
+import arcanum.api.PrintedNumber
 import arcanum.api.Step
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
@@ -413,6 +417,24 @@ class GeneralSpecialActionsTest {
         assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
         answer(Answer.Objects(listOf(card(two))))
         assertTrue(state.objOrThrow(card(two)).tapped)
+    }
+
+    // CR 602.2a, 702.122a: costs are chosen with the ability already on the Stack: a creature whose power rises while something is there
+    // reaches crew's total only then, and its answer is accepted, though the live state has nothing on the Stack
+    @Test
+    fun aCostsTotalIsReadWithItsAbilityOnTheStack() = scenario {
+        val eager = Cards.define("Quiet Eager Hand", CardDefinition(Layout.Normal, listOf(FaceDefinition("Quiet Eager Hand", ManaCost.parse("{G}"),
+            types = listOf(CardType.Creature), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1),
+            abilities = listOf(Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(0))), Affected.Objects(Objects.Self),
+                condition = Condition.Exists(ObjectFilter.InZone(Zone.Stack), 1)))))))
+        val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
+        alice.battlefield(skiff, eager)
+        expect { eager.power shouldBe 1 }
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(eager)))).done)
+        answer(Answer.Objects(listOf(card(eager))))
+        assertTrue(state.objOrThrow(card(eager)).tapped)
+        assertEquals(1, state.stack.size, "crew on the Stack")
     }
 
     // CR 701.59a: the selection is done only from the total on, more cards too; every card stays a candidate

@@ -20,6 +20,10 @@ internal fun List<StackTextPiece>.plain(): String = joinToString("") { it.text }
 internal fun List<StackTextPiece>.tinted(viewer: String): List<Pair<String, Color?>> =
     map { it.text to it.controller?.let { c -> if (c == viewer) OwnTableColor else OpponentTableColor } }
 
+/** [tinted] on the dark wait band (STK-057): the same green and red, lightened to read on it. */
+internal fun List<StackTextPiece>.tintedOnDark(viewer: String): List<Pair<String, Color?>> =
+    map { it.text to it.controller?.let { c -> if (c == viewer) Color(0xff8ae6cf) else Color(0xffffa8b0) } }
+
 /**
  * STK-057, STK-018, STK-050 (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves"): a Stack entry's text
  * with its chosen targets named where the text names them, each coloured by its controller.

@@ -24,10 +24,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 - One chat per pod for its members, kept as long as the pod, with a chat button and unread dot on the pod screens; a notification on the Draft activity channel. In a pod game the chat panel has two tabs, Game and Pod. Pod messages show no bubbles on the table, but they do light the dot on the table's chat button, and a tab with a message you haven't seen is highlighted while you are on the other (dismissing a game message's bubble counts as seeing it). Needs server storage, its limits as a game chat's. No "Read" marks unless the implementor finds them plain for several members; list it under choices.
 
-Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
-
-- The wait (TRN-066, STK-057): one place, a semi-transparent dark band under the other player's hand, smaller text, up to 4 lines, replacing the faint centre text; the "may respond" line moves there too. The chip on the top bar shows, then fades, even when the state lasts.
-
 Needs discussion, owner thinking (2026-11-09):
 
 - When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.

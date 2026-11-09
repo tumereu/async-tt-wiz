@@ -31,7 +31,7 @@ number	item	screenshot	catalog	decisions
 30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
 31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
-33	Wait text over the battlefield	engine/waiting-bar.png	TRN-066 TRN-070
+33	Wait band under the other player's hand	engine/waiting-bar.png	TRN-066 TRN-070
 34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
 35	Assume resolves on the main button	engine/stack-assume.png	STK-028 TRN-070 HIS-096
 36	Catch-up: has made moves	engine/catch-up.png	HIS-094
@@ -183,3 +183,4 @@ number	item	screenshot	catalog	decisions
 182	Your own reveal shows you the panel too	engine/reveal-panel-own.png	HIS-110 STK-044
 183	Ability chips with one greyed, saying why	chips/ability-chips-greyed.png	TBL-124
 184	A source picked in a payment in its own pile	cast-panel/payment-own-pile.png	STK-024 TBL-053
+185	Wait band in landscape	engine/waiting-band-landscape.png	TRN-066 STK-057

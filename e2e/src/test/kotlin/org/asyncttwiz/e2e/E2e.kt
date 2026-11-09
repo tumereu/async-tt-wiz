@@ -261,6 +261,38 @@ abstract class E2e {
         run()
     }
 
+    /**
+     * Problem report QVERHX: while [block] runs the phones' frames (the Compose clock: animations, effects' delays) move on
+     * only when [block] asks for one ([FrameByFrame.frame]); the main thread's messages (the server's events, the engine
+     * thread's boards) are still handled meanwhile ([FrameByFrame.messages]): what arrives within an animation is drawn at
+     * the next frame, before that animation settles, as on a phone whose network answers faster than its animations.
+     */
+    internal fun <T> frameByFrame(block: FrameByFrame.() -> T): T {
+        val looper = shadowOf(Looper.getMainLooper())
+        compose.mainClock.autoAdvance = false
+        try {
+            return object : FrameByFrame {
+                override fun frame() { compose.mainClock.advanceTimeByFrame(); looper.idleFor(Duration.ofMillis(FRAME_MILLIS)) }
+                override fun messages(what: String, frames: Boolean, condition: () -> Boolean) {
+                    val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+                    while (!condition()) {
+                        if (frames) frame() else looper.idle()
+                        if (System.nanoTime() > end) fail("Timed out (frame by frame) waiting for $what")
+                        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(2))
+                    }
+                }
+            }.block()
+        } finally { compose.mainClock.autoAdvance = true }
+    }
+
+    /** [frameByFrame]'s controls. */
+    internal interface FrameByFrame {
+        /** One frame of the phones' clock (and as much of the main thread's). */
+        fun frame()
+        /** Handles the main thread's messages until [condition] holds, a frame at a time with [frames], else none at all. */
+        fun messages(what: String, frames: Boolean, condition: () -> Boolean)
+    }
+
     /** Inside [holding]: [millis] more of the phones' time pass with the finger still down, both clocks moving on together. */
     internal fun passWhileHeld(millis: Long) {
         val looper = shadowOf(Looper.getMainLooper())

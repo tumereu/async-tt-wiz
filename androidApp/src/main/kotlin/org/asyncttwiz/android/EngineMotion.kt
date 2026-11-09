@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import arcanum.engine.state.GameState
@@ -68,8 +69,14 @@ internal class EngineMotionQueue {
     private var version = -1L
     private var serial = 0L
     private var steps: List<TableBoard> = emptyList()
-    /** Counts the step sequences started ([steps]). */
-    private var run = 0L
+    /** Counts the step sequences started ([steps]). Snapshot state (problem report QVERHX): a newer board ends the steps
+     * at once, and whatever waits on [playing] or [atAttackers] outside composition (a combat's hold, HIS-113; a branch's
+     * take-back, HIS-106) must hear of it; as a plain field it never did, and a combat hold whose steps a newer board
+     * ended waited for ever, holding playback with it. */
+    private val runState = mutableLongStateOf(0L)
+    private var run: Long
+        get() = runState.longValue
+        set(value) { runState.longValue = value }
     /** The step sequence and how many of its steps have played (state: the table recomposes on it). */
     private val played = mutableStateOf(-1L to 0)
     private val index: Int get() = played.value.let { (at, count) -> if (at == run) count else 0 }

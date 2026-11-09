@@ -148,12 +148,13 @@ server and both phones all read one pinned file.
 
 1. **The pin.** A small file in the repo, `catalog/pin.properties` (proposal), names the MTGJSON version, the SHA-256 of
    the raw `AllPrintings.json.gz`, and the SHA-256 of our trimmed catalog built from it. No card data is committed. The
-   raw file lives in `~/projects/atw-cache/AllPrintings.json.gz`, where the Arcanum tools already read it
-   (`ParserCorpus`), and on the Pi next to the server's catalog. `scripts/catalog-pin.sh fetch` gets the pinned raw file
-   onto a fresh clone, by checksum, from the Pi over the tailnet (never a public URL); `verify` checks the local file;
-   `move` takes MTGJSON's current build and rewrites the pin. A fresh clone builds and passes every test without it:
-   unit tests and e2e use invented cards; only the real-card tools (`setSupport`, `parserDiff`, `patternFrequencies`)
-   and a release need it.
+   raw file lives only on the developer's machine, in `~/projects/atw-cache/AllPrintings.json.gz`, where the Arcanum
+   tools already read it (`ParserCorpus`); nothing in the repo says where else a copy is kept (owner: no tailnet or
+   host details in the repo), and the Pi gets only the trimmed catalog. `scripts/catalog-pin.sh verify` checks the
+   local file; `move` takes MTGJSON's current build and rewrites the pin. A fresh clone builds and passes every test
+   without it: unit tests and e2e use invented cards. Only the real-card tools (`setSupport`, `parserDiff`,
+   `patternFrequencies`) and a release need it; without the pinned file they stop with one plain message: put the
+   pinned file there (its version and checksum named), or move the pin.
 2. **Moving the pin** is a deliberate task: `setSupport` and `parserDiff` run against the new file first, and their
    changes are fixed or accepted before it ships. New sets and previews reach players only with a release (LOB-092's
    automatic updates go away). The first pin is MTGJSON's latest build at the time (owner), as its own first step.
@@ -164,7 +165,7 @@ server and both phones all read one pinned file.
    checksum of its content, so a change in what we extract makes a new version too, even on the same pin.
 4. **At release** `scripts/prod-release.sh` verifies the raw file against the pin, builds the trimmed catalog with the
    same code the server and clients read it with, checks its checksum against the pin (a mismatch stops the release),
-   and deploys both files to the Pi with the server. The Pi never downloads MTGJSON. The server keeps the previous
+   and deploys it to the Pi with the server. The Pi never downloads MTGJSON. The server keeps the previous
    catalog for a rollback. Endpoints, open without sign-in (the first download comes before sign-in, LOB-091): the
    current version (checksum, size, date, counts) and the file by checksum, cached for good.
 5. **Clients** carry the expected checksum, built in from the pin. The one-version rule already sends an older app to
@@ -343,8 +344,8 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 
 ### Step 1a: the pin and the server catalog
 
-- `scripts/catalog-pin.sh` (fetch, verify, move) and the pin file (section 3.1); the Arcanum tools read the pinned file
-  and check it against the pin.
+- `scripts/catalog-pin.sh` (verify, move) and the pin file (section 3.1); the Arcanum tools read the pinned file, check
+  it against the pin, and stop with section 3.1's message without it.
 - The MTGJSON import (today `client-storage`'s streaming `MtgJsonCatalog`, JVM code) moves to a module the release
   script and server can use; the trimmed catalog's format and reader go in common code (Android and browser read it).
   Format (proposal): gzip-compressed JSON lines, one record per face, printing, set and booster recipe; browsers unpack

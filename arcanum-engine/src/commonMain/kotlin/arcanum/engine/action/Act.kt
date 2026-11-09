@@ -244,6 +244,17 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return chosen
     }
 
+    /**
+     * Chooses at least [min] of [options] whose [total] is reached, any number beyond that, as one selection (CR 701.59a; the
+     * answer is checked as it comes, [AnswerCheck]). Asked whenever there is anything to choose: unlike [chooseObjects] nothing
+     * is forced, since which cards go is the player's to confirm even when only all of them reach the total. With a public
+     * pool nothing hidden decides anything ([asksAnyway]).
+     */
+    fun chooseReaching(player: PlayerId, source: ObjectId?, options: List<ObjectId>, min: Int, total: arcanum.api.Total, text: String): List<ObjectId> {
+        if (options.isEmpty()) return emptyList()
+        return (ask { Decision.ChooseObjects(it, player, source, options, min, null, text, total) } as Answer.Objects).chosen
+    }
+
     /** Puts all of [options] in an order (first: top of a library). */
     fun order(player: PlayerId, source: ObjectId?, options: List<ObjectId>, text: String): List<ObjectId> {
         if (options.size < 2) return options

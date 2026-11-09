@@ -19,7 +19,7 @@ Engine.options(state, player[, view]): List<Input> // what a player may do now: 
 Engine.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
 Engine.finishableWith(state, answer): Boolean // finishable once answer is given to the open decision
 Engine.anyReduction(state): Boolean // whether a reduction may come to apply to the open cast as its choices are made (what it costs needn't rise with X then)
-Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection (CR 601.2c, 601.2f)
+Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection, a total reached (CR 601.2c, 601.2f, 701.59a)
 Engine.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
 Engine.fillPayment(state, pinned, removed): List<ManaUse> // the open payment around a player's picks: pinned stay, removed aren't used, Autotap's order fills in the rest
 Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
@@ -450,6 +450,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   cost the card had where it was cast from is kept as it moves to the Stack, CR 601.2a, b; `MayPlay.viaAlternative` is enforced),
   disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
   crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
+- Done, learn (CR 701.48a, `view/LearnTest`; `SUPPORT_VERSION` 11): played by its expansion, a host bringing the player's cards outside
+  the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once, and with no card to discard she may still take a
+  Lesson, or choose none; the chosen Lesson is revealed and nothing else of those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
+- Done, collecting evidence as it resolves (CR 701.59a, b; `casting/GeneralSpecialActionsTest`): one `Decision.ChooseObjects` of any number
+  of the graveyard's cards, with its `total`, exiled together. An answer below the total is refused, `Engine.selection` is done only
+  from the total on, and it is asked whenever there is anything to choose, even when only all the cards reach the total. With no way to
+  reach it nothing is exiled and no `KeywordActionDone` is recorded.
 - Done, Lorwyn Eclipsed (scenarios in `commonTest/…/sets/ecl/`): all 273 cards play. Blight as a cost (the source may blight itself;
   not payable without a creature, CR 701.68b), as an optional or alternative additional cost and as an effect for each player; behold
   of several objects; "behold … and exile it" with the exiled card kept by the permanent the spell becomes (cost-kept cards become its

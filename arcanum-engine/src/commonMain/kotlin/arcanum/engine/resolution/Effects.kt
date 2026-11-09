@@ -1370,13 +1370,14 @@ internal object Effects {
      * Does [action], then records that it is done ([GameEvent.KeywordActionDone]), for every verb, so a new verb needs nothing here. Who did it
      * and with what is worked out first (an amount can change as the action happens). A few say so themselves, as they know more:
      * [KeywordAction.Explore] and [KeywordAction.Blight] per permanent, as each is done; [KeywordAction.ManifestDread] per player;
-     * [KeywordAction.Airbend], [KeywordAction.Earthbend] and [KeywordAction.Forage] only when they happened (CR 701.65b, 701.66b, 701.61a);
+     * [KeywordAction.Airbend], [KeywordAction.Earthbend], [KeywordAction.Forage] and [KeywordAction.CollectEvidence] only when they happened
+     * (CR 701.65b, 701.66b, 701.61a, 701.59b);
      * [KeywordAction.Foretell] with the card as it is in exile (CR 702.143c).
      */
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
         val done = when (action) {
             is KeywordAction.Explore, is KeywordAction.Blight, is KeywordAction.ManifestDread, is KeywordAction.Airbend, is KeywordAction.Earthbend,
-            KeywordAction.Forage, KeywordAction.Foretell -> emptyList()
+            KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
         // A connive some replacement replaced says so itself, for the ones that still connived
@@ -1588,20 +1589,21 @@ internal object Effects {
             is KeywordAction.Investigate, is KeywordAction.Connive, is KeywordAction.Discover, KeywordAction.Learn, is KeywordAction.Bolster, is KeywordAction.Support,
             is KeywordAction.Endure, is KeywordAction.EmpowerJace, KeywordAction.Recruit, is KeywordAction.Airbend, is KeywordAction.Earthbend ->
                 error("$action is done by its expansion")
-            // CR 701.59a: exile any number of cards from your graveyard with total mana value N or greater, one at a time so each answer is a
-            // legal one (a cost on casting or activating is the exile it is, casting's Costs.asCostPart)
+            // CR 701.59a: exile any number of cards from your graveyard with total mana value N or greater: one selection, exiled together
+            // (a cost on casting or activating is the exile it is, casting's Costs.asCostPart); CR 701.59b: with no way to reach N, none
             is KeywordAction.CollectEvidence -> {
                 val needed = scope.value(action.amount)
-                val exiled = mutableListOf<ObjectId>()
-                var total = 0
-                while (true) {
-                    val left = act.state.player(scope.actor).graveyard - exiled.toSet()
-                    val more = act.chooseObjects(scope.actor, scope.self, left, if (total < needed) 1 else 0, 1, "Exile from your graveyard to collect evidence $needed").firstOrNull() ?: break
-                    exiled += more
-                    total += scope.eval().property(arcanum.api.NumericProperty.ManaValue, more)
+                val graveyard = act.state.player(scope.actor).graveyard.toList()
+                val property = arcanum.api.NumericProperty.ManaValue
+                val e = scope.eval()
+                if (graveyard.sumOf { e.property(property, it) } < needed) scope.bind(bind, NamedValue.Objects(emptyList()))
+                else {
+                    val chosen = act.chooseReaching(scope.actor, scope.self, graveyard, if (needed > 0) 1 else 0,
+                        arcanum.api.Total(property, arcanum.api.Value.Fixed(needed)), "Exile to collect evidence $needed")
+                    val moved = Actions.moveTo(act, cause, chosen, Zone.Exile)
+                    scope.bind(bind, NamedValue.Objects(chosen.mapNotNull { moved[it] }))
+                    act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.CollectEvidence, scope.actor)))
                 }
-                val moved = Actions.moveTo(act, cause, exiled, Zone.Exile)
-                scope.bind(bind, NamedValue.Objects(exiled.mapNotNull { moved[it] }))
             }
         }
     }

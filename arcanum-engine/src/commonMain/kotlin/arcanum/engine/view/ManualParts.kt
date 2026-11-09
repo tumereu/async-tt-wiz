@@ -16,7 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
 /**
  * The parts of a card definition this engine leaves to the players ([arcanum.engine.Engine.manualParts]): text the
  * parser couldn't read ([Ability.Unparsed]), a `Manual` step or cost part, a keyword the engine only carries out by
- * hand ([KeywordMeanings.isManual]), the few effects and keyword actions the engine always leaves to the players, and the
+ * hand ([KeywordMeanings.isManual]), the few effects the engine always leaves to the players, and the
  * shapes it can't finish at run time: a cost paid on resolution that is "its mana cost" or has an X nothing defines, and a
  * mana ability with another step that asks something. Follows [arcanum.engine.Engine.SUPPORT_VERSION].
  */
@@ -32,10 +32,6 @@ internal object ManualParts {
 
     /** Effects the engine always hands to the players (its `manual` calls outside Manual steps). */
     private val manualEffects = emptySet<String>()
-
-    /** Keyword actions reported as left to the players, by their JSON type, though the engine plays them by their expansion: learn's Lesson comes from
-     * outside the game, which a host has to bring. */
-    private val manualKeywordActions = setOf("learn")
 
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
      * while a mana ability resolves (CR 605.3b), so it leaves them to the players (`Payment.finishManaAbility`). */
@@ -95,11 +91,6 @@ internal object ManualParts {
                     "unparsed" -> { found += "unread text: ${(element["text"] as? JsonPrimitive)?.content.orEmpty()}"; return }
                     "manual" -> found += "by hand: ${(element["text"] as? JsonPrimitive)?.content.orEmpty()}"
                     in manualEffects -> found += "by hand: $type"
-                    // A keyword action, as an effect or as part of a cost
-                    "keyword-action", "action" -> (element["action"] as? JsonObject)?.let { action ->
-                        val kind = (action["type"] as? JsonPrimitive)?.content
-                        if (kind in manualKeywordActions) found += "by hand: $kind"
-                    }
                     "pay" -> element["cost"]?.let { resolutionCost(it, found) }
                     in keywordNames -> {
                         val keyword = runCatching { json.decodeFromJsonElement(Ability.serializer(), element) }.getOrNull() as? Keyword

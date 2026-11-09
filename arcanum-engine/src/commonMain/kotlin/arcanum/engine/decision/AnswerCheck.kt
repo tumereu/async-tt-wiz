@@ -43,6 +43,8 @@ internal object AnswerCheck {
                 distinct(chosen, "object")
                 among(chosen, decision.options, "an object offered")
                 count(chosen.size, decision.min, decision.max, "objects")
+                // CR 701.59a; in a cast or activation the plan checks it (casting's Answers), which sees the item on the Stack (CR 601.2a, 602.2a)
+                if (state.pending?.continuation !is Continuation.Announcing && !reachesTotal(state, decision, chosen)) refuse("Their total ${decision.total?.property} must be at least ${decision.total?.atLeast}")
             }
             is Decision.ChooseOption -> among(listOf(expect<Answer.Option>(decision, answer).chosen), decision.options, "an option offered")
             is Decision.ChooseColor -> among(listOf(expect<Answer.ColorChoice>(decision, answer).color), decision.among, "a colour offered")
@@ -89,6 +91,13 @@ internal object AnswerCheck {
             }
             is Decision.Manual -> expect<Answer.Done>(decision, answer)
         }
+    }
+
+    /** Whether [chosen] add up to [decision]'s total; true when it asks none. */
+    fun reachesTotal(state: GameState, decision: Decision.ChooseObjects, chosen: List<ObjectId>): Boolean {
+        val total = decision.total ?: return true
+        val e = arcanum.engine.casting.Snapshot(state).evaluator(decision.player)
+        return chosen.sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
     }
 
     private fun random(state: GameState, decision: Decision.Random, answer: Answer) {

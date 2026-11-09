@@ -45,4 +45,9 @@ internal object Fdn {
     val REMOVE_COUNTERS_FROM_AMONG = Regex("""Remove (\w+) counters from among (.+)""")
     val SPEND_ANY_TYPE_TO_CAST = Regex("""You can spend mana of any type to cast (.+) spells\.""")
     val CHOOSES_PERMANENT_OF_EACH_TYPE_SACRIFICES_REST = Regex("""Each (opponent|player) chooses a permanent they control of each permanent type and sacrifices the rest\.""")
+    // chunk 09
+    val EXILE_TOP_OF_EACH_LIBRARY_CAST_ANY_NUMBER = Regex("""[Ee]xile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs\.?""")
+    val EXILE_UP_TO_ONE_ATTACHED_TO_THAT_CREATURE = Regex("""[Ee]xile up to one target (.+?) attached to that creature\.""")
+    val DESTROY_EACH_MV_X_CONTROLLER_DEALT_COMBAT = Regex("""[Dd]estroy each (.+?) with mana value X whose controller was dealt combat damage by (.+?) this turn\.""")
+    val EXILE_PUT_THERE_THIS_TURN_COPY_EXCEPT_SUBTYPE_EXILE_OTHERS = Regex("""[Ee]xile target (.+?) from a graveyard that was put there this turn\. Create a token that's a copy of it, except it's an? ([A-Z]\w+) in addition to its other types\. Then exile all other \2 tokens you control\.""")
 }

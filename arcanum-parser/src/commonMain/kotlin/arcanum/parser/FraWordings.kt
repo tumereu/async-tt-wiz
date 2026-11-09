@@ -112,7 +112,7 @@ internal object Fra {
     val UNTAP_UP_TO = Regex("""Untap up to (\w+) target (.+)\.""")
     val UNTAP_ALL = Regex("""Untap all (.+)\.""")
     val UNTIL_NEXT_TURN_WHENEVER_ATTACK_OPPONENT = Regex("""Until your next turn, whenever one or more creatures attack one of your opponents, those creatures get \+(\d+)/\+(\d+) and gain (\w+) until end of turn\.""")
-    val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each color among (.+)\.""")
+    val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each (color|different mana value) among (.+)\.""")
     val PROLIFERATE_TIMES = Regex("""Proliferate (\w+) times\.""")
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")

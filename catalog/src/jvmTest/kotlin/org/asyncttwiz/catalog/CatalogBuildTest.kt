@@ -78,8 +78,8 @@ class CatalogBuildTest {
         val reversible = catalog.faces.filter { it.layout == "reversible_card" }
         assertEquals(2, reversible.size)
         assertTrue(reversible.all { it.automatum }, "Test Bear is supported, and so are its reversible printing's faces")
-        // It never makes its set's packs unsupported on its own: only the special guest from OFF does
-        assertEquals(listOf("Plain Bear"), catalog.set.getValue("BON").unsupported)
+        // It never makes its set's packs unsupported on its own
+        assertTrue(catalog.set.getValue("BON").automatum)
         assertTrue(build().listed.none { it.name == "Test Bear // Test Bear" })
         // In packs it is Test Bear, a card of one face
         val printing = catalog.printings.single { catalog.faces[it.face].layout == "reversible_card" && catalog.faces[it.face].side == "a" }
@@ -89,6 +89,24 @@ class CatalogBuildTest {
         assertEquals(1, definition.faces.size)
         assertEquals(printing.scryfall, definition.faces.single().scryfallId)
         assertTrue(DeckValidation.definition(definition))
+    }
+
+    // SYS-082, DRF-090: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
+    @Test fun `an unsupported bonus sheet from another set is left out of the packs`() {
+        val recipe = catalog.recipe.getValue("BON")
+        assertEquals(setOf("common", "reversible"), recipe.sheets.keys, "the special guest (Plain Bear, OFF) is left out")
+        assertEquals(listOf(mapOf("common" to 3, "reversible" to 1)), recipe.boosters.map { it.contents })
+        assertTrue(catalog.set.getValue("BON").automatum)
+        assertEquals(emptyList(), catalog.set.getValue("BON").unsupported)
+        val bon = assertNotNull(CatalogSetSources.build(catalog, "BON"))
+        assertTrue(bon.definitions.none { it.definition.name == "Plain Bear" })
+        assertTrue(CatalogSetSources.validate(bon.snapshot).isEmpty())
+        // A sheet of the set's own cards stays even when unsupported: BAD still can't be drafted
+        assertEquals(setOf("common"), catalog.recipe.getValue("BAD").sheets.keys)
+        assertFalse(catalog.set.getValue("BAD").automatum)
+        // A sheet from another set whose cards are all supported stays (Plain Bear put on the single-card list)
+        val listed = build(lines("supported-cards.txt").toSet() + "Plain Bear").catalog
+        assertEquals(setOf("common", "reversible", "specialGuest"), listed.recipe.getValue("BON").sheets.keys)
     }
 
     // SYS-081 (section 3.3): the version is the checksum of the content, so the same input gives the same file

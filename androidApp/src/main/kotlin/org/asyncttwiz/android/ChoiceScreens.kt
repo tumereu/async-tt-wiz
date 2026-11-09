@@ -245,6 +245,10 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                 // Castability §3: in a cast or activation only what can be paid with the picks so far is offered
                 var selection by remember(decision.id) { mutableStateOf<arcanum.engine.Selection?>(null) }
                 androidx.compose.runtime.LaunchedEffect(decision.id, chosen) { cast.selectionOf(chosen.map(ids::getValue)) { selection = it } }
+                // What a report needs of a pick gone missing: the panel left the table with it
+                androidx.compose.runtime.DisposableEffect(decision.id) {
+                    onDispose { if (chosen.isNotEmpty()) AppLog.info("decision", "Choice ${decision.id.value}'s panel left the table with $chosen picked") }
+                }
                 val offered = selection?.candidates?.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id } ?: decision.options
                 CardPicks(decision.options.filter { it in offered }.map { cards.getValue(it.toString()) }, chosen, inspector) { key ->
                     chosen = when {

@@ -70,6 +70,9 @@ internal class SharedFlowController(
     fun show(next: SharedFlow?) {
         if (next === view) return
         val id = next?.decision?.id?.value
+        // What a report needs of a pick gone missing: whether the panel was kept over this board or moved to another choice
+        if (id != shownDecision) AppLog.info("decision", "The panel's choice changes on a new board: $shownDecision to $id")
+        else if (id != null) AppLog.info("decision", "Choice $id still open on a new board: the panel and its picks stay")
         if (id != shownDecision) {
             shownDecision = id
             picked = emptyList()
@@ -98,8 +101,19 @@ internal class SharedFlowController(
     private var pickOf: Pair<Decision, TablePick?>? = null
 
     /** The open decision is picked by the viewer on the table ([pick]), on the board they act on: until the panel has the
-     * new board's flow (worked out off the main thread) a tap isn't taken as a pick for the previous board's decision. */
-    val targeting: Boolean get() = pick != null && view?.board === current()?.board
+     * new board's flow (worked out off the main thread) a tap isn't taken as a pick for the previous board's decision;
+     * a board asking that very decision is no other decision ([flowOn]). */
+    val targeting: Boolean get() = pick != null && current()?.let(::flowOn) != null
+
+    /**
+     * STK-030: the flow the panel shows on [play]: that board's own, or, until it is worked out off the main thread
+     * ([show]), the flow of the board before when [play] asks the very same open decision (the other player's event beside
+     * the game brought a new board): the panel stays on the table and what is picked in it with it. The whole decision is
+     * compared, as its id can come again for another question on another line.
+     */
+    fun flowOn(play: TableBoard): SharedFlow? = view?.takeIf { flow ->
+        flow.board === play.board || flow.state.pending?.decision?.let { it == play.engine?.state?.pending?.decision } == true
+    }
 
     fun toggleHidden() { hidden = !hidden }
 

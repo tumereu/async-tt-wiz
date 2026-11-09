@@ -1519,7 +1519,6 @@ class GameDevice(
             is TableChange.AttackDraft -> c.copy(before = t.attackDraft)
             is TableChange.BlockDraft -> c.copy(before = t.blockDraft)
             is TableChange.Suggestion -> if (t.suggestion != c.before) return null else c
-            is TableChange.ResultConfirmed -> return null
             is TableChange.ResultOk -> if ((c.player in t.resultOks) == c.ok) return null else c
             is TableChange.LineMoved -> return null
         }
@@ -2349,8 +2348,8 @@ class GameDevice(
     private fun agreement(): GameEvent? = session.events.lastOrNull { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
 
     /** TRN-065 (owner 2026-11-07): who made the result final by their own action: the conceder, or the player who accepted a
-     * suggestion (it ends the game at once, as a concession does); [TableState.resultConfirmedBy] only in events already stored. */
-    private fun endedBy(): PlayerId? = concession() ?: agreement()?.let { PlayerId(it.author) } ?: model.table.resultConfirmedBy
+     * suggestion (it ends the game at once, as a concession does). */
+    private fun endedBy(): PlayerId? = concession() ?: agreement()?.let { PlayerId(it.author) }
 
     /** How the game reported [result] on [s] ended (LOB-126's endings). */
     private fun ending(s: GameState, result: GameResult): org.asyncttwiz.protocol.MatchEnding {

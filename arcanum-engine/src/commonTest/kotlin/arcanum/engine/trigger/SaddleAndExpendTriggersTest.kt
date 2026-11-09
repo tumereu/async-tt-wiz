@@ -36,7 +36,7 @@ class SaddleAndExpendTriggersTest {
     private val mount = Cards.define("Dunerunner Mount", CardDefinition(Layout.Normal, listOf(FaceDefinition(
         "Dunerunner Mount", ManaCost.parse("{1}{R}"), types = listOf(CardType.Creature), subtypes = listOf(Subtype("Mount")),
         power = PrintedNumber.Fixed(3), toughness = PrintedNumber.Fixed(2),
-        abilities = listOf(Keyword.Saddle(1), gainOnEvent(EventPattern.Saddled(ObjectFilter.Is(Objects.Self)), 2)),
+        abilities = listOf(Keyword.Saddle(1), gainOnEvent(EventPattern.GotMark(ObjectMark.Saddled, ObjectFilter.Is(Objects.Self)), 2)),
     ))))
 
     /** "Whenever you expend 4, you gain 1 life." */

@@ -340,7 +340,6 @@ class AuthorityTest {
         val alice = server.alice; val bob = server.bob
         assertTrue(server.submit(Submission("c0", server.head, table = listOf(TableChange.ResultOk(alice, true))), alice).isFailure, "no result yet")
         server.act(alice, Input.Concede(alice)).getOrThrow()
-        assertTrue(server.submit(Submission("c1", server.head, table = listOf(TableChange.ResultConfirmed(null, alice))), alice).isFailure)
         assertTrue(server.submit(Submission("c2", server.head, table = listOf(TableChange.ResultOk(bob, true))), alice).isFailure, "Bob's to make")
         assertTrue(server.submit(Submission("c3", server.head, table = listOf(TableChange.ResultOk(alice, true))), alice).isSuccess, "Bob hasn't seen it")
         assertEquals(setOf(alice), server.state().table.resultOks)

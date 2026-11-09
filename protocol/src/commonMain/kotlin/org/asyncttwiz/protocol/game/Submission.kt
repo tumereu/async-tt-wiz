@@ -141,7 +141,6 @@ object Authority {
             is TableChange.EarlyAnswered -> (change.after ?: change.before)?.player
             // Anyone may take a suggestion back or decline it; only its author makes it
             is TableChange.Suggestion -> change.after?.by
-            is TableChange.ResultConfirmed -> throw Refusal("A result's end comes from each player's OK (TRN-065)")
             // TRN-065 (owner, 2026-11-09): whenever the result is there, however far the other player has seen; only your own
             is TableChange.ResultOk -> {
                 if (change.ok && Engine.result(model.engine) == null) throw Refusal("No result to press OK on")

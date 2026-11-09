@@ -225,7 +225,7 @@ class FraRulesScenariosTest {
         alice.casts(limelight)
         resolveStackFully()
         alice.graveyard.names
-        change(arcanum.engine.change.Changes.move(state, listOf(card(limelight, zone = Zone.Graveyard)), Zone.Hand, meanings = listOf(arcanum.engine.change.Meaning.Manual)))
+        change(arcanum.engine.change.Changes.move(state, listOf(card(limelight, zone = Zone.Graveyard)), Zone.Hand))
         alice.casts(limelight)
         resolveStackFully()
         val cadets = state.battlefield.filter { state.obj(it)?.token == true }

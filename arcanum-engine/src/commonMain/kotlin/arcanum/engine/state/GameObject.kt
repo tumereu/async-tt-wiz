@@ -177,10 +177,6 @@ data class ObjectFacts(
     /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
      * CR 106.3); read as they last existed once they have left. */
     val manaSources: List<ObjectId> = emptyList(),
-    /** Stored games only, until the one approved wipe: the turn it was foretold in; [gained] reads it. New games write [marksGained]. */
-    val foretoldTurn: Int? = null,
-    /** Stored games only, until the one approved wipe: the turn it became plotted in; [gained] reads it. New games write [marksGained]. */
-    val plottedTurn: Int? = null,
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
     // mh2
@@ -190,11 +186,7 @@ data class ObjectFacts(
     val marksGained: List<MarkGained> = emptyList(),
 ) {
     /** The record of when it gained [mark] (CR 702.143a, 702.170d), or null when none is kept. */
-    fun gained(mark: ObjectMark): MarkGained? = marksGained.firstOrNull { it.mark == mark } ?: when (mark) {
-        ObjectMark.Foretold -> foretoldTurn?.let { MarkGained(mark, it) }
-        ObjectMark.Plotted -> plottedTurn?.let { MarkGained(mark, it) }
-        else -> null
-    }
+    fun gained(mark: ObjectMark): MarkGained? = marksGained.firstOrNull { it.mark == mark }
 
     /** These facts with [record] as the record of its mark. */
     fun gaining(record: MarkGained): ObjectFacts = copy(marksGained = marksGained.filter { it.mark != record.mark } + record)

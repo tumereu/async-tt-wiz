@@ -47,15 +47,6 @@ class SplitCardNamesTest {
         assertFalse(remembered("Sorrow"))
     }
 
-    // Stored games only, until the wipe: a name chosen as the whole "A // B", from when the app offered it, still names the split card
-    @Test
-    fun aWholeNameChosenInAStoredGameStillNamesTheCard() = scenario {
-        bob.hand(split)
-        val id = card(split)
-        assertTrue(Snapshot(state).evaluator(alice.id, names = Bindings(mapOf("chosen" to NamedValue.Name("Mirth // Malice"))))
-            .matches(ObjectFilter.ChosenName("chosen"), id))
-    }
-
     // CR 709.4a: half of a card's one name isn't a name of it
     @Test
     fun aOneNamedCardHasOnlyItsName() = scenario {

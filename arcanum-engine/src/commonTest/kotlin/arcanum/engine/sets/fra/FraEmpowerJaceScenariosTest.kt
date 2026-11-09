@@ -124,8 +124,7 @@ class FraEmpowerJaceScenariosTest {
         alice.casts(rewrite, paying = listOf("Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Swamp"))
         allPass()
         assertEquals(3, loyaltyOf(jace))
-        change(arcanum.engine.change.Changes.move(state, listOf(card("Market Bear", zone = Zone.Hand)), Zone.Battlefield,
-            meanings = listOf(arcanum.engine.change.Meaning.Manual)))
+        change(arcanum.engine.change.Changes.move(state, listOf(card("Market Bear", zone = Zone.Hand)), Zone.Battlefield))
         alice.casts(echoes, target = "Market Bear", paying = listOf("Mountain", "Mountain", "Mountain", "Mountain"))
         allPass()
         assertEquals(7, loyaltyOf(jace))

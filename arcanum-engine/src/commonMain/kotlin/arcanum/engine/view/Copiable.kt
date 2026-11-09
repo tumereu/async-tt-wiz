@@ -124,7 +124,6 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         copyEffectsOn(id).forEach { (effect, copy) ->
             if (mergeDue && effect.timestamp > mergedAt) { worked = merged(o, worked); mergeDue = false }
             val copied = effect.copiedValues?.let { fixed -> copiedByEffect(fixed, o.flipped).let { Worked(it, inEffect(it, o)) } }
-                ?: effect.copied?.let { Worked(CopiableValues.of(it), listOf(IndexedFace(0, it))) }
                 ?: copiedLive(effect, copy, o, visiting)
             if (copied != null) worked = copied.except(copy.except)
         }

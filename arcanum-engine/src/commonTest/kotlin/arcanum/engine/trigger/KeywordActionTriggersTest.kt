@@ -569,56 +569,33 @@ class KeywordActionTriggersTest {
         assertEquals(true, Snapshot(state).evaluator(alice.id).holds(did))
     }
 
-    // ---- Stored games, until the wipe
-
     /**
-     * Stored definitions keep their per-verb patterns and stored logs keep their per-verb events, so all four meetings of old and new give the
-     * same instance (CR 701.22d, 701.25d, 701.61a, 701.65b, 701.66b, 701.67c, 702.174c, 702.189b).
+     * For each verb, the general pattern meets the general event: one instance, the player who did it, the amount kept, and none for the
+     * other player (CR 701.22d, 701.25d, 701.61a, 701.65b, 701.66b, 701.67c, 702.174c, 702.189b).
      */
     @Test
-    fun oldPatternsAndOldEventsStillMeetTheNewOnes() = scenario {
+    fun theGeneralPatternMeetsTheGeneralEventForEachVerb() = scenario {
         val p = alice.id
-        val verbs = listOf<Triple<EventPattern, KeywordActionKind, GameEvent>>(
-            Triple(EventPattern.Scry(PlayerFilter.You), KeywordActionKind.Scry, GameEvent.Scried(p, 2)),
-            Triple(EventPattern.Surveil(PlayerFilter.You), KeywordActionKind.Surveil, GameEvent.Surveilled(p, 2)),
-            Triple(EventPattern.Forage(PlayerFilter.You), KeywordActionKind.Forage, GameEvent.Foraged(p)),
-            Triple(EventPattern.GiveGift(PlayerFilter.You), KeywordActionKind.GiveGift, GameEvent.GaveGift(p)),
-            Triple(EventPattern.Airbend(PlayerFilter.You), KeywordActionKind.Airbend, GameEvent.Airbended(p)),
-            Triple(EventPattern.Earthbend(PlayerFilter.You), KeywordActionKind.Earthbend, GameEvent.Earthbended(p)),
-            Triple(EventPattern.Firebend(PlayerFilter.You), KeywordActionKind.Firebend, GameEvent.Firebended(p)),
-            Triple(EventPattern.Waterbend(PlayerFilter.You), KeywordActionKind.Waterbend, GameEvent.Waterbended(p)),
+        val verbs = listOf<Pair<KeywordActionKind, Int?>>(
+            KeywordActionKind.Scry to 2,
+            KeywordActionKind.Surveil to 2,
+            KeywordActionKind.Forage to null,
+            KeywordActionKind.GiveGift to null,
+            KeywordActionKind.Airbend to null,
+            KeywordActionKind.Earthbend to null,
+            KeywordActionKind.Firebend to null,
+            KeywordActionKind.Waterbend to null,
         )
         val yours = Snapshot(state).evaluator(alice.id)
         val theirs = Snapshot(state).evaluator(bob.id)
-        verbs.forEach { (old, kind, oldEvent) ->
-            val amount = (oldEvent as? GameEvent.Scried)?.count ?: (oldEvent as? GameEvent.Surveilled)?.count
-            val general = EventPattern.KeywordActionDone(kind, PlayerFilter.You)
-            val newEvent = GameEvent.KeywordActionDone(kind, p, amount = amount)
-            listOf(old, general).forEach { pattern ->
-                listOf(oldEvent, newEvent).forEach { event ->
-                    val found = EventMatcher.instances(yours, pattern, Change.Happened(event))
-                    assertEquals(1, found.size, "$pattern on $event")
-                    assertEquals(listOf(p), found.single().players)
-                    assertEquals(amount, found.single().amount)
-                    assertEquals(0, EventMatcher.instances(theirs, pattern, Change.Happened(event)).size, "$pattern on $event, seen by the other player")
-                }
-            }
-        }
-    }
-
-    // CR 701.61a: an old "whenever you forage" of a stored definition still triggers on a forage done now
-    @Test
-    fun aStoredForageTriggerStillTriggers() = scenario {
-        val stored = Cards.define("Stored Forager", gains(EventPattern.Forage(PlayerFilter.You)))
-        val pantry = spellWith("Stored Pantry", Effect.Action(KeywordAction.Forage))
-        alice.battlefield(stored)
-        alice.hand(pantry)
-        alice.graveyard("Forest", "Island", "Swamp")
-        alice.castsWithoutCosts(pantry)
-        settleAll()
-        expect {
-            alice.exile has "Forest"
-            alice.life shouldBe 21
+        verbs.forEach { (kind, amount) ->
+            val pattern = EventPattern.KeywordActionDone(kind, PlayerFilter.You)
+            val event = Change.Happened(GameEvent.KeywordActionDone(kind, p, amount = amount))
+            val found = EventMatcher.instances(yours, pattern, event)
+            assertEquals(1, found.size, "$pattern on $event")
+            assertEquals(listOf(p), found.single().players)
+            assertEquals(amount, found.single().amount)
+            assertEquals(0, EventMatcher.instances(theirs, pattern, event).size, "$pattern on $event, seen by the other player")
         }
     }
 

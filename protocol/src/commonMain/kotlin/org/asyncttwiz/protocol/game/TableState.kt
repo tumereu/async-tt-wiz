@@ -27,9 +27,6 @@ data class TableState(
     val blockDraft: List<Block>? = null,
     /** A suggested result (draw, or one player's win) waiting for the other player's answer. */
     val suggestion: ResultSuggestion? = null,
-    /** Who confirmed the result the engine reports (I-D53); once set, the result is final. Games now end by [resultOks]:
-     * nothing writes this any more, it stays for the events already stored. */
-    val resultConfirmedBy: PlayerId? = null,
     /** TRN-065 (owner, 2026-11-09): the players whose OK stands on the result the rules gave: final once it holds every
      * player. It lives on the line, so anything that takes the result back (an undo, a branch) takes the OKs with it. */
     val resultOks: Set<PlayerId> = emptySet(),
@@ -177,15 +174,6 @@ sealed interface TableChange {
         override fun apply(table: TableState): TableState {
             check(table.suggestion == before) { "The result suggestion isn't $before" }
             return table.copy(suggestion = after)
-        }
-        override fun inverse() = copy(before = after, after = before)
-    }
-
-    @Serializable @SerialName("result-confirmed")
-    data class ResultConfirmed(val before: PlayerId?, val after: PlayerId?) : TableChange {
-        override fun apply(table: TableState): TableState {
-            check(table.resultConfirmedBy == before) { "The result's confirmation isn't $before" }
-            return table.copy(resultConfirmedBy = after)
         }
         override fun inverse() = copy(before = after, after = before)
     }

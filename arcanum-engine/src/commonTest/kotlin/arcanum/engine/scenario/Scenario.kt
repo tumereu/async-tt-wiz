@@ -326,8 +326,8 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         apply(change)
     }
 
-    /** Moves a card by hand ([Meaning.Manual], D42). */
-    fun move(name: String, to: Zone) = change(Changes.move(state, listOf(card(name)), to, meanings = listOf(Meaning.Manual)))
+    /** Moves a card by hand (D42). */
+    fun move(name: String, to: Zone) = change(Changes.move(state, listOf(card(name)), to))
 
     private fun apply(change: Change) {
         state.apply(change)

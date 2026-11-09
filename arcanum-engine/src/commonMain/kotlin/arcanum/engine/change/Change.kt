@@ -448,10 +448,6 @@ sealed interface GameEvent {
     @Serializable @SerialName("die") data class DieRolled(val player: PlayerId, val sides: Int, val results: List<Int>) : GameEvent
     /** [player] searched [library]'s library (CR 701.23). */
     @Serializable @SerialName("searched") data class Searched(val player: PlayerId, val library: PlayerId) : GameEvent
-    /** [player] scried [count] (CR 701.22). */
-    @Serializable @SerialName("scried") data class Scried(val player: PlayerId, val count: Int) : GameEvent
-    /** [player] surveilled [count] (CR 701.25). */
-    @Serializable @SerialName("surveilled") data class Surveilled(val player: PlayerId, val count: Int) : GameEvent
     /** [player] copied the spell [copy] (CR 707.10). */
     @Serializable @SerialName("copied") data class Copied(val player: PlayerId, val copy: ObjectId) : GameEvent
     /** [player] is the starting player (CR 103.1), chosen by [chooser] (null: given). */
@@ -470,14 +466,10 @@ sealed interface GameEvent {
     /** The players still in the game agreed to end it with [result] ([arcanum.engine.input.Input.AgreedResult]: an
      * intentional draw, CR 104.4i, or the others conceding, CR 104.3a). */
     @Serializable @SerialName("result-agreed") data class ResultAgreed(val result: arcanum.engine.setup.GameResult) : GameEvent
-    /** [player] foraged (CR 701.61a). */
-    @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
     /** [player] completed [dungeon] (CR 309.7). */
     @Serializable @SerialName("completed-dungeon") data class CompletedDungeon(val player: PlayerId, val dungeon: ObjectId) : GameEvent
     /** [player] took the initiative (CR 726.2, 726.5: also when they had it). */
     @Serializable @SerialName("took-initiative") data class TookInitiative(val player: PlayerId) : GameEvent
-    /** [player] gave a gift (CR 702.174c). */
-    @Serializable @SerialName("gave-gift") data class GaveGift(val player: PlayerId) : GameEvent
     /** The Class [id] became level [level] (CR 716.2a). */
     @Serializable @SerialName("became-level") data class BecameLevel(val id: ObjectId, val level: Int) : GameEvent
     /** [player] unlocked door [door] (0 left, 1 right) of [id] (CR 709.5h); [fully]: it now has both unlocked designations
@@ -489,14 +481,6 @@ sealed interface GameEvent {
         val player: PlayerId, val manifested: ObjectId?, val rest: List<ObjectId>,
     ) : GameEvent
     // tla
-    /** [player] airbended: exiled one or more objects as an instruction to airbend told them (CR 701.65b). */
-    @Serializable @SerialName("airbended") data class Airbended(val player: PlayerId) : GameEvent
-    /** [player] earthbended: the delayed triggered ability of an earthbend was created (CR 701.66b). */
-    @Serializable @SerialName("earthbended") data class Earthbended(val player: PlayerId) : GameEvent
-    /** [player] firebended: a firebending ability they control resolved (CR 702.189b). */
-    @Serializable @SerialName("firebended") data class Firebended(val player: PlayerId) : GameEvent
-    /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
-    @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
     /** [attacker] enlisted [enlisted]: tapped it as it attacked (CR 702.154a, c). */
     /** A mutating creature spell, card [card], merged with [permanent] as it resolved, on top or under it (CR 702.140c, d). */
     @Serializable @SerialName("mutated") data class Mutated(val permanent: ObjectId, val card: ObjectId, val onTop: Boolean) : GameEvent
@@ -515,8 +499,7 @@ sealed interface GameEvent {
     @Serializable @SerialName("milling") data class Milling(val player: PlayerId, val count: Int) : GameEvent
     /** [player] did the keyword action [action] (a permanent's controller, for what a permanent does) to or with [objects], [amount] the cards
      * looked at for scry and surveil: what [arcanum.api.EventPattern.KeywordActionDone] reads, one event type for every verb. Recorded when the rules say the
-     * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). The events of one verb above (scried, foraged, ...) stay for
-     * stored games' logs until the wipe; nothing records them now. */
+     * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: arcanum.api.KeywordActionKind, val player: PlayerId, val objects: List<ObjectId> = emptyList(), val amount: Int? = null,
     ) : GameEvent
@@ -601,6 +584,4 @@ sealed interface Meaning {
     @Serializable @SerialName("shield-used") data object ShieldUsed : Meaning
     /** Done by a state-based action (CR 704). */
     @Serializable @SerialName("state-based") data object StateBased : Meaning
-    /** Made by hand, not by automation (D33). */
-    @Serializable @SerialName("manual") data object Manual : Meaning
 }

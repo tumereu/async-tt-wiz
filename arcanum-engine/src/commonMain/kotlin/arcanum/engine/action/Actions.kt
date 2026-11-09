@@ -151,7 +151,9 @@ internal object Actions {
         var move = m
         // spm: the entering permanent's own replacements read the names its spell's keyword costs made ("the returned creature")
         val names = if (m.memory.values.isEmpty() || r.source != m.id) r.names else Bindings(m.memory.values + r.names.values)
-        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names))
+        // fdn chunk 11b: "enters with a counter for each creature of the chosen type": the type was chosen as it enters, its memory is on the move
+        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names,
+            enteringMemory = m.memory.takeIf { r.source == m.id && it.values.isNotEmpty() }))
         for (mod in r.mechanic.modify) {
             move = when (mod) {
                 Modification.Skip -> return null

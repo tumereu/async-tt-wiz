@@ -92,6 +92,8 @@ internal data class Context(
     val stackItem: StackItem? = null,
     /** The share of a divided amount for the target being affected (CR 601.2d). */
     val dividedShare: Int? = null,
+    /** The card memory an "as enters" step has set on the object entering as ctx.self, not yet on its object (CR 614.12). */
+    val enteringMemory: Bindings? = null,
     // dsk gaps
     /** Cards not on the Stack or the battlefield are tested as the spell they would be if cast from where they are
      * (CR 601.2a): [ObjectFilter.WasCast] from their zone, a spell, controlled by [you]. For alternative costs given to
@@ -229,7 +231,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** What the source remembers (D41); after it left its zone, what it remembered then (its last known information,
      * kept by the Stack item or the log): a leaves-the-battlefield ability still finds the cards its linked ability
      * exiled (CR 607.2a). */
-    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { self ->
+    private fun selfMemory(key: String): NamedValue? = ctx.enteringMemory?.get(key) ?: ctx.self?.let { self ->
         val o = state.obj(self)
         if (o != null) o.memory[key]
         else {

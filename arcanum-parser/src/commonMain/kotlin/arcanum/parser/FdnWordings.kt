@@ -79,4 +79,9 @@ internal object Fdn {
     val PUT_COUNTER_FOR_EACH_COLOR_OF_THAT_SPELL = Regex("""[Pp]ut an? (\S+) counter on (.+?) for each of that spell's colors\.""")
     val REVEAL_X_PUT_ANY_NUMBER_MV_X_REST_GRAVEYARD = Regex("""Reveal the top X cards of your library\. You may put any number of (.+?) with mana value X or less from among them onto the battlefield\. Then put all cards revealed this way that weren't put onto the battlefield into your graveyard\.""")
     val LOOK_REVEAL_MV_AT_MOST_COUNT_PUT_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. You may reveal an? (.+?) with mana value less than or equal to the number of (.+? you control) from among them and put it onto the battlefield\. Put the rest on the bottom(?: of your library)? in a random order\.""")
+    // chunk 11b
+    val ITS_A_IN_ADDITION = Regex("""It's an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
+    val MAY_SEARCH_EXILE_SHUFFLE = Regex("""[Yy]ou may search your library for (an? .+?), exile it, then shuffle\.""")
+    val SHUFFLE_GRAVEYARD_INSTEAD_IF_X = Regex("""Draw X cards\. If X is (\d+) or more, instead shuffle your graveyard into your library, draw X cards, (untap up to \w+ lands), and you have no maximum hand size for the rest of the game\.""")
+    val AS_ENTERS_CHOOSE_TYPE_THEN = Regex("""As (.+) enters, choose a creature type\. (This .+ enters with .+)""")
 }

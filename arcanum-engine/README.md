@@ -31,7 +31,7 @@ Engine.shouldPassFor(state, player[, view]): Boolean // a host passes priority f
 Engine.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
 Engine.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
-Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2)
+Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
 Engine.blockCosts(state, blocks): Boolean        // whether the blocks have costs to block (CR 509.1d)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)

@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  * is still reordered. Without this the step, redone, reads other cards than the decision shows and refuses the answer.
  */
 class ReorderAtOpenChoiceTest {
-    private val dread = Cards.invent("Creeping Dread", "{0}", "Sorcery", "Manifest dread.")
+    private val dread = Cards.invent("Looming Unease", "{0}", "Sorcery", "Manifest dread.")
     private val scry = Cards.invent("Glimpse Ahead", "{0}", "Sorcery", "Scry 2.")
     private val surveil = Cards.invent("Quiet Watch", "{0}", "Sorcery", "Surveil 2.")
     private val look = Cards.invent("Careful Study", "{0}", "Sorcery",

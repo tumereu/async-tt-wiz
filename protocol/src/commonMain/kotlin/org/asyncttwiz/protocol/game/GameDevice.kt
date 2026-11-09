@@ -1033,6 +1033,9 @@ class GameDevice(
         "${d.kind} ${d.id.value}" + ((d as? arcanum.engine.decision.Decision.ChooseObjects)?.options?.let { " $it" } ?: "")
     } ?: "none"
 
+    /** An undo request for the record: by whom, to where; never the player's message, which may hold anything. */
+    private fun asked(r: EngineRewindRequest?) = r?.let { "by ${it.by} to ${it.target}" } ?: "none"
+
     /** Where the device's line stands, in short ids, for the record's lines about going back. */
     private fun where() = "tip ${session.tip.take(8)}, head ${session.head.take(8)}, local ${session.localHead.take(8)}, " +
         "pending ${session.pending.size}, line ${model.table.line.number}/$lines"
@@ -1166,12 +1169,11 @@ class GameDevice(
     /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
     private fun open(newLine: Int? = null): EventBuilder {
         val line = newLine ?: if (session.behind) null else Rewind.lineDue(model, lines)
-        val decision = openDecision()
         return session.begin(ids(), line).also { builder ->
             // HIS-042: what a new line's reshuffle moved, and what it was made under (report DH3QX6)
             if (line != null) remember("line $line starts: cards moved per library " + builder.changes
                 .filterIsInstance<arcanum.engine.change.Change.Reorder>().map { c -> c.before.indices.count { c.before[it] != c.after[it] } } +
-                " at ${where()}, open $decision")
+                " at ${where()}, open ${openDecision()}")
         }
     }
 
@@ -1669,13 +1671,13 @@ class GameDevice(
 
     /** The other player's request answered: [accept] takes the line back, else it closes. */
     fun answerRequest(accept: Boolean) {
-        remember("undo request answered ${if (accept) "yes" else "no"}: $request at ${where()}")
+        remember("undo request answered ${if (accept) "yes" else "no"}: ${asked(request)} at ${where()}")
         send(GameAction.EngineAnswerRewind(accept))
     }
 
     /** Takes the player's own open request back. */
     fun cancelRequest() {
-        remember("undo request cancelled: $request")
+        remember("undo request cancelled: ${asked(request)}")
         send(GameAction.EngineCancelRewind)
     }
 
@@ -1788,7 +1790,7 @@ class GameDevice(
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             reportAgain()
-            if (request != update.rewindRequest) remember("undo request now: ${update.rewindRequest} (was $request)")
+            if (request != update.rewindRequest) remember("undo request now: ${asked(update.rewindRequest)} (was ${asked(request)})")
             request = update.rewindRequest
             // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
             if (update.confirmed?.let(session::supersedes) == true) { needsReload = true; remember("reload: ${update.confirmed} superseded") }

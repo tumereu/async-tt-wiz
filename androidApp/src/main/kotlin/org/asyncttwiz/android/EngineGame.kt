@@ -1136,7 +1136,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         UndoPreview(board, needs)
     }
     fun requestUndo(target: String, message: String) {
-        AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}: \"$message\"")
+        AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}, with a message of ${message.length} characters")
         worker.call { device.requestUndo(target, message) }; after()
     }
     fun answerRequest(accept: Boolean) {

@@ -2109,8 +2109,13 @@ class GameDevice(
         }
         // Wait for the event the server took instead (a refusal can come before it) and for it to be shown; also while the
         // point the moves were made after is still one of the device's own events on its way (a refusal can come before
-        // its confirmation too): compared on the board there, before the other player's event, they were dropped
-        else if (session.head == first.parent || session.behind || session.pending.any { it.id == first.parent }) return false
+        // its confirmation too): compared on the board there, before the other player's event, they were dropped.
+        // Except (e2e CombatHoldTest, 2026-11-10) where that point is the other player's event that took the place of the
+        // device's own one (SYS-077, [adopted]): the moves were sent on the device's own event, which the server refused
+        // in the race, so the event the server took instead is that one, here and shown; nothing else is coming for them
+        else if ((session.head == first.parent && first.parent !in adopted.values) || session.behind ||
+            session.pending.any { it.id == first.parent }) return false
+        if (!answered && session.head == first.parent) remember("remake on ${first.parent.take(8)}, which took the place of the device's own event")
         val moves = remaking.toList()
         remaking.clear()
         for ((n, move) in moves.withIndex()) {

@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import arcanum.api.TurnStep
 import org.asyncttwiz.android.CardMovePreferences
+import org.asyncttwiz.android.EngineGame
+import org.asyncttwiz.android.EngineShownProbe
 import org.asyncttwiz.android.HistoryPlaybackPreferences
+import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -21,6 +24,8 @@ import kotlin.test.assertNull
 class AttackHoldEndsTest : E2e() {
     private val pups = TestDeck("Pups", listOf(TestCards.mountain to 20, TestCards.pup to 20))
     private val thoughts = TestDeck("Thoughts", listOf(TestCards.mountain to 20, TestCards.thoughts to 20))
+
+    @After fun noProbe() { EngineShownProbe.listener = null }
 
     // HIS-113, HIS-021, TRN-063, problem report QVERHX: Alice empties her hand (Empty Thoughts), so Bob's attack, its damage
     // and his Main 2 come in one event; her phone holds on it, at her card move speed 0.25×, and the server's next board
@@ -49,19 +54,23 @@ class AttackHoldEndsTest : E2e() {
         waitUntil("Bob declaring attackers") { bob.state.turn.step == TurnStep.DeclareAttackers && bob.stepArrow() == "No attack" }
         bob.stageAttacker("Ash Pup", this)
         val life = alice.state.player(alice.me).life
+        // Every board Alice's phone publishes (two may come between frames)
+        val boards = java.util.concurrent.CopyOnWriteArrayList<EngineGame.Shown>()
+        EngineShownProbe.listener = { me, shown -> if (me == alice.id) boards += shown }
         bob.declare("Attack (1)", this)
         frameByFrame {
+            fun held(shown: EngineGame.Shown) = shown.combatHold != null && shown.engine.player(alice.me).life == life - 1
             // Bob's attack reaches Alice's phone and plays back: one board with the attack, its damage and his Main 2, held
-            messages("the attack's board on Alice's phone, held", frames = true) {
-                alice.game?.shown?.let { it.combatHold != null && it.engine.player(alice.me).life == life - 1 } == true
-            }
+            messages("the attack's board on Alice's phone, held", frames = true) { alice.game?.shown?.let(::held) == true }
             // Drawn: its steps start (at 0.25× the first lasts far longer than these frames), the hold waits on them
             repeat(2) { frame() }
-            val attack = alice.shown.version
-            // The server's next board (its confirmation of her local head) arrives before the first step settles
-            messages("the server's next board on Alice's phone", frames = false) { alice.shown.version > attack }
+            val attack = boards.first(::held).version
+            // The server's next board (its confirmation of her local head) arrives before the first step settles (or has
+            // already come with it)
+            messages("the server's next board on Alice's phone", frames = false) { boards.any { it.version > attack } }
             frame()
         }
+        EngineShownProbe.listener = null
         assertEquals(TurnStep.PostcombatMain, alice.state.turn.step, "the attack's one event goes on to Bob's Main 2")
         waitUntil("Bob's Main 2 settled") { bob.inOwnMain(TurnStep.PostcombatMain) && bob.settled(this) }
         bob.hold(requireNotNull(bob.stepArrow()))

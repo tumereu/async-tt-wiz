@@ -361,6 +361,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         play.engine?.state?.let { state ->
             gameLog.shown(state).forEach { AppLog.info("game", it) }
             gameLog.decision(state)?.let { AppLog.info("decision", it) }
+            // HIS-110: what a reveal panel shows reaches the report, once per panel
+            device.reveal?.takeIf { it != loggedReveal }?.let { loggedReveal = it; AppLog.info("game", gameLog.reveal(state, it)) }
         }
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
@@ -1027,6 +1029,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             if (device.status != before) publish()
         }
     }
+
+    /** HIS-110: the reveal panel logged last. */
+    private var loggedReveal: GameDevice.Reveal? = null
 
     /** Whether the app left since the game was last told it returned (main thread). */
     @Volatile var awayPaused = false

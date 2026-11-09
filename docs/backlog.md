@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
 
-- Reveals (HIS-110): every reveal shows to both players with an OK, your own included, and dismissing it is each player's own. Check that "reveal until a land" (House Cartographer) counts as a reveal for both.
 - Assume default (LOB-113, HIS-096): "No mana" is the default, for every account's new games too (a migration); games in play keep theirs.
 - Ability chips (TBL-122, TBL-124, TBL-130): a card with two or more activated abilities opens the chips even when one is usable now, the unusable greyed with why; during a payment a tap still picks the source.
 - Convoke and picked sources (STK-024): a spell with convoke always opens the payment panel, also with Autotap on; in any payment, picked cards move out of their pile into their own pile to its right, so they are easy to see and unpick.

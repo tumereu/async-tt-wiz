@@ -679,10 +679,13 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
-    // HIS-110: the other player's reveal stops the view until dismissed, before anything else docked above the hand
+    // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
     val reveal = shown.reveal.takeIf { !reviewing }
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
-        RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
+        RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent) {
+            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}")
+            game.dismissReveal(); routes.pump()
+        }
     }
     // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the
     // "Show plays and combat" time, then to the Stack; the view holds meanwhile. Timeline mode ends it

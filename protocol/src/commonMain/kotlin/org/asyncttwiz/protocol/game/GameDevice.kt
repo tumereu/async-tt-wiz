@@ -577,11 +577,12 @@ class GameDevice(
     // ---- Reveal stops (HIS-110)
 
     /**
-     * HIS-110 (owner playtest 2026-11-07): cards the other player revealed to this player ([by]: who revealed them, never
-     * this player) in the shown event [event]: [cards] in the order revealed, and what revealed them, [source] (the card
-     * of the spell or ability, null when none is known) and its [sourceName] then. Each reveal is one panel; while one
-     * is open ([reveal]) playback holds the events after it, as at a playback stop, until the player dismisses it
-     * ([dismissReveal]). Personal: nothing is sent, and the device still makes its own steps at the head.
+     * HIS-110 (owner 2026-11-09): cards revealed in the shown event [event], by the other player or by this one ([by]):
+     * [cards] in the order revealed, and what revealed them, [source] (the card of the spell or ability, null when none is
+     * known) and its [sourceName] then. Each reveal is one panel; while one is open ([reveal]) playback holds the events
+     * after it, as at a playback stop, until the player dismisses it ([dismissReveal]). The player's own choice among cards
+     * they already see isn't one for them ([ownRevealNews]). Personal: nothing is sent, the other player's phone never
+     * waits, and the device still makes its own steps at the head.
      */
     data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
         val source: arcanum.engine.state.CardId?, val sourceName: String?)
@@ -623,8 +624,7 @@ class GameDevice(
     /**
      * HIS-110, HIS-112: brings the open reveals and plays shown in line with the shown line (the main line up to the
      * local head, then the device's own pending events): one whose event was taken back (an undo, a branch, a rewind, a
-     * refusal) closes, and the events newly shown since add the other player's reveals and the plays shown in them, in
-     * order.
+     * refusal) closes, and the events newly shown since add the reveals and the plays shown in them, in order.
      */
     private fun syncReveals() {
         val tip = session.tip
@@ -650,9 +650,36 @@ class GameDevice(
         }
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
-            revealsOpen += revealsIn(e, me)
+            for (r in revealsIn(e)) if (r.by != me || ownRevealNews(line, e, r)) {
+                revealsOpen += r
+                remember("reveal open: ${r.by.value.take(8)} revealed ${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
+            } else remember("own reveal in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
             if (showPlays) showsOpen += momentsIn(e, me)
         }
+    }
+
+    /**
+     * HIS-110 (owner 2026-11-09): whether the player's own reveal [reveal] in [event], on the shown [line], is news to them,
+     * so that it stops them too: some of its cards they couldn't see before [event] and weren't offered in a decision of
+     * theirs in it (a search's choice, cards revealed and then chosen among, also the decision [event] leaves open): their
+     * own choice among cards they already see isn't a reveal, and nothing asks them twice.
+     */
+    private fun ownRevealNews(line: List<GameEvent>, event: GameEvent, reveal: Reveal): Boolean {
+        val at = line.indexOfFirst { it.id == event.id }
+        if (at < 0) return true
+        val before = model.copy()
+        for (i in line.lastIndex downTo at) before.revert(line[i])
+        if (before.stale) return true
+        fun cards(ids: Collection<ObjectId>) = ids.mapNotNullTo(HashSet()) { (it as? ObjectId.Card)?.card }
+        val seen = cards(Engine.visible(before.engine, me))
+        val state = before.engine
+        fun offered() { (state.pending?.decision as? Decision.ChooseObjects)?.takeIf { it.player == me }?.let { seen += cards(it.options) } }
+        for (step in event.engine?.steps.orEmpty()) {
+            offered()
+            step.changes.forEach { state.apply(it) }
+        }
+        offered()
+        return reveal.cards.any { it !in seen }
     }
 
     // ---- Plays shown (HIS-112)
@@ -2420,15 +2447,14 @@ class GameDevice(
         }
 
         /**
-         * HIS-110: the reveals in [event] of a player other than [viewer] ([arcanum.engine.change.GameEvent.Revealed]: shown to
-         * every player, CR 701.20), one per reveal in order, with what made each: the source the change carries (a spell's or
-         * ability's instructions), else the card cast or the ability's source of the step's input (a cost).
+         * HIS-110: the reveals in [event] ([arcanum.engine.change.GameEvent.Revealed]: shown to every player, CR 701.20), one
+         * per reveal in order, with what made each: the source the change carries (a spell's or ability's instructions), else
+         * the card cast or the ability's source of the step's input (a cost).
          */
-        fun revealsIn(event: GameEvent, viewer: PlayerId): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
+        fun revealsIn(event: GameEvent): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
             step.changes.mapNotNull { change ->
                 val happened = change as? arcanum.engine.change.Change.Happened ?: return@mapNotNull null
                 val revealed = happened.event as? arcanum.engine.change.GameEvent.Revealed ?: return@mapNotNull null
-                if (revealed.player == viewer) return@mapNotNull null
                 val cards = revealed.ids.mapNotNull { (it as? ObjectId.Card)?.card }.distinct()
                 if (cards.isEmpty()) return@mapNotNull null
                 val by = happened.by?.source ?: when (val input = step.input) {

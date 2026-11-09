@@ -174,6 +174,8 @@ object TestCards {
     /** A free sorcery that reveals its caster's top card and puts it into their hand (HIS-110: the other player's reveal
      * panel). */
     val insight = card("Ember Insight", "Sorcery", "{0}", "Reveal the top card of your library and put that card into your hand.")
+    /** A free sorcery with a reveal until a land (HIS-110: House Cartographer's wording). */
+    val scouting = card("Ember Scouting", "Sorcery", "{0}", "Reveal cards from the top of your library until you reveal a land card. Put that card into your hand and the rest on the bottom of your library in a random order.")
     /** A free sorcery whose resolution stops on the top two library cards: which one is manifested (report DH3QX6). */
     val dread = card("Ember Dread", "Sorcery", "{0}", "Manifest dread.")
     /** A free creature with haste: it attacks the turn it is cast. */

@@ -180,3 +180,4 @@ number	item	screenshot	catalog	decisions
 179	Draft: Build header warnings	pod-build-warnings.png	DRF-094 DRF-119
 180	Stats: Graphs in landscape with full-width tiles	match-history/stats-graphs-landscape.png	LOB-132
 181	Game end dialog with your OK standing	engine/game-end-waiting.png	TRN-065
+182	Your own reveal shows you the panel too	engine/reveal-panel-own.png	HIS-110 STK-044

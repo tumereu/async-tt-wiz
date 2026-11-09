@@ -283,7 +283,7 @@ class TableGestureCoordinator(
             Phase.PRESS -> if (c.double && c.item == null && scene.worldInput(c.start)) {
                 scene.world?.fit()?.let(::navigate)
             } else if (c.double && c.item?.publicPile == true) {
-                // Graveyard/Exile double-tap: the search panel (the single tap already opened the pile menu).
+                // Graveyard/Exile double-tap: the single tap already opened the search view; the second keeps it open.
                 emit(TableIntent.SearchPile(c.item.id))
             } else if (c.double && c.item?.zone == PlayZone.LIBRARY) {
                 // I-D52: nothing is drawn by hand; the single tap already opened (or shook) the Library

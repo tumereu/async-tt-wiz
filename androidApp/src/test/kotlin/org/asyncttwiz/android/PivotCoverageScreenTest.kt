@@ -50,24 +50,52 @@ class PivotCoverageScreenTest {
             compose.onAllNodes(hasText(gone, substring = true) or hasContentDescription(gone, substring = true)).assertCountEquals(0)
     }
 
-    // ZON-033, SYS-040 (I-D52): a graveyard's menu has one cell, Search, shown (greyed) also while the pile is
-    // empty; nothing in it moves the pile's cards
-    @Test fun anEmptyPilesMenuShowsSearchGreyed() {
-        val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }
-        val play = f.initial.copy(board = f.initial.board.copy(cards = f.initial.board.cards.filter { it.id !in graveyard.cards },
-            containers = f.initial.board.containers.map { if (it.id == graveyard.id) it.copy(cards = emptyList()) else it }))
-        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
-        toolkit.openPileMenu(graveyard.id)
+    private fun pileTable(play: PlayState, toolkit: TableToolkitController, reviewing: Boolean = false, locked: Boolean = false) =
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
             TableSurface(f.game, tableBoard(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
+                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true,
+                    reviewing = reviewing, gameActionsBlocked = locked))
         } } }
-        compose.onNodeWithContentDescription("Search").assertExists().assertIsNotEnabled()
+
+    // ZON-033, ZON-035: a tap on a graveyard opens its search view at once, no menu in between; a second tap closes it
+    @Test fun aPileTapOpensItsSearchViewAtOnce() = tapOnPile()
+
+    // ZON-033: the same while reviewing the timeline
+    @Test fun aPileTapOpensItsSearchViewInTimelineMode() = tapOnPile(reviewing = true)
+
+    // ZON-033: and while a pending result blocks game actions: looking stays personal and allowed
+    @Test fun aPileTapOpensItsSearchViewWhileTheGameIsLocked() = tapOnPile(locked = true)
+
+    private fun tapOnPile(reviewing: Boolean = false, locked: Boolean = false) {
+        val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a && it.cards.isNotEmpty() }
+        val toolkit = TableToolkitController(f.a, { tableBoard(f.initial) }, { true }, { _, _ -> true })
+        pileTable(f.initial, toolkit, reviewing, locked)
+        val pile = compose.onNodeWithContentDescription("Alice graveyard, ${graveyard.cards.size} cards")
+        pile.performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnIdle { assertEquals(graveyard.id, toolkit.layoutState.value.localPileId); assertEquals(null, toolkit.panel) }
+        compose.onNodeWithContentDescription("Graveyard panel,", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Search").assertDoesNotExist()
         for (gone in listOf("Shuffle", "Move", "Put", "Exile all"))
             compose.onAllNodes(hasContentDescription(gone, substring = true)).assertCountEquals(0)
     }
 
-    // ZON-038, ZON-035: a graveyard's search view opens from its menu's Search (or a double-tap) and closes on ✕ and when
+    // ZON-033, I-D46: an empty pile has nothing to show: a tap shakes it and opens nothing
+    @Test fun anEmptyPileShakesOnATap() {
+        val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }
+        val play = f.initial.copy(board = f.initial.board.copy(cards = f.initial.board.cards.filter { it.id !in graveyard.cards },
+            containers = f.initial.board.containers.map { if (it.id == graveyard.id) it.copy(cards = emptyList()) else it }))
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
+        pileTable(play, toolkit)
+        compose.onNodeWithContentDescription("Alice graveyard, 0 cards").performClick()
+        compose.runOnIdle {
+            assertEquals(graveyard.id, toolkit.shaking?.id)
+            assertEquals(null, toolkit.layoutState.value.localPileId)
+            assertEquals(null, toolkit.panel)
+        }
+    }
+
+    // ZON-038: a graveyard's search view closes on ✕ and when
     // its pile empties
     @Test fun aPileViewClosesOnItsCrossAndWhenThePileEmpties() {
         val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a && it.cards.isNotEmpty() }

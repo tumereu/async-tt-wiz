@@ -39,7 +39,7 @@ class DraftStatsFlowTest : E2e() {
         waitUntil("Alice's Stats") { alice.shows(hasTestTag("pod-stats")) }
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-sources"))
         waitUntil("the Mountain and the rock as red sources, with no pips") {
-            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("0 / 2"))) &&
+            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("2 sources · 100%"))) &&
                 alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasContentDescription("R: 0% of pips, 100% of sources"))) &&
                 alice.shows(hasTestTag("pod-stats-sources") and hasText("Sources: 1 land, 1 other"))
         }

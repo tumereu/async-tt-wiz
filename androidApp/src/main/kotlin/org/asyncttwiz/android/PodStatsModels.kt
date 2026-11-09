@@ -10,6 +10,7 @@ import arcanum.api.isManaAbility
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
+import kotlin.math.roundToInt
 import arcanum.api.CardDefinition as RulesCard
 import arcanum.api.Color as RulesColor
 
@@ -304,7 +305,8 @@ internal fun PodStatsColor.podStatsCurveName(): String = when (this) {
 }
 
 /** A colour's bars in the mana table (DRF-114): its share of all coloured pips, of all sources, and the lands' part of
- * that sources share. A dual land counts for both its colours, so the source shares add up to 100% as the pip shares do. */
+ * that sources share. A dual land counts for both its colours, so the source shares add up to 100% as the pip shares do;
+ * a bar's width is its share of the full width, nothing scaled, so what is drawn sums to one whole. */
 internal data class PodStatsManaShare(val pips: Double, val sources: Double, val lands: Double)
 
 internal fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
@@ -317,20 +319,15 @@ internal fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
     }
 }
 
-/** The part of the bars' width the largest share takes: it nearly fills the width. */
-private const val PodStatsLargestBar = .95
+/** A colour's pip line in the mana table (DRF-114): "9 pips · 34%", "½ pip · 2%", "0 pips · 0%". */
+internal fun podStatsPipLine(pips: Double, share: Double): String =
+    "${podStatsPipText(pips)} ${if (pips > 0.0 && pips <= 1.0) "pip" else "pips"} · ${podStatsPercent(share)}"
 
-/**
- * The one scale of every mana bar, both kinds in all rows (DRF-114): a bar's width as a part of the full width is its
- * share times this, so a longer pip bar than source bar means the colour is short of sources. 0 when nothing has a share.
- */
-internal fun Map<DraftColor, PodStatsManaShare>.podStatsBarScale(): Double {
-    val largest = values.maxOfOrNull { maxOf(it.pips, it.sources) } ?: 0.0
-    return if (largest == 0.0) 0.0 else PodStatsLargestBar / largest
-}
+/** A colour's source line: "8 sources · 30%", "1 source · 4%", lands and other producers added up. */
+internal fun podStatsSourceLine(sources: Long, share: Double): String =
+    "$sources ${if (sources == 1L) "source" else "sources"} · ${podStatsPercent(share)}"
 
-/** A colour's text in the mana table: "9 / 8", "4½ / 8": its pips, then its sources (lands + others) added up. */
-internal fun podStatsManaText(pips: Double, lands: Long, others: Long): String = "${podStatsPipText(pips)} / ${lands + others}"
+private fun podStatsPercent(share: Double) = "${(share * 100).roundToInt()}%"
 
 /** Empty donuts have zero shares, never NaN; each chart normalizes independently. */
 internal fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {

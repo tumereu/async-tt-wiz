@@ -63,15 +63,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
                     if (own) InlinePopupCell(MenuControl("View deck", DeckView.deck(play, toolkit.viewer).isNotEmpty()) { toolkit.openDeckView() })
                 })
             }
-        } else if (panel?.startsWith("pile/") == true) {
-            val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }
-            if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
-            else InlinePopupPanel(toolkit::dismiss, moveZoneLabel(pile.zone), width = 152.dp, height = 104.dp, key = panel) {
-                // Looking is all a pile offers: Search is its only cell
-                ZoneMenu(kept = {
-                    InlinePopupCell(MenuControl("Search", pile.cards.isNotEmpty()) { toolkit.openPublicPile(pile.id, toggle = false) })
-                })
-            }
         }
     }
     }

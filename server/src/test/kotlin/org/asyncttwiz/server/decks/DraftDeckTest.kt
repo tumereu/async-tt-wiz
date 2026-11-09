@@ -80,6 +80,45 @@ class DraftDeckTest {
         }
     }
 
+    // DRF-166, LOB-058: chosen from Main and Side only, private to the member; the draft deck takes it and follows later choices
+    @Test fun `the private cover is chosen from Main and Side and the draft deck follows it`() = fixture { f ->
+        val pod = f.pod()
+        val built = f.build(f.a, pod)
+        val attempt = built.draftAttemptId!!
+        val definition = built.draft!!.pool.associate { it.id to it.definition }
+        val copies = built.build!!.copies.map { definition.getValue(it.copyId) }
+        fun cover(digest: String) = f.pods.deckCover(f.a, pod, SetPodDeckCover(id(), attempt, digest))
+        assertEquals("invalid_cover", json.decodeFromString<PodError>(cover(copies[2]).body).code) // Maybe
+        assertEquals(400, cover("sha256:not-a-card").status)
+        assertEquals(409, f.pods.deckCover(f.a, pod, SetPodDeckCover(id(), id(), copies[1])).status)
+        assertNull(f.detail(f.a, pod).deckCover)
+        assertEquals(200, cover(copies[1]).status)
+        assertEquals(copies[1], f.detail(f.a, pod).deckCover)
+        assertNull(f.detail(f.b, pod).deckCover)
+        assertEquals(200, f.submit(f.a, pod))
+        val summary = f.drafts(f.a).single()
+        assertEquals(copies[1], summary.cover!!.definition)
+        assertEquals(200, cover(copies[0]).status)
+        val after = f.read(f.a, summary.id).deck
+        assertEquals(copies[0], after.cover!!.definition)
+        assertEquals("2", after.revision)
+        assertEquals(after.revision, run { assertEquals(200, cover(copies[0]).status); f.read(f.a, summary.id).deck.revision })
+    }
+
+    // DRF-166: without a choice a draft deck keeps showing its first card, and a chosen card moved to Maybe doesn't count
+    @Test fun `a cover that went to Maybe leaves the draft deck on its first card`() = fixture { f ->
+        val pod = f.pod()
+        val before = f.detail(f.a, pod)
+        val attempt = before.draftAttemptId!!
+        val definition = before.draft!!.pool.associate { it.id to it.definition }
+        val third = before.build!!.copies[2]
+        assertEquals(200, f.pods.deckCover(f.a, pod, SetPodDeckCover(id(), attempt, definition.getValue(third.copyId))).status)
+        val built = f.build(f.a, pod) // moves that third card to Maybe
+        assertEquals(definition.getValue(third.copyId), built.deckCover)
+        assertEquals(200, f.submit(f.a, pod))
+        assertEquals(definition.getValue(built.build!!.copies[0].copyId), f.drafts(f.a).single().cover!!.definition)
+    }
+
     // LOB-055: Main, Side (with the Side basics) and the Build's Maybe as its own section
     @Test fun `submitting saves a private read-only draft deck of the whole pool that follows the private name`() = fixture { f ->
         val pod = f.pod()

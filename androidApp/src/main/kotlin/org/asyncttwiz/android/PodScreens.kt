@@ -378,7 +378,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
-                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) })
+                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
+                    deckCover = detail.deckCover, onCover = controller::deckCover)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

@@ -1,0 +1,1 @@
+The Build tab with 31 cards in Main and a card in a Side limited to none: an amber warning icon by each header, the Submit button greyed for the same reasons.

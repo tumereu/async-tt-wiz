@@ -505,8 +505,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** Open information is a personal route, not a shared View/Reveal reference display.
-     * [toggle] closes the pile's panel when it is already open; the pile menu's Search and the
-     * pile double-tap always open (or keep) it. */
+     * [toggle] closes the pile's panel when it is already open; the pile double-tap always keeps it. */
     fun openPublicPile(id: String, toggle: Boolean = true) {
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
@@ -514,12 +513,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         dismiss()
         layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { toggle && it == layoutState.value.localPileId },
             localPileTargets = false)
-    }
-    /** A Graveyard/Exile pile tap opens that pile's menu (either player's pile), like the Library menu. */
-    fun openPileMenu(id: String) {
-        current()?.board?.containers?.singleOrNull { it.id == id && it.zone in PublicPiles.zones } ?: return
-        dismiss()
-        panel = "pile/$id"
     }
     fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false); dismiss() }
     /** The pile opened to pick targets from ([open]), closed again once the targets are chosen. */
@@ -635,7 +628,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             item.kind == TableItemKind.LIFE -> { dismiss(); player = requireNotNull(item.owner) }
             item.zone == PlayZone.LIBRARY -> if (zoneMenuEmpty(play, item.id)) { dismiss(); shake(item.id); return }
                 else openLibrary(item.id)
-            item.zone in PublicPiles.zones -> openPileMenu(item.id)
+            // ZON-033: a Graveyard or Exile tap (either player's) opens its search view at once; an empty one has nothing
+            // to show and shakes
+            item.zone in PublicPiles.zones -> {
+                if (play.board.containers.singleOrNull { it.id == item.id }?.cards.isNullOrEmpty()) { dismiss(); shake(item.id) }
+                else openPublicPile(item.id)
+                return
+            }
             else -> openPublicPile(item.id)
         }
         popupItem = item

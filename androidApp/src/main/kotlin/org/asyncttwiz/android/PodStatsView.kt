@@ -142,15 +142,15 @@ private fun PodStatsBarKey(color: Color, height: Dp, label: String) {
 }
 
 /**
- * Per colour "pips / sources" and two bars on one scale, pips over sources (lands solid, other producers lighter), then a
- * total line and the cards grouped by their colored cost symbols, as chips (DRF-114, DRF-115, DRF-116).
+ * Per colour its pips and sources with their shares in percent, and two bars where the full width is 100%, pips over
+ * sources (lands solid, other producers lighter), then a total line and the cards grouped by their colored cost symbols,
+ * as chips (DRF-114, DRF-115, DRF-116).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
     val style = MaterialTheme.typography.bodyMedium
     val shares = stats.manaShares()
-    val scale = shares.podStatsBarScale()
     val pip = MaterialTheme.colorScheme.onSurface
     val solid = MaterialTheme.colorScheme.primary
     val light = MaterialTheme.colorScheme.primary.copy(alpha = .35f)
@@ -158,7 +158,7 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
     Column(modifier.testTag("pod-stats-mana"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-            Text("Pips / Sources", style = MaterialTheme.typography.labelLarge)
+            Text("Pips and sources", style = MaterialTheme.typography.labelLarge)
             Row(Modifier.testTag("pod-stats-bar-legend"), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PodStatsBarKey(pip, PodStatsPipBarHeight, "Pips")
@@ -170,8 +170,12 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
             .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
             val share = shares.getValue(color)
             CardText("{${color.name}}", Modifier.width(32.dp), style = MaterialTheme.typography.titleMedium)
-            Text(podStatsManaText(stats.pips.getValue(color), stats.sources.getValue(color), stats.otherSources.getValue(color)),
-                Modifier.widthIn(min = 64.dp), style = style, textAlign = TextAlign.End, maxLines = 1)
+            Column(Modifier.widthIn(min = 104.dp)) {
+                val lines = MaterialTheme.typography.labelMedium
+                Text(podStatsPipLine(stats.pips.getValue(color), share.pips), style = lines, maxLines = 1)
+                Text(podStatsSourceLine(stats.sources.getValue(color) + stats.otherSources.getValue(color), share.sources),
+                    style = lines, maxLines = 1)
+            }
             Spacer(Modifier.width(12.dp))
             Canvas(Modifier.weight(1f).height(PodStatsPipBarHeight + 2.dp + PodStatsSourceBarHeight)
                 .testTag("pod-stats-bar-${color.name}").semantics {
@@ -184,10 +188,10 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
                     if (width > 0f) drawRoundRect(paint, Offset(0f, top), Size(width, height), CornerRadius(height / 2))
                 }
                 bar(track, size.width, 0f, pipHeight)
-                bar(pip, (size.width * share.pips * scale).toFloat(), 0f, pipHeight)
+                bar(pip, (size.width * share.pips).toFloat(), 0f, pipHeight)
                 bar(track, size.width, sourceTop, sourceHeight)
-                bar(light, (size.width * share.sources * scale).toFloat(), sourceTop, sourceHeight)
-                bar(solid, (size.width * share.lands * scale).toFloat(), sourceTop, sourceHeight)
+                bar(light, (size.width * share.sources).toFloat(), sourceTop, sourceHeight)
+                bar(solid, (size.width * share.lands).toFloat(), sourceTop, sourceHeight)
             }
         }
         Text(podStatsSourcesLine(stats.sourceLands, stats.sourceOthers), Modifier.testTag("pod-stats-sources"),

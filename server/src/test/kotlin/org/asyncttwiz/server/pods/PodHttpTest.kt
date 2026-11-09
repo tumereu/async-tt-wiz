@@ -373,6 +373,18 @@ class PodHttpTest {
         assertEquals(input.name, f.get(f.a, pod).deckName)
     }
 
+    // DRF-166: the route, its scope and its fence; the rules of what may be chosen are in DraftDeckTest
+    @Test fun `deck cover endpoint is owner scoped validated and attempt fenced`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        val attempt = f.start(pod).draftAttemptId!!
+        val input = SetPodDeckCover(id(), attempt, "sha256:not-in-the-pool")
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/cover", input, 400)
+        f.send(f.c, "PUT", "/v1/pods/$pod/build/cover", input.copy(requestId = id()), 404)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/cover", input.copy(requestId = id(), draftAttemptId = id()), 409)
+        assertEquals(null, f.get(f.a, pod).deckCover)
+    }
+
     private fun assertPrivacy(f: Fixture, pod: String) {
         checkPrivacy(f.get(f.a, pod), f.get(f.b, pod))
         checkPrivacy(f.get(f.b, pod), f.get(f.a, pod)) // The creator has no extra visibility either.

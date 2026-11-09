@@ -41,13 +41,13 @@ class PodStatsViewTest {
         compose.onNodeWithText("Creature: 1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Noncreature: 0").assertIsDisplayed()
         compose.onNodeWithText("Land: 39").assertIsDisplayed()
-        compose.onNodeWithText("Pips / Sources").assertIsDisplayed()
+        compose.onNodeWithText("Pips and sources").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats-sources").assertTextEquals("Sources: 39 lands, 0 others")
-        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("½ / 39"))
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("½ pip · 25%")).assert(hasText("39 sources · 100%"))
             .assert(hasContentDescription("W: 25% of pips, 100% of sources"))
-        compose.onNodeWithTag("pod-stats-mana-B").assert(hasText("1 / 0"))
+        compose.onNodeWithTag("pod-stats-mana-B").assert(hasText("1 pip · 50%")).assert(hasText("0 sources · 0%"))
             .assert(hasContentDescription("B: 50% of pips, 0% of sources"))
-        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("0 / 0"))
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("0 pips · 0%")).assert(hasText("0 sources · 0%"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertTextEquals("1× {W/U}{B/P}")
         compose.onNodeWithTag("pod-stats-no-pips").assertDoesNotExist()
         compose.onNodeWithText("Lands without a color", substring = true).assertDoesNotExist()
@@ -96,9 +96,9 @@ class PodStatsViewTest {
     fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
         showDeck()
         // Lands and the Ring (any colour) added up, the Gate counting for both its colours.
-        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("9 / 8"))
-        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("9 / 11"))
-        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("4 / 3"))
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("9 pips · 41%")).assert(hasText("8 sources · 33%"))
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("9 pips · 41%")).assert(hasText("11 sources · 46%"))
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("4 pips · 18%")).assert(hasText("3 sources · 13%"))
         compose.onNodeWithTag("pod-stats-type-Creature").assertTextEquals("Creature 12").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats-type-Land").assertTextEquals("Land 17")
         compose.onNodeWithTag("pod-stats-type-Basic").assertTextEquals("Basic 15")
@@ -125,8 +125,8 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-no-pips", useUnmergedTree = true).assertTextEquals("3× ∅")
         val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
         compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics, the curve " +
-            "on its Type view: card type counts wrap between the curve legend and the mana table, each colour's \"pips / sources\" " +
-            "beside a thin pip bar over a source bar on one scale (lands solid, a mana rock lighter), then the sources' total " +
+            "on its Type view: card type counts wrap between the curve legend and the mana table, each colour's pips and sources with their " +
+            "shares in percent beside a thin pip bar over a source bar, full width being 100% (lands solid, a mana rock lighter), then the sources' total " +
             "line and the pip counts as chips flowing in rows.")
     }
 
@@ -177,7 +177,8 @@ class PodStatsViewTest {
             .assert(hasContentDescription("W 0%, U 0%, B 0%, R 0%, G 0%", substring = true)).getUnclippedBoundsInRoot()
         assertEquals(table.top, colors.top)
         assertTrue(table.right < colors.left)
-        for (color in DraftColor.entries) compose.onNodeWithTag("pod-stats-mana-${color.name}").assert(hasText("0 / 0"))
+        for (color in DraftColor.entries) compose.onNodeWithTag("pod-stats-mana-${color.name}")
+            .assert(hasText("0 pips · 0%")).assert(hasText("0 sources · 0%"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-no-pips").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-notes").assertDoesNotExist()
@@ -193,8 +194,17 @@ class PodStatsViewTest {
         } }
         val before = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
         compose.runOnIdle { build.value = PodDeckBuild(basics = PodDeckBasics(forest = 17)); dark.value = true }
-        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("0 / 17")).assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("17 sources · 100%")).assertIsDisplayed()
         assertEquals(before, compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot())
+    }
+
+    // DRF-114: shares of the whole, nothing scaled to the largest: 3 Forests and 1 Island read 75% and 25%, and a colour
+    // with a share of 0 keeps its row (the bars themselves show in pod-stats-types.png)
+    @Test fun sharesAddUpToTheWholeAndAColourWithNoneKeepsItsRow() {
+        compose.setContent { MaterialTheme { PodStatsView(PodDeckBuild(basics = PodDeckBasics(forest = 3, island = 1)), emptyMap(), emptyMap()) } }
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("3 sources · 75%")).assert(hasContentDescription("G: 0% of pips, 75% of sources"))
+        compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("1 source · 25%")).assert(hasContentDescription("U: 0% of pips, 25% of sources"))
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("0 pips · 0%")).assert(hasText("0 sources · 0%")).assertIsDisplayed()
     }
 
     // DRF-114, DRF-116
@@ -207,7 +217,7 @@ class PodStatsViewTest {
                 mapOf("a" to DraftCopy("a", "spell"), "b" to DraftCopy("b", "spell"), "c" to DraftCopy("c", "rock"),
                     "d" to DraftCopy("d", "waste")), mapOf("spell" to spell, "rock" to rock, "waste" to waste))
         } }
-        compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("2 / 0"))
+        compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("2 pips · 100%"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertTextEquals("2× {U}")
         compose.onNodeWithTag("pod-stats-no-pips").assertTextEquals("1× ∅").assertContentDescriptionEquals("1× no colored pips")
         compose.onNodeWithText("Lands without a color: 1").assertIsDisplayed()

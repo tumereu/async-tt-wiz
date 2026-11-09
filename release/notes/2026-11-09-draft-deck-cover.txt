@@ -1,0 +1,1 @@
+add: A draft deck can have a cover: tap the picture beside its name in Build and pick one of your Main or Side cards.

@@ -60,7 +60,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         lateinit var owner: TableGestureCoordinator
         owner = TableGestureCoordinator({ intent ->
             // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
-            if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent)) return@TableGestureCoordinator
+            if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent) &&
+                !(intent is TableIntent.Actions && owner.actionItem?.publicPile == true)) return@TableGestureCoordinator
             if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll && intent !is TableIntent.Overscroll)
                 DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {

@@ -1,0 +1,1 @@
+add: In a draft deck's Build, a warning icon shows by Main when it has under 40 cards and by Side when it's over its limit; hold it to see why.

@@ -31,8 +31,8 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 - **ZON-030** A graveyard or exile pile shows its newest card on top; removing it shows the next one down, and cards arriving together land in order so the last one is on top (milling 3 puts the third on top). (r27)
 - **ZON-031** Library, graveyard and exile piles show only their top card at single-card size, with a card count. (r45)
 - **ZON-032** Holding a graveyard or exile pile previews its top card. (r8)
-- **ZON-033** Tapping either player's graveyard or exile opens its menu, whose only button is Search (looking has no game effect); nothing moves a pile's cards by hand. (r45)
-- **ZON-035** Double-tapping a graveyard or exile pile opens its search view, as does Search in the pile menu (also while reviewing the timeline). (r29)
+- **ZON-033** Tapping either player's graveyard or exile opens its search view at once, also while reviewing the timeline or while a result is pending (looking has no game effect); another tap on it closes the view, and an empty pile shakes instead. Nothing moves a pile's cards by hand. (r61)
+- **ZON-035** Double-tapping a graveyard or exile pile leaves its search view open: the first tap opened it, the second does nothing more. (r61)
 - **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history and is never shown to the opponent. (r45)
 - **ZON-092** An exile pile holding a card with counters (a suspended card's time counters, say) carries a small marker at its top-right corner, opposite its count: a violet dot ringed in white with a white centre. (r58)
 

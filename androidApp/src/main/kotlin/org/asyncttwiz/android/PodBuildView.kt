@@ -116,11 +116,17 @@ fun PodBuildView(
     /** The review feed's Undo moving a copy back, which also drops that move from [onUndo]'s history. */
     onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
     onAdjustSideBasic: (index: Int, delta: Int) -> Unit = { _, _ -> },
+    /** The definition chosen as the deck's cover, if any (DRF-166). */
+    deckCover: String? = null,
+    onCover: (String) -> Unit = {},
 ) {
     val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
     var confirmSubmit by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
+    var choosingCover by remember { mutableStateOf(false) }
+    val coverChoices = remember(build, copies) { PodDeckRules.coverChoices(build) { copies[it]?.definition } }
+    val cover = podBuildCover(coverChoices, deckCover)
     // One card popup at a time: a menu or the hold preview, whichever came last.
     val menus = remember { PodCardMenuOwner() }
     var inspected by remember { mutableStateOf<Pair<String, InspectedCard>?>(null) }
@@ -159,6 +165,10 @@ fun PodBuildView(
             item("name") {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
                     verticalAlignment = Alignment.CenterVertically) {
+                    // DRF-166: the cover beside the name; a tap chooses it from the Main and Side cards
+                    PodBuildCoverThumbnail(cover?.let(definitions::get), Modifier.testTag("pod-build-cover")
+                        .clickable(enabled = coverChoices.isNotEmpty(), onClickLabel = "Choose deck cover") { choosingCover = true }
+                        .semantics { contentDescription = "Choose deck cover" })
                     Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     HoldTip("Name deck") { IconButton({ naming = true }) { EntryIcon("Name deck", "edit") } }
                 }
@@ -180,8 +190,13 @@ fun PodBuildView(
                             verticalAlignment = Alignment.CenterVertically) {
                             Text(when (category) { PodDeckCategory.MAIN -> podBuildMainTitle(build, copies, definitions); PodDeckCategory.SIDE -> podBuildSideTitle(build, copies, definitions)
                                 else -> "${category.podBuildLabel()} $count" },
-                                Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
+                                Modifier.padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
+                            podBuildHeaderWarning(category, build, copies, sideboardLimit)?.let { why ->
+                                HoldWarningIcon(why, Modifier.padding(start = 4.dp).testTag("pod-build-warning-$category"),
+                                    onTap = if (reviewable) ({ openFeed(category, null) }) else null)
+                            }
+                            Spacer(Modifier.weight(1f))
                             if (reviewable) Text("Review ›", color = sectionColor.copy(alpha = .8f),
                                 style = MaterialTheme.typography.labelMedium)
                         }
@@ -290,6 +305,19 @@ fun PodBuildView(
                 keyboardActions = submitKeyboardActions(name.text.isNotBlank(), submit = save))
         }
     }
+    if (choosingCover) ScreenDialog({ choosingCover = false }, Modifier.testTag("pod-build-cover-dialog"), title = "Choose cover",
+        actions = { DialogCancelButton("Cancel", { choosingCover = false }) }) {
+        coverChoices.forEach { digest ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("pod-build-cover-$digest")
+                .clickable { onCover(digest); choosingCover = false }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val card = definitions[digest]
+                PodBuildCoverThumbnail(card)
+                Text(card?.name ?: "Card", Modifier.weight(1f))
+                if (digest == cover) EntryIcon("Selected cover", "ready")
+            }
+        }
+    }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
     feed?.let { current ->
         PodBuildFeedDialog(current, podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total, editable,
@@ -299,6 +327,16 @@ fun PodBuildView(
             onFinish = { done -> feed = null; feedback = PodBuildFeedback(++feedbackId, done.summary, 2000) })
     }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
+}
+
+/** A deck cover's picture in the Build's name row and its chooser (DRF-166), as a saved deck's header draws it. */
+@Composable
+private fun PodBuildCoverThumbnail(card: CardDefinition?, modifier: Modifier = Modifier) {
+    val face = card?.faces?.firstOrNull()
+    // A 48 dp touch target with the picture at its start, in line with the Build's other content (DRF-097)
+    Box(modifier.size(48.dp), contentAlignment = Alignment.CenterStart) {
+        DeckThumbnail(face?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, card?.name ?: "No deck cover", 32.dp, 44.dp)
+    }
 }
 
 /** Lays its cards out [perRow] wide, row-major, all of one width with [PodBuildCardGap] between them.

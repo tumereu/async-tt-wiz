@@ -2351,11 +2351,12 @@ internal class Sentences(
             return arcanum.api.Trigger.On(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null,
                 causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to null
         }
-        // (also "one or more +1/+1 counters are put on this creature": the object is Self, CR 122.6)
+        // (also "one or more +1/+1 counters are put on this creature": the object is Self, CR 122.6). An object or kind it can't read falls
+        // through, so "… on this creature for the first time each turn" reaches the rule for that ending below.
         Fdn.COUNTERS_ARE_PUT_ON.matchEntire(text)?.let { m ->
-            val objects = if (isSelf(m.groupValues[2])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[2]) ?: return null
-            return arcanum.api.Trigger.On(EventPattern.CountersPut(objects, Counters.kind(m.groupValues[1]) ?: return null),
-                oneOrMore = true) to null
+            val objects = if (isSelf(m.groupValues[2])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[2])
+            val kind = Counters.kind(m.groupValues[1])
+            if (objects != null && kind != null) return arcanum.api.Trigger.On(EventPattern.CountersPut(objects, kind), oneOrMore = true) to null
         }
         // fdn chunk 11c: "a creature dealt damage by this creature this turn dies" (CR 603.10a: it looks back at the creature as it died)
         Fdn.DEALT_DAMAGE_BY_DIES.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->

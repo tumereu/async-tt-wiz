@@ -40,4 +40,18 @@ class FdnFixesTest {
         activated(cost(tap), doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!), spellGets = listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))),
             spellGetsIf = and(sub("Dragon"), creature, spellFilter), spellGetsUntil = Duration.EndOfTurn), Players.You))),
     )
+
+    // CR 603.2, CR 122.6: only the first batch of +1/+1 counters put on it in a turn triggers it; the counters rule must leave the
+    // "for the first time each turn" ending to the rule that reads it
+    @Test
+    fun countersPutForTheFirstTimeEachTurn() = card(
+        name = "Forgeborn Tinker",
+        cost = "{1}{R}",
+        type = "Creature — Dwarf Artificer",
+        pt = "2/2",
+        text = "Whenever one or more +1/+1 counters are put on this creature for the first time each turn, draw a card.",
+    ) parsesTo abilities(
+        triggered(arcanum.api.Trigger.On(listOf(arcanum.api.EventPattern.CountersPut(ObjectFilter.Is(arcanum.api.Objects.Self), p1p1)), oneOrMore = true,
+            nthThisTurn = 1), draw(1)),
+    )
 }

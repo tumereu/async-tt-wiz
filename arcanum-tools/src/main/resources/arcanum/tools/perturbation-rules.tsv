@@ -1,0 +1,97 @@
+# class	name	regex	replacement	skip-line-regex
+noun	target creature->target artifact	\btarget creature\b(?! you control| an opponent controls)	target artifact	gets|gains|get |gain |power|toughness|block|attack|fight|has |have |dies|damage|counter|Enchant
+noun	target creature->target land	\btarget creature\b(?! you control| an opponent controls)	target land	gets|gains|get |gain |power|toughness|block|attack|fight|has |have |dies|damage|counter|Enchant
+noun	target creature->target nonland permanent	\btarget creature\b(?! you control| an opponent controls)	target nonland permanent	gets|gains|get |gain |power|toughness|block|attack|fight|has |have |dies|damage|counter|Enchant
+noun	target creature->target creature with flying	\btarget creature\b(?! you control| an opponent controls| card)	target creature with flying	Enchant
+noun	target creature you control->target Goblin you control	\btarget creature you control\b	target Goblin you control	Enchant
+noun	target creature->target tapped creature	\btarget creature\b	target tapped creature	Enchant
+noun	creatures you control->artifacts you control	\bcreatures you control\b	artifacts you control	gets? |gains? |power|toughness|block|attack|have |has 
+noun	Creatures you control->Artifacts you control	\bCreatures you control\b	Artifacts you control	gets? |gains? |power|toughness|block|attack|have |has 
+noun	creatures you control->Goblins you control	\b[Cc]reatures you control\b	Goblins you control	
+noun	creature you control->artifact you control	\bcreature you control\b	artifact you control	gets? |gains? |power|toughness|block|attack|have |has |dies|combat
+noun	sacrifice a creature->sacrifice an artifact	\b([Ss])acrifice a creature\b	$1acrifice an artifact	
+noun	sacrifice a creature->sacrifice a land	\b([Ss])acrifice a creature\b	$1acrifice a land	
+noun	creature card->artifact card	\bcreature card\b	artifact card	
+noun	creature card->land card	\bcreature card\b	land card	
+noun	creature cards->enchantment cards	\bcreature cards\b	enchantment cards	
+noun	instant or sorcery->artifact or enchantment	\binstant or sorcery\b	artifact or enchantment	
+noun	creature spell->artifact spell	\bcreature spell\b	artifact spell	
+noun	noncreature spell->enchantment spell	\bnoncreature spell\b	enchantment spell	
+noun	you control->an opponent controls	\byou control\b	an opponent controls	Enchant|don't|If you|if you|As long as you
+noun	each opponent->each player	\b([Ee])ach opponent\b	$1ach player	
+noun	target opponent->target player	\b([Tt])arget opponent\b	$1arget player	
+noun	each creature->each artifact	\b([Ee])ach creature\b	$1ach artifact	power|toughness|gets|block|attack|damage|counter
+verb	Destroy target->Exile target	\bDestroy target\b	Exile target	
+verb	Exile target->Destroy target	\bExile target\b(?! card)	Destroy target	
+verb	Destroy all->Exile all	\bDestroy all\b	Exile all	
+verb	destroy target->exile target	\bdestroy target\b	exile target	
+verb	exile target->destroy target	\bexile target\b(?! card)	destroy target	
+verb	Tap target->Untap target	\bTap target\b	Untap target	
+verb	Untap target->Tap target	\bUntap target\b	Tap target	
+verb	tap target->untap target	\btap target\b	untap target	
+verb	Scry N->Surveil N	\bScry (\d)\b	Surveil $1	
+verb	scry N->surveil N	\bscry (\d)\b	surveil $1	
+verb	Surveil N->Scry N	\bSurveil (\d)\b	Scry $1	
+verb	surveil N->scry N	\bsurveil (\d)\b	scry $1	
+verb	you gain N life->you lose N life	\byou gain (\d) life\b	you lose $1 life	
+verb	You gain N life->You lose N life	\bYou gain (\d) life\b	You lose $1 life	
+verb	loses N life->gains N life	\bloses (\d) life\b	gains $1 life	
+verb	Draw a card->Discard a card	\bDraw a card\b	Discard a card	
+verb	draw a card->discard a card	\bdraw a card\b	discard a card	
+verb	discard a card->draw a card	\bdiscard a card\b	draw a card	
+verb	-mill N->draw N: mill two cards->draw two cards	\bmill (two|three|four) cards\b	draw $1 cards	
+verb	Food token->Treasure token	\bFood token\b	Treasure token	
+verb	Treasure token->Clue token	\bTreasure token\b	Clue token	
+verb	Clue token->Food token	\bClue token\b	Food token	
+verb	+1/+1 counter->-1/-1 counter	\+1/\+1 counter	-1/-1 counter	
+verb	gains flying->gains trample	\bgains? flying\b	gains trample	
+verb	gains trample->gains deathtouch	\bgains? trample\b	gains deathtouch	
+verb	has flying->has vigilance	\bhas flying\b	has vigilance	
+verb	return it to hand->exile it	\b[Rr]eturn target (.+?) to its owner's hand\b	Exile target $1	
+event	When this creature enters->When this creature dies	\b(When|Whenever) this creature enters\b	When this creature dies	
+event	When this creature enters->Whenever this creature attacks	\b(When|Whenever) this creature enters\b	Whenever this creature attacks	
+event	When this creature enters->Whenever this creature blocks	\b(When|Whenever) this creature enters\b	Whenever this creature blocks	
+event	When this creature dies->When this creature enters	\bWhen this creature dies\b	When this creature enters	
+event	Whenever this creature attacks->blocks	\bWhenever this creature attacks\b	Whenever this creature blocks	
+event	Whenever this creature attacks->becomes tapped	\bWhenever this creature attacks\b	Whenever this creature becomes tapped	
+event	deals combat damage to a player->dies	\bWhenever this creature deals combat damage to a player\b	Whenever this creature dies	
+event	Whenever you scry->surveil	\bWhenever you scry\b	Whenever you surveil	
+event	Whenever you surveil->scry	\bWhenever you surveil\b	Whenever you scry	
+event	Whenever you gain life->lose life	\bWhenever you gain life\b	Whenever you lose life	
+event	Whenever you lose life->gain life	\bWhenever you lose life\b	Whenever you gain life	
+event	Whenever you draw a card->discard a card	\bWhenever you draw a card\b	Whenever you discard a card	
+event	Whenever you discard a card->draw a card	\bWhenever you discard a card\b	Whenever you draw a card	
+event	Whenever you sacrifice->an artifact	\bWhenever you sacrifice an? \w+\b	Whenever you sacrifice an artifact	
+event	Whenever you cast a noncreature spell->artifact spell	\bWhenever you cast a noncreature spell\b	Whenever you cast an artifact spell	
+event	Whenever you cast a creature spell->enchantment spell	\bWhenever you cast a creature spell\b	Whenever you cast an enchantment spell	
+event	Whenever a creature you control dies->artifact	\bWhenever a creature you control dies\b	Whenever a nontoken creature you control dies	
+event	Whenever another creature you control enters->an artifact you control	\bWhenever another creature you control enters\b	Whenever an artifact you control enters	
+event	At beginning of your upkeep->end step	\bAt the beginning of your upkeep\b	At the beginning of your end step	
+event	At beginning of your end step->upkeep	\bAt the beginning of your end step\b	At the beginning of your upkeep	
+event	At beginning of your end step->combat	\bAt the beginning of your end step\b	At the beginning of combat on your turn	
+event	At beginning of combat->first main	\bAt the beginning of combat on your turn\b	At the beginning of your first main phase	
+number	draw a card->draw two cards	\b([Dd])raw a card\b	$1raw two cards	
+number	draw two cards->draw three cards	\b([Dd])raw two cards\b	$1raw three cards	
+number	deals N damage->N+ damage	\bdeals 2 damage\b	deals 5 damage	
+number	deals 3 damage->deals 4 damage	\bdeals 3 damage\b	deals 4 damage	
+number	deals 1 damage->deals 2 damage	\bdeals 1 damage\b	deals 2 damage	
+number	gain N life->gain 7 life	\bgain \d life\b	gain 7 life	
+number	+1/+1 until EOT->+3/+3	\bgets \+1/\+1 until end of turn\b	gets +3/+3 until end of turn	
+number	+2/+2 until EOT->+1/+3	\bgets \+2/\+2 until end of turn\b	gets +1/+3 until end of turn	
+number	mill two cards->mill four cards	\bmill two cards\b	mill four cards	
+number	create a 1/1 ->create two 1/1	\bcreate a (\d/\d) (.+?) token\b	create two $1 $2 tokens	
+number	create a 2/2->create a 3/3	\bcreate a 2/2\b	create a 3/3	
+number	scry 1->scry 3	\b([Ss])cry 1\b	$1cry 3	
+number	put a +1/+1 counter->put two +1/+1 counters	\b([Pp])ut a \+1/\+1 counter on\b	$1ut two +1/+1 counters on	
+duration	until end of turn->until your next turn	\buntil end of turn\b	until your next turn	
+cost	{T}:->{1}, {T}:	^\{T\}: 	{1}, {T}: 	Add 
+cost	{1}, {T}:->{3}, {T}:	^\{1\}, \{T\}: 	{3}, {T}: 	
+cost	{T}, Sacrifice this->{2}, Sacrifice this	^\{T\}, Sacrifice this (\w+): 	{2}, Sacrifice this $1: 	
+cost	Sacrifice a creature:->Sacrifice an artifact:	\bSacrifice a creature: 	Sacrifice an artifact: 	
+cost	Pay N life->Pay 5 life	\bPay \d life\b	Pay 5 life	
+cost	{T}, Discard a card->{T}, Exile this?	^\{T\}, Discard a card: 	{T}, Sacrifice a land: 	
+condition	if you control a X->if you control an artifact	\bif you control an? [A-Za-z]+\b	if you control an artifact	
+condition	As long as you control->an enchantment	\bAs long as you control an? [A-Za-z]+\b	As long as you control an enchantment	
+condition	if it's your turn->if it's not your turn	\bit's your turn\b	it's not your turn	
+condition	During your turn->During each opponent's turn	^During your turn\b	During each opponent's turn	
+condition	unless you control->unless an opponent controls	\bunless you control\b	unless an opponent controls	

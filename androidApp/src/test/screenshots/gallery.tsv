@@ -177,3 +177,4 @@ number	item	screenshot	catalog	decisions
 176	Dashed attacker slot on the active lane	combat-band/attacker-slot.png	CMB-028 CMB-012
 177	Assume mode with the blocker slots	combat-band/assume-slots.png	CMB-040 CMB-034
 178	Draft: Build deck cover chooser	pod-build-cover.png	DRF-166 LOB-058	
+179	Draft: Build header warnings	pod-build-warnings.png	DRF-094 DRF-119	

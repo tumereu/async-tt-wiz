@@ -74,6 +74,17 @@ internal fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()
 
+/** DRF-094: why a section's header warns, by the very rules Submit goes by ([podBuildSubmitEnabled], DRF-119); null when it
+ * doesn't. Main warns under its minimum, Side over its limit. */
+internal fun podBuildHeaderWarning(category: PodDeckCategory, build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?): String? {
+    val issue = when (category) {
+        PodDeckCategory.MAIN -> PodDeckIssue.MAIN_TOO_SMALL
+        PodDeckCategory.SIDE -> PodDeckIssue.SIDEBOARD_LIMIT
+        PodDeckCategory.MAYBE -> return null
+    }
+    return issue.takeIf { it in PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit) }?.let { podBuildIssueText(it, sideboardLimit) }
+}
+
 internal fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): String = when (issue) {
     PodDeckIssue.MAIN_TOO_SMALL -> "Main needs 40 cards"
     PodDeckIssue.DECK_TOO_LARGE -> "Main + Side including basics exceeds ${DeckValidation.MAX_CARDS} cards"

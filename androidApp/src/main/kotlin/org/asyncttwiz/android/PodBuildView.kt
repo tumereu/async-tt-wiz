@@ -190,8 +190,13 @@ fun PodBuildView(
                             verticalAlignment = Alignment.CenterVertically) {
                             Text(when (category) { PodDeckCategory.MAIN -> podBuildMainTitle(build, copies, definitions); PodDeckCategory.SIDE -> podBuildSideTitle(build, copies, definitions)
                                 else -> "${category.podBuildLabel()} $count" },
-                                Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
+                                Modifier.padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
+                            podBuildHeaderWarning(category, build, copies, sideboardLimit)?.let { why ->
+                                HoldWarningIcon(why, Modifier.padding(start = 4.dp).testTag("pod-build-warning-$category"),
+                                    onTap = if (reviewable) ({ openFeed(category, null) }) else null)
+                            }
+                            Spacer(Modifier.weight(1f))
                             if (reviewable) Text("Review ›", color = sectionColor.copy(alpha = .8f),
                                 style = MaterialTheme.typography.labelMedium)
                         }

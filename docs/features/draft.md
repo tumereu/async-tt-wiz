@@ -149,7 +149,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-092** Build is one scrolling page with Main, Side and Maybe sections (green, blue and amber headers with counts, the card list sections' colours, SYS-054); nothing sticks to the top, the deck name and headers scroll away. (r60)
 - **DRF-093** Build works during the draft too: new picks land in Main without moving anything else, and every change is saved on the server. (r16)
-- **DRF-094** The Main header reads "Main X + Y = Z" (nonland cards + all lands incl. basics); Side uses the same split once it holds lands. (r23)
+- **DRF-094** The Main header reads "Main X + Y = Z" (nonland cards + all lands incl. basics); Side uses the same split once it holds lands. By the same rules as Submit (DRF-119), a warning icon follows the header while Main is under 40 or Side is over its limit; holding it says why ("Main needs 40 cards", "Side exceeds its limit of N cards"). (r61)
 - **DRF-095** Columns sit side by side filling the width: Lands, then mana value 0, 1, 2 … with the last column "and above"; 2–10 columns, default 7, saved per device and orientation. (r16)
 - **DRF-096** "Build · cards side by side" puts 1–3 cards next to each other in every column, default 1 in both orientations. (r22)
 - **DRF-097** Column labels show the column's card count on a line under the label; columns are faintly tinted, cards whole (never overlapped), 1 dp apart, with wide side margins. (r23)

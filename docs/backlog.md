@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, screens (owner, 2026-11-09):
 
-- Main and Side headers (DRF-094, DRF-119): a warning icon when Main is under 40 or Side is over its limit; holding it says why.
 - Graveyard and exile (ZON-033, ZON-035): a tap opens the search view at once; the one-button menu goes.
 - Menus (LOB-015, LOB-018): Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and Pods come above the menu section.
 - Stats (LOB-132): match length in 4-turn ranges from 1-4 to 33+; the top tiles fill the whole width; win % by colour uses real mana symbols.

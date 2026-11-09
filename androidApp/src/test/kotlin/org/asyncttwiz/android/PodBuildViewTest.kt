@@ -435,6 +435,43 @@ class PodBuildViewTest {
             "the Side card: the Choose cover list holds the Main and Side cards, the chosen one marked, the Maybe card not among them.")
     }
 
+    // DRF-094: Main under 40 and Side over its limit each warn in their header; holding the icon says why, its tap is the
+    // header's own, and Maybe never warns
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun headersWarnWhenSubmitsRulesAreNotMet() {
+        val copies = mapOf("a" to DraftCopy("a", "digest"), "s" to DraftCopy("s", "digest"))
+        var build by mutableStateOf(PodDeckBuild(listOf(PodDeckCopy("a"), PodDeckCopy("s", PodDeckCategory.SIDE)), PodDeckBasics(plains = 30)))
+        compose.setContent { NoRipples { ScreenTheme {
+            PodBuildView(build, copies, mapOf("digest" to card), 0, true, true, { _, _ -> }, { _, _ -> }, {})
+        } } }
+        val main = compose.onNodeWithTag("pod-build-warning-MAIN", useUnmergedTree = true).assertContentDescriptionEquals("Main needs 40 cards")
+        compose.onNodeWithTag("pod-build-warning-SIDE", useUnmergedTree = true).assertContentDescriptionEquals("Side exceeds its limit of 0 cards")
+        compose.onNodeWithTag("pod-build-warning-MAYBE", useUnmergedTree = true).assertDoesNotExist()
+        assertTrue(compose.onNodeWithText("Main 1 + 30 = 31", useUnmergedTree = true).getUnclippedBoundsInRoot().right <= main.getUnclippedBoundsInRoot().left)
+        compose.onNodeWithText("Submit deck (31)").assertIsNotEnabled()
+        compose.waitForIdle()
+        compose.onRoot().captureShot("$SCREENSHOTS/pod-build-warnings.png", "The Build tab with 31 cards in Main and a card in " +
+            "a Side limited to none: an amber warning icon by each header, the Submit button greyed for the same reasons.")
+        main.performClick()
+        compose.onNodeWithTag("pod-build-feed").assertExists()
+    }
+
+    // DRF-094: holding the warning says why
+    @Test fun holdingAHeaderWarningSaysWhy() {
+        compose.setContent { ScreenTheme {
+            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithText("Main needs 40 cards").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-warning-MAIN").performTouchInput { down(center); advanceEventTime(1000); move() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Main needs 40 cards").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-warning-MAIN").performTouchInput { up() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Main needs 40 cards").assertDoesNotExist()
+    }
+
     // DRF-166: nothing to choose from while Main and Side are empty
     @Test fun theCoverThumbnailDoesNothingWithoutCards() {
         compose.setContent { ScreenTheme {

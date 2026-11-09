@@ -2,7 +2,10 @@ package arcanum.engine.action
 
 import arcanum.api.Zone
 import arcanum.engine.change.Change
+import arcanum.engine.change.GameEvent
 import arcanum.engine.change.Recorder
+import arcanum.engine.decision.Continuation
+import arcanum.engine.decision.Decision
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
@@ -61,5 +64,41 @@ internal object LibraryPlaces {
             parts.getOrPut(place ?: -1) { mutableListOf() } += id
         }
         return parts.entries.sortedBy { it.key }.map { it.value }.filter { it.size > 1 }
+    }
+
+    /**
+     * The library cards the step waiting on [GameState.pending] has already read (CR 401.2: a player has looked at them, or
+     * they left the library, on the way to this decision). A step that stops for a decision keeps nothing of what it did and
+     * is redone from its start once answered (D29), so nothing in the state says so: it is worked out by redoing the step on
+     * a copy up to the decision. A reorder must leave these cards where they are, or the step redone with the answer would
+     * read other cards than the decision shows (problem report DH3QX6: "Manifest which card?" refused every answer after a
+     * rewind to it). Only a resolution or an event reads a library before asking; a flow that can't be redone here keeps what
+     * the decision itself names.
+     */
+    fun readByOpenStep(state: GameState): Set<ObjectId> {
+        val open = state.pending ?: return emptySet()
+        val taken = mutableListOf<Change>()
+        val work = Recorder(state.deepCopy())
+        work.takenBack = taken
+        work.record(arcanum.engine.change.Changes.pending(work.state, null))
+        try {
+            when (val c = open.continuation) {
+                is Continuation.Resolving -> if (c.otherView == null) arcanum.engine.resolution.Resolution.run(work, c)
+                is Continuation.Event -> c.planned?.let { Events.run(work, it, c.then, c.answers) }
+                else -> {}
+            }
+        } catch (_: IllegalArgumentException) { // Not redone as it was asked: the decision's own cards stay all the same
+        } catch (_: IllegalStateException) {
+        }
+        val read = taken.flatMap { change ->
+            when (change) {
+                is Change.Shown -> change.ids
+                is Change.ZoneChange -> change.moves.filter { it.before.zone == Zone.Library }.map { it.before.id }
+                is Change.Filled -> listOf(change.after.id)
+                is Change.Happened -> (change.event as? GameEvent.Revealed)?.ids.orEmpty()
+                else -> emptyList()
+            }
+        }
+        return (read + ((open.decision as? Decision.ChooseObjects)?.options).orEmpty()).toSet()
     }
 }

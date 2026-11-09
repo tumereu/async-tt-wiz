@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
 
-- The game's end (TRN-065, LOB-126, HIS-084): OK always works, but is greyed for the first seconds any ending or suggestion dialog shows, so a misclick can't accept it. For a result the rules gave: after your OK you stay at the table, "Waiting for <name> to acknowledge"; your OK can be taken back until they press theirs; both OKs make it final and only then does each player go to the lobby; Undo works until it is final, with the usual approval. A concession or an agreed result is final at once, and each player goes to the lobby only after their own OK.
 - Reveals (HIS-110): every reveal shows to both players with an OK, your own included, and dismissing it is each player's own. Check that "reveal until a land" (House Cartographer) counts as a reveal for both.
 - Assume default (LOB-113, HIS-096): "No mana" is the default, for every account's new games too (a migration); games in play keep theirs.
 - Ability chips (TBL-122, TBL-124, TBL-130): a card with two or more activated abilities opens the chips even when one is usable now, the unusable greyed with why; during a payment a tap still picks the source.

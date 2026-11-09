@@ -19,9 +19,9 @@ object NextStop {
     /**
      * [player]'s next stop: [model] is the state at their local head [localHead] (used up), [after] the main line's
      * events after it. Playback stops at an assumed input about them where [mode] stops (assumed blocks and keeps
-     * always), at the game's result when it lies past their local head (they must see it before it is final, §11,
-     * TRN-065: so it is their move and they are told), and at the head when the game waits for them there (in the
-     * opening also their own mulligan declared alongside the other player's, TRN-027).
+     * always), at the game's result until their OK stands on it (it can't be final without it, TRN-065: so it is their
+     * move and they are told and reminded), and at the head when the game waits for them there (in the opening also their
+     * own mulligan declared alongside the other player's, TRN-027).
      */
     fun of(model: GameModel, localHead: String, after: List<GameEvent>, player: PlayerId, mode: ResponseMode): Stop? {
         var at = localHead
@@ -32,8 +32,9 @@ object NextStop {
                 stopsAt(model.engine, input, player, mode)) return Stop(at, event.id)
             model.apply(event)
             at = event.id
-            if (Engine.result(model.engine) != null) return Stop(at, null)
+            if (Engine.result(model.engine) != null && player !in model.table.resultOks) return Stop(at, null)
         }
+        if (Engine.result(model.engine) != null) return if (player in model.table.resultOks) null else Stop(at, null)
         return if (Attention.of(model.engine) == player || declares(model.engine, player)) Stop(at, null) else null
     }
 
@@ -43,7 +44,7 @@ object NextStop {
      * (The server also gives the move to the other player than the asker of an open undo request or result suggestion.) That is when [head] (the main line's head) is their
      * decision (their turn's stops, a choice only they make, an information-rule stop, a wait instead of an assumption,
      * or the other player's line running out without them: all leave the head at their decision), their opening
-     * declaration, or the game's result they haven't seen yet. Not while the other player is still playing on
+     * declaration, or the game's result they haven't pressed OK on. Not while the other player is still playing on
      * assumptions about them (the head is then the other player's), however the head came about (play, branch, rewind).
      */
     fun waitsFor(head: GameState, player: PlayerId, stop: Stop?): Boolean =
@@ -121,7 +122,8 @@ object Rewind {
     /** The other players' table-only events among [after] that a rewind by [player] keeps: added again at the new head
      * while they still apply there. */
     fun standing(after: List<GameEvent>, player: PlayerId): List<GameEvent> =
-        after.filter { it.author != player.value && it.engine == null && it.table.none { c -> c is TableChange.LineMoved } }
+        // TRN-065: an OK stood on the result the rewind takes back: it never stands
+        after.filter { it.author != player.value && it.engine == null && it.table.none { c -> c is TableChange.LineMoved || c is TableChange.ResultOk } }
 
     /**
      * What a rewind by [player] to [target] adds (owner's rule 2026-11-04: an undo only pops events, it adds none of its

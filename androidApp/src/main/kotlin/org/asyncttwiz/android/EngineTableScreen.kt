@@ -39,8 +39,10 @@ import org.asyncttwiz.protocol.game.GameDevice
 @Composable
 internal fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     val state = controller.table.value
-    val game = state.detail ?: return
+    val detail = state.detail ?: return
     val live = state.board ?: return
+    // TRN-065: a table staying on after its play ended (until the player's own OK) still draws that play
+    val game = if (detail.playId == live.playId) detail else detail.copy(playId = live.playId)
     val engine = controller.engineGame() ?: return
     // What the engine thread published last (I-D56 step D2): the table reads nothing else of the device
     val shown = engine.shown ?: return

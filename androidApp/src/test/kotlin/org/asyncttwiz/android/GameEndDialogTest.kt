@@ -51,6 +51,22 @@ class GameEndDialogTest {
         assertEquals(GameEndText("Draw", "An endless loop"), text(null, MatchEnding.Draw(loop = true)))
     }
 
+    // TRN-065 (owner, 2026-11-09): with the player's OK standing, the dialog says who it waits for, and Take back OK takes OK's place
+    @Test fun anOkThatStandsShowsWhoItWaitsForAndCanBeTakenBack() {
+        var taken = 0
+        compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
+            GameEndDialog(GameEndText("You won", "Bob's life reached 0"), "Waiting for Bob to acknowledge", takeBack = { taken++ }, ok = {})
+        } } } }
+        compose.waitForIdle()
+        val dialog = hasTestTag(GAME_END_DIALOG_TAG)
+        compose.onNode(hasText("Waiting for Bob to acknowledge") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNode(hasText("OK") and hasAnyAncestor(dialog), useUnmergedTree = true).assertDoesNotExist()
+        captureShot("$SCREENSHOTS/engine/game-end-waiting.png", "Alice pressed OK on her win by the rules: the dialog stays with " +
+            "\"Waiting for Bob to acknowledge\" under the reason, the eye at its bottom left and Take back OK at its right.")
+        compose.onNode(hasText("Take back OK") and hasClickAction()).performClick()
+        assertEquals(1, taken)
+    }
+
     // TRN-065, TRN-064: Bob concedes in Alice's first turn: her table shows "You won" and "Bob conceded" in a dialog in the
     // middle of the screen with the eye and OK; the eye hides it (only the eye stays) and brings it back
     @Test fun theOtherPlayersConcessionShowsTheDialogOverTheBoard() {
@@ -74,7 +90,12 @@ class GameEndDialogTest {
         compose.onNode(hasText("You won") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
         val reason = compose.onAllNodes(hasText("conceded", substring = true) and hasAnyAncestor(dialog), useUnmergedTree = true)
         reason.assertCountEquals(1)
-        compose.onNode(hasText("OK") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsEnabled()
+        // TRN-065: OK is greyed for the dialog's first moments, so a misplaced tap can't accept it
+        val ok = compose.onNodeWithTag(GAME_END_OK_TAG, useUnmergedTree = true)
+        ok.assertIsNotEnabled()
+        compose.mainClock.advanceTimeBy(OK_GREY_MILLIS)
+        compose.waitForIdle()
+        ok.assertIsEnabled()
         captureShot("$SCREENSHOTS/engine/game-end-dialog.png", "Bob conceded in Alice's first turn: her table shows a dialog " +
             "in the middle of the screen with \"You won\" and \"Bob conceded\" under it, the eye at its bottom left and OK at its right.")
         compose.onNodeWithContentDescription("Hide result").performClick()

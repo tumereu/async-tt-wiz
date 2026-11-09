@@ -1,0 +1,1 @@
+fix: A game's end now waits for your own OK: the OK works even before your opponent has caught up, it can be taken back until they press theirs, and both of you go to the lobby only once both have pressed. It is greyed for a moment, on suggestions too, so a stray tap can't accept.

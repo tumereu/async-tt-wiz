@@ -1,0 +1,1 @@
+Alice pressed OK on her win by the rules: the dialog stays with "Waiting for Bob to acknowledge" under the reason, the eye at its bottom left and Take back OK at its right.

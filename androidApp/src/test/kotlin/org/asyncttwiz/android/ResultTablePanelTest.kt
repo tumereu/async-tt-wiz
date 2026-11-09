@@ -78,6 +78,7 @@ class ResultTablePanelTest {
         compose.runOnIdle { opponent = true }
         compose.onNodeWithContentDescription("Withdraw result").assertDoesNotExist()
         compose.onNodeWithContentDescription("Decline result").performClick()
+        compose.mainClock.advanceTimeBy(OK_GREY_MILLIS)
         compose.onNodeWithContentDescription("Accept result").performClick()
         assertEquals(listOf(target, target), rejected)
         assertEquals(listOf(target), accepted)

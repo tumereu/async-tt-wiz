@@ -138,7 +138,7 @@ class GameDevice(
 
     /** Whether playback waits, paused, for the player's Play before it starts ([play] ends it; §29.1). Past the opening
      * only: the opening shows at once ([opening]); any submission of the player's ends it. */
-    var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
+    var catchUp: Boolean = session.buffered.any { it.author != session.me.value && !okOnly(it) }
         private set
 
     /**
@@ -280,13 +280,14 @@ class GameDevice(
         data object YourMove : Status
         /** Waiting for the other player: [reason] for the waiting bar, [offer] its Assume button (null: none). */
         data class Waiting(val reason: Wait, val offer: Offer? = null) : Status
-        /** The game's [result] (from the shown state): [confirmable] once both local heads reached it (OK, TRN-065);
-         * [final] once confirmed, or after a concession or an accepted suggestion. [ending]: how it ended; [endedBy]:
-         * the player whose own action made it final (the conceder, the player who accepted, the player who confirmed),
-         * who has seen it already (TRN-065: they go on without a second OK). */
+        /** The game's [result] (from the shown state): [confirmable] while this player may press OK on it (TRN-065: from
+         * the moment it shows, however far the other player has seen); [final] once both OKs stand, or after a concession or
+         * an accepted suggestion. [ending]: how it ended; [endedBy]: the player whose own action made it final (the conceder,
+         * the player who accepted), who has seen it already (they go on without a second OK); [ownOk]: this player's OK
+         * stands, and may be taken back ([takeBackResult]) until it is final. */
         data class Over(val result: GameResult, val confirmable: Boolean, val final: Boolean,
             val ending: org.asyncttwiz.protocol.MatchEnding = org.asyncttwiz.protocol.MatchEnding.ByRules,
-            val endedBy: PlayerId? = null) : Status
+            val endedBy: PlayerId? = null, val ownOk: Boolean = false) : Status
         /** Nothing to do (before the game starts). */
         data object Idle : Status
     }
@@ -372,7 +373,7 @@ class GameDevice(
             return stop?.let { Status.Stopped(next, it, paused = decision == null) } ?: Status.Playing(next)
         }
         val s = model.engine
-        Engine.result(s)?.let { return Status.Over(it, confirmable(), final(), ending(s, it), endedBy()) }
+        Engine.result(s)?.let { return Status.Over(it, confirmable(), final(), ending(s, it), endedBy(), me in model.table.resultOks) }
         if (request != null) return Status.Waiting(Wait.Request)
         if (locked) return Status.Waiting(Wait.Suggestion)
         // R3: worked out once per point (the searches below don't run again while nothing they read changed)
@@ -430,10 +431,10 @@ class GameDevice(
      * Whose move the game is for this player (TRN-058, I-D57): the player the game really waits for, as the server keeps
      * it for the game list and notifications ([NextStop.waitsFor], `engine_seat.waited`), worked out on the main line's
      * head as this device knows it (its own pending events included): the other player than the asker of an open undo
-     * request or result suggestion; else, at a result, this player when they haven't been shown it, the other player
-     * while they haven't reached it; else this player when the head is their decision or opening declaration, the other
+     * request or result suggestion; else, at a result, this player until their OK stands on it, then the other player
+     * while theirs doesn't (TRN-065); else this player when the head is their decision or opening declaration, the other
      * player when it is theirs. So a decision stop of this player's behind the head, while the other player plays on
-     * assumptions about them, is the other player's move. Null when the game waits for nobody (both have seen a result,
+     * assumptions about them, is the other player's move. Null when the game waits for nobody (both OKs stand on a result,
      * or before the start). A draft of the player's own at the head is their move.
      */
     val move: PlayerId? get() {
@@ -442,20 +443,21 @@ class GameDevice(
         if (session.drafting && !session.behind) return me
         val facts = headFacts() ?: return me
         facts.suggestedBy?.let { return if (it == me) opponent else me }
-        if (facts.result) return if (session.behind) me else opponent.takeIf { heads[opponent] != session.tip }
+        if (facts.result) return if (me !in facts.resultOks) me else opponent.takeIf { it !in facts.resultOks }
         return if (me in facts.waiting) me else opponent.takeIf { it in facts.waiting }
     }
 
     /** What the main line's head says about whose move it is ([move]): its open result suggestion's author, whether it
      * holds the game's result, the players whose decision or opening declaration it is. */
-    private class HeadFacts(val head: String, val suggestedBy: PlayerId?, val result: Boolean, val waiting: Set<PlayerId>)
+    private class HeadFacts(val head: String, val suggestedBy: PlayerId?, val result: Boolean, val waiting: Set<PlayerId>,
+        val resultOks: Set<PlayerId>)
     private var behindFacts: HeadFacts? = null
 
     /** [HeadFacts] of the head: of the shown state at the head, else of the head's state worked out once per head (the
      * last worked out while a draft behind the head is open). */
     private fun headFacts(): HeadFacts? {
         fun of(head: String, m: GameModel) = HeadFacts(head, m.table.suggestion?.by, Engine.result(m.engine) != null,
-            Attention.of(m.engine).let { who -> players.filter { it == who || NextStop.declares(m.engine, it) }.toSet() })
+            Attention.of(m.engine).let { who -> players.filter { it == who || NextStop.declares(m.engine, it) }.toSet() }, m.table.resultOks)
         if (!session.behind) return of(session.tip, model)
         behindFacts?.takeIf { it.head == session.head }?.let { return it }
         if (session.drafting) return behindFacts
@@ -510,7 +512,41 @@ class GameDevice(
 
     /** The player is back and the device has everything the server had: with nothing of the other player's past the
      * local head the game is live again (HIS-006); else it stays paused for Play. */
-    fun returned() { if (session.buffered.none { it.author != session.me.value }) catchUp = false }
+    fun returned() { if (session.buffered.none { it.author != session.me.value && !okOnly(it) }) catchUp = false }
+
+    /** TRN-065: whether [event] only says a player pressed OK on the result or took it back: nothing to watch. */
+    private fun okOnly(event: GameEvent): Boolean = event.engine == null && event.table.isNotEmpty() && event.table.all { it is TableChange.ResultOk }
+
+    /** TRN-065: the other player's OK on the result, or its take-back, next in line: shown at once, whatever else waits (no
+     * playback, no pause, no catch-up: the result's dialog stays as it is, with their word in it). */
+    private fun showResultOks() {
+        while (!needsReload && !holding && !session.drafting && session.pending.isEmpty() && session.behind && okOnly(session.buffered.first())) {
+            val event = session.showNext()
+            remember("result OK of ${event.author} shown: ${event.table}")
+        }
+        if (!session.behind) { pausing = false; catchUp = false }
+    }
+
+    /**
+     * TRN-065 (owner, 2026-11-09): the other player's concession or accepted suggestion ended the game while this player
+     * stands at the table, and they stay there until their own OK. Nothing more can be made on the game, so what they
+     * hadn't watched yet shows at once (no stops: they could no longer answer one), the result's dialog next; no reveal or
+     * play shown stands in front of it. Whether the device could do it (else the game goes to its lobby at once).
+     */
+    fun showToTheEnd(): Boolean {
+        if (needsReload || holding) return false
+        session.abandon()
+        catchUp = false
+        pausing = false
+        endChain("game over")
+        if (session.pending.isNotEmpty()) return false
+        while (session.behind) session.showNext()
+        syncReveals()
+        revealsOpen.clear()
+        showsOpen.clear()
+        remember("to the end: ${where()}")
+        return Engine.result(model.engine) != null
+    }
 
     /** Whether the shown state is in the opening (mulligans, turn 0): never played back (§29.1). */
     private val opening: Boolean get() = model.engine.turn.number == 0
@@ -533,6 +569,7 @@ class GameDevice(
         if (stopAt(session.buffered.first()) != null) return null
         var shown: GameEvent
         do shown = session.showNext() while (opening && session.behind && !viewHolds() && stopAt(session.buffered.first()) == null)
+        showResultOks()
         if (!session.behind) { pausing = false; catchUp = false }
         return shown
     }
@@ -571,6 +608,7 @@ class GameDevice(
 
     init {
         // A game opened (or loaded again) opens no panel for what was shown before
+        showResultOks()
         val local = session.indexOf(session.localHead) ?: -1
         session.events.take(local + 1).mapTo(revealsSeen) { it.id }
         revealsTip = session.tip
@@ -1354,7 +1392,7 @@ class GameDevice(
         if (needsReload) return Acted.Refused("reload")
         if (holding) return Acted.Refused("playback")
         if (request != null) return Acted.Refused(REWIND_REQUESTED)
-        if (locked && changes.any { it !is TableChange.Suggestion && it !is TableChange.ResultConfirmed }) return Acted.Refused("suggestion")
+        if (locked && changes.any { it !is TableChange.Suggestion && it !is TableChange.ResultOk }) return Acted.Refused("suggestion")
         if (session.behind && changes.any { it is TableChange.AttackDraft || it is TableChange.BlockDraft }) return Acted.Kept
         if (session.behind && changes.any { it is TableChange.EarlyAnswered }) return Acted.Refused("behind")
         if (session.drafting) return Acted.Refused("drafting")
@@ -1412,7 +1450,8 @@ class GameDevice(
             is TableChange.AttackDraft -> c.copy(before = t.attackDraft)
             is TableChange.BlockDraft -> c.copy(before = t.blockDraft)
             is TableChange.Suggestion -> if (t.suggestion != c.before) return null else c
-            is TableChange.ResultConfirmed -> if (t.resultConfirmedBy != c.before) return null else c
+            is TableChange.ResultConfirmed -> return null
+            is TableChange.ResultOk -> if ((c.player in t.resultOks) == c.ok) return null else c
             is TableChange.LineMoved -> return null
         }
     }
@@ -1431,11 +1470,23 @@ class GameDevice(
         return if (accept) act(Input.AgreedResult(s.result), table = clear) else table(clear)
     }
 
-    /** Confirms the result the engine reports once both local heads reached it (TRN-065, §11). */
+    /**
+     * TRN-065 (owner, 2026-11-09): the player's OK on the result the engine reports, whenever it shows to them, however
+     * far the other player has seen: the player stays at the table until the other player's OK makes it final.
+     */
     fun confirmResult(): Acted {
         val over = status as? Status.Over ?: return Acted.Refused("noResult")
-        if (!over.confirmable) return Acted.Refused("waitForCatchUp")
-        return table(listOf(TableChange.ResultConfirmed(null, me)))
+        if (!over.confirmable) return Acted.Refused("noOkToGive")
+        remember("result OK pressed at ${where()}, ok so far ${model.table.resultOks.map { it.value }}")
+        return table(listOf(TableChange.ResultOk(me, true)))
+    }
+
+    /** TRN-065: the player's OK taken back, while the result isn't final (the other player's OK hasn't come). */
+    fun takeBackResult(): Acted {
+        val over = status as? Status.Over ?: return Acted.Refused("noResult")
+        if (!over.ownOk || over.final) return Acted.Refused("noOkToTakeBack")
+        remember("result OK taken back at ${where()}, ok so far ${model.table.resultOks.map { it.value }}")
+        return table(listOf(TableChange.ResultOk(me, false)))
     }
 
     /** An early answer of the player's own (I-D33), only while their local head is the head (§6). */
@@ -1498,7 +1549,8 @@ class GameDevice(
     private fun realInput(e: GameEvent): Boolean {
         if (e.author != me.value || e.assumed != null) return false
         val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
-        if (input == null) return e.table.any { it !is TableChange.LineMoved }
+        // TRN-065, HIS-084: an OK on the result isn't an action Undo goes back to: it goes with the result
+        if (input == null) return e.table.any { it !is TableChange.LineMoved && it !is TableChange.ResultOk }
         if (input is Input.PassPriority) return e.press == MainPress.EndTurn
         origins[e.id]?.let { return it }
         return when (input) {
@@ -1523,6 +1575,8 @@ class GameDevice(
     private fun undoTo(target: String?): Undo {
         endChain("undo")
         if (holding) return Undo.Unavailable("playback")
+        // TRN-065: a final result ended the game: nothing goes back any more
+        if (isFinal()) return Undo.Unavailable("final")
         if (target == null) return Undo.Unavailable("nothing")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting || session.pending.isNotEmpty()) return Undo.Unavailable("sending")
@@ -1577,6 +1631,7 @@ class GameDevice(
     private fun tappedUndo(): Undo {
         endChain("undo")
         if (holding) return Undo.Unavailable("playback")
+        if (isFinal()) return Undo.Unavailable("final")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting) return Undo.Unavailable("drafting")
         if (session.pending.isEmpty() && remaking.isEmpty()) return undo()
@@ -1799,6 +1854,7 @@ class GameDevice(
         checkDraft()
         if (needsReload) return
         followServer()
+        showResultOks()
         trim()
         settleQueuedUndo()
     }
@@ -2188,8 +2244,7 @@ class GameDevice(
     fun notes(): List<Note> = notes.toList().also { notes.clear() }
 
     private fun send(action: GameAction) {
-        // The server takes assumptions and result confirmations only from a local head it knows (I-D56 §6, §11): the
-        // shown head's report goes first
+        // The server takes assumptions only from a local head it knows (I-D56 §6, §11): the shown head's report goes first
         if (action is GameAction.Submit) { report(now, urgent = true); catchUp = false }
         remember("out ${action::class.simpleName}${(action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" }
             ?: (action as? GameAction.EngineRewind)?.let { " ${it.target}" } ?: (action as? GameAction.EngineRequestRewind)?.let { " ${it.target}" }
@@ -2207,12 +2262,13 @@ class GameDevice(
         notes += note
     }
 
-    private fun confirmable(): Boolean {
-        if (session.behind || session.pending.isNotEmpty() || model.table.resultConfirmedBy != null) return false
-        return heads.filterKeys { it != me }.values.all { h -> session.after(h)?.all { it.engine == null } == true }
-    }
+    private fun confirmable(): Boolean = !final() && me !in model.table.resultOks
 
-    private fun final(): Boolean = endedBy() != null
+    /** TRN-065: the result is final: both OKs stand on what the rules gave, or a player's own action ended the game. */
+    private fun final(): Boolean = endedBy() != null || players.all { it in model.table.resultOks }
+
+    /** Whether the shown state is a final result. */
+    private fun isFinal(): Boolean = Engine.result(model.engine) != null && final()
 
     /** The concession on the line, if any. */
     private fun concession(): PlayerId? =
@@ -2221,8 +2277,8 @@ class GameDevice(
     /** The event accepting the other player's suggestion (TRN-047), if any. */
     private fun agreement(): GameEvent? = session.events.lastOrNull { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
 
-    /** TRN-065 (owner 2026-11-07): who made the result final by their own action: the conceder, the player who accepted a
-     * suggestion (it ends the game at once, as a concession does), or the player who confirmed a result the rules gave. */
+    /** TRN-065 (owner 2026-11-07): who made the result final by their own action: the conceder, or the player who accepted a
+     * suggestion (it ends the game at once, as a concession does); [TableState.resultConfirmedBy] only in events already stored. */
     private fun endedBy(): PlayerId? = concession() ?: agreement()?.let { PlayerId(it.author) } ?: model.table.resultConfirmedBy
 
     /** How the game reported [result] on [s] ended (LOB-126's endings). */

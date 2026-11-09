@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.LossCause
 import org.asyncttwiz.protocol.MatchEnding
 import org.asyncttwiz.protocol.ResultNotice
@@ -52,6 +55,8 @@ internal const val RESULT_FIRST = "Tap OK on the last game's result first."
 
 /** The test tag of the game end dialog (TRN-065). */
 internal const val GAME_END_DIALOG_TAG = "game-end-dialog"
+/** The test tag of the game end dialog's OK (TRN-065). */
+internal const val GAME_END_OK_TAG = "game-end-ok"
 
 /**
  * TRN-065 (owner 2026-11-07): the words of a game's end for [viewer]: [title] "You won", "You lost" or "Draw", and
@@ -89,14 +94,30 @@ internal data class GameEndText(val title: String, val reason: String) {
     }
 }
 
+/** TRN-065, TRN-047 (owner, 2026-11-09): how long an ending's OK or a suggestion's Accept stays greyed when it first shows. */
+internal const val OK_GREY_MILLIS = 2_000L
+
 /**
- * TRN-065 (owner 2026-11-07): the result of a game in the middle of the screen: big [text]'s title, its reason, then
- * [waiting] ("Waiting for Bob to catch up", OK greyed) when it can't be confirmed yet, the eye at the bottom left (hides the
- * dialog to look at what is behind it; hidden, only the eye stays, at the same spot, STK-044) and OK at the right.
+ * TRN-065, TRN-047 (owner, 2026-11-09): whether the OK or Accept of a dialog that has just come up may be pressed: greyed for
+ * its first [OK_GREY_MILLIS], so a tap meant for the table can't accept it. On the composition's clock, which tests move on.
  */
 @Composable
-internal fun GameEndDialog(text: GameEndText, waiting: String?, ok: () -> Unit) {
+internal fun rememberOkArmed(): Boolean {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(OK_GREY_MILLIS); armed = true }
+    return armed
+}
+
+/**
+ * TRN-065 (owner 2026-11-09): the result of a game in the middle of the screen: big [text]'s title, its reason, the eye at
+ * the bottom left (hides the dialog to look at what is behind it; hidden, only the eye stays, at the same spot, STK-044) and
+ * [ok] at the right, greyed for its first moments ([rememberOkArmed]) and while not [enabled]. With [takeBack] the player's
+ * OK stands: the dialog adds [waiting] ("Waiting for Bob to acknowledge") and Take back OK takes OK's place.
+ */
+@Composable
+internal fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: Boolean = true, takeBack: (() -> Unit)? = null, ok: () -> Unit) {
     var hidden by remember { mutableStateOf(false) }
+    val armed = rememberOkArmed()
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = "game end")
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val shape = RoundedCornerShape(16.dp)
@@ -120,8 +141,10 @@ internal fun GameEndDialog(text: GameEndText, waiting: String?, ok: () -> Unit) 
                     }
                     Spacer(Modifier.weight(1f))
                     AnimatedVisibility(!hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
-                        ChoiceButton("OK", Icons.Outlined.Check, Modifier.widthIn(min = 88.dp).padding(end = 6.dp),
-                            enabled = waiting == null, primary = true, onClick = ok)
+                        if (takeBack != null) ChoiceButton("Take back OK", Icons.AutoMirrored.Outlined.Undo, Modifier.padding(end = 6.dp),
+                            enabled = enabled, onClick = takeBack)
+                        else ChoiceButton("OK", Icons.Outlined.Check, Modifier.widthIn(min = 88.dp).padding(end = 6.dp).testTag(GAME_END_OK_TAG),
+                            enabled = enabled && armed, primary = true, onClick = ok)
                     }
                 }
         }

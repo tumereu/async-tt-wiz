@@ -784,6 +784,18 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     // ---- The server
 
+    /** TRN-065 (owner, 2026-11-09): [message] ended this play while the player stands at the table (the other player's
+     * concession or accepted suggestion): what they hadn't watched shows at once and the result's dialog stays until their
+     * own OK. [failed] (main thread) when the device can't show it. */
+    fun holdEnd(message: GameRevision, failed: () -> Unit) {
+        revision(message)
+        worker.run {
+            val shownEnd = device.showToTheEnd()
+            publish()
+            if (!shownEnd) worker.main(failed)
+        }
+    }
+
     /** An accepted revision of this play: its engine events in order and the rest of what it changed. */
     fun revision(message: GameRevision) {
         revision = message.resultRevision
@@ -990,7 +1002,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun concede(): GameDevice.Acted = worker.call { device.concede() }.also { after() }
     fun suggest(result: GameResult, note: String = ""): GameDevice.Acted = acting(STALE) { device.suggest(result, note) }
     fun answerSuggestion(accept: Boolean): GameDevice.Acted = acting(STALE) { device.answerSuggestion(accept) }
+    /** TRN-065: the player's OK on the result the rules gave: they stay here until the other player's makes it final. */
     fun confirmResult(): GameDevice.Acted = acting(STALE) { device.confirmResult() }
+    /** TRN-065: the player's OK taken back, until it is final. */
+    fun takeBackResult(): GameDevice.Acted = acting(STALE) { device.takeBackResult() }
     fun settings(settings: PlaySettings) { worker.call { device.settings(settings) }; after() }
 
     /** HIS-035: the app left ([GameDevice.away]): playback pauses at once, and the return starts paused until Play. */

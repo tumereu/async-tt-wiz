@@ -21,7 +21,7 @@ class FdnChunk13ApplyScenariosTest {
         Whenever a creature an opponent controls dies, that player loses 2 life.
     """, "6/5")
     private val hunger = Cards.invent("Hour of Hunger", "{1}{B}", "Instant", "Target creature gets -2/-2 until end of turn. You gain 2 life.")
-    private val triumph = Cards.invent("Hour of Triumph", "{W}", "Instant", "Target creature gets +2/+2 until end of turn. You gain 2 life.")
+    private val triumph = Cards.invent("Dawnlit Triumph", "{W}", "Instant", "Target creature gets +2/+2 until end of turn. You gain 2 life.")
     private val endurance = Cards.invent("Grant Endurance", "{1}{B}", "Instant",
         "Target creature gains deathtouch and indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)")
     private val surge = Cards.invent("Stampede Surge", "{2}{G}{G}{G}", "Sorcery",

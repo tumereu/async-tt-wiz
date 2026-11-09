@@ -260,7 +260,8 @@ internal object Mana {
         val c = if (yield.choice || yield.colors.size > 1) color ?: yield.colors.first() else yield.colors.first()
         return List(yield.amount) {
             ManaUnit(c, source = source, snow = yield.snow, restriction = yield.production.restriction,
-                spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent)
+                spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent,
+                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil)
         }
     }
 

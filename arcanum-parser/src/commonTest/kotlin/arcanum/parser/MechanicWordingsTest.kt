@@ -228,7 +228,8 @@ class MechanicWordingsTest {
     ) parsesTo abilities(arcanum.api.Keyword.Tribute(2), whenThisEnters(Step.Do(Effect.GainLife(arcanum.api.Players.You, Value.Fixed(4))),
         interveningIf = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(arcanum.api.KeywordExpansions.TRIBUTE_PAID))))))
 
-    // CR 702.146b, 614.1a: a disturb back face's "If [this] would be put into a graveyard from anywhere, exile it instead."
+    // CR 702.146b, 614.1a: a disturb back face's "If [this] would be put into a graveyard from anywhere, exile it instead."; CR 113.6b:
+    // "from anywhere" names the zones it functions in, so it works off the battlefield too (on the Stack, in exile)
     @Test
     fun exileItInstead() = card(
         name = "Lingering Shade",
@@ -241,7 +242,8 @@ class MechanicWordingsTest {
             If Lingering Shade would be put into a graveyard from anywhere, exile it instead.
         """,
     ) parsesTo abilities(arcanum.api.Keyword.Flying, Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self),
-        to = Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(Zone.Exile))))), Affected.Objects(Objects.Self)))
+        to = Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(Zone.Exile))))), Affected.Objects(Objects.Self),
+        functionsIn = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Exile, Zone.Stack, Zone.Command)))
 
     // ---- Haunt (CR 702.55)
 

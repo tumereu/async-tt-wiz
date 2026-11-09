@@ -88,7 +88,6 @@ internal object Sos {
     val DESTROY_ALL_WITH_MANA_VALUE_X_OR_LESS = Regex("""Destroy all (.+?) with mana value X or less\.""")
 
     // sos chunk 09: counters
-    val ONE_OR_MORE_COUNTERS_PUT_ON = Regex("""one or more (\S+) counters are put on (.+)""")
     val MOVE_X_COUNTERS_ONTO_ANOTHER = Regex("""At the beginning of combat on your turn, you may pay \{X\}\. When you do, move X (\S+) counters from (.+?) onto another target (.+)\.""")
     val PUT_COUNTER_THEN_DOUBLE = Regex("""Put an? (\S+) counter on target (.+?), then double the number of (\S+) counters on that creature\.""")
     val CREATE_TOKEN_PUT_COUNTERS_OF_SELF = Regex("""[Cc]reate (.+?) token, then put (.+?)'s counters on that token\.""")

@@ -404,7 +404,8 @@ internal object Filters {
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
-    private val SPELLS_YOU_CAST = Regex("""(\w+) spells you cast""")
+    // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
+    private val SPELLS_YOU_CAST = Regex("""(\w+(?:(?:,| or|, or) \w+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")

@@ -7,6 +7,7 @@ internal object Fdn {
     val ADD_WHEN_THAT_MANA_SPENT = Regex("""(\{T\}: Add \{\w\}\.) When that mana is spent to cast an? (.+? spell), (.+)\.""")
     val YOU_PUT_COUNTERS_ON_SELF = Regex("""you put one or more (\S+) counters on (.+)""")
     val COUNTERS_ARE_PUT_ON = Regex("""one or more (\S+) counters are put on (.+)""")
+    val ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT = Regex("""(\{T\}: Add \{\w\}\.) If that mana is spent on an? (.+? spell), it gains ([a-z ]+) until end of turn\.""")
     val DEALT_DAMAGE_BY_DIES = Regex("""an? (\w+) dealt damage by (.+) this turn dies""")
     // fdn chunk 10b
     val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")

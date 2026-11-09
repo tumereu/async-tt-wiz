@@ -2351,8 +2351,10 @@ internal class Sentences(
             return arcanum.api.Trigger.On(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null,
                 causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to null
         }
+        // (also "one or more +1/+1 counters are put on this creature": the object is Self, CR 122.6)
         Fdn.COUNTERS_ARE_PUT_ON.matchEntire(text)?.let { m ->
-            return arcanum.api.Trigger.On(EventPattern.CountersPut(Filters.noun(m.groupValues[2]) ?: return null, Counters.kind(m.groupValues[1]) ?: return null),
+            val objects = if (isSelf(m.groupValues[2])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[2]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.CountersPut(objects, Counters.kind(m.groupValues[1]) ?: return null),
                 oneOrMore = true) to null
         }
         // fdn chunk 11c: "a creature dealt damage by this creature this turn dies" (CR 603.10a: it looks back at the creature as it died)
@@ -15989,10 +15991,6 @@ internal class Sentences(
         // sos chunk 10: "you cast a spell you don't own" (CR 108.3)
         if (Sos.CAST_SPELL_YOU_DONT_OWN.matches(events))
             return arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Not(ObjectFilter.OwnedBy(PlayerFilter.You)), PlayerFilter.You))
-        // sos chunk 09: "one or more +1/+1 counters are put on this creature" (one trigger per event, CR 122.6)
-        Sos.ONE_OR_MORE_COUNTERS_PUT_ON.matchEntire(events)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            return arcanum.api.Trigger.On(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null), oneOrMore = true)
-        }
         return null
     }
 
@@ -17248,9 +17246,10 @@ internal class Sentences(
         // spm chunk 06: "Put him on the bottom of his owner's library. If you do, return the exiled cards to their owners' hands." (the card in
         // the graveyard; the cards its enters ability exiled, CR 607.2a)
         if (Spm.PUT_SELF_ON_BOTTOM_IF_YOU_DO_RETURN_EXILED.matches(text) && context.event is EventPattern.ZoneChange) {
-            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Library, libraryPosition = -1)))),
-                payer = Players.You, mandatory = true, bind = "paid"),
-                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))))
+            // CR 608.2c: "if you do" asks whether it was put there (the card may have left the graveyard meanwhile), not whether the step was tried
+            // CR 608.2c: "if you do" asks whether it was put there (the card may have left the graveyard meanwhile), not whether the step was tried
+            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Library, libraryPosition = -1), postBind = "bottomed")),
+                Step.If(arcanum.api.Condition.NonEmpty("bottomed"), then = listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))))
         }
         // spm chunk 07: "Target creature deals damage equal to its power to itself. If that creature is attacking, Wisecrack deals 2 damage to
         // that creature's controller."
@@ -22607,6 +22606,16 @@ internal class Sentences(
             val copy = Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true))
             val then = Instructions(steps = listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.Object), spell), listOf(copy))))
             return inner.copy(instructions = inner.instructions.copy(steps = listOf(Step.Do(add.copy(mana = add.mana.copy(whenSpent = then))))))
+        }
+        // fdn: "{T}: Add {R}. If that mana is spent on a Dragon creature spell, it gains haste until end of turn." (the spell, and the permanent it
+        // becomes, get it only if it is of that kind, CR 106.6a)
+        Fdn.ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT.matchEntire(line)?.let { m ->
+            val inner = line(m.groupValues[1]) as? Ability.Activated ?: return@let
+            val add = (inner.instructions.steps.singleOrNull() as? Step.Do)?.effect as? Effect.AddMana ?: return@let
+            val spell = Filters.noun(m.groupValues[2]) ?: return@let
+            val keyword = OracleParser.keyword(m.groupValues[3]) ?: return@let
+            return inner.copy(instructions = inner.instructions.copy(steps = listOf(Step.Do(add.copy(mana = add.mana.copy(
+                spellGets = listOf(Mechanic.GainAbilities(listOf(keyword))), spellGetsIf = spell, spellGetsUntil = arcanum.api.Duration.EndOfTurn))))))
         }
         // ltr chunk 09: "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can't be countered." (CR 106.6)
         Ltr.SPEND_ONLY_AND_CANT_BE_COUNTERED.matchEntire(line)?.let { m ->

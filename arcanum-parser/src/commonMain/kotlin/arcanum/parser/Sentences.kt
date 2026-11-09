@@ -2204,6 +2204,9 @@ internal class Sentences(
             instructions = instructions?.withX(Value.CastX(of = Objects.Self))
         // dft chunk 10: X in "when you cycle this card" is the X paid for that cycling (CR 107.3a, 702.29c)
         if (trigger.events.singleOrNull() is EventPattern.Cycle && !rest.contains("where X is")) instructions = instructions?.withX(Value.EventX)
+        // X in "when this creature becomes monstrous" is the X as it became monstrous (CR 701.37c)
+        if ((trigger.events.singleOrNull() as? EventPattern.GotMark)?.mark == arcanum.api.ObjectMark.Monstrous && !rest.contains("where X is"))
+            instructions = instructions?.withX(Value.EventX)
         if (instructions == null) return null
         // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
         // zone the ability works in (CR 113.6b)
@@ -2566,7 +2569,7 @@ internal class Sentences(
         // chunk 30: a step has no object, so "it" is this object ("return it to your hand")
         if (event is EventPattern.StepBegins || event is EventPattern.Expend) context.it = Objects.Self
         // ltr chunk 12: a scry has no object ("Whenever you scry, if Thranduil is tapped, you may untap it"): it is this object
-        if (event is EventPattern.Scry || event is EventPattern.Surveil) context.it = Objects.Self
+        if (event is EventPattern.KeywordActionDone && event.objects == null) context.it = Objects.Self
         // rtr chunk 03: at the beginning of a step of an Aura's enchanted permanent's controller, "it" is that permanent
         if (event is EventPattern.StepBegins && event.whose == PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(Objects.Self)))) context.it = Objects.AttachedTo(Objects.Self)
         // blb chunk 05: "Whenever a creature you control deals combat damage to a player, … exile it": the creature dealing it
@@ -12252,8 +12255,8 @@ internal class Sentences(
             val words = LazyRegexes.BENDING_WORD.findAll(events).map { it.value }.toList()
             return arcanum.api.Trigger.On(words.map { word ->
                 when (word) {
-                    "waterbend" -> EventPattern.Waterbend(PlayerFilter.You); "earthbend" -> EventPattern.Earthbend(PlayerFilter.You)
-                    "firebend" -> EventPattern.Firebend(PlayerFilter.You); else -> EventPattern.Airbend(PlayerFilter.You)
+                    "waterbend" -> ActionWordings.youDid(arcanum.api.KeywordActionKind.Waterbend); "earthbend" -> ActionWordings.youDid(arcanum.api.KeywordActionKind.Earthbend)
+                    "firebend" -> ActionWordings.youDid(arcanum.api.KeywordActionKind.Firebend); else -> ActionWordings.youDid(arcanum.api.KeywordActionKind.Airbend)
                 }
             })
         }
@@ -12747,7 +12750,7 @@ internal class Sentences(
         // once each turn." (CR 603.2h)
         if (Tla.SCRY_OR_SURVEIL_LOOK_CAST.matches(line)) {
             val top = Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true)
-            return Ability.Triggered(arcanum.api.Trigger.On(listOf(EventPattern.Scry(PlayerFilter.You), EventPattern.Surveil(PlayerFilter.You))), Instructions(steps = listOf(
+            return Ability.Triggered(arcanum.api.Trigger.On(listOf(ActionWordings.youDid(arcanum.api.KeywordActionKind.Scry), ActionWordings.youDid(arcanum.api.KeywordActionKind.Surveil))), Instructions(steps = listOf(
                 Step.Do(Effect.LookAt(top, Players.You, bind = "looked")),
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("looked"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), payer = Players.You, bind = "cast"))),
                 actionOncePerTurn = true)
@@ -13134,8 +13137,8 @@ internal class Sentences(
         Tla.DRAW_THEN_IF_ALL_FOUR.tla(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             fun did(event: EventPattern) = arcanum.api.Condition.HappenedThisTurn(event, atLeast = 1, measure = arcanum.api.Measure.Events)
             return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))), Step.If(arcanum.api.Condition.And(listOf(
-                did(EventPattern.Waterbend(PlayerFilter.You)), did(EventPattern.Earthbend(PlayerFilter.You)),
-                did(EventPattern.Firebend(PlayerFilter.You)), did(EventPattern.Airbend(PlayerFilter.You)))),
+                did(ActionWordings.youDid(arcanum.api.KeywordActionKind.Waterbend)), did(ActionWordings.youDid(arcanum.api.KeywordActionKind.Earthbend)),
+                did(ActionWordings.youDid(arcanum.api.KeywordActionKind.Firebend)), did(ActionWordings.youDid(arcanum.api.KeywordActionKind.Airbend)))),
                 then = listOf(Step.Do(Effect.Transform(Objects.Self)))))
         }
         // "you may transform Aang, Master of Elements. If you do, you gain 4 life, draw four cards, put four +1/+1 counters on him, and he deals
@@ -22263,8 +22266,6 @@ internal class Sentences(
             return arcanum.api.Trigger.On(listOf(EventPattern.CreateToken(yours),
                 EventPattern.Sacrifice(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Token), yours))))
         }
-        // ltr chunk 03: "Whenever you scry" (CR 701.22)
-        if (events == "you scry") return arcanum.api.Trigger.On(EventPattern.Scry(PlayerFilter.You))
         // ltr chunk 02: "Whenever you create a token" (each token created, CR 111.1, 603.2)
         if (Ltr.YOU_CREATE_A_TOKEN.matches(events)) return arcanum.api.Trigger.On(EventPattern.CreateToken(ObjectFilter.ControlledBy(PlayerFilter.You)))
         // ltr chunk 01: "Whenever two or more creatures you control attack a player" (once for each player attacked by that many, CR 508.1)

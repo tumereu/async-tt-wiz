@@ -519,6 +519,7 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        ActionWordings.event(text) { subject(it, self) }?.let { return it }
         MechanicWordings.event(text)?.let { return it }
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
@@ -660,10 +661,6 @@ internal object Events {
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         // blb chunk 01
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
-        // blb chunk 02: CR 702.174c
-        if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
-        // blb chunk 03: CR 701.61a
-        if (text == "you forage") return EventPattern.Forage(PlayerFilter.You)
         // blb chunk 05: "this Class becomes level 2" (CR 716.2a)
         BECOMES_LEVEL.matchEntire(text)?.let { m -> return EventPattern.BecomesLevel(subject(m.groupValues[1], self) ?: return null, m.groupValues[2].toInt()) }
         // blb chunk 05: "one or more creatures you control die"

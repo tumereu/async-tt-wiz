@@ -27,6 +27,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - `OracleParser.layout(name, faces)`: the `Layout` for `parseCard` of a card printed with `faces` under a card-data
   layout name (Scryfall's and MTGJSON's: "split", "transform", "modal_dfc", "adventure", ...); null where the parser
   has none. One face is always `Layout.Normal`.
+- Trigger events of doing a keyword action or gaining a mark ("you proliferate", "you exert a creature", "a creature you control explores", "this
+  creature becomes monstrous") are one rule over three small tables of verbs and one of marks (`ActionWordings.kt`), by plain words: a new verb or mark is one line.
 - `OracleParser.VERSION`: the parser's output version. Hosts that store parsed definitions keep them per version
   and parse again when it changes. **Bump it in every change that changes the parser's output for any card.**
 - Subtypes and ability words are accepted only from the lists in the pinned

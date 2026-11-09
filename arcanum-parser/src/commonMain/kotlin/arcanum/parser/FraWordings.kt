@@ -8,6 +8,7 @@ import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.CounterKind
 import arcanum.api.EventPattern
+import arcanum.api.KeywordActionKind
 import arcanum.api.Measure
 import arcanum.api.NumericProperty
 import arcanum.api.ObjectFilter
@@ -170,7 +171,7 @@ internal object FraPhrases {
 
     fun events(text: String, self: Set<String>): List<EventPattern>? {
         // fra chunk 04: "you scry or surveil" (one ability, two events)
-        if (text == "you scry or surveil") return listOf(EventPattern.Scry(PlayerFilter.You), EventPattern.Surveil(PlayerFilter.You))
+        if (text == "you scry or surveil") return listOf(ActionWordings.youDid(KeywordActionKind.Scry), ActionWordings.youDid(KeywordActionKind.Surveil))
         return null
     }
 
@@ -229,8 +230,8 @@ internal object FraPhrases {
         }
         // fra chunk 04: "you've scried or surveilled this turn"
         if (text == "you've scried or surveilled this turn") return Condition.Or(listOf(
-            Condition.HappenedThisTurn(EventPattern.Scry(PlayerFilter.You), atLeast = 1, measure = Measure.Events),
-            Condition.HappenedThisTurn(EventPattern.Surveil(PlayerFilter.You), atLeast = 1, measure = Measure.Events)))
+            Condition.HappenedThisTurn(ActionWordings.youDid(KeywordActionKind.Scry), atLeast = 1, measure = Measure.Events),
+            Condition.HappenedThisTurn(ActionWordings.youDid(KeywordActionKind.Surveil), atLeast = 1, measure = Measure.Events)))
         // fra chunk 07: "an opponent was dealt noncombat damage this turn", "… last turn"
         OPPONENT_DEALT_NONCOMBAT.matchEntire(text)?.let { m ->
             val damage = EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false)

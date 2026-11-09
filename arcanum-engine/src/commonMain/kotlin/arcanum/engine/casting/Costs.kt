@@ -14,7 +14,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 
 /** One part of a total cost with a stable [key]: where its choices are kept while casting. */
-internal data class KeyedPart(val key: String, val part: CostPart)
+internal data class KeyedPart(val key: String, val part: CostPart, val doneAs: arcanum.api.KeywordActionKind? = null)
 
 /**
  * The total cost of a spell or ability (CR 601.2f, 118): its mana, with X replaced and cost changes applied (CR
@@ -73,7 +73,11 @@ internal object Costs {
                     else part.options.getOrNull(chosen)?.parts?.forEachIndexed { j, p -> add("$key.o$chosen.$j", p) }
                 }
                 // blb: forage is "A or B" (CR 701.61a); its parts' keys carry FORAGE so paying it can be told
-                is CostPart.Action -> asCostPart(part).let { p -> if (p is CostPart.OneOf) add(key + FORAGE, p) else parts += KeyedPart(key, p) }
+                is CostPart.Action -> asCostPart(part).let { p ->
+                    if (p is CostPart.OneOf) add(key + FORAGE, p)
+                    // CR 701.59a: paid as the exile it is, and it is still collecting evidence
+                    else parts += KeyedPart(key, p, arcanum.api.KeywordActionKind.CollectEvidence.takeIf { part.action is arcanum.api.KeywordAction.CollectEvidence })
+                }
                 else -> parts += KeyedPart(key, part)
             }
         }

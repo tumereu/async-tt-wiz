@@ -129,7 +129,7 @@ class TlaChunk18ArtifactsAndLandsTest {
         """,
     ) parsesTo abilities(
         activated(cost(mana("{1}"), tap), scry(2)),
-        triggered(Trigger.On(listOf(EventPattern.Scry(PlayerFilter.You), EventPattern.Surveil(PlayerFilter.You))),
+        triggered(Trigger.On(listOf(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Scry, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Surveil, PlayerFilter.You))),
             doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(1), fromTop = true), Players.You, bind = "looked")),
             Step.Pay(steps = listOf(doing(Effect.Cast(Objects.Bound("looked"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), payer = Players.You,
                 bind = "cast"),

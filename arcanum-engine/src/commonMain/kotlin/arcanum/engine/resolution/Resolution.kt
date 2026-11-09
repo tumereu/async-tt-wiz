@@ -294,7 +294,7 @@ internal object Resolution {
         // CR 702.50a: epic's spell abilities, the last of the spell's instructions
         if (!fizzled) arcanum.engine.epic.Epic.resolves(act, item)
         val card = act.state.obj(item.id)
-        if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
+        if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.GiveGift, item.controller)))
         // ltr chunk 13: CR 714.2c: the final chapter ability of a Saga resolved
         if (!fizzled) (item.ability as? Ability.Triggered)?.trigger?.let { it as? arcanum.api.Trigger.Chapter }?.let { chapter ->
             val saga = item.source ?: return@let
@@ -305,7 +305,7 @@ internal object Resolution {
                 act.record(Change.Happened(arcanum.engine.change.GameEvent.FinalChapterResolved(saga)))
         }
         // tla: CR 702.189b: a firebending ability its controller controls resolved
-        if (!fizzled && isFirebending(item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.Firebended(item.controller)))
+        if (!fizzled && isFirebending(item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Firebend, item.controller)))
         if (item.kind is StackItemKind.SpellCopy && !fizzled && card == null) {
             // CR 707.10f, 608.3f: a copy of a permanent spell becomes a token permanent as it resolves
             val c = act.view()[item.id]?.characteristics

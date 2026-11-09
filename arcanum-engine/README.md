@@ -363,7 +363,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   chapters, "triggers an additional time"; keyword events: cycling (the card discarded for a cycling cost, also a
   discard, triggering from where it went, CR 702.29c–d), becoming crewed (a crew ability resolving, CR 702.122e),
   becoming saddled (saddle marks it until the cleanup step, CR 702.171), expending (the mana spent on spells this turn
-  reaching N, CR 700.14); waiting triggers in `GameState.triggered`, put on
+  reaching N, CR 700.14), and every keyword action done and mark gained: `Effects.keywordAction` records `GameEvent.KeywordActionDone` for every
+  verb once the rules say it counts as done (explore, CR 701.44b, c, several at once in the order the first player in APNAP order chooses, 701.44d; discover, 701.57b; proliferate with nothing to choose, 701.34a; scry and surveil
+  with no library, 701.22d, 701.25d; collecting evidence or foraging as a cost; foretelling, 702.143c), and a mark gained is seen in
+  `Change.Status` or a move (`EventPattern.GotMark`). The per-verb events (`GameEvent.Scried`, `Foraged`, …) are no longer recorded; both kinds of pattern
+  read both kinds of event, for stored games, until the one approved wipe. Waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.

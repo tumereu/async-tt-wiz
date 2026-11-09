@@ -1,0 +1,1 @@
+fix: A creature that left the battlefield before it could explore still explores: you reveal the top card and it goes to your hand if it's a land, or you may put it into your graveyard.

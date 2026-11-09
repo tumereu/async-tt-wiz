@@ -1,0 +1,1 @@
+add: Cards that trigger when you explore, proliferate, investigate, discover, collect evidence, exert a creature or foretell a card, or when a creature becomes monstrous, renowned, suspected, prepared or saddled, now work.

@@ -154,7 +154,7 @@ class BlbChunk02GiftTest {
         text = "Whenever you give a gift, draw a card.",
     ) parsesTo abilities(
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.GiveGift(PlayerFilter.You)),
+            trigger = Trigger.On(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.GiveGift, PlayerFilter.You)),
             instructions = steps(Step.Do(Effect.Draw(Players.You, one()))),
         ),
     )

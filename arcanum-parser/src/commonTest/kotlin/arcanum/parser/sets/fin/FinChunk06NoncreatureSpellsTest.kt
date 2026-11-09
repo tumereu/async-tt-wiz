@@ -229,7 +229,7 @@ class FinChunk06NoncreatureSpellsTest {
         pt = "1/4",
         text = "Whenever you scry or surveil, draw a card. (Draw after you scry or surveil.)",
     ) parsesTo abilities(
-        triggered(Trigger.On(listOf(EventPattern.Scry(PlayerFilter.You), EventPattern.Surveil(PlayerFilter.You))), draw(1)),
+        triggered(Trigger.On(listOf(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Scry, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Surveil, PlayerFilter.You))), draw(1)),
     )
 
     @Test

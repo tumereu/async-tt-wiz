@@ -195,7 +195,7 @@ internal object MechanicWordings {
                 Mechanic.ModifyPowerToughness(Value.Fixed(pt.groupValues[1].toInt()), Value.Fixed(pt.groupValues[2].toInt()))
             }
             quoted != null -> granted(quoted.groupValues[1])?.let { Mechanic.GainAbilities(listOf(it)) }
-            else -> Mechanic.GainAbilities(what.split(Regex(""",? and |, """)).map { keyword(it) ?: return null })
+            else -> Mechanic.GainAbilities(what.split(LazyRegexes.AND_LIST).map { keyword(it) ?: return null })
         } ?: return null
         return Ability.Static(listOf(mechanic), affects = Affected.Objects(Objects.Union(listOf(Objects.Self, Objects.PairedWith(Objects.Self)))),
             condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.Paired))

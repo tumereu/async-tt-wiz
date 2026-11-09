@@ -315,9 +315,22 @@ object ServerSetup {
     private class Socket(account: TestAccount) : WebSocket.Listener, AutoCloseable {
         private val queue = LinkedBlockingQueue<GameServerMessage>()
         private val text = StringBuilder()
-        private val socket: WebSocket = HttpClient.newHttpClient().newWebSocketBuilder().header("Authorization", "Bearer ${account.token}")
-            .connectTimeout(Duration.ofSeconds(10))
-            .buildAsync(URI(origin.replace("http://", "ws://") + "/v1/socket"), this).get(20, TimeUnit.SECONDS)
+        private val socket: WebSocket = connect(account)
+
+        /** Again after a connection failure, as [accountCall] and [lobbyCall], at most three times. */
+        private fun connect(account: TestAccount): WebSocket {
+            repeat(3) { attempt ->
+                try {
+                    return HttpClient.newHttpClient().newWebSocketBuilder().header("Authorization", "Bearer ${account.token}")
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .buildAsync(URI(origin.replace("http://", "ws://") + "/v1/socket"), this).get(20, TimeUnit.SECONDS)
+                } catch (failure: java.util.concurrent.ExecutionException) {
+                    if (failure.cause !is java.io.IOException || attempt == 2) throw failure
+                    Thread.sleep(200)
+                }
+            }
+            error("unreachable")
+        }
 
         init {
             send(GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))

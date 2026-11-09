@@ -146,8 +146,8 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
 The catalog changes only with a release, because a changed wording can break the parser: what the tests check, the
 server and both phones all read one pinned file.
 
-1. **The pin.** A small file in the repo, `catalog/pin.properties` (proposal), names the MTGJSON version, the SHA-256 of
-   the raw `AllPrintings.json.gz`, and the SHA-256 of our trimmed catalog built from it. No card data is committed. The
+1. **The pin.** A small file in the repo, `catalog/pin.properties`, names the MTGJSON version and the SHA-256 of the raw
+   `AllPrintings.json.gz`; the trimmed catalog's checksum is not pinned (section 3.4). No card data is committed. The
    raw file lives only on the developer's machine, in `~/projects/atw-cache/AllPrintings.json.gz`, where the Arcanum
    tools already read it (`ParserCorpus`); nothing in the repo says where else a copy is kept (owner: no tailnet or
    host details in the repo), and the Pi gets only the trimmed catalog. `scripts/catalog-pin.sh verify` checks the
@@ -163,12 +163,12 @@ server and both phones all read one pinned file.
    tokens (LOB-125), each English printing's set, number and Scryfall id for pictures, the set list (DRF-088), and the
    booster recipes of draftable sets with the printings they name. Estimate: about 12–13 MB gzip. Its version is the
    checksum of its content, so a change in what we extract makes a new version too, even on the same pin.
-4. **At release** `scripts/prod-release.sh` verifies the raw file against the pin, builds the trimmed catalog with the
-   same code the server and clients read it with, checks its checksum against the pin (a mismatch stops the release),
+4. **At release** `scripts/prod-release.sh` verifies the raw file against the pin (a different file stops the release),
+   builds the trimmed catalog with the same code the server and clients read it with, builds its checksum into the app,
    and deploys it to the Pi with the server. The Pi never downloads MTGJSON. The server keeps the previous
    catalog for a rollback. Endpoints, open without sign-in (the first download comes before sign-in, LOB-091): the
    current version (checksum, size, date, counts) and the file by checksum, cached for good.
-5. **Clients** carry the expected checksum, built in from the pin. The one-version rule already sends an older app to
+5. **Clients** carry the expected checksum, built in at release. The one-version rule already sends an older app to
    the update screen, so a new catalog only ever comes with a new app: on start the app compares its installed
    catalog with the built-in checksum and downloads the file from the server when they differ. No catalog version is
    sent with requests. Always the whole file, no partial updates; indexing it is quick.

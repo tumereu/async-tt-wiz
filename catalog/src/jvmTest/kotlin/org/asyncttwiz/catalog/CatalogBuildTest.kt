@@ -121,8 +121,8 @@ class CatalogBuildTest {
         assertNull(CatalogSetSources.build(catalog, "NOPE"))
     }
 
-    // SYS-081 (section 3.4): the release builds the catalog from the pinned file and stops on a pin mismatch
-    @Test fun `the catalog command stops on a raw file or a catalog that isn't the pinned one`() {
+    // SYS-081 (section 3.4): the release builds the catalog from the pinned file only
+    @Test fun `the catalog command builds only from the pinned raw file, and move pins a file`() {
         val directory = createTempDirectory("catalog-pin").toFile()
         try {
             val raw = CardCatalogFiles.sha256(allPrintings)
@@ -135,19 +135,14 @@ class CatalogBuildTest {
                     "--cards", File(fixtures, "supported-cards.txt").path))
                 return code to out.toString()
             }
-            CatalogPin("5.3.0+20261031", "2026-10-31", raw, checksum).write(pin)
+            CatalogPin("5.3.0+20261031", "2026-10-31", raw).write(pin)
             assertEquals(0, run("verify").first)
             val (built, _) = run("build", "--out", File(directory, "out").path)
             assertEquals(0, built)
             assertEquals(checksum, File(directory, "out/current").readText().trim())
             assertTrue(File(directory, "out/$checksum.jsonl.gz").isFile)
 
-            CatalogPin("5.3.0+20261031", "2026-10-31", raw, "0".repeat(64)).write(pin)
-            val (mismatch, said) = run("build", "--out", File(directory, "out2").path)
-            assertEquals(1, mismatch)
-            assertTrue("the pin says ${"0".repeat(64)}" in said, said)
-
-            CatalogPin("5.3.0+20261031", "2026-10-31", "1".repeat(64), checksum).write(pin)
+            CatalogPin("5.3.0+20261031", "2026-10-31", "1".repeat(64)).write(pin)
             val (other, message) = run("build", "--out", File(directory, "out3").path)
             assertEquals(1, other)
             assertTrue("isn't the pinned MTGJSON file" in message && "scripts/catalog-pin.sh move" in message, message)
@@ -155,7 +150,8 @@ class CatalogBuildTest {
 
             val (moved, _) = run("move")
             assertEquals(0, moved)
-            assertEquals(CatalogPin("5.3.0+20261031", "2026-10-31", raw, checksum), CatalogPin.read(pin))
+            assertEquals(CatalogPin("5.3.0+20261031", "2026-10-31", raw), CatalogPin.read(pin))
+            assertFalse("catalog.sha256" in pin.readText(), "the trimmed catalog's checksum isn't pinned")
         } finally {
             directory.deleteRecursively()
         }

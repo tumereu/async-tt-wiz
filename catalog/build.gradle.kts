@@ -55,11 +55,11 @@ kotlin {
 
 val catalogMain = kotlin.jvm().compilations.getByName("main")
 
-// The catalog command (CatalogCommand.kt): build, verify, update and move the pinned catalog (scripts/catalog-pin.sh, the
+// The catalog command (CatalogCommand.kt): build the catalog, verify the pinned file, move the pin (scripts/catalog-pin.sh, the
 // release, the dev stack). ./scripts/gradle.sh :catalog:catalogCommand --args="build --out <dir>"
 tasks.register<JavaExec>("catalogCommand") {
     group = "catalog"
-    description = "Builds, verifies, updates or moves the pinned card catalog (--args=\"build|verify|update|move ...\")."
+    description = "Builds the card catalog, verifies the pinned MTGJSON file or moves the pin (--args=\"build|verify|move ...\")."
     classpath = files(catalogMain.output.allOutputs, catalogMain.runtimeDependencyFiles)
     mainClass.set("org.asyncttwiz.catalog.CatalogCommandKt")
     maxHeapSize = "4g"

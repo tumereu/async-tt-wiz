@@ -163,6 +163,11 @@ android {
             buildConfigField("String", field, "\"$value\"")
         }
     }
+    // The card catalog's checksum (docs/specs/web-client.md section 3.5), worked out by the release when it builds the
+    // catalog (scripts/prod-release.sh). Without it (local and test builds) the app takes the server's current catalog.
+    val catalogChecksum = providers.gradleProperty("atwCatalogChecksum").orElse("").get()
+    require(catalogChecksum.isEmpty() || Regex("[0-9a-f]{64}").matches(catalogChecksum)) { "atwCatalogChecksum must be a SHA-256" }
+    defaultConfig { buildConfigField("String", "CATALOG_CHECKSUM", "\"$catalogChecksum\"") }
     // Explicit isolated source configuration exists only in debug; release always uses provider HTTPS.
     val catalogOrigin = providers.gradleProperty("atwCatalogTestOrigin").orElse("").get()
     require(catalogOrigin.isEmpty() || runCatching {

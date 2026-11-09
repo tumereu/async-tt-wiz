@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, screens (owner, 2026-11-09):
 
-- Pips and sources (DRF-114): full width is 100% of all pips and of all sources, no scaling to the largest, each colour's pip bar over its source bar, so what you see sums to one whole and imbalances show by eye; both shares as percentages.
 - Draft deck cover (LOB-058, DRF-094): a cover thumbnail beside the deck's name in Build; a tap chooses it from your cards.
 - Main and Side headers (DRF-094, DRF-119): a warning icon when Main is under 40 or Side is over its limit; holding it says why.
 - Graveyard and exile (ZON-033, ZON-035): a tap opens the search view at once; the one-button menu goes.

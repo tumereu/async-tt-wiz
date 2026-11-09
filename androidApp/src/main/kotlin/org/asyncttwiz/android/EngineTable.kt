@@ -76,6 +76,9 @@ interface EngineRoutes {
     fun keep(): Boolean
     /** TRN-062: the cards a mulligan puts on the bottom, right after it. */
     fun bottom(cards: List<String>): Boolean
+    /** STK-025, HIS-099 (problem report RC3J4K): how many times a board already shown was taken back, and the last one's words. */
+    fun takeBacks(): Long = 0L
+    fun lastTakeBack(): String = ""
     /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging,
      * attack choices and early answers (shared as table changes at the head, I-D54 §8; behind it the declaring player's
      * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). [requestId]: the batch's
@@ -257,6 +260,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     override fun mulligan(): Boolean = done(game()?.mulligan())
     override fun keep(): Boolean = done(game()?.keep())
     override fun bottom(cards: List<String>): Boolean = done(game()?.bottom(cards))
+    override fun takeBacks(): Long = game()?.takeBacks ?: 0L
+    override fun lastTakeBack(): String = game()?.lastTakeBack.orEmpty()
 
     override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false

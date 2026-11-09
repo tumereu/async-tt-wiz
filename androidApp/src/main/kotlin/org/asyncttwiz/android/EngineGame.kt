@@ -1320,8 +1320,19 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * shown is taken back or replaced: [reason] (with the ids involved), the shown tip and local head before ([tip],
      * [local]) and after ([after]). Engine thread.
      */
-    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) =
+    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) {
+        lastTakeBack = "$reason; tip $tip → ${after.tip}"
+        takeBacks++
         AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}")
+    }
+
+    /** STK-025, HIS-099 (owner problem report RC3J4K): how many times a board already shown was taken back ([takenBack]):
+     * an open cast begun before the latest is dropped (the table went back behind it). Any thread reads. */
+    @Volatile var takeBacks = 0L
+        private set
+    /** The latest take-back's words, from where to where, for the log of what it dropped. */
+    @Volatile var lastTakeBack = ""
+        private set
 
     /** An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011),
      * the newer board shows. Engine thread. */

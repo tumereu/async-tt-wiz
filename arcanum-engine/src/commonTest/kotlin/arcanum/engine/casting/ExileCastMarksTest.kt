@@ -239,31 +239,6 @@ class ExileCastMarksTest {
         alice.takesSpecialAction(omens, "foretell")
         val facts = state.objOrThrow(card(omens)).facts
         assertEquals(listOf(MarkGained(ObjectMark.Foretold, state.turn.number, listOf(mana("{1}{U}")))), facts.marksGained)
-        assertEquals(null, facts.foretoldTurn)
-    }
-
-    // Stored games: a card foretold before the generic record has only its turn field, and is still cast on a later turn
-    @Test
-    fun aForetoldCardFromAStoredGameIsCastableLater() = scenario {
-        alice.battlefield("Island", "Island")
-        alice.exile(omens)
-        libraries()
-        val id = marked(omens, ObjectMark.Foretold) { it.copy(faceDown = true, facts = it.facts.copy(foretoldTurn = 1)) }
-        assertTrue(castsOf(id).isEmpty(), "still the turn it was foretold")
-        advanceTo(TurnStep.Upkeep, turn = 3)
-        assertEquals(1, castsOf(id).size)
-    }
-
-    // Stored games: a card plotted before the generic record has only its turn field, and is still cast on a later turn
-    @Test
-    fun aPlottedCardFromAStoredGameIsCastableLater() = scenario {
-        val plot = Cards.invent("Stored Scheme", "{4}{R}", "Sorcery", "You gain 1 life.")
-        alice.exile(plot)
-        libraries()
-        val id = marked(plot, ObjectMark.Plotted) { it.copy(facts = it.facts.copy(plottedTurn = 1)) }
-        assertTrue(castsOf(id).isEmpty())
-        advanceTo(TurnStep.PrecombatMain, turn = 3)
-        assertEquals(1, castsOf(id).size)
     }
 
     // ---- Abilities while marked

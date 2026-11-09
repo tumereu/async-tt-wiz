@@ -3,7 +3,6 @@ package arcanum.engine.scenario
 import arcanum.api.CounterKind
 import arcanum.api.Zone
 import arcanum.engine.change.Changes
-import arcanum.engine.change.Meaning
 import arcanum.engine.state.TargetRef
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -37,9 +36,9 @@ class SampleScenarioTest {
     fun countersByHand() = scenario {
         alice.battlefield("Elvish Seer")
 
-        change(Changes.counters(state, TargetRef.Object(card("Elvish Seer")), CounterKind.PowerToughness(1, 1), 2, listOf(Meaning.Manual)))
+        change(Changes.counters(state, TargetRef.Object(card("Elvish Seer")), CounterKind.PowerToughness(1, 1), 2))
         change(Changes.tap(state, card("Elvish Seer")))
-        change(Changes.life(state, bob.id, -3, listOf(Meaning.Manual)))
+        change(Changes.life(state, bob.id, -3))
 
         expect {
             "Elvish Seer".power shouldBe 3

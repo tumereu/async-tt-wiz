@@ -32,8 +32,6 @@ import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.CopiableValues
-import arcanum.engine.state.EffectId
-import arcanum.engine.state.EffectObject
 import arcanum.engine.state.ObjectId
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -643,18 +641,6 @@ class CopiableValuesScenariosTest {
 
     // ---- What stays as it was
 
-    // Stored games: a copy effect stored with one face keeps it; it has no doors for the blank half it copied
-    @Test
-    fun aCopyEffectStoredWithOneFaceKeepsIt() = scenario {
-        alice.battlefield(room, blank)
-        val copy = card(blank)
-        val stored = FaceDefinition("", types = listOf(CardType.Enchantment))
-        state.effects[EffectId("stored")] = EffectObject(EffectId("stored"), listOf(copyMechanic), null, locked = listOf(copy), source = copy,
-            controller = alice.id, timestamp = ++state.timestampCounter, createdTurn = 0, duration = Duration.Indefinitely, copied = stored)
-        assertEquals(CopiableValues.of(stored), seen(copy).copiable)
-        assertTrue(unlocks(copy).isEmpty())
-    }
-
     // CR 707.2b, 722.2b: a permanent entering as a copy fixes the values, layout and faces with them
     @Test
     fun aPermanentEnteringAsACopyFixesLayoutAndFaces() = scenario {
@@ -668,7 +654,6 @@ class CopiableValuesScenariosTest {
         allPass()
         val copy = state.battlefield.first { state.objOrThrow(it).definition?.faces?.first()?.name == clone }
         val fixed = state.effects.values.single { it.locked?.contains(copy) == true }
-        assertNull(fixed.copied)
         assertEquals(Layout.Prepare, fixed.copiedValues!!.layout)
         assertEquals(listOf("Hushed Seraph", "Small Mending"), fixed.copiedValues!!.faces.map { it.name })
         assertNotNull(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().firstOrNull { it.source == copy })

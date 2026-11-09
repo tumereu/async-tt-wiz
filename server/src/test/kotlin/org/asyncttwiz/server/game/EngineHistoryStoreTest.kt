@@ -197,7 +197,12 @@ class EngineHistoryStoreTest {
     fun theWipeForStableDecisionIdsRemovesStartedGamesWithEverythingThatNamesThem() =
         wipeRemovesStartedGames("V63__engine_decision_ids_wipe_plays.sql")
 
-    private fun wipeRemovesStartedGames(migration: String) = FreshDatabase().start().use { db ->
+    /** The wipe of the engine generalisation (V74, owner 2026-11-08), the same way; it also leaves each game's tombstone. */
+    @Test
+    fun theWipeForTheGeneralFormsRemovesStartedGamesWithEverythingThatNamesThem() =
+        wipeRemovesStartedGames("V74__engine_general_forms_wipe_plays.sql", tombstones = 1)
+
+    private fun wipeRemovesStartedGames(migration: String, tombstones: Int = 0) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         db.connection().use { connection ->
             connection.autoCommit = false
@@ -211,6 +216,9 @@ class EngineHistoryStoreTest {
             sql.execute("""INSERT INTO game(id,game_name,inviter_id,recipient_id,preparation_round,current_invitation,revision,next_ingress)
                 VALUES (?,'Not started',?,?,?,?,1,1)""", waiting, a, b, UUID.randomUUID(), invitation)
             sql.execute("INSERT INTO invitation(id,game_id,state) VALUES (?,?,'PENDING')", invitation, waiting)
+            // The started game's finished match: its record is never deleted, also not with its game (V66)
+            sql.execute("""INSERT INTO match_record(id,play_id,game_id,inviter_id,recipient_id,started_at,ended_at,finished,record)
+                VALUES (?,?,?,?,?,now(),now(),true,'{}')""", UUID.randomUUID(), play, game, a, b)
             connection.commit()
 
             // V62 dropped the old model's tables V59 also emptied: its statements for them have nothing left to do
@@ -226,7 +234,8 @@ class EngineHistoryStoreTest {
             for (row in columns) {
                 val table = row.get(0, String::class.java); val column = row.get(1, String::class.java)
                 val named = if (column == "game_id") game else play
-                assertEquals(0, sql.fetchCount(DSL.table(DSL.name(table)), DSL.field(DSL.name(column)).eq(named)), "$table.$column")
+                val left = when (table) { "match_record" -> 1; "game_removed" -> tombstones; else -> 0 }
+                assertEquals(left, sql.fetchCount(DSL.table(DSL.name(table)), DSL.field(DSL.name(column)).eq(named)), "$table.$column")
             }
             assertEquals(0, sql.fetchCount(DSL.table("game"), DSL.field("id").eq(game)))
             assertEquals(1, sql.fetchCount(DSL.table("game"), DSL.field("id").eq(waiting)))

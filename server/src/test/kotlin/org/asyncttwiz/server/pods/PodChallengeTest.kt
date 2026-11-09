@@ -104,6 +104,44 @@ class PodChallengeTest {
         }
     }
 
+    // The wipe of the engine generalisation (V74): no pod row names a game or a play, so a pod whose games went still opens
+    // for its members, keeps its finished match's record and its challenge not yet started, and can challenge again
+    @Test fun `a pod whose started games V74 wiped still opens`() = fixture { f ->
+        val pod = f.pod()
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        fun started(game: GameSummary): Stream {
+            val recipient = f.stream(f.b, game)
+            recipient.execute(GameAction.AcceptInvitation)
+            f.stream(f.a, game).execute(GameAction.Ready); recipient.execute(GameAction.Ready)
+            assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, game.id).summary.lifecycle)
+            return recipient
+        }
+        val finished = f.challenge(pod)
+        assertEquals("accepted", started(finished).execute(f.games.concession(f.b, finished.id)).outcome)
+        val inPlay = f.challenge(pod); started(inPlay)
+        val queued = f.challenge(pod)
+        val before = f.detail(f.a, pod)
+        f.runtime.transaction { connection -> connection.createStatement().use { it.execute(checkNotNull(
+            javaClass.getResourceAsStream("/db/migration/V74__engine_general_forms_wipe_plays.sql")).reader().readText()) } }
+
+        for (member in listOf(f.a, f.b)) {
+            val after = f.detail(member, pod)
+            assertEquals(before.phase, after.phase)
+            assertEquals(before.draftAttemptId, after.draftAttemptId)
+            assertEquals(pod, json.decodeFromString<PodList>(f.pods.list(member).body).pods.single().id)
+        }
+        assertEquals(404, f.lobby.head(f.a, finished.id).status)
+        assertEquals(404, f.lobby.head(f.a, inPlay.id).status)
+        assertEquals(200, f.lobby.head(f.a, queued.id).status)
+        val matches = f.runtime.transaction { connection -> org.asyncttwiz.server.history.MatchRecords.forPod(
+            org.jooq.impl.DSL.using(connection, org.jooq.SQLDialect.POSTGRES), UUID.fromString(f.a.account.accountId), UUID.fromString(pod))!! }
+        assertEquals(1, matches.records.size, "the finished match's record stays")
+        assertTrue(matches.playing.isEmpty())
+        assertEquals(1L, f.runtime.transaction { connection -> org.jooq.impl.DSL.using(connection, org.jooq.SQLDialect.POSTGRES)
+            .fetchCount(org.jooq.impl.DSL.table("game"), org.jooq.impl.DSL.field("pod_id").eq(UUID.fromString(pod))).toLong() })
+        started(f.challenge(pod))
+    }
+
     // DRF-104
     @Test fun `side basics start at seventeen when unlimited and become sideboard lands in challenge decks`() = fixture { f ->
         assertEquals(PodDeckBuild().sideBasics, f.detail(f.a, f.pod()).build!!.sideBasics)

@@ -11,8 +11,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Stored games hold definitions and events in a strict format (I-D54 §4). The per-verb patterns and events that general ones replaced must
- * keep reading exactly as written until the one approved wipe, and the general ones have their own stable form.
+ * Stored games hold definitions and events in a strict format (I-D54 §4): the general patterns and events of keyword actions and marks have
+ * their stable form.
  */
 class StoredVerbFormatTest {
     private val alice = PlayerId("alice")
@@ -28,31 +28,6 @@ class StoredVerbFormatTest {
     private fun assertEvent(expected: GameEvent, text: String) {
         assertEquals(expected, event(text))
         assertEquals(text, EngineJson.json.encodeToString(GameEvent.serializer(), expected))
-    }
-
-    @Test
-    fun theOldPatternsStillRead() {
-        assertPattern(EventPattern.Scry(PlayerFilter.You), """{"type":"scry","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Surveil(PlayerFilter.You), """{"type":"surveil","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Forage(PlayerFilter.You), """{"type":"forage","players":{"type":"you"}}""")
-        assertPattern(EventPattern.GiveGift(PlayerFilter.You), """{"type":"give-gift","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Airbend(PlayerFilter.You), """{"type":"airbend","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Earthbend(PlayerFilter.You), """{"type":"earthbend","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Firebend(PlayerFilter.You), """{"type":"firebend","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Waterbend(PlayerFilter.You), """{"type":"waterbend","players":{"type":"you"}}""")
-        assertPattern(EventPattern.Saddled(ObjectFilter.Any), """{"type":"saddled","objects":{"type":"any"}}""")
-    }
-
-    @Test
-    fun theOldEventsStillRead() {
-        assertEvent(GameEvent.Scried(alice, 2), """{"type":"scried","player":"alice","count":2}""")
-        assertEvent(GameEvent.Surveilled(alice, 2), """{"type":"surveilled","player":"alice","count":2}""")
-        assertEvent(GameEvent.Foraged(alice), """{"type":"foraged","player":"alice"}""")
-        assertEvent(GameEvent.GaveGift(alice), """{"type":"gave-gift","player":"alice"}""")
-        assertEvent(GameEvent.Airbended(alice), """{"type":"airbended","player":"alice"}""")
-        assertEvent(GameEvent.Earthbended(alice), """{"type":"earthbended","player":"alice"}""")
-        assertEvent(GameEvent.Firebended(alice), """{"type":"firebended","player":"alice"}""")
-        assertEvent(GameEvent.Waterbended(alice), """{"type":"waterbended","player":"alice"}""")
     }
 
     @Test

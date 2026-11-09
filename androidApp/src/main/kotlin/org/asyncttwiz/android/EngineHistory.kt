@@ -86,7 +86,6 @@ internal object EngineEventText {
             if (event.table.any { it is GameTableChange.EarlyAnswered && it.after != null }) "$author answered early" else "$author withdrew an early answer"
         event.table.any { it is GameTableChange.Suggestion && it.after != null } -> "A result was suggested"
         event.table.any { it is GameTableChange.Suggestion } -> "The suggested result was answered"
-        event.table.any { it is GameTableChange.ResultConfirmed } -> "The result was confirmed"
         event.table.any { it is GameTableChange.ResultOk && it.ok } -> "$author pressed OK on the result"
         event.table.any { it is GameTableChange.ResultOk } -> "$author took back their OK on the result"
         else -> "$author acted"
@@ -259,7 +258,7 @@ internal object EngineEventText {
             null -> when {
                 event.table.any { it is GameTableChange.AttackDraft || it is GameTableChange.BlockDraft } -> HistoryIcon.GPS_FIXED
                 event.table.any { it is GameTableChange.EarlyAnswered } -> HistoryIcon.STICKY_NOTE_2
-                event.table.any { it is GameTableChange.Suggestion || it is GameTableChange.ResultConfirmed || it is GameTableChange.ResultOk } -> HistoryIcon.EMOJI_EVENTS
+                event.table.any { it is GameTableChange.Suggestion || it is GameTableChange.ResultOk } -> HistoryIcon.EMOJI_EVENTS
                 else -> HistoryIcon.SETTINGS_BACKUP_RESTORE
             }
             is Input.StartGame -> HistoryIcon.FLAG

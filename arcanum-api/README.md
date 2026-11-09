@@ -30,9 +30,7 @@ The definition model (overview in `Definitions.kt`):
   appear only there; `DefinitionChecks.problems` reports them in definitions.
 - Generic trigger events: `EventPattern.KeywordActionDone(action, players, objects)` for doing any keyword action (`KeywordActionKind`, with
   `KeywordAction.kind` the verb of an action; also foretelling, firebending and giving a gift) and `EventPattern.GotMark(mark, objects)` for gaining
-  any `ObjectMark`, so a new verb is one line in `KeywordActionKind` and a new mark needs nothing. New definitions use these. The per-verb
-  patterns they replace (`Scry`, `Surveil`, `Forage`, `GiveGift`, `Airbend`, `Earthbend`, `Firebend`, `Waterbend`, `Saddled`) stay for stored
-  definitions until the one approved wipe; patterns with roles of their own keep their shape (`ManifestDread`, `RingTempts`, `Exploits`, `Enlists`,
+  any `ObjectMark`, so a new verb is one line in `KeywordActionKind` and a new mark needs nothing. Patterns with roles of their own keep their shape (`ManifestDread`, `RingTempts`, `Exploits`, `Enlists`,
   `Mutates`, `Cycle`, `Search`, `Expend`).
 - `MarkRules`, the table beside `KeywordExpansions`: `MarkRules.of(mark)` is a `MarkRule` saying for an `ObjectMark` where it can live (`zones`), what the
   marked object has (`abilities`), when it clears (`MarkClear`), what it lets be cast from exile
@@ -66,8 +64,8 @@ The definition model (overview in `Definitions.kt`):
   (`Destination.entersAs`, CR 611.2e), "repeat this process" (`Step.RepeatWhile`) and copies of cards
   (`Effect.CopyCard`, CR 707.12).
 - Bloomburrow (set `blb`): gift (`Keyword.Gift`, `Gifted`, `CostPart.ChoosePlayer`, `Players.ChosenAsCost`,
-  `EventPattern.GiveGift`, `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
-  `EventPattern.BecomesLevel`), forage (`EventPattern.Forage`), pawprint modes (`Modes.pawprintLimit`,
+  `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
+  `EventPattern.BecomesLevel`), pawprint modes (`Modes.pawprintLimit`,
   `Mode.pawprints`), and smaller pieces (`MayPlay.spellGets`, `CountersPut.causedBy`/`PlayerCountersPut.causedBy`,
   `ZoneChange.notTo` for leaving the battlefield without dying, `Choice.Objects.onePer` for "for each card type, … a card
   of that type", `ObjectFilter.XInManaCost`, `ObjectFilter.NthSpellThisTurn` for "the first instant spell you've cast
@@ -137,8 +135,7 @@ The definition model (overview in `Definitions.kt`):
   (the copied card for "When you do, exile that card"); `DefinitionChecks` allows looking at cards as a permanent enters.
 - Avatar: The Last Airbender (set `tla`): airbend (CR 701.65, `KeywordAction.Airbend`), earthbend (CR 701.66, expanded with the land's
   return when it dies or is exiled), waterbend costs (CR 701.67, `CostPart.Waterbend` and `ManaPaymentWay.Waterbend`), "firebending X,
-  where X is …" (`Keyword.FirebendingX`; firebending's mana lasts until end of combat), the bend events (`EventPattern.Airbend`,
-  `Earthbend`, `Firebend`, `Waterbend`), `EventPattern.AbilityTriggers` ("a creature you control attacking causes a triggered ability of
+  where X is …" (`Keyword.FirebendingX`; firebending's mana lasts until end of combat), `EventPattern.AbilityTriggers` ("a creature you control attacking causes a triggered ability of
   that creature to trigger"), `Mechanic.SetName`, `Mechanic.KeepsUnspentMana` and `UnspentManaBecomes`, `GainAbilitiesOf.triggered`,
   `Effect.Fight.bind` (the excess damage), `Effect.ExtraCombat.onlyAttackers`, `Effect.ControlNextTurn.combatPhase`,
   `ActivationRules.minimumX` ("X can't be 0"), `Value.ManaInPool`, `Value.MostSharing`, `NumericProperty.CreatureTypes`,

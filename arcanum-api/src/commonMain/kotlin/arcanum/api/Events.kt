@@ -164,10 +164,6 @@ sealed interface EventPattern {
     @Serializable @SerialName("day-night") data class DayNightChanges(val toNight: Boolean? = null) : EventPattern
     /** A spell matching [spell] is copied by a player matching [by] ("whenever you copy a spell"). */
     @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter, val by: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Scry] (CR 701.22d). */
-    @Serializable @SerialName("scry") data class Scry(val players: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Surveil] (CR 701.25d). */
-    @Serializable @SerialName("surveil") data class Surveil(val players: PlayerFilter) : EventPattern
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
     @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
     /** A player plays a land (a special action, CR 116.2a, 305.1). */
@@ -186,13 +182,8 @@ sealed interface EventPattern {
     @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter, val won: Boolean = false) : EventPattern
     /** A Vehicle matching [objects] becomes crewed (CR 702.122). Roles object (the Vehicle), other combatant unused. */
     @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [GotMark] of [ObjectMark.Saddled] (CR 702.171b). */
-    @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.GiveGift]: an instant or sorcery spell a player
-     * controls whose gift was promised resolves, or the gift trigger of a permanent they control resolves (CR 702.174c). */
-    @Serializable @SerialName("give-gift") data class GiveGift(val players: PlayerFilter) : EventPattern
     /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
     @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
     /** A creature matching [objects] mutates (CR 702.140d): a mutating creature spell merged with it as it resolved. Role object: the
@@ -207,8 +198,6 @@ sealed interface EventPattern {
         /** "Whenever you choose a creature as your Ring-bearer": only when a creature was chosen. */
         val chosen: Boolean = false,
     ) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Forage] (CR 701.61a). */
-    @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
     /** A player completes a dungeon (CR 309.7, "Whenever you complete a dungeon"). */
     @Serializable @SerialName("completes-dungeon") data class CompletesDungeon(val players: PlayerFilter) : EventPattern
     /** A permanent matching [objects] is given an unlocked designation (CR 709.5h), as it enters or later; [thisDoor]:
@@ -226,14 +215,6 @@ sealed interface EventPattern {
      * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
     // tla
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Airbend] (CR 701.65b). */
-    @Serializable @SerialName("airbend") data class Airbend(val players: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Earthbend] (CR 701.66b). */
-    @Serializable @SerialName("earthbend") data class Earthbend(val players: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Firebend] (CR 702.189b). */
-    @Serializable @SerialName("firebend") data class Firebend(val players: PlayerFilter) : EventPattern
-    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Waterbend] (CR 701.67c). */
-    @Serializable @SerialName("waterbend") data class Waterbend(val players: PlayerFilter) : EventPattern
     /** A triggered ability of an object matching [source] triggers on an event matching [cause] ("Whenever a creature you control
      * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
      * put on the Stack) and source (its source). */

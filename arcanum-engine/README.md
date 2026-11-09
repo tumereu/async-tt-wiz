@@ -369,8 +369,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   reaching N, CR 700.14), and every keyword action done and mark gained: `Effects.keywordAction` records `GameEvent.KeywordActionDone` for every
   verb once the rules say it counts as done (explore, CR 701.44b, c, several at once in the order the first player in APNAP order chooses, 701.44d; discover, 701.57b; proliferate with nothing to choose, 701.34a; scry and surveil
   with no library, 701.22d, 701.25d; collecting evidence or foraging as a cost; foretelling, 702.143c), and a mark gained is seen in
-  `Change.Status` or a move (`EventPattern.GotMark`). The per-verb events (`GameEvent.Scried`, `Foraged`, …) are no longer recorded; both kinds of pattern
-  read both kinds of event, for stored games, until the one approved wipe. Waiting triggers in `GameState.triggered`, put on
+  `Change.Status` or a move (`EventPattern.GotMark`). Waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
@@ -527,7 +526,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
   KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold or
   has printed, CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
-  gained in one record (`ObjectFacts.marksGained`; `foretoldTurn` and `plottedTurn` stay for stored games until the one approved wipe, read by
+  gained in one record (`ObjectFacts.marksGained`, read by
   `ObjectFacts.gained`), disguise and cloak (face-down with ward
   {2}, `Copiable.faceDown`), manifest, backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts

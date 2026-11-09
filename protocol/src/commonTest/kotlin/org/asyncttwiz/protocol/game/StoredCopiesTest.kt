@@ -18,22 +18,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** What stored games hold of a copy: the fields for a copy's whole values only add to the format (EngineJson). */
+/** What stored games hold of a copy (EngineJson). */
 class StoredCopiesTest {
     private val left = FaceDefinition("Lantern Foyer", types = listOf(CardType.Enchantment))
     private val right = FaceDefinition("Quiet Pantry", types = listOf(CardType.Enchantment))
     private val copy = ObjectId.StackItem("copy")
 
-    private fun effect(copied: FaceDefinition? = null, values: CopiableValues? = null) = EffectObject(
+    private fun effect(values: CopiableValues? = null) = EffectObject(
         id = EffectId("E1"), mechanics = listOf(Mechanic.CopyOf(Objects.Self)), affects = Affected.Objects(Objects.Self), source = null,
-        controller = PlayerId("alice"), timestamp = 1, createdTurn = 1, duration = Duration.Indefinitely, copied = copied, copiedValues = values)
-
-    @Test
-    fun aCopyEffectStoredWithOneFaceWritesAndReadsAsBefore() {
-        val text = EngineJson.json.encodeToString(EffectObject.serializer(), effect(copied = left))
-        assertFalse("copiedValues" in text, text)
-        assertEquals(effect(copied = left), EngineJson.json.decodeFromString(EffectObject.serializer(), text))
-    }
+        controller = PlayerId("alice"), timestamp = 1, createdTurn = 1, duration = Duration.Indefinitely, copiedValues = values)
 
     @Test
     fun aCopyEffectWithWholeValuesRoundTrips() {

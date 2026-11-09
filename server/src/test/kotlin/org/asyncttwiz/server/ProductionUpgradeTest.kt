@@ -290,12 +290,13 @@ class ProductionUpgradeTest {
             load(db, tables)
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            // No migration deleted anything but V54's, V59's and V63's (I-D52, I-D54, stable decision ids; owner-approved): every game that had started a play, with
-            // everything that belongs to it.
+            // No migration deleted anything but V54's, V59's, V63's and V74's (I-D52, I-D54, stable decision ids, the engine's general forms; owner-approved): every game that had started a play, with
+            // everything that belongs to it, but its match records: they are never deleted (V66).
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
             val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()
             fun wiped(table: String, row: JsonObject): Boolean {
                 fun value(key: String) = row[key]?.jsonPrimitive?.contentOrNull
+                if (table == "match_record") return false
                 return (table == "game" && value("id") in wipedGames) || value("game_id") in wipedGames || value("play_id") in wipedPlays
             }
             assertTrue(started in wipedGames)

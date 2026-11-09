@@ -588,10 +588,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val result = Engine.result(engine)
         val conceded = events.flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { (it.input as? Input.Concede)?.player } }.firstOrNull()
         // TRN-065 (owner 2026-11-09): an accepted suggestion ends the play at once, as a concession does; a result the
-        // rules gave once both players' OKs stand on it (resultConfirmedBy: only in events already stored)
+        // rules gave once both players' OKs stand on it
         val agreed = events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
         val table = state.model.table
-        val ended = result != null && (table.resultConfirmedBy != null || conceded != null || agreed ||
+        val ended = result != null && (conceded != null || agreed ||
             seats.all { PlayerId(it.account.toString()) in table.resultOks })
         val agreement = if (ended && conceded == null) agreement(history, head) else null
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,

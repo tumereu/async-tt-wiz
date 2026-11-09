@@ -210,8 +210,6 @@ internal object EventMatcher {
             ?.takeIf { e.matches(pattern.by, it.player) && e.matches(pattern.spell, it.copy) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.copy))), listOf(it.player))) }.orEmpty()
         // CR 701.22d, 701.25d
-        is EventPattern.Scry -> storedVerb(e, change, KeywordActionKind.Scry, pattern.players)
-        is EventPattern.Surveil -> storedVerb(e, change, KeywordActionKind.Surveil, pattern.players)
         // CR 700.13: targeting an opponent, or a spell, ability or permanent an opponent controls
         is EventPattern.CommitCrime -> targeted(change).mapNotNull { (item, refs) ->
             val player = e.controllerOf(item) ?: return@mapNotNull null
@@ -248,7 +246,6 @@ internal object EventMatcher {
                     listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(vehicle))), listOf(item.controller))) else null
             }.orEmpty()
         // CR 702.171b: it becomes saddled (the saddle ability resolving marks it)
-        is EventPattern.Saddled -> gotMark(e, change, arcanum.api.ObjectMark.Saddled, pattern.objects).map { it.copy(players = emptyList()) }
         // CR 700.14: the mana a player spent to cast spells this turn reaches the amount with this payment
         is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
             ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
@@ -257,12 +254,7 @@ internal object EventMatcher {
         is EventPattern.DayNightChanges -> ((change as? Change.Happened)?.event as? GameEvent.DayNightChanged)
             ?.takeIf { pattern.toNight == null || pattern.toNight == it.night }?.let { listOf(TriggerEvent()) }.orEmpty()
         // blb: CR 702.174c, 701.61a, 716.2a
-        is EventPattern.GiveGift -> storedVerb(e, change, KeywordActionKind.GiveGift, pattern.players)
         // tla: CR 701.65b, 701.66b, 702.189b, 701.67c
-        is EventPattern.Airbend -> storedVerb(e, change, KeywordActionKind.Airbend, pattern.players)
-        is EventPattern.Earthbend -> storedVerb(e, change, KeywordActionKind.Earthbend, pattern.players)
-        is EventPattern.Firebend -> storedVerb(e, change, KeywordActionKind.Firebend, pattern.players)
-        is EventPattern.Waterbend -> storedVerb(e, change, KeywordActionKind.Waterbend, pattern.players)
         // tla: CR 603.2: a triggered ability of a matching source triggered on that source attacking
         is EventPattern.AbilityTriggers -> ((change as? Change.Happened)?.event as? GameEvent.AbilityTriggered)
             ?.takeIf { it.attack && pattern.cause is EventPattern.Attack && e.matches(pattern.source, it.source) }
@@ -282,7 +274,6 @@ internal object EventMatcher {
         // CR 309.7
         is EventPattern.CompletesDungeon -> ((change as? Change.Happened)?.event as? GameEvent.CompletedDungeon)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
-        is EventPattern.Forage -> storedVerb(e, change, KeywordActionKind.Forage, pattern.players)
         is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)
             ?.takeIf { it.level == pattern.level && e.matches(pattern.objects, it.id) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
@@ -299,35 +290,16 @@ internal object EventMatcher {
         is EventPattern.GotMark -> gotMark(e, change, pattern.mark, pattern.objects)
     }
 
-    /** One keyword action done, as [EventPattern.KeywordActionDone] reads it: [GameEvent.KeywordActionDone], or an event type of one verb that
-     * stored games' logs still hold (until the wipe). */
-    private fun doneIn(change: Change): GameEvent.KeywordActionDone? = when (val event = (change as? Change.Happened)?.event) {
-        is GameEvent.KeywordActionDone -> event
-        is GameEvent.Scried -> GameEvent.KeywordActionDone(KeywordActionKind.Scry, event.player, amount = event.count)
-        is GameEvent.Surveilled -> GameEvent.KeywordActionDone(KeywordActionKind.Surveil, event.player, amount = event.count)
-        is GameEvent.Foraged -> GameEvent.KeywordActionDone(KeywordActionKind.Forage, event.player)
-        is GameEvent.GaveGift -> GameEvent.KeywordActionDone(KeywordActionKind.GiveGift, event.player)
-        is GameEvent.Airbended -> GameEvent.KeywordActionDone(KeywordActionKind.Airbend, event.player)
-        is GameEvent.Earthbended -> GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, event.player)
-        is GameEvent.Firebended -> GameEvent.KeywordActionDone(KeywordActionKind.Firebend, event.player)
-        is GameEvent.Waterbended -> GameEvent.KeywordActionDone(KeywordActionKind.Waterbend, event.player)
-        else -> null
-    }
-
     /** [action] done by a player matching [players], with objects matching [objects], those tested as they last existed if they have left
      * (CR 701.44c, 701.50b). */
     private fun keywordActionDone(e: Evaluator, change: Change, action: KeywordActionKind, players: PlayerFilter?, objects: ObjectFilter?): List<TriggerEvent> {
-        val done = doneIn(change)?.takeIf { it.action == action } ?: return emptyList()
+        val done = ((change as? Change.Happened)?.event as? GameEvent.KeywordActionDone)?.takeIf { it.action == action } ?: return emptyList()
         if (players != null && !e.matches(players, done.player)) return emptyList()
         val back = Evaluator(LastKnownBoard(e.board), e.ctx)
         val named = if (objects == null) done.objects else done.objects.filter { back.matches(objects, it) }
         if (objects != null && named.isEmpty()) return emptyList()
         return listOf(TriggerEvent(if (named.isEmpty()) emptyList() else listOf(RoleObjects(EventRole.Object, named)), listOf(done.player), done.amount))
     }
-
-    /** A pattern of one verb in a stored definition (until the wipe): the same event, with only its player and amount, as it always was. */
-    private fun storedVerb(e: Evaluator, change: Change, action: KeywordActionKind, players: PlayerFilter): List<TriggerEvent> =
-        keywordActionDone(e, change, action, players, null).map { it.copy(objects = emptyList()) }
 
     /** An object matching [objects] that didn't have [mark] gains it: as a status it gets (every mark set on a permanent goes through
      * [arcanum.engine.action.Actions.tapStatus]), or with a move (a foretold card exiled, a Room half unlocked as it enters, CR 702.143c, 709.5d). */

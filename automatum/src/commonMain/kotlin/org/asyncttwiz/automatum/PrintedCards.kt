@@ -48,6 +48,9 @@ object PrintedCards {
         return CardDefinition(Layout.Normal, listOfNotNull(card.faces.firstOrNull()?.let { face(it, card.token) }))
     }
 
+    /** A part of a card with only its [name] and [typeLine]: what restrictions on a card name are judged by (CR 201.4a). */
+    fun named(name: String, typeLine: String): FaceDefinition = printed(name, "", typeLine, "", "", "", "", "", null, false)
+
     private fun face(face: DefinitionFace, token: Boolean) = printed(face.name, face.manaCost, face.typeLine, face.rulesText,
         face.power, face.toughness, face.loyalty, face.defense, face.colorIndicator ?: indicator(face.sourceData), token)
 

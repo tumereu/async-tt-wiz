@@ -64,6 +64,9 @@ sealed interface StackItemKind {
         // spm
         /** Exceptions to the copy ("except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable values. */
         val except: List<arcanum.api.CopyException> = emptyList(),
+        /** The whole copiable values of the spell it copies, when it has several faces (CR 707.10g, 709.5b), kept for when
+         * that spell has left the Stack: what the token it becomes has (CR 707.10f). */
+        val values: CopiableValues? = null,
     ) : StackItemKind
     /** An activated ability (CR 602). */
     @Serializable @SerialName("activated") data object Activated : StackItemKind

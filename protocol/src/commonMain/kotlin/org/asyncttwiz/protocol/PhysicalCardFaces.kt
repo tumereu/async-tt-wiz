@@ -7,6 +7,11 @@ object PhysicalCardFaces {
             definition.faces.any { "Battle" in it.typeLine }) return definition
         // Leave hand-authored/non-catalog multi-face definitions alone.
         if (definition.provider != "mtgjson" && definition.layout !in setOf("adventure", "split", "flip", "aftermath")) return definition
+        return sharedFace(definition)
+    }
+
+    /** [definition]'s faces as the one physical face that holds them all: its printed parts, in text and as [PrintedPart]s. */
+    fun sharedFace(definition: CardDefinition): CardDefinition {
         val first = definition.faces.first()
         val text = definition.faces.joinToString("\n\n────────\n\n") { face ->
             listOf(face.name, face.manaCost, face.typeLine, face.rulesText,

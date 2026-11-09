@@ -823,14 +823,14 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             objects[o.id] = ObjectView(
                 id = o.id, owner = o.owner, controller = controller, zone = o.zone,
                 characteristics = board.work[o.id]?.chars, mechanics = objectMechanics[o.id].orEmpty(),
-                summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id],
+                summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id], copiable = copiable.values(o.id),
             )
         }
         state.stackItems.values.filter { it.kind is StackItemKind.SpellCopy }.forEach { item ->
             objects[item.id] = ObjectView(
                 id = item.id, owner = item.controller, controller = board.work[item.id]?.controller ?: item.controller,
                 zone = Zone.Stack, characteristics = board.work[item.id]?.chars, mechanics = objectMechanics[item.id].orEmpty(),
-                summoningSick = false, obj = null, base = initial[item.id],
+                summoningSick = false, obj = null, base = initial[item.id], copiable = copiable.values(item.id),
             )
         }
         val players = state.players.associate { it.id to PlayerView(it.id, playerMechanics[it.id].orEmpty()) }

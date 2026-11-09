@@ -267,6 +267,7 @@ internal object Applier {
         StatusFlag.FaceDown -> faceDown
         StatusFlag.PhasedOut -> phasedOut
         is StatusFlag.Marked -> flag.mark in marks
+        StatusFlag.Flipped -> flippedStatus
     }
 
     private fun GameObject.with(flag: StatusFlag, on: Boolean): GameObject = when (flag) {
@@ -274,6 +275,7 @@ internal object Applier {
         StatusFlag.FaceDown -> copy(faceDown = on)
         StatusFlag.PhasedOut -> copy(phasedOut = on)
         is StatusFlag.Marked -> copy(marks = (if (on) marks + flag.mark else marks - flag.mark).sortedBy { it.toString() })
+        StatusFlag.Flipped -> copy(flippedStatus = on)
     }
 
     private fun List<CounterEntry>.entry(kind: arcanum.api.CounterKind) = firstOrNull { it.kind == kind }

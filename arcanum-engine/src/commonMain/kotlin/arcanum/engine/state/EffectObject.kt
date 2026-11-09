@@ -43,8 +43,11 @@ data class EffectObject(
     val amountLeft: Int? = null,
     /** Names fixed when it was created: targets, choices, bound objects (D37). */
     val names: Bindings = Bindings.EMPTY,
-    /** For a copy effect ([Mechanic.CopyOf]): the copiable values fixed when it started (CR 707.2b, 707.2c). */
+    /** For a copy effect ([Mechanic.CopyOf]) stored as one face: the copiable values fixed when it started. New copy effects
+     * write [copiedValues] instead; this stays for those in stored games until the wipe (docs/backlog.md). */
     val copied: FaceDefinition? = null,
+    /** For a copy effect ([Mechanic.CopyOf]): the copiable values fixed when it started, whole (CR 707.2b, 707.2c). */
+    val copiedValues: CopiableValues? = null,
 )
 
 /**

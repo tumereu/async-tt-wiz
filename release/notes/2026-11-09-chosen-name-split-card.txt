@@ -1,0 +1,1 @@
+fix: When a card makes you name a card, a split card now counts if either of its two names is the one you named.

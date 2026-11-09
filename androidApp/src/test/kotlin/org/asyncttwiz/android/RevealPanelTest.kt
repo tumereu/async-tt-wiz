@@ -76,7 +76,7 @@ class RevealPanelTest {
 
     /** Alice at her first main phase (Bob kept and is away) casts her Ember Insight; it resolves on his assumed pass. */
     private fun aliceCastsInsight(): EngineGame {
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
         assertIs<GameDevice.Acted.Sent>(game.send(cast(game, EngineGameFixture.Choices.INSIGHT)))
         game.tick(3_000)
         return game
@@ -168,9 +168,9 @@ class RevealPanelTest {
         fun settle() = repeat(20) {
             for (p in listOf(g.a, g.b)) { sim.deliver(p); sim.game(p).playToStop(); sim.game(p).tick(sim.now); sim.flush(p) }
         }
-        assertIs<GameDevice.Acted.Sent>(alice.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(alice.keep())
         settle()
-        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
         settle()
         assertEquals(GameDevice.Status.YourMove, bob.shown?.status, "Bob in his first main phase")
         bob.settings(org.asyncttwiz.protocol.game.PlaySettings(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))

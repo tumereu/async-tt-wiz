@@ -86,7 +86,7 @@ class EngineOwnActionSequenceTest {
         val draw: () -> Unit = { made.shown?.let { drawnForProbe(it.board, f.a) } }
         threads.settle(draw)
         made.tick(1_000); threads.settle(draw)
-        assertIs<GameDevice.Acted.Sent>(made.keep(emptyList())); threads.settle(draw)
+        assertIs<GameDevice.Acted.Sent>(made.keep()); threads.settle(draw)
         made.tick(2_000); threads.settle(draw)
         assertEquals(GameDevice.Status.YourMove, made.shown!!.status)
         return made

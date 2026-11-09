@@ -28,7 +28,7 @@ import kotlin.system.exitProcess
 
 /**
  * A local check of castability over every card of the supported sets (castability spec §6), beside [main] of SetSupport, from the same
- * cached MTGJSON files (never committed):
+ * pinned MTGJSON file (never committed):
  *
  * - each mana ability is put on a test board and must pay for a small spell through a payment by hand (CR 605.3a): `pays`, or `FAILS`
  *   with why.
@@ -36,18 +36,19 @@ import kotlin.system.exitProcess
  *   may ask for a board this tool doesn't make): a list to read, not a failure.
  *
  * Writes everything to `build/arcanum/mana-check.tsv` and exits with 1 when a mana ability fails.
- * Args: <cache directory> <output file> [set codes, comma-separated; default every supported set].
+ * Args: <output file> [set codes, comma-separated; default every supported set].
  */
 fun main(args: Array<String>) {
-    require(args.size >= 2) { "Usage: ManaCheck <cache directory> <output file> [CODE,CODE,...]" }
-    val sets = SetCache(File(args[0]).apply { mkdirs() })
+    require(args.isNotEmpty()) { "Usage: ManaCheck <output file> [CODE,CODE,...]" }
     val supported = supportedSets()
-    val codes = args.getOrNull(2)?.split(',')?.map { it.trim().uppercase() }?.filter { it.isNotEmpty() }.orEmpty().ifEmpty { supported.keys.toList() }
-    val out = File(args[1]).apply { parentFile.mkdirs() }
+    val codes = args.getOrNull(1)?.split(',')?.map { it.trim().uppercase() }?.filter { it.isNotEmpty() }.orEmpty().ifEmpty { supported.keys.toList() }
+    val out = File(args[0]).apply { parentFile.mkdirs() }
+    val sets = LinkedHashMap<String, List<SetCard>>()
+    forEachPinnedSet(codes) { code, records -> sets[code] = setCards(records) }
     val seen = mutableSetOf<String>()
     val lines = mutableListOf("set\tcard\tkind\tresult\tability")
     var failed = 0
-    for (code in codes) for (card in setCards(sets.file(code))) {
+    for (code in codes) for (card in sets.getValue(code)) {
         if (!seen.add(card.name)) continue
         val definition = runCatching {
             val printed = card.faces.map(::oracleCard)

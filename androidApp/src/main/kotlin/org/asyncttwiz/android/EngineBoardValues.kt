@@ -37,6 +37,13 @@ class EngineBoardValues internal constructor(
     private val visible: Set<ObjectId>,
     private val engine: EngineWorker,
 ) {
+    /** TRN-062 (owner problem report 5DDSKK): the cards the viewer puts on the bottom of their library now, right after a
+     * mulligan ([AutomatumOpening.bottomOwed]); worked out with the board, on the engine thread. */
+    val openingBottom: Int = try { AutomatumOpening.bottomOwed(state, viewer) } catch (problem: Exception) {
+        AppLog.warn("automatum", "Couldn't read the opening's bottom: ${problem::class.java.simpleName}")
+        0
+    }
+
     /** The hand plays once worked out (any thread reads; the engine thread writes). */
     @Volatile var handPlays: HandPlays? = null
         private set

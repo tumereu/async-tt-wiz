@@ -1418,4 +1418,46 @@ class PodHttpTest {
         finishGrid(f, pod, listOf(f.a, f.b))
         assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
     }
+
+    // DRF-169, DRF-090 (docs/specs/web-client.md section 3.7): a set pod from its code, its packs built from the server's
+    // card catalog (the test cards' catalog, tests/fixtures/card-catalog)
+    @Test fun `a set chosen by its code gets packs the server builds from its card catalog`() = fixture { f ->
+        val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Catalog set", setCode = "TST"), 201))
+        assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set", boosterKind = SetBoosterKind.RECIPE_BASED,
+            boosterName = "play"), created.source)
+        f.join(created.id)
+        val started = f.start(created.id)
+        val pack = started.draft!!.head!!.cards
+        assertEquals(4, pack.size, "the recipe's 2 commons, 1 uncommon and 1 rare")
+        val names = started.definitions.associate { it.digest to it.definition.name }
+        assertEquals(setOf("Test Bear", "Test Caller", "Test Bolt", "Test Knight"), pack.map { names.getValue(it.definition) }.toSet())
+        assertTrue(started.definitions.all { it.definition.provider == "mtgjson" && it.definition.sourceVersion == "2026-10-31/5.3.0+20261031" })
+        // Switching an unstarted pod to another catalog set
+        val other = f.create().id
+        f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL"))
+        assertEquals("Thornwall Crossing", f.get(f.a, other).source.setName)
+        f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL", cubeId = f.cube.cube.id), 400)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", setCode = "TST", setSource = setUpload()), 400)
+    }
+
+    // DRF-162, SYS-082 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
+    // marks, whether chosen by its code or uploaded, and a set its catalog doesn't have to draft
+    @Test fun `a set the catalog's marks say can't be drafted is refused`() = fixture { f ->
+        fun refused(input: CreatePod, status: Int, code: String) =
+            assertEquals(code, json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods", input, status)).code)
+        refused(CreatePod(id(), "Broken", setCode = "BAD"), 409, "automatum_unsupported")
+        refused(CreatePod(id(), "Unlisted", setCode = "OFF"), 409, "automatum_unsupported")
+        refused(CreatePod(id(), "Promos", setCode = "DCK"), 404, "set_not_found")
+        refused(CreatePod(id(), "Unknown", setCode = "NOPE"), 404, "set_not_found")
+        val upload = setUpload()
+        refused(CreatePod(id(), "Uploaded broken", setSource = upload.copy(snapshot = upload.snapshot.copy(setCode = "BAD"))), 409,
+            "automatum_unsupported")
+        val pod = f.create().id
+        assertEquals("automatum_unsupported", json.decodeFromString<PodError>(
+            f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "BAD"), 409)).code)
+        assertEquals(PodSourceKind.CUBE, f.get(f.a, pod).source.kind)
+        // A set the catalog can draft keeps its support from the marks: nothing Automatum can't play
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload))
+        assertEquals(PodSourceKind.SET, f.get(f.a, pod).source.kind)
+    }
 }

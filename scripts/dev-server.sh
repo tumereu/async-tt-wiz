@@ -102,7 +102,10 @@ if ! running catalog; then
 fi
 wait_http catalog http://127.0.0.1:18081/api/v5/Meta.json
 
+# The server's card catalog, built from the same invented cards the dev catalog serves (prism v1)
+export CATALOG_DIR=$DEV/catalog
 if ! running server; then
+    ./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR --file $ROOT/tests/fixtures/catalogs/prism/v1/AllPrintings.json.gz"
     ./scripts/gradle.sh :server:installDist
     server/build/install/server/bin/server migrate
     nohup setsid "$ROOT/server/build/install/server/bin/server" serve > "$DEV/server.log" 2>&1 < /dev/null &
@@ -112,6 +115,6 @@ fi
 wait_http server http://127.0.0.1:8081/health/ready
 echo "API: http://127.0.0.1:8080 (an unknown path returns 404)"
 echo "Health: http://127.0.0.1:8081/health/ready"
-echo "Catalog: http://127.0.0.1:18081/api/v5/ (synthetic prism/v1)"
+echo "Catalog: http://127.0.0.1:18081/api/v5/ (synthetic prism/v1); the server's: http://127.0.0.1:8080/v1/catalog"
 echo "Mailpit: http://127.0.0.1:18025 | PostgreSQL: 127.0.0.1:55432/atw_dev"
 echo "Background logs/PIDs/secrets: $DEV; use $0 logs or $0 down"

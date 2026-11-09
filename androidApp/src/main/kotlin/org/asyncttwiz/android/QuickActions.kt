@@ -68,6 +68,10 @@ object QuickActions {
         if (!openingMulligan(play, context.viewer)) return emptyList()
         val taken = play.board.players.firstOrNull { it.accountId == context.viewer }?.mulligans ?: 0
         val more = GameRules.STANDARD.canMulligan(taken)
+        // TRN-062 (owner problem report 5DDSKK): both greyed while the bottom after a mulligan is open
+        val owed = AutomatumOpening.bottomOwed(play)
+        if (owed > 0) return listOf(QuickAction(MULLIGAN, "⇄", TableActionIntent.OpeningMulligan(scope), enabled = false,
+            refused = bottomFirst(owed)), QuickAction(KEEP, "", TableActionIntent.Keep(scope), enabled = false, refused = bottomFirst(owed)))
         return listOf(QuickAction(MULLIGAN, "⇄", TableActionIntent.OpeningMulligan(scope), enabled = more,
             refused = if (more) null else NO_MORE_MULLIGANS), QuickAction(KEEP, "", TableActionIntent.Keep(scope)))
     }

@@ -17,14 +17,8 @@ interface CatalogSource {
     fun setSource(code: String): CatalogSource = error("Set source unavailable")
 }
 
-data class CatalogSetList(val metadata: CatalogMetadata, val sets: List<CatalogSet>)
 data class CatalogUpdatePlan(val metadata: CatalogMetadata, val sets: List<CatalogSet> = emptyList(), val full: Boolean = false)
 
-/** MTGJSON escapes Windows reserved filenames (CON is the Conflux set). Never accept a path. */
-internal fun catalogSetFilename(code: String): String {
-    require(Regex("[A-Z0-9]{1,16}").matches(code))
-    return if (code in setOf("CON", "PRN", "AUX", "NUL") || Regex("(?:COM|LPT)[1-9]").matches(code)) "${code}_" else code
-}
 
 object CatalogUpdatePolicy {
     /** Nothing installed yet (a first install, or card records cleared for downloading again). */

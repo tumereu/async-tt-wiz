@@ -9,3 +9,4 @@ local.properties
 __pycache__/
 deploy/.env
 deploy/secrets/
+deploy/catalog/

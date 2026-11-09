@@ -73,11 +73,13 @@ object SetSourceValidation {
     const val MAX_COMPOSITIONS = 1000
     const val MAX_PACK_SIZE = 1000
 
-    fun validate(source: SetSourceSnapshot): List<SetSourceIssue> = buildSet {
+    /** [maxCards] and [maxSheets]: an uploaded set's limits by default; a set the server builds from its card catalog
+     * has none (docs/specs/web-client.md section 3.7). */
+    fun validate(source: SetSourceSnapshot, maxCards: Int = MAX_CARDS, maxSheets: Int = MAX_SHEETS): List<SetSourceIssue> = buildSet {
         fun text(value: String, max: Int) = value.isNotBlank() && value.length <= max && DeckValidation.text(value)
         if (!text(source.setCode, 32)) add(SetSourceIssue.SET_CODE)
         if (!text(source.setName, 256)) add(SetSourceIssue.SET_NAME)
-        if (source.cards.size !in 1..MAX_CARDS) {
+        if (source.cards.size !in 1..maxCards) {
             add(SetSourceIssue.CARDS)
             return@buildSet
         }
@@ -88,8 +90,8 @@ object SetSourceValidation {
         if (source.cards.groupBy { it.definition }.values.any { entries -> entries.any { it.colors != entries.first().colors } })
             add(SetSourceIssue.DEFINITION_COLORS)
         val recipe = source.recipe ?: return@buildSet
-        if (recipe.boosters.size !in 1..MAX_COMPOSITIONS || recipe.sheets.size !in 1..MAX_SHEETS ||
-            recipe.sourceSetCodes.size > MAX_SHEETS) {
+        if (recipe.boosters.size !in 1..MAX_COMPOSITIONS || recipe.sheets.size !in 1..maxSheets ||
+            recipe.sourceSetCodes.size > maxSheets) {
             add(SetSourceIssue.RECIPE_SIZE)
             return@buildSet
         }
@@ -105,7 +107,7 @@ object SetSourceValidation {
         }
         if (!weights(recipe.boosters.map { it.weight }, recipe.boostersTotalWeight)) add(SetSourceIssue.WEIGHT)
         for ((name, sheet) in recipe.sheets) {
-            if (!text(name, 100) || sheet.cards.size !in 1..MAX_CARDS) {
+            if (!text(name, 100) || sheet.cards.size !in 1..maxCards) {
                 add(SetSourceIssue.SHEET)
                 continue
             }
@@ -113,7 +115,7 @@ object SetSourceValidation {
             if (sheet.cards.keys.any { it !in cards }) add(SetSourceIssue.UNKNOWN_CARD)
         }
         for (booster in recipe.boosters) {
-            if (booster.contents.size !in 1..MAX_SHEETS || booster.contents.values.any { it <= 0 } ||
+            if (booster.contents.size !in 1..maxSheets || booster.contents.values.any { it <= 0 } ||
                 booster.contents.values.sumOf { it.toLong() } !in 1..MAX_PACK_SIZE.toLong())
                 add(SetSourceIssue.COMPOSITION)
             for ((name, count) in booster.contents) {

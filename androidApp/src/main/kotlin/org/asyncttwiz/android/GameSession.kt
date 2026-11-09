@@ -173,33 +173,39 @@ class GameSession(private val connection: GameConnection, private val credential
     internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
         game.id in endHeld || current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
     /**
-     * TRN-065 (owner, 2026-11-09): the games whose play the other player's concession or accepted suggestion ended while
-     * this player stood at the table: the result is final, but they go to the lobby only after their own OK, so the ended
-     * play's last board stays on this device, showing the dialog ([EngineGame.holdEnd]). Nothing it makes is sent any more.
+     * TRN-065 (owner, 2026-11-09): the games whose play a concession or an accepted suggestion ended while this player
+     * stood at the table: the result is final, but nobody goes to the lobby until both players have pressed OK (the one
+     * whose own action ended it has given theirs), so the ended play's last board stays on this device, showing the dialog
+     * ([EngineGame.holdEnd]). Nothing it makes is sent any more.
      */
     private val endHeld = mutableSetOf<String>()
     /** TRN-065: whether [gameId]'s table stays on after its play ended ([endHeld]). */
     internal fun tableHeldAtEnd(gameId: String): Boolean = gameId in endHeld
-    /** TRN-065: the player's own OK on [gameId]'s result (here or on another device): the held table goes, and the lobby shows. */
+    /** TRN-065: both OKs stand on [gameId]'s result (the player's own last, here or on another device, or the other player's):
+     * the held table goes, and the lobby shows. */
     internal fun releaseEnd(gameId: String, why: String) {
         if (!endHeld.remove(gameId)) return
-        AppLog.info("game", "End of game: table let go, $why")
+        AppLog.info("game", "End of game: table let go, to the lobby: $why")
         engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         summaries[gameId]?.let { changed(summary(it)) }
         statusChanged()
     }
-    /** TRN-065: [message] ended [game]'s play: whether its table stays on until the player's own OK ([endHeld]). Only when
-     * the game is open here with its board on the table and the OK is still theirs; else, the lobby at once with the dialog
-     * over it (a device that wasn't at the table, a device that can't follow the line). */
+    /** TRN-065: [message] ended [game]'s play: whether its table stays on until both OKs stand ([endHeld]). Only when the
+     * game is open here with its board on the table and an OK is still owed (this player's or the other's); else, the lobby
+     * at once, with the dialog over it while an OK is owed (a device that wasn't at the table, a device that can't follow
+     * the line). */
     private fun holdEnd(game: EngineGame, message: GameRevision): Boolean {
-        val owes = message.summary.lifecycle == GameLifecycle.LOBBY &&
-            message.summary.resultNotice?.unseen?.contains(account ?: accountId()) == true
-        if (!owes || !engineLoad(message.gameId) || game.shown == null || game.loadFailed) {
-            releaseEnd(message.gameId, "no OK owed here")
+        val notice = message.summary.resultNotice?.takeIf { message.summary.lifecycle == GameLifecycle.LOBBY }
+        val owed = notice?.unseen.orEmpty()
+        if (notice == null || !engineLoad(message.gameId) || game.shown == null || game.loadFailed) {
+            releaseEnd(message.gameId, if (notice == null) "both OKs stand (revision ${message.resultRevision}, " +
+                "${if (message.author == (account ?: accountId())) "own request" else "the other player's request"})"
+                else "the device can't hold the table (open ${engineLoad(message.gameId)}, failed ${game.loadFailed})")
             return false
         }
         if (endHeld.add(message.gameId)) {
-            AppLog.info("game", "End of game: ${message.summary.resultNotice?.ending} while at the table, staying until the OK")
+            AppLog.info("game", "End of game: ${notice.ending} while at the table, staying until both OKs; owed by " +
+                owed.joinToString { if (it == (account ?: accountId())) "this player" else "the other player" })
             game.holdEnd(message) { releaseEnd(message.gameId, "the device can't show the end") }
         }
         install(message.summary, message.resultRevision, message.preparation)
@@ -707,6 +713,13 @@ class GameSession(private val connection: GameConnection, private val credential
         if (game.id in unavailableGames && old != null && revision == old.revision &&
             game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return
         if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)
+        // TRN-065 (owner, 2026-11-09): logged fully: when an OK on a result becomes owed, and when both stand (the lobby free)
+        if (old != null && old.resultNotice != game.resultNotice && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) {
+            val me = account ?: accountId()
+            AppLog.info("game", "Result notice at revision $revision: " + (game.resultNotice?.let { notice ->
+                "${notice.ending}, OK owed by ${notice.unseen.joinToString { if (it == me) "this player" else "the other player" }}" }
+                ?: "both OKs stand, to the lobby${if (endHeld.contains(game.id)) " (from the table)" else ""}"))
+        }
         if (game.lifecycle != GameLifecycle.LOBBY) preparations.leftLobby(game.id)
         if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
         if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) preparations.accept(game, revision, preparation)

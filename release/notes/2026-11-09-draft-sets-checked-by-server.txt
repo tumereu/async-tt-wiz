@@ -1,0 +1,1 @@
+mod: A set can be drafted only when Automatum can play every card its boosters can hold; the server checks this, so a set your phone allows may still be refused.

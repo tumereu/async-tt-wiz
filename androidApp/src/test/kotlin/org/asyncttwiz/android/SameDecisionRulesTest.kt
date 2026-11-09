@@ -38,10 +38,10 @@ class SameDecisionRulesTest {
     private fun aliceInMain(land: Boolean = false): EngineGame {
         val game = sim.load(f.a)
         val bob = sim.load(f.b)
-        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
         sim.flush(f.b); sim.deliver(f.a); game.playToStop()
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         if (land) {
             val s = game.device.model.engine
@@ -124,9 +124,9 @@ class SameDecisionRulesTest {
         val game = sim.load(f.a)
         val bob = sim.load(f.b)
         game.tick(1_000); bob.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
         settle()
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         repeat(200) {
             settle()
             val s = game.device.model.engine

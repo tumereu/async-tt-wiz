@@ -84,7 +84,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
 
     /** Plays turns until [done] holds where Alice declares attackers (her move, the step arrow's declaration open). */
     fun until(done: (GameState) -> Boolean) {
-        alice.keep(emptyList()); bob.keep(emptyList())
+        alice.keep(); bob.keep()
         repeat(400) {
             settle()
             for (game in listOf(alice, bob)) {

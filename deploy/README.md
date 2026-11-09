@@ -80,6 +80,14 @@ connected. Replace 8080 in the command if you change `API_PORT`.
 
 ## 3. Start the stack
 
+Draft pods from sets need the server's card catalog, built from the pinned MTGJSON file
+(`catalog/pin.properties`; put that `AllPrintings.json.gz` at `ATW_ALLPRINTINGS` first). The
+server reads it from `deploy/catalog` (or `CATALOG_HOST_DIR`):
+
+```sh
+scripts/catalog-pin.sh build deploy/catalog
+```
+
 ```sh
 docker compose -f deploy/compose.yml --env-file deploy/.env config --quiet
 docker compose -f deploy/compose.yml --env-file deploy/.env up -d --wait

@@ -8,14 +8,35 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.CodingErrorAction
 
-internal data class SetFileCard(val uuid: String, val rarity: SetCardRarity, val colors: Set<DraftColor>)
-internal data class SetFile(val code: String, val name: String, val cards: List<SetFileCard>, val recipe: SetBoosterRecipe?)
-internal class SetCardLimitExceeded : IllegalStateException("Set card limit exceeded")
-internal class SetSheetLimitExceeded(recipe: String) : IllegalStateException("Set recipe $recipe has over ${SetSourceValidation.MAX_SHEETS} sheets")
+data class SetFileCard(val uuid: String, val rarity: SetCardRarity, val colors: Set<DraftColor>)
+data class SetFile(val code: String, val name: String, val cards: List<SetFileCard>, val recipe: SetBoosterRecipe?)
+class SetCardLimitExceeded : IllegalStateException("Set card limit exceeded")
+class SetSheetLimitExceeded(recipe: String) : IllegalStateException("Set recipe $recipe has over ${SetSourceValidation.MAX_SHEETS} sheets")
 
 /** Only card sampling fields and the three supported recipes are retained. Unknown provider data is
- * streamed past; strings, nesting, arrays and maps are bounded before allocating collections. */
-internal class MtgJsonSetSource {
+ * streamed past; strings, nesting, arrays and maps are bounded before allocating collections. [maxSheets] and [maxCards]
+ * bound a recipe: an uploaded set source's limits by default, none for the catalog build ([boosters], section 3.7). */
+class MtgJsonSetSource(private val maxSheets: Int = SetSourceValidation.MAX_SHEETS,
+    private val maxCards: Int = SetSourceValidation.MAX_CARDS) {
+    companion object {
+        /** No limit on a recipe's sheets or cards: the server builds packs from any recipe (section 3.7). */
+        const val UNLIMITED = 1_000_000
+
+        /** A set's booster recipes by kind from its MTGJSON `booster` object ([text]), each checked as a set source's
+         * recipe is but without size limits; throws when one can't be read. */
+        fun boosters(text: String): Map<String, SetBoosterRecipe> {
+            val source = MtgJsonSetSource(UNLIMITED, UNLIMITED)
+            return JsonReader(BoundedJsonText(java.io.StringReader(text), 64 * 1024)).apply {
+                strictness = Strictness.STRICT; nestingLimit = 32
+            }.use { reader ->
+                val recipes = linkedMapOf<String, SetBoosterRecipe>()
+                source.fields(reader) { kind -> recipes[kind] = source.recipe(reader, kind) }
+                check(reader.peek() == JsonToken.END_DOCUMENT) { "Trailing booster data" }
+                recipes
+            }
+        }
+    }
+
     fun parse(input: InputStream, code: String, wanted: Set<String>? = null): SetFile {
         val text = InputStreamReader(input, Charsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT))
@@ -40,7 +61,7 @@ internal class MtgJsonSetSource {
                                 check(!Thread.currentThread().isInterrupted)
                                 val card = card(reader)
                                 if (card != null && (wanted == null || card.uuid in wanted)) {
-                                    if (cards.size >= SetSourceValidation.MAX_CARDS) throw SetCardLimitExceeded()
+                                    if (cards.size >= maxCards) throw SetCardLimitExceeded()
                                     check(cards.put(card.uuid, card) == null) { "Duplicate set card UUID" }
                                 }
                             }
@@ -112,7 +133,7 @@ internal class MtgJsonSetSource {
                     var contents: Map<String, Int> = emptyMap()
                     var weight = 0L
                     fields(reader) { field -> when (field) {
-                        "contents" -> contents = intMap(reader, SetSourceValidation.MAX_SHEETS, 100)
+                        "contents" -> contents = intMap(reader, maxSheets, 100)
                         "weight" -> weight = reader.nextLong()
                         else -> reader.skipValue()
                     } }
@@ -123,8 +144,8 @@ internal class MtgJsonSetSource {
             }
             "sheets" -> {
                 val entries = linkedMapOf<String, SetBoosterSheet>()
-                fields(reader, SetSourceValidation.MAX_SHEETS + 1) { sheet ->
-                    if (entries.size >= SetSourceValidation.MAX_SHEETS) throw SetSheetLimitExceeded(name)
+                fields(reader, maxSheets + 1) { sheet ->
+                    if (entries.size >= maxSheets) throw SetSheetLimitExceeded(name)
                     check(sheet.length in 1..100)
                     entries[sheet] = sheet(reader)
                 }
@@ -135,7 +156,7 @@ internal class MtgJsonSetSource {
                 val codes = linkedSetOf<String>()
                 reader.beginArray()
                 while (reader.hasNext()) {
-                    check(codes.size < SetSourceValidation.MAX_SHEETS) { "Set dependency limit" }
+                    check(codes.size < maxSheets) { "Set dependency limit" }
                     val code = string(reader, 16)
                     catalogSetFilename(code)
                     check(codes.add(code)) { "Duplicate set dependency" }
@@ -148,8 +169,9 @@ internal class MtgJsonSetSource {
         val recipe = SetBoosterRecipe(boosters, sheets, total ?: boosters.sumOf { it.weight }, name, sources)
         // Validate the provider recipe before any missing-card filtering or weight recalculation.
         val uuids = sheets.values.flatMap { it.cards.keys }.toSet()
-        check(uuids.size in 1..SetSourceValidation.MAX_CARDS) { "Set recipe card limit" }
-        val issues = SetSourceSnapshot("SET", "Set", uuids.map { SetSourceCard("sha256:" + "0".repeat(64), it) }, recipe).validate()
+        check(uuids.size in 1..maxCards) { "Set recipe card limit" }
+        val issues = SetSourceValidation.validate(SetSourceSnapshot("SET", "Set", uuids.map { SetSourceCard("sha256:" + "0".repeat(64), it) }, recipe),
+            maxCards, maxSheets)
         check(issues.isEmpty()) { "Invalid set recipe $name: $issues" }
         return recipe
     }
@@ -163,7 +185,7 @@ internal class MtgJsonSetSource {
         var total: Long? = null
         fields(reader) { key -> when (key) {
             "cards" -> cards = linkedMapOf<String, Long>().apply {
-                fields(reader, SetSourceValidation.MAX_CARDS) { uuid ->
+                fields(reader, maxCards) { uuid ->
                     check(uuid.length in 1..36)
                     put(uuid, reader.nextLong())
                 }

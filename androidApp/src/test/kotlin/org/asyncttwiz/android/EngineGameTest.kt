@@ -46,7 +46,7 @@ class EngineGameTest {
     @Test fun keepingWhileTheOtherPlayerIsAwayPlaysOnAssumedAnswers() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         val sent = game.take(2_000)
         assertTrue(sent.isNotEmpty() && sent.all { it is GameAction.Submit || it is GameAction.EngineSeen })
@@ -73,7 +73,7 @@ class EngineGameTest {
     @Test fun aRefusedOwnActionIsTold() {
         val game = alice()
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         game.refused(submit, "stale")
         assertTrue(game.device.session.pending.isEmpty() && game.device.model.sameAs(f.snapshot().let { s ->
@@ -93,7 +93,7 @@ class EngineGameTest {
     @Test fun anOwnActionTheEngineRefusesShakesAndIsLogged() {
         val game = alice()
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         val shown = game.device.session.tip
         game.refused(submit, "refusedByEngine")
@@ -117,7 +117,7 @@ class EngineGameTest {
             val inline = alice()
             for (game in listOf(threaded, inline)) {
                 game.tick(1_000)
-                assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+                assertIs<GameDevice.Acted.Sent>(game.keep())
                 game.tick(2_000)
             }
             worker.drain()

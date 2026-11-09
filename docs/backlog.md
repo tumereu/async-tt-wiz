@@ -42,7 +42,7 @@ Arcanum engine generalisation (owner, 2026-11-08; after castability merges; revi
 Arcanum by-hand leftovers and face-down gaps, found building special actions (2026-11-09), apart from the order above and its wipe:
 
 - `Decision.Manual` still arises, always on a card `Engine.manualParts` names, so the card is unsupported, and is skipped and logged if ever played (`EngineRun`): the rest of a mana ability whose other step asks something (`Payment.finishManaAbility`; of every card read, Ilysian Caryatid and Rainbow Vale), mana paid on resolution with an X nothing defines (`resolution/Costs.payMana`; Azor the Lawbringer, Elenda and Azor, Hero of Leina Tower, Vigil for the Lost), and on no read card "its mana cost" paid on resolution, `Step.Manual` (the parser's dungeon room it can't read) and `CostPart.Manual`. Once those are carried out or refused, the type can go with a wipe.
-- Learn is reported as by hand (`ManualParts.manualKeywordActions`, about 20 cards unsupported for it) though the engine plays it by its expansion (`AutomatedKeywordsMoreTest.learn`): nothing asks by hand. Making those cards supported needs the host to bring Lessons from outside the game; the owner's to decide.
+- X of a morph or disguise cost isn't kept for that permanent's later abilities (CR 702.37f, 702.168e; Bane of the Living's shape: `Payment.finishSpecialAction`'s names end with the action, so a turned-up trigger reads X as 0). Found by reading, not run; the parser doesn't read that trigger's wording yet, so no supported card plays it wrong. Write a test first.
 - A manifested or cloaked instant or sorcery card that an effect would turn face up is revealed and stays face down, with no turned-face-up trigger (CR 701.40g, 701.58g): `Effect.TurnFaceUp` turns it up.
 - A permanent cast disguised, turned face up and later turned face down again keeps ward {2} (CR 708.2a: a plain 2/2): `Copiable.faceDown` reads the cast's `facts.alternative`, which stays. Found by reading; write a test first.
 
@@ -50,6 +50,11 @@ Arcanum foretell gaps, found building the mark table (2026-11-09), apart from th
 
 - An effect that gives a foretell cost as a card becomes foretold (CR 702.143d; Ethereal Valkyrie: "It becomes foretold. Its foretell cost is its mana cost reduced by {2}"): `Effect.Mark` has no cost to give, so the card is cast only for a foretell cost it already has.
 - A granted foretell whose cost depends on the card (Dream Devourer, Bohn: "Its foretell cost is equal to its mana cost reduced by {2}"): a fixed granted cost is kept as the card is foretold, but `Keyword.Foretell` can't say this one and these printed cards stay unread. Also CR 702.143a's "any foretell cost it has" for foretell granted later to a card already in exile: only the costs it had as it became foretold and its printed ones are read.
+
+Learn and collecting evidence (owner, 2026-11-09), one worker, reviewed by session async-tt-wiz-74, before the wipe step and apart from it:
+
+- Cards with Learn are supported, outside the game meaning Side and Maybe (LOB-141). Drop "learn" from `ManualParts.manualKeywordActions`, raise SUPPORT_VERSION; a Lesson in Side and one in Maybe are both offered in a real prepared game, constructed and pod, and neither is in the library. CR 701.48a edges; the reveal shows only the Lesson.
+- Collecting evidence as it resolves is one selection: "You select at least up to the required amount, which if other conditions are fulfilled enables the button to cast etc, but you may make more selections." (CR 701.59a), as at cast time.
 
 Arcanum copies, found building copiable values (2026-11-09), apart from the order above and from its wipe (either can be done any time):
 

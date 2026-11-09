@@ -513,8 +513,8 @@ sealed interface GameEvent {
     @Serializable @SerialName("control-changed") data class ControlChanged(val id: ObjectId, val from: PlayerId, val to: PlayerId) : GameEvent
     /** [player] would mill [count] cards (CR 701.17): proposed only, for replacements of the mill. */
     @Serializable @SerialName("milling") data class Milling(val player: PlayerId, val count: Int) : GameEvent
-    /** [player] did the keyword action [action] (a permanent's controller, for what a permanent does) to or with [objects], [amount] the N of
-     * "scry N": what [arcanum.api.EventPattern.KeywordActionDone] reads, one event type for every verb. Recorded when the rules say the
+    /** [player] did the keyword action [action] (a permanent's controller, for what a permanent does) to or with [objects], [amount] the cards
+     * looked at for scry and surveil: what [arcanum.api.EventPattern.KeywordActionDone] reads, one event type for every verb. Recorded when the rules say the
      * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). The events of one verb above (scried, foraged, ...) stay for
      * stored games' logs until the wipe; nothing records them now. */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(

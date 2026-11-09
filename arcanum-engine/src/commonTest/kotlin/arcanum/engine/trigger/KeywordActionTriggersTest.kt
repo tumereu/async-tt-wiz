@@ -106,6 +106,81 @@ class KeywordActionTriggersTest {
         expect { alice.life shouldBe 20 }
     }
 
+    private val eachCreatureExplores = spellWith("Grand Trek", Effect.Action(KeywordAction.Explore(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.Type(CardType.Creature)))))
+
+    /** The explorers in the order they explored. */
+    private fun Scenario.explored() = state.eventsOf(state.turn.number).mapNotNull { (it as? Change.Happened)?.event as? GameEvent.KeywordActionDone }
+        .filter { it.action == KeywordActionKind.Explore }.flatMap { it.objects }
+
+    // CR 701.44d: their controller chooses which explores next, which decides what each reveals: the one chosen first gets the nonland on top and
+    // its counter, the other then finds the land
+    @Test
+    fun theControllerChoosesWhichExploresNext() = scenario {
+        val other = Cards.invent("Second Scout", "{0}", "Creature — Elf Scout", "", "1/1")
+        alice.battlefield(elf, other)
+        alice.hand(eachCreatureExplores)
+        alice.library("Storm Spark", "Forest")
+        alice.castsWithoutCosts(eachCreatureExplores)
+        val first = resolve().let { decision<arcanum.engine.decision.Decision.ChooseObjects>() }
+        assertEquals(setOf(card(elf), card(other)), first.options.toSet())
+        alice.chooses(other)
+        answer(Answer.YesNo(true))
+        settleAll()
+        expect {
+            other.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 1
+            elf.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 0
+            alice.graveyard has "Storm Spark"
+            alice.hand has "Forest"
+        }
+        assertEquals(listOf(card(other), card(elf)), explored())
+    }
+
+    // CR 701.44d, 101.4: the first player in APNAP order goes first, whoever's spell it is
+    @Test
+    fun theActivePlayersPermanentsExploreFirst() = scenario {
+        val other = Cards.invent("Far Scout", "{0}", "Creature — Elf Scout", "", "1/1")
+        turn(active = bob)
+        alice.battlefield(elf)
+        bob.battlefield(other)
+        alice.library("Forest")
+        bob.library("Island")
+        bob.hand(eachCreatureExplores)
+        bob.castsWithoutCosts(eachCreatureExplores)
+        resolve()
+        settleAll()
+        assertEquals(listOf(card(other), card(elf)), explored())
+    }
+
+    // CR 701.44c, d: one that has left counts for the player who last controlled it: the active player's, though gone, explores before the other's
+    @Test
+    fun oneThatLeftExploresInItsLastControllersTurnToChoose() = scenario {
+        val other = Cards.invent("Late Scout", "{0}", "Creature — Elf Scout", "", "1/1")
+        val everyone = arcanum.api.ObjectFilter.Type(CardType.Creature)
+        val spell = Cards.define("Parting Trek", CardDefinition(Layout.Normal, listOf(FaceDefinition("Parting Trek", types = listOf(CardType.Sorcery),
+            abilities = listOf(Ability.Spell(Instructions(steps = listOf(
+                Step.Bind(arcanum.api.Objects.Each(everyone), "them"),
+                Step.Do(Effect.Destroy(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.And(listOf(everyone, arcanum.api.ObjectFilter.ControlledBy(PlayerFilter.You)))))),
+                Step.Do(Effect.Action(KeywordAction.Explore(arcanum.api.Objects.Bound("them")))),
+            ))))))))
+        alice.battlefield(elf)
+        bob.battlefield(other)
+        alice.library("Forest")
+        bob.library("Island")
+        alice.hand(spell)
+        val theirs = card(other)
+        alice.castsWithoutCosts(spell)
+        resolve()
+        settleAll()
+        val order = explored()
+        assertEquals(2, order.size)
+        assertEquals(theirs, order[1])
+        expect {
+            alice.graveyard has elf
+            alice.hand has "Forest"
+            bob.hand has "Island"
+        }
+    }
+
     // ---- Proliferate
 
     // CR 701.34a: "any number" may be none: proliferating with nothing to choose is still proliferating

@@ -1445,24 +1445,17 @@ internal object Effects {
                 val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
                 scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, values, 1, scope.actor)))
             }
-            // CR 701.44a: reveal the top card; a land goes to hand, otherwise a +1/+1 counter and you may put it in the graveyard. CR 701.44c: one no
-            // longer on the battlefield explores too, as it last existed, with no permanent to put the counter on. CR 701.44b: it has explored once
-            // that is done, even if some of it was impossible
-            is KeywordAction.Explore -> scope.objects(action.objects).distinct().filter { act.state.obj(it).let { o -> o == null || o.zone == Zone.Battlefield } }.forEach { explorer ->
-                val (controller, _) = lastControlled(scope)(explorer) ?: return@forEach
-                fun counter() { if (act.state.obj(explorer)?.zone == Zone.Battlefield) Actions.putCounters(act, cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1) }
-                val top = act.state.player(controller).library.firstOrNull()
-                if (top == null) counter()
-                else {
-                    act.fill(controller, explorer, listOf(top), "explore", public = true)
-                    act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
-                    if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, cause, listOf(top), Zone.Hand)
-                    else {
-                        counter()
-                        if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, cause, listOf(top), Zone.Graveyard)
-                    }
+            // CR 701.44c: one no longer on the battlefield explores too, as it last existed. CR 701.44d: several at once: the first player in APNAP
+            // order who controls (or last controlled) one of them chooses which explores next, until each has
+            is KeywordAction.Explore -> {
+                var left = scope.objects(action.objects).distinct().filter { act.state.obj(it).let { o -> o == null || o.zone == Zone.Battlefield } }
+                while (true) {
+                    val owned = left.mapNotNull(lastControlled(scope))
+                    val chooser = act.state.apnap().firstOrNull { p -> owned.any { it.first == p } } ?: owned.firstOrNull()?.first ?: break
+                    val explorer = act.chooseObjects(chooser, scope.self, owned.filter { it.first == chooser }.flatMap { it.second }, 1, 1, "Which one explores next?").single()
+                    explore(scope, explorer, chooser)
+                    left = left - explorer
                 }
-                act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer))))
             }
             // CR 701.47a: put counters on an Army you control, or create a 0/0 Army token first
             is KeywordAction.Amass -> {
@@ -1585,6 +1578,25 @@ internal object Effects {
             is KeywordAction.Meld -> meld(scope, action)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${arcanum.engine.decision.Texts.className(action)}")
         }
+    }
+
+    /** CR 701.44a: [controller] reveals their top card; a land goes to their hand, otherwise a +1/+1 counter on [explorer] (none if it has left, CR
+     * 701.44c) and they may put the card into their graveyard. CR 701.44b: it has explored once that is done, even if some of it was impossible. */
+    private fun explore(scope: Scope, explorer: ObjectId, controller: PlayerId) {
+        val act = scope.act
+        fun counter() { if (act.state.obj(explorer)?.zone == Zone.Battlefield) Actions.putCounters(act, scope.cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1) }
+        val top = act.state.player(controller).library.firstOrNull()
+        if (top == null) counter()
+        else {
+            act.fill(controller, explorer, listOf(top), "explore", public = true)
+            act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
+            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)
+            else {
+                counter()
+                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)
+            }
+        }
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer))))
     }
 
     /** CR 701.40a, c, 701.58a, c: the actor's top card onto the battlefield face down, [count] times one at a time, each [mark]ed

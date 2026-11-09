@@ -247,7 +247,7 @@ sealed interface EventPattern {
      * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
      * most, once its whole process is done even if some of it was impossible (CR 701.22d, 701.25d, 701.44b, 701.50f, 701.57b). Role
      * object (the objects the action names, as they last existed if they have left, CR 701.44c, 701.50b); [Players.EventPlayer] is
-     * who did it (a permanent's controller, for what a permanent does); the event's amount is the N of "scry N" and "surveil N". */
+     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way"). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: KeywordActionKind, val players: PlayerFilter? = null, val objects: ObjectFilter? = null,
     ) : EventPattern

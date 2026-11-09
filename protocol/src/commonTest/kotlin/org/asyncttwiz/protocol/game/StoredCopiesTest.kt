@@ -44,6 +44,18 @@ class StoredCopiesTest {
     }
 
     @Test
+    fun theFlippedStatusIsAStatusFlagOfItsOwn() {
+        val text = EngineJson.json.encodeToString(arcanum.engine.state.StatusFlag.serializer(), arcanum.engine.state.StatusFlag.Flipped)
+        assertEquals<arcanum.engine.state.StatusFlag>(arcanum.engine.state.StatusFlag.Flipped, EngineJson.json.decodeFromString(arcanum.engine.state.StatusFlag.serializer(), text))
+    }
+
+    @Test
+    fun whatARoomGainedInCopyingRoundTrips() {
+        val whole = effect(values = CopiableValues(Layout.Split, listOf(left, right), gained = listOf(arcanum.api.Keyword.Flying)))
+        assertEquals(whole, EngineJson.json.decodeFromString(EffectObject.serializer(), EngineJson.json.encodeToString(EffectObject.serializer(), whole)))
+    }
+
+    @Test
     fun aSpellCopyWritesItsValuesOnlyWhenItHasThem() {
         val plain = StackItemKind.SpellCopy(copy)
         val plainText = EngineJson.json.encodeToString(StackItemKind.serializer(), plain)

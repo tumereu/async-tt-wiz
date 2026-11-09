@@ -23,6 +23,7 @@ import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.cards.face
+import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -335,7 +336,7 @@ class CopiableValuesScenariosTest {
     fun aFlippedPermanentKeepsItsStatusWhateverItCopies() = scenario {
         alice.battlefield(novice, bear, clay)
         val copy = card(clay) as ObjectId.Card
-        state.objects[copy] = state.objOrThrow(copy).copy(face = 1)
+        state.objects[copy] = state.objOrThrow(copy).copy(flippedStatus = true)
         effect(alice, copyMechanic, on = listOf(clay), names = mapOf("original" to bear), duration = Duration.Indefinitely)
         assertEquals("Moss Bear", seen(copy).characteristics!!.name)
         assertTrue(state.objOrThrow(copy).flipped)
@@ -357,6 +358,202 @@ class CopiableValuesScenariosTest {
         assertEquals(Layout.Flip, state.objOrThrow(token).definition!!.layout)
         assertEquals("Tin Apprentice", seen(token).characteristics!!.name)
         assertFalse(state.objOrThrow(token).flipped)
+    }
+
+    // CR 110.5c, 707.3, 712.8e: a double-faced permanent with its back face up never flipped: copying a flip card, it has the unflipped version
+    @Test
+    fun aTransformedPermanentCopyingAFlipCardIsUnflipped() = scenario {
+        alice.battlefield(werewolf, novice)
+        val id = card(werewolf) as ObjectId.Card
+        state.objects[id] = state.objOrThrow(id).copy(face = 1)
+        effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to novice), duration = Duration.Indefinitely)
+        assertEquals("Glass Novice", seen(id).characteristics!!.name)
+        assertFalse(state.objOrThrow(id).flipped)
+    }
+
+    // CR 110.5c, 709.5d: nor did a Room whose right half was cast
+    @Test
+    fun aRoomCastAsItsRightHalfCopyingAFlipCardIsUnflipped() = scenario {
+        alice.battlefield(novice, room)
+        val id = card(room) as ObjectId.Card
+        state.objects[id] = state.objOrThrow(id).copy(face = 1, marks = listOf(ObjectMark.Unlocked(Door.Right)))
+        effect(alice, copyMechanic, on = listOf(room), names = mapOf("original" to novice), duration = Duration.Indefinitely)
+        assertEquals("Glass Novice", seen(id).characteristics!!.name)
+    }
+
+    /** [name] becomes a copy of the flip card [novice] and flips; then that copy effect ends. */
+    private fun Scenario.flipsAsACopyAndStopsCopying(name: String) {
+        val id = card(name)
+        val copying = effect(alice, copyMechanic, on = listOf(name), names = mapOf("original" to novice), duration = Duration.Indefinitely)
+        alice.hand(turningWord)
+        alice.castsWithoutCosts(turningWord, target = name)
+        resolve()
+        assertEquals("Glass Master", seen(id).characteristics!!.name)
+        assertTrue(state.objOrThrow(id).flipped)
+        change(Change.EffectRemoved(state.effects[copying]!!))
+        assertTrue(state.objOrThrow(id).flipped, "CR 110.5c: it stays flipped")
+    }
+
+    // CR 110.5c, 712.8d: a double-faced permanent that flips while copying a flip card still has its front face up afterwards
+    @Test
+    fun aDoubleFacedPermanentThatFlippedAsACopyStaysFrontFaceUp() = scenario {
+        alice.battlefield(werewolf, novice)
+        flipsAsACopyAndStopsCopying(werewolf)
+        val id = card(werewolf)
+        assertEquals("Pale Pup", seen(id).characteristics!!.name)
+        assertEquals(0, state.objOrThrow(id).face)
+        assertFalse(state.objOrThrow(id).transformed)
+    }
+
+    // CR 110.5c, 722.4: a preparation permanent has only its normal characteristics whatever its flipped status
+    @Test
+    fun aPreparationPermanentThatFlippedAsACopyKeepsItsNormalCharacteristics() = scenario {
+        alice.battlefield(seraph, novice)
+        flipsAsACopyAndStopsCopying(seraph)
+        assertEquals("Hushed Seraph", seen(card(seraph)).characteristics!!.name)
+    }
+
+    // CR 707.2, 110.5b: status isn't copied, whatever the original is
+    @Test
+    fun aTokenCopyOfAOnceFlippedPermanentEntersUnflipped() = scenario {
+        alice.battlefield(clay, novice, mold)
+        flipsAsACopyAndStopsCopying(clay)
+        alice.activates(mold, target = clay)
+        allPass()
+        assertFalse(state.objOrThrow(token()).flipped)
+        assertEquals(0, state.objOrThrow(token()).face)
+    }
+
+    // CR 400.7, 110.5d: only permanents have status: a new object starts without it
+    @Test
+    fun theFlippedStatusEndsWithTheObject() = scenario {
+        alice.battlefield(clay, novice)
+        flipsAsACopyAndStopsCopying(clay)
+        change(Changes.move(state, listOf(card(clay)), Zone.Graveyard))
+        assertFalse(state.objOrThrow(card(clay)).flipped)
+    }
+
+    // ---- Becoming a copy fixes the values
+
+    private val shifter = Cards.invent("Shift Beast", "{0}", "Creature — Shapeshifter", "{0}: This creature becomes a copy of target creature until end of turn.", "1/1")
+
+    // CR 707.2b: the copy keeps the values it got when the original dies
+    @Test
+    fun aBecomesACopyEffectOutlivesTheOriginal() = scenario {
+        val end = Cards.invent("Abrupt Copybreak", "{0}", "Instant", "Destroy target creature.")
+        alice.battlefield(shifter, bear)
+        alice.hand(end)
+        val id = card(shifter)
+        alice.activates(shifter, target = bear)
+        allPass()
+        assertEquals("Moss Bear", seen(id).characteristics!!.name)
+        alice.castsWithoutCosts(end, target = bear)
+        resolve()
+        assertEquals("Moss Bear", seen(id).characteristics!!.name, "after the original died")
+    }
+
+    // CR 707.2b, 707.8: the copy keeps the face that was up when copied
+    @Test
+    fun aBecomesACopyEffectDoesNotFollowTheOriginalTransforming() = scenario {
+        alice.battlefield(shifter, werewolf)
+        val id = card(shifter)
+        alice.activates(shifter, target = werewolf)
+        allPass()
+        assertEquals("Pale Pup", seen(id).characteristics!!.name)
+        activateOnly(card(werewolf))
+        assertEquals("Pale Howler", seen(card(werewolf)).characteristics!!.name)
+        assertEquals("Pale Pup", seen(id).characteristics!!.name, "after the original transformed")
+    }
+
+    // CR 707.2b, 722.2b: the fixed values are whole: a copy of a preparation creature still has the prepare spell once the original is gone
+    @Test
+    fun aBecomesACopyEffectFixesLayoutAndFaces() = scenario {
+        alice.battlefield(shifter, seraph)
+        val id = card(shifter)
+        alice.activates(shifter, target = seraph)
+        allPass()
+        change(Changes.move(state, listOf(card(seraph, 0)), Zone.Graveyard))
+        assertEquals(Layout.Prepare, seen(id).copiable!!.layout)
+        assertEquals(listOf("Hushed Seraph", "Small Mending"), seen(id).copiable!!.faces.map { it.name })
+    }
+
+    // ---- Abilities gained in copying
+
+    private val copyWithFlying = Mechanic.CopyOf(Objects.Bound("original"), listOf(CopyException.AddAbilities(listOf(arcanum.api.Keyword.Flying))))
+
+    private fun Scenario.flyingOn(id: ObjectId) = seen(id).characteristics!!.abilities.count { it.ability == arcanum.api.Keyword.Flying }
+
+    // CR 707.9a, 709.5: an ability gained in copying isn't the rules text of either half: it stays with both doors locked
+    @Test
+    fun anAddedAbilityWorksWhileBothDoorsAreLocked() = scenario {
+        alice.battlefield(room, blank)
+        effect(alice, copyWithFlying, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        val v = seen(card(blank))
+        assertNull(v.characteristics!!.name)
+        assertEquals(1, flyingOn(v.id))
+        assertEquals(listOf<arcanum.api.Ability>(arcanum.api.Keyword.Flying), v.copiable!!.gained)
+    }
+
+    // CR 707.9a, 113.2c: one ability, once, with both doors open, and with one
+    @Test
+    fun anAddedAbilityIsThereOnceWhicheverDoorsAreOpen() = scenario {
+        alice.battlefield(room, blank)
+        effect(alice, copyWithFlying, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        val id = card(blank) as ObjectId.Card
+        state.objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Left), ObjectMark.Unlocked(Door.Right)))
+        assertEquals(1, flyingOn(id))
+        state.objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Right)))
+        assertEquals(1, flyingOn(id))
+        assertEquals("Quiet Pantry", seen(id).characteristics!!.name)
+    }
+
+    // CR 707.3, 707.9a: the ability is part of the copiable values: a copy of that copy has it, as does a token copy, apart from its doors
+    @Test
+    fun anAddedAbilityGoesOnToCopiesOfTheCopy() = scenario {
+        val other = Cards.invent("Second Panel", "{0}", "Enchantment", "")
+        alice.battlefield(room, blank, other, press)
+        effect(alice, copyWithFlying, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
+        effect(alice, copyMechanic, on = listOf(other), names = mapOf("original" to blank), duration = Duration.Indefinitely)
+        assertEquals(1, flyingOn(card(other)))
+        alice.activates(press, target = blank)
+        allPass()
+        val token = token()
+        assertEquals(1, flyingOn(token))
+        assertEquals(listOf<arcanum.api.Ability>(arcanum.api.Keyword.Flying), state.objOrThrow(token).gainedInCopying)
+        assertNull(seen(token).characteristics!!.name)
+    }
+
+    // CR 707.9a: on a token created with the exception too; a double-faced token has it on each face, one up at a time
+    @Test
+    fun anExceptionAddingAnAbilityOnATokenCopy() = scenario {
+        /** "Create a token that's a copy of target permanent, except it has flying." */
+        val word = Cards.define("Wing Word", CardDefinition(Layout.Normal, listOf(FaceDefinition("Wing Word", ManaCost.parse("{0}"),
+            types = listOf(CardType.Sorcery), abilities = listOf(Ability.Spell(Instructions(
+                targets = listOf(TargetSlot("thing", TargetKind.Objects(ObjectFilter.Any), arcanum.api.Value.Fixed(1), arcanum.api.Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Target("thing"),
+                    listOf(CopyException.AddAbilities(listOf(arcanum.api.Keyword.Flying)))), arcanum.api.Value.Fixed(1), arcanum.api.Players.You))))))))))
+        alice.battlefield(room)
+        alice.hand(word)
+        alice.castsWithoutCosts(word, target = room)
+        resolve()
+        assertEquals(1, flyingOn(token()))
+    }
+
+    // ---- Merged permanents
+
+    // CR 702.140e, 707.2: a merged permanent's copiable values have every component's abilities, for a token copy too
+    @Test
+    fun aTokenCopyOfAMergedPermanentHasEveryAbility() = scenario {
+        val flyer = Cards.invent("Sky Part", "{0}", "Creature — Bird", "Flying", "1/1")
+        alice.battlefield(clay, flyer, mold)
+        val id = card(clay) as ObjectId.Card
+        val part = state.objOrThrow(card(flyer))
+        state.objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(part.id, part.owner, part.definition, timestamp = 1)))
+        assertEquals(1, flyingOn(id))
+        assertTrue(seen(id).copiable!!.faces.flatMap { it.abilities }.any { it == arcanum.api.Keyword.Flying }, "ObjectView.copiable has them")
+        alice.activates(mold, target = clay)
+        allPass()
+        assertEquals(1, flyingOn(token()), "the token has them")
     }
 
     // ---- What stays as it was

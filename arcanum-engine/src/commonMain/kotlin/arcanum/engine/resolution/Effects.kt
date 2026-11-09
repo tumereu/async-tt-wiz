@@ -188,10 +188,13 @@ internal object Effects {
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 asTransforms(scope, id)
             }
-            // CR 707.3, 110.5: a flip card flips, and so does a permanent that's a copy of one; the status is the object's own
+            // CR 707.3, 110.5: a flip card flips, and so does a permanent that's a copy of one; the status is the object's own, and
+            // what isn't a flip card keeps the face it has up (CR 712.8d)
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (act.view()[id]?.copiable?.layout == Layout.Flip && o.face == 0) act.record(Change.Face(id, 0, 1, listOf(Meaning.Flipped)))
+                if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
+                act.record(if (o.definition?.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
+                    else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             is Effect.TurnFaceUp -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
@@ -1073,11 +1076,15 @@ internal object Effects {
             if (affects.objects is Objects.Target) arcanum.engine.query.Lki.newObject(act.state, id) ?: id else id
         } else null
         val lockedPlayers = (affects as? Affected.Players)?.let { e.players(it.players) }
+        // CR 707.2b: a copy effect has the original's copiable values as it starts; changing the original later doesn't change it
+        val copiedValues = fixed.filterIsInstance<Mechanic.CopyOf>().firstOrNull()?.let { copy ->
+            arcanum.engine.view.Copiable(act.state).forCopyEffect(copy, scope.you, scope.self, names)
+        }
         act.record(Changes.effect(act.state) { ts ->
             EffectObject(
                 id = EffectId("E$ts"), mechanics = fixed, affects = affected, locked = lockedObjects, lockedPlayers = lockedPlayers,
                 source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, duration = duration,
-                usesLeft = uses, amountLeft = amountLeft, names = names,
+                usesLeft = uses, amountLeft = amountLeft, names = names, copiedValues = copiedValues,
             )
         })
     }

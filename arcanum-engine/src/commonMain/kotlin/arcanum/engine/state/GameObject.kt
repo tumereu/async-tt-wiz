@@ -73,6 +73,10 @@ data class GameObject(
     /** A battle's protector (CR 310.9): chosen as it enters (310.9a, 310.12a) or by the state-based action of 310.11; it
      * stays when the permanent stops being a battle (310.9g). */
     val protector: PlayerId? = null,
+    /** A permanent that isn't a flip card flipped while a copy of one (CR 707.3, 110.5c); its [face] stays what is up. */
+    val flippedStatus: Boolean = false,
+    /** What a token copy of a split card gained in copying, in neither half ([CopiableValues.gained], CR 707.9a). */
+    val gainedInCopying: List<arcanum.api.Ability> = emptyList(),
 ) {
     val card: CardId get() = id.card
 
@@ -88,9 +92,9 @@ data class GameObject(
     val bestowed: Boolean get() = facts.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
         zone == arcanum.api.Zone.Battlefield)
 
-    /** Flipped (CR 710), a status (CR 110.5): a flip card or a one-faced permanent that flipped while a copy of one, which
-     * stays flipped whatever it copies later (CR 110.5c). */
-    val flipped: Boolean get() = (definition?.layout == Layout.Flip || definition?.layout == Layout.Normal) && face == 1
+    /** Flipped (CR 710), a status (CR 110.5) kept whatever it copies later (CR 110.5c): a flip card's is its [face]; any other
+     * permanent's, flipped while a copy of a flip card, is [flippedStatus]. */
+    val flipped: Boolean get() = if (definition?.layout == Layout.Flip) face == 1 else flippedStatus
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 
@@ -212,4 +216,6 @@ sealed interface StatusFlag {
     @Serializable @SerialName("face-down") data object FaceDown : StatusFlag
     @Serializable @SerialName("phased-out") data object PhasedOut : StatusFlag
     @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : StatusFlag
+    /** [GameObject.flippedStatus]. */
+    @Serializable @SerialName("flipped") data object Flipped : StatusFlag
 }

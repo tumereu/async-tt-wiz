@@ -574,8 +574,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
 
-    /** CR 709.4a: an object has the chosen name if one of its names is it. A host that offers a split card by its whole
-     * name ("A // B") names that card too. */
+    /** CR 709.4a: an object has the chosen name if one of its names is it. The whole name of a split card ("A // B") matches
+     * only for names chosen in stored games, from when a host offered it; it goes with the wipe (docs/backlog.md). */
     private fun hasChosenName(c: Characteristics?, chosen: NamedValue?): Boolean {
         val name = (chosen as? NamedValue.Name)?.name ?: return false
         return c?.name == name || name in names(c)

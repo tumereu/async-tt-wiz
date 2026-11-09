@@ -39,32 +39,44 @@ import arcanum.engine.view.SubtypeKind
 import arcanum.engine.view.Subtypes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.asyncttwiz.automatum.PrintedCards
 import org.asyncttwiz.storage.AndroidCatalogStorage
 import org.asyncttwiz.storage.CardDefinitions
+import org.asyncttwiz.storage.CatalogCard
 import org.asyncttwiz.storage.CatalogCardSearch
 
 /**
- * Card names for "choose a card name" (CR 201.4, final cast review #1): every card's name that contains what the player
- * typed and passes the effect's restriction ([filterQuery], the card search's words for it, null: none), by name.
- * Blocking: called off the main thread.
+ * Card names for "choose a card name" (CR 201.4, final cast review #1): every name of a card that contains what the player
+ * typed and passes the effect's restriction ([filter]), by name. Blocking: called off the main thread.
  */
 internal fun interface CardNameSuggestions {
-    fun names(text: String, filterQuery: String?): List<String>
+    fun names(text: String, filter: ObjectFilter): List<String>
 }
 
 /** The device's card catalog: names containing [text], by name. Nothing while the catalog isn't installed. */
 internal class CatalogCardNames(private val context: Context) : CardNameSuggestions {
-    override fun names(text: String, filterQuery: String?): List<String> {
-        val query = "\"" + text.replace("\"", "") + "\"" + (filterQuery?.let { " $it" } ?: "")
+    override fun names(text: String, filter: ObjectFilter): List<String> {
+        val query = "\"" + text.replace("\"", "") + "\""
         val page = AndroidCatalogStorage.repository(context).searchCards(query, limit = SUGGESTIONS, budget = 20_000) as? CatalogCardSearch.Page
-        return page?.cards?.map { it.name }.orEmpty()
+        return catalogNames(page?.cards.orEmpty(), text, filter)
     }
 }
+
+/**
+ * The names [cards] offer: each name of a card apart (CR 709.4a, 201.4b-f: a split card's halves, not both; a double-faced
+ * card's sides; flip, Adventure, Omen and prepare names), those containing [text], the restriction judged by that part's own
+ * characteristics. The search can't take the restriction: it judges a whole card. No token's name (CR 201.4).
+ */
+internal fun catalogNames(cards: List<CatalogCard>, text: String, filter: ObjectFilter): List<String> = cards.asSequence()
+    .filterNot { it.printing.token }.flatMap { it.namedParts() }
+    .filter { it.name.contains(text, ignoreCase = true) && CardNameFilter.allows(filter, PrintedCards.named(it.name, it.typeLine)) }
+    .map { it.name }.distinct().sorted().toList()
 
 /** Where the panel's card-name field takes its suggestions from; null: the device's card catalog. */
 internal val LocalCardNameSuggestions = staticCompositionLocalOf<CardNameSuggestions?> { null }
 
-private const val SUGGESTIONS = 12
+/** Cards the search brings; each may give several names, and the restriction leaves out some. */
+private const val SUGGESTIONS = 40
 
 /**
  * The restriction of a card name to choose ("a nonland card name", CR 201.4) on cards themselves: by their printed card
@@ -83,9 +95,7 @@ internal object CardNameFilter {
         else -> true
     }
 
-    /** [filter] as card search words ("-t:land"), or null when there is nothing to search by. */
-    fun query(filter: ObjectFilter): String? = judged(filter)
-
+    /** [filter] as card search words ("-t:land"), or null when it says nothing about a card. */
     private fun judged(filter: ObjectFilter): String? = when (filter) {
         ObjectFilter.Any -> null
         is ObjectFilter.And -> filter.all.mapNotNull(::judged).takeIf { it.isNotEmpty() }?.joinToString(" ")
@@ -112,11 +122,12 @@ internal data class NameSuggestion(val name: String, val source: NameSource)
  * STK-041 (owner gallery review, 2026-11-06): the game's names offered first for "choose a card name", those passing
  * [decision]'s restriction and containing [typed]: the cards of [viewer]'s own library as their device knows them, then
  * the cards [viewer] may see now (public zones, their own hand: [arcanum.engine.Engine.visible]), each name once, by
- * name in each group. Nothing of the other player's hidden cards (I-D27), whoever is deciding.
+ * name in each group. Each name of a card is apart, the restriction judged by its own part (CR 709.4a, 201.4b-f). Nothing of
+ * the other player's hidden cards (I-D27), whoever is deciding.
  */
 internal fun gameNames(state: GameState, viewer: String, decision: Decision.ChooseCardName, typed: String): List<NameSuggestion> {
-    fun face(id: ObjectId) = state.obj(id)?.takeIf { !it.token }?.definition?.faces?.firstOrNull()
-    fun names(ids: Collection<ObjectId>) = ids.mapNotNull(::face)
+    fun faces(id: ObjectId) = state.obj(id)?.takeIf { !it.token }?.definition?.faces.orEmpty()
+    fun names(ids: Collection<ObjectId>) = ids.flatMap(::faces)
         .filter { it.name.contains(typed, ignoreCase = true) && CardNameFilter.allows(decision.filter, it) }
         .map { it.name }.distinct().sorted()
     val me = state.players.firstOrNull { it.id.value == viewer } ?: return emptyList()
@@ -147,7 +158,7 @@ internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardN
     LaunchedEffect(decision.id, typed) {
         if (typed.length < 2) { catalog = emptyList(); return@LaunchedEffect }
         catalog = withContext(Dispatchers.IO) {
-            runCatching { source.names(typed, CardNameFilter.query(decision.filter)) }.getOrDefault(emptyList())
+            runCatching { source.names(typed, decision.filter) }.getOrDefault(emptyList())
         }
     }
     val known = game.map { it.name.lowercase() }.toSet()

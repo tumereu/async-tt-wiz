@@ -776,7 +776,7 @@ internal object Actions {
                 val i = n++
                 GameObject(
                     id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = controller, controller = controller,
-                    zone = Zone.Battlefield, definition = f.definition, face = f.up, token = true, tapped = tapped,
+                    zone = Zone.Battlefield, definition = f.definition, face = f.up, gainedInCopying = f.gained, token = true, tapped = tapped,
                     timestamp = first + i, controlSince = ControlSince(controller, act.state.turn.number), attachedTo = attachTo,
                 ).let { o -> if (fromSpellCopy != null) o.copy(facts = fromSpellCopy) else o }
             }
@@ -965,6 +965,7 @@ internal object Actions {
             StatusFlag.FaceDown -> o.faceDown
             StatusFlag.PhasedOut -> o.phasedOut
             is StatusFlag.Marked -> flag.mark in o.marks
+            StatusFlag.Flipped -> o.flippedStatus
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
         // CR 702.170d: a card becoming plotted is castable on later turns

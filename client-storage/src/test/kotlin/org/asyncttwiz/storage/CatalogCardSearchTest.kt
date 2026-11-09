@@ -185,6 +185,16 @@ class CatalogCardSearchTest {
         assertEquals(DeckImportResolver(repository).resolve("1 Delver of Secrets").entries.single().faces, delver.faces)
     }
 
+    // STK-041, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
+    @Test fun aCardsNamesComeApartWithTheirTypeLines() {
+        val repository = install()
+        val fire = page(repository, "\"ice\"").cards.first { it.name == "Fire // Ice" }
+        assertEquals(listOf(CatalogNamedPart("Fire", "Instant"), CatalogNamedPart("Ice", "Instant")), fire.namedParts())
+        assertEquals(listOf(CatalogNamedPart("Delver of Secrets", "Creature — Human Wizard"), CatalogNamedPart("Insectile Aberration", "Creature — Human Insect")),
+            page(repository, "t:insect").cards.single().namedParts())
+        assertEquals(listOf(CatalogNamedPart("Kitchen Finks", "Creature — Ouphe")), page(repository, "!\"kitchen finks\"").cards.single().namedParts())
+    }
+
     @Test fun traitsFromTheDownloadDriveColourIdentityFormatAndRarityFilters() {
         val repository = install()
         val rows = listOf(

@@ -18,7 +18,17 @@ internal data class CatalogPrintingTraits(val rarity: String, val identity: Int?
 /** One search result: a card (oracle identity) shown with its preferred matching printing; faces front first. */
 data class CatalogCard(val key: String, val name: String, val faces: List<CatalogPrinting>) {
     val printing: CatalogPrinting get() = faces.first()
+
+    /** Each name a player can choose for this card with its own type line (CR 201.4b-f): a split card's halves, a
+     * double-faced card's sides, an alternative name, each apart from the others. */
+    fun namedParts(): List<CatalogNamedPart> = faces.map { face ->
+        val raw = JsonParser.parseString(face.json).asJsonObject
+        fun field(key: String) = raw.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        CatalogNamedPart(field("faceName").ifBlank { face.name }, field("type"))
+    }
 }
+/** A name of a card ([CatalogCard.namedParts]) with the type line of the part that has it. */
+data class CatalogNamedPart(val name: String, val typeLine: String)
 data class CatalogCardCursor(val generation: String, val query: String, val nameKey: String, val key: String)
 
 sealed interface CatalogCardSearch {

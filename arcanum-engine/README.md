@@ -106,7 +106,7 @@ seeded random games of cube cards, failing on any open player decision without a
   the layer system (`Layers`, `Copiable`; `ObjectView.copiable` is an object's whole copiable values, `CopiableValues`, CR 707.2:
   layout and all faces, what a Room's doors and a prepare spell work by on a copy too, CR 709.5b, 722.2b, and what a token copy holds
   in its definition, CR 707.8a; designations and status stay on the object, and what can transform or meld goes by its own
-  definition, CR 712.9), where abilities function (`Functioning`, CR 113.6),
+  definition, CR 712.9; an ability a split card gains in copying is `CopiableValues.gained`, in neither half, CR 707.9a), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
   keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).

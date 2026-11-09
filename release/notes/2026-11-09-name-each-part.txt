@@ -1,0 +1,1 @@
+fix: When you name a card, each name of a card is offered by itself: either half of a split card, either side of a double-faced card, and a card's other name such as its Adventure.

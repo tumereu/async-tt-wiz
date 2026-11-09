@@ -52,4 +52,31 @@ class NameACardTest : E2e() {
         }
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
+
+    // STK-041, CR 709.4a, 201.4b, 201.4d: each name of a card is offered by itself, never both together, the restriction judged by
+    // that part alone: a split card's second half can be named, and of an instant with a land for a back only the instant's name is nonland
+    @Test fun eachNameOfACardIsOfferedApart() {
+        startGame(TestDeck("Muzzles", listOf(TestCards.mountain to 13, TestCards.muzzle to 13, TestCards.trailBlaze to 7, TestCards.pathCrag to 7)),
+            TestDeck.thirds(TestCards.cub), deal = { a, b -> "Ember Muzzle" in hand(a) && "Ember Cub" in hand(b) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.playFromHand("Ember Muzzle", this)
+        waitUntil("Alice naming a card", along = listOf(bob)) {
+            alice.state.pending?.decision is Decision.ChooseCardName && alice.shows(hasText("Name a card") and isHeading())
+        }
+        waitUntil("both halves offered") { alice.shows(hasContentDescription("Trail, in your library")) && alice.shows(hasContentDescription("Blaze, in your library")) }
+        assertTrue(alice.shows(hasContentDescription("Ember Path, in your library")), "the instant side: ${alice.screen()}")
+        for (where in listOf("in your library", "seen this game", "a card")) {
+            assertFalse(alice.shows(hasContentDescription("Ember Crag, $where")), "the land side isn't a nonland name: ${alice.screen()}")
+            assertFalse(alice.shows(hasContentDescription("Trail // Blaze, $where")), "not both: ${alice.screen()}")
+        }
+        alice.described("Blaze, in your library").performClick()
+        waitUntil("Blaze chosen") { alice.shows(hasContentDescription("Blaze, in your library, chosen")) }
+        alice.node(ok() and isEnabled()).performClick()
+        waitUntil("the Muzzle on the battlefield, Blaze named", along = listOf(bob)) {
+            alice.state.pending == null && alice.field("Ember Muzzle").isNotEmpty() &&
+                alice.state.obj(alice.field("Ember Muzzle").first())!!.memory.values.values.any { "Blaze" in it.toString() }
+        }
+        assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
+    }
 }

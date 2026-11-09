@@ -68,8 +68,9 @@ internal object Rooms {
      * values, 709.5b; the designations are the object's own, 709.5c).
      */
     fun lockedHalves(o: GameObject, values: CopiableValues, faces: List<IndexedFace>): List<IndexedFace> {
-        if (o.zone != Zone.Battlefield || faces.size != 2 || !isRoom(values)) return faces
+        if (o.zone != Zone.Battlefield || !isRoom(values)) return faces
         return faces.map { f ->
+            if (f.abilitiesOnly) return@map f
             if (unlocked(o, door(f.index))) f else IndexedFace(f.index, f.face.copy(name = "", manaCost = null, abilities = emptyList()))
         }
     }

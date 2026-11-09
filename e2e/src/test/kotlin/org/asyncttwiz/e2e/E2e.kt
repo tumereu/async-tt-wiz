@@ -94,10 +94,12 @@ abstract class E2e {
     internal fun startGame(aliceDeck: TestDeck = TestDeck.thirds(), bobDeck: TestDeck = TestDeck.thirds(), bobStarts: Boolean = false,
         aliceSettings: PlaySettings? = null, bobSettings: PlaySettings? = null, ready: Boolean = true,
         aliceWorker: EngineWorker = EngineWorker.Background,
+        /** LOB-113: Alice's account as a new account's is, with nothing saved: the app's own defaults. */
+        aliceChoseNothing: Boolean = false,
         deal: Deal.(TestAccount, TestAccount) -> Boolean = { _, _ -> true }) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
-        ServerSetup.playDefaults(a, aliceSettings ?: PlaySettings())
+        if (!aliceChoseNothing) ServerSetup.playDefaults(a, aliceSettings ?: PlaySettings())
         ServerSetup.playDefaults(b, bobSettings ?: PlaySettings())
         prepared = ServerSetup.prepare(a, b, aliceDeck, bobDeck, starter = if (bobStarts) b else a,
             name = "${javaClass.simpleName} ${java.util.UUID.randomUUID().toString().take(6)}", deal = { it.deal(a, b) })

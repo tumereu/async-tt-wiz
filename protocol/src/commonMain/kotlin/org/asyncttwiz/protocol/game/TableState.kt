@@ -54,14 +54,19 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
  * catch-up playback alike (STK-036, HIS-095; set from the quick actions in both); the other player's device learns it too
  * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
  * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
- * instead of waiting with Assume (TRN-059, LOB-113, HIS-096), Normal by default. [autotap] pays mana costs with the
- * engine's suggestion (I-D47).
+ * instead of waiting with Assume (TRN-059, LOB-113, HIS-096). [autotap] pays mana costs with the engine's suggestion
+ * (I-D47). A new game of an account that chose nothing else starts with [NEW_GAMES].
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val assume: AssumeResolves = AssumeResolves.Normal,
     val autotap: Boolean = true) {
     /** These settings with [assume] as [value]. */
     fun assuming(value: AssumeResolves): PlaySettings = copy(assume = value)
+
+    companion object {
+        /** LOB-113 (owner, 2026-11-09): what a new game starts with until the account chooses otherwise: "No mana". */
+        val NEW_GAMES = PlaySettings(assume = AssumeResolves.WhenNoMana)
+    }
 }
 
 /** Where a player's device assumes the other player's passes at once (HIS-096) instead of waiting with Assume on the

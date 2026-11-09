@@ -1,0 +1,1 @@
+fix: After going back to a choice among the top cards of your library (manifest dread, scry, surveil), you can choose again instead of being told the choice isn't allowed

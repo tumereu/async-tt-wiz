@@ -1,0 +1,1 @@
+fix: A choice stays open with the cards you picked when the other player suggests a result or asks to undo; before, your picks were cleared, and after an undo request the choice could disappear.

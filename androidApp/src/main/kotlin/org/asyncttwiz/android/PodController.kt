@@ -85,7 +85,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val predict: ((PodDeckBuild) -> PodDeckBuild)? = null, val exit: Boolean = false,
         val select: Boolean = false, val setupRevision: Long? = null,
         val createdFrom: NewPodDraft? = null,
-        val deckName: String? = null, val submit: Boolean = false,
+        val deckName: String? = null, val deckCover: String? = null, val submit: Boolean = false,
         /** A Rotisserie pick queue being set (DRF-164): shown at once until the server's answer comes. */
         val pickQueue: List<String>? = null,
         val send: suspend (String) -> PodDetail?)
@@ -107,7 +107,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
-        failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
+        failed = { message -> state = state.copy(sourcePreview = null, error = message) }) { upload ->
+        AppLog.info("sets", "${upload.snapshot.setCode} chosen as the source: ${upload.snapshot.cards.size} cards, ${upload.definitions.definitions.size} definitions")
         // I-D52 (pivot review #2): the set's support as this device worked it out goes with it, for the server to check
         val source = PodSetSource(upload.snapshot, upload.definitions.definitions, setPicker.state.support(upload.snapshot.setCode))
         state = state.copy(sourcePreview = null, sourceHint = null)
@@ -559,6 +560,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = SetPodDeckName(requestId(), detail.draftAttemptId!!, name)
         enqueue(Write(detail.id, input.draftAttemptId, deckName = name, send = { api.deckName(it, detail.id, input) }))
     }
+    /** DRF-166: shown at once, like the name; the server keeps it. */
+    fun deckCover(definition: String) {
+        val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return
+        val input = SetPodDeckCover(requestId(), detail.draftAttemptId!!, definition)
+        enqueue(Write(detail.id, input.draftAttemptId, deckCover = definition, send = { api.deckCover(it, detail.id, input) }))
+    }
     private fun editable() = state.detail?.takeIf { it.draftAttemptId != null && !it.submitted &&
         it.phase != PodPhase.SETUP && !state.uncertain && state.confirmation == null }
     fun requestConfirmation(action: PodConfirmation) {
@@ -634,6 +641,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         detail?.let { base ->
             val pending = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
             detail = base.copy(deckName = pending.lastOrNull { it.deckName != null }?.deckName ?: base.deckName,
+                deckCover = pending.lastOrNull { it.deckCover != null }?.deckCover ?: base.deckCover,
                 submitted = base.submitted || pending.any { it.submit })
             // DRF-164: the latest pick queue being set shows at once.
             val queue = pending.lastOrNull { it.pickQueue != null }?.pickQueue

@@ -1,0 +1,1 @@
+mod: The menus read Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and Pods come first.

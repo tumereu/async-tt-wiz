@@ -95,7 +95,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             org.asyncttwiz.storage.SetSourceRepository(java.io.File(application.noBackupFilesDir, "mtg-set-sources"),
                 catalog.repository, if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
                     org.asyncttwiz.storage.HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
-                else org.asyncttwiz.storage.HttpCatalogSource())
+                else org.asyncttwiz.storage.HttpCatalogSource(), log = { AppLog.info("sets", it) })
         }, support = { catalog.setSupport.sets() }, request = catalog::requestSetSupport, now = catalog::setSupportNow))
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),

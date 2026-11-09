@@ -1,0 +1,1 @@
+mod: Pips and sources in a draft deck's Stats: a bar's full width is now 100%, and each colour shows its share of all pips and of all sources as a percentage.

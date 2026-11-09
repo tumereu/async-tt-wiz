@@ -33,6 +33,7 @@ interface Pods : Closeable {
     suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail
     suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail
     suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail
+    suspend fun deckCover(token: String, id: String, input: SetPodDeckCover): PodDetail
     suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail
     suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail
     suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged
@@ -78,6 +79,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail = call(token, path(id, "/build/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail = call(token, path(id, "/build/basics"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail = call(token, path(id, "/build/name"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun deckCover(token: String, id: String, input: SetPodDeckCover): PodDetail = call(token, path(id, "/build/cover"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail = call(token, path(id, "/submit"), DeckJson.format.encodeToString(input))
     override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail = call(token, path(id, "/cancel"), DeckJson.format.encodeToString(input))
     override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/leave"), DeckJson.format.encodeToString(input))
@@ -110,8 +112,12 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
             val bytes = response.bodyAsChannel().readRemaining(16L * 1024 * 1024 + 1).readByteArray()
             if (bytes.size > 16 * 1024 * 1024) throw PodFailure("invalid_response")
             val text = bytes.decodeToString(throwOnInvalidSequence = true)
-            if (response.status.value !in 200..299)
-                throw PodFailure(runCatching { DeckJson.format.decodeFromString<PodError>(text).code }.getOrDefault("unavailable"))
+            if (response.status.value !in 200..299) {
+                val code = runCatching { DeckJson.format.decodeFromString<PodError>(text).code }.getOrDefault("unavailable")
+                // A refused write (say a set source: invalid_definition, request_too_large) reaches the problem report
+                if (body != null) AppLog.warn("http", "${path.substringBefore('?')} refused: ${response.status.value} $code, ${body.length} chars sent")
+                throw PodFailure(code)
+            }
             return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw PodFailure("invalid_response") }
         } catch (failure: PodFailure) { throw failure
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled

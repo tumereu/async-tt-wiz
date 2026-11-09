@@ -5,6 +5,14 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
+    // DRF-166: the chosen card while it is in Main or Side, else the first of them
+    @Test fun theCoverIsTheChosenCardWhileItIsAmongTheChoices() {
+        assertEquals("b", podBuildCover(listOf("a", "b"), "b"))
+        assertEquals("a", podBuildCover(listOf("a", "b"), "gone"))
+        assertEquals("a", podBuildCover(listOf("a", "b"), null))
+        assertEquals(null, podBuildCover(emptyList(), "gone"))
+    }
+
     // DRF-103: the basics dialog's line counts the section it was opened for, every land of it, nonbasics too
     @Test fun basicsLineCountsTheSectionsBasicsAndAllItsLands() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))
@@ -97,6 +105,28 @@ class PodBuildModelsTest {
         val alphaCopies = mapOf("z" to DraftCopy("z", "z"), "a" to DraftCopy("a", "a"))
         assertEquals(listOf("a", "z"), podBuildColumns(PodDeckBuild(alphaCopies.keys.map { PodDeckCopy(it) }), PodDeckCategory.MAIN,
             alphaCopies, mapOf("z" to card("Zulu"), "a" to card("alpha")), 7)[2].map { it.digest })
+    }
+
+    // DRF-094, DRF-119: a header warns exactly when its section's rule stops Submit, whatever the numbers
+    @Test fun headerWarningsFollowSubmitsRules() {
+        val copies = mapOf("main" to DraftCopy("main", "m"), "side" to DraftCopy("side", "s"))
+        val valid = PodDeckBuild(listOf(PodDeckCopy("main"), PodDeckCopy("side", PodDeckCategory.SIDE)), PodDeckBasics(plains = 39))
+        fun warning(category: PodDeckCategory, build: PodDeckBuild = valid, limit: Int? = 1) = podBuildHeaderWarning(category, build, copies, limit)
+        for (category in PodDeckCategory.entries) assertNull(warning(category))
+        assertTrue(podBuildSubmitEnabled(valid, copies, 1, editable = true, canSubmit = true))
+
+        val small = valid.copy(basics = PodDeckBasics(plains = 38))
+        assertEquals("Main needs 40 cards", warning(PodDeckCategory.MAIN, small))
+        assertNull(warning(PodDeckCategory.SIDE, small))
+        assertFalse(podBuildSubmitEnabled(small, copies, 1, editable = true, canSubmit = true))
+
+        assertEquals("Side exceeds its limit of 0 cards", warning(PodDeckCategory.SIDE, limit = 0))
+        assertNull(warning(PodDeckCategory.MAIN, limit = 0))
+        assertFalse(podBuildSubmitEnabled(valid, copies, 0, editable = true, canSubmit = true))
+        // Side's basics count toward its limit, as they do for Submit; no limit, no warning
+        val sideBasics = valid.copy(sideBasics = PodDeckBasics(island = 1))
+        assertEquals("Side exceeds its limit of 1 cards", warning(PodDeckCategory.SIDE, sideBasics))
+        assertNull(warning(PodDeckCategory.SIDE, sideBasics, limit = null))
     }
 
     // DRF-119

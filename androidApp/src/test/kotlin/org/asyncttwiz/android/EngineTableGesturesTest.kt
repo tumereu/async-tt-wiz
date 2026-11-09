@@ -77,7 +77,7 @@ class EngineTableGesturesTest {
     }
 
     // ZON-078, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
-    // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; a Graveyard's menu is only Search
+    // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; ZON-033: an empty Graveyard shakes
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
         kit.opening()
         val theirs = kit.pile(PlayZone.LIBRARY, owner = f.b)
@@ -97,7 +97,8 @@ class EngineTableGesturesTest {
         assertEquals(hand, kit.hand("Mountain").size + kit.hand("Storm Spark").size)
         val graveyard = kit.pile(PlayZone.GRAVEYARD)
         kit.tap(graveyard)
-        assertEquals("pile/${graveyard.id}", toolkit.panel, "the Graveyard's menu: only Search")
+        assertEquals(graveyard.id, toolkit.shaking?.id, "an empty Graveyard has nothing to show")
+        assertNull(toolkit.panel, "no menu")
     }
 
     // ZON-077, ZON-004: a hand card dragged onto the Battlefield is played as with a double-tap; a drag that starts on a

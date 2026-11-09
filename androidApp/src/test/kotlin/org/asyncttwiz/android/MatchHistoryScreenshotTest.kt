@@ -1,5 +1,13 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.unit.dp
+import kotlin.test.assertEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -117,6 +125,40 @@ class MatchHistoryScreenshotTest {
         compose.onNodeWithText("Your decks vs theirs").assertDoesNotExist()
         captureShot("$SCREENSHOTS/match-history/stats-graphs-all.png",
             "The Graphs tab with All chosen shows the tiles (4–1–1), alex's running wins and losses and every other graph down to matches per week.")
+    }
+
+    private fun assertTilesFillTheWidth(perRow: Int) {
+        val whole = compose.onNodeWithTag("stats-tiles").getUnclippedBoundsInRoot()
+        val tiles = listOf("Matches", "W–L–D", "Win %", "Current streak", "Longest streak", "Average turns")
+            .map { compose.onNodeWithTag("stats-tile-$it").getUnclippedBoundsInRoot() }
+        for (row in tiles.chunked(perRow)) {
+            assertEquals(whole.left.value, row.first().left.value, 1f)
+            assertEquals(whole.right.value, row.last().right.value, 1f)
+            assertEquals(1, row.map { it.top }.distinct().size)
+            assertEquals(1, row.map { it.bottom }.distinct().size)
+            assertEquals(row.first().right.value - row.first().left.value, row.last().right.value - row.last().left.value, 1f)
+        }
+    }
+
+    // LOB-132: the top tiles fill the whole width: two rows of three in portrait
+    @Test @Config(qualifiers = "w412dp-h892dp-port-mdpi") fun statsTilesFillThePortraitWidth() {
+        history.stats = HistoryList(records)
+        history.choice = StatsChoice(graphs = true)
+        compose.setContent { ScreenTheme { StatsContent(history, alex.accountId) {} } }
+        assertTilesFillTheWidth(3)
+    }
+
+    // LOB-132: and all six in one row in landscape, beside the permanent side menu's 220 dp too; the match length in four-turn
+    // ranges and the colours as mana symbols
+    @Test @Config(qualifiers = "w892dp-h2400dp-port-mdpi") fun statsGraphsInLandscape() {
+        history.stats = HistoryList(records)
+        history.choice = StatsChoice(graphs = true)
+        compose.setContent { ScreenTheme { Box(Modifier.width(672.dp)) { StatsContent(history, alex.accountId) {} } } }
+        assertTilesFillTheWidth(6)
+        compose.onNodeWithTag("stats-colors-GW", useUnmergedTree = true).assertTextEquals("{G}{W}").assertIsDisplayed()
+        compose.onNode(hasContentDescription("1–4: 0, 5–8: 3, 9–12: 2, 13–16: 1, 17–20: 0, 21–24: 0, 25–28: 0, 29–32: 0, 33+: 0")).assertExists()
+        captureShot("$SCREENSHOTS/match-history/stats-graphs-landscape.png", "The Graphs tab with All chosen at the width beside " +
+            "the side menu in landscape: six tiles fill the row, match length runs in four-turn ranges to 33+, and win % by colours shows mana symbols.")
     }
 
     // LOB-132: no finished match: Graphs says so instead of drawing empty graphs

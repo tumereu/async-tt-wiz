@@ -113,7 +113,7 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithText("Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
-                // A pile tap opens its menu; the double-tap opens the search panel.
+                // ZON-035: a double-tap on a pile leaves its search panel open: the first tap opened it, the second keeps it.
                 compose.onNodeWithContentDescription("Alice graveyard, 3 cards").performTouchInput { doubleClick() }
                 compose.mainClock.advanceTimeBy(500)
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()

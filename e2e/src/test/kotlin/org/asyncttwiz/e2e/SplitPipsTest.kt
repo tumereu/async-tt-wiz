@@ -31,8 +31,8 @@ class SplitPipsTest : E2e() {
         waitUntil("Alice's Stats") { alice.shows(hasTestTag("pod-stats")) }
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-mana"))
         waitUntil("two red pips and one green in Alice's Stats") {
-            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("2 / 0"))) &&
-                alice.shows(hasTestTag("pod-stats-mana-G") and hasAnyDescendant(hasText("1 / 0")))
+            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("2 pips · 67%"))) &&
+                alice.shows(hasTestTag("pod-stats-mana-G") and hasAnyDescendant(hasText("1 pip · 33%")))
         }
     }
 }

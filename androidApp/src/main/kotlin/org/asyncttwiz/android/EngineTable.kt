@@ -180,9 +180,22 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     val banners = TurnBannerQueue()
 
     /** Timeline mode (HIS-004): the shown event the board is reviewed at; null in play mode. */
-    var review by mutableStateOf<String?>(null)
+    var review: String?
+        get() = reviewAt
+        set(at) {
+            // Report DH3QX6: every move on the timeline but Auto's own steps (its start and stop say those)
+            if (at != reviewAt && !reviewPlaying) AppLog.info("timeline", "Timeline at ${at ?: "none (play mode)"}, from ${reviewAt ?: "play mode"}")
+            reviewAt = at
+        }
+    private var reviewAt by mutableStateOf<String?>(null)
     /** Timeline mode's Auto (HIS-013). */
-    var reviewPlaying by mutableStateOf(false)
+    var reviewPlaying: Boolean
+        get() = autoPlaying
+        set(on) {
+            if (on != autoPlaying) AppLog.info("timeline", "Timeline Auto ${if (on) "on" else "off"} at $reviewAt")
+            autoPlaying = on
+        }
+    private var autoPlaying by mutableStateOf(false)
 
     /** CMB-040: the blocks being placed to assume while waiting for the defender's (personal). */
     private var assumed: AssumedBlocks? = null
@@ -349,7 +362,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         if (working()) { undoAfterWork = true; AppLog.info("engine", "Undo waits for the action being worked out"); return true }
         return when (val u = g.undo()) {
             is GameDevice.Undo.Free, is GameDevice.Undo.Queued -> { sent(); true }
-            is GameDevice.Undo.Request -> { sent(); rewind = RewindChoice(u.target); true }
+            is GameDevice.Undo.Request -> {
+                AppLog.info("undo", "Undo dialog opened at ${u.target}: it needs a request (${u.reason})")
+                sent(); rewind = RewindChoice(u.target); true
+            }
             is GameDevice.Undo.Unavailable -> { AppLog.info("engine", "Undo not taken: ${u.reason}"); undoShake++; false }
         }
     }
@@ -359,7 +375,11 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun workDone() { if (undoAfterWork && !working()) { undoAfterWork = false; undo() } }
 
     /** Holding Undo opens the rewind dialog to pick any earlier point (§10). */
-    fun holdUndo() { engine?.historyRetry(); rewind = RewindChoice(game()?.shown?.undoTarget) }
+    fun holdUndo() {
+        engine?.historyRetry()
+        rewind = RewindChoice(game()?.shown?.undoTarget)
+        AppLog.info("undo", "Undo dialog opened by a hold at ${rewind?.target}, tip ${game()?.shown?.tip}")
+    }
 
     /** The other player's name, for the wait's words and the unconfirmed mark's tooltip (set by the table). */
     var opponentName: String = "The other player"
@@ -984,8 +1004,8 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     val current = preview?.takeIf { it.first == target && !it.second.loading }?.second
     val needsRequest = (current ?: preview?.second?.takeIf { !it.loading })?.needsRequest
     val landscape = LocalConfiguration.current.let { it.screenWidthDp > it.screenHeightDp }
-    ScreenDialog({ routes.rewind = null }, title = "Undo", actions = {
-        DialogCancelButton("Cancel", { routes.rewind = null })
+    ScreenDialog({ AppLog.info("undo", "Undo dialog dismissed"); routes.rewind = null }, title = "Undo", actions = {
+        DialogCancelButton("Cancel", { AppLog.info("undo", "Undo dialog cancelled"); routes.rewind = null })
         DialogMainButton(if (needsRequest == true) "Ask $opponent" else "Undo", {
             val t = target ?: return@DialogMainButton
             when (val u = game.undo(t)) {

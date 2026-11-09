@@ -43,13 +43,17 @@ class StaleTapTest : E2e() {
         @Volatile var holding = false
         private val held = ConcurrentLinkedQueue<() -> Unit>()
         var observe: () -> Unit = {}
-        /** While on, what the engine thread queues behind its own work (an own action's follow-up, its next board) waits
-         * ([releaseFollowUps]): a tap on the action's own board then comes first, as while the action's event is being finished. */
+        /**
+         * While on, everything queued for the engine thread waits, in order ([releaseFollowUps]), whichever thread queued it:
+         * an own action's follow-up and also the clock's tick, what the phone sends, and the server's answer to it, each of
+         * which publishes a board of its own. An action already running finishes (its event, inline on the engine thread) and
+         * the board it published on the way stays the newest; an own action's tap ([early], [call]) isn't queued through
+         * here, so it comes next, as while the action's event is being finished. Nothing blocks the engine thread: the main
+         * thread may wait for it, as a tap does.
+         */
         @Volatile var holdingFollowUps = false
         private val followUps = ConcurrentLinkedQueue<() -> Unit>()
-        override fun run(work: () -> Unit) {
-            if (holdingFollowUps && Thread.currentThread().name == "atw-engine") followUps.add(work) else EngineWorker.Background.run(work)
-        }
+        override fun run(work: () -> Unit) { if (holdingFollowUps) followUps.add(work) else EngineWorker.Background.run(work) }
         override fun <T> call(work: () -> T): T = EngineWorker.Background.call(work)
         override fun early(work: (release: (() -> Unit)?) -> Unit) = EngineWorker.Background.early(work)
         override fun main(work: () -> Unit) = EngineWorker.Background.main { if (holding) held.add(work) else { work(); observe() } }
@@ -239,12 +243,15 @@ class StaleTapTest : E2e() {
         val before = alice.engine { device.session.tip }
         val cast = withAnswers(alice.state, Input.Cast(alice.me, alice.hand("Ember Martyr").first()))
 
+        // From here her phone's engine thread only finishes what is under way: nothing can publish a board but her cast
         held.holdingFollowUps = true
+        waitUntil("nothing on its way on Alice's phone") { alice.current() }
         alice.game!!.send(cast)
         waitUntil("the cast's own board on her screen") {
-            alice.state.stack.size == 1 && alice.state.priority.holder == alice.me && alice.stepArrow() == "Resolve"
+            alice.shown.ownActionShown && alice.state.stack.size == 1 && alice.state.priority.holder == alice.me && alice.stepArrow() == "Resolve"
         }
         alice.tap("Resolve")
+        assertTrue(AppLog.text().lines().any { "Own pass on board" in it && "already done" in it }, "the tap taken as the same press")
         held.releaseFollowUps()
         repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
         waitUntil("her Martyr on the battlefield") { alice.field("Ember Martyr").size == 1 && alice.settled(this) }

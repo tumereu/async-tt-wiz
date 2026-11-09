@@ -97,6 +97,43 @@ class ProblemReportsTest {
         assertTrue(report.log.contains("Attempt ended at 10 / 20 bytes"))
     }
 
+    // LOB-089: the Automatum log keeps its newest entries up to its bound, in order, added from several threads alike
+    @Test fun `the Automatum log keeps its newest entries`() {
+        val log = org.asyncttwiz.automatum.AutomatumLog
+        log.clear()
+        val total = log.ENTRIES * 2 + 500
+        repeat(total) { log.refusal("game-1", "step", "$it") }
+        val kept = log.entries("game-1").map { (it as org.asyncttwiz.automatum.AutomatumEntry.Refusal).reason.toInt() }
+        assertEquals((total - log.ENTRIES until total).toList(), kept)
+        log.clear()
+        List(4) { thread -> kotlin.concurrent.thread { repeat(500) { log.refusal("game-2", "step", "$thread:$it") } } }.forEach { it.join() }
+        val reasons = log.entries("game-2").map { (it as org.asyncttwiz.automatum.AutomatumEntry.Refusal).reason }
+        assertEquals(2_000, reasons.toSet().size)
+        for (thread in 0 until 4) assertEquals((0 until 500).map { "$thread:$it" }, reasons.filter { it.startsWith("$thread:") })
+        log.clear()
+    }
+
+    private fun decodeEngine(report: String) = org.asyncttwiz.protocol.game.GameRepro.decode(java.util.zip.GZIPInputStream(
+        java.util.Base64.getDecoder().decode(report.substringAfter("\n")).inputStream()).use { it.readBytes() }.decodeToString())
+
+    // LOB-089: a bundle with the device's whole record (GameDevice.MAX_RECORD) fits a report as it is when its lines are the
+    // usual ones; lines too many for the bound go oldest first, and the rest still decodes
+    @Test fun `a bundle with the whole record fits and decodes`() {
+        val max = org.asyncttwiz.protocol.game.GameDevice.MAX_RECORD
+        fun id() = java.util.UUID.randomUUID().toString()
+        val usual = org.asyncttwiz.protocol.game.GameRepro(me = id(), definitions = "", lineStart = id(), localHead = id(),
+            log = List(max) { "out GameAction\$Submit ${id()} on ${id()}" })
+        val text = assertNotNull(AutomatumReports.fitEngine(usual, org.asyncttwiz.protocol.CrashReport.MAX_AUTOMATUM))
+        assertTrue(text.length <= org.asyncttwiz.protocol.CrashReport.MAX_AUTOMATUM)
+        assertEquals(usual, decodeEngine(text))
+        val heavy = usual.copy(log = List(max) { List(9) { id() }.joinToString("") })
+        val small = assertNotNull(AutomatumReports.fitEngine(heavy, 100_000))
+        assertTrue(small.length <= 100_000)
+        val kept = decodeEngine(small).log
+        assertTrue(kept.size in 20 until max)
+        assertEquals(heavy.log.takeLast(kept.size), kept)
+    }
+
     // LOB-089, I-D43: a report carries the latest game's Automatum log and reproduction bundle, compressed and bounded
     @Test fun `reports carry the Automatum bundle within its bound`() = runBlocking {
         org.asyncttwiz.automatum.AutomatumLog.clear()

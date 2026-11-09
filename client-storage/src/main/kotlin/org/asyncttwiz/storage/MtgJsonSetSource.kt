@@ -10,6 +10,8 @@ import java.nio.charset.CodingErrorAction
 
 internal data class SetFileCard(val uuid: String, val rarity: SetCardRarity, val colors: Set<DraftColor>)
 internal data class SetFile(val code: String, val name: String, val cards: List<SetFileCard>, val recipe: SetBoosterRecipe?)
+internal class SetCardLimitExceeded : IllegalStateException("Set card limit exceeded")
+internal class SetSheetLimitExceeded(recipe: String) : IllegalStateException("Set recipe $recipe has over ${SetSourceValidation.MAX_SHEETS} sheets")
 
 /** Only card sampling fields and the three supported recipes are retained. Unknown provider data is
  * streamed past; strings, nesting, arrays and maps are bounded before allocating collections. */
@@ -38,7 +40,7 @@ internal class MtgJsonSetSource {
                                 check(!Thread.currentThread().isInterrupted)
                                 val card = card(reader)
                                 if (card != null && (wanted == null || card.uuid in wanted)) {
-                                    check(cards.size < SetSourceValidation.MAX_CARDS) { "Set card limit exceeded" }
+                                    if (cards.size >= SetSourceValidation.MAX_CARDS) throw SetCardLimitExceeded()
                                     check(cards.put(card.uuid, card) == null) { "Duplicate set card UUID" }
                                 }
                             }
@@ -121,7 +123,8 @@ internal class MtgJsonSetSource {
             }
             "sheets" -> {
                 val entries = linkedMapOf<String, SetBoosterSheet>()
-                fields(reader, SetSourceValidation.MAX_SHEETS) { sheet ->
+                fields(reader, SetSourceValidation.MAX_SHEETS + 1) { sheet ->
+                    if (entries.size >= SetSourceValidation.MAX_SHEETS) throw SetSheetLimitExceeded(name)
                     check(sheet.length in 1..100)
                     entries[sheet] = sheet(reader)
                 }

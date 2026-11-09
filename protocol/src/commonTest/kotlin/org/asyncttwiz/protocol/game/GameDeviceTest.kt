@@ -1172,6 +1172,19 @@ class GameDeviceTest {
         assertTrue(decoded.log.any { it.startsWith("out Submit") })
     }
 
+    // LOB-089: the record keeps its newest entries up to its bound, and the bundle carries them all
+    @Test
+    fun theRecordKeepsItsNewestEntries() {
+        val sim = spells("Glance Ahead")
+        sim.bobToMain()
+        val device = sim.device(sim.bob)
+        repeat(GameDevice.MAX_RECORD + 100) { device.answerRequest(it % 2 == 0) }
+        val log = device.repro(sim.server.history.codec).log
+        assertEquals(GameDevice.MAX_RECORD, log.size)
+        assertEquals(device.recentRecord(1).single(), log.last())
+        assertTrue(log.last().startsWith("out EngineAnswerRewind"))
+    }
+
     // TRN-060 (CR 104.4b): Alice's Restless Wisp enters and is sacrificed, dies and returns, with only passes nobody can
     // avoid in between (her one card cast, Bob holding none): her device stops at the position met again with the
     // engine's loop choice for the player holding priority; Draw makes the game a draw, Continue goes on

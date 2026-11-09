@@ -39,8 +39,8 @@ internal object DraftDeckStore {
     }
 
     /** Creates or replaces [owner]'s draft deck for [pod]; a new one may evict the oldest beyond the limit.
-     * Every digest must already be a stored definition. */
-    fun save(sql: DSLContext, owner: UUID, pod: UUID, podName: String, name: String, entries: List<SavedDeckEntry>) {
+     * Every digest must already be a stored definition. [cover] is the member's chosen cover (DRF-166), if any. */
+    fun save(sql: DSLContext, owner: UUID, pod: UUID, podName: String, name: String, entries: List<SavedDeckEntry>, cover: String? = null) {
         // Defensive: a pool card without a stored definition is left out rather than failing the submission.
         val stored = sql.select(DEFINITION.DIGEST).from(DEFINITION).where(DEFINITION.DIGEST.`in`(entries.map { it.definition }.toSet()))
             .fetchSet(DEFINITION.DIGEST)
@@ -53,11 +53,12 @@ internal object DraftDeckStore {
         val id = existing?.id ?: UUID.randomUUID()
         if (existing == null) {
             sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, id).set(SAVED_DECK.ACCOUNT_ID, owner).set(SAVED_DECK.NAME, name)
-                .set(SAVED_DECK.DRAFT_POD_ID, pod).set(SAVED_DECK.DRAFT_POD_NAME, podName).execute()
+                .set(SAVED_DECK.DRAFT_POD_ID, pod).set(SAVED_DECK.DRAFT_POD_NAME, podName)
+                .set(SAVED_DECK.COVER_DIGEST, cover?.takeIf { chosen -> entries.any { it.definition == chosen } }).execute()
         } else {
             sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(id)).execute()
             sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.DRAFT_POD_NAME, podName)
-                .set(SAVED_DECK.COVER_DIGEST, existing.coverDigest?.takeIf { cover -> entries.any { it.definition == cover } })
+                .set(SAVED_DECK.COVER_DIGEST, (cover ?: existing.coverDigest)?.takeIf { chosen -> entries.any { it.definition == chosen } })
                 .set(SAVED_DECK.AUTOMATUM_SUPPORT, null as String?)
                 .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(id)).execute()
         }
@@ -73,6 +74,13 @@ internal object DraftDeckStore {
     fun rename(sql: DSLContext, owner: UUID, pod: UUID, name: String) {
         sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L))
             .where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.eq(pod)).and(SAVED_DECK.NAME.ne(name)).execute()
+    }
+
+    /** Follows the member's private pod deck cover (DRF-166), if their draft deck exists. */
+    fun cover(sql: DSLContext, owner: UUID, pod: UUID, cover: String) {
+        sql.update(SAVED_DECK).set(SAVED_DECK.COVER_DIGEST, cover).set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L))
+            .where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.eq(pod))
+            .and(SAVED_DECK.COVER_DIGEST.isDistinctFrom(cover)).execute()
     }
 
     /** Keeps the newest [DraftDecks.LIMIT] draft decks by creation. */

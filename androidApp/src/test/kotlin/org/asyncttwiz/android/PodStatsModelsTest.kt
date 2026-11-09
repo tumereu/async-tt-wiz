@@ -58,35 +58,29 @@ class PodStatsModelsTest {
         assertEquals(PodStatsManaShare(.5 / 4.5, 0.0, 0.0), shares[DraftColor.R])
         assertEquals(1.0, shares.values.sumOf { it.pips }, 1e-9)
         assertEquals(1.0, shares.values.sumOf { it.sources }, 1e-9)
-        assertEquals("1½ / 3", podStatsManaText(stats.pips.getValue(DraftColor.U), stats.sources.getValue(DraftColor.U), stats.otherSources.getValue(DraftColor.U)))
-        assertEquals("9 / 8", podStatsManaText(9.0, 7, 1))
-        assertEquals("4½ / 8", podStatsManaText(4.5, 8, 0))
-        assertEquals("0 / 0", podStatsManaText(0.0, 0, 0))
+        assertEquals("1½ pips · 33%", podStatsPipLine(stats.pips.getValue(DraftColor.U), shares.getValue(DraftColor.U).pips))
+        assertEquals("3 sources · 50%", podStatsSourceLine(stats.sources.getValue(DraftColor.U) + stats.otherSources.getValue(DraftColor.U), shares.getValue(DraftColor.U).sources))
     }
 
-    // DRF-114: both bar kinds in every row are on one scale, the largest share nearly filling the width
-    @Test fun barsShareOneScaleSetByTheLargestShareOfEitherKind() {
-        val shares = mapOf(DraftColor.W to PodStatsManaShare(.5, .25, .25), DraftColor.U to PodStatsManaShare(.5, .75, .5))
-        assertEquals(.95 / .75, shares.podStatsBarScale(), 1e-9)
-        assertEquals(.95, .75 * shares.podStatsBarScale(), 1e-9)
-        // The pip bar reads against the source bar by length: W's pip share is twice its source share, so its bar is too.
-        assertEquals(.5 * shares.podStatsBarScale(), 2 * .25 * shares.podStatsBarScale(), 1e-9)
-        val pipsLead = mapOf(DraftColor.W to PodStatsManaShare(1.0, .5, .5), DraftColor.U to PodStatsManaShare(0.0, .5, .5))
-        assertEquals(.95, pipsLead.podStatsBarScale(), 1e-9)
+    // DRF-114: both shares as percentages, and a colour with a share of 0 still reads
+    @Test fun manaLinesNameTheirCountsAndPercentages() {
+        assertEquals("9 pips · 34%", podStatsPipLine(9.0, .34))
+        assertEquals("½ pip · 2%", podStatsPipLine(.5, .02))
+        assertEquals("1 pip · 4%", podStatsPipLine(1.0, .04))
+        assertEquals("0 pips · 0%", podStatsPipLine(0.0, 0.0))
+        assertEquals("1 source · 6%", podStatsSourceLine(1, .06))
+        assertEquals("0 sources · 0%", podStatsSourceLine(0, 0.0))
     }
 
     // DRF-114: no pips, no sources or neither: empty bars and never a division by zero
-    @Test fun manaSharesAndScaleHandleZeroTotals() {
+    @Test fun manaSharesHandleZeroTotals() {
         val empty = podStats(PodDeckBuild(), emptyMap(), emptyMap()).manaShares()
         assertTrue(empty.values.all { it == PodStatsManaShare(0.0, 0.0, 0.0) })
-        assertEquals(0.0, empty.podStatsBarScale())
         val noPips = podStats(PodDeckBuild(basics = PodDeckBasics(forest = 2)), emptyMap(), emptyMap()).manaShares()
         assertEquals(PodStatsManaShare(0.0, 1.0, 1.0), noPips[DraftColor.G])
-        assertEquals(.95, noPips.podStatsBarScale(), 1e-9)
         val spell = mapOf("s" to card("Spell", "Instant", "{R}"))
         val noSources = podStats(PodDeckBuild(listOf(PodDeckCopy("s"))), mapOf("s" to DraftCopy("s", "s")), spell).manaShares()
         assertEquals(PodStatsManaShare(1.0, 0.0, 0.0), noSources[DraftColor.R])
-        assertEquals(.95, noSources.podStatsBarScale(), 1e-9)
     }
 
     // DRF-111: the Color view's slots, by each card's colour as in the donut: gold is more than one colour, 7+ groups

@@ -1,0 +1,1 @@
+mod: Stats' Graphs: match length in 4-turn ranges up to 33+, the top tiles fill the whole width, and win % by colour shows mana symbols.

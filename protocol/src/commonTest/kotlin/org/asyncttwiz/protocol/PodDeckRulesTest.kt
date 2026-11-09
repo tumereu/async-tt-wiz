@@ -5,6 +5,14 @@ import kotlinx.serialization.json.Json
 import kotlin.test.*
 
 class PodDeckRulesTest {
+    // DRF-166: Main's cards, then Side's, each once; Maybe's aren't among them
+    @Test fun coverChoicesAreMainThenSideEachOnce() {
+        val build = PodDeckBuild(listOf(PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("a"), PodDeckCopy("again"),
+            PodDeckCopy("maybe", PodDeckCategory.MAYBE), PodDeckCopy("b")))
+        val digests = mapOf("side" to "S", "a" to "A", "again" to "A", "maybe" to "M", "b" to "B")
+        assertEquals(listOf("A", "B", "S"), PodDeckRules.coverChoices(build, digests::get))
+    }
+
     private fun card(name: String, cost: String = "", type: String = "Creature") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
 

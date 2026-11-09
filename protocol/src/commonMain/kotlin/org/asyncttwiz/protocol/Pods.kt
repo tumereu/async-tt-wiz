@@ -62,6 +62,8 @@ import kotlinx.serialization.Serializable
     val notes: PodDeckNotes? = null,
     /** Rochester, Rotisserie, Winston, Winchester and Sealed: what the caller may see of the draft. */
     val limited: LimitedView? = null,
+    /** Caller-only: the definition chosen as this deck's cover (DRF-166); null until chosen. */
+    val deckCover: String? = null,
 )
 /** A member's private deck notes and tally counters (W, U, B, R, G, C, gold, neutral) for one draft attempt. */
 @Serializable data class PodDeckNotes(val text: String = "", val counters: List<Int> = List(COUNTERS) { 0 }) {
@@ -123,6 +125,9 @@ import kotlinx.serialization.Serializable
     val side: Boolean = false)
 /** PUT /v1/pods/{id}/build/name. Changes only the caller's private deck name. */
 @Serializable data class SetPodDeckName(val requestId: String, val draftAttemptId: String, val name: String)
+/** PUT /v1/pods/{id}/build/cover. Changes only the caller's private deck cover: [definition] must be among their
+ * [PodDeckRules.coverChoices] (DRF-166). */
+@Serializable data class SetPodDeckCover(val requestId: String, val draftAttemptId: String, val definition: String)
 /** GET /v1/pods/{id}/cube (creator): the pod's prepared cube, Main (drafted) and Maybe (not drafted). The saved cube
  * is never changed by preparing. Definitions are read in batches with POST /v1/pods/{id}/cube/definitions
  * ([ReadCubeDefinitions], answered with [SubmittedDefinitions]). */

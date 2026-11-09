@@ -100,7 +100,12 @@ internal const val AUTOMATUM_SOURCE_BLOCKED = "Automatum can't play every card o
 @Composable
 internal fun AutomatumSupportIcon(support: CardListSupport?, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
     if (support == null || support.supported) return
-    val tip = automatumSupportTip(support)
+    HoldWarningIcon(automatumSupportTip(support), modifier, onTap)
+}
+
+/** An amber warning icon: holding it says [tip] (I-D48); a tap does [onTap] (the row's own action). */
+@Composable
+internal fun HoldWarningIcon(tip: String, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
     var tooltip by remember { mutableStateOf(false) }
     val tap by rememberUpdatedState(onTap)
     Box(modifier.sizeIn(minWidth = 32.dp, minHeight = 32.dp).semantics { contentDescription = tip }

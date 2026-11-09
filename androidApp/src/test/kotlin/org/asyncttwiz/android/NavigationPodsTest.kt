@@ -68,7 +68,13 @@ class NavigationPodsTest {
         val podsLabel = compose.onNodeWithText("Pods", useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertEquals(games.left, podsHeader.left)
         assertTrue(decksLabel.left > podsLabel.left)
-        assertTrue(decks.top < games.top)
+        // Games and Pods with their rows come above the menu section, in its order
+        assertTrue(podRow.bottom <= compose.onNodeWithText("Menu").getUnclippedBoundsInRoot().top)
+        val section = listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.STATS, ShellDestination.SETTINGS)
+            .map { compose.onNodeWithText(it.title).getUnclippedBoundsInRoot().top }
+        assertEquals(section.sortedBy { it.value }, section)
+        assertEquals(decks.top, section.first())
+        assertTrue(compose.onNodeWithText("Menu").getUnclippedBoundsInRoot().bottom <= decks.top)
         assertTrue(games.bottom <= gameRow.top)
         assertEquals(gameRow.bottom, podsHeader.top)
         assertEquals(podsHeader.bottom, podRow.top)

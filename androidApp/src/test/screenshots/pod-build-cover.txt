@@ -1,0 +1,1 @@
+The Build tab's cover thumbnail beside the deck name tapped after choosing the Side card: the Choose cover list holds the Main and Side cards, the chosen one marked, the Maybe card not among them.

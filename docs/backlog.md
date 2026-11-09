@@ -24,15 +24,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 - One chat per pod for its members, kept as long as the pod, with a chat button and unread dot on the pod screens; a notification on the Draft activity channel. In a pod game the chat panel has two tabs, Game and Pod. Pod messages show no bubbles on the table, but they do light the dot on the table's chat button, and a tab with a message you haven't seen is highlighted while you are on the other (dismissing a game message's bubble counts as seeing it). Needs server storage, its limits as a game chat's. No "Read" marks unless the implementor finds them plain for several members; list it under choices.
 
-Pod notes, screens (owner, 2026-11-09):
-
-- Pips and sources (DRF-114): full width is 100% of all pips and of all sources, no scaling to the largest, each colour's pip bar over its source bar, so what you see sums to one whole and imbalances show by eye; both shares as percentages.
-- Draft deck cover (LOB-058, DRF-094): a cover thumbnail beside the deck's name in Build; a tap chooses it from your cards.
-- Main and Side headers (DRF-094, DRF-119): a warning icon when Main is under 40 or Side is over its limit; holding it says why.
-- Graveyard and exile (ZON-033, ZON-035): a tap opens the search view at once; the one-button menu goes.
-- Menus (LOB-015, LOB-018): Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and Pods come above the menu section.
-- Stats (LOB-132): match length in 4-turn ranges from 1-4 to 33+; the top tiles fill the whole width; win % by colour uses real mana symbols.
-
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
 
 - The game's end (TRN-065, LOB-126, HIS-084): OK always works, but is greyed for the first seconds any ending or suggestion dialog shows, so a misclick can't accept it. For a result the rules gave: after your OK you stay at the table, "Waiting for <name> to acknowledge"; your OK can be taken back until they press theirs; both OKs make it final and only then does each player go to the lobby; Undo works until it is final, with the usual approval. A concession or an agreed result is final at once, and each player goes to the lobby only after their own OK.

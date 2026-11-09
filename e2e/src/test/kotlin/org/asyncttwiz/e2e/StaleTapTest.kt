@@ -241,8 +241,9 @@ class StaleTapTest : E2e() {
 
         held.holdingFollowUps = true
         alice.game!!.send(cast)
-        waitUntil("the cast's own board on her screen") { alice.state.stack.size == 1 && alice.state.priority.holder == alice.me }
-        assertEquals("Resolve", alice.stepArrow())
+        waitUntil("the cast's own board on her screen") {
+            alice.state.stack.size == 1 && alice.state.priority.holder == alice.me && alice.stepArrow() == "Resolve"
+        }
         alice.tap("Resolve")
         held.releaseFollowUps()
         repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }

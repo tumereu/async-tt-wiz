@@ -50,7 +50,8 @@ class StackClarityTest : E2e() {
             val inBobsMain = bob.state.turn.active == bob.me && bob.state.turn.step == arcanum.api.TurnStep.PrecombatMain
             when (bob.status) {
                 GameDevice.Status.CatchUp -> bob.once { bob.tapToWatch() }
-                is GameDevice.Status.Stopped -> if (!inBobsMain) bob.stepArrow()?.let { label -> bob.once { bob.tap(label) } }
+                // The button may already show his Main 1 (a tap there would leave it): only a stop's answer is tapped
+                is GameDevice.Status.Stopped -> if (!inBobsMain) bob.stepArrow()?.takeIf { it != "To combat" }?.let { label -> bob.once { bob.tap(label) } }
                 else -> {}
             }
             bob.inOwnMain()

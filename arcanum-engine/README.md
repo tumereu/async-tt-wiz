@@ -316,7 +316,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   CR 611.2f), Phyrexian, hybrid, snow, restricted mana;
   mana abilities without the Stack (their other effects at once, a part needing a decision
   by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
-  once (CR 605.4a); special actions (suspend, turning face up); combat:
+  once (CR 605.4a); special actions (CR 116: `casting/SpecialActions` lists what the rules give an object: unlocking a door, turning a manifested or cloaked card or a face-down card's own way up, foretelling; those of keywords are its abilities; any of them pays its cost and runs its steps through the step runner without the Stack, and every way of turning face up is one `Effect.TurnFaceUp`, which ends what `MarkClear.TurnedFaceUp` says); combat:
   declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c; goaded creatures
   attack, a player other than the goader if able, until the goader's next turn, CR 701.15),
   the last blockers declaration making attackers blocked or unblocked in the same change (CR 509.1h),
@@ -626,7 +626,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
-    whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
+    whose other effect needs a decision, and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object

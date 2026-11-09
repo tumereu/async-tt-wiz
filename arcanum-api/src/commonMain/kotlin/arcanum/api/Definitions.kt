@@ -173,7 +173,8 @@ sealed interface Ability {
     ) : Ability
 
     /** A special action (CR 116.2): turning a face-down permanent face up (morph, disguise), foretelling, plotting,
-     * suspending, unlocking a door. Doesn't use the Stack; [timing] says when it may be taken. */
+     * suspending, unlocking a door. Doesn't use the Stack: as it is taken, its [cost] is paid and its [instructions] run at once, any steps a
+     * resolution can have, "this" being the object it was taken from, followed if a step moves it. [timing] says when it may be taken. */
     @Serializable @SerialName("special-action")
     data class SpecialAction(
         val cost: Cost,

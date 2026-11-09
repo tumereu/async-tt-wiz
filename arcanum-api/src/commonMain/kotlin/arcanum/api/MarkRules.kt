@@ -65,9 +65,9 @@ data class MarkRule(
  * The table beside [KeywordExpansions]: for each [ObjectMark], its [MarkRule]. A CR change to a mark means changing one entry here,
  * and a new mark is a new entry and nothing else unless it needs a new kind of rule.
  *
- * The engine reads [MarkRule.zones], [MarkRule.abilities], [MarkRule.permission], [MarkRule.recordsTurn] and
- * [MarkClear.EndOfTurn] from here. The other [MarkClear]s state the rule, carried out where the designation's own action is (turning
- * face up, [Effect.Mark], casting, the Ring).
+ * The engine reads [MarkRule.zones], [MarkRule.abilities], [MarkRule.permission], [MarkRule.recordsTurn], [MarkClear.EndOfTurn] and
+ * [MarkClear.TurnedFaceUp] from here. The other [MarkClear]s state the rule, carried out where the designation's own action is
+ * ([Effect.Mark], casting, the Ring).
  */
 object MarkRules {
     private val PERMANENT = setOf(Zone.Battlefield)

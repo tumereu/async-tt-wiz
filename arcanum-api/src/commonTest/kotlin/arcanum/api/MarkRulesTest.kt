@@ -35,15 +35,12 @@ class MarkRulesTest {
         (marks - exile.toSet()).forEach { assertEquals(setOf(Zone.Battlefield), MarkRules.of(it).zones, "$it") }
     }
 
-    // CR 701.60c: only suspected gives abilities and rules
+    // CR 701.60c: only suspected gives abilities: menace and "This creature can't block"
     @Test
     fun whatAMarkGives() {
         val suspected = MarkRules.of(ObjectMark.Suspected)
-        assertEquals(listOf<Ability>(Keyword.Menace), suspected.abilities)
-        assertEquals(listOf<Mechanic>(Mechanic.CantBlock(ObjectFilter.Any)), suspected.rules)
-        (marks - ObjectMark.Suspected).forEach {
-            assertTrue(MarkRules.of(it).abilities.isEmpty() && MarkRules.of(it).rules.isEmpty(), "$it")
-        }
+        assertEquals(listOf(Keyword.Menace, Ability.Static(listOf(Mechanic.CantBlock(ObjectFilter.Any)), affects = Affected.Objects(Objects.Self))), suspected.abilities)
+        (marks - ObjectMark.Suspected).forEach { assertTrue(MarkRules.of(it).abilities.isEmpty(), "$it") }
     }
 
     // CR 702.171b; 701.60a; 701.40a; 701.58a; 722.3b, c; 709.5g; 701.54a; 701.37b, 702.112b, 719.3b, 701.64b: only leaving the battlefield

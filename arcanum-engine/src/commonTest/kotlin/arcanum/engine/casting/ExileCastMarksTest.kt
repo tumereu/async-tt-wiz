@@ -266,7 +266,7 @@ class ExileCastMarksTest {
         assertEquals(1, castsOf(id).size)
     }
 
-    // ---- Abilities and rules while marked
+    // ---- Abilities while marked
 
     // CR 702.171b: the table's end-of-turn mark goes in the cleanup step
     @Test
@@ -276,6 +276,40 @@ class ExileCastMarksTest {
         val id = marked(idol, ObjectMark.Monstrous, ObjectMark.Saddled)
         advanceTo(TurnStep.Upkeep, turn = 2)
         assertEquals(listOf<ObjectMark>(ObjectMark.Monstrous), state.objOrThrow(id).marks)
+    }
+
+    // CR 701.60c: a suspected permanent has both menace and "This creature can't block": a later loss of all abilities takes both, so it can block
+    @Test
+    fun aLaterLossOfAllAbilitiesTakesBothOfWhatSuspectedGives() = scenario {
+        val ledger = Cards.invent("Accusing Ledger", "{0}", "Artifact", "{0}: Suspect target creature.")
+        val hush = Cards.invent("Sudden Quiet", "{0}", "Instant", "Target creature loses all abilities until end of turn.")
+        val cub = Cards.invent("Silent Cub", "{0}", "Creature — Bear", "", "2/2")
+        alice.battlefield(ledger, cub)
+        alice.hand(hush)
+        alice.activates(ledger, target = cub)
+        allPass()
+        alice.castsWithoutCosts(hush, target = cub)
+        allPass()
+        assertTrue(ObjectMark.Suspected in state.objOrThrow(card(cub)).marks)
+        val v = Engine.view(state)[card(cub)]!!
+        assertFalse(v.characteristics!!.hasKeyword(Keyword.Menace))
+        assertFalse(v.has { it is Mechanic.CantBlock })
+    }
+
+    // CR 701.60a, c: no longer suspected, it has neither
+    @Test
+    fun noLongerSuspectedEndsBoth() = scenario {
+        val cub = Cards.invent("Cleared Cub", "{0}", "Creature — Bear", "", "2/2")
+        val cleanse = spell("Clearing Word", Step.Do(Effect.Mark(Objects.Each(ObjectFilter.Type(CardType.Creature)), ObjectMark.Suspected, remove = true)))
+        alice.battlefield(cub)
+        alice.hand(cleanse)
+        marked(cub, ObjectMark.Suspected)
+        alice.castsWithoutCosts(cleanse)
+        resolve()
+        assertFalse(ObjectMark.Suspected in state.objOrThrow(card(cub)).marks)
+        val v = Engine.view(state)[card(cub)]!!
+        assertFalse(v.characteristics!!.hasKeyword(Keyword.Menace))
+        assertFalse(v.has { it is Mechanic.CantBlock })
     }
 
     // CR 701.60c: a suspected permanent has menace and can't block for as long as it's suspected, without an ability on the card

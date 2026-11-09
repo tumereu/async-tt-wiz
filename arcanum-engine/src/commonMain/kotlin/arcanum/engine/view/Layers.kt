@@ -268,11 +268,11 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     private val copiable = Copiable(state, reads)
     private val started = LinkedHashMap<String, Started>()
     private val withCounters: List<arcanum.engine.state.GameObject> by lazy { state.objects.values.filter { it.counters.isNotEmpty() } }
-    /** The permanents, not phased out, with a mark that gives abilities or rules ([arcanum.api.MarkRules]), in the battlefield's order. */
+    /** The permanents, not phased out, with a mark that gives abilities ([arcanum.api.MarkRules]), in the battlefield's order. */
     private val markGiving: List<Pair<ObjectId, arcanum.api.MarkRule>> by lazy {
         state.battlefield.flatMap { id ->
             val o = state.obj(id)?.takeIf { !it.phasedOut } ?: return@flatMap emptyList()
-            o.marks.map { arcanum.api.MarkRules.of(it) }.filter { it.abilities.isNotEmpty() || it.rules.isNotEmpty() }.map { id to it }
+            o.marks.map { arcanum.api.MarkRules.of(it) }.filter { it.abilities.isNotEmpty() }.map { id to it }
         }
     }
 
@@ -526,10 +526,10 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         }
 
     /** CR 613.4c, 613.1f, 613.7c: P/T counters in 7c and keyword counters in layer 6, at the counters' timestamps. */
-    /** What a mark gives ([arcanum.api.MarkRule.abilities]; a suspected permanent's menace, CR 701.60c), whatever the object's abilities:
-     * not from an ability of it, so "loses all abilities" before it doesn't remove it; [arcanum.api.MarkRule.rules] are rules ([collect]). */
+    /** The abilities a mark gives ([arcanum.api.MarkRule.abilities]: a suspected permanent's menace and "can't block", CR 701.60c), at the
+     * object's timestamp: not from an ability of it, so "loses all abilities" before it doesn't remove them and one after it does. */
     private fun markEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = if (layer != Layer.Ability) emptyList() else
-        markGiving.filter { (id, rule) -> id in board.work && rule.abilities.isNotEmpty() }.map { (id, rule) ->
+        markGiving.filter { (id, _) -> id in board.work }.map { (id, rule) ->
             val o = state.obj(id)!!
             ContinuousEffect(
                 key = "${rule.name}:$id", timestamp = o.timestamp, cda = false, mechanics = listOf(Mechanic.GainAbilities(rule.abilities)),
@@ -656,6 +656,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         e.effect != null -> AbilityOrigin.FromEffect(e.effect, mechanic, index)
         e.instance?.origin is AbilityOrigin.FromCounter -> e.instance.origin
         e.holder != null && e.instance != null -> AbilityOrigin.FromAbility(e.holder, e.instance.origin, mechanic, index)
+        // What a mark gives: the rules give it to the object itself
+        e.instance?.origin is AbilityOrigin.Rule && e.self != null -> AbilityOrigin.FromAbility(e.self, e.instance.origin, mechanic, index)
         else -> AbilityOrigin.FromEffect(EffectId(e.key), mechanic, index)
     }
 
@@ -798,13 +800,6 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             val o = state.obj(id) ?: return@forEach
             if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
-        }
-        // What applies to a marked permanent by the rules (a suspected creature can't block, CR 701.60c)
-        markGiving.forEach { (id, rule) ->
-            val o = state.obj(id)!!
-            rule.rules.forEach { mechanic ->
-                objectMechanics.getOrPut(id) { mutableListOf() } += AppliedMechanic(mechanic, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
-            }
         }
         // What marks let be cast from exile (CR 702.143a, 702.170d, 722.3c)
         arcanum.engine.foretell.MarkCasts.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->

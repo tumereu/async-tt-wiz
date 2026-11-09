@@ -35,7 +35,7 @@ The definition model (overview in `Definitions.kt`):
   definitions until the one approved wipe; patterns with roles of their own keep their shape (`ManifestDread`, `RingTempts`, `Exploits`, `Enlists`,
   `Mutates`, `Cycle`, `Search`, `Expend`).
 - `MarkRules`, the table beside `KeywordExpansions`: `MarkRules.of(mark)` is a `MarkRule` saying for an `ObjectMark` where it can live (`zones`), what the
-  marked object has (`abilities`, and `rules` that aren't abilities of it), when it clears (`MarkClear`), what it lets be cast from exile
+  marked object has (`abilities`), when it clears (`MarkClear`), what it lets be cast from exile
   (`MarkPermission`: the card itself for a `MarkCost`, or a copy of its prepare spell) and whether the turn it was gained is kept (`recordsTurn`).
   A new mark is one entry. Foretelling's {2} and "during your turn" are changed with `ObjectFilter.AbilityOf(keyword = Keyword.Foretell.Kind)` in
   `Mechanic.CostChange`, a free `Mechanic.AbilityAlternativeCost` and `Mechanic.ActivateAtInstantSpeed`; these have no wording in the parser yet.

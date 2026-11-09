@@ -57,8 +57,9 @@ internal object Restrictions {
             val effect = effectId?.let { state.effects[it] }
             val madeBy = when {
                 effect != null -> effect.source
+                origin is AbilityOrigin.FromAbility && origin.by is AbilityOrigin.Rule -> null // the rules themselves (CR 701.60c)
                 origin is AbilityOrigin.FromAbility -> origin.source
-                origin == null -> null // the rules themselves (CR 701.60c)
+                origin == null -> null // the rules themselves
                 else -> applied.source
             }
             AppliedRestriction(text, applied.mechanic, madeBy, effectId, effect?.duration, applied.timestamp)

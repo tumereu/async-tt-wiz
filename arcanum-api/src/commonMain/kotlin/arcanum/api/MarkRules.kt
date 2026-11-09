@@ -47,9 +47,7 @@ sealed interface MarkPermission {
  * @property name the mark's stable name, as it is stored ("suspected", "plotted").
  * @property zones where it can live: an effect putting it on an object elsewhere does nothing.
  * @property abilities what the marked object has for as long as it is marked, applied in the ability layer (CR 613.1f) with the
- *   object's timestamp.
- * @property rules what applies to the marked object for as long as it is marked without being an ability of it, so losing all
- *   abilities doesn't remove it.
+ *   object's timestamp; a later loss of all abilities takes them.
  * @property clears when it goes, besides its object leaving [zones]; empty: only then.
  * @property permission what it lets be cast from exile; null: nothing.
  * @property recordsTurn whether the turn it was gained is kept on the object: [permission]'s "after the turn".
@@ -58,7 +56,6 @@ data class MarkRule(
     val name: String,
     val zones: Set<Zone>,
     val abilities: List<Ability> = emptyList(),
-    val rules: List<Mechanic> = emptyList(),
     val clears: Set<MarkClear> = emptySet(),
     val permission: MarkPermission? = null,
     val recordsTurn: Boolean = false,
@@ -68,7 +65,7 @@ data class MarkRule(
  * The table beside [KeywordExpansions]: for each [ObjectMark], its [MarkRule]. A CR change to a mark means changing one entry here,
  * and a new mark is a new entry and nothing else unless it needs a new kind of rule.
  *
- * The engine reads [MarkRule.zones], [MarkRule.abilities], [MarkRule.rules], [MarkRule.permission], [MarkRule.recordsTurn] and
+ * The engine reads [MarkRule.zones], [MarkRule.abilities], [MarkRule.permission], [MarkRule.recordsTurn] and
  * [MarkClear.EndOfTurn] from here. The other [MarkClear]s state the rule, carried out where the designation's own action is (turning
  * face up, [Effect.Mark], casting, the Ring).
  */
@@ -81,7 +78,8 @@ object MarkRules {
     // CR 702.112b
     private val RENOWNED = MarkRule("renowned", PERMANENT)
     // CR 701.60a, c
-    private val SUSPECTED = MarkRule("suspected", PERMANENT, abilities = listOf(Keyword.Menace), rules = listOf(Mechanic.CantBlock(ObjectFilter.Any)),
+    private val SUSPECTED = MarkRule("suspected", PERMANENT, abilities = listOf(Keyword.Menace,
+        Ability.Static(listOf(Mechanic.CantBlock(ObjectFilter.Any)), affects = Affected.Objects(Objects.Self))),
         clears = setOf(MarkClear.ByEffect))
     // CR 702.171b
     private val SADDLED = MarkRule("saddled", PERMANENT, clears = setOf(MarkClear.EndOfTurn))

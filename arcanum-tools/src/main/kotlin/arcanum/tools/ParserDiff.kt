@@ -45,7 +45,7 @@ internal class Snapshot(val parser: Int, val mtgjson: String, val lines: List<Mo
 
 /** The models the current parser gives for the corpus, printing how long the parsing took. */
 private fun currentSnapshot(): Snapshot {
-    val corpus = readCorpus(ParserToolPaths.mtgjson, ParserToolPaths.cube, supportedSets().keys)
+    val corpus = readCorpus(PinnedMtgJson.file(), ParserToolPaths.cube, supportedSets().keys)
     val start = System.nanoTime()
     var first = 0L
     val lines = corpus.cards.map { card ->

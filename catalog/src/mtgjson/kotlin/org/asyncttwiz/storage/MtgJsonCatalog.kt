@@ -50,7 +50,17 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         CatalogSetList(checkNotNull(meta), sets.values.toList())
     }
 
-    fun import(input: InputStream, index: CatalogIndex, expected: CatalogMetadata, setCode: String? = null,
+    /** The `meta` of an AllPrintings file (its first field), read without the rest of the file. */
+    fun peekMetadata(input: InputStream): CatalogMetadata = reader(input).use { reader ->
+        reader.beginObject()
+        while (reader.hasNext()) {
+            if (reader.nextName() == "meta") return@use metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
+            skip(reader, 1)
+        }
+        error("No meta in the MTGJSON file")
+    }
+
+    fun import(input: InputStream, index: MtgJsonCatalogSink, expected: CatalogMetadata, setCode: String? = null,
         progress: (Long) -> Unit = {}): CatalogMetadata {
         var meta: CatalogMetadata? = null
         var sawData = false
@@ -109,6 +119,11 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                             if (batch.size == 100) { index.addBatch(batch, traits); batch.clear(); traits.clear(); progress(count) }
                         }
                         reader.endArray()
+                    }
+                    // Read whole, then parsed apart: a recipe that can't be read never strands the stream.
+                    "booster" -> if (!index.readsBoosters || reader.peek() == JsonToken.NULL) skip(reader, 3) else {
+                        val booster = JsonParser.parseReader(reader).toString()
+                        index.recipes(set, runCatching { MtgJsonSetSource.boosters(booster) })
                     }
                     else -> skip(reader, 3)
                 } }
@@ -202,10 +217,10 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
     companion object {
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,
         // CatalogIndex aliases/token search and ArtworkReference. Never retain unrelated provider data.
-        internal val retainedFields = setOf("uuid", "name", "setCode", "number", "language", "side", "otherFaceIds",
+        val retainedFields = setOf("uuid", "name", "setCode", "number", "language", "side", "otherFaceIds",
             "faceName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty", "defense", "colors",
             "availability", "isOnlineOnly", "isPromo")
-        internal fun retainedRecord(json: JsonObject): JsonObject = JsonObject().apply {
+        fun retainedRecord(json: JsonObject): JsonObject = JsonObject().apply {
             retainedFields.forEach { key -> json.get(key)?.let { add(key, it) } }
             json.get("identifiers")?.let { ids ->
                 if (ids.isJsonNull) add("identifiers", ids)
@@ -296,7 +311,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
  * entire record, never stores truncated data, and can continue at the next record. Validate the
  * discarded tail too: malformed escapes, control characters and unterminated strings remain fatal.
  */
-internal class BoundedJsonText(reader: java.io.Reader, fieldBytes: Int) : java.io.FilterReader(reader) {
+class BoundedJsonText(reader: java.io.Reader, fieldBytes: Int) : java.io.FilterReader(reader) {
     private val maximum = 6L * fieldBytes + 6
     private var quoted = false
     private var escaped = false

@@ -73,16 +73,20 @@ import kotlinx.serialization.Serializable
 }
 /** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
 @Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
-/** POST /v1/pods: exactly one of cubeId/setSource is required.
+/** POST /v1/pods: exactly one of cubeId/setSource/setCode is required. [setCode]: a draft set the server builds the
+ * packs of from its card catalog (docs/specs/web-client.md section 3.7); [setSource] (an uploaded set) goes in step 1b.
  * GET /v1/pods returns PodList, GET /v1/pods/{id} returns PodDetail. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class CreatePod(val requestId: String, val name: String, val cubeId: String? = null,
     val mode: DraftMode = DraftMode.BOOSTER, val setSource: PodSetSource? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val settings: DraftSettings? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val settings: DraftSettings? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
 /** PUT /v1/pods/{id}. Omitted fields are unchanged; settings replace the complete settings object.
- * At most one of cubeId/setSource may be supplied, replacing the entire source snapshot in setup. */
+ * At most one of cubeId/setSource/setCode may be supplied, replacing the entire source snapshot in setup. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class UpdatePod(val requestId: String, val name: String? = null, val cubeId: String? = null,
-    val settings: DraftSettings? = null, val setSource: PodSetSource? = null)
+    val settings: DraftSettings? = null, val setSource: PodSetSource? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
 /** POST /v1/pods/{id}/invitations. */
 @Serializable data class InviteToPod(val requestId: String, val accountId: String)
 /** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.

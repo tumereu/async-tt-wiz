@@ -194,7 +194,7 @@ internal class SharedFlowController(
 
     /** I-D48: a two-area choice's answer and the orders the engine then asks of the same cards, as one step
      * ([SharedFlow.answer]). */
-    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answerOpen { flow ->
+    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answerOpen("$answer then $then") { flow ->
         // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
         if (answer is Answer.Division && flow.division != null) flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount })
         else flow.answer(answer, then)
@@ -202,21 +202,26 @@ internal class SharedFlowController(
 
     /** STK-030, CR 616.1: the replacement preference list as one step ([SharedFlow.answerReplacements]). */
     override fun answerReplacements(decision: Decision.ChooseReplacement, preference: List<arcanum.engine.decision.ReplacementOption>): Boolean =
-        answerOpen { flow -> flow.answerReplacements(preference) }
+        answerOpen("replacements $preference") { flow -> flow.answerReplacements(preference) }
 
     override fun paymentAfter(decision: Decision): Decision.ManaPayment? = view?.takeIf { it.decision?.id == decision.id }?.payment
 
     /** STK-049: the open payment with the sources picked, or "yes" to the open "you may pay" and its payment, as one step. */
     override fun payMana(): Boolean {
         val uses = mana
-        return answerOpen { flow -> if (flow.decision is Decision.May) flow.payMay(uses) else flow.answer(Answer.ManaPayment(uses)) }
+        return answerOpen("mana $uses") { flow -> if (flow.decision is Decision.May) flow.payMay(uses) else flow.answer(Answer.ManaPayment(uses)) }
     }
 
     /** Sends [perform] on the open decision the panel shows, unless the table changed meanwhile. */
-    private fun answerOpen(perform: (SharedFlow) -> org.asyncttwiz.automatum.EngineRun): Boolean {
-        val play = current() ?: return false
+    private fun answerOpen(what: String, perform: (SharedFlow) -> org.asyncttwiz.automatum.EngineRun): Boolean {
+        // Report DH3QX6: each answer tapped, and below what became of it
+        AppLog.info("decision", "Answer tapped on $shownDecision: ${what.take(400)}${if (busy) " (still working out the last one)" else ""}")
+        val play = current() ?: run { AppLog.info("decision", "Answer not sent: no board"); return false }
         val open = view?.takeIf { it.board === play.board }?.decision
-        if (open != null && open.id.value != shownDecision) { fail("The table changed: look at the choice again."); return false }
+        if (open != null && open.id.value != shownDecision) {
+            AppLog.info("decision", "Answer not sent: the panel shows $shownDecision, the board asks ${open.id.value}")
+            fail("The table changed: look at the choice again."); return false
+        }
         return sendCall(play) { flow ->
             val decision = flow.decision ?: throw Refused(null)
             if (decision.id.value != shownDecision) throw Refused("The table changed: look at the choice again.")
@@ -354,7 +359,7 @@ internal class SharedFlowController(
      */
     private fun sendCall(play: TableBoard, perform: (SharedFlow) -> EngineRun): Boolean {
         val route = engineSend ?: run { fail("Automatum isn't available here."); return false }
-        if (busy) return false
+        if (busy) { AppLog.info("decision", "Flow step not taken: the last one is still being worked out"); return false }
         busy = true
         var result = true
         work.run({ outcome(play, perform) }) { outcome ->
@@ -389,14 +394,18 @@ internal class SharedFlowController(
 
     /** [outcome] on the main thread: its inputs go out unless the board moved on meanwhile. True when it was taken. */
     private fun deliver(outcome: Outcome, route: (List<arcanum.engine.input.Input>) -> String?): Boolean = when (outcome) {
-        is Outcome.Fail -> { outcome.message?.let(fail); false }
-        Outcome.Empty -> { fail(null); picked = emptyList(); true }
+        is Outcome.Fail -> { AppLog.info("decision", "Flow step not sent: ${outcome.message}"); outcome.message?.let(fail); false }
+        Outcome.Empty -> { AppLog.info("decision", "Flow step: nothing to send"); fail(null); picked = emptyList(); true }
         is Outcome.Engine -> when {
-            current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
-            else -> when (route(outcome.inputs)) {
-                null -> { fail(null); picked = emptyList(); true }
-                org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
-                else -> { fail(CastController.NOT_ALLOWED); false }
+            current()?.board !== outcome.board -> { AppLog.info("decision", "Flow step not sent: the board moved on"); fail("The table changed: try again."); false }
+            else -> {
+                val refusal = route(outcome.inputs)
+                AppLog.info("decision", "Flow step ${if (refusal == null) "sent" else "refused: ${refusal.take(300)}"}: ${outcome.inputs.toString().take(300)}")
+                when (refusal) {
+                    null -> { fail(null); picked = emptyList(); true }
+                    org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
+                    else -> { fail(CastController.NOT_ALLOWED); false }
+                }
             }
         }
     }

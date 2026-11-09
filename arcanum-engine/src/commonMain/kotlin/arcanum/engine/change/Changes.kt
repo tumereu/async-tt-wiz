@@ -214,6 +214,9 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
     /** Takes back every change after the first [size] (a step that stopped for a decision is redone from its start
      * once answered, D29). */
     fun rollback(size: Int) {
-        while (changes.size > size) state.revert(changes.removeAt(changes.lastIndex))
+        while (changes.size > size) changes.removeAt(changes.lastIndex).let { takenBack?.add(it); state.revert(it) }
     }
+
+    /** When set, what [rollback] takes back is kept here too ([arcanum.engine.action.LibraryPlaces.readByOpenStep]). */
+    var takenBack: MutableList<Change>? = null
 }

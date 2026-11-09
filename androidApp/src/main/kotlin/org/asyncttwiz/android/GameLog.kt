@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import arcanum.engine.Engine
+import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
@@ -53,6 +54,27 @@ internal class GameLog(gameId: String, private val me: PlayerId) {
         if (newest != null && at(newest) != at(state)) append(" (the device is at ${at(newest)})")
     }
 
+    /**
+     * LOB-089, report DH3QX6: the decision open on [state] the first time a board shows it: whose, what it asks and the cards
+     * it offers, by name when it is this player's to answer (what their panel shows them), else by id. Null when none is open
+     * or it was logged.
+     */
+    fun decision(state: GameState): String? {
+        val d = state.pending?.decision
+        if (d?.id == loggedDecision) return null
+        loggedDecision = d?.id
+        if (d == null || d is Decision.Random) return null
+        val asked = when (d) {
+            is Decision.ChooseObjects -> "\"${d.text}\" ${d.min}..${d.max} of ${d.options.map { if (d.player == me) "${name(state, it)} ($it)" else "$it" }}"
+            is Decision.Targets -> "slot ${d.slot} ${d.min}..${d.max} of ${d.options}"
+            is Decision.May -> "\"${d.text}\""
+            is Decision.ChooseOption -> "${d.options}"
+            else -> ""
+        }
+        return "$game ${at(state)}: asks ${d.player.value.take(8)}: ${d.kind} ${d.id.value} $asked".take(MAX_DECISION)
+    }
+    private var loggedDecision: arcanum.engine.decision.DecisionId? = null
+
     /** TRN-057, STK-053: the device itself passed this player's own main phase on [state], for [why] ([org.asyncttwiz.protocol.game.GameDevice.ownMainPass]). */
     fun ownMainPass(state: GameState, why: String) = "$game ${at(state)}: the device passed the player's own main phase: $why"
 
@@ -103,6 +125,8 @@ internal class GameLog(gameId: String, private val me: PlayerId) {
     }
 
     companion object {
+        private const val MAX_DECISION = 800
+
         /** What [Engine.options] lists now, for the report's last board; none when it can't be worked out. */
         fun options(state: GameState, me: PlayerId): List<Input> = runCatching { Engine.options(state, me) }.getOrDefault(emptyList())
     }

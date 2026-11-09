@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
  * until a report asks for it.
  */
 object AutomatumLog {
-    const val ENTRIES = 400
+    const val ENTRIES = 4000
     const val GAMES = 3
 
     /** Gets every entry as it is added (the app writes them to the Android log). Must not throw or block. */
@@ -33,7 +33,7 @@ object AutomatumLog {
     /** Adds [entry] to its game's log. */
     fun add(entry: AutomatumEntry) {
         val log = game(entry.game)
-        log.entries.update { (it + entry).takeLast(ENTRIES) }
+        log.add(entry)
         try { listener?.invoke(entry) } catch (_: Exception) { /* A log listener never breaks the game. */ }
     }
 
@@ -50,7 +50,7 @@ object AutomatumLog {
     fun preEvent(game: String, what: String, detail: String = "") = add(AutomatumEntry.PreEvent(now(), game, what, detail.take(MAX_TEXT)))
 
     /** The entries kept for [game], oldest first. */
-    fun entries(game: String): List<AutomatumEntry> = find(game)?.entries?.load().orEmpty()
+    fun entries(game: String): List<AutomatumEntry> = find(game)?.entries().orEmpty()
 
     /** The game Automatum worked on last, or null. */
     fun latestGame(): String? = games.load().lastOrNull()?.game
@@ -61,7 +61,7 @@ object AutomatumLog {
     /** Everything kept for [game] (the latest game by default) as one bundle; null when nothing was recorded. */
     fun bundle(game: String? = latestGame()): ReproBundle? {
         val log = game?.let(::find) ?: return null
-        return ReproBundle(game = log.game, entries = log.entries.load())
+        return ReproBundle(game = log.game, entries = log.entries())
     }
 
     private fun find(game: String): GameLog? = games.load().lastOrNull { it.game == game }
@@ -78,15 +78,32 @@ object AutomatumLog {
 
     private const val MAX_TEXT = 500
 
+    /** One game's entries, newest first, in two generations of [ENTRIES] at most each: adding one costs the same however
+     * many there are (nothing is copied), and the whole older generation goes at once. */
     private class GameLog(val game: String) {
-        val entries = AtomicReference<List<AutomatumEntry>>(emptyList())
-    }
-}
+        private class Node(val entry: AutomatumEntry, val older: Node?)
+        private class Kept(val current: Node?, val size: Int, val previous: Node?)
+        private val kept = AtomicReference(Kept(null, 0, null))
 
-private inline fun <T> AtomicReference<T>.update(change: (T) -> T) {
-    while (true) {
-        val old = load()
-        if (compareAndSet(old, change(old))) return
+        fun add(entry: AutomatumEntry) {
+            while (true) {
+                val old = kept.load()
+                val next = if (old.size < ENTRIES) Kept(Node(entry, old.current), old.size + 1, old.previous)
+                    else Kept(Node(entry, null), 1, old.current)
+                if (kept.compareAndSet(old, next)) return
+            }
+        }
+
+        /** The newest [ENTRIES] entries, oldest first. */
+        fun entries(): List<AutomatumEntry> {
+            val now = kept.load()
+            val newestFirst = ArrayList<AutomatumEntry>()
+            for (start in listOf(now.current, now.previous)) {
+                var node = start
+                while (node != null && newestFirst.size < ENTRIES) { newestFirst += node.entry; node = node.older }
+            }
+            return newestFirst.asReversed().toList()
+        }
     }
 }
 

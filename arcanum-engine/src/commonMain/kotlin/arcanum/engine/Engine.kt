@@ -274,11 +274,14 @@ object Engine {
      * library's unknown part (every card since the last shuffle, CR 701.24, whose place nobody learned), then each group of
      * cards put in together in a random order ([arcanum.engine.state.PlayerState.libraryPlaces]). A card whose place a player
      * knows (put on the top, the bottom or Nth from the top, looked at or revealed where it lies, put back in a chosen order)
-     * or may look at now (CR 401.5, "play with the top card revealed") is in none. Parts of one card are left out.
+     * or may look at now (CR 401.5, "play with the top card revealed") is in none; nor is a card the step waiting on an open
+     * decision has read already (it looked at the card or moved it, and is redone from its start once answered, D29). Parts
+     * of one card are left out.
      */
     fun unknownOrder(state: GameState, player: PlayerId): List<List<arcanum.engine.state.ObjectId>> =
         arcanum.engine.action.LibraryPlaces.unknownParts(state, player,
-            arcanum.engine.action.Knowledge.lookable(state, view(state)).map { it.first }.toSet())
+            arcanum.engine.action.Knowledge.lookable(state, view(state)).map { it.first }.toSet() +
+                arcanum.engine.action.LibraryPlaces.readByOpenStep(state))
 
     /**
      * A host's new random order of [player]'s library where nobody knows it (D25: the host's randomness): [parts] are

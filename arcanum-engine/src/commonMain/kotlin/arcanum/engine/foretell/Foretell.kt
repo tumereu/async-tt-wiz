@@ -3,11 +3,14 @@ package arcanum.engine.foretell
 import arcanum.api.Ability
 import arcanum.api.Condition
 import arcanum.api.Cost
+import arcanum.api.Effect
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.KeywordAction
 import arcanum.api.KeywordActionKind
 import arcanum.api.ManaCost
 import arcanum.api.ObjectMark
+import arcanum.api.Step
 import arcanum.api.Timing
 import arcanum.api.Zone
 import arcanum.engine.action.Act
@@ -43,7 +46,8 @@ internal object Foretell {
     /** The special action's origin. */
     val RULE: AbilityOrigin.Rule = AbilityOrigin.Rule("foretell")
 
-    private val ACTION = Ability.SpecialAction(Cost.mana(ManaCost.parse("{2}")!!), Instructions(steps = emptyList()), timing = Timing.Any,
+    private val ACTION = Ability.SpecialAction(Cost.mana(ManaCost.parse("{2}")!!),
+        Instructions(steps = listOf(Step.Do(Effect.Action(KeywordAction.Foretell)))), timing = Timing.Any,
         functionsIn = listOf(Zone.Hand), condition = Condition.YourTurn, text = "Foretell: pay {2} and exile this card face down")
 
     /** Whether [origin] is the foretell special action. */

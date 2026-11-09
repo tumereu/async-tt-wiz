@@ -109,6 +109,9 @@ internal object Costs {
                 is arcanum.api.KeywordAction.Behold -> Effects.beholdable(scope, payer, action.filter).size >= scope.value(action.count)
                 // ecl: CR 701.68b: blighting needs a creature to put the counters on
                 is arcanum.api.KeywordAction.Blight -> Effects.blightable(scope, payer).isNotEmpty()
+                // CR 701.59b: collecting evidence needs that total mana value in the graveyard
+                is arcanum.api.KeywordAction.CollectEvidence -> state.player(payer).graveyard
+                    .sumOf { scope.eval().property(arcanum.api.NumericProperty.ManaValue, it) } >= scope.value(action.amount)
                 else -> true
             }
             is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }

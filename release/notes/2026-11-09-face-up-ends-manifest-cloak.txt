@@ -1,0 +1,1 @@
+fix: A manifested or cloaked card turned face up stops being one: turned face down again later, it is a plain 2/2 without ward and can no longer be turned up for its mana cost.

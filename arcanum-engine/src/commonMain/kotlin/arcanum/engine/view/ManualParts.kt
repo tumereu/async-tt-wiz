@@ -5,7 +5,6 @@ import arcanum.api.CardDefinition
 import arcanum.api.Choice
 import arcanum.api.Effect
 import arcanum.api.Keyword
-import arcanum.api.Objects
 import arcanum.api.Step
 import arcanum.api.isManaAbility
 import kotlinx.serialization.json.Json
@@ -18,9 +17,8 @@ import kotlinx.serialization.json.JsonPrimitive
  * The parts of a card definition this engine leaves to the players ([arcanum.engine.Engine.manualParts]): text the
  * parser couldn't read ([Ability.Unparsed]), a `Manual` step or cost part, a keyword the engine only carries out by
  * hand ([KeywordMeanings.isManual]), the few effects and keyword actions the engine always leaves to the players, and the
- * shapes it can't finish at run time: a cost paid on resolution that is "its mana cost" or has an X nothing defines, a
- * mana ability with another step that asks something, a special action with a step besides turning itself face up,
- * unlocking its door or moving itself. Follows [arcanum.engine.Engine.SUPPORT_VERSION].
+ * shapes it can't finish at run time: a cost paid on resolution that is "its mana cost" or has an X nothing defines, and a
+ * mana ability with another step that asks something. Follows [arcanum.engine.Engine.SUPPORT_VERSION].
  */
 internal object ManualParts {
     private val json = Json
@@ -35,7 +33,8 @@ internal object ManualParts {
     /** Effects the engine always hands to the players (its `manual` calls outside Manual steps). */
     private val manualEffects = emptySet<String>()
 
-    /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` call): by their JSON type. */
+    /** Keyword actions reported as left to the players, by their JSON type, though the engine plays them by their expansion: learn's Lesson comes from
+     * outside the game, which a host has to bring. */
     private val manualKeywordActions = setOf("learn")
 
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
@@ -49,7 +48,6 @@ internal object ManualParts {
         definition.faces.flatMap { it.abilities }.forEach { ability ->
             when {
                 ability is Ability.Activated && ability.isManaAbility() -> manaAbility(ability, found)
-                ability is Ability.SpecialAction -> specialAction(ability, found)
             }
         }
         return found.distinct()
@@ -63,17 +61,6 @@ internal object ManualParts {
             types(json.encodeToJsonElement(Step.serializer(), step)).any { it in askingSteps || it in askingEffects }
         }
         if (asks) found += "by hand: the rest of the mana ability ${ability.text.orEmpty()}".trim()
-    }
-
-    /** A special action's steps besides turning itself face up, unlocking its door or moving itself (CR 116.2). */
-    private fun specialAction(ability: Ability.SpecialAction, found: MutableList<String>) {
-        val leftover = ability.instructions.steps.filterNot { step ->
-            val effect = (step as? Step.Do)?.effect
-            (effect is Effect.TurnFaceUp && effect.objects == Objects.Self) ||
-                (effect is Effect.UnlockDoor && effect.objects == Objects.Self && effect.door != null) ||
-                (effect is Effect.Move && effect.objects == Objects.Self && effect.to.attacking == null)
-        }
-        if (leftover.isNotEmpty()) found += "by hand: the rest of the special action ${ability.text.orEmpty()}".trim()
     }
 
     /** Every JSON type name in [element]. */
@@ -91,7 +78,7 @@ internal object ManualParts {
             is JsonObject -> {
                 when ((cost["type"] as? JsonPrimitive)?.content) {
                     "its-mana-cost" -> found += "by hand: pay its mana cost"
-                    "mana" -> (cost["cost"] as? JsonPrimitive)?.content?.takeIf { cost["x"] == null && "{X}" in it }
+                    "mana", "waterbend" -> (cost["cost"] as? JsonPrimitive)?.content?.takeIf { cost["x"] == null && "{X}" in it }
                         ?.let { found += "by hand: pay $it" }
                 }
                 cost.values.forEach { resolutionCost(it, found) }

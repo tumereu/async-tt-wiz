@@ -1,0 +1,1 @@
+fix: When a card lets you collect evidence as it resolves, you now choose the cards to exile from your graveyard before getting what it gives; before, it was given for free.

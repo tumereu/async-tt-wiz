@@ -325,6 +325,7 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
     is KeywordAction.Exert -> KeywordActionKind.Exert
     is KeywordAction.Explore -> KeywordActionKind.Explore
     KeywordAction.Forage -> KeywordActionKind.Forage
+    KeywordAction.Foretell -> KeywordActionKind.Foretell
     is KeywordAction.Goad -> KeywordActionKind.Goad
     is KeywordAction.Investigate -> KeywordActionKind.Investigate
     KeywordAction.Learn -> KeywordActionKind.Learn

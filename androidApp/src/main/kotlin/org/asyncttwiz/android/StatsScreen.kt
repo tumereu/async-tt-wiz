@@ -84,14 +84,13 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             Text("No finished matches yet. Graphs appear once a match is finished.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile("Matches", summary.record.matches.toString())
-            StatTile("W–L–D", summary.record.text)
-            StatTile("Win %", summary.record.rate.text)
-            StatTile("Current streak", summary.current?.let { (result, n) -> "$n ${resultLetter(result)}" } ?: "—")
-            StatTile("Longest streak", if (summary.longestWins == 0) "—" else "${summary.longestWins} W")
-            StatTile("Average turns", summary.averageTurns?.let { String.format(java.util.Locale.ROOT, "%.1f", it) } ?: "—")
-        }
+        StatTiles(listOf(
+            "Matches" to summary.record.matches.toString(),
+            "W–L–D" to summary.record.text,
+            "Win %" to summary.record.rate.text,
+            "Current streak" to (summary.current?.let { (result, n) -> "$n ${resultLetter(result)}" } ?: "—"),
+            "Longest streak" to (if (summary.longestWins == 0) "—" else "${summary.longestWins} W"),
+            "Average turns" to (summary.averageTurns?.let { String.format(java.util.Locale.ROOT, "%.1f", it) } ?: "—")))
         val running = remember(records) { MatchStats.running(records, me) }
         GraphCard("Record over time") {
             RunningChart(running, if (opponent == null) "Your wins" to "Your losses" else "You" to opponent.username)
@@ -114,7 +113,13 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             }
         }
         if (opponent != null) GraphCard("Your decks vs theirs") { DeckGrid(remember(records) { MatchStats.grid(records, me) }) }
-        GraphCard("Win % by your deck's colours") { PercentBars(MatchStats.colors(records, me)) }
+        GraphCard("Win % by your deck's colours") {
+            for ((colors, rate) in MatchStats.colors(records, me)) BarRow((rate.percent ?: 0) / 100f, rate.barText()) {
+                if (colors == MatchStats.COLOURLESS) BarLabel(colors)
+                else CardText(MatchStats.colorSymbols(colors), Modifier.width(BarLabelWidth).testTag("stats-colors-$colors"),
+                    style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            }
+        }
         GraphCard("Extras") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatTile("Win % after a mulligan", MatchStats.afterMulligan(records, me).text)
@@ -133,9 +138,24 @@ private fun resultLetter(result: SuggestedResult) = when (result) {
     SuggestedResult.WIN -> "W"; SuggestedResult.LOSS -> "L"; SuggestedResult.DRAW -> "D"
 }
 
+/** The top tiles (LOB-132): equal columns filling the whole width, all six in a row where they fit, else two rows of three. */
 @Composable
-private fun StatTile(label: String, value: String) {
-    OutlinedCard(Modifier.widthIn(min = 96.dp).semantics(mergeDescendants = true) {}) {
+private fun StatTiles(tiles: List<Pair<String, String>>) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("stats-tiles")) {
+        val perRow = if (maxWidth >= 600.dp) 6 else 3
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tiles.chunked(perRow).forEach { row ->
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((label, value) in row) StatTile(label, value, Modifier.weight(1f).fillMaxHeight().testTag("stats-tile-$label"))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, modifier: Modifier = Modifier.widthIn(min = 96.dp)) {
+    OutlinedCard(modifier.semantics(mergeDescendants = true) {}) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -156,8 +176,10 @@ private fun GraphCard(title: String, content: @Composable ColumnScope.() -> Unit
 /** Horizontal bars of percentages with their "n of m" (no bar when there was no match). */
 @Composable
 private fun PercentBars(items: List<Pair<String, MatchStats.Rate>>) {
-    for ((label, rate) in items) BarRow(label, (rate.percent ?: 0) / 100f, "${rate.text} (${rate.wins} of ${rate.matches})")
+    for ((label, rate) in items) BarRow(label, (rate.percent ?: 0) / 100f, rate.barText())
 }
+
+private fun MatchStats.Rate.barText() = "$text ($wins of $matches)"
 
 /** Bars of counts: horizontal rows, or a vertical histogram with its labels under the bars. */
 @Composable
@@ -176,11 +198,20 @@ private fun CountBars(items: List<Pair<String, Int>>, vertical: Boolean = false)
     }
 }
 
+private val BarLabelWidth = 104.dp
+
 @Composable
-private fun BarRow(label: String, fraction: Float, value: String) {
+private fun BarLabel(label: String) =
+    Text(label, Modifier.width(BarLabelWidth), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+@Composable
+private fun BarRow(label: String, fraction: Float, value: String) = BarRow(fraction, value) { BarLabel(label) }
+
+@Composable
+private fun BarRow(fraction: Float, value: String, label: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, Modifier.width(104.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        label()
         Box(Modifier.weight(1f).height(14.dp)) {
             if (fraction > 0f) Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).fillMaxHeight()
                 .background(SeriesYou, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp)))

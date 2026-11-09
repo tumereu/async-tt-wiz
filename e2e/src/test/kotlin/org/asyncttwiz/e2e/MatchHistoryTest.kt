@@ -1,6 +1,8 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import org.asyncttwiz.android.PodTab
@@ -55,6 +57,22 @@ class MatchHistoryTest : E2e() {
         lobbyHistory(bob, "Win", 1)
         stats(alice, "Loss", 1)
         stats(bob, "Win", 1)
+    }
+
+    // LOB-132: the same match on the Graphs tab: the tiles, its length in the 1-4 range, its deck's colours as a mana symbol
+    @Test fun graphsShowTheMatchsLengthRangeAndColours() {
+        startGame()
+        bothOpen()
+        bothKeep(bobAway = false)
+        concede(alice)
+        lobbyHistory(alice, "Loss", 1)
+        stats(alice, "Loss", 1)
+        alice.tagged("stats-graphs-tab").performClick()
+        waitUntil("Alice's graphs") { alice.shows(hasTestTag("stats-tiles")) }
+        waitUntil("the one match in 1–4 of nine ranges") {
+            alice.shows(hasContentDescription("1–4: 1, 5–8: 0, 9–12: 0, 13–16: 0, 17–20: 0, 21–24: 0, 25–28: 0, 29–32: 0, 33+: 0"))
+        }
+        waitUntil("the deck's colours as a symbol") { alice.shows(hasTestTag("stats-colors-R") and hasText("{R}")) }
     }
 
     // DRF-121, LOB-126: a pod match ends by Alice's concession; the pod's Games tab shows it in its matches, without decks,

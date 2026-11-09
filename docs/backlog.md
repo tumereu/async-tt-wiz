@@ -24,10 +24,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 - One chat per pod for its members, kept as long as the pod, with a chat button and unread dot on the pod screens; a notification on the Draft activity channel. In a pod game the chat panel has two tabs, Game and Pod. Pod messages show no bubbles on the table, but they do light the dot on the table's chat button, and a tab with a message you haven't seen is highlighted while you are on the other (dismissing a game message's bubble counts as seeing it). Needs server storage, its limits as a game chat's. No "Read" marks unless the implementor finds them plain for several members; list it under choices.
 
-Pod notes, screens (owner, 2026-11-09):
-
-- Stats (LOB-132): match length in 4-turn ranges from 1-4 to 33+; the top tiles fill the whole width; win % by colour uses real mana symbols.
-
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
 
 - The game's end (TRN-065, LOB-126, HIS-084): OK always works, but is greyed for the first seconds any ending or suggestion dialog shows, so a misclick can't accept it. For a result the rules gave: after your OK you stay at the table, "Waiting for <name> to acknowledge"; your OK can be taken back until they press theirs; both OKs make it final and only then does each player go to the lobby; Undo works until it is final, with the usual approval. A concession or an agreed result is final at once, and each player goes to the lobby only after their own OK.

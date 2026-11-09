@@ -13,6 +13,8 @@ import org.asyncttwiz.protocol.*
  * matches only, oldest first where order matters.
  */
 internal object MatchStats {
+    const val COLOURLESS = "Colourless"
+
     /** A share of matches: [wins] of [matches]; [percent] null when there were none. */
     data class Rate(val wins: Int, val matches: Int) {
         val percent: Int? get() = if (matches == 0) null else Math.round(wins * 100.0 / matches).toInt()
@@ -101,10 +103,10 @@ internal object MatchStats {
             "Draw" to finished.count { it.ending is MatchEnding.Draw })
     }
 
-    /** Match length in turns: a histogram of three-turn buckets, the last open-ended. */
+    /** Match length in turns: a histogram of four-turn ranges from 1–4 to 29–32, then 33+. */
     fun lengths(records: List<MatchRecord>, me: String): List<Pair<String, Int>> {
         val turns = records.finished(me).map { it.turns }
-        val buckets = listOf("1–3" to 0..3, "4–6" to 4..6, "7–9" to 7..9, "10–12" to 10..12, "13–15" to 13..15, "16+" to 16..Int.MAX_VALUE)
+        val buckets = (0 until 8).map { "${it * 4 + 1}–${it * 4 + 4}" to (if (it == 0) 0 else it * 4 + 1)..(it * 4 + 4) } + ("33+" to 33..Int.MAX_VALUE)
         return buckets.map { (label, range) -> label to turns.count { it in range } }
     }
 
@@ -127,9 +129,12 @@ internal object MatchStats {
             cells.keys.map { it.second }.distinct().sortedWith(compareBy<String> { it == "Deck" }.thenBy { it.lowercase() }), cells)
     }
 
-    /** Win % by the colours of the viewer's deck (WUBRG letters; "Colourless" for none). */
+    /** [colors]' WUBRG letters as mana symbols for CardText ("GW" → "{G}{W}"), as Stats draws its pips (DRF-116). */
+    fun colorSymbols(colors: String): String = colors.map { "{$it}" }.joinToString("")
+
+    /** Win % by the colours of the viewer's deck (WUBRG letters; [COLOURLESS] for none). */
     fun colors(records: List<MatchRecord>, me: String): List<Pair<String, Rate>> = records.finished(me)
-        .groupBy { it.player(me)?.deck?.colors?.ifEmpty { "Colourless" } ?: "Colourless" }
+        .groupBy { it.player(me)?.deck?.colors?.ifEmpty { COLOURLESS } ?: COLOURLESS }
         .map { (colors, list) -> colors to Rate(list.count { it.result(me) == SuggestedResult.WIN }, list.size) }
         .sortedWith(compareByDescending<Pair<String, Rate>> { it.second.matches }.thenBy { it.first })
 

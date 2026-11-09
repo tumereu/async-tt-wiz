@@ -39,7 +39,8 @@ class MatchStatsTest {
         val (play, draw) = MatchStats.playDraw(records, me)
         assertEquals(MatchStats.Rate(4, 4), play); assertEquals(MatchStats.Rate(0, 2), draw)
         assertEquals(listOf("By the rules" to 3, "Conceded" to 1, "Agreed" to 1, "Draw" to 1), MatchStats.endings(records, me))
-        assertEquals(listOf("1–3" to 0, "4–6" to 2, "7–9" to 2, "10–12" to 1, "13–15" to 1, "16+" to 0), MatchStats.lengths(records, me))
+        assertEquals(listOf("1–4" to 0, "5–8" to 3, "9–12" to 2, "13–16" to 1, "17–20" to 0, "21–24" to 0, "25–28" to 0, "29–32" to 0, "33+" to 0),
+            MatchStats.lengths(records, me))
         assertEquals("—", MatchStats.Rate(0, 0).text)
     }
 
@@ -53,6 +54,7 @@ class MatchStatsTest {
         assertEquals("1–0–0", grid.cells["Ember rush" to "Deck"]!!.text)
         assertEquals("0–0–1", grid.cells["Quiet grove" to "Deck"]!!.text)
         assertEquals(listOf("R" to MatchStats.Rate(3, 4), "GW" to MatchStats.Rate(1, 2)), MatchStats.colors(records, me))
+        assertEquals("{G}{W}", MatchStats.colorSymbols("GW"))
         assertEquals(MatchStats.Rate(2, 2), MatchStats.afterMulligan(records, me))
         assertEquals(5, MatchStats.fastestWin(records, me))
         assertEquals(14, MatchStats.longestMatch(records, me))

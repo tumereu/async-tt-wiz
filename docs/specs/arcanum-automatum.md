@@ -279,15 +279,23 @@ Our own, from MTGJSON oracle text. The plan:
    is the build order (D6).
 2. **Keywords** via a table of keyword abilities (CR 702) with parameters (Ward {2},
    Toxic 2, Equip {3}, …), cross-checked with MTGJSON's `keywords` field.
-3. **Grammar** for the rest: a hand-written recursive-descent parser over tokens,
-   built from the frequent patterns down. Modern oracle wording is highly regular;
-   older cards are re-templated in Oracle, so one grammar covers most of them.
+3. **Grammar** for the rest: a thin clause-level grammar over tokens, hand-written,
+   dispatching on the head word, with `arcanum-api` types at its leaves wherever a phrase
+   needs no context (`ObjectFilter`, `Value`, `Cost`, `Duration`), never a full AST mirroring
+   the API; true one-offs go in a small idiom table. It replaces today's whole-sentence
+   regexes family by family, never at once: each family runs in shadow after the old rules
+   (adding reads only), then flips to first, then the rules it made unused are deleted.
+   `:arcanum-tools:parserDiff` gates every step (supported sets and the cube don't change,
+   no card stops being read), `:arcanum-tools:parserMetrics` measures it, and a slice that
+   misses its agreed stop rule ends the migration there.
 4. **Unparsed spans are kept**, never guessed. An ability that doesn't parse fully
    becomes `manual` (or `partial` when the unparsed part is a separable sentence),
    with the original text attached for the UI.
-5. **Round-trip check.** A renderer turns definitions back into English; the test
-   suite compares it with the test card text to catch wrong parses. A golden corpus
-   of our own test cards (D15) protects behaviour.
+5. **Differential check.** Our own test cards (D15) protect behaviour, and
+   `parserDiff` compares a canonical model of every local card with a snapshot taken
+   before a change, so a migrated family must give identical models; held-out cards it
+   newly reads or reads differently are listed for review. Both keep today's mistakes
+   until a named task fixes one. This replaces the planned round-trip renderer check.
 6. **Coverage numbers** per pattern for the developer (a tool output, not a product
    document).
 

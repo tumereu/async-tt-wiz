@@ -2,6 +2,14 @@ package arcanum.parser
 
 /** Wordings first met in Foundations (FDN). */
 internal object Fdn {
+    // fdn chunk 10b
+    val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")
+    val SELF_BECOMES_CREATURE_WITH_ALL_TYPES = Regex("""(This \w+) becomes an? (\d+)/(\d+) creature with (\w+) and all creature types\. It's still an? \w+\.""")
+    val PLAYER_SUBJECT = Regex("""^(?:Each opponent|Each player|Target opponent|Target player|Each other player)""")
+    val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles) .+""")
+    val CANT_LOSE_AND_OPPONENTS_CANT_WIN = Regex("""You can't lose the game and your opponents can't win the game\.""")
+    val PREVENT_COMBAT_TO_AND_BY_SELF = Regex("""Prevent all combat damage that would be dealt to and dealt by (this \w+)\.""")
+    val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You lose life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
     // fdn chunk 01: a state trigger's condition (CR 603.8)
     val WHEN_THERE_ARE = Regex("""When (there are .+?), (.+)""")
     // fdn chunk 01: "If you do" after a mandatory exile (CR 118.12)

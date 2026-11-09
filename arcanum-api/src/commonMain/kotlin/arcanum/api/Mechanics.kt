@@ -422,6 +422,8 @@ sealed interface Mechanic {
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
+    /** The affected player can't win the game by an effect (CR 104.2b); being the last player left still wins (CR 104.2a). */
+    @Serializable @SerialName("cant-win-game") data object CantWinGame : Mechanic
     @Serializable @SerialName("no-maximum-hand-size") data object NoMaximumHandSize : Mechanic
     // tla
     /** The affected players don't lose unspent mana of [colors] as steps and phases end ("you don't lose unspent red mana as steps and

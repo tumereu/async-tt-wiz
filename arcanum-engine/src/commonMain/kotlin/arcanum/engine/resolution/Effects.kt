@@ -402,6 +402,8 @@ internal object Effects {
                     locked = listOfNotNull(id, next), extra = follow)
             }
             is Effect.WinGame -> scope.players(effect.players).forEach { winner ->
+                // CR 104.2b: an effect can't make a player win who can't win
+                if (act.view().players[winner]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantWinGame }) return@forEach
                 act.state.players.filter { it.id != winner && !it.lost }.forEach { lose(scope, it.id) }
             }
             is Effect.LoseGame -> scope.players(effect.players).forEach { lose(scope, it) }

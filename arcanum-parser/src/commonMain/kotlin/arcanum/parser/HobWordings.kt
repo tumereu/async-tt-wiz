@@ -102,7 +102,7 @@ internal object Hob {
     val OWNER_SHUFFLES_SELF_DRAWS = Regex("""(.+?)'s owner shuffles (?:him|her|it|them) into their library and draws (\w+) cards\.""")
     val EXILE_UP_TO_TWO_RETURN_NEXT_END = Regex("""Exile up to (\w+) other target (.+?)\. Return those cards to the battlefield under their owner's control at the beginning of the next end step\.""")
     val TAP_ENCHANTED_REMOVE_COUNTERS = Regex("""[Tt]ap enchanted creature and remove all counters from it\.""")
-    val RIDDLES = Regex("""Look at the top (\w+) cards of your library and separate them into a face-down pile and a face-up pile\. An opponent chooses one of the piles\. Put that pile into your hand and the other into your graveyard\.""")
+    val RIDDLES = Regex("""Look at the top (\w+) cards of your library and separate them into a face-down pile and a face-up pile\. An opponent chooses one of (?:the|those) piles\. Put that pile into your hand and the other into your graveyard\.""")
     val COUNTER_EXILE_PERMANENT_CAST_FREE = Regex("""Counter target spell\. If a permanent spell is countered this way, exile it instead of putting it into its owner's graveyard\. You may cast that card without paying its mana cost for as long as it remains exiled\.""")
     val CAST_FROM_ANYWHERE_OTHER_COST_LESS = Regex("""Spells you cast from anywhere other than your hand cost ((?:\{[^}]+\})+) less to cast\.""")
     val MAY_CAST_FROM_GRAVEYARD_EXILE_INSTEAD = Regex("""You may cast an? (.+?) spell from your graveyard\. If an? (.+?) spell cast this way would be put into your graveyard, exile it instead\.""")

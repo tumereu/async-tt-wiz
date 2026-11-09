@@ -82,6 +82,10 @@ internal class Sentences(
                 Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = Filters.all(ObjectFilter.WasCast(Zone.Exile), notOwned), anyType = true)),
                     condition = arcanum.api.Condition.YourTurn, affects = Affected.Players(Players.You)))
         }
+        // fdn chunk 10b: "You can't lose the game and your opponents can't win the game." (CR 104.3b, 104.2b): one static for each side
+        if (Fdn.CANT_LOSE_AND_OPPONENTS_CANT_WIN.matches(line)) return listOf(
+            Ability.Static(listOf(Mechanic.CantLoseGame), affects = Affected.Players(Players.You)),
+            Ability.Static(listOf(Mechanic.CantWinGame), affects = Affected.Players(Players.Each(PlayerFilter.Opponent))))
         // fdn chunk 10a: "Skeletons you control and other Zombies you control get +1/+1 and have deathtouch.": the same static on each group
         Fdn.TWO_GROUPS_YOU_CONTROL_GET.matchEntire(line)?.let { m ->
             return listOf(static("${m.groupValues[1]} ${m.groupValues[3]}") ?: return@let, static("${m.groupValues[2].replaceFirstChar { it.uppercase() }} ${m.groupValues[3]}") ?: return@let)
@@ -1684,6 +1688,13 @@ internal class Sentences(
         // fdn chunk 10a: "You have hexproof." (CR 702.11c)
         if (Fdn.YOU_HAVE_HEXPROOF.matches(line))
             return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))), affects = Affected.Players(Players.You))
+        // fdn chunk 10b: "Prevent all combat damage that would be dealt to and dealt by this creature." (CR 615.1): two preventions
+        Fdn.PREVENT_COMBAT_TO_AND_BY_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val self = ObjectFilter.Is(Objects.Self)
+            return Ability.Static(listOf(
+                Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = self), combat = true)),
+                Mechanic.Prevention(EventPattern.Damage(self, RecipientFilter(objects = ObjectFilter.Any, players = PlayerFilter.Any), combat = true))), affects = Affected.Objects(Objects.Self))
+        }
         // fdn chunk 10a: "Prevent all noncombat damage that would be dealt to other creatures you control." (CR 615.1)
         Fdn.PREVENT_ALL_NONCOMBAT_DAMAGE_TO.matchEntire(line)?.let { m ->
             val to = Filters.noun(m.groupValues[1]) ?: return null
@@ -5343,6 +5354,12 @@ internal class Sentences(
             val kind = Counters.kind(m.groupValues[1]) ?: return null
             return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Count(Objects.EventObject(arcanum.api.EventRole.After)))))
         }
+        // fdn chunk 10b: "You lose life equal to that permanent's mana value." (the target as it last existed, CR 608.2h)
+        Fdn.YOU_LOSE_LIFE_EQUAL_TO_THAT.matchEntire(sentence)?.let { m ->
+            val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return@let
+            val property = when (m.groupValues[2]) { "mana value" -> arcanum.api.NumericProperty.ManaValue; "power" -> arcanum.api.NumericProperty.Power; else -> arcanum.api.NumericProperty.Toughness }
+            return listOf(Step.Do(Effect.LoseLife(Players.You, Value.Of(property, of, arcanum.api.Combine.Single))))
+        }
         // chunk 47: "You lose life equal to its mana value." (the card the ability revealed)
         YOU_LOSE_LIFE_EQUAL_TO_ITS.matchEntire(sentence)?.let { m ->
             val it = (context.it as? Objects.Bound) ?: return null
@@ -5526,7 +5543,10 @@ internal class Sentences(
             while (at > 0) {
                 val targets = context.targets.size
                 val first = effect(sentence.substring(0, at) + ".", context)
-                val second = first?.let { effect(sentence.substring(at + 5).replaceFirstChar { it.uppercase() }, context) }
+                // fdn chunk 10b: "Each opponent discards a card and loses 2 life.": a half that is only a verb phrase keeps the subject
+                val rest = sentence.substring(at + 5)
+                val subject = Fdn.PLAYER_SUBJECT.find(sentence)?.value?.takeIf { Fdn.VERB_PHRASE.containsMatchIn(rest) }
+                val second = first?.let { effect(if (subject != null) "$subject $rest" else rest.replaceFirstChar { it.uppercase() }, context) }
                 if (first != null && second != null) return first + second
                 while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
                 at = sentence.indexOf(" and ", at + 5)
@@ -15111,6 +15131,13 @@ internal class Sentences(
         else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 10b: "This land becomes a 3/3 creature with vigilance and all creature types. It's still a land." (for good, CR 611.2a; layers 4 and 7b)
+        Fdn.SELF_BECOMES_CREATURE_WITH_ALL_TYPES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val keywords = keywords(m.groupValues[4]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature)), Mechanic.AllCreatureTypes,
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())), Mechanic.GainAbilities(keywords)),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
+        }
         // fdn chunk 09: "Destroy all creatures. You gain 1 life for each creature destroyed this way." (the count is of those destroyed, CR 608.2c)
         Fdn.DESTROY_ALL_GAIN_FOR_EACH.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return@let
@@ -22194,6 +22221,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.GainLife(Players.You, Value.EventsThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), arcanum.api.Measure.Objects))))
         // mh2 chunk 12: "investigate twice." (CR 701.16a)
         if (Mh2.INVESTIGATE_TWICE.matches(sentence)) return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Investigate(Value.Fixed(2)))))
+        // fdn chunk 10b: "Each opponent loses life equal to the number of soul counters on this artifact."
+        Fdn.LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.LoseLife(Filters.players(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let,
+                Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single))))
+        }
         // mh2 chunk 12: "Each opponent loses life equal to the number of creature cards in your graveyard."
         Mh2.EACH_OPPONENT_LOSES_LIFE_EQUAL_TO.matchEntire(sentence)?.let { m ->
             val amount = Values.value(m.groupValues[1]) ?: return@let

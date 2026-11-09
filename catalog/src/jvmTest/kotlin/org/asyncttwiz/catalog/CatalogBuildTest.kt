@@ -31,7 +31,7 @@ class CatalogBuildTest {
     // SYS-081
     @Test fun `the catalog holds every English printing, each face once, the set list and the draftable sets' recipes`() {
         assertEquals("5.3.0+20261031", catalog.header.mtgjsonVersion)
-        assertEquals(listOf("BAD", "DCK", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
+        assertEquals(listOf("BAD", "BON", "DCK", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
         // Test Bear is printed in TST and OFF: one face, two printings; the Japanese printing is left out
         val bear = face("Test Bear")
         assertEquals(setOf("TST", "OFF"), catalog.printings.filter { catalog.faces[it.face] == bear }.map { it.set }.toSet())
@@ -48,8 +48,8 @@ class CatalogBuildTest {
         assertEquals(listOf(token.id), catalog.printings.single { catalog.faces[it.face].name == "Test Caller" }.tokens)
         assertEquals(listOf("test caller"), token.makers)
         // DRF-088's kinds of set; only draftable sets keep a recipe
-        assertEquals(listOf("BAD", "OFF", "TST", "TWL"), catalog.sets.filter { it.draftable }.map { it.code })
-        assertEquals(listOf("BAD", "TST", "TWL"), catalog.recipes.map { it.set })
+        assertEquals(listOf("BAD", "BON", "OFF", "TST", "TWL"), catalog.sets.filter { it.draftable }.map { it.code })
+        assertEquals(listOf("BAD", "BON", "TST", "TWL"), catalog.recipes.map { it.set })
         assertEquals(catalog.header.faces, catalog.faces.size)
         assertEquals(catalog.header.printings, catalog.printings.size)
     }
@@ -71,6 +71,24 @@ class CatalogBuildTest {
         val built = build()
         assertEquals(listOf("Glorp Wizard"), built.listed.filter { it.parts.isNotEmpty() }.map { it.name })
         assertEquals(listOf("Nobody Here"), build(setOf("Listed Lone", "Nobody Here")).unknownNames)
+    }
+
+    // SYS-082: a reversible printing (the same card on both sides) counts as the card it shows
+    @Test fun `a reversible printing is the card it shows`() {
+        val reversible = catalog.faces.filter { it.layout == "reversible_card" }
+        assertEquals(2, reversible.size)
+        assertTrue(reversible.all { it.automatum }, "Test Bear is supported, and so are its reversible printing's faces")
+        // It never makes its set's packs unsupported on its own: only the special guest from OFF does
+        assertEquals(listOf("Plain Bear"), catalog.set.getValue("BON").unsupported)
+        assertTrue(build().listed.none { it.name == "Test Bear // Test Bear" })
+        // In packs it is Test Bear, a card of one face
+        val printing = catalog.printings.single { catalog.faces[it.face].layout == "reversible_card" && catalog.faces[it.face].side == "a" }
+        val definition = CatalogCards.definition(catalog, printing)
+        assertEquals("Test Bear", definition.name)
+        assertEquals("normal", definition.layout)
+        assertEquals(1, definition.faces.size)
+        assertEquals(printing.scryfall, definition.faces.single().scryfallId)
+        assertTrue(DeckValidation.definition(definition))
     }
 
     // SYS-081 (section 3.3): the version is the checksum of the content, so the same input gives the same file

@@ -51,9 +51,9 @@ class QueuedUndoTest {
         val game = sim.load(f.a)
         val bob = sim.load(f.b)
         game.tick(1_000); bob.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
         settle()
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         repeat(200) {
             settle()
             if (game.device.session.pending.isEmpty() && stop(game)) return game

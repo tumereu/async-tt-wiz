@@ -38,7 +38,7 @@ class EngineLayersOnceTest {
     private fun game(early: Boolean): EngineGame {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = Inline(early))
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
         return game

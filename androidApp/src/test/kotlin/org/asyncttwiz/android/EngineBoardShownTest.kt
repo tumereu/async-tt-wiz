@@ -163,7 +163,7 @@ class EngineBoardShownTest {
         kit.alice.tick(2_000 + 600_000)
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), kit.alice.device.status)
         assertFalse(kit.routes.canAct())
-        kit.bob.keep(emptyList())
+        kit.bob.keep()
         kit.playOn("Alice's Main 1") { kit.aliceMain() }
         assertTrue(kit.routes.arrowShown())
     }
@@ -173,7 +173,7 @@ class EngineBoardShownTest {
     @Test fun aMulliganIsOneUndo() {
         val kit = EngineTableKit()
         // Bob kept first, so Alice's Mulligan is made at once (the mulligans are simultaneous)
-        kit.bob.keep(emptyList())
+        kit.bob.keep()
         kit.settle(bobActs = false)
         kit.scenario.online[kit.f.b] = false
         fun hand() = kit.state().player(kit.me).hand.toList()

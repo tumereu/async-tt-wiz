@@ -189,18 +189,27 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun acknowledgeResult() {
         val game = state.detail ?: return
         if (closed) return
-        AppLog.info("game", "Result OK pressed on ${resultKey(game)}: ${game.resultNotice?.ending}")
-        session?.releaseEnd(game.id, "own OK")
-        state = state.copy(resultsOk = state.resultsOk + resultKey(game), board = null)
+        val atTable = session?.tableHeldAtEnd(game.id) == true
+        val last = !resultWaiting(game)
+        AppLog.info("game", "Result OK pressed on ${resultKey(game)} ${if (atTable) "at the table" else "over the lobby"}: " +
+            "${game.resultNotice?.ending}, ${if (last) "the last one: to the lobby" else "the other player's still to come"}")
+        if (last) session?.releaseEnd(game.id, "own OK, the last one")
+        state = state.copy(resultsOk = state.resultsOk + resultKey(game), board = if (last) null else state.board)
         queue.whenReady(game.id, "acknowledgeResult") {
             state.detail?.takeIf { it.id == game.id }?.let { current -> session?.acknowledgeResult(current) }; connectionState()
         }
     }
-    /** TRN-065: whether [game]'s table stays on after its play ended, until the viewer's own OK. */
-    fun tableHeldAtEnd(game: GameSummary?): Boolean = game != null && session?.tableHeldAtEnd(game.id) == true && resultUnseen(game)
+    /** TRN-065 (owner, 2026-11-09): whether [game]'s table stays on after its play ended, until both OKs stand. */
+    fun tableHeldAtEnd(game: GameSummary?): Boolean = game != null && session?.tableHeldAtEnd(game.id) == true && resultOpen(game)
     /** TRN-065: whether the viewer still has to tap OK on [game]'s last result (the server's word, unless OK'd here). */
     fun resultUnseen(game: GameSummary): Boolean =
         game.resultNotice?.unseen?.contains(accountId()) == true && resultKey(game) !in state.resultsOk
+    /** TRN-065 (owner, 2026-11-09): whether the other player still has to tap OK on [game]'s last result: the viewer waits
+     * for it at the table (or with the dialog over the lobby), and nobody acts in the lobby meanwhile. */
+    fun resultWaiting(game: GameSummary): Boolean = game.lifecycle == GameLifecycle.LOBBY &&
+        game.resultNotice?.unseen?.any { it != accountId() } == true
+    /** TRN-065: whether an OK on [game]'s last result is still owed by anyone: the lobby can't be used until both stand. */
+    fun resultOpen(game: GameSummary): Boolean = game.lifecycle == GameLifecycle.LOBBY && (resultUnseen(game) || resultWaiting(game))
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
     internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo

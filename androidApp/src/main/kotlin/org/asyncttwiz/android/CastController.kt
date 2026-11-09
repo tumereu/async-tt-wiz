@@ -81,7 +81,13 @@ internal class CastController(
     private val engineSend: ((List<Input>) -> String?)? = null,
     /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: nothing is cast until its OK. */
     private val revealing: () -> Boolean = { false },
+    /** STK-025, HIS-099 (owner problem report RC3J4K): how many times a board already shown was taken back (an undo or
+     * rewind, a branch, an own event refused), and the last one's words ([EngineGame.takeBacks]). */
+    private val takeBacks: () -> Long = { 0L },
+    private val lastTakeBack: () -> String = { "" },
 ) : FlowQuestions {
+    /** The take-backs counted when the open cast began ([takeBacks]): a later one took the table back behind it. */
+    private var startedAt = 0L
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
     /** The plays the engine offers for the card being cast (its ways: faces, alternative costs). */
@@ -189,7 +195,7 @@ internal class CastController(
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
         val autotapOn = autotap
-        starting = cardId
+        starting = cardId; startedAt = takeBacks()
         hidden = false
         abilityText = null
         return step {
@@ -222,7 +228,7 @@ internal class CastController(
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
         val autotapOn = autotap
-        starting = cardId
+        starting = cardId; startedAt = takeBacks()
         hidden = false
         abilityText = null
         return step {
@@ -305,7 +311,7 @@ internal class CastController(
         if (revealing()) { fail(REVEAL_BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         val autotapOn = autotap
-        starting = cardId
+        starting = cardId; startedAt = takeBacks()
         hidden = false
         abilityText = text.takeIf { input is Input.Activate }
         return step {
@@ -546,6 +552,15 @@ internal class CastController(
      */
     fun follow() {
         val f = flow ?: return
+        // STK-025, HIS-099 (owner problem report RC3J4K): an undo or rewind (the other player's accepted, a branch) took the
+        // table back behind where the cast began: it is dropped at once, as Back or Undo drop it, even where the card could
+        // be cast again
+        if (takeBacks() != startedAt) {
+            AppLog.info("undo", "Open cast of ${current()?.let { cardName(it, f.cardId) } ?: f.cardId} dropped: the table went back " +
+                "behind where it began (${lastTakeBack()})")
+            drop(TABLE_CHANGED)
+            return
+        }
         // Checked again once the step being worked out is done
         if (busy) return
         val play = current() ?: return

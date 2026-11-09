@@ -112,10 +112,13 @@ internal fun rememberOkArmed(): Boolean {
  * TRN-065 (owner 2026-11-09): the result of a game in the middle of the screen: big [text]'s title, its reason, the eye at
  * the bottom left (hides the dialog to look at what is behind it; hidden, only the eye stays, at the same spot, STK-044) and
  * [ok] at the right, greyed for its first moments ([rememberOkArmed]) and while not [enabled]. With [takeBack] the player's
- * OK stands: the dialog adds [waiting] ("Waiting for Bob to acknowledge") and Take back OK takes OK's place.
+ * OK stands: the dialog adds [waiting] ("Waiting for Bob to acknowledge") and Take back OK takes OK's place. Without
+ * either (owner, 2026-11-09: the conceder's or acceptor's own action was their OK, final and not taken back) it shows
+ * [waiting] and no button.
  */
 @Composable
-internal fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: Boolean = true, takeBack: (() -> Unit)? = null, ok: () -> Unit) {
+internal fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: Boolean = true, takeBack: (() -> Unit)? = null,
+    ok: (() -> Unit)?) {
     var hidden by remember { mutableStateOf(false) }
     val armed = rememberOkArmed()
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = "game end")
@@ -143,7 +146,7 @@ internal fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: 
                     AnimatedVisibility(!hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                         if (takeBack != null) ChoiceButton("Take back OK", Icons.AutoMirrored.Outlined.Undo, Modifier.padding(end = 6.dp),
                             enabled = enabled, onClick = takeBack)
-                        else ChoiceButton("OK", Icons.Outlined.Check, Modifier.widthIn(min = 88.dp).padding(end = 6.dp).testTag(GAME_END_OK_TAG),
+                        else if (ok != null) ChoiceButton("OK", Icons.Outlined.Check, Modifier.widthIn(min = 88.dp).padding(end = 6.dp).testTag(GAME_END_OK_TAG),
                             enabled = enabled && armed, primary = true, onClick = ok)
                     }
                 }

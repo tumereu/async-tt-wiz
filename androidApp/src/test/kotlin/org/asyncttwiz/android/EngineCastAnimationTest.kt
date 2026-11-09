@@ -58,7 +58,7 @@ class EngineCastAnimationTest {
         game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         val me = PlayerId(f.a)
         val hand = game.read { d -> d.model.engine.player(me).hand.toList() }
@@ -150,7 +150,7 @@ class EngineCastAnimationTest {
         game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
         game.tick(1_000)
-        game.keep(emptyList())
+        game.keep()
         game.tick(2_000)
         val me = PlayerId(f.a)
         val hand = game.read { d -> d.model.engine.player(me).hand.toList() }

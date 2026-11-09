@@ -1,0 +1,1 @@
+Alice conceded in her first turn: her own table shows a dialog with "You lost", "You conceded" and "Waiting for Bob to acknowledge", the eye at its bottom left and no button.

@@ -132,7 +132,7 @@ class SwitchReviewTest {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker)
         worker.drain()
         game.tick(1_000); worker.drain()
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); worker.drain()
+        assertIs<GameDevice.Acted.Sent>(game.keep()); worker.drain()
         game.tick(2_000); worker.drain()
         // Full control: her device stops wherever she gets priority (so beginning of combat too)
         game.settings(PlaySettings(mode = ResponseMode.FullControl)); worker.drain()

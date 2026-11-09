@@ -25,7 +25,7 @@ class EngineAsyncViewTest {
     private fun aliceAndBob(): Pair<EngineGame, EngineGame> {
         val alice = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         alice.tick(1_000)
-        alice.keep(emptyList())
+        alice.keep()
         alice.tick(2_000)
         val events: List<GameEvent> = alice.device.session.pending
         val snapshot = f.behind(events, alice.device.model)

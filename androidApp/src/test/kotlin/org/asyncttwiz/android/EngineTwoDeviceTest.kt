@@ -185,12 +185,15 @@ class EngineTwoDeviceTest {
         val me = d.me
         if (rnd.nextInt(25) == 0 && d.undoTarget() != null) return undo(game, rnd)
         if (s.turn.number == 0) {
-            // TRN-062: the opening's Mulligan and Keep (the first mulligan is free; later ones owe cards to the bottom)
+            // TRN-062: the opening's Mulligan and Keep (the first mulligan is free; later ones put cards on the bottom right
+            // after them, problem report 5DDSKK)
+            val owed = AutomatumOpening.bottomOwed(s, me.value)
+            val hand = s.player(me).hand.mapNotNull { (it as? ObjectId.Card)?.card?.value }
+            if (owed > 0) { if (game.bottom(hand.take(owed)) is GameDevice.Acted.Sent) return }
             val mulligans = s.log.count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
                 it is arcanum.engine.change.GameEvent.Mulliganed && it.player == me } }
             if (mulligans < 2 && rnd.nextInt(5) == 0 && game.mulligan() is GameDevice.Acted.Sent) return
-            val hand = s.player(me).hand.mapNotNull { (it as? ObjectId.Card)?.card?.value }
-            if (game.keep(hand.take((mulligans - 1).coerceAtLeast(0))) is GameDevice.Acted.Sent) return
+            if (game.keep() is GameDevice.Acted.Sent) return
         }
         if (s.priority.holder == me && s.pending == null && rnd.nextInt(14) == 0) { game.endTurn(); return }
         val listed = Engine.options(s, me).filter { it !is Input.Concede && Authority.mayMake(s, it, me, d.model.table) }

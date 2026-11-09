@@ -1,0 +1,1 @@
+fix: An open cast now closes at once when the table goes back, for example when you accept the other player's undo.

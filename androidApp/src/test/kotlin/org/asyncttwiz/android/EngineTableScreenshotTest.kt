@@ -87,7 +87,7 @@ class EngineTableScreenshotTest {
 
     /** Alice kept after Bob's keep while he is away: his passes are assumed up to her first main phase. */
     private fun aliceAtMain(): EngineGame = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply {
-        tick(1_000); keep(emptyList()); tick(2_000)
+        tick(1_000); keep(); tick(2_000)
     }
 
     /** [aliceAtMain] with a Mountain played: her keep is no longer the newest event. */
@@ -227,7 +227,7 @@ class EngineTableScreenshotTest {
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), game.device.status)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
@@ -244,7 +244,7 @@ class EngineTableScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theWaitBandInLandscape() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
         val band = compose.onNodeWithTag("wait-band").assertExists()
@@ -260,13 +260,13 @@ class EngineTableScreenshotTest {
         val sim = EngineAppSim(f)
         val alice = sim.load(f.a)
         val bobAway = sim.load(f.b)
-        assertIs<GameDevice.Acted.Sent>(bobAway.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bobAway.keep())
         sim.flush(f.b)
         repeat(6) {
             sim.deliver(f.a)
             alice.playToStop()
             (alice.device.status as? GameDevice.Status.Stopped)?.let { alice.act(it.assumed) }
-            if (alice.device.status == GameDevice.Status.YourMove && alice.device.model.engine.turn.number == 0) alice.keep(emptyList())
+            if (alice.device.status == GameDevice.Status.YourMove && alice.device.model.engine.turn.number == 0) alice.keep()
             alice.tick(sim.now)
             sim.flush(f.a)
             sim.now += 1_000
@@ -335,7 +335,7 @@ class EngineTableScreenshotTest {
     /** Alice at her main phase in [mode] casts Storm Spark at Bob ([alwaysAssume]: "Always assume resolves"). Bob is in
      * Normal (HIS-096: in Quick, with nothing to respond with, his own mode would pass and her phone would assume it). */
     private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, alwaysAssume: Boolean): EngineGame {
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
         game.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))
         game.settings(game.shown!!.settings.copy(mode = mode, assume = if (alwaysAssume) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal))
         val me = PlayerId(f.a)
@@ -369,6 +369,33 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Keep").assertExists()
         captureShot("$SCREENSHOTS/engine/opening.png",
             "A new game's opening: Alice's seven cards are in her hand and her quick actions are Mulligan and Keep; nothing covers the board or asks her anything else.")
+    }
+
+    // TRN-062, STK-043, CR 103.5 (owner problem report 5DDSKK): right after Alice's second mulligan the Keep / Bottom screen
+    // asks for the card it puts on the bottom, with Mulligan and Keep greyed; its OK puts it there and Keep then only keeps
+    @Test fun theBottomOfASecondMulliganIsTheKeepBottomScreen() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
+        game.tick(1_000)
+        repeat(2) { assertIs<GameDevice.Acted.Sent>(game.mulligan()); game.tick(2_000) }
+        assertEquals(1, AutomatumOpening.bottomOwed(game.device.model.engine, f.a), "one card owed right after the second mulligan")
+        render(game, f.a)
+        compose.onNodeWithContentDescription("Keep or bottom").assertExists()
+        compose.onNodeWithText("Mulligan · put 1 on the bottom").assertExists()
+        compose.onNodeWithContentDescription("Automatum choice").assertDoesNotExist()
+        val board = game.play()!!
+        val actions = QuickActions.contextual(board, QuickContext(viewer = f.a))
+        assertEquals(listOf(false, false), actions.map { it.enabled }, "Mulligan and Keep greyed")
+        assertEquals(listOf("Put the card on the bottom first."), actions.mapNotNull { it.refused }.distinct())
+        captureShot("$SCREENSHOTS/engine/opening-bottom.png",
+            "Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK.")
+        val card = (game.device.model.engine.player(PlayerId(f.a)).hand.first() as arcanum.engine.state.ObjectId.Card).card.value
+        assertIs<GameDevice.Acted.Sent>(game.bottom(listOf(card)))
+        game.tick(3_000)
+        assertEquals(6, game.device.model.engine.player(PlayerId(f.a)).hand.size)
+        assertEquals(0, AutomatumOpening.bottomOwed(game.device.model.engine, f.a), "nothing owed on keeping")
+        assertIs<GameDevice.Acted.Sent>(game.keep())
+        game.tick(4_000)
+        assertEquals(6, game.device.model.engine.player(PlayerId(f.a)).hand.size, "she keeps six")
     }
 
     // STK-029, STK-027, TRN-063 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
@@ -432,7 +459,7 @@ class EngineTableScreenshotTest {
     // holding it says why
     @Test fun assumeIsGreyedWhereItWouldShowHiddenCards() {
         val glance = EngineGameFixture(aliceCards = listOf("Mountain", EngineGameFixture.Choices.GLANCE))
-        val game = EngineGame(glance.game.id, glance.a, glance.base, glance.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        val game = EngineGame(glance.game.id, glance.a, glance.base, glance.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
         val me = PlayerId(glance.a)
         val card = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == EngineGameFixture.Choices.GLANCE } }
         val copy = game.device.model.engine.deepCopy()
@@ -513,7 +540,7 @@ class EngineTableScreenshotTest {
     private fun heraldTriggerOnStack(): Pair<EngineGame, EngineGameFixture> {
         val h = EngineGameFixture(heralds = true)
         val me = PlayerId(h.a)
-        val game = EngineGame(h.game.id, h.a, h.base, h.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        val game = EngineGame(h.game.id, h.a, h.base, h.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
         game.settings(game.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         fun named(name: String) = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name } }
         game.send(listOf(Input.PlayLand(me, named("Mountain"))))

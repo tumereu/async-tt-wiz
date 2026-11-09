@@ -46,7 +46,13 @@ internal class SharedFlowController(
     /** I-D56 step C: sends a flow's step as the player's own inputs (null: sent; else why not); the device answers the
      * randomness and makes the passes that follow (null: Automatum isn't available here). */
     private val engineSend: ((List<arcanum.engine.input.Input>) -> String?)? = null,
+    /** STK-030, HIS-099 (owner problem report RC3J4K): how many times a board already shown was taken back, and the last
+     * one's words ([EngineGame.takeBacks]). */
+    private val takeBacks: () -> Long = { 0L },
+    private val lastTakeBack: () -> String = { "" },
 ) : FlowQuestions {
+    /** The take-backs counted when the shown choice opened ([takeBacks]). */
+    private var shownAt = 0L
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
     /** The eye (I-D10): the panel is hidden so the board can be looked at. */
@@ -69,6 +75,18 @@ internal class SharedFlowController(
     /** Shows [next], the flow of the board now shown; a new decision starts with its suggestion and the panel shown. */
     fun show(next: SharedFlow?) {
         if (next === view) return
+        // Owner problem report RC3J4K: a take-back (an undo or rewind, a branch) since the choice opened drops what was picked
+        // in it, also when the board it went back to asks the same choice again: the choice begins anew
+        val back = takeBacks()
+        if (back != shownAt) {
+            shownAt = back
+            if (shownDecision != null) {
+                AppLog.info("decision", "Open choice $shownDecision dropped with its picks (${picked.size}): the table went back (${lastTakeBack()})")
+                shownDecision = null
+                choosingFor = null
+                responding = null
+            }
+        }
         val id = next?.decision?.id?.value
         // What a report needs of a pick gone missing: whether the panel was kept over this board or moved to another choice
         if (id != shownDecision) AppLog.info("decision", "The panel's choice changes on a new board: $shownDecision to $id")

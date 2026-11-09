@@ -1,0 +1,1 @@
+mod: When a game ends by a concession or an agreed result, both players now stay at the table until both have pressed OK on the result, and only then go back to the lobby together.

@@ -90,4 +90,5 @@ internal object Fdn {
     val MAY_SEARCH_EXILE_SHUFFLE = Regex("""[Yy]ou may search your library for (an? .+?), exile it, then shuffle\.""")
     val SHUFFLE_GRAVEYARD_INSTEAD_IF_X = Regex("""Draw X cards\. If X is (\d+) or more, instead shuffle your graveyard into your library, draw X cards, (untap up to \w+ lands), and you have no maximum hand size for the rest of the game\.""")
     val AS_ENTERS_CHOOSE_TYPE_THEN = Regex("""As (.+) enters, choose a creature type\. (This .+ enters with .+)""")
+    val EACH_OPPONENT_LOSES_X_GAIN_LOST = Regex("""Each opponent loses X life\. You gain life equal to the life lost this way\.""")
 }

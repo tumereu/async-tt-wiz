@@ -7807,7 +7807,8 @@ internal class Sentences(
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
         // blb chunk 11: "Put a +1/+1 counter on target creature and you gain 1 life."
-        Blb.AND_YOU_GAIN_LIFE.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("If ") }?.let { m ->
+        // fdn chunk 27: not across "If you do, …" ("you may pay {B}. If you do, target player loses 2 life and you gain 2 life": the gain is inside the If)
+        Blb.AND_YOU_GAIN_LIFE.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("If ") && !it.groupValues[1].contains(". If you do,") }?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return@let
             return first + Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[2].toInt())))
         }
@@ -15199,6 +15200,11 @@ internal class Sentences(
         else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 27: Exsanguinate: the life each opponent actually lost (CR 119.3, 119.4) is what you gain, so the loss is bound
+        Fdn.EACH_OPPONENT_LOSES_X_GAIN_LOST.matchEntire(text)?.let {
+            return listOf(Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), Value.Announced("X"), bind = "lost")),
+                Step.Do(Effect.GainLife(Players.You, Value.Bound("lost"))))
+        }
         // fdn chunk 11b: Finale of Revelation: with X of 10 or more, the whole spell is a different version (CR 608.2e "instead", 107.3m)
         Fdn.SHUFFLE_GRAVEYARD_INSTEAD_IF_X.matchEntire(text)?.let { m ->
             val untap = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".")?.takeIf { it.targets.isEmpty() }?.steps ?: return@let

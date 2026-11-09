@@ -49,7 +49,12 @@ class ParserCorpusTest {
         add("tokens", JsonArray())
     }
 
-    private fun corpus(): ParserCorpus {
+    @Test fun aSupportedSetTheFileLacksIsRefused() {
+        val failure = runCatching { corpus(supported = setOf("SUP", "ZZZ")) }.exceptionOrNull()
+        assertTrue(failure?.message.orEmpty().contains("ZZZ"), failure.toString())
+    }
+
+    private fun corpus(supported: Set<String> = setOf("SUP")): ParserCorpus {
         val data = JsonObject().apply {
             add("SUP", set("expansion", "2024-01-01", card("Reprinted Bolt", text = "Draw two cards."), card("Set Bear")))
             add("OLD", set("expansion", "2001-01-01", card("Reprinted Bolt", text = "Draw a card."), card("Held Sprite"), card("Cube Bear")))
@@ -84,7 +89,7 @@ class ParserCorpusTest {
             }) })
         }
         val cubeFile = File(dir, "cube.json").apply { writeText(cube.toString()) }
-        return readCorpus(file, cubeFile, setOf("SUP"))
+        return readCorpus(file, cubeFile, supported)
     }
 
     @Test fun readsTheVersionAndSortsByName() {

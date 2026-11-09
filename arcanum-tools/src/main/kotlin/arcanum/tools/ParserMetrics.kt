@@ -3,6 +3,10 @@ package arcanum.tools
 import arcanum.parser.OracleParser
 import java.io.File
 import java.util.Locale
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /**
  * The measurements the parser migration is judged by: perturbation by class, the grids, held-out cards read, the regex
@@ -127,9 +131,19 @@ internal fun perturbationRules(): List<PerturbationRule> {
 /** A rule's swaps: how many, how many still read, and the cards where the model didn't change at all, a word dropped unread. */
 internal class RuleResult(val rule: PerturbationRule, val total: Int, val read: Int, val sameModel: List<String>)
 
+/** A model without what only repeats the text (each ability's printed lines, where its targets sit), so a dropped word shows. */
+internal fun meaning(modelJson: String): JsonElement {
+    fun walk(e: JsonElement): JsonElement = when (e) {
+        is JsonObject -> JsonObject(e.filterKeys { it != "text" && it != "span" }.mapValues { walk(it.value) })
+        is JsonArray -> JsonArray(e.map(::walk))
+        else -> e
+    }
+    return walk(Json.parseToJsonElement(modelJson))
+}
+
 /** Each rule over [cards]: every occurrence swapped alone and the whole card parsed again. */
 internal fun perturb(cards: List<CorpusCard>, rules: List<PerturbationRule>): List<RuleResult> {
-    val base = cards.associateWith { cardModel(it.layout, it.faces).json }
+    val base = cards.associateWith { meaning(cardModel(it.layout, it.faces).json) }
     return rules.map { rule ->
         var total = 0
         var read = 0
@@ -140,7 +154,7 @@ internal fun perturb(cards: List<CorpusCard>, rules: List<PerturbationRule>): Li
                 total++
                 if (model.read) {
                     read++
-                    if (model.json == base.getValue(card)) same += card.name
+                    if (meaning(model.json) == base.getValue(card)) same += card.name
                 }
             }
         }

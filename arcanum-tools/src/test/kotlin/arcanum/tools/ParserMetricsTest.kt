@@ -55,6 +55,13 @@ class ParserMetricsTest {
         assertEquals(1 to 0, unread.total to unread.read)
     }
 
+    @Test fun aSwapTheModelIgnoresIsNoticedThoughItsTextDiffers() {
+        val face = arcanum.parser.OracleCard("Test Bolt", null, "Sorcery", "Draw a card.", null, null, null, null, null)
+        val card = CorpusCard("b", "Test Bolt", "normal", listOf(face), CardScope.SupportedSet)
+        // "Draw one card." reads as "Draw a card." does: the same meaning, another text
+        assertEquals(listOf("Test Bolt"), perturb(listOf(card), listOf(rule("""\bDraw a card\b""", "Draw one card"))).single().sameModel)
+    }
+
     @Test fun abilitiesGoOnePerLineWithTheirModes() {
         assertEquals(listOf("Flying", "Choose one —\n• Draw a card.\n• Scry 2.", "When this enters, gain 2 life."),
             abilityBlocks("Flying (It flies.)\nChoose one —\n• Draw a card.\n• Scry 2.\n\n(Just a reminder.)\nWhen this enters, gain 2 life."))

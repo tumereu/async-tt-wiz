@@ -93,7 +93,9 @@ private val EXCLUDED_LAYOUTS = setOf("token", "double_faced_token", "art_series"
 internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): ParserCorpus {
     class Entry(val sets: MutableSet<String> = HashSet(), var date: String = "", var code: String = "", var card: CorpusCard? = null)
     val entries = HashMap<String, Entry>()
+    val seenSets = HashSet<String>()
     val version = forEachSet(mtgjson) { set ->
+        seenSets += set.code
         val excluded = set.type in EXCLUDED_SET_TYPES || set.onlineOnly
         val records = playableRecords(set.cards)
         val byId = records.associateBy { it.get("uuid").asString }
@@ -112,6 +114,8 @@ internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): Pars
             }
         }
     }
+    val absent = supported - seenSets
+    check(absent.isEmpty()) { "Supported sets not in $mtgjson, so nothing would protect them: ${absent.sorted().joinToString()}. Use a newer AllPrintings." }
     val cubeCards = JsonParser.parseString(cube.readText()).asJsonObject.entrySet().associate { (name, faces) ->
         name to faces.asJsonArray.map { it.asJsonObject }
     }

@@ -79,7 +79,8 @@ data class GameObject(
     /** Not known to the caller (D60). */
     val unknown: Boolean get() = definition == null
 
-    /** A transformed double-faced permanent (CR 712): its back face is up. */
+    /** A transformed double-faced permanent (CR 712, 701.27g): its back face is up. What it is physically: a permanent
+     * copying a double-faced permanent isn't double-faced (CR 712.9), a token copy of one is (CR 707.8a, its [definition]). */
     val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
 
     /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
@@ -87,8 +88,9 @@ data class GameObject(
     val bestowed: Boolean get() = facts.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
         zone == arcanum.api.Zone.Battlefield)
 
-    /** A flipped flip card (CR 710). */
-    val flipped: Boolean get() = definition?.layout == Layout.Flip && face == 1
+    /** Flipped (CR 710), a status (CR 110.5): a flip card or a one-faced permanent that flipped while a copy of one, which
+     * stays flipped whatever it copies later (CR 110.5c). */
+    val flipped: Boolean get() = (definition?.layout == Layout.Flip || definition?.layout == Layout.Normal) && face == 1
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 

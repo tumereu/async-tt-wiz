@@ -16,6 +16,7 @@ import arcanum.api.Zone
 import arcanum.engine.query.Board
 import arcanum.engine.query.Context
 import arcanum.engine.query.Evaluator
+import arcanum.engine.state.CopiableValues
 import arcanum.engine.state.EffectObject
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
@@ -26,13 +27,64 @@ import arcanum.engine.state.StackItemKind
 /**
  * Layer 1 (CR 613.2): an object's copiable values. Start from what is printed (the face that is up; both halves of a
  * split card outside the Stack, CR 709.4), apply copy effects in timestamp order with their exceptions (layer 1a,
- * CR 707.2, 707.9), then the face-down values (layer 1b, CR 708.2a).
+ * CR 707.2, 707.9), then the face-down values (layer 1b, CR 708.2a). The whole values, layout and all faces, are
+ * [CopiableValues]; the faces an object has characteristics from now are [faces].
  */
 internal class Copiable(private val state: GameState, val reads: ViewReads = ViewReads()) {
-    private val memo = mutableMapOf<ObjectId, List<IndexedFace>?>()
+    private val memo = mutableMapOf<ObjectId, Worked?>()
+
+    /** An object's whole copiable [values] and, of them, the [faces] whose characteristics it has now, before its doors lock. */
+    private class Worked(val values: CopiableValues, val faces: List<IndexedFace>) {
+        fun map(change: (FaceDefinition) -> FaceDefinition) =
+            Worked(values.copy(faces = values.faces.map(change)), faces.map { it.copy(face = change(it.face)) })
+
+        /** With the exceptions of a copy effect (CR 707.9b). */
+        fun except(except: List<CopyException>) = if (except.isEmpty()) this
+            else Worked(exceptions(values, except), faces.map { it.copy(face = exceptions(it.face, except)) })
+    }
 
     /** The faces whose characteristics an object has, with their face index (for ability origins). Null: unknown. */
-    fun faces(id: ObjectId, visiting: Set<ObjectId> = emptySet()): List<IndexedFace>? {
+    fun faces(id: ObjectId): List<IndexedFace>? {
+        val worked = worked(id, emptySet()) ?: return null
+        // CR 709.5: a Room's locked halves have no name, mana cost or rules text
+        return state.obj(id)?.let { arcanum.engine.room.Rooms.lockedHalves(it, worked.values, worked.faces) } ?: worked.faces
+    }
+
+    /** An object's whole copiable values (CR 707.2). Null: unknown. */
+    fun values(id: ObjectId): CopiableValues? = worked(id, emptySet())?.values
+
+    /** The values a copy effect fixes as it starts, copying [id] (CR 707.2b); a merged permanent's include every component's
+     * abilities (CR 730.2a). Null: unknown. */
+    fun forCopyEffect(id: ObjectId): CopiableValues? {
+        val worked = worked(id, emptySet()) ?: return null
+        val merged = if (worked.faces.any { it.abilitiesOnly }) copiedFace(worked.faces)?.let(CopiableValues::of) else null
+        return copiedByEffect(merged ?: worked.values, flipped = 0)
+    }
+
+    /**
+     * The values of a token that's a copy of [id] (CR 707.2, 111.3), or that a copy of a permanent spell becomes (CR 707.10f, g).
+     * A double-faced permanent or card gives a double-faced token, each face the copiable values of the same face and the same
+     * face up (CR 707.8a), but an object that only copies a double-faced permanent doesn't (the rule's example of Clone), and a
+     * meld card or a melded permanent gives its face up (CR 712.9); the token enters unflipped (CR 110.5b). Null: unknown.
+     */
+    fun forToken(id: ObjectId): CopiableValues? {
+        val worked = worked(id, emptySet()) ?: return null
+        val o = state.obj(id)
+        // A merged permanent: its topmost component's face
+        if (o?.merged == true) return worked.faces.firstOrNull()?.let { CopiableValues.of(it.face) }
+        val values = worked.values
+        val printed = o?.definition?.takeIf { !o.faceDown && doubleFaced(it.layout) && it.faces.size > 1 }
+        // A double-faced permanent under a copy effect: each of its faces has what the effect gives (CR 707.8a)
+        if (printed != null && values.layout == Layout.Normal && values.faces.size == 1)
+            return CopiableValues(printed.layout, printed.faces.map { values.faces.single() }, o.face)
+        return when (values.layout) {
+            is Layout.Meld -> upFace(values)
+            Layout.Flip -> values.copy(up = 0)
+            else -> values
+        }
+    }
+
+    private fun worked(id: ObjectId, visiting: Set<ObjectId>): Worked? {
         memo[id]?.let { return it }
         if (id in visiting) return null
         val result = compute(id, visiting + id)
@@ -41,56 +93,62 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         return result
     }
 
-    private fun compute(id: ObjectId, visiting: Set<ObjectId>): List<IndexedFace>? {
+    private fun compute(id: ObjectId, visiting: Set<ObjectId>): Worked? {
         state.stackItems[id]?.kind?.let { kind ->
             // CR 707.10: a copy of a spell copies the original's copiable values
             if (kind is StackItemKind.SpellCopy) {
-                return (faces(kind.copied, visiting)
-                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) })
+                return (worked(kind.copied, visiting)
+                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { c ->
+                        Worked(kind.values ?: CopiableValues.of(c.asFace()), listOf(IndexedFace(0, c.asFace())))
+                    })
                     // spm: its own exceptions (CR 707.9b)
-                    ?.map { if (kind.except.isEmpty()) it else it.copy(face = exceptions(it.face, kind.except)) }
+                    ?.except(kind.except)
             }
         }
         val o = state.obj(id) ?: return null
         // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is, so a face-down
         // permanent the caller can't see (D60) is a 2/2 too
-        if (o.faceDown) return listOf(IndexedFace(0, faceDown(o)))
+        if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
         val definition = o.definition ?: return null
-        var faces: List<IndexedFace> = when {
-            // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
-            definition.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> definition.faces.mapIndexed { i, f -> IndexedFace(i, f) }
-            else -> listOfNotNull(definition.faces.getOrNull(o.face)?.let { IndexedFace(o.face, it) })
-        }
+        var worked = CopiableValues(definition.layout, definition.faces, o.face).let { Worked(it, inEffect(it, o)) }
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
-            faces = faces.map { it.copy(face = prototyped(it.face)) }
+            worked = worked.map(::prototyped)
         // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all, a
         // copy effect timestamped as the objects merged (the latest merge)
         // fin: a melded permanent has only the combined back face's characteristics (CR 712.8g)
-        var mergeDue = o.merged && !(o.definition?.layout is arcanum.api.Layout.Meld && o.face == 1)
+        var mergeDue = o.merged && !(definition.layout is arcanum.api.Layout.Meld && o.face == 1)
         val mergedAt = (o.mergedAbove + o.mergedBelow).maxOfOrNull { it.timestamp } ?: 0
         // CR 613.2a, 613.7, 707.2: copy effects (the merge among them) in timestamp order: a later copy effect overrides the merge
         copyEffectsOn(id).forEach { (effect, copy) ->
-            if (mergeDue && effect.timestamp > mergedAt) { faces = merged(o, faces); mergeDue = false }
-            val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
-            if (copied != null) faces = copied.map { it.copy(face = exceptions(it.face, copy.except)) }
+            if (mergeDue && effect.timestamp > mergedAt) { worked = merged(o, worked); mergeDue = false }
+            val copied = effect.copiedValues?.let { fixed -> copiedByEffect(fixed, o.face).let { Worked(it, inEffect(it, o)) } }
+                ?: effect.copied?.let { Worked(CopiableValues.of(it), listOf(IndexedFace(0, it))) }
+                ?: copiedLive(effect, copy, o, visiting)
+            if (copied != null) worked = copied.except(copy.except)
         }
-        if (mergeDue) faces = merged(o, faces)
+        if (mergeDue) worked = merged(o, worked)
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
-        if (o.bestowed) faces = faces.map { it.copy(face = bestowed(it.face)) }
-        // CR 709.5: a Room's locked halves have no name, mana cost or rules text
-        faces = arcanum.engine.room.Rooms.lockedHalves(o, faces)
-        return faces
+        if (o.bestowed) worked = worked.map(::bestowed)
+        return worked
+    }
+
+    /** The faces of [values] whose characteristics [o] has: the one up, its status choosing a flip card's (CR 707.3). */
+    private fun inEffect(values: CopiableValues, o: GameObject): List<IndexedFace> = when {
+        // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
+        values.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> values.faces.mapIndexed { i, f -> IndexedFace(i, f) }
+        else -> listOfNotNull(values.faces.getOrNull(values.upFace)?.let { IndexedFace(values.upFace, it) })
     }
 
     /** CR 730.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). */
-    private fun merged(o: GameObject, own: List<IndexedFace>): List<IndexedFace> {
+    private fun merged(o: GameObject, own: Worked): Worked {
         fun part(p: arcanum.engine.state.MergedPart): IndexedFace? =
             p.definition?.faces?.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
-        val top = o.mergedAbove.firstOrNull()?.let { listOfNotNull(part(it)) } ?: own
+        val top = o.mergedAbove.firstOrNull()?.let { listOfNotNull(part(it)) } ?: own.faces
         val others = (o.mergedAbove.drop(1) + o.mergedBelow).mapNotNull(::part) +
-            (if (o.mergedAbove.isEmpty()) emptyList() else own)
-        return top + others.map { it.copy(abilitiesOnly = true) }
+            (if (o.mergedAbove.isEmpty()) emptyList() else own.faces)
+        val values = if (o.mergedAbove.isEmpty()) own.values else top.firstOrNull()?.let { CopiableValues.of(it.face) } ?: own.values
+        return Worked(values, top + others.map { it.copy(abilitiesOnly = true) })
     }
 
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
@@ -137,10 +195,13 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             }
     }
 
-    private fun copiedFaces(effect: EffectObject, copy: Mechanic.CopyOf, visiting: Set<ObjectId>): List<IndexedFace>? {
+    /** What copying the original gives [o] while the effect is read each time ([EffectObject.copiedValues] not fixed). */
+    private fun copiedLive(effect: EffectObject, copy: Mechanic.CopyOf, o: GameObject, visiting: Set<ObjectId>): Worked? {
         val evaluator = Evaluator(PrintedBoard(state, this), Context(you = effect.controller, self = effect.source, names = effect.names))
-        val original = evaluator.objects(copy.objects).firstOrNull() ?: return null
-        return faces(original, visiting)
+        val original = worked(evaluator.objects(copy.objects).firstOrNull() ?: return null, visiting) ?: return null
+        val values = copiedByEffect(original.values, o.face)
+        // Halves and flip versions are chosen by the copy itself; else it has what the original has (a merged permanent's parts too)
+        return Worked(values, if (values.layout == Layout.Split || values.layout == Layout.Flip) inEffect(values, o) else original.faces)
     }
 
     companion object {
@@ -151,6 +212,27 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             val others = faces.filter { it.abilitiesOnly }.flatMap { it.face.abilities }
             return if (others.isEmpty()) main else main.copy(abilities = main.abilities + others)
         }
+
+        /** Whether [layout] is that of a card that can turn over to its other face (CR 712.9). */
+        private fun doubleFaced(layout: Layout) = layout == Layout.Transform || layout == Layout.ModalDoubleFaced
+
+        private fun upFace(values: CopiableValues) = CopiableValues.of(values.faces.getOrElse(values.upFace) { FaceDefinition("") })
+
+        /**
+         * What a copy effect takes from [values]: of a double-faced object, the face up (CR 707.8); of a flip card both
+         * versions, the copy's own [flipped] status choosing (0 or 1, CR 707.2, 707.3); else all of them: a split card's halves
+         * (CR 709.5b) and the alternative characteristics of an Adventure, an Omen or a prepare spell (CR 715.2b, 720.2b, 722.2b).
+         */
+        fun copiedByEffect(values: CopiableValues, flipped: Int): CopiableValues = when {
+            doubleFaced(values.layout) || values.layout is Layout.Meld -> upFace(values)
+            values.layout == Layout.Flip -> values.copy(up = flipped)
+            else -> values
+        }
+
+        /** CR 707.9: the exceptions of a copy effect on each face; a prepare spell's characteristics ignore them (CR 722.3c). */
+        fun exceptions(values: CopiableValues, except: List<CopyException>): CopiableValues = values.copy(faces = values.faces.mapIndexed { i, f ->
+            if (values.layout == Layout.Prepare && i > 0) f else exceptions(f, except)
+        })
 
         /** CR 708.2a: a 2/2 face-down creature with no text, no name, no subtypes and no mana cost. */
         val FACE_DOWN = FaceDefinition(

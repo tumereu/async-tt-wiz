@@ -16,7 +16,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: catalog steps 1b and 1c (1c between set-trial sets), the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, pod chat, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
+Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: catalog steps 1b and 1c (1c between set-trial sets), the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, pod chat, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, tokens in Inspect, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
 
 Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
@@ -70,6 +70,7 @@ Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 - Draft Stats' curve (DRF-111): in Type mode each bar's number reads "creatures · noncreatures" instead of the total (Color mode keeps the total).
 - One swipe rule wherever cards move between sections (owner and a player, 2026-11-09): right moves a card one section up and left one down, in the order Main, Side, Maybe, wrapping (right from Main goes to Maybe, left from Maybe to Main); with two sections either way goes to the other. The deck editor (LOB-048, LOB-105), deck preparation, Build (DRF-099) and Build's review queue, Prepare cube (DRF-141). The draft pick screen's keep / burn swipes (DRF-058) aren't section moves and stay.
 - Deck cover choices (LOB-058, DRF-166) list their cards alphabetically.
+- Tokens in Inspect (TBL-104, TBL-018; owner): Inspect shows a token's picture as it is, with normal corners, so the cut corners no longer hide its P/T and text; the battlefield keeps the cut corners.
 - The wait band (TRN-066, STK-057), kept under the other player's hand: edge to edge, fading out toward both sides; the main line a little bigger, the ability or effect text under it small, up to 8 lines. When the other player is behind you (you went ahead on assumptions), "Waiting for <name>" says where they are ("Bob is at turn 5 · their combat").
 
 Small, not urgent (owner, 2026-11-08):
@@ -93,7 +94,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - "Can't do" explainer (owner, 2026-11-08; TBL-118 today says nothing by design): a short-lived chip or bubble rising from a shaken card, saying in one plain line why ("Costs more than you can pay"). Maybe for every shake, starting from castability's unselectable targets. Where it shows and how long are undecided; the engine's refusal reasons are technical, so the wording needs its own step. Also (report 82PG8P): warn, never block, before paying for an ability that would do nothing right now (Frodo's first ability when he is no longer a Citizen; legal, checked when it resolves, and the type may still change in response).
 
 - Opening a game from its very first event (found 2026-11-06, worker A): loading a game's recent events starting at its root gave a wrong board (turn 1 shown with the keep decision open, Keep ignored); the load now stops at the first event, which avoids it, but why loading from the root goes wrong is unexplained. Investigate before relying on root loads.
-- Token look (owner playtest, 2026-11-06): consider a different look and feel for tokens (Inspect now shows them with normal corners).
 - Arcanum engine: a streaming `perform` — called with a state, it returns a channel/stream of updates (changes in order, decisions as they come) instead of one finished `Outcome`, so the host can show the quick first results at once and keep the UI responsive while a long chain (many triggers, state-based actions, loops) resolves. A candidate fix for UI-feels-slow cases; keep every update reversible (D59) and the engine stateless; undo mid-stream = discard the stream's remaining updates and revert the applied ones (owner, 2026-11-04). Architecture check (2026-11-04) recommends not now: it speeds up only long chains; if R1's measurements after R2–R3 still show chains as the slow cases, a plain callback on `perform` rather than a channel (`engine-responsiveness.md`, last section). Owner to decide.
 - R5 of `engine-responsiveness.md` (optional, decided later; owner 2026-11-06: not now, after the End turn speed work): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide after R1–R3's measurements.
 

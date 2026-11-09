@@ -3943,6 +3943,20 @@ internal class Sentences(
             val target = context.target(name, cards)
             return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield))))
         }
+        // fdn chunk 08: "Each opponent chooses a permanent they control of each permanent type and sacrifices the rest.": one kept for each permanent
+        // type (CR 110.4) they have (a permanent of several types may be kept as each of them), then the rest sacrificed together (CR 701.21a)
+        Fdn.CHOOSES_PERMANENT_OF_EACH_TYPE_SACRIFICES_REST.matchEntire(sentence)?.let { m ->
+            val who = if (m.groupValues[1] == "opponent") PlayerFilter.Opponent else PlayerFilter.Any
+            val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))
+            val types = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+            val choices = types.map { type ->
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.Type(type), theirs), Value.Fixed(1), Value.Fixed(1)),
+                    bind = "kept ${type.toString().lowercase()}", chooser = Players.Bound("player"))
+            }
+            val rest = Objects.Except(Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), theirs)),
+                Objects.Union(choices.map { Objects.Bound(it.bind) }))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(who)), "player", together = true, steps = choices + Step.Do(Effect.Sacrifice(rest))))
+        }
         // fdn chunk 08: "This creature becomes a Werewolf." (for good; the new creature type replaces its others, CR 205.1a, 611.2a)
         Fdn.SELF_BECOMES_SUBTYPES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val subtypes = m.groupValues[2].trim().split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }

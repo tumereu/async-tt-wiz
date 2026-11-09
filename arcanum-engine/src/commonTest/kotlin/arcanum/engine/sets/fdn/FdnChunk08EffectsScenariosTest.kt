@@ -17,8 +17,8 @@ import kotlin.test.assertTrue
 /**
  * The FDN cards whose first unread clause was an effect, played: the invented names carry the oracle text of Sorcerous Spyglass,
  * Mild-Mannered Librarian, Ballyrush Banneret, Harbinger of the Tides, Omniscience, Quilled Greatwurm, Secluded Courtyard, Vizier of the
- * Menagerie, Chandra, Flameshaper, Thousand-Year Storm, Giada, Font of Hope, Nine-Lives Familiar, Goblin Negotiation, Hare Apparent and
- * Lathril, Blade of the Elves.
+ * Menagerie, Chandra, Flameshaper, Liliana, Dreadhorde General, Thousand-Year Storm, Giada, Font of Hope, Nine-Lives Familiar, Goblin
+ * Negotiation, Hare Apparent and Lathril, Blade of the Elves.
  */
 class FdnChunk08EffectsScenariosTest {
     private val p1p1 = CounterKind.PowerToughness(1, 1)
@@ -94,6 +94,39 @@ class FdnChunk08EffectsScenariosTest {
     /** Whether the engine offers Alice the cast of [name] from where it is (a permission to cast it there, CR 601.2). */
     private fun arcanum.engine.scenario.Scenario.canCast(name: String): Boolean =
         Engine.options(state, alice.id).any { it is Input.Cast && it.card == card(name) }
+
+    private val golem = Cards.invent("Eightfold Golem", "{3}", "Artifact Creature — Golem", "", "3/3")
+    private val charm = Cards.invent("Eightfold Charm", "{W}", "Enchantment", "")
+    private val morwen = Cards.invent("Morwen, Gravetide Sovereign", "{4}{B}{B}", "Legendary Planeswalker — Liliana", """
+        Whenever a creature you control dies, draw a card.
+        [+1]: Create a 2/2 black Zombie creature token.
+        [−4]: Each player sacrifices two creatures of their choice.
+        [−9]: Each opponent chooses a permanent they control of each permanent type and sacrifices the rest.
+    """, loyalty = "6")
+
+    // CR 110.4, 701.21a: Bob keeps the Golem (as his artifact and his creature), one Forest and the Charm; the Ox and the other Forest go
+    @Test
+    fun morwenUltimateKeepsOneOfEachPermanentType() = scenario {
+        alice.battlefield(morwen, counters = listOf(CounterKind.Loyalty to 10))
+        bob.battlefield(golem, ox, charm, "Forest", "Forest")
+        alice.activates(morwen, ability = 2)
+        resolve()
+        var guard = 10
+        while (pending is Decision.ChooseObjects && guard-- > 0) {
+            val options = decision<Decision.ChooseObjects>().options
+            val pick = options.firstOrNull { it == card(golem) } ?: options.first()
+            answer(Answer.Objects(listOf(pick)))
+        }
+        resolveAll()
+        expect {
+            bob.battlefield has golem
+            bob.battlefield has charm
+            bob.battlefield.names.count { it == "Forest" } shouldBe 1
+            bob.graveyard has ox
+            bob.graveyard has "Forest"
+            alice.battlefield has morwen
+        }
+    }
 
     // CR 614.12, 201.3: the chosen name's activated abilities can't be activated
     @Test

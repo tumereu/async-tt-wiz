@@ -323,5 +323,35 @@ class FdnChunk08EffectsTest {
             loseLife(10, Players.Each(PlayerFilter.Opponent)), gainLife(10)),
     )
 
+    // CR 110.4 (the permanent types), 701.21a (sacrifice); each opponent keeps one of each type they have, a permanent of several types
+    // possibly kept as each of them
+    @Test
+    fun morwenGravetideSovereign() = card(
+        name = "Morwen, Gravetide Sovereign",
+        cost = "{4}{B}{B}",
+        type = "Legendary Planeswalker — Liliana",
+        loyalty = "6",
+        text = """
+            Whenever a creature you control dies, draw a card.
+            [+1]: Create a 2/2 black Zombie creature token.
+            [−4]: Each player sacrifices two creatures of their choice.
+            [−9]: Each opponent chooses a permanent they control of each permanent type and sacrifices the rest.
+        """,
+    ) parsesTo abilities(
+        triggered(on(EventPattern.ZoneChange(creatureYouControl, from = Zone.Battlefield, to = Zone.Graveyard)), draw(1)),
+        loyalty(1, create(creatureToken("Zombie", listOf(Color.Black), 2, 2))),
+        loyalty(-4, Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), "player", together = true, steps = listOf(
+            Step.Choose(Choice.Objects(and(creature, theirs), n(2), n(2)), bind = "sacrificed", chooser = Players.Bound("player")),
+            doing(Effect.Sacrifice(Objects.Bound("sacrificed")))))),
+        loyalty(-9, Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), "player", together = true, steps = keptOfEachType +
+            doing(Effect.Sacrifice(Objects.Except(Objects.Each(and(permanentFilter, theirs)), Objects.Union(keptOfEachType.map { Objects.Bound(it.bind) })))))),
+    )
+    private val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))
+    private val keptOfEachType = listOf("artifact" to arcanum.api.CardType.Artifact, "battle" to arcanum.api.CardType.Battle,
+        "creature" to arcanum.api.CardType.Creature, "enchantment" to arcanum.api.CardType.Enchantment, "land" to arcanum.api.CardType.Land,
+        "planeswalker" to arcanum.api.CardType.Planeswalker).map { (name, type) ->
+        Step.Choose(Choice.Objects(and(ObjectFilter.Type(type), theirs), n(1), n(1)), bind = "kept $name", chooser = Players.Bound("player"))
+    }
+
     private val revival = CounterKind.Named("revival")
 }

@@ -149,15 +149,6 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             IconButton(onClick = { controller.drawer(false) }) { EntryIcon("Close navigation", "close") }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
-                controller.navigate(ShellDestination.MENU)
-            }
-            for (destination in listOf(ShellDestination.STATS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
-                NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
-                    if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
-                    controller.navigate(destination)
-                }
-            }
             NavigationItem("Games", null, controller.state.destination == ShellDestination.GAMES) {
                 lobby?.back()
                 controller.navigate(ShellDestination.GAMES)
@@ -229,6 +220,16 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                     }
                 }
             }
+            // LOB-018: Games and Pods first, then the menu section
+            NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
+                controller.navigate(ShellDestination.MENU)
+            }
+            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.STATS, ShellDestination.SETTINGS)) {
+                NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
+                    if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
+                    controller.navigate(destination)
+                }
+            }
             if (controller.accountSwitcher) {
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()
@@ -260,7 +261,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
 
 @Composable
 private fun NavigationItem(label: String, icon: String?, selected: Boolean, indented: Boolean = false, action: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = action).semantics { this.selected = selected }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("navigation-$label").clickable(onClick = action).semantics { this.selected = selected }
         .padding(start = if (indented) 20.dp else 4.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (icon != null) EntryIcon(null, icon)
@@ -300,7 +301,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                         WizardLogo()
                         Spacer(Modifier.height(24.dp))
                     }
-                     for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.STATS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+                     for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.STATS, ShellDestination.SETTINGS)) {
                           OutlinedButton(onClick = { if (item == ShellDestination.CONTACTS) lobby?.contacts(false); navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),

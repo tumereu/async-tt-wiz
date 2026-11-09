@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, screens (owner, 2026-11-09):
 
-- Menus (LOB-015, LOB-018): Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and Pods come above the menu section.
 - Stats (LOB-132): match length in 4-turn ranges from 1-4 to 33+; the top tiles fill the whole width; win % by colour uses real mana symbols.
 
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:

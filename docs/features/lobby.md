@@ -24,10 +24,10 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Navigation and main menu
 
-- **LOB-015** The main menu has big buttons for Games, Pods, Stats, Manage decks, Contacts and Settings; in portrait the ATW logo sits small at the top right of the menu-button row. (r58)
+- **LOB-015** The main menu has big buttons for Games, Pods, Manage decks, Contacts, Stats and Settings; in portrait the ATW logo sits small at the top right of the menu-button row. (r61)
 - **LOB-016** Under the Games button a panel lists up to 3 games in the shared game order (LOB-022), opening straight into the game; incoming invitations there have Accept and Decline buttons. The panel is hidden when empty. (r30)
 - **LOB-017** Under the Pods button a panel lists up to 3 pods and pod invitations in the shared pod order (DRF-013), invitations with Accept/Decline. Hidden when empty. (r35)
-- **LOB-018** The side menu lists Menu, Stats, Manage decks, Contacts, Settings, then Games with every game and incoming invitation as rows, then Pods in the shared pod order (DRF-013), each with its other members as a compact avatar stack, its name and a two-line status. Landscape shows it as a permanent side area; portrait opens it from the hamburger. (r58)
+- **LOB-018** The side menu lists Games with every game and incoming invitation as rows, then Pods in the shared pod order (DRF-013), each with its other members as a compact avatar stack, its name and a two-line status, then the menu section: Menu, Manage decks, Contacts, Stats, Settings. Landscape shows it as a permanent side area; portrait opens it from the hamburger. (r61)
 - **LOB-019** A side-menu game row shows the opponent's avatar, the game name, an "Invitation" label on its own line for invitations, and "opponent · status · last activity" (the time if today, else the date) on two lines. (r35)
 - **LOB-020** Back from any section opened from the menu or side menu returns to the main menu, and Back again leaves the app; steps inside a section (Games → Choose opponent) go back one step. (r30)
 - **LOB-021** Tapping a side-menu game opens it; tapping an incoming invitation opens the Games screen to answer it. (r30)

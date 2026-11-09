@@ -53,8 +53,10 @@ class SetSourceRepositoryTest {
         override fun size(): Long? = error("Select a set")
         override fun checksum(): String = error("Select a set")
         override fun download(output: OutputStream, progress: (Long) -> Unit): Unit = error("Select a set")
+        val unavailable = mutableSetOf<String>()
         override fun setSource(code: String): CatalogSource {
             requests += code
+            if (code in unavailable) throw java.io.IOException("offline")
             return object : CatalogSource {
                 override fun metadata(): CatalogMetadata = error("No metadata needed")
                 override fun size(): Long? = if (unknownSize) null else files.getValue(code).size.toLong()
@@ -97,8 +99,8 @@ class SetSourceRepositoryTest {
     private fun JsonObject.withRecipes(vararg recipes: Pair<String, JsonObject>) = apply {
         add("booster", JsonObject().apply { recipes.forEach { (name, recipe) -> add(name, recipe) } })
     }
-    private fun catalog(vararg sets: JsonObject): CatalogRepository {
-        val repository = CatalogRepository(temporary.resolve("catalog").toFile()) {
+    private fun catalog(vararg sets: JsonObject, directory: String = "catalog"): CatalogRepository {
+        val repository = CatalogRepository(temporary.resolve(directory).toFile()) {
             JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}")
         }
         repository.stage { index ->
@@ -388,6 +390,146 @@ class SetSourceRepositoryTest {
         assertEquals(SubmittedDefinition(DeckJson.digest(definition), definition), upload.definitions.definitions.single())
         assertEquals(2, upload.snapshot.cards.size)
         assertTrue(upload.snapshot.cards.all { it.colors == setOf(DraftColor.W, DraftColor.U) })
+    }
+
+    /** A meld pair as MTGJSON links it: each front to the result, the result (a card row of its own) to both fronts. */
+    private fun meldFront(id: Int, name: String) = card(id, "rare", "G").apply {
+        addProperty("name", "$name // Thornwall Colossus"); addProperty("faceName", name); addProperty("side", "a")
+        addProperty("layout", "meld"); add("otherFaceIds", JsonArray().apply { add(uuid(3)) })
+    }
+    private val meldResult get() = card(3, "rare", "G").apply {
+        addProperty("name", "Thornwall Colossus"); addProperty("faceName", "Thornwall Colossus"); addProperty("side", "b")
+        addProperty("number", "1b"); addProperty("layout", "meld")
+        add("otherFaceIds", JsonArray().apply { add(uuid(2)); add(uuid(1)) })
+    }
+
+    // DRF-167, problem report 7ZZC89 (Final Fantasy could not be chosen): one meld card failed the whole set. Each front is a card
+    // of its own with the result on its back (CR 712.4); the result is no card of its own, wherever its row is in the file.
+    @Test fun aSetWithMeldCardsLoadsEachFrontWithTheResultOnItsBack() {
+        listOf(listOf(meldFront(1, "Bramble Twin"), meldResult, meldFront(2, "Hollow Twin"), card(4)),
+            listOf(meldResult, meldFront(2, "Hollow Twin"), meldFront(1, "Bramble Twin"), card(4))).forEachIndexed { index, cards ->
+            val code = "OL$index"
+            val set = set(code, cards = cards).withRecipes("play" to recipe(listOf(1, 2, 4)))
+            val upload = repository(catalog(set, directory = "catalog$index"), FixtureSource().apply { put(set) }).load(code)
+            assertConsistent(upload)
+            assertTrue(upload.missingCards.isEmpty(), upload.missingCards.toString())
+            assertTrue(upload.warnings.isEmpty(), upload.warnings.toString())
+            assertEquals(setOf(uuid(1), uuid(2), uuid(4)), upload.snapshot.cards.map { it.uuid }.toSet())
+            assertEquals("play", upload.snapshot.recipe?.name)
+            val faces = upload.definitions.definitions.map { it.definition }.associate { it.name to it.faces.map { face -> face.name } }
+            assertEquals(mapOf("Bramble Twin // Thornwall Colossus" to listOf("Bramble Twin", "Thornwall Colossus"),
+                "Hollow Twin // Thornwall Colossus" to listOf("Hollow Twin", "Thornwall Colossus"),
+                "Card 4" to listOf("Card 4")), faces)
+            assertTrue(upload.definitions.definitions.first { it.definition.name.startsWith("Bramble") }.definition.faces.none { it.faceId == uuid(2) })
+            assertTrue(SetBoosters.generate(upload.snapshot, 10, RandomV1.encodeSeed(ByteArray(32))).all { it.kind == SetBoosterKind.RECIPE_BASED })
+        }
+    }
+
+    // DRF-167, 7ZZC89: the same card data whichever way a deck names the card, and a deck can hold it
+    @Test fun aMeldCardInADeckIsTheSameCardAsInItsSet() {
+        val set = set(cards = listOf(meldFront(1, "Bramble Twin"), meldFront(2, "Hollow Twin"), meldResult))
+        val catalog = catalog(set)
+        val upload = repository(catalog, FixtureSource().apply { put(set) }).load("OLD")
+        val front = DeckImportResolver(catalog).resolve("1 Bramble Twin (OLD) 1")
+        assertTrue(front.resolved, front.issues.toString())
+        val definition = front.entries.single().definition(front.catalog)
+        assertTrue(DeckValidation.definition(definition))
+        assertEquals(SubmittedDefinition(DeckJson.digest(definition), definition),
+            upload.definitions.definitions.single { it.definition.name.startsWith("Bramble") })
+        val result = DeckImportResolver(catalog).resolve("1 Thornwall Colossus")
+        assertTrue(result.resolved, result.issues.toString())
+        val named = result.entries.single().definition(result.catalog)
+        assertTrue(DeckValidation.definition(named))
+        assertEquals(2, named.faces.size)
+    }
+
+    // DRF-166, found checking 7ZZC89 over the supported sets: a play booster of more sheets than the limit (Reality
+    // Fracture has 109) is refused in words the player reads, not as an unreadable file
+    @Test fun aRecipeOverTheSheetLimitSaysSo() {
+        val sheets = (1..SetSourceValidation.MAX_SHEETS + 1).map { "sheet$it" }
+        val recipe = JsonObject().apply {
+            add("boosters", JsonArray().apply { add(JsonObject().apply {
+                addProperty("weight", 1)
+                add("contents", JsonObject().apply { addProperty("sheet1", 1) })
+            }) })
+            addProperty("boostersTotalWeight", 1)
+            add("sheets", JsonObject().apply { sheets.forEach { name -> add(name, JsonObject().apply {
+                add("cards", JsonObject().apply { addProperty(uuid(1), 1) })
+                addProperty("totalWeight", 1)
+            }) } })
+            add("sourceSetCodes", JsonArray())
+        }
+        val set = set().withRecipes("play" to recipe)
+        val failure = problem { repository(catalog(set), FixtureSource().apply { put(set) }).load("OLD") }
+        assertEquals("Set OLD can't be used as a draft source yet: its boosters are more complicated than the app can handle.", failure.playerMessage)
+    }
+
+    private fun problem(block: () -> Unit) = assertThrows(SetSourceProblem::class.java) { block() }
+
+    // DRF-166: a set that can't be handled says why, in the player's words; the log says what was refused
+    @Test fun aCardThatCantBecomeCardDataNamesTheCardAndGoesInTheLog() {
+        val long = "x".repeat(60_000)
+        val bad = card(1).apply { addProperty("text", long); addProperty("type", long); addProperty("manaCost", long) }
+        val set = set(cards = listOf(bad))
+        val lines = mutableListOf<String>()
+        val repository = SetSourceRepository(cache, catalog(set), FixtureSource().apply { put(set) }, clock, log = { lines += it })
+        val failure = problem { repository.load("OLD") }
+        assertEquals("Set OLD can't be used as a draft source: the card data of Card 1 could not be read.", failure.playerMessage)
+        assertEquals(failure.playerMessage, setSourceFailureMessage("OLD", failure))
+        assertTrue(lines.any { "refused" in it && "Card 1" in it && uuid(1) in it }, lines.toString())
+    }
+
+    // DRF-166
+    @Test fun aDownloadThatFailsSaysWhichCardsAndAsksToCheckTheConnection() {
+        val main = set().withRecipes("play" to recipe(listOf(1), listOf("DEP")))
+        val catalog = catalog(main)
+        val source = FixtureSource().apply { put(main); unavailable += "DEP" }
+        val lines = mutableListOf<String>()
+        val repository = SetSourceRepository(cache, catalog, source, clock, log = { lines += it })
+        val failure = problem { repository.load("OLD") }
+        assertEquals("Could not download the cards of DEP. Check your connection and try again.", failure.playerMessage)
+        assertTrue(lines.any { it.startsWith("DEP: refused") && "IOException" in it }, lines.toString())
+    }
+
+    // DRF-166: The List's kind of size
+    @Test fun aSetOverTheCardLimitSaysSo() {
+        val big = set(cards = (1..SetSourceValidation.MAX_CARDS + 1).map { card(it) })
+        val failure = problem { repository(catalog(set()), FixtureSource().apply { put(big) }).load("OLD") }
+        assertEquals("Set OLD has too many cards to use as a draft source.", failure.playerMessage)
+    }
+
+    // DRF-166
+    @Test fun anUnreadableFileAndNoInstalledCardsSayWhatToDo() {
+        val source = FixtureSource().apply { put(set().apply { addProperty("code", "OTHER") }) }
+        source.files["OLD"] = source.files.getValue("OTHER")
+        val catalog = catalog(set())
+        assertEquals("The card file of Set OLD could not be read. Try again later.", problem { repository(catalog, source).load("OLD") }.playerMessage)
+        val none = set(cards = listOf(card(2)))
+        assertEquals("None of the cards of Set OLD are in your card records. Check for updates in Settings → Card records.",
+            problem { repository(catalog, FixtureSource().apply { put(none) }).redownload("OLD") }.playerMessage)
+        assertTrue(setSourceFailureMessage("NOPE", assertThrows(IllegalArgumentException::class.java) { repository(catalog, source).load("NOPE") })
+            .startsWith("NOPE isn't in your card records"))
+        assertEquals("Could not load source.", setSourceFailureMessage("OLD", IllegalStateException("something else")))
+    }
+
+    // 7ZZC89 (AGENTS.md logging rule): a load's steps reach the app log
+    @Test fun aLoadLogsItsSteps() {
+        val main = set(cards = listOf(meldFront(1, "Bramble Twin"), meldFront(2, "Hollow Twin"), meldResult))
+            .withRecipes("play" to recipe(listOf(1, 2, 4), listOf("DEP")))
+        val dependency = set("DEP", cards = listOf(card(4)))
+        val catalog = catalog(main, dependency)
+        val source = FixtureSource().apply { put(main); put(dependency) }
+        val lines = mutableListOf<String>()
+        val logging = SetSourceRepository(cache, catalog, source, clock, log = { lines += it })
+        logging.load("OLD")
+        listOf("OLD: loading", "OLD: downloading", "OLD: downloaded", "OLD: file read, 3 cards", "OLD: recipe play, 1 sheets, 3 cards on them, from sets [DEP]",
+            "DEP: downloading", "DEP: file read, 1 cards of 3 wanted", "OLD: dependency DEP gives 1 cards (in the set list)",
+            "OLD: ready, 3 cards, 3 definitions, 1 meld results left out, recipe play, 0 missing").forEach { step ->
+            assertTrue(lines.any { step in it }, "$step in $lines")
+        }
+        lines.clear()
+        logging.load("OLD")
+        assertTrue(lines.any { "OLD: using the kept file" in it }, lines.toString())
     }
 
     @Test fun missingCardsAreReportedAndRemovedFromSheetsWithWeightsRecomputed() {

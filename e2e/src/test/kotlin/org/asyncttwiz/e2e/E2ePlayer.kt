@@ -70,7 +70,8 @@ import java.util.concurrent.Executors
  * The finders ([node], [nodes]) look only at this player's windows (their activity, its dialogs and popups).
  */
 internal class E2ePlayer(val account: TestAccount, private val compose: ComposeTestRule,
-    val engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
+    val engineWorker: EngineWorker = EngineWorker.Background,
+    setRepository: org.asyncttwiz.android.PodSetRepository? = null) : AutoCloseable {
     val name: String get() = account.identity.username
     val id: String get() = account.id
     /** This phone's network: [NetworkLink.cut] it to drop the connection. */
@@ -97,7 +98,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker)
     val pods = PodController(PodApi(link.origin, authenticationRequired = ::authenticationRequired),
-        DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post)
+        DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post,
+        setRepository = setRepository)
     private val reset = ResetController(AccountApi(link.origin), "", worker("reset"), succeeded = {}, post = post)
     /** The deck screens, on the phone once a test asks for them ([decksShown]): these phones have no card records, so the
      * editor works on a saved deck's own cards. */

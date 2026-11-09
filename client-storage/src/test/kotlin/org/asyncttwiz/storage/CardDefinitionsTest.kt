@@ -108,12 +108,14 @@ class CardDefinitionsTest {
         { face("Ink Lesson", "Sorcery", "{U}", "U", "Draw a card.") })
     /** A meld pair's front (with its partner's name) and the back face it shares, as MTGJSON links them. */
     private val meld: List<JsonObject> = run {
-        val front = id("16", "a"); val back = id("16", "b")
+        val front = id("16", "a"); val back = id("16", "b"); val partner = id("17", "a")
         listOf(
             card("16", "Bramble Twin // Thornwall Colossus", "Creature — Elf", "{2}{G}", "G", "Reach\n(Melds with Hollow Twin.)",
                 layout = "meld", power = "2", toughness = "3", side = "a", faceName = "Bramble Twin", others = listOf(back), uuid = front),
             card("16b", "Thornwall Colossus", "Creature — Elemental", colors = "G", text = "Trample", layout = "meld", power = "9",
-                toughness = "9", side = "b", faceName = "Thornwall Colossus", others = listOf(front), uuid = back),
+                toughness = "9", side = "b", faceName = "Thornwall Colossus", others = listOf(front, partner), uuid = back),
+            card("17", "Hollow Twin // Thornwall Colossus", "Creature — Elf", "{1}{G}", "G", "(Melds with Bramble Twin.)",
+                layout = "meld", power = "1", toughness = "1", side = "a", faceName = "Hollow Twin", others = listOf(back), uuid = partner),
         )
     }
     private val token = card("T1", "Spirit", "Token Creature — Spirit", colors = "W", text = "Flying", layout = "token",

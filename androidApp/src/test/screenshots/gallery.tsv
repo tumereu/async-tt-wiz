@@ -171,3 +171,8 @@ number	item	screenshot	catalog	decisions
 170	A Signet chain in a payment	castability/signet-chain.png	STK-059 STK-024
 171	Partial override: a pick stays, Autotap fills in	castability/partial-override.png	STK-024
 172	Holding a finger on the table pauses a play shown, with the pause icon	engine/hold-pause.png	HIS-112 HIS-021
+173	Dashed blocker slots with several attackers	combat-band/blocker-slots.png	CMB-034 CMB-007
+174	Blocker slots brighter for the creature selected	combat-band/blocker-slots-selected.png	CMB-034
+175	Blocker slots in landscape	combat-band/blocker-slots-landscape.png	CMB-034 CMB-007 TBL-009
+176	Dashed attacker slot on the active lane	combat-band/attacker-slot.png	CMB-028 CMB-012
+177	Assume mode with the blocker slots	combat-band/assume-slots.png	CMB-040 CMB-034

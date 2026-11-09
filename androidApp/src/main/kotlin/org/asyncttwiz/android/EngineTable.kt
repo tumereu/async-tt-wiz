@@ -98,6 +98,9 @@ interface EngineRoutes {
     /** HIS-112: whether a play shows large in the middle of the table: the Stack line and the wait's words give way. */
     fun showing(): Boolean = false
 
+    /** CMB-034: whether the viewer may act on the board shown now (not while playback runs on past it). */
+    fun mayAct(): Boolean = true
+
     /** HIS-021, HIS-112, HIS-113: what a finger held on the table pauses; null without a game's view to wait. */
     val viewPause: ViewPause? get() = null
 
@@ -298,6 +301,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** Whether the viewer may act on the table now (their move, or a decision stop in playback). */
     fun canAct(): Boolean = arrowShown()
+
+    override fun mayAct(): Boolean = canAct()
 
     /** Whether an own action of the player's is still being worked out off the engine game (the main button's step or
      * declaration, a cast's step: [SharedFlowController.busy], [CastController.busy]), before it reaches it. Set by the
@@ -665,11 +670,12 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val showMillis by playbackPreferences.showPlaysState()
     LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
     val show = shown.show
+    val showTapScope = rememberCoroutineScope()
     if ((show != null || shown.combatHold != null) && reviewing) LaunchedEffect(show, shown.combatHold) { game.dismissShows(); routes.pump() }
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
-        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis, routes.viewPause,
+        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis, routes.viewPause, tapScope = showTapScope,
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { holding ->
                 if (holding) {

@@ -69,7 +69,9 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
 @Composable
 internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
     /** TBL-117, CMB-034 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1). */
-    pressed: () -> Pair<String, Float>? = { null }, bounds: (TableItem) -> TableBounds) {
+    pressed: () -> Pair<String, Float>? = { null },
+    /** CMB-028, CMB-034: the card (or combat copy) a finger is dragging now. */
+    dragged: () -> String? = { null }, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
@@ -99,6 +101,10 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
         .filterValues { it.size >= 2 }
     val enlistedBy = attackChoices.values.flatMap { c -> c.enlisted.filter { it !in staged }.map { it to c.cardId } }.toMap()
     val enlistable = if (picking is CombatController.Picking.Enlist) choices.enlistable.filter { it !in staged }.toSet() else emptySet()
+    // CMB-034, CMB-040: the viewer places blockers: their own, or the defender's to assume them
+    val routes = LocalEngineRoutes.current
+    val placing = blocking && writable && area != null &&
+        (routes?.assuming() != null || (viewer == choices.declaring && routes?.mayAct() != false))
     if (area != null && port != null) Canvas(Modifier.fillMaxSize()) {
         val d = density
         fun Offset(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * d, y * d)
@@ -152,6 +158,17 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             drawRoundRect(AutomatumViolet, Offset(b.x - 1.5f, b.y - 1.5f), Size((b.width + 3f) * d, (b.height + 3f) * d),
                 CornerRadius(3 * d), style = Stroke(1.5f * d))
         }
+    }
+    if (area != null && port != null && (placing || (choosing && scene.combatPanel != null))) {
+        val movingCard by remember(scene.sources) { androidx.compose.runtime.derivedStateOf { dragged()?.let { scene.sources[it]?.sourceId ?: it } } }
+        CombatSlots(scene, port, area, play, if (placing) CombatRole.BLOCKER else CombatRole.ATTACKER, active) { slot ->
+            if (placing) {
+                val mover = movingCard ?: selected
+                val attackers = area.pairs.firstOrNull { it.id == slot.pairId }?.attackers.orEmpty()
+                mover != null && attackers.isNotEmpty() && attackers.all { it.sourceId in choices.blocks[mover].orEmpty() }
+            } else movingCard?.let { slot.attackTarget in choices.attacks[it].orEmpty() } == true
+        }
+        if (placing && blocks.isEmpty()) ChooseBlockersLabel(scene)
     }
     val damage = preview?.damage.orEmpty()
     val dies = preview?.dies.orEmpty().toSet()
@@ -266,7 +283,60 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
     }
 }
 
-/** The colour of the creatures that may attack (CMB-028, owner 2026-11-05). */
+/** The test tag of a combat slot (CMB-028, CMB-034). */
+internal const val COMBAT_SLOT_TAG = "combat-slot"
+
+/**
+ * CMB-028, CMB-034, CMB-040 (owner, 2026-11-08): the dashed places for the next [role]: over each attacker no blocker sits on,
+ * or at the end of the [active] target's lane, each [bright] when the creature selected or dragged may go there. The lanes'
+ * drop regions under them take the drops. Drawn only: touches reach the table beneath.
+ */
+@Composable
+private fun CombatSlots(scene: TableScene, port: TableBounds, area: CombatArea, play: TableBoard, role: CombatRole, active: String?,
+    bright: (CombatSlot) -> Boolean) {
+    val scale = scene.combatCardWidth / 28f
+    val names = area.pairs.associate { pair -> pair.id to pair.attackers.joinToString(" and ") { combatName(play, it.sourceId) } }
+    Box(Modifier.offset { IntOffset(port.x.dp.roundToPx(), port.y.dp.roundToPx()) }.size(port.width.dp, port.height.dp).clipToBounds()) {
+        for (slot in scene.combatSlots) {
+            if (slot.role != role || (role == CombatRole.ATTACKER && slot.attackTarget != active)) continue
+            val on = bright(slot)
+            val b = slot.bounds
+            Box(Modifier.offset { IntOffset((b.x - port.x).dp.roundToPx(), (b.y - port.y).dp.roundToPx()) }.size(b.width.dp, b.height.dp)
+                .testTag(COMBAT_SLOT_TAG)
+                .semantics {
+                    contentDescription = if (role == CombatRole.BLOCKER) "Blocker slot, ${names[slot.pairId].orEmpty()}" else "Attacker slot"
+                    stateDescription = if (on) "may go here" else "free"
+                }
+                .drawBehind { combatSlot(on, scale) })
+        }
+    }
+}
+
+/** A combat slot: a dashed outline a card's size in the creatures' red-orange, brighter and faintly filled when [bright]. */
+private fun DrawScope.combatSlot(bright: Boolean, scale: Float) {
+    val corner = CornerRadius(3f * scale * density)
+    if (bright) drawRoundRect(AttackOrange.copy(alpha = .16f), cornerRadius = corner)
+    val dash = 5f * scale * density
+    drawRoundRect(AttackOrange.copy(alpha = if (bright) 1f else .5f), cornerRadius = corner, style = Stroke((if (bright) 2f else 1.25f) * scale * density,
+        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(dash, dash * .7f))))
+}
+
+/** CMB-034: the words on the band until the first block, in the gap between the card rows, where the arrows come. Drawn only. */
+@Composable
+private fun ChooseBlockersLabel(scene: TableScene) {
+    val gap = scene.combatArrowGap ?: return
+    val shown = scene.world?.visibleViewport?.let { gap.intersection(it) } ?: return
+    val size = minOf(12f * scene.combatCardWidth / 28f, shown.height * .7f).coerceAtLeast(8f)
+    Box(Modifier.offset { IntOffset(shown.x.dp.roundToPx(), shown.y.dp.roundToPx()) }.size(shown.width.dp, shown.height.dp),
+        contentAlignment = Alignment.Center) {
+        Text(CHOOSE_BLOCKERS, color = CombatValueInk, fontSize = size.sp, lineHeight = size.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    }
+}
+
+/** CMB-034: the band's words until the first block. */
+internal const val CHOOSE_BLOCKERS = "Choose blockers"
+
+/** The colour of the creatures that may attack (CMB-028, owner 2026-11-05) or block (CMB-034, owner 2026-11-08). */
 internal val AttackOrange = Color(0xffe8590c)
 /** CMB-007 (owner playtest 2026-11-06): the combat band's colour, the old combat area's cream. */
 internal val CombatBandColor = Color(0xfff5f1df)

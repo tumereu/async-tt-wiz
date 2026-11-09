@@ -85,6 +85,8 @@ class TableGestureCoordinator(
     var actionItem: TableItem? = null; private set
     /** Whether the last tap (an [TableIntent.EmptyTap] or [TableIntent.Actions]) was on the hand row or a hand card. */
     var tapOnHand: Boolean = false; private set
+    /** Where the last tap was. */
+    var tapPoint: TablePoint = TablePoint(0f, 0f); private set
     val busy get() = capture != null || pending != null || spring != null || handSpring != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
@@ -418,6 +420,7 @@ class TableGestureCoordinator(
             return
         }
         tapOnHand = item?.kind == TableItemKind.HAND || item?.zone == PlayZone.HAND
+        tapPoint = c.start
         if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.EmptyTap)
         } else if (c.scope == null || targetsExist(c.scope)) {

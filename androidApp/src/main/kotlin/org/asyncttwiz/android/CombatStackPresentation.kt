@@ -34,10 +34,18 @@ data class CombatDropRegion(val label: String, val bounds: TableBounds, val dest
     fun contains(point: TablePoint) = point.y >= bounds.y && point.y < bounds.bottom &&
         (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
 }
+/**
+ * CMB-028, CMB-034 (owner, 2026-11-08): where the next creature goes, a card's place and size in a lane: a blocker's over the
+ * attackers of [pairId] (one with no blocker yet), an attacker's at the end of the lane attacking [attackTarget] (null: the
+ * player). The table draws the ones the viewer is placing ([CombatAreaOverlay]).
+ */
+data class CombatSlot(val role: CombatRole, val bounds: TableBounds, val pairId: String?, val attackTarget: String?)
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
     val dividers: List<Float>, val destinations: List<CombatDropRegion>,
     val lanes: List<CombatLaneLabel> = emptyList(), val laneDividers: List<Float> = emptyList(), val labelHeight: Float = 0f,
-    val mirrored: Boolean = false) {
+    val mirrored: Boolean = false, val slots: List<CombatSlot> = emptyList(),
+    /** CMB-031: the gap between the card rows, where the arrows are drawn. */
+    val arrowGap: TableBounds? = null) {
     /** The defending viewer sees the area mirrored: attackers on top, blockers below, lane labels at the bottom. */
     val labelY get() = if (mirrored) height - labelHeight else 0f
     /** Vertical span of the two card rows (everything but the lane label row). */
@@ -167,13 +175,17 @@ object CombatStackPresentation {
         avatars: Map<String, Avatar> = emptyMap(),
         /** CMB-001 (owner playtest 2026-11-06): false for the collapsed band, which shows only the target chips (one
          * row, each lane one whole attacker drop); true once an attacker is in the area. */
-        open: Boolean = true): CombatGeometry {
+        open: Boolean = true,
+        /** CMB-028 (owner, 2026-11-08): the viewer declares attackers: each lane with attackers keeps room for one more at
+         * its end, so choosing another target moves nothing. */
+        attackerSlots: Boolean = false): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
         val margin = cardGap(cardWidth)
         val padding = slotMargin(cardWidth)
         val rowHeight = cardHeight + margin * 2
         val cards = mutableListOf<OccurrenceDrawing>()
+        val slots = mutableListOf<CombatSlot>()
         val targets = mutableListOf<CombatDropRegion>()
         val dividers = mutableListOf<Float>()
         val laneDividers = mutableListOf<Float>()
@@ -186,8 +198,10 @@ object CombatStackPresentation {
         val pairWidths = mutableMapOf<String, Float>()
         val lanePads = mutableMapOf<String?, Float>()
         var laneX = 0f
+        val attackerSlot = slotWidth(0, 1, cardWidth)
         for ((target, members) in groups) {
-            val cardSpan = members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat()
+            val cardSpan = (members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat() +
+                if (attackerSlots && members.isNotEmpty()) attackerSlot else 0f)
                 .coerceAtLeast(cardWidth + 2 * padding)
             val targetCard = board.cards.find { it.id == target }
             // Combat review #3 (CR 506.4c): with Automatum on attackers keep a target that left the battlefield; they
@@ -281,6 +295,8 @@ object CombatStackPresentation {
                         lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2),
                         emptyLane = true)
                 }
+                if (attackerSlots) slots += CombatSlot(CombatRole.ATTACKER, TableBounds(x + (lane.bounds.width - cardWidth) / 2,
+                    rowY(CombatRole.ATTACKER) + margin, cardWidth, cardHeight), null, target)
                 x += lane.bounds.width
                 continue
             }
@@ -293,7 +309,10 @@ object CombatStackPresentation {
                 val pairWidth = pairWidths.getValue(pair.id)
                 // The lane's first and last pairs also take drops in the free space at its ends
                 val before = if (n == 0) pad else 0f
-                val after = if (n == members.lastIndex) pad else 0f
+                val after = if (n == members.lastIndex && !attackerSlots) pad else 0f
+                // CMB-034: a blocker's slot over the attackers of a pair no blocker sits in
+                if (pair.blockers.isEmpty()) slots += CombatSlot(CombatRole.BLOCKER, TableBounds(x + (pairWidth - cardWidth) / 2,
+                    rowY(CombatRole.BLOCKER) + margin, cardWidth, cardHeight), pair.id, pair.attackTarget)
                 for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                     val side = pair.side(role)
                     val y = rowY(role)
@@ -312,6 +331,16 @@ object CombatStackPresentation {
                 edges += x to x + pairWidth
                 x += pairWidth
             }
+            // CMB-028: the slot at the lane's end is a drop of its own: a new pair attacking the lane's target
+            if (attackerSlots) {
+                val y = rowY(CombatRole.ATTACKER)
+                val left = x + (attackerSlot - cardWidth) / 2
+                slots += CombatSlot(CombatRole.ATTACKER, TableBounds(left, y + margin, cardWidth, cardHeight), null, target)
+                targets += CombatDropRegion("New attacker pair at the end of the lane", TableBounds(x, y, attackerSlot + pad, rowHeight),
+                    CombatDestination(area.id, CombatRole.ATTACKER, pairGap = IdentityGap(area.pairs.lastOrNull()?.id, null), attackTarget = target),
+                    landing = TablePoint(left + cardWidth / 2, y + rowHeight / 2), exact = true)
+                x += attackerSlot
+            }
             x += pad
         }
         if (pairs.isNotEmpty()) {
@@ -325,7 +354,7 @@ object CombatStackPresentation {
                 // Mirrored, the chips sit at the very bottom (by the defender's battlefield)
                 headed(lane.copy(bounds = lane.bounds.copy(y = top, height = labelHeight)), top + CHIP_PAD)
             },
-            laneDividers, labelHeight, mirrored)
+            laneDividers, labelHeight, mirrored, slots, TableBounds(0f, if (mirrored) rowHeight else labelHeight + rowHeight, x, gap))
     }
 
     /** [lane] with its chip (its name and value, CMB-013) centred in the lane at [chipY]. */

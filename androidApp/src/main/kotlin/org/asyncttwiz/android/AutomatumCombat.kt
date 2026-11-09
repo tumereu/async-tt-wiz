@@ -174,6 +174,14 @@ internal class CombatController(
         return choices.attacks.filterValues { it.isNotEmpty() }.keys
     }
 
+    /** CMB-034, CMB-040 (owner, 2026-11-08): while [viewer] declares blockers on [play]'s board, or places the defender's to
+     * assume them ([assuming]), the creatures that may block something (placed ones too), once worked out; empty otherwise. */
+    fun blockable(play: TableBoard, viewer: String, assuming: Boolean): Set<String> {
+        val choices = readyOrLast(play)?.choices ?: return emptySet()
+        if (choices.declaring == null || choices.attackers || (choices.declaring != viewer && !assuming)) return emptySet()
+        return choices.blocks.filterValues { it.isNotEmpty() }.keys
+    }
+
     /** CMB-033: the divisions with a choice asked in a damage step, as first seen (turn, first-strike step) → sources,
      * so the dialog can say "2 of 3" after the first ones were answered. */
     private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null

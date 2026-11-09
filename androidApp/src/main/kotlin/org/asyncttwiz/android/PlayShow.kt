@@ -32,9 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.PlayZone
@@ -115,7 +113,9 @@ internal fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).
 @Composable
 internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
     names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() }, inspect: (Boolean) -> Unit = {},
-    moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> }, done: () -> Unit) {
+    moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
+    /** Outlives this play: a tap's double-tap time goes on after it has gone. */
+    tapScope: CoroutineScope = rememberCoroutineScope(), done: () -> Unit) {
     val board = scene.world?.visibleViewport ?: return
     val shown = remember(show) { PlayShows.of(play, show, viewer, names) }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
@@ -139,11 +139,7 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
     if (gone) return
     val density = LocalDensity.current
     // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
-    val scope = rememberCoroutineScope()
-    val firstTap = remember(show) { arrayOfNulls<Job>(1) }
-    val touches = Modifier.choiceCardGestures(show, tap = {
-        if (firstTap[0]?.isActive == true) end() else firstTap[0] = scope.launch { delay(DOUBLE_TAP_MILLIS) }
-    }, hold = { holding -> pause.finger = holding; inspect(holding) }, moved = moved)
+    val touches = Modifier.choiceCardGestures(show, tap = { if (pause.tapOnShow(tapScope)) end() }, hold = { holding -> pause.finger = holding; inspect(holding) }, moved = moved)
     Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
         // The card's centre is the board's, so the flight moves and scales it about its own centre. The flight is read
         // while drawing only: it moves the card without composing it again

@@ -233,6 +233,10 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     /** CMB-007: the open combat band's lanes on the screen (not clipped to the table), in the middle of the band between
      * the battlefields; null while the band is collapsed. */
     val combatPanel: TableBounds? = null,
+    /** CMB-028, CMB-034: the lanes' places for the next attacker or blocker, on the screen ([CombatSlot]). */
+    val combatSlots: List<CombatSlot> = emptyList(),
+    /** CMB-031: the gap between the band's card rows, on the screen; null while it is collapsed. */
+    val combatArrowGap: TableBounds? = null,
     /** CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields on the screen, clipped to the
      * table: always there, collapsed to its chip row or open with the lanes; null when it is out of sight. */
     val combatBand: TableBounds? = null,
@@ -366,7 +370,10 @@ object TablePresentation {
         computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE,
         landscapeHome: Boolean = false,
         /** Timeline mode: its panel is taller than play mode's bottom bar in portrait ([tableBottomHeight]). */
-        timeline: Boolean = false): TableScene {
+        timeline: Boolean = false,
+        /** CMB-028 (owner, 2026-11-08): the viewer declares attackers (Automatum says): the open band's lanes keep room for
+         * the next one. */
+        attackerSlots: Boolean = false): TableScene {
         require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -447,7 +454,8 @@ object TablePresentation {
         val combat = CombatStackPresentation.combat(bandBoard, combatCard,
             combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
             avatars = listOf(game.inviter, game.recipient)
-                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap(), open = open)
+                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap(), open = open,
+            attackerSlots = open && attackerSlots)
         // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height
         val bandHeight = if (open) combat.height + 2 * COMBAT_BAND_PAD else CombatStackPresentation.CHIP_ROW
         val bandY = worldViewport.height / 2 - bandHeight / 2
@@ -781,6 +789,8 @@ object TablePresentation {
              stackRegion = stackRegion, world = world, appearance = appearance,
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { StateChips.aboveStack(it, stackRegion) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
+            combatSlots = combat.slots.map { it.copy(bounds = translated(it.bounds)) },
+            combatArrowGap = combat.arrowGap?.takeIf { open }?.let(::translated),
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },

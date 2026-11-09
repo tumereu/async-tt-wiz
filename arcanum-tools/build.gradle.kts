@@ -31,7 +31,7 @@ tasks.test { useJUnitPlatform() }
 
 // Local files outside the repository the parser migration tools use; each has a default (see ParserToolPaths).
 fun JavaExec.parserToolPaths() {
-    mapOf("mtgjson" to "arcanum.mtgjson", "cube" to "arcanum.cube", "parserOutputs" to "arcanum.parserOutputs", "setCache" to "arcanum.setCache")
+    mapOf("mtgjson" to "arcanum.mtgjson", "cube" to "arcanum.cube", "parserOutputs" to "arcanum.parserOutputs", "setCache" to "arcanum.setCache", "setPlans" to "arcanum.setPlans")
         .forEach { (property, key) -> providers.gradleProperty(property).orNull?.let { systemProperty(key, it) } }
     systemProperty("arcanum.parserSources", rootProject.file("arcanum-parser/src/commonMain/kotlin").path)
 }
@@ -98,5 +98,35 @@ tasks.register<JavaExec>("parserMetrics") {
     classpath = shadowParser.output + sourceSets["main"].runtimeClasspath
     mainClass.set("arcanum.tools.ParserMetricsKt")
     maxHeapSize = "3g"
+    parserToolPaths()
+}
+
+// The ability shapes the tests cover (set-plans/covered-shapes.tsv): the parser's and the engine's tests once more, with their recorder on.
+tasks.register<JavaExec>("coveredShapes") {
+    group = "arcanum"
+    description = "Runs the parser and engine tests with their recorder on and writes which ability shapes they cover."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.CoveredShapesKt")
+    parserToolPaths()
+    dependsOn(":arcanum-parser:recordCoveredAbilities", ":arcanum-engine:recordCoveredAbilities")
+    args(listOf("arcanum-parser", "arcanum-engine").map { rootProject.file("$it/build/arcanum/covered-abilities.tsv").path })
+}
+
+// Which clause of an oracle text doesn't read and the parser rules nearest it: --args='"<text>"'.
+tasks.register<JavaExec>("parserExplain") {
+    group = "arcanum"
+    description = "Explains which clauses of an oracle text read and the nearest parser rules: --args='\"<text>\"'."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.ParserExplainKt")
+    parserToolPaths()
+}
+
+// A set's plan for chunk workers (set-plans/CODE/): --args=CODE, from the same cached set file as parserMetrics --set.
+tasks.register<JavaExec>("setPlan") {
+    group = "arcanum"
+    description = "Writes a set's plan: verdicts, chunks, digest, difficult cards and audit packets (--args=CODE)."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.SetPlanKt")
+    maxHeapSize = "2g"
     parserToolPaths()
 }

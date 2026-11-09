@@ -1,0 +1,1 @@
+add: Cards with Learn now work: they take a Lesson from your deck's Sideboard or Maybe into your hand, showing it to the other player, or let you discard a card to draw one.

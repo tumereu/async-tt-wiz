@@ -724,7 +724,8 @@ object KeywordExpansions {
                 Step.Do(Effect.Reveal(Objects.Bound("lesson"))),
                 Step.Do(Effect.Move(Objects.Bound("lesson"), Destination(Zone.Hand))))),
             Step.If(Condition.Chose("learn", LEARN_RUMMAGE), listOf(
-                Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, Value.Fixed(1))))), payer = Players.You, bind = "rummaged"),
+                // The option chosen was the "may": it is no second question; with no card to discard, nothing is drawn
+                Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, Value.Fixed(1))))), payer = Players.You, mandatory = true, bind = "rummaged"),
                 Step.If(Condition.Did("rummaged"), listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))))))))
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),

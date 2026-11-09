@@ -26,7 +26,7 @@ object Engine {
      * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
      * engine keeps them per this version (and the parser's), so a new engine works them out again.
      */
-    const val SUPPORT_VERSION: Int = 10
+    const val SUPPORT_VERSION: Int = 11
 
     /** The parts of [definition] this engine leaves to the players, one short line each (empty: it plays all of the card
      * by the rules): text the parser couldn't read, `Manual` steps and cost parts, keywords done by hand, and the shapes

@@ -53,7 +53,6 @@ Arcanum foretell gaps, found building the mark table (2026-11-09), apart from th
 
 Learn and collecting evidence (owner, 2026-11-09), one worker, reviewed by session async-tt-wiz-74, before the wipe step and apart from it:
 
-- Cards with Learn are supported, outside the game meaning Side and Maybe (LOB-141). Drop "learn" from `ManualParts.manualKeywordActions`, raise SUPPORT_VERSION; a Lesson in Side and one in Maybe are both offered in a real prepared game, constructed and pod, and neither is in the library. CR 701.48a edges; the reveal shows only the Lesson.
 - Collecting evidence as it resolves is one selection: "You select at least up to the required amount, which if other conditions are fulfilled enables the button to cast etc, but you may make more selections." (CR 701.59a), as at cast time.
 
 Arcanum copies, found building copiable values (2026-11-09), apart from the order above and from its wipe (either can be done any time):

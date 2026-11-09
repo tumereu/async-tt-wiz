@@ -450,6 +450,9 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   cost the card had where it was cast from is kept as it moves to the Stack, CR 601.2a, b; `MayPlay.viaAlternative` is enforced),
   disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
   crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
+- Done, learn (CR 701.48a, `view/LearnTest`; `SUPPORT_VERSION` 11): played by its expansion, a host bringing the player's cards outside
+  the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once; the chosen Lesson is revealed and nothing else of
+  those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
 - Done, Lorwyn Eclipsed (scenarios in `commonTest/…/sets/ecl/`): all 273 cards play. Blight as a cost (the source may blight itself;
   not payable without a creature, CR 701.68b), as an optional or alternative additional cost and as an effect for each player; behold
   of several objects; "behold … and exile it" with the exiled card kept by the permanent the spell becomes (cost-kept cards become its

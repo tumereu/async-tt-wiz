@@ -176,7 +176,8 @@ internal object Filters {
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind, atLeast = 1))
         }
         // chunk 47: "creatures with decayed": a keyword ability (CR 702)
-        WITH_KEYWORD.matchEntire(phrase)?.let { m ->
+        // fdn chunk 22: not "an instant card or a card with flash": the alternative after " or a" has its own noun, the " or " split owns it
+        WITH_KEYWORD.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
         }
         // chunk 20: "artifact and/or enchantment" is either of them
@@ -245,7 +246,7 @@ internal object Filters {
         if (phrase.contains(" or ") && phrase.endsWith(" spell"))
             return all(noun(phrase.removeSuffix(" spell")) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 36: "creatures with flying or reach": keyword abilities as alternatives
-        WITH_KEYWORDS.matchEntire(phrase)?.let { m ->
+        WITH_KEYWORDS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val keywords = m.groupValues[2].split(LazyRegexes.OR_LIST).map { OracleParser.keyword(it) }
             if (keywords.all { it != null }) {
                 val has = keywords.map { ObjectFilter.HasKeyword(it!!.kind) }
@@ -472,6 +473,7 @@ internal object Filters {
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     // chunk 36
+    private val OR_AN_ALTERNATIVE = Regex(" or an? ")
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")

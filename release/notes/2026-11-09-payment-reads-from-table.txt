@@ -1,0 +1,1 @@
+mod: The cast panel no longer spells out which cards pay: the outlined cards on the table show that, and a card is named only while it is out of view, such as under the panel.

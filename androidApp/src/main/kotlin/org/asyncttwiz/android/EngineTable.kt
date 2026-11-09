@@ -717,25 +717,26 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         else -> if (reveal != null) Unit else when (status) {
-        // TRN-065 (owner 2026-11-09): the result in a dialog in the middle of the screen until the player's own OK; the player
-        // whose own action made it final (a concession, an accepted suggestion) has seen it and goes on to the lobby, as both
-        // do once both OKs stand on a result the rules gave
-        is GameDevice.Status.Over -> if (!(status.final && (status.ownOk || status.endedBy == PlayerId(routes.viewer)))) {
+        // TRN-065 (owner 2026-11-09): the result in a dialog in the middle of the screen until both OKs stand: the player whose
+        // own action made it final (a concession, an accepted suggestion) has given theirs with it and waits for the other's
+        // here, with no button (nothing to take back); both go to the lobby once both OKs stand, as on a result the rules gave
+        is GameDevice.Status.Over -> if (!(status.final && status.ownOk)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner?.value
             val causes = shown.engine.players.mapNotNull { p -> p.lossReason?.let { org.asyncttwiz.protocol.lossCause(it) }?.let { p.id.value to it } }.toMap()
             val text = GameEndText.of(won, status.ending, causes, routes.viewer, names)
-            GameEndDialog(text, if (status.ownOk) "Waiting for $opponent to acknowledge" else null,
+            val ended = status.final && status.endedBy == PlayerId(routes.viewer)
+            GameEndDialog(text, if (status.ownOk || ended) "Waiting for $opponent to acknowledge" else null,
                 // An open undo request freezes the game (HIS-100): the answer comes first
                 enabled = shown.request == null,
-                takeBack = if (status.ownOk) ({
-                    AppLog.info("game", "Result OK taken back")
+                takeBack = if (status.ownOk && !ended) ({
+                    AppLog.info("game", "Result OK taken back at the table: ${status.ending}")
                     game.takeBackResult(); routes.pump()
                 }) else null,
-                ok = {
-                    AppLog.info("game", "Result OK pressed: ${status.ending}, final ${status.final}")
+                ok = if (ended) null else ({
+                    AppLog.info("game", "Result OK pressed at the table: ${status.ending}, final ${status.final}")
                     if (status.final) routes.acknowledgeResult() else game.confirmResult()
                     routes.pump()
-                })
+                }))
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
         else -> {}

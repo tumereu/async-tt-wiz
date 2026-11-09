@@ -11,6 +11,7 @@ import java.util.UUID
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.MatchEnding
+import org.asyncttwiz.protocol.StarterChoice
 import org.asyncttwiz.protocol.game.Attention
 import org.asyncttwiz.protocol.game.TableChange
 import org.asyncttwiz.server.accounts.AccountService
@@ -28,9 +29,9 @@ import org.asyncttwiz.protocol.game.ResultSuggestion as TableSuggestion
 class ResultNoticeTest {
     private fun id() = UUID.randomUUID().toString()
 
-    // TRN-065, TRN-064, LOB-046: Bob concedes: back in the lobby, the result kept for Alice (Alice won, Bob conceded), not for
-    // Bob; Bob may get Ready but nothing starts, Alice can't get Ready until her OK; after it the result is gone and her
-    // Ready starts the next game
+    // TRN-065, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Bob concedes: the
+    // match is final and recorded at once, the result kept for Alice (Alice won, Bob conceded), not for Bob; neither can get
+    // Ready before her OK (both are still at the table); after it the result is gone and both Readies start the next game
     @Test fun `a concession is kept for the other player until their OK and the next game waits for it`() = HistoryWorld.run { w ->
         val a = w.account("NoticeAlice"); val b = w.account("NoticeBob")
         val m = w.Match(a, b, "Notice Spark")
@@ -38,18 +39,69 @@ class ResultNoticeTest {
         m.concede()
         val notice = m.summary().resultNotice!!
         assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle)
+        assertEquals(1L, w.number("SELECT count(*) FROM match_record"), "recorded at once")
         assertEquals(a.account.accountId, notice.winner)
         assertEquals(MatchEnding.Conceded(b.account.accountId), notice.ending)
-        assertEquals(listOf(a.account.accountId), notice.unseen, "the conceder has seen it")
+        assertEquals(listOf(a.account.accountId), notice.unseen, "the conceder has given theirs")
         m.seated {
-            m.bob.accepted(GameAction.Ready)
+            assertEquals("resultNotSeen", m.bob.execute(GameAction.Ready).reason)
             assertEquals("resultNotSeen", m.alice.execute(GameAction.Ready).reason)
             assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle, "nothing starts before Alice's OK")
             m.alice.accepted(GameAction.AcknowledgeResult)
-            assertNull(m.summary().resultNotice, "both have seen it")
+            assertNull(m.summary().resultNotice, "both have pressed OK")
+            m.bob.accepted(GameAction.Ready)
             m.alice.accepted(GameAction.Ready)
         }
         assertEquals(GameLifecycle.ACTIVE, m.summary().lifecycle, "the next game started")
+    }
+
+    // TRN-065, LOB-046 (owner, 2026-11-09): while Alice's OK on Bob's concession is still to come, the lobby takes nothing
+    // from either player: decks, the starting player, Show deck, Ready, cancelling the game; the
+    // conceder's own OK (another device of his) changes nothing. Once hers comes, all of it works again
+    @Test fun `the lobby takes nothing until both OKs stand`() = HistoryWorld.run { w ->
+        val a = w.account("WaitLobbyAlice"); val b = w.account("WaitLobbyBob")
+        val m = w.Match(a, b, "Wait Lobby")
+        val other = w.deck(b, "Bob Other", "U")
+        m.start()
+        m.concede()
+        val refused = listOf(
+            m.bob to GameAction.SelectDeck(other.deck.id, other.deck.revision),
+            m.alice to GameAction.SetStarter(StarterChoice(b.account.accountId)),
+            m.alice to GameAction.SetAlternateStarter(false),
+            m.bob to GameAction.ShowDeck(true),
+            m.bob to GameAction.WithdrawReady,
+            m.bob to GameAction.CancelSetup,
+            m.alice to GameAction.CancelSetup)
+        for ((stream, action) in refused) assertEquals("resultNotSeen", stream.execute(action).reason, "$action")
+        m.bob.accepted(GameAction.AcknowledgeResult)
+        assertEquals(listOf(a.account.accountId), m.summary().resultNotice!!.unseen, "the conceder's OK takes nothing from Alice's")
+        assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle)
+        m.alice.accepted(GameAction.AcknowledgeResult)
+        m.bob.accepted(GameAction.SelectDeck(other.deck.id, other.deck.revision))
+        m.alice.accepted(GameAction.SetStarter(StarterChoice(b.account.accountId)))
+        m.bob.accepted(GameAction.CancelSetup)
+    }
+
+    // TRN-065, TRN-064 (owner, 2026-11-09): Alice's move made on the same head is still on its way when Bob's concession
+    // lands: the concession stands, her move is refused, and the match is recorded once
+    @Test fun `a move in flight when a concession lands is refused`() = HistoryWorld.run { w ->
+        val a = w.account("FlightAlice"); val b = w.account("FlightBob")
+        val m = w.Match(a, b, "In Flight")
+        m.start()
+        m.bobKeeps()
+        val device = m.device(a)
+        val open = device.model.engine.pending!!.decision
+        val keep = device.act(id(), Input.Answer(open.id, arcanum.engine.decision.Answer.Option("Keep")))
+        // Sent as her device did, for the play it was made in
+        val sent = org.asyncttwiz.protocol.GameCommand(id(), org.asyncttwiz.protocol.GameScope(m.game.id, playId = m.summary().playId),
+            GameAction.Submit(keep), m.alice.stream.streamId, m.alice.stream.generation)
+        m.concede()
+        w.games.admit(a, m.alice.hello, m.alice.connection, sent)
+        w.games.executeOne()
+        assertEquals("lifecycleEnded", w.games.results(a, m.game.id, listOf(sent.requestId)).statuses.single().result!!.reason)
+        assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle)
+        assertEquals(MatchEnding.Conceded(b.account.accountId), m.summary().resultNotice!!.ending)
+        assertEquals(1L, w.number("SELECT count(*) FROM match_record"))
     }
 
     // TRN-065, TRN-047: Alice suggests her win, Bob accepts: the match ends at once, and the result (agreed, with its reason)

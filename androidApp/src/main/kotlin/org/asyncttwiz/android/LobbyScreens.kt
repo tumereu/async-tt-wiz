@@ -148,7 +148,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
-    // TRN-065: the other player's concession or accepted suggestion leaves you at the table until your own OK
+    // TRN-065 (owner, 2026-11-09): a concession or an accepted suggestion leaves both players at the table until both OKs stand
     val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
     if (atTable != null) {
         val reconnecting = atTable.id in state.reconnectingGames
@@ -184,7 +184,12 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             details?.let { MatchDetailsDialog(it, accountId, null) { details = null } }
         } else
         InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
-        Column(Modifier.fillMaxSize()) {
+        // TRN-065, LOB-046 (owner, 2026-11-09): while an OK on the last result is owed the lobby takes no touch (the dialog
+        // stands over it; its eye shows what is behind)
+        val resultOpen = state.detail?.let(controller::resultOpen) == true
+        Column(Modifier.fillMaxSize().then(if (resultOpen) Modifier.testTag("lobby-blocked").pointerInput(Unit) {
+            awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
+        } else Modifier)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.detail?.let { game ->
@@ -272,11 +277,17 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         }
         }
     }
-    // TRN-065 (owner 2026-11-07): a result you haven't tapped OK on shows over the lobby, on every device, until you do
-    state.detail?.takeIf { it.lifecycle == GameLifecycle.LOBBY && controller.resultUnseen(it) }?.let { game ->
+    // TRN-065 (owner 2026-11-07, 2026-11-09): a result an OK is still owed on shows over the lobby, on every device, until
+    // both stand: with OK while it is yours, else "Waiting for <name> to acknowledge"; the lobby behind takes nothing
+    state.detail?.takeIf { controller.resultOpen(it) }?.let { game ->
         val notice = game.resultNotice!!
         val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
-        key(resultKey(game)) { GameEndDialog(GameEndText.of(notice, accountId, names), ok = controller::acknowledgeResult) }
+        val owes = controller.resultUnseen(game)
+        key(resultKey(game)) {
+            GameEndDialog(GameEndText.of(notice, accountId, names),
+                waiting = if (owes) null else "Waiting for ${game.opponent(accountId).username} to acknowledge",
+                ok = if (owes) controller::acknowledgeResult else null)
+        }
     }
     }
     }

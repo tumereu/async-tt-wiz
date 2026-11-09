@@ -105,4 +105,35 @@ class GameEndDialogTest {
         compose.waitForIdle()
         compose.onNode(hasText("OK") and hasAnyAncestor(dialog), useUnmergedTree = true).assertExists()
     }
+
+    // TRN-065, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes in
+    // her first turn: her own table shows "You lost" and "You conceded" with "Waiting for Bob to acknowledge" and no button:
+    // her concession was her OK, final, nothing to take back
+    @Test fun theConcederWaitsAtTheTableForTheOtherPlayersOk() {
+        val kit = EngineTableKit()
+        kit.opening()
+        kit.alice.concede()
+        kit.playOn("Alice's concession on her table", bobActs = false) { kit.alice.shown?.status is GameDevice.Status.Over }
+        val over = assertIs<GameDevice.Status.Over>(kit.alice.shown?.status)
+        assertEquals(MatchEnding.Conceded(kit.f.a), over.ending)
+        compose.setContent { MaterialTheme { NoRipples { CompositionLocalProvider(LocalEngineRoutes provides kit.routes) {
+            Box(Modifier.fillMaxSize()) {
+                val play = kit.alice.play()
+                TableSurface(kit.f.game, play, kit.f.a, false, Modifier.fillMaxSize(), connected = true,
+                    onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
+                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { kit.routes.undo() }, controlsConnected = true,
+                        waitingLine = kit.routes.waitingLine(play)))
+            }
+        } } } }
+        compose.mainClock.advanceTimeBy(OK_GREY_MILLIS)
+        compose.waitForIdle()
+        val dialog = hasTestTag(GAME_END_DIALOG_TAG)
+        compose.onNode(hasText("You lost") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNode(hasText("You conceded") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNode(hasText("Waiting for Bob to acknowledge") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(GAME_END_OK_TAG, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNode(hasText("Take back OK"), useUnmergedTree = true).assertDoesNotExist()
+        captureShot("$SCREENSHOTS/engine/game-end-conceder.png", "Alice conceded in her first turn: her own table shows a " +
+            "dialog with \"You lost\", \"You conceded\" and \"Waiting for Bob to acknowledge\", the eye at its bottom left and no button.")
+    }
 }

@@ -57,8 +57,6 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 
 After the wipe release (owner, 2026-11-09):
 
-- One rule for every game ending (TRN-065, LOB-046): nobody goes to the lobby until both players have pressed OK. A concession or an agreed result is still final and recorded at once and can't be undone; only the return to the lobby waits, so the conceder or acceptor stays at the table with "Waiting for <name> to acknowledge" and can leave for other screens as usual. Today they go straight to the lobby while the other player stays at the table, which may hide races: acting in the lobby (decks, leaving, deleting) while the other's dialog depends on the game, moves in flight when the concession lands, a second device, other paths into the next game.
-
 Small, not urgent (owner, 2026-11-08):
 
 - Connive at once (CR 701.50c; found building explore's order, 2026-11-09): several permanents told to connive at the same time connive in object order, through the `Step.ForEach` of `KeywordExpansions`; the first player in APNAP order who controls (or last controlled) one should choose which is next, as explore now does (CR 701.44d). Needs `Effects.connive`'s per-permanent path to run for every connive, with the choice in front of it.

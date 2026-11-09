@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
@@ -23,18 +25,19 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.PlayZone
 
 /**
- * TBL-122 (async play §29.5): the chips of a battlefield card with several abilities the viewer can activate now, in a
- * row just above the card (below it when there is no room above), as a hand card's cost chips (ZON-080): one per
- * ability, its effect and its cost drawn as card text. A tap activates that ability; holding a chip shows the ability's
- * whole text in a card-like popup. Personal UI ([TableToolkitController.abilityCard]); closed by a tap anywhere else.
+ * TBL-124 (async play §29.5; owner, 2026-11-09): the chips of a battlefield card with two or more abilities, one of them
+ * usable now, in a row just above the card (below it when there is no room above), as a hand card's cost chips (ZON-080):
+ * one per ability, its effect and its cost drawn as card text; one not usable now greyed, saying why. A tap activates that
+ * ability (a greyed one shakes); holding a chip shows the ability's whole text in a card-like popup. Personal UI
+ * ([TableToolkitController.abilityCard]); closed by a tap anywhere else.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
+internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String> = emptyMap()) {
     val cardId = toolkit.abilityCard ?: return
-    val offered = toolkit.activatable(play, cardId)
-    // The board changed under the chips: fewer than two abilities left to activate closes them
-    if (offered != null && offered.size < 2) { LaunchedEffect(cardId, offered) { toolkit.closeAbilities() }; return }
+    val offered = toolkit.abilities(play, cardId)
+    // The board changed under the chips: nothing left to activate, or a single ability, closes them
+    if (offered != null && (offered.size < 2 || offered.none { it.legal })) { LaunchedEffect(cardId, offered) { toolkit.closeAbilities() }; return }
     val item = scene?.items?.firstOrNull { it.cardId == cardId && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
     if (offered == null || item == null || toolkit.cast.open) return
     val held = toolkit.heldAbility
@@ -46,7 +49,8 @@ internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableB
             ChipRowsLayout(4.dp) {
                 offered.forEachIndexed { index, ability ->
                     AbilityChip(ability.text, { toolkit.activateChip(index) },
-                        { hold -> toolkit.heldAbility = if (hold) index else null })
+                        { hold -> toolkit.heldAbility = if (hold) index else null },
+                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names) })
                 }
             }
         }
@@ -73,19 +77,33 @@ internal fun abilityParts(text: String): Pair<String, String?> {
     return effect to (if (colon > 0) text.substring(0, colon).trim() else null)
 }
 
+/** TBL-124: why an ability's chip is greyed: the menu's words (TBL-123), its catch-all shorter on a chip. */
+internal fun chipRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String,
+    names: Map<String, String>): String =
+    if (refusal == org.asyncttwiz.automatum.CardPlay.Refusal.Other) "Not now: a cost it can't pay, or nothing to target."
+    else engineRefusal(refusal, kind, name, names)
+
+/** An ability's chip; with [refusal] greyed, saying why under its words: a tap only shakes it. */
 @Composable
-internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit) {
+internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit, refusal: String? = null) {
     val (effect, cost) = abilityParts(text)
-    Surface(shape = RoundedCornerShape(14.dp), color = Color.White, border = BorderStroke(1.5.dp, AutomatumViolet),
-        shadowElevation = 2.dp, modifier = Modifier.semantics {
-            contentDescription = text
+    var shakes by remember { mutableIntStateOf(0) }
+    val press: () -> Unit = { if (refusal != null) shakes++ else tap() }
+    val ink = if (refusal != null) MenuInk.copy(alpha = .45f) else AutomatumViolet
+    Surface(shape = RoundedCornerShape(14.dp), color = Color.White, border = BorderStroke(1.5.dp, if (refusal != null) MenuBorder else AutomatumViolet),
+        shadowElevation = 2.dp, modifier = Modifier.shaken(shakes).semantics {
+            contentDescription = if (refusal != null) "$text ($refusal)" else text
             role = Role.Button
-            onClick { tap(); true }
+            if (refusal != null) disabled()
+            onClick { press(); true }
             onLongClick { hold(true); true }
-        }.chipGestures(tap, hold)) {
+        }.chipGestures(press, hold)) {
         // Owner playtest 2026-11-05 evening: a long effect wraps onto more rows instead of being cut
-        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            AbilityChipText(effect, cost, AutomatumViolet)
+        if (refusal == null) Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            AbilityChipText(effect, cost, ink)
+        } else Column(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { AbilityChipText(effect, cost, ink) }
+            Text(refusal, Modifier.widthIn(max = CHIP_TEXT_WIDTH + CHIP_COST_WIDTH), fontSize = 10.sp, lineHeight = 12.sp, color = MenuInk.copy(alpha = .6f))
         }
     }
 }

@@ -110,6 +110,8 @@ object TestCards {
     /** Counters unless paid, for free. */
     val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
     val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
+    /** A free source with a second ability it can't use early on (TBL-124): its chips open even with only the mana usable. */
+    val cairn = card("Ember Cairn", "Artifact", "{0}", "{T}: Add {R}.\n{5}: You gain 1 life.")
     val study = card("Ember Study", "Sorcery", "{0}", "Draw a card.")
     /** A triggered mana ability of a colour chosen as it resolves (CR 605.1b, 605.4a). */
     val bounty = card("Ember Bounty", "Enchantment — Aura", "{0}", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")

@@ -26,7 +26,6 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
 
-- Ability chips (TBL-122, TBL-124, TBL-130): a card with two or more activated abilities opens the chips even when one is usable now, the unusable greyed with why; during a payment a tap still picks the source.
 - Convoke and picked sources (STK-024): a spell with convoke always opens the payment panel, also with Autotap on; in any payment, picked cards move out of their pile into their own pile to its right, so they are easy to see and unpick.
 - The wait (TRN-066, STK-057): one place, a semi-transparent dark band under the other player's hand, smaller text, up to 4 lines, replacing the faint centre text; the "may respond" line moves there too. The chip on the top bar shows, then fades, even when the state lasts.
 

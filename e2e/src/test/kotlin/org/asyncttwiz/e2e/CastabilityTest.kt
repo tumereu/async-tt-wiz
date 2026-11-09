@@ -574,6 +574,40 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
+    // TBL-122, TBL-124 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
+    // even with only one usable now, the other greyed with why, activating nothing; a source with one ability stays one tap
+    @Test fun aCardWithTwoAbilitiesOpensItsChipsEvenWithOneUsableAndOneAbilityStaysOneTap() {
+        start(deck(TestCards.cairn to 20, TestCards.shard to 20), mapOf("Ember Cairn" to 1, "Ember Shard" to 1))
+        plays(alice, "Ember Cairn", "Ember Shard")
+        alice.battlefieldCard("Ember Shard").performClick()
+        waitUntil("the Shard's one ability at one tap, no chips") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Shard") == 1 }
+        alice.battlefieldCard("Ember Cairn").performClick()
+        val add = hasContentDescription("{T}: Add {R}.")
+        val greyed = hasContentDescription("{5}: You gain 1 life. (Not now: a cost it can't pay, or nothing to target.)")
+        waitUntil("both chips: ${alice.screen()}") { alice.shows(add) && alice.shows(greyed and isNotEnabled()) }
+        assertEquals(0, alice.tappedCount("Ember Cairn"), "the tap only opened them")
+        val life = alice.state.player(alice.me).life
+        alice.node(greyed).performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertEquals(life, alice.state.player(alice.me).life, "a greyed chip activates nothing")
+        assertTrue(alice.shows(add), "the chips stay")
+        alice.node(add).performClick()
+        waitUntil("the mana chip activated") { alice.state.player(alice.me).manaPool.size == 2 && alice.tappedCount("Ember Cairn") == 1 && !alice.shows(add) }
+    }
+
+    // TBL-122, TBL-124, STK-024 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
+    @Test fun duringAPaymentATapPicksTheSourceWithoutItsChips() {
+        start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
+        plays(alice, "Ember Cairn")
+        alice.playFromHand("Red Flash", this)
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        alice.onTable("Ember Cairn")
+        waitUntil("paid") { alice.payment() == "Payment: Paid with Ember Cairn" }
+        assertFalse(alice.shows(hasContentDescription("{T}: Add {R}.")), "no chips")
+        alice.tapCast()
+        waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() }
+    }
+
     // TBL-122, STK-025, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
     @Test fun nonManaAbilitiesAreRefusedDuringACast() {
         start(deck(TestCards.engineRock to 10, TestCards.brood to 10, TestCards.shard to 10, TestCards.emberStone to 10), mapOf("Ember Engine" to 1, "Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1))

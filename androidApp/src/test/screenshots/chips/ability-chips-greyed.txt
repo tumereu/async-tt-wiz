@@ -1,0 +1,1 @@
+A card with two abilities, one usable now: its chips show both, the other greyed with why it can't be used now.

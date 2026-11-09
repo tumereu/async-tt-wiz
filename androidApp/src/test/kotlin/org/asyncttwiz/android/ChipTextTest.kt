@@ -55,6 +55,27 @@ class ChipTextTest {
     // TBL-124: an ability's chip reads as on the card, cost first in symbols ({T} a turning arrow), then the effect; a long
     // effect wraps onto more rows (none of it cut); the chips take the fewest rows (owner gallery review 2026-11-06): in
     // card order they would take three, so the third chip moves up beside the first
+    // TBL-124 (owner, 2026-11-09): an ability not usable now shows on its chip greyed, saying why; a tap on it activates nothing
+    @Test fun aGreyedAbilityChipSaysWhyAndOnlyShakes() {
+        val add = "{T}: Add {R}."
+        val gain = "{5}: You gain 1 life."
+        val why = chipRefusal(org.asyncttwiz.automatum.CardPlay.Refusal.Other, org.asyncttwiz.automatum.CardPlay.Kind.Ability, "Ember Cairn", emptyMap())
+        var taps = 0
+        compose.setContent {
+            MaterialTheme {
+                ChipRowsLayout(4.dp, Modifier.testTag("chips").width(412.dp).background(Color(0xffe6ece9)).padding(8.dp)) {
+                    AbilityChip(add, {}, {})
+                    AbilityChip(gain, { taps++ }, {}, refusal = why)
+                }
+            }
+        }
+        compose.onNodeWithText(why).assertExists()
+        compose.onNodeWithContentDescription("$gain ($why)").assertIsNotEnabled().performClick()
+        assertTrue(taps == 0, "a greyed chip activates nothing")
+        compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/ability-chips-greyed.png",
+            "A card with two abilities, one usable now: its chips show both, the other greyed with why it can't be used now.")
+    }
+
     @Test fun aLongAbilityChipWraps() {
         val untap = "{1}{G/P}, {S}: Untap target land."
         val pay = "{T}, Pay 1 life: Add {G}."

@@ -128,7 +128,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** TBL-122 (async play §29.5): the battlefield card whose ability chips are open (personal UI), null when none. */
     var abilityCard by mutableStateOf<String?>(null); private set
-    /** The ability chip held for its details (an index of [activatable]), null when none. */
+    /** The ability chip held for its details (an index of [abilities]), null when none. */
     var heldAbility by mutableStateOf<Int?>(null)
 
     /** TBL-122: the abilities of the battlefield card [cardId] the viewer can activate on [play] now (mana abilities and
@@ -141,26 +141,35 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Play }
     }
 
+    /** TBL-124 (owner, 2026-11-09): every activated ability of the battlefield card [cardId] (mana abilities too, and its
+     * special actions), usable now or not, in printed order: what its chips show. Empty and null as [activatable]. */
+    internal fun abilities(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
+        if (!enabled() || cast.open || play.flowOpen || revealing()) return emptyList()
+        val plays = cardPlays(play) ?: return null
+        return plays.of(cardId).filter { it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Cast && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Play }
+    }
+
     /**
-     * TBL-122 (async play §29.5, MTG Arena): a tap on the viewer's battlefield card [cardId] activates the one ability they
-     * can activate now (as from its menu, TBL-115: a mana ability adds its mana to the pool at once; costs, targets and
-     * Autotap go through the cast flow), or opens the ability chips above it when there are several. False when it has
-     * none (or Automatum still works the board out): the tap opens the card's menu as before.
+     * TBL-122, TBL-124 (async play §29.5, MTG Arena; owner, 2026-11-09): a tap on the viewer's battlefield card [cardId]
+     * activates the ability they can activate now when it is the card's only one (as from its menu, TBL-115: a mana ability
+     * adds its mana to the pool at once; costs, targets and Autotap go through the cast flow), or opens the ability chips
+     * above it when it has two or more, even with one usable now: the unusable ones greyed with why, so the tap never picks
+     * one for them. False when none is usable (or Automatum still works the board out): the tap opens the card's menu as before.
      */
     internal fun tapPermanent(cardId: String): Boolean {
         val play = current() ?: return false
         val offered = activatable(play, cardId)
         if (offered.isNullOrEmpty()) return false
         dismiss()
-        if (offered.size == 1) play(cardId, offered.single()) else abilityCard = cardId
+        if (abilities(play, cardId).orEmpty().size < 2) play(cardId, offered.single()) else abilityCard = cardId
         return true
     }
 
-    /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability. */
+    /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability; greyed, it does nothing. */
     internal fun activateChip(index: Int): Boolean {
         val card = abilityCard ?: return false
         val play = current() ?: return false
-        val chosen = activatable(play, card)?.getOrNull(index) ?: return false
+        val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: return false
         closeAbilities()
         collapse()
         return play(card, chosen)

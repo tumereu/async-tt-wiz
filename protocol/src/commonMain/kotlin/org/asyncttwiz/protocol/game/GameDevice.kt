@@ -532,8 +532,9 @@ class GameDevice(
     /**
      * TRN-065 (owner, 2026-11-09): the other player's concession or accepted suggestion ended the game while this player
      * stands at the table, and they stay there until their own OK. Nothing more can be made on the game, so what they
-     * hadn't watched yet shows at once (no stops: they could no longer answer one), the result's dialog next; no reveal or
-     * play shown stands in front of it. Whether the device could do it (else the game goes to its lobby at once).
+     * hadn't watched yet shows at once (no stops: they could no longer answer one), the result's dialog next; no play shown
+     * stands in front of it. A reveal panel does (HIS-110: only the player's own OK closes it), one per reveal, in order.
+     * Whether the device could do it (else the game goes to its lobby at once).
      */
     fun showToTheEnd(): Boolean {
         if (needsReload || holding) return false
@@ -545,9 +546,8 @@ class GameDevice(
         if (session.pending.isNotEmpty()) return false
         while (session.behind) session.showNext()
         syncReveals()
-        revealsOpen.clear()
         showsOpen.clear()
-        remember("to the end: ${where()}")
+        remember("to the end: ${where()}, reveals open ${revealsOpen.size}")
         return Engine.result(model.engine) != null
     }
 
@@ -600,8 +600,43 @@ class GameDevice(
     fun dismissReveal(): Boolean {
         syncReveals()
         if (revealsOpen.isEmpty()) return false
-        revealsOpen.removeAt(0)
+        remember("reveal dismissed in ${revealsOpen.removeAt(0).event}")
         return true
+    }
+
+    /**
+     * HIS-110 (full e2e run 2026-11-09): the player's own event [mine] gave its place to the other player's same event [theirs]
+     * ([GameSession.Received.Adopted]: the same board): what it showed is what [theirs] shows, so what the player saw of it
+     * and what they dismissed stands: nothing asks them twice, and what is open stays open, now of [theirs].
+     */
+    private fun adoptMoments(mine: String, theirs: String) {
+        if (!revealsSeen.remove(mine)) return
+        revealsSeen += theirs
+        revealsOpen.replaceAll { if (it.event == mine) it.copy(event = theirs) else it }
+        showsOpen.replaceAll { moment -> if (moment.event != mine) moment else when (moment) {
+            is PlayShow -> moment.copy(event = theirs)
+            is CombatHold -> moment.copy(event = theirs)
+        } }
+        if (revealsTip == mine) revealsTip = theirs
+    }
+
+    /**
+     * HIS-110: this device replaces [old] while the player stays in the game (the game loaded again): a panel is closed only
+     * by their OK or by its reveal being taken back, so what they dismissed stays dismissed and what is open stays open, when
+     * its event is on this line (past the local head, it opens as playback reaches it).
+     */
+    fun carryReveals(old: GameDevice) {
+        old.syncReveals()
+        syncReveals()
+        val local = session.indexOf(session.localHead) ?: -1
+        val shown = (session.events.take(local + 1) + session.pending).mapTo(HashSet()) { it.id }
+        shown += session.lineStart
+        revealsSeen += old.revealsSeen
+        for (reveal in old.revealsOpen) {
+            if (reveal.event in shown) { if (reveal !in revealsOpen) revealsOpen += reveal }
+            else revealsSeen -= reveal.event
+        }
+        remember("loaded again: reveals still open ${revealsOpen.map { it.event }}")
     }
 
     private val revealsOpen = ArrayList<Reveal>()
@@ -638,9 +673,11 @@ class GameDevice(
         val line = events.subList(0, local + 1) + session.pending
         if (revealsOpen.isNotEmpty() || showsOpen.isNotEmpty()) {
             val ids = line.mapTo(HashSet()) { it.id }
+            // The event the session's line starts after is on the line too (a game loaded at it, HIS-110)
+            ids += session.lineStart
             val gone = revealsOpen.filter { it.event !in ids }
             revealsOpen.removeAll(gone)
-            gone.forEach { revealsSeen.remove(it.event) }
+            gone.forEach { revealsSeen.remove(it.event); remember("reveal closed, taken back: ${it.event}") }
             val goneShows = showsOpen.filter { it.event !in ids }
             showsOpen.removeAll(goneShows)
             goneShows.forEach { revealsSeen.remove(it.event) }
@@ -1861,6 +1898,7 @@ class GameDevice(
                 // and anything open on it untouched; the server drops the pending event as its duplicate
                 is GameSession.Received.Adopted -> {
                     remember("adopted ${event.id} for ${r.mine.id}")
+                    adoptMoments(r.mine.id, event.id)
                     byPlayer.remove(r.mine.id)
                     if (endTurnFirst == r.mine.id) endTurnFirst = event.id
                     adopted[r.mine.id] = event.id
@@ -2163,7 +2201,8 @@ class GameDevice(
     /** Forgets events well before both local heads (the device keeps [KEPT_EVENTS] of them for undo and previews); once
      * older history was loaded ([older]) they join it instead, so what was reached stays reachable. */
     private fun trim() {
-        val earliest = listOfNotNull(session.localHead, heads[opponent]).mapNotNull(session::indexOf).minOrNull() ?: return
+        // HIS-110: never past an open reveal's event: a panel is closed only by its OK or by the reveal being taken back
+        val earliest = (listOfNotNull(session.localHead, heads[opponent]) + revealsOpen.map { it.event }).mapNotNull(session::indexOf).minOrNull() ?: return
         val cut = earliest - KEPT_EVENTS
         if (cut < 0) return
         val from = session.lineStart

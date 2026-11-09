@@ -288,6 +288,132 @@ class RevealStopTest {
 
     }
 
+    /** Bob's Insight on the way: Alice's phone has passed on it itself (the panel open on her own pending pass), Bob's phone has
+     * made the same pass as its assumption, on the server first; nothing of it has reached her phone yet. */
+    private fun DeviceSim.bothMadeTheSamePass(): GameEvent {
+        bobToMain()
+        device(alice).play()
+        settle()
+        bobCastsInsight()
+        flush(bob)
+        deliver(alice, 1)
+        device(alice).playToStop()
+        device(alice).advance(now)
+        assertNotNull(device(alice).session.pending.singleOrNull(), "her own pass on its way")
+        assertNotNull(device(alice).reveal, "the panel on her own pass")
+        device(bob).advance(now)
+        flush(bob)
+        return server.line().last().also { assertEquals(Input.PassPriority(alice), it.assumed?.input, "Bob assumed her pass") }
+    }
+
+    // HIS-110, SYS-077 (full e2e run 2026-11-09): Alice taps OK on the panel of her own pending pass; Bob's same assumption then
+    // takes its place: a reveal she dismissed stays dismissed: nothing asks her twice, and the view isn't held
+    @Test
+    fun aDismissedRevealStaysDismissedWhenTheOtherPlayersSameEventTakesItsPlace() {
+        val sim = sim()
+        val assumption = sim.bothMadeTheSamePass()
+        val alices = sim.device(sim.alice)
+        assertTrue(alices.dismissReveal())
+        assertNull(alices.reveal)
+        sim.deliver(sim.alice)
+        assertEquals(assumption.id, alices.adoptedAs(alices.session.localHead) ?: alices.session.localHead, "his event in her event's place")
+        assertNull(alices.reveal, "not opened again")
+        assertTrue(alices.openReveals.isEmpty())
+        // The other phone's own panel is untouched by any of it, until its own OK
+        assertNotNull(sim.device(sim.bob).reveal, "Bob's own panel")
+    }
+
+    // HIS-110: a reveal is closed only by that player's OK, or by being taken back. Each OK is its own, both ways, and what
+    // arrives meanwhile (the other player's reports of what they saw, a revision with nothing in it, a chat's, an undo request and
+    // its cancelling, a suggestion and its withdrawing) leaves the panel open
+    @Test
+    fun anOpenRevealIsClosedOnlyByItsOwnOk() {
+        val sim = sim()
+        sim.bobToMain()
+        sim.device(sim.alice).play()
+        sim.settle()
+        sim.bobCastsInsight()
+        sim.settle()
+        val alices = sim.device(sim.alice)
+        val bobs = sim.device(sim.bob)
+        val hers = assertNotNull(alices.reveal)
+        val his = assertNotNull(bobs.reveal)
+        fun bothOpen(what: String) {
+            sim.settle()
+            assertEquals(hers.cards, alices.reveal?.cards, "Alice's panel after $what")
+            assertEquals(his, bobs.reveal, "Bob's panel after $what")
+        }
+        repeat(3) { sim.now += 3_000; alices.advance(sim.now); bobs.advance(sim.now); bothOpen("reports of what was seen") }
+        alices.revision(emptyList(), null); bobs.revision(emptyList(), null)
+        bothOpen("a revision with no event")
+        val target = assertNotNull(bobs.undoTarget())
+        sim.settle()
+        bobs.requestUndo(target, "sorry")
+        sim.settle()
+        bobs.cancelRequest()
+        bothOpen("an undo request and its cancelling")
+        assertIs<GameDevice.Acted.Sent>(bobs.suggest(arcanum.engine.setup.GameResult.Draw))
+        sim.settle()
+        assertEquals(his, bobs.reveal, "Bob's panel with his suggestion out")
+        assertNotNull(alices.reveal, "Alice's panel with his suggestion on its way")
+        assertIs<GameDevice.Acted.Sent>(bobs.table(listOf(TableChange.Suggestion(bobs.model.table.suggestion, null))))
+        bothOpen("a suggestion and its withdrawing")
+        assertTrue(bobs.dismissReveal())
+        sim.settle()
+        assertNull(bobs.reveal)
+        assertNotNull(alices.reveal, "his OK isn't hers")
+        assertTrue(alices.dismissReveal())
+        sim.settle()
+        assertNull(alices.reveal)
+        assertNull(bobs.reveal, "and hers isn't his")
+    }
+
+    // HIS-110: loaded again while the phone stays in the game (it couldn't follow the server, a reconnect past what it received),
+    // an open panel stays open and a dismissed one stays dismissed; a game opened anew opens none, as ever
+    @Test
+    fun aRevealOutlivesTheGameLoadingAgain() {
+        val sim = sim()
+        sim.bobToMain()
+        sim.device(sim.alice).play()
+        sim.settle()
+        sim.bobCastsInsight()
+        sim.settle()
+        val before = sim.device(sim.alice)
+        val open = assertNotNull(before.reveal)
+        val again = sim.load(sim.alice)
+        assertNull(again.reveal, "opened anew: none")
+        again.carryReveals(before)
+        again.play()
+        again.playToStop()
+        assertEquals(open, again.reveal, "open before, open after (as soon as the board shows its event)")
+        assertTrue(again.dismissReveal())
+        val third = sim.load(sim.alice)
+        third.carryReveals(again)
+        third.play()
+        third.playToStop()
+        assertNull(third.reveal, "dismissed before, dismissed after")
+    }
+
+    // HIS-110, TRN-065: Bob's concession while Alice's panel of his reveal is open: her table stays for her own OK, and the panel
+    // stays for its own: it comes first, then the result
+    @Test
+    fun aRevealStaysOpenWhenTheGameEndsAtTheTable() {
+        val sim = sim()
+        sim.bobToMain()
+        sim.device(sim.alice).play()
+        sim.settle()
+        sim.bobCastsInsight()
+        sim.settle()
+        val alices = sim.device(sim.alice)
+        val open = assertNotNull(alices.reveal)
+        assertIs<GameDevice.Acted.Sent>(sim.device(sim.bob).concede())
+        sim.settle()
+        assertTrue(alices.showToTheEnd(), "shown to the end")
+        assertEquals(open.cards, alices.reveal?.cards, "her OK is still hers to give")
+        assertTrue(alices.dismissReveal())
+        assertNull(alices.reveal)
+    }
+
     // HIS-110: several reveals in a row open one panel each, in order
     @Test
     fun severalRevealsOpenOnePanelEachInOrder() {

@@ -235,6 +235,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
                 // HIS-005: what was loaded of older history stays (its pages, and the main line up to the new line's start)
                 device.older?.let { o -> loaded.older = o.carriedTo(loaded.session.lineStart, device.olderEvents + old.events) }
+                // HIS-110: a reveal is closed only by the player's OK or by being taken back, never by loading again
+                loaded.carryReveals(device)
             }
             device = loaded; codec = json
             device.clock = clock

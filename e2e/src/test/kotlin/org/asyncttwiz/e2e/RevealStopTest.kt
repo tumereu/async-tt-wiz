@@ -133,7 +133,8 @@ class RevealStopTest : E2e() {
         bob.tap("Keep")
         waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
         bob.playFromHand("Ember Scouting", this)
-        waitUntil("the panel on both phones", along = listOf(alice)) {
+        // Alice's phone passes by itself; no playing along here: that taps her OK
+        waitUntil("the panel on both phones") {
             alice.showsText("${bob.name} revealed · Ember Scouting") && bob.showsText("You revealed · Ember Scouting")
         }
         val reveal = assertNotNull(bob.shown.reveal)
@@ -147,5 +148,6 @@ class RevealStopTest : E2e() {
         waitUntil("Alice's OK leaving Bob's panel open") { !alice.shows(hasTestTag(REVEAL_OK_TAG)) && bob.shows(hasTestTag(REVEAL_OK_TAG)) }
         bob.tagged(REVEAL_OK_TAG).performClick()
         waitUntil("Bob's panel gone") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) }
+        assertFalse(alice.shows(hasTestTag(REVEAL_OK_TAG)), "Alice's stays dismissed")
     }
 }

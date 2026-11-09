@@ -10,4 +10,8 @@ internal object Fdn {
     val COUNTER_ON_IT_THEN_IF_IT_HAS = Regex("""[Pp]ut an? (\S+) counter on it\. Then if it has (\w+) or more (\S+) counters on it, (.+)""")
     // fdn chunk 02: an Aura's own card, after the creature it enchanted died
     val RETURN_THIS_CARD_TO_HAND = Regex("""[Rr]eturn this card to its owner's hand\.""")
+    // chunk 03: "Whenever equipped creature becomes untapped"
+    val BECOMES_UNTAPPED = Regex("""(.+) becomes untapped""")
+    // chunk 03: "Put a bait counter on Fishing Pole." in a granted ability
+    val PUT_COUNTER_ON_NAME = Regex("""Put an? (\S+) counter on (.+)\.""")
 }

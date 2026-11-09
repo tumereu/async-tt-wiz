@@ -7972,6 +7972,8 @@ internal class Sentences(
         Blb.IT_GETS.matchEntire(sentence)?.let { m ->
             val objects = when {
                 isSelf(m.groupValues[1]) -> Objects.Self
+                // fdn chunk 03: "equipped creature gets +2/+2 until end of turn." (CR 301.5)
+                m.groupValues[1] == "Equipped creature" || m.groupValues[1] == "Enchanted creature" -> Objects.AttachedTo(Objects.Self)
                 m.groupValues[1] == "It" -> context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
                 else -> return null
             }
@@ -10470,7 +10472,7 @@ internal class Sentences(
         val ATTACH_TARGET_TO_TARGET = Regex("""Attach target (.+?) to (?:up to (\w+) )?target (.+)\.""")
         // blb chunk 04
         val TARGET_GETS_AND_GAINS = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) and gains ([a-z ,]+) until end of turn\.""")
-        val IT_GETS = Regex("""(It|This [a-z]+) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
+        val IT_GETS = Regex("""(It|This [a-z]+|Equipped creature|Enchanted creature) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
         val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
         val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
         val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them)\.""")
@@ -13255,6 +13257,10 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "exiled")),
                 Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.Bound("opponent")))))
+        }
+        // fdn chunk 03: "Put a bait counter on Fishing Pole." in an ability the Equipment gives (CR 113.10)
+        Fdn.PUT_COUNTER_ON_NAME.matchEntire(sentence)?.takeIf { granterName != null && it.groupValues[2] == granterName }?.let { m ->
+            return listOf(Step.Do(Effect.PutCounters(Objects.Granter, Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1))))
         }
         // "Return Trusty Boomerang to its owner's hand." in an ability the Equipment gives (CR 113.10)
         Tla.RETURN_GRANTER_TO_HAND.matchEntire(sentence)?.takeIf { granterName != null && it.groupValues[1] == granterName }?.let {
@@ -19757,6 +19763,8 @@ internal class Sentences(
             return listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = Value.Fixed(1)), random = true))
         // eoe chunk 13: "Exile The Dominion Bracelet" in an ability the Equipment gives: exile the Equipment (tla chunk 04, [Objects.Granter])
         if (granterName != null && text == "Exile $granterName") return listOf(CostPart.Exile(CostObjects.These(Objects.Granter), from = Zone.Battlefield))
+        // fdn chunk 03: "Tap Fishing Pole" in an ability the Equipment gives: tap the Equipment, not the creature (CR 113.10, 602.2b)
+        if (granterName != null && text == "Tap $granterName") return listOf(CostPart.TapObjects(CostObjects.These(Objects.Granter)))
         // eoe chunk 13: "Tap X untapped artifacts you control" (X announced, CR 107.3a); as "Tap two untapped Elves you control" reads, only the
         // kind is named (a cost taps untapped permanents its payer controls, CR 602.2b)
         Eoe.TAP_X_UNTAPPED.matchEntire(text)?.let { m ->

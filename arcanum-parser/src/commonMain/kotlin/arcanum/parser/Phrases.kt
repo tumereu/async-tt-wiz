@@ -740,6 +740,8 @@ internal object Events {
         }
         // gtc chunk 08: "enchanted land becomes tapped"; gtc chunk 10: "enchanted land is tapped for mana"
         GTC_BECOMES_TAPPED.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null) }
+        // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
+        Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
         // gtc chunk 07: "this creature deals combat damage" (to any player or permanent)
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->

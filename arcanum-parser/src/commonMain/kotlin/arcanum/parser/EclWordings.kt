@@ -64,7 +64,7 @@ internal object Ecl {
     val CHOOSE_TYPE_DRAW_FOR_EACH = Regex("""Choose a creature type\. Draw a card for each (.+?) of that type\.""")
     val HEXPROOF_AS_LONG_AS_UNTAPPED = Regex("""(.+?) has (hexproof|indestructible) as long as it's untapped\.""")
     val EACH_BECOMES_COPY_OF_TARGET = Regex("""Each (.+?) becomes a copy of target (.+)\.""")
-    val ENCHANTED_LOSES_ALL_COLORLESS_BASE = Regex("""Enchanted creature loses all abilities and is a colorless ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\.""")
+    val ENCHANTED_LOSES_ALL_COLORED_BASE = Regex("""Enchanted creature loses all abilities and is an? (colorless|[a-z]+(?: and [a-z]+)*) ([A-Z]\w+)( creature)? with base power and toughness (\d+)/(\d+)(?: named (.+))?\.""")
     val GAINS_ALL_CREATURE_TYPES = Regex("""(Up to one target creature|Target creature) gains all creature types\.""")
     val GETS_UNTIL_YOUR_NEXT_TURN = Regex("""Target creature gets ([+-]\d+)/([+-]\d+) until your next turn\.""")
     val NEXT_INSTANT_SORCERY_COPY = Regex("""When you next cast an instant or sorcery spell this turn, copy it\. You may choose new targets for the copy\.""")

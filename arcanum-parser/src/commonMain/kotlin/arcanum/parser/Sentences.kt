@@ -3880,6 +3880,9 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        // fdn chunk 02: "When enchanted creature dies, return this card to its owner's hand.": by then the Aura is a new object in the graveyard (CR 400.7, 704.5m)
+        if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && context.event.let { it is EventPattern.ZoneChange && it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) && it.to == Zone.Graveyard })
+            return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))))
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         MechanicWordings.effect(sentence)?.let { return it }
@@ -14874,6 +14877,16 @@ internal class Sentences(
     }
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 02: "put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura.": both "it"s are what the
+        // ability is about (the attacking creature), not this permanent (CR 608.2c)
+        Fdn.COUNTER_ON_IT_THEN_IF_IT_HAS.matchEntire(text)?.let { m ->
+            val it = context.it?.takeIf { it != Objects.Self } ?: return@let
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            if (Counters.kind(m.groupValues[3]) != kind) return@let
+            val then = effect(m.groupValues[4].replaceFirstChar { c -> c.uppercase() }, context) ?: return@let
+            return listOf(Step.Do(Effect.PutCounters(it, kind, Value.Fixed(1))),
+                Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.HasCounter(kind, atLeast = Numbers.count(m.groupValues[2]) ?: return@let)), then = then))
+        }
         // fdn chunk 01: "Exile it. If you do, you gain 4 life.": whether it was exiled decides (gone before it resolves, it can't be, CR 400.7)
         Fdn.EXILE_IT_IF_YOU_DO.matchEntire(text)?.let { m ->
             val it = context.it ?: return null
@@ -17102,11 +17115,16 @@ internal class Sentences(
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))))
         }
         // ecl chunk 11: "Enchanted creature loses all abilities and is a colorless Noggle with base power and toughness 1/1." (layers 4, 5, 6, 7b)
-        Ecl.ENCHANTED_LOSES_ALL_COLORLESS_BASE.matchEntire(line)?.let { m ->
-            val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
-            return Ability.Static(listOf(Mechanic.LoseAbilities(), Mechanic.SetColors(emptyList()),
-                Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
-                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+        // fdn chunk 02: "… is a black Skeleton creature with …", "… is a green and white Citizen creature with … 1/1 named [name]." ("creature" is
+        // set as the card type, so the others go; a name set by an effect, CR 612.8; a creature type replacing the others, CR 205.1b)
+        Ecl.ENCHANTED_LOSES_ALL_COLORED_BASE.matchEntire(line)?.let { m ->
+            val colors = m.groupValues[1].takeIf { it != "colorless" }?.split(" and ")?.map { ColorRef.Literal(Tokens.color(it) ?: return null) }.orEmpty()
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val isCreature = m.groupValues[3].isNotEmpty()
+            return Ability.Static(listOfNotNull(m.groupValues[6].takeIf { it.isNotEmpty() }?.let { Mechanic.SetName(it) }) + listOf(Mechanic.LoseAbilities(), Mechanic.SetColors(colors),
+                Mechanic.SetTypes(add = if (isCreature) listOf(CardType.Creature) else emptyList(), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))),
+                    replaceTypes = isCreature, replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[4].toInt()), Value.Fixed(m.groupValues[5].toInt()))),
                 affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
         }
         // ecl chunk 13: "Spells you control can't be countered."

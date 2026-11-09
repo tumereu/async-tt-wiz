@@ -45,7 +45,7 @@ internal object Tmt {
     val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+)\.""")
     val BECOMES_COLOR_OF_CHOICE_HEXPROOF = Regex("""Until end of turn, (.+) becomes the color of your choice and gains hexproof from that color\.""")
     val ENCHANTED_IS_SUBTYPE_BASE_PT = Regex("""Enchanted creature is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\. It can't attack and loses all abilities\.""")
-    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""")
+    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another
     val RETURN_TARGET_AND_SAME_NAME = Regex("""Return target (.+?) and all other cards with the same name as that card from your graveyard to the battlefield( tapped)?\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on (.+)""")
     val PUT_FROM_THAT_PLAYERS_GRAVEYARD = Regex("""[Pp]ut up to one target (.+?) from that player's graveyard onto the battlefield under your control\. It enters tapped and attacking that player\.""")

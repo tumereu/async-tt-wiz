@@ -27,4 +27,11 @@ internal object Fdn {
     // chunk 06
     val AS_LONG_AS_HAS_AND_IS_IN_ADDITION = Regex("""As long as (.+?), (it|.+?) has ([a-z ,]+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
     val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
+    // chunk 07
+    val TARGET_PLAYER_HAS_EXACTLY_LIFE = Regex("""target player has exactly (\d+) life""")
+    val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)""")
+    val IT_WAS_ATTACKING = Regex("""(?:it|that creature) was (attacking|blocking)""")
+    val EFFECT_WOULD_PUT_COUNTERS_TWICE = Regex("""If an effect would put one or more counters on an? (.+?), it puts twice that many of those counters on that \S+ instead\.""")
+    val PLAY_LAND_AND_EACH_PERMANENT_TYPE_FROM_GRAVEYARD = Regex("""During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard\.""")
+    val IF_SELF_IS_A_IT_BECOMES_PT_AND_GAINS = Regex("""If (.+?) is an? ([A-Z]\w+), it becomes an? (?:(\d+)/(\d+) )?([A-Z]\w+(?: [A-Z]\w+)*) and gains (.+?)\.?""")
 }

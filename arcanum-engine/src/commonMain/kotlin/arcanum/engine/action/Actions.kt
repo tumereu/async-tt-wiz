@@ -711,7 +711,8 @@ internal object Actions {
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, affected, (holder as? TargetRef.Object)?.id,
             // blb: the proposed change names its cause, for "counters you would put" (EventPattern.CountersPut.causedBy)
-            proposed = { n -> Changes.counters(act.state, holder, kind, n).let { c ->
+            // fdn: and whether it is paid as a cost (EventPattern.CountersPut.byEffect)
+            proposed = { n -> Changes.counters(act.state, holder, kind, n, meanings.filter { it == arcanum.engine.change.Meaning.Paid }).let { c ->
                 if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0

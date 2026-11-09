@@ -127,7 +127,7 @@ internal object Hob {
     val CREATE_NAMED_ARTIFACT_CREATURE_TOKEN = Regex("""[Cc]reate an? (\d+)/(\d+) colorless ([A-Z][a-z]+) artifact creature token with ([a-z]+) named ([A-Z][A-Za-z ]+)\.""")
     val CREATE_X_TAPPED_TREASURES_WHERE = Regex("""[Cc]reate X tapped (\w+) tokens, where X is (.+)\.""")
     val IF_MANA_FROM_SPENT = Regex("""if mana from an? (.+?) was spent to cast it""")
-    val TOKENS_TWICE_THAT_MANY = Regex("""If one or more tokens would be created under your control, twice that many of those tokens are created instead\.""")
+    val TOKENS_TWICE_THAT_MANY = Regex("""If (?:one or more tokens would be created under your control, twice that many of those tokens are created|an effect would create one or more tokens under your control, it creates twice that many of those tokens) instead\.""") // fdn: the second
     val DRAW_EXCEPT_FIRST_DRAW_TWO = Regex("""If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.""")
     val DIES_IF_CREATURE_RETURN_ARTIFACT = Regex("""When (.+?) die, if they were a creature, return them to the battlefield\. They're an artifact\.""")
     val MAY_CAST_AS_FLASH_IF_CONTROL = Regex("""You may cast this spell as though it had flash if you control an? (.+)\.""")

@@ -2278,7 +2278,8 @@ class GameDevice(
         private const val MAX_ORIGINS = 256
         private const val MAX_AUTOMATIC_EVENTS = 200
         private const val MAX_FOLDED = 500
-        private const val MAX_RECORD = 400
+        /** How many entries the device's record keeps (the bundle's [GameRepro.log]; a report's bound drops its oldest first). */
+        const val MAX_RECORD = 4000
         private const val MAX_ENTRY = 300
         private const val MAX_PROBES = 64
 

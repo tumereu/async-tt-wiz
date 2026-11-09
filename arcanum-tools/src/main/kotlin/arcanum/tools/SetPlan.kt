@@ -16,7 +16,7 @@ import kotlinx.serialization.json.JsonObject
  */
 fun main(args: Array<String>) {
     val code = args.firstOrNull()?.uppercase() ?: error("Usage: setPlan CODE")
-    val setCards = setCards(SetCache(ParserToolPaths.setCache.apply { mkdirs() }).file(code))
+    val setCards = pinnedSetCards(code)
     val covered = CoveredShapes.read(coveredShapesFile())
     val index = RuleIndex.at(ParserToolPaths.parserSources)
     val cards = setCards.map { card ->

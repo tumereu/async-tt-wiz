@@ -29,6 +29,8 @@ dependencies {
     // I-D54: the server runs the Arcanum engine (the authoritative engine state of each game).
     implementation(project(":arcanum-api"))
     implementation(project(":arcanum-engine"))
+    // The card catalog (docs/specs/web-client.md section 3): served as built at release, and set packs built from it.
+    implementation(project(":catalog"))
     // Tests only: the engine's invented cube cards are parsed from their oracle text (I-D54 spike, event model tests).
     testImplementation(project(":arcanum-parser"))
     implementation(libs.flyway.core)
@@ -148,6 +150,9 @@ tasks.withType<Test>().configureEach {
     systemProperty("asyncttwiz.containerLock", layout.buildDirectory.file("tmp/owned-postgres-lifecycle.lock").get().asFile.absolutePath)
     // Launch the real installed executable, not a second test-only migration CLI.
     dependsOn(tasks.installDist)
+    // The card catalog of the invented test cards (tests/fixtures/card-catalog), as the server reads one (CATALOG_DIR).
+    dependsOn(":catalog:testCardsCatalog")
+    systemProperty("atw.catalogDir", rootProject.file("catalog/build/test-cards-catalog").absolutePath)
     systemProperty("asyncttwiz.migrationExecutable", layout.buildDirectory.file("install/server/bin/server").get().asFile.absolutePath)
     // ProductionUpgradeTest compares against the committed fixture in src/test/resources/upgrade; -PupgradeFixture=record rewrites it.
     val recordUpgradeFixture = providers.gradleProperty("upgradeFixture").orNull == "record"

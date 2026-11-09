@@ -23,7 +23,6 @@ internal object ParserToolPaths {
     val outputs get() = File(System.getProperty("arcanum.parserOutputs") ?: File(cache, "parser-migration").path)
     val parserSources get() = File(System.getProperty("arcanum.parserSources") ?: "../arcanum-parser/src/commonMain/kotlin")
     val setPlans get() = File(System.getProperty("arcanum.setPlans") ?: File(cache, "set-plans").path)
-    val setCache get() = File(System.getProperty("arcanum.setCache") ?: (System.getProperty("user.home") + "/.cache/arcanum-sets"))
 }
 
 /** Which promise covers a card: a card of a supported set or of the cube mustn't change without a task naming it. */
@@ -138,10 +137,11 @@ internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): Pars
     return ParserCorpus(version, (kept + onlyInCube).sortedWith(compareBy({ it.name }, { it.id })))
 }
 
-private class SetRecords(val code: String, val type: String, val date: String, val onlineOnly: Boolean, val cards: List<JsonObject>)
+internal class SetRecords(val code: String, val type: String, val date: String, val onlineOnly: Boolean, val cards: List<JsonObject>)
 
-/** Streams AllPrintings set by set, holding one set's cards at a time; returns the file's MTGJSON version. */
-private fun forEachSet(file: File, each: (SetRecords) -> Unit): String {
+/** Streams AllPrintings set by set ([only] those sets, when given; the others are skipped unread), holding one set's
+ * cards at a time; returns the file's MTGJSON version. */
+internal fun forEachSet(file: File, only: Set<String>? = null, each: (SetRecords) -> Unit): String {
     var version = "unknown"
     openJson(file).use { stream ->
         JsonReader(stream.reader(Charsets.UTF_8)).use { reader ->
@@ -153,7 +153,7 @@ private fun forEachSet(file: File, each: (SetRecords) -> Unit): String {
                         reader.beginObject()
                         while (reader.hasNext()) {
                             val code = reader.nextName()
-                            each(readSet(code, reader))
+                            if (only != null && code !in only) reader.skipValue() else each(readSet(code, reader))
                         }
                         reader.endObject()
                     }

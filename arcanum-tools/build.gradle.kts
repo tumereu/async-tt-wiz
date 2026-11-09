@@ -29,53 +29,54 @@ dependencies {
 
 tasks.test { useJUnitPlatform() }
 
-// Local files outside the repository the parser migration tools use; each has a default (see ParserToolPaths).
+
+// Local files outside the repository the tools use; each has a default (see ParserToolPaths). The MTGJSON AllPrintings
+// file is the host's pinned one (catalog/pin.properties): a tool checks it against the pin and stops without it.
 fun JavaExec.parserToolPaths() {
-    mapOf("mtgjson" to "arcanum.mtgjson", "cube" to "arcanum.cube", "parserOutputs" to "arcanum.parserOutputs", "setCache" to "arcanum.setCache", "setPlans" to "arcanum.setPlans")
+    mapOf("mtgjson" to "arcanum.mtgjson", "cube" to "arcanum.cube", "parserOutputs" to "arcanum.parserOutputs", "setPlans" to "arcanum.setPlans")
         .forEach { (property, key) -> providers.gradleProperty(property).orNull?.let { systemProperty(key, it) } }
     systemProperty("arcanum.parserSources", rootProject.file("arcanum-parser/src/commonMain/kotlin").path)
+    systemProperty("arcanum.pin", rootProject.file("catalog/pin.properties").path)
 }
 
-// Counts normalised oracle-text patterns in a local, never committed MTGJSON file (AllPrintings or AtomicCards,
-// .json or .json.gz): ./scripts/gradle.sh :arcanum-tools:patternFrequencies -Pmtgjson=/path/AllPrintings.json.gz
+// Counts normalised oracle-text patterns in the pinned, never committed MTGJSON file (AllPrintings):
+// ./scripts/gradle.sh :arcanum-tools:patternFrequencies
 tasks.register<JavaExec>("patternFrequencies") {
     group = "arcanum"
-    description = "Writes build/arcanum/pattern-frequencies.tsv from a local MTGJSON file (-Pmtgjson=<path>)."
+    description = "Writes build/arcanum/pattern-frequencies.tsv from the pinned MTGJSON file."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("arcanum.tools.PatternFrequenciesKt")
     maxHeapSize = "2g"
-    val input = providers.gradleProperty("mtgjson")
+    parserToolPaths()
     val output = layout.buildDirectory.file("arcanum/pattern-frequencies.tsv")
-    doFirst { check(input.isPresent) { "Give the local MTGJSON file: -Pmtgjson=/path/AllPrintings.json.gz" } }
-    argumentProviders += CommandLineArgumentProvider { listOf(input.getOrElse(""), output.get().asFile.absolutePath) }
+    argumentProviders += CommandLineArgumentProvider { listOf(output.get().asFile.absolutePath) }
 }
 
 // Checks that every card of each supported set (src/main/resources/arcanum/tools/supported-sets.txt) is fully
-// supported, from MTGJSON set files cached outside the repository (~/.cache/arcanum-sets, or -PsetCache=<dir>); fetched
-// again when MTGJSON's version changes, so the first run needs a network. -Psets=LTR,BLB checks only those sets.
+// supported, from the pinned MTGJSON file (catalog/pin.properties). -Psets=LTR,BLB checks only those sets.
 tasks.register<JavaExec>("setSupport") {
     group = "arcanum"
     description = "Fails listing every card of the supported sets the parser and engine don't fully support."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("arcanum.tools.SetSupportKt")
     maxHeapSize = "2g"
-    val cache = providers.gradleProperty("setCache").orElse(System.getProperty("user.home") + "/.cache/arcanum-sets")
+    parserToolPaths()
     val sets = providers.gradleProperty("sets").orElse("")
-    argumentProviders += CommandLineArgumentProvider { listOf(cache.get(), sets.get()) }
+    argumentProviders += CommandLineArgumentProvider { listOf(sets.get()) }
 }
 
-// Castability over every supported card (castability spec §6), from the same cached set files: each mana ability pays, each cost reducer
-// lowers a cost on a test board; everything listed in build/arcanum/mana-check.tsv. -Psets=LTR,BLB checks only those sets.
+// Castability over every supported card (castability spec section 6), from the same pinned file: each mana ability pays, each cost
+// reducer lowers a cost on a test board; everything listed in build/arcanum/mana-check.tsv. -Psets=LTR,BLB checks only those sets.
 tasks.register<JavaExec>("manaCheck") {
     group = "arcanum"
     description = "Fails listing every mana ability of the supported sets that doesn't pay; lists every cost reducer."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("arcanum.tools.ManaCheckKt")
     maxHeapSize = "2g"
-    val cache = providers.gradleProperty("setCache").orElse(System.getProperty("user.home") + "/.cache/arcanum-sets")
+    parserToolPaths()
     val sets = providers.gradleProperty("sets").orElse("")
     val output = layout.buildDirectory.file("arcanum/mana-check.tsv")
-    argumentProviders += CommandLineArgumentProvider { listOf(cache.get(), output.get().asFile.absolutePath, sets.get()) }
+    argumentProviders += CommandLineArgumentProvider { listOf(output.get().asFile.absolutePath, sets.get()) }
 }
 
 // The parser migration's gate: --args=snapshot writes a canonical model of every local card outside the repository, and the
@@ -121,7 +122,7 @@ tasks.register<JavaExec>("parserExplain") {
     parserToolPaths()
 }
 
-// A set's plan for chunk workers (set-plans/CODE/): --args=CODE, from the same cached set file as parserMetrics --set.
+// A set's plan for chunk workers (set-plans/CODE/): --args=CODE, from the pinned MTGJSON file.
 tasks.register<JavaExec>("setPlan") {
     group = "arcanum"
     description = "Writes a set's plan: verdicts, chunks, digest, difficult cards and audit packets (--args=CODE)."

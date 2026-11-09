@@ -1,0 +1,4 @@
+# The test cards' support list for their card catalog (the server tests, the e2e stack): as supported-sets.txt.
+TST Test Set
+TWL Thornwall Crossing
+BAD Broken Set

@@ -79,6 +79,7 @@ public final class SpringService implements AutoCloseable {
             activity.start();
             cleanup.start();
             runtime.start();
+            org.asyncttwiz.server.catalog.ServerCatalogs.preload();
         } catch (RuntimeException failure) { close(); throw failure; }
     }
 
@@ -152,6 +153,7 @@ public final class SpringService implements AutoCloseable {
         private final org.asyncttwiz.server.history.HistoryHttp history;
         private final CrashReportHttp crashReports;
         private final org.asyncttwiz.server.releases.AppReleaseHttp appReleases;
+        private final org.asyncttwiz.server.catalog.CatalogHttp catalog;
         private final org.asyncttwiz.server.diagnostics.ProblemReportHttp problemReports;
         Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
             this.runtime = runtime;
@@ -165,11 +167,13 @@ public final class SpringService implements AutoCloseable {
             history = health ? null : new org.asyncttwiz.server.history.HistoryHttp(runtime);
             crashReports = health ? null : new CrashReportHttp(runtime, java.time.Clock.systemUTC());
             appReleases = health ? null : new org.asyncttwiz.server.releases.AppReleaseHttp();
+            catalog = health ? null : new org.asyncttwiz.server.catalog.CatalogHttp();
             problemReports = health ? null : new org.asyncttwiz.server.diagnostics.ProblemReportHttp(runtime);
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
             if (!health && appReleases.handle(request, response)) return;
+            if (!health && catalog.handle(request, response)) return;
             if (!health && problemReports.handle(request, response)) return;
             if (!health && accounts.handle(request, response)) return;
             if (!health && decks.handle(request, response)) return;

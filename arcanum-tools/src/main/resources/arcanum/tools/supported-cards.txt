@@ -1,0 +1,437 @@
+# Cards the Arcanum parser and engine support one by one, beyond the sets in supported-sets.txt ("support moves set by set").
+# One card name per line: a card's whole name, or its front face's for a card of several faces. A card listed here or
+# printed in a supported set is supported once Automatum finds nothing in it left to the players (the card catalog's
+# support marks, docs/specs/web-client.md section 3.8).
+# Caleb Gannon's Powered Synergy Cube (owner, 2026-11-09): its cards that are in no supported set.
+Abrade
+Accursed Marauder
+Aether Spellbomb
+Aether Vial
+Aetherflux Reservoir
+Aftermath Analyst
+Agatha's Soul Cauldron
+Allosaurus Shepherd
+Altar of Dementia
+Aluren
+Anafenza, Kin-Tree Spirit
+Anax, Hardened in the Forge
+Ancestral Recall
+Ancient Grudge
+Anger
+Anje's Ravager
+Arbor Elf
+Arboreal Grazer
+Arcbound Ravager
+Arcum's Astrolabe
+Arwen, Weaver of Hope
+Ashnod's Altar
+Augur of Autumn
+Avacyn's Pilgrim
+Badlands
+Baleful Strix
+Baloth Prime
+Banefire
+Basking Rootwalla
+Bayou
+Bazaar of Baghdad
+Birchlore Rangers
+Birds of Paradise
+Birgi, God of Storytelling
+Bitter Reunion
+Bitter Triumph
+Black Lotus
+Blade Splicer
+Blast from the Past
+Blasting Station
+Blood Artist
+Bloodsoaked Champion
+Bloodstained Mire
+Bomat Courier
+Bonus Round
+Boreal Druid
+Boseiju, Who Endures
+Brain Freeze
+Brainstorm
+Brazen Borrower
+Bridge from Below
+Brought Back
+Burning Inquiry
+Burst Lightning
+Cabal Ritual
+Cabal Therapy
+Carrion Feeder
+Cathartic Reunion
+Cauldron Familiar
+Chain Lightning
+Chandra, Acolyte of Flame
+Changeling Outcast
+Chart a Course
+Chromatic Sphere
+Chromatic Star
+Chrome Mox
+Circle of Dreams Druid
+Coiling Oracle
+Collected Company
+Collective Brutality
+Conflagrate
+Conjurer's Bauble
+Consider
+Conspiracy Theorist
+Containment Construct
+Cranial Plating
+Crop Rotation
+Crucible of Worlds
+Cruel Celebrant
+Cryptbreaker
+Currency Converter
+Dark Ritual
+Darkblast
+Daze
+Deep Analysis
+Deep-Cavern Bat
+Demand Answers
+Demonic Tutor
+Desperate Ritual
+Detective's Phoenix
+Devoted Druid
+Diabolic Intent
+Dig Through Time
+Digsite Engineer
+Dismember
+Dread Fugue
+Dreadhorde Arcanist
+Dreams of Steel and Oil
+Dualcaster Mage
+Duress
+Earthcraft
+Echo of Eons
+Elves of Deep Shadow
+Elvish Archdruid
+Elvish Mystic
+Elvish Reclaimer
+Elvish Visionary
+Elvish Warmaster
+Empty the Warrens
+Emry, Lurker of the Loch
+Enduring Renewal
+Engineered Explosives
+Enlightened Tutor
+Ephemerate
+Eternal Witness
+Ethersworn Canonist
+Expansion // Explosion
+Experimental Synthesizer
+Exploration
+Expressive Iteration
+Faerie Seer
+Faith's Reward
+Faithless Looting
+Fastbond
+Fatal Push
+Fatestitcher
+Fauna Shaman
+Fecundity
+Field of the Dead
+Fiend Artisan
+Fiery Confluence
+Finale of Devastation
+Finale of Promise
+Firebolt
+Flare of Denial
+Flare of Duplication
+Flare of Malice
+Flooded Strand
+Force of Negation
+Force of Will
+Frantic Search
+Fyndhorn Elves
+Gaea's Cradle
+Galvanic Blast
+Gamble
+Gau, Feral Youth
+Genesis Chamber
+Gilded Goose
+Gingerbrute
+Gitaxian Probe
+Giver of Runes
+Glimpse of Nature
+Glint-Horn Buccaneer
+Goblin Engineer
+Goblin Welder
+Grafted Wargear
+Gravecrawler
+Greater Gargadon
+Green Sun's Zenith
+Grim Lavamancer
+Grove of the Burnwillows
+Gush
+Hangarback Walker
+Headless Rider
+Heritage Druid
+Hidden Stockpile
+High Tide
+Hogaak, Arisen Necropolis
+Hope of Ghirapur
+Ice-Fang Coatl
+Ichor Wellspring
+Impulse
+Incinerate
+Increasing Vengeance
+Indatha Triome
+Ingenious Infiltrator
+Ingenious Smith
+Inquisition of Kozilek
+Insidious Roots
+Inti, Seneschal of the Sun
+Intruder Alarm
+Jace, Vryn's Prodigy
+Jadar, Ghoulcaller of Nephalia
+Jeskai Ascendancy
+Jetmir's Garden
+Joraga Treespeaker
+Junk Diver
+Juri, Master of the Revue
+Kaito Shizuki
+Ketria Triome
+Kitchen Finks
+Knight of the Reliquary
+Kolaghan's Command
+Kor Skyfisher
+Korvold, Fae-Cursed King
+Krark, the Thumbless
+Krark-Clan Ironworks
+Lava Dart
+Leaf-Crowned Visionary
+Ledger Shredder
+Lethal Scheme
+Life from the Loam
+Lightning Bolt
+Liliana's Standard Bearer
+Lingering Souls
+Lion Sash
+Lion's Eye Diamond
+Living Twister
+Llanowar Elves
+Llanowar Visionary
+Lodestone Golem
+Loran of the Third Path
+Losheel, Clockwork Scholar
+Lotus Bloom
+Lotus Petal
+Luminarch Aspirant
+Lurrus of the Dream-Den
+Magmatic Insight
+Makeshift Munitions
+Mana Crypt
+Mana Drain
+Mana Leak
+Mana Tithe
+Mana Vault
+Manamorphose
+March of Otherworldly Light
+Marionette Apprentice
+Masked Vandal
+Master of Etherium
+Mayhem Devil
+Memnite
+Memory Lapse
+Mesmeric Fiend
+Metallic Mimic
+Michiko's Reign of Truth
+Midnight Reaper
+Mind's Desire
+Mirror Entity
+Mishra's Bauble
+Mishra's Workshop
+Molten Gatekeeper
+Molten Vortex
+Moon-Circuit Hacker
+Mox Diamond
+Mox Emerald
+Mox Jet
+Mox Opal
+Mox Pearl
+Mox Ruby
+Mox Sapphire
+Murderous Redcap
+Myr Retriever
+Mystical Tutor
+Nether Traitor
+Nettle Sentinel
+Night's Whisper
+Ninja of the Deep Hours
+Nissa, Resurgent Animist
+Noble Hierarch
+Occult Epiphany
+Oni-Cult Anvil
+Oona's Prowler
+Opt
+Ornithopter
+Oswald Fiddlebender
+Oust
+Ox of Agonas
+Paradise Mantle
+Paradoxical Outcome
+Past in Flames
+Patchwork Automaton
+Path to Exile
+Perilous Myr
+Pest Infestation
+Phelia, Exuberant Shepherd
+Phyrexian Altar
+Phyrexian Revoker
+Phyrexian Tower
+Pinnacle Monk
+Pitiless Plunderer
+Plateau
+Polluted Delta
+Ponder
+Porcelain Legionnaire
+Portable Hole
+Poxwalkers
+Preordain
+Priest of Forgotten Gods
+Priest of Titania
+Prismari Command
+Prismatic Vista
+Punishing Fire
+Putrid Goblin
+Putrid Imp
+Pyrite Spellbomb
+Raffine's Tower
+Rally the Ancestors
+Ramunap Excavator
+Ranger-Captain of Eos
+Ratchet Bomb
+Raugrin Triome
+Raven's Crime
+Reclamation Sage
+Recruiter of the Guard
+Reflector Mage
+Refurbished Familiar
+Relentless Dead
+Remand
+Repeal
+Retrofitter Foundry
+Rielle, the Everwise
+Rite of Flame
+Rite of Harmony
+Rofellos, Llanowar Emissary
+Rotting Rats
+Safehold Elite
+Saheeli, Sublime Artificer
+Sai, Master Thopterist
+Satyr Wayfinder
+Savai Triome
+Savannah
+Scheming Fence
+Scourge of Nel Toth
+Scrap Trawler
+Scrapheap Scrounger
+Scrapwork Mutt
+Scrapyard Recombiner
+Scrubland
+Scryb Ranger
+Sea Gate Stormcaller
+Second Sunrise
+Seething Song
+Sensei's Divining Top
+Serum Visions
+Sevinne's Reclamation
+Shambling Ghast
+Shrieking Drake
+Signal Pest
+Six
+Skullclamp
+Skyclave Apparition
+Slogurk, the Overslime
+Smuggler's Copter
+Snap
+Snapcaster Mage
+Sneaky Snacker
+Snuff Out
+Sol Ring
+Soulherder
+Spara's Headquarters
+Spawning Pit
+Spell Queller
+Spellseeker
+Spellskite
+Spellstutter Sprite
+Spirited Companion
+Squandered Resources
+Squee, Goblin Nabob
+Staff of the Storyteller
+Steel Overseer
+Stitcher's Supplier
+Stonecloaker
+Stonecoil Serpent
+Stoneforge Mystic
+Strip Mine
+Survival of the Fittest
+Swift Reconfiguration
+Sword of the Meek
+Swords to Plowshares
+Sylvan Safekeeper
+Taiga
+Tendrils of Agony
+Teshar, Ancestor's Apostle
+Thalia, Guardian of Thraben
+Thassa's Oracle
+The Gitrog Monster
+The Meathook Massacre
+Thieving Skydiver
+Thing in the Ice
+Thopter Foundry
+Thought Scour
+Thoughtseize
+Thousand-Faced Shadow
+Thraben Inspector
+Tidehollow Sculler
+Time Spiral
+Time Walk
+Timetwister
+Tinker
+Tolarian Academy
+Torens, Fist of the Angels
+Treasure Cruise
+Tropical Island
+Tundra
+Turnabout
+Undead Augur
+Undead Butler
+Underground Sea
+Urza's Bauble
+Urza, Lord High Artificer
+Valakut Exploration
+Vampiric Tutor
+Vault Skirge
+Vendilion Clique
+Vengevine
+Veteran Explorer
+Viscera Seer
+Vizier of Remedies
+Volcanic Island
+Voldaren Bloodcaster
+Walking Ballista
+Wall of Omens
+Warren Soultrader
+Wasteland
+Watcher for Tomorrow
+Wheel of Fortune
+Whitemane Lion
+Wight of the Reliquary
+Windswept Heath
+Wirewood Symbiote
+Wishclaw Talisman
+Witch's Oven
+Wooded Foothills
+Workshop Assistant
+Xander's Lounge
+Yawgmoth's Will
+Young Pyromancer
+Yuriko, the Tiger's Shadow
+Zagoth Triome
+Ziatora's Proving Ground
+Zombie Infestation
+Zulaport Cutthroat

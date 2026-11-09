@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit
 /**
  * The full stack the e2e tests play on, started once per test JVM and stopped when it exits: a PostgreSQL container
  * (the server's pinned image, through the Docker CLI) and the installed server (`server/build/install`, as deployed:
- * `migrate`, then `serve` on free ports). The apps reach it at [origin] over plain loopback HTTP, as the debug build
- * allows. The tests share one server; [reset] brings its database back to the base dataset before each test.
+ * `migrate`, then `serve` on free ports) with the test cards' card catalog. The apps reach it at [origin] over plain
+ * loopback HTTP, as the debug build allows. The tests share one server; [reset] brings its database back to the base dataset before each test.
  *
  * Robolectric loads test classes once per sandbox; the running stack is found again through system properties, so a
  * second sandbox never starts a second one.
@@ -64,6 +64,8 @@ object E2eStack {
             "SMTP_HOST" to "127.0.0.1", "SMTP_PORT" to "9", "SMTP_TLS" to "local-plaintext", "SMTP_FROM" to "e2e@atw.invalid",
             "RESET_BASE_URL" to "https://reset.atw.invalid", "RESET_MAIL_KEY_FILE" to resetKey.path,
             "TEST_GAME_SECRET_FILE" to secret.path,
+            // The card catalog of the invented test cards (tests/fixtures/card-catalog, :catalog:testCardsCatalog)
+            "CATALOG_DIR" to requireNotNull(System.getProperty("atw.e2e.catalogDir")),
             "JAVA_OPTS" to "-Djava.net.preferIPv4Stack=true -Xmx768m")
         fun launch(command: String, log: File): Process = ProcessBuilder(server, command).redirectErrorStream(true)
             .redirectOutput(log).also { it.environment().putAll(environment) }.start()

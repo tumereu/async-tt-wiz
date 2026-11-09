@@ -14,15 +14,7 @@ import java.util.logging.Logger
 // The card records' format, kept as the file's user_version. A change to it reaches phones through a client database
 // migration that has them download their card records again (ClientStorage.redownloadCatalog).
 internal const val CATALOG_INDEX_VERSION = 4
-data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0)
-
-data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "",
-    val name: String? = null, val type: String? = null)
-
-/** Minimal provider snapshot retains exact display strings, defaults and explicit face identities. */
-data class CatalogPrinting(val id: String, val name: String, val set: String, val number: String,
-    val language: String, val side: String, val scryfallId: String?, val token: Boolean,
-    val otherFaces: List<String>, val json: String, val releaseDate: String = "")
+// CatalogMetadata, CatalogSet and CatalogPrinting are in :catalog, with the MTGJSON import (MtgJsonRecords.kt).
 
 class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
 class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
@@ -199,7 +191,8 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 }
 
 /** One disk-backed generation. Caller confines it to its catalog worker. Uses SQLDelight drivers. */
-class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable {
+class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable,
+    MtgJsonCatalogSink {
     private var duplicateRecords = 0L
     internal fun create() {
         sql("PRAGMA synchronous=FULL")
@@ -219,16 +212,16 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
 
-    internal fun addSet(code: String, releaseDate: String, checksum: String = "") =
+    override fun addSet(code: String, releaseDate: String, checksum: String) =
         sql("INSERT INTO catalog_set VALUES (?, ?, ?, ?)", listOf(code, releaseDate, System.currentTimeMillis().toString(), checksum))
 
     // Optional enrichment, not an index-version change. Older installations remain readable.
-    internal fun setName(code: String, name: String) {
+    override fun setName(code: String, name: String) {
         sql("CREATE TABLE IF NOT EXISTS catalog_set_name (code TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
         sql("INSERT OR REPLACE INTO catalog_set_name VALUES (?, ?)", listOf(code, name))
     }
 
-    internal fun setType(code: String, type: String) {
+    override fun setType(code: String, type: String) {
         sql("CREATE TABLE IF NOT EXISTS catalog_set_type (code TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL)")
         sql("INSERT OR REPLACE INTO catalog_set_type VALUES (?, ?)", listOf(code, type))
     }
@@ -271,7 +264,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     fun addBatch(records: List<CatalogPrinting>) = addBatch(records, emptyList())
 
     /** [traits] parallels [records]; missing entries leave the search traits unknown. */
-    internal fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
+    override fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
         records.forEachIndexed { position, record ->
             val json = JsonParser.parseString(record.json).asJsonObject
             val trait = traits.getOrNull(position)

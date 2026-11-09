@@ -322,7 +322,10 @@ internal class CastController(
     }
 
     /** Answers the open question. */
-    override fun answer(answer: Answer): Boolean = update { it.answer(answer) }
+    override fun answer(answer: Answer): Boolean {
+        AppLog.info("decision", "Cast answer tapped: ${answer.toString().take(400)}")
+        return update { it.answer(answer) }
+    }
     override val engine get() = flow!!.state
     override fun atwCard(id: ObjectId): String? = flow?.atwCard(id)
     override fun listedAnswers(): List<Answer> = listed
@@ -649,7 +652,7 @@ internal class CastController(
         cancel("sent")
         val route = engineSend ?: run { fail("Casting isn't available here."); return false }
         val refusal = route(planned.inputs) ?: return true
-        AutomatumLog.refusal(play.gameId, "cast", refusal)
+        AutomatumLog.refusal(play.gameId, "cast", "$refusal: ${planned.inputs}")
         // I-D56 §5: a cast that would show hidden cards while the line is tentative waits; its card shakes
         shake(card)
         fail(if (refusal == org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN) WAIT_TO_CATCH_UP else null)

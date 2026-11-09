@@ -358,7 +358,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previewed = null
         previous = play
         // LOB-089 (report KX8GYS): the log says what the player was shown
-        play.engine?.state?.let { state -> gameLog.shown(state).forEach { AppLog.info("game", it) } }
+        play.engine?.state?.let { state ->
+            gameLog.shown(state).forEach { AppLog.info("game", it) }
+            gameLog.decision(state)?.let { AppLog.info("decision", it) }
+        }
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
@@ -933,7 +936,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return early("send", on = GameDevice.madeOn(inputs)) { performed ->
+        return early("send", on = GameDevice.madeOn(inputs), inputs = inputs) { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -1083,7 +1086,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * player's input in between makes it stale unless the same decision waits there.
      */
     fun undo(target: String? = null): GameDevice.Undo =
-        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true) {
+        acting<GameDevice.Undo>(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true) {
             val before = lastShown
             (if (target == null) device.undoTap() else device.undo(target)).also { undo ->
                 // SYS-025 (owner, 2026-11-08): a free undo shows at once, animating as the server's rewind would (HIS-030)
@@ -1091,7 +1094,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                     ownUndo = Rewinding(me, undo.target, if (before.line.any { e -> e.id == undo.target || e.parentId == undo.target })
                         before.line else before.older + before.line, before.engine)
             }
-        }
+        }.also { AppLog.info("undo", "Undo ${if (target == null) "tapped" else "to $target"}: $it; tip ${shown?.tip}") }
 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
@@ -1132,9 +1135,18 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
         UndoPreview(board, needs)
     }
-    fun requestUndo(target: String, message: String) { worker.call { device.requestUndo(target, message) }; after() }
-    fun answerRequest(accept: Boolean) { worker.call { device.answerRequest(accept) }; after() }
-    fun cancelRequest() { worker.call { device.cancelRequest() }; after() }
+    fun requestUndo(target: String, message: String) {
+        AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}: \"$message\"")
+        worker.call { device.requestUndo(target, message) }; after()
+    }
+    fun answerRequest(accept: Boolean) {
+        AppLog.info("undo", "Undo request answered: ${if (accept) "accepted" else "denied"}")
+        worker.call { device.answerRequest(accept) }; after()
+    }
+    fun cancelRequest() {
+        AppLog.info("undo", "Undo request cancelled")
+        worker.call { device.cancelRequest() }; after()
+    }
 
     /**
      * The player's own action, made on the board shown now (called on the main thread; inline in an action already on
@@ -1186,7 +1198,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
      */
     private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null, on: arcanum.engine.state.ObjectId? = null,
-        work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
+        inputs: List<Input> = emptyList(), work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
         val board = shown
         val seen = board?.version
         val timing = timing(what)
@@ -1232,7 +1244,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                     }
                 }
             } finally { if (!wasIn) inAction = false }
-            if (!early) { timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0); result.set(acted) }
+            if (!early) {
+                timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0); result.set(acted)
+                // Report DH3QX6: why nothing went out, and what the player's action was
+                if (acted is GameDevice.Acted.Refused) AppLog.info("engine",
+                    "Own $what refused: ${acted.reason.take(300)}; tip $tip; open ${device.model.engine.pending?.decision?.id?.value}; inputs ${inputs.toString().take(300)}")
+            }
             else {
                 // The rest of its event, worked out after its board was shown
                 timing.after(timing.boardEnd!!, clock(), informationNanos() - shownInfo)

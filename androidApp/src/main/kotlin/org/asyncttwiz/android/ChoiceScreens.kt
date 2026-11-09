@@ -252,6 +252,8 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                         decision.max == 1 -> listOf(key)
                         else -> chosen + key
                     }
+                    // Report DH3QX6: each tap on a card of a choice
+                    AppLog.info("decision", "Card tapped in ${decision.id.value}: ${cards[key]?.name} ($key); chosen now $chosen of ${decision.min}..${decision.max}")
                 }
                 if (shape.search) {
                     val others = remember(decision.id, flow.engine) { searchedOthers(flow.engine, decision) }

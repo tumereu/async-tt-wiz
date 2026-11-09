@@ -1019,7 +1019,23 @@ class GameDevice(
      * failure, refuses the action (problem report N7FU6Y).
      */
     fun act(input: Input, table: List<TableChange> = emptyList(), performed: (() -> Unit)? = null,
-        follow: (GameModel) -> Input? = { null }): Acted = act(input, table, follow, null, performed)
+        follow: (GameModel) -> Input? = { null }): Acted = act(input, table, follow, null, performed).also { refusedHere("act", it, input) }
+
+    /** The record says why the player's own action was refused here, what it was and what was open (report DH3QX6). */
+    private fun refusedHere(what: String, acted: Acted, input: Input?) {
+        if (acted !is Acted.Refused) return
+        remember("$what refused: ${acted.reason}")
+        remember("$what refused at ${where()}, open ${openDecision()}, input $input")
+    }
+
+    /** The open decision in a word and its id, with the cards a choice of objects offers, for the record. */
+    private fun openDecision(): String = model.engine.pending?.decision?.let { d ->
+        "${d.kind} ${d.id.value}" + ((d as? arcanum.engine.decision.Decision.ChooseObjects)?.options?.let { " $it" } ?: "")
+    } ?: "none"
+
+    /** Where the device's line stands, in short ids, for the record's lines about going back. */
+    private fun where() = "tip ${session.tip.take(8)}, head ${session.head.take(8)}, local ${session.localHead.take(8)}, " +
+        "pending ${session.pending.size}, line ${model.table.line.number}/$lines"
 
     /** [automatic]: the device's own pass or answer for the player (§6), made exactly as their press is (spec rule 6, owner
      * 2026-11-06); only who made it differs: its loss in a race goes quietly (SYS-012) and Undo goes back past it. */
@@ -1110,7 +1126,9 @@ class GameDevice(
     }
 
     /** Sends the open draft with what follows it by itself (the player's passes by their mode, automatic answers). */
-    fun send(): Acted {
+    fun send(): Acted = sendDraft().also { refusedHere("draft", it, null) }
+
+    private fun sendDraft(): Acted {
         val builder = openDraft ?: return Acted.Refused("noDraft")
         if (builder.finished || !session.drafting) { dropDraft(); return Acted.Refused("noDraft") }
         if (needsReload) { abandon(); return Acted.Refused("reload") }
@@ -1146,8 +1164,16 @@ class GameDevice(
     private var draftBefore: InformationRule.Before? = null
 
     /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
-    private fun open(newLine: Int? = null): EventBuilder =
-        session.begin(ids(), newLine ?: if (session.behind) null else Rewind.lineDue(model, lines))
+    private fun open(newLine: Int? = null): EventBuilder {
+        val line = newLine ?: if (session.behind) null else Rewind.lineDue(model, lines)
+        val decision = openDecision()
+        return session.begin(ids(), line).also { builder ->
+            // HIS-042: what a new line's reshuffle moved, and what it was made under (report DH3QX6)
+            if (line != null) remember("line $line starts: cards moved per library " + builder.changes
+                .filterIsInstance<arcanum.engine.change.Change.Reorder>().map { c -> c.before.indices.count { c.before[it] != c.after[it] } } +
+                " at ${where()}, open $decision")
+        }
+    }
 
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
@@ -1488,6 +1514,11 @@ class GameDevice(
      * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made
      * on the line it takes back. */
     fun undo(target: String? = undoTarget()): Undo {
+        val from = where()
+        return undoTo(target).also { remember("undo asked to $target from $from: $it") }
+    }
+
+    private fun undoTo(target: String?): Undo {
         endChain("undo")
         if (holding) return Undo.Unavailable("playback")
         if (target == null) return Undo.Unavailable("nothing")
@@ -1537,6 +1568,11 @@ class GameDevice(
      * made again.
      */
     fun undoTap(): Undo {
+        val from = where()
+        return tappedUndo().also { remember("undo tapped from $from: $it") }
+    }
+
+    private fun tappedUndo(): Undo {
         endChain("undo")
         if (holding) return Undo.Unavailable("playback")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
@@ -1626,13 +1662,22 @@ class GameDevice(
     }
 
     /** Asks the other player to approve taking the line back to just after [target], with [message]. */
-    fun requestUndo(target: String, message: String = "") = send(GameAction.EngineRequestRewind(target, message))
+    fun requestUndo(target: String, message: String = "") {
+        remember("undo request asked to $target from ${where()}")
+        send(GameAction.EngineRequestRewind(target, message))
+    }
 
     /** The other player's request answered: [accept] takes the line back, else it closes. */
-    fun answerRequest(accept: Boolean) = send(GameAction.EngineAnswerRewind(accept))
+    fun answerRequest(accept: Boolean) {
+        remember("undo request answered ${if (accept) "yes" else "no"}: $request at ${where()}")
+        send(GameAction.EngineAnswerRewind(accept))
+    }
 
     /** Takes the player's own open request back. */
-    fun cancelRequest() = send(GameAction.EngineCancelRewind)
+    fun cancelRequest() {
+        remember("undo request cancelled: $request")
+        send(GameAction.EngineCancelRewind)
+    }
 
     /** What the request dialog shows the player asked (§10): the board at the target when they have seen it, else at
      * their local head with [unseen] ("and actions you haven't seen yet"); never how many events go. */
@@ -1691,6 +1736,9 @@ class GameDevice(
             else when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
+                    remember("rewind to $target by $by: taken back ${r.takenBack.map { it.id.take(8) }}, " +
+                        "discarded ${r.discarded.size}, own pending dropped ${r.dropped.size}")
+                    remember("rewind done, now ${where()}, open ${openDecision()}")
                     if (r.takenBack.isNotEmpty() && by != me.value && by != null) {
                         note(Note.TakenBack(PlayerId(by), r.takenBack))
                         undoShown = true
@@ -1740,6 +1788,7 @@ class GameDevice(
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             reportAgain()
+            if (request != update.rewindRequest) remember("undo request now: ${update.rewindRequest} (was $request)")
             request = update.rewindRequest
             // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
             if (update.confirmed?.let(session::supersedes) == true) { needsReload = true; remember("reload: ${update.confirmed} superseded") }
@@ -1754,7 +1803,8 @@ class GameDevice(
 
     /** The server refused [action] for [reason]. */
     fun refused(action: GameAction, reason: String) {
-        remember("refused ${action::class.simpleName} ${(action as? GameAction.Submit)?.submission?.id ?: (action as? GameAction.EngineSeen)?.eventId} $reason")
+        remember("refused ${action::class.simpleName} ${(action as? GameAction.Submit)?.submission?.id ?: (action as? GameAction.EngineSeen)?.eventId
+            ?: (action as? GameAction.EngineRewind)?.target ?: (action as? GameAction.EngineRequestRewind)?.target} $reason")
         when (action) {
             is GameAction.Submit -> {
                 val submission = action.submission
@@ -2139,12 +2189,19 @@ class GameDevice(
         // The server takes assumptions and result confirmations only from a local head it knows (I-D56 §6, §11): the
         // shown head's report goes first
         if (action is GameAction.Submit) { report(now, urgent = true); catchUp = false }
-        remember("out ${action::class.simpleName}${(action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" } ?: ""}")
+        remember("out ${action::class.simpleName}${(action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" }
+            ?: (action as? GameAction.EngineRewind)?.let { " ${it.target}" } ?: (action as? GameAction.EngineRequestRewind)?.let { " ${it.target}" }
+            ?: (action as? GameAction.EngineAnswerRewind)?.let { " ${it.accept}" } ?: ""}")
         outbox += action
     }
 
     private fun note(note: Note) {
-        remember("note ${note::class.simpleName}")
+        remember("note ${note::class.simpleName}" + when (note) {
+            is Note.Refused -> " ${note.reason}"
+            is Note.RequestNeeded -> " ${note.target}"
+            is Note.TakenBack -> " by ${note.by.value}: ${note.takenBack.size} events"
+            is Note.Branched -> " by ${note.by.value}: ${note.takenBack.size} events"
+        })
         notes += note
     }
 

@@ -4,9 +4,14 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
+import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
+import org.asyncttwiz.android.AppLog
+import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -87,7 +92,25 @@ class RewindToOpenChoiceTest : E2e() {
         val again = choiceOpen()
         assertEquals(first.options.toSet(), again.options.toSet(), "the same two cards to choose from")
         assertEquals(first.id, again.id)
+        // An answer that can't be taken (no such card asked): nothing goes out, and the report can tell why
+        val notAsked = alice.state.player(alice.me).library.last()
+        assertIs<GameDevice.Acted.Refused>(alice.game!!.send(listOf(Input.Answer(again.id, Answer.Objects(listOf(notAsked))))))
+        waitUntil("the board after the refusal on Alice's table") { alice.current() }
         aliceChooses(again, 1)
+        waitUntil("Alice's phone settled") { alice.engine { device.session.pending.isEmpty() } }
+        // What a report carries says what was asked, what was shown, each tap and why nothing went out
+        val log = AppLog.text()
+        val record = alice.game!!.repro()!!.log
+        assertContains(log, "Undo request to $choosing")
+        assertContains(log, "asks ${alice.id.take(8)}: ChooseObjects ${first.id.value} \"Manifest which card?\"")
+        assertContains(log, "Card tapped in ${first.id.value}")
+        assertContains(log, "Answer tapped on ${first.id.value}")
+        assertContains(log, "Flow step sent")
+        assertContains(log, "Own send refused: Not an object offered")
+        assertTrue(record.any { it.startsWith("out EngineRequestRewind $choosing") }, "the request: $record")
+        assertTrue(record.any { it.startsWith("rewind to $choosing by ${alice.id}") && "taken back" in it }, "the rewind: $record")
+        assertTrue(record.any { it.startsWith("act refused: Not an object offered") }, "the refusal: $record")
+        assertTrue(record.any { it.startsWith("line ") && "ChooseObjects ${first.id.value}" in it }, "the new line at the choice: $record")
         waitUntil("the server taking the new line's choice", along = listOf(bob)) {
             alice.engine { device.session.head } == serverGame()?.headId
         }

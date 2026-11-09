@@ -2,6 +2,7 @@ package arcanum.engine.state
 
 import arcanum.api.CardDefinition
 import arcanum.api.Color
+import arcanum.api.Cost
 import arcanum.api.CounterKind
 import arcanum.api.KeywordKind
 import arcanum.api.KeywordKindSerializer
@@ -176,16 +177,36 @@ data class ObjectFacts(
     /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
      * CR 106.3); read as they last existed once they have left. */
     val manaSources: List<ObjectId> = emptyList(),
-    /** The turn it was foretold in ([arcanum.api.ObjectMark.Foretold], CR 702.143a): castable for its foretell cost after it. */
+    /** Stored games only, until the one approved wipe: the turn it was foretold in; [gained] reads it. New games write [marksGained]. */
     val foretoldTurn: Int? = null,
-    /** The turn it became plotted in ([arcanum.api.ObjectMark.Plotted], CR 702.170d): castable after it. */
+    /** Stored games only, until the one approved wipe: the turn it became plotted in; [gained] reads it. New games write [marksGained]. */
     val plottedTurn: Int? = null,
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
     // mh2
     /** Phased out until another object leaves the battlefield (CR 702.26, 610.3): it doesn't phase in during untap steps. */
     val heldPhasedOut: Boolean = false,
-)
+    /** The marks it gained whose [arcanum.api.MarkRule.recordsTurn] asks to keep when, one entry per mark, the latest. */
+    val marksGained: List<MarkGained> = emptyList(),
+) {
+    /** The record of when it gained [mark] (CR 702.143a, 702.170d), or null when none is kept. */
+    fun gained(mark: ObjectMark): MarkGained? = marksGained.firstOrNull { it.mark == mark } ?: when (mark) {
+        ObjectMark.Foretold -> foretoldTurn?.let { MarkGained(mark, it) }
+        ObjectMark.Plotted -> plottedTurn?.let { MarkGained(mark, it) }
+        else -> null
+    }
+
+    /** These facts with [record] as the record of its mark. */
+    fun gaining(record: MarkGained): ObjectFacts = copy(marksGained = marksGained.filter { it.mark != record.mark } + record)
+}
+
+/**
+ * The object gained [mark] in turn [turn] (CR 702.143a, 702.170d). [costs]: the costs it had then of the keyword [mark]'s
+ * [arcanum.api.MarkCost.OfKeyword] names, those another object gave it included (CR 702.143e); a state that doesn't know the card (D60)
+ * has none.
+ */
+@Serializable
+data class MarkGained(val mark: ObjectMark, val turn: Int, val costs: List<Cost> = emptyList())
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */
 @Serializable

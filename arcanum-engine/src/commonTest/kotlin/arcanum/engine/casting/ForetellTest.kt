@@ -41,7 +41,7 @@ class ForetellTest {
         val o = state.objOrThrow(card(tidings))
         assertTrue(o.faceDown)
         assertTrue(ObjectMark.Foretold in o.marks)
-        assertEquals(state.turn.number, o.facts.foretoldTurn)
+        assertEquals(state.turn.number, o.facts.gained(ObjectMark.Foretold)?.turn)
         // CR 117.3c: a special action keeps priority
         assertEquals(alice.id, state.priority.holder)
     }

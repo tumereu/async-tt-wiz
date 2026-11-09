@@ -146,7 +146,8 @@ sealed interface ObjectFilter {
      * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */
     @Serializable @SerialName("ability") data class AbilityOf(
         val kind: AbilityKind? = null, val source: ObjectFilter? = null, val label: AbilityLabel? = null,
-        /** An ability from this keyword's expansion ("a modular triggered ability"). */
+        /** An ability from this keyword's expansion ("a modular triggered ability"), or foretelling, the special action the rules give
+         * foretell (CR 702.143a; what changes its cost or timing names it this way). */
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
     ) : ObjectFilter
     /** A spell (or the permanent it became, CR 400.7d) that was cast, from [from] when given ("spells you cast from

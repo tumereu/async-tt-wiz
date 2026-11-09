@@ -123,8 +123,8 @@ sealed interface Status {
     @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : Status
 }
 
-/** A mark an effect puts on a permanent and nothing else sets ([Effect.Mark]); tapping, turning face down and the
- * like have their own effects. */
+/** A designation or marker on an object ([Effect.Mark]); tapping, turning face down and the like have their own effects. What the
+ * rules say of each (where it lives, what it gives, when it clears, what it lets be cast) is in [MarkRules]. */
 @Serializable
 sealed interface ObjectMark {
     @Serializable @SerialName("monstrous") data object Monstrous : ObjectMark
@@ -153,13 +153,15 @@ sealed interface ObjectMark {
     @Serializable @SerialName("harnessed") data object Harnessed : ObjectMark
     // eoe
     /** A warped card in exile (CR 702.185b): exiled by the delayed triggered ability a warp ability created (its owner may cast
-     * it after that turn). Set with [Effect.Mark] on the exiled card. */
+     * it after that turn, by that ability, not by this mark). Set with [Effect.Mark] on the exiled card. */
     @Serializable @SerialName("warped") data object Warped : ObjectMark
     /** A foretold card (CR 702.143a, c): exiled face down by its foretell special action; its owner may look at it and cast it
-     * for its foretell cost after the turn it was foretold. Set by the engine. */
+     * for a foretell cost it has after the turn it was foretold. Set by the engine as it foretells, or with [Effect.Mark] on a card in
+     * exile (702.143d). */
     @Serializable @SerialName("foretold") data object Foretold : ObjectMark
     /** A plotted card (CR 702.170a, c): its owner may cast it from exile without paying its mana cost during their main phase
-     * while the Stack is empty on any later turn (702.170d). Set by the plot special action or "it becomes plotted". */
+     * while the Stack is empty on any later turn (702.170d). Set by the plot special action, or with [Effect.Mark] on a card in exile
+     * ("it becomes plotted"). */
     @Serializable @SerialName("plotted") data object Plotted : ObjectMark
     /** A cloaked permanent (CR 701.58a): face down as a 2/2 creature with ward {2} because it was cloaked; turned face up for
      * its mana cost if it's a creature card (701.58b). Set by the engine as it cloaks. */

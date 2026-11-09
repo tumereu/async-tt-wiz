@@ -2,10 +2,7 @@ package arcanum.engine.prepare
 
 import arcanum.api.CardDefinition
 import arcanum.api.Layout
-import arcanum.api.Mechanic
 import arcanum.api.ObjectMark
-import arcanum.api.PlayKind
-import arcanum.api.PlayerFilter
 import arcanum.api.Zone
 import arcanum.engine.action.Act
 import arcanum.engine.action.Actions
@@ -18,7 +15,6 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.StatusFlag
 import arcanum.engine.state.TokenIds
-import arcanum.engine.view.AppliedMechanic
 
 /**
  * Preparation cards (CR 722): a permanent with a prepare spell (copiable values of [Layout.Prepare], their second face, CR
@@ -78,16 +74,4 @@ internal object Prepare {
         val permanent = state.obj(of) ?: return false
         return permanent.zone == Zone.Battlefield && ObjectMark.Prepared in permanent.marks
     }
-
-    /** The permission to cast each copy kept in exile, its permanent's controller's (CR 722.3c). */
-    fun permissions(state: GameState, controllerOf: (ObjectId) -> arcanum.engine.state.PlayerId?): Map<ObjectId, AppliedMechanic> =
-        state.exile.mapNotNull { id ->
-            val o = state.obj(id) ?: return@mapNotNull null
-            if (!keptInExile(state, o)) return@mapNotNull null
-            val permanent = state.obj(o.prepareSpellOf!!)!!
-            id to AppliedMechanic(CAST_COPY, controllerOf(permanent.id) ?: permanent.owner, permanent.timestamp, source = permanent.id)
-        }.toMap()
-
-    /** The permission the rules give a prepared permanent's controller (CR 722.3c). */
-    val CAST_COPY: Mechanic = Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You)
 }

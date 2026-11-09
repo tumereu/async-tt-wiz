@@ -271,7 +271,7 @@ internal object Actions {
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
                 // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
                 if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
-                    facts = if (arcanum.api.ObjectMark.Foretold in m.marks) after.facts.copy(foretoldTurn = act.state.turn.number) else after.facts)
+                    facts = m.marks.fold(after.facts) { facts, mark -> gained(act, m.id, mark)?.let(facts::gaining) ?: facts })
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
                 if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
@@ -295,8 +295,7 @@ internal object Actions {
         moves.filter { it.marks.isNotEmpty() && it.to == Zone.Battlefield }.forEach { m ->
             val after = all.first { it.before.id == m.id }.after.id
             m.marks.distinct().forEach { mark ->
-                if (mark == arcanum.api.ObjectMark.Prepared) arcanum.engine.prepare.Prepare.becomePrepared(act, after)
-                else tapStatus(act, after, StatusFlag.Marked(mark), true)
+                setMark(act, after, mark, true)
             }
         }
         // CR 400.7: a spell whose card left the Stack is no longer a spell (one resolving keeps its item in its
@@ -968,10 +967,27 @@ internal object Actions {
             StatusFlag.Flipped -> o.flippedStatus
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
-        // CR 702.170d: a card becoming plotted is castable on later turns
-        if (on && now != on && flag == StatusFlag.Marked(arcanum.api.ObjectMark.Plotted)) {
+        // A mark whose turn is kept (CR 702.143d, 702.170d: a card that became foretold or plotted is castable on later turns)
+        if (on && now != on && flag is StatusFlag.Marked) gained(act, id, flag.mark)?.let { record ->
             val marked = act.state.objOrThrow(id)
-            act.record(Change.Facts(id, marked.facts, marked.facts.copy(plottedTurn = act.state.turn.number)))
+            act.record(Change.Facts(id, marked.facts, marked.facts.gaining(record)))
         }
+    }
+
+    /** [id] gets or loses [mark]: a mark that gives a copy to cast does that as it is gained and lost (prepared, CR 722.3a–c). */
+    fun setMark(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark, on: Boolean) {
+        if (arcanum.api.MarkRules.of(mark).permission == arcanum.api.MarkPermission.CastCopy) {
+            if (on) arcanum.engine.prepare.Prepare.becomePrepared(act, id) else arcanum.engine.prepare.Prepare.unprepare(act, id)
+        } else tapStatus(act, id, StatusFlag.Marked(mark), on)
+    }
+
+    /** The record of [id] gaining [mark] now ([arcanum.api.MarkRule.recordsTurn]), with the costs it has now of the keyword the mark's
+     * permission names; null for a mark whose turn isn't kept. */
+    private fun gained(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark): arcanum.engine.state.MarkGained? {
+        val rule = arcanum.api.MarkRules.of(mark)
+        if (!rule.recordsTurn) return null
+        val keyword = ((rule.permission as? arcanum.api.MarkPermission.CastCard)?.cost as? arcanum.api.MarkCost.OfKeyword)?.keyword
+        val costs = keyword?.let { kind -> act.view()[id]?.characteristics?.abilities.orEmpty().mapNotNull { (it.ability as? Keyword)?.takeIf { k -> k.kind == kind } as? arcanum.api.HasCost }.map { it.cost } }
+        return arcanum.engine.state.MarkGained(mark, act.state.turn.number, costs.orEmpty().distinct())
     }
 }

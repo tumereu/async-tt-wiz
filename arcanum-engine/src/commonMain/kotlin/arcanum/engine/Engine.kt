@@ -188,6 +188,10 @@ object Engine {
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view(state), player)
 
+    /** What [id] was as it last existed (CR 608.2h), for an object that no longer exists: a choice can still offer one (CR 701.44c, d). Null while
+     * it exists or when nothing is known of it; its characteristics have no name if it was face down. */
+    fun lastKnown(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.state.ObjectSnapshot? = arcanum.engine.query.Lki.find(state, id)
+
     /** [visible] with [view], [state]'s view ([view] of [state] as it is now) that the caller already has: the same
      * result without working the layers out again. */
     fun visible(state: GameState, player: PlayerId, view: View): Set<arcanum.engine.state.ObjectId> =

@@ -126,8 +126,8 @@ internal object SpmPhrases {
     }
 
     /** spm: a plural creature type ("Spiders", "Mice", "Wolves") as its subtype. */
-    fun pluralSubtype(plural: String): Subtype? = listOf(plural.removeSuffix("s"), plural.removeSuffix("es"), plural.replace(Regex("ves$"), "f"),
-        plural.replace(Regex("ice$"), "ouse"), plural).firstOrNull { it in RulesWords.subtypes }?.let { Subtype(it) }
+    fun pluralSubtype(plural: String): Subtype? = listOf(plural.removeSuffix("s"), plural.removeSuffix("es"), plural.replace(LazyRegexes.VES_END, "f"),
+        plural.replace(LazyRegexes.ICE_END, "ouse"), plural).firstOrNull { it in RulesWords.subtypes }?.let { Subtype(it) }
 
     fun condition(text: String, self: Set<String>): Condition? {
         fun isSelf(t: String) = t in self || t.replaceFirstChar { it.lowercase() } in self

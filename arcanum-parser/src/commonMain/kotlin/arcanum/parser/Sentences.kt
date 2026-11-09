@@ -232,7 +232,7 @@ internal class Sentences(
     private fun dftUntilEndOfTurn(objects: Objects, mechanics: List<Mechanic>) =
         Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn))
     private val dftArtifactCreature = Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature))
-    private fun dftKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+    private fun dftKeywords(text: String): List<Ability>? = text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
     private fun dftInYourGraveyard(filter: ObjectFilter) = Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
     /** dft chunk 14: the spell's target "you control" a cost reduction names before the spell is read; [OracleParser] gives it the slot's name. */
     internal val DFT_YOU_CONTROL_TARGET = "dft: target you control"
@@ -765,7 +765,7 @@ internal class Sentences(
         // dft chunk 14: "Return up to one target creature card, up to one target Mount card, up to one target Vehicle card, and up to one target
         // creature card with no abilities from your graveyard to your hand." (a target for each, CR 115.3)
         Dft.RETURN_UP_TO_ONE_EACH_TO_HAND.matchEntire(sentence)?.let { m ->
-            val items = m.groupValues[1].split(Regex(""",? and |, """)).map { it.removePrefix("up to one target ").ifEmpty { return null } }
+            val items = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.removePrefix("up to one target ").ifEmpty { return null } }
             if (items.size < 2 || m.groupValues[1].split("up to one target ").size - 1 != items.size) return null
             val slots = items.map { item ->
                 dftSlot(item, dftInYourGraveyard(Filters.noun(item.replace(" card", "")) ?: return null), min = 0)
@@ -1078,7 +1078,7 @@ internal class Sentences(
         // "Sacrifice a creature, an artifact, and a land." (one of each, sacrificed at once, CR 701.21a): three different permanents,
         // an artifact creature counting as one of them only (each choice excludes the ones before it)
         MechanicWordings.SACRIFICE_LIST.matchEntire(sentence)?.let { m ->
-            val nouns = m.groupValues[1].split(Regex(""",? and |, """)).map { it.removeArticle() }
+            val nouns = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.removeArticle() }
             val binds = nouns.indices.map { "sacrificed${it + 1}" }
             val chooses = nouns.zip(binds).mapIndexed { n, (noun, bind) ->
                 val earlier = binds.take(n).map { ObjectFilter.Not(ObjectFilter.Is(Objects.Bound(it))) }
@@ -1289,7 +1289,7 @@ internal class Sentences(
         // dsk chunk 13: "This permanent is a 3/4 Ninja creature and has hexproof." (layers 4, 7b and 6)
         SELF_IS_PT_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val subtypes = m.groupValues[4].split(' ').filter { it.isNotEmpty() }.map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
-            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
             return Ability.Static(listOfNotNull(
                 Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
@@ -1499,7 +1499,7 @@ internal class Sentences(
         ADDITIONAL_COST.matchEntire(line)?.let { m ->
             // dsk chunk 10: an "or" between nouns stays in its option ("sacrifice a creature or enchantment or pay {2}")
             val options = (if (BEHOLD_COST.matches(m.groupValues[1].replaceFirstChar { it.uppercase() })) listOf(m.groupValues[1])
-                else m.groupValues[1].split(Regex(""" or (?=(?:sacrifice|pay|discard|exile|return|tap|reveal|choose) )"""))).map { option ->
+                else m.groupValues[1].split(LazyRegexes.OR_BEFORE_COST_VERB_LONG)).map { option ->
                 Cost(option.split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }.flatten())
             }
             val cost = options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options)))
@@ -1736,7 +1736,7 @@ internal class Sentences(
         // chunk 36: "Nonland permanent cards in your graveyard have retrace."
         IN_YOUR_GRAVEYARD_HAVE.matchEntire(line)?.let { m ->
             val cards = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = arcanum.api.Affected.Objects(Objects.Each(
                 Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
@@ -1747,7 +1747,7 @@ internal class Sentences(
             val condition = conditionWithAnd(text)
             // dsk chunk 04: "As long as …, it gets +3/+3 and has hexproof.": "it" is this object
             // dsk chunk 13: "he's a 3/4 Ninja creature": this object
-            val pronoun = Regex("""^(?:It|He|She)(?:'s| is) """).find(rest)
+            val pronoun = LazyRegexes.PRONOUN_IS_AT_START.find(rest)
             val inner = condition?.let { static(when {
                 pronoun != null -> "This permanent is " + rest.substring(pronoun.range.last + 1)
                 rest.startsWith("It ") -> "This permanent " + rest.removePrefix("It ")
@@ -1910,7 +1910,7 @@ internal class Sentences(
 
     /** chunk 30: "first strike", "trample and haste": keywords named in a sentence. */
     private fun keywords(text: String): List<Ability>? =
-        text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+        text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
 
     /** chunk 41: what "for each [phrase]" counts: "+1/+1 counter on this Equipment" (its counters), or matching objects. */
     private fun perEach(phrase: String): Value? {
@@ -1960,7 +1960,7 @@ internal class Sentences(
             }
             Mechanic.ModifyPowerToughness(amount(m.groupValues[1].toInt()), amount(m.groupValues[2].toInt()))
         } ?: HAS_KEYWORDS.matchEntire(predicate)?.let { m ->
-            Mechanic.GainAbilities(m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null })
+            Mechanic.GainAbilities(m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
         } ?: when (predicate) {
             "attacks each combat if able" -> Mechanic.MustAttack()
             "can't block" -> Mechanic.CantBlock(attackers = ObjectFilter.Any)
@@ -2104,7 +2104,6 @@ internal class Sentences(
             functionsIn = zoneOf(condition) ?: Graveyard.takeIf { RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT.find(text)?.let { isSelf(it.groupValues[1]) } == true })
     }
     private val Graveyard = listOf(Zone.Graveyard)
-    private val RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT = Regex("""Return (.+?) from your graveyard to your hand""")
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
     private fun triggered(line: String): Ability? {
@@ -2128,7 +2127,7 @@ internal class Sentences(
         BlbGaps2.NTH_SPELLS_IF.matchEntire(rest)?.let { n ->
             val cast = trigger.events.singleOrNull() as? EventPattern.Cast
             if (cast != null && cast.spell == ObjectFilter.Any && cast.by == PlayerFilter.You && cast.from == null) {
-                val kinds = n.groupValues[1].split(Regex(""",? or |, """)).map { item ->
+                val kinds = n.groupValues[1].split(LazyRegexes.OR_LIST).map { item ->
                     val k = BlbGaps2.NTH_SPELL_ITEM.matchEntire(item) ?: return null
                     val kind = Filters.noun(k.groupValues[2]) ?: return null
                     val other = k.groupValues[3].takeIf { it.isNotEmpty() }?.let { if (isSelf(it)) ObjectFilter.Not(ObjectFilter.Is(Objects.Self)) else return null }
@@ -2709,7 +2708,7 @@ internal class Sentences(
         Gtc.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
             if (move.to.zone != Zone.Battlefield || move.objects !is Objects.Bound) return@let
-            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let }
             return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(move.objects),
                 arcanum.api.Duration.EndOfTurn))
         }
@@ -2820,7 +2819,7 @@ internal class Sentences(
         }
         // chunk 26: "They gain haste." / "Sacrifice them at the beginning of the next end step." after creating tokens
         THEY_GAIN.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             val bound = bindTokens(steps) ?: return null
             return bound + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)),
                 arcanum.api.Affected.Objects(Objects.Bound(TOKENS)), arcanum.api.Duration.Indefinitely))
@@ -3131,7 +3130,7 @@ internal class Sentences(
                     Filters.noun(noun)?.let { context.target(Filters.slotName(noun), Filters.all(context.another(), it)) } }
                 else -> null
             }
-            val keywords = m.groupValues[5].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
+            val keywords = m.groupValues[5].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) }
             // dsk chunk 09: "loses flying", "until your next turn"
             val change = if (m.groupValues[4] == "loses") keywords.singleOrNull()?.let { Mechanic.LoseAbilities(it.kind) } else Mechanic.GainAbilities(keywords.filterNotNull())
             val duration = if (m.groupValues[6] == "your next turn") arcanum.api.Duration.UntilYourNextTurn else arcanum.api.Duration.EndOfTurn
@@ -3252,7 +3251,7 @@ internal class Sentences(
         }
         // dsk chunk 04: "Put a flying, lifelink, or +1/+1 counter on it.": the kind chosen as it resolves
         PUT_ONE_OF_COUNTERS.matchEntire(sentence)?.let { m ->
-            val kinds = m.groupValues[1].split(Regex(""",? or |, """))
+            val kinds = m.groupValues[1].split(LazyRegexes.OR_LIST)
             val objects = if (m.groupValues[2] == "it") context.it ?: return null else if (isSelf(m.groupValues[2])) Objects.Self else return null
             return listOf(Step.Choose(arcanum.api.Choice.Option(kinds), bind = "counter", chooser = Players.You)) + kinds.map { k ->
                 Step.If(arcanum.api.Condition.Chose("counter", k), then = listOf(Step.Do(Effect.PutCounters(objects, Counters.kind(k) ?: return null, Value.Fixed(1)))))
@@ -3279,7 +3278,7 @@ internal class Sentences(
         }
         // dsk chunk 04: "It gains haste until your next turn."
         IT_GAINS_UNTIL_YOUR_NEXT_TURN.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(context.it ?: return null),
                 arcanum.api.Duration.UntilYourNextTurn)))
         }
@@ -3665,7 +3664,7 @@ internal class Sentences(
         // addition to its other types."
         UNTIL_EOT_TARGET_GETS_GAINS_BECOMES.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
-            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[4].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             val add = mutableListOf<CardType>()
             val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
             for (word in m.groupValues[5].split(' ')) {
@@ -3909,7 +3908,7 @@ internal class Sentences(
         GROUP_GETS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             // chunk 40: a subtype stays capitalised ("Elves you control")
             val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() })
-            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) }
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) }
             if (filter != null && keywords?.contains(null) != true) {
                 val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)) +
                     listOfNotNull(keywords?.let { Mechanic.GainAbilities(it.filterNotNull()) })
@@ -3949,7 +3948,7 @@ internal class Sentences(
         }
         // chunk 15: "Choose artifact, creature, or land." (a card type, chosen as it resolves)
         CHOOSE_CARD_TYPE.matchEntire(sentence)?.let { m ->
-            val types = m.groupValues[1].split(Regex(""",? or |, """)).map { Filters.CARD_TYPES[it] }
+            val types = m.groupValues[1].split(LazyRegexes.OR_LIST).map { Filters.CARD_TYPES[it] }
             if (types.all { it != null }) return listOf(Step.Choose(arcanum.api.Choice.CardType(types.filterNotNull()),
                 bind = CHOSEN_TYPE, chooser = Players.You))
         }
@@ -4693,7 +4692,7 @@ internal class Sentences(
                 // dsk chunk 13: "Gremlins you control" (a capitalised subtype)
                 else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { Objects.Each(it) }
             }
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) }
             if (objects != null && keywords.all { it != null })
                 return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords.filterNotNull())),
                     arcanum.api.Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
@@ -4965,7 +4964,7 @@ internal class Sentences(
             context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(if (upTo) 0 else 1), max = Value.Fixed(1))
             val color = BECOME_COLORS[m.groupValues[5]] ?: return null
             val subtype = m.groupValues[6].takeIf { it in RulesWords.subtypes } ?: return null
-            val keywords = m.groupValues[7].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+            val keywords = m.groupValues[7].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
             val mechanics = listOf<Mechanic>(
                 Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
                 Mechanic.SetColors(listOf(ColorRef.Literal(color)))) +
@@ -4976,7 +4975,7 @@ internal class Sentences(
         // chunks 31, 47: "You may exile it. When you do, [reflexive trigger]." (CR 603.12)
         YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
             // dsk chunk 12: "You may discard a card or pay {2}. When you do, …": one of two costs
-            val options = m.groupValues[1].split(Regex(""" or (?=(?:sacrifice|pay|discard|exile|tap) )"""))
+            val options = m.groupValues[1].split(LazyRegexes.OR_BEFORE_COST_VERB)
             val either = if (options.size < 2) null else options.map { Cost(costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let) }
             (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }))?.let { parts ->
                 val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
@@ -5204,7 +5203,7 @@ internal class Sentences(
         // chunk 21: "You may [do something]." with nothing depending on it (CR 608.2d)
         // chunk 51: "Target creature you control gains shroud until end of turn."
         TARGET_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[3].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             val noun = Filters.noun(m.groupValues[2]) ?: return null
             // dsk chunk 12: "another target creature you control"
             val target = context.target(Filters.slotName(m.groupValues[2]),
@@ -5407,7 +5406,7 @@ internal class Sentences(
         }
         // gtc chunk 12: "Creatures blocking or blocked by this creature have lifelink."
         Gtc.BLOCKING_OR_BLOCKED_BY_HAVE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(Filters.all(
                 ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.Or(listOf(ObjectFilter.Blocking(Objects.Self), ObjectFilter.BlockedBy(Objects.Self)))))))
         }
@@ -5511,7 +5510,7 @@ internal class Sentences(
     private fun gtcStaticPredicates(text: String): List<Mechanic>? = text.split(Gtc.STATIC_PREDICATE_AND).flatMap { part ->
         if (part == "can't be blocked by more than one creature") return@flatMap listOf(Mechanic.MaximumBlockers(1))
         Gtc.HAVE_KEYWORDS.matchEntire(part)?.let { m ->
-            listOf(Mechanic.GainAbilities(m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }))
+            listOf(Mechanic.GainAbilities(m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }))
         } ?: Gtc.GET_PT.matchEntire(part)?.let { m ->
             listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[1]) ?: return null, ptChange(m.groupValues[2]) ?: return null))
         } ?: Gtc.CANT_BE_BLOCKED_BY.matchEntire(part)?.let { m -> listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[1]) ?: return null)) }
@@ -5897,7 +5896,7 @@ internal class Sentences(
         // gtc chunk 07: "Draw three cards. You may play …": fine; "Destroy … It can't be regenerated." handled elsewhere
         // gtc chunk 06: "choose first strike, vigilance, or lifelink. Creatures you control gain that ability until end of turn."
         Gtc.CHOOSE_KEYWORD.matchEntire(sentence)?.let { m ->
-            val options = m.groupValues[1].split(Regex(""",? or |, """))
+            val options = m.groupValues[1].split(LazyRegexes.OR_LIST)
             if (options.any { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) == null }) return null
             gtcChosenKeywords = options
             return listOf(Step.Choose(arcanum.api.Choice.Option(options), bind = "ability", chooser = Players.You))
@@ -5920,7 +5919,7 @@ internal class Sentences(
             val objects = gtcSubject(m.groupValues[2], context) ?: return@let
             val mechanics = gtcBecomes(m.groupValues[3]) ?: run { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
             val gains = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { k ->
-                Mechanic.GainAbilities(k.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null })
+                Mechanic.GainAbilities(k.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
             }
             val cantBeBlocked = Mechanic.CantBeBlocked.takeIf { m.groupValues[6].isNotEmpty() }
             return listOf(Step.Do(Effect.ApplyMechanics(mechanics + listOfNotNull(gains, cantBeBlocked), arcanum.api.Affected.Objects(objects), eot)))
@@ -6339,7 +6338,7 @@ internal class Sentences(
             val subtype = becomes.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
             val types = Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true)
             val pt = Mechanic.SetPowerToughness(Value.Fixed(becomes.groupValues[3].toInt()), Value.Fixed(becomes.groupValues[4].toInt()))
-            val rest = body.removeRange(becomes.range).split(Regex(""",? and |, """)).map { it.trim() }.filter { it.isNotEmpty() }
+            val rest = body.removeRange(becomes.range).split(LazyRegexes.AND_LIST).map { it.trim() }.filter { it.isNotEmpty() }
             val loses = "loses all abilities" in rest
             val gains = rest.filter { it.startsWith("gains ") }.map { g -> OracleParser.keyword(g.removePrefix("gains ")) ?: return null }
             if (rest.any { it != "loses all abilities" && !it.startsWith("gains ") }) return null
@@ -6445,7 +6444,7 @@ internal class Sentences(
         // dgm: "create a 2/2 white Knight creature token with vigilance, a 3/3 green Centaur creature token, and a 4/4 green Rhino
         // creature token with trample."
         Gtc.CREATE_TOKENS_LIST.matchEntire(sentence)?.let { m ->
-            val parts = m.groupValues[1].split(Regex(""",? and (?=an? )|, (?=an? )"""))
+            val parts = m.groupValues[1].split(LazyRegexes.AND_BEFORE_ARTICLE)
             if (parts.size < 2) return@let
             return parts.map { part ->
                 val (count, token) = Tokens.spec(part) ?: return@let
@@ -6467,7 +6466,7 @@ internal class Sentences(
         }
         // dgm: "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice." (one event)
         Gtc.EACH_PLAYER_SACRIFICES_LIST.matchEntire(sentence)?.let { m ->
-            val nouns = m.groupValues[1].split(Regex(""",? and |, """)).map { it.removeArticle() }
+            val nouns = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.removeArticle() }
             if (nouns.size < 2) return@let
             val player = Players.Bound("player")
             val binds = nouns.indices.map { "sacrificed${it + 1}" }
@@ -6549,7 +6548,7 @@ internal class Sentences(
             rest = rest.replace("it's legendary in addition to its other types", "")
         }
         val has = Gtc.EXCEPT_IT_HAS.find(rest) ?: return null
-        val parts = has.groupValues[1].split(Regex(""",? and |, """))
+        val parts = has.groupValues[1].split(LazyRegexes.AND_LIST)
         val keywords = parts.filter { it != "this ability" }.map { OracleParser.keyword(it) ?: return null }
         if (keywords.isNotEmpty()) result += arcanum.api.CopyException.AddAbilities(keywords)
         if ("this ability" in parts) result += arcanum.api.CopyException.ThisAbility
@@ -6571,7 +6570,7 @@ internal class Sentences(
             if (each != null) {
                 val value = gtcSelfValue(each.groupValues[1]) ?: return null
                 pt = value to value
-            } else keywords = with.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            } else keywords = with.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
         }
         val (power, toughness) = pt ?: return null
         return listOf<Mechanic>(Mechanic.SetTypes(add = types, addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) },
@@ -6670,7 +6669,7 @@ internal class Sentences(
      * by creature tokens"). */
     private fun gtcPredicate(text: String): List<Mechanic>? {
         Gtc.GAIN_KEYWORDS.matchEntire(text)?.let { m ->
-            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return listOf(Mechanic.GainAbilities(keywords))
         }
         Gtc.GET_PT.matchEntire(text)?.let { m ->
@@ -6709,7 +6708,7 @@ internal class Sentences(
             val spell = ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
             return ObjectFilter.Or(listOf(Filters.all(spell, first), Filters.all(spell, second)))
         }
-        val uses = text.split(Regex(""",? or |,? and |, """)).map { use ->
+        val uses = text.split(LazyRegexes.OR_AND_LIST).map { use ->
             when (use) {
                 "unlock doors", "unlock a door" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock)
                 "turn permanents face up", "turn a permanent face up" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.TurnFaceUp)
@@ -6730,7 +6729,7 @@ internal class Sentences(
         PT_COLOR_TYPE_IN_ADDITION.matchEntire(text)?.let { m ->
             val color = Tokens.color(m.groupValues[3]) ?: return null
             val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
-            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
             return listOfNotNull(
                 arcanum.api.CopyException.PowerToughness(m.groupValues[1].toInt(), m.groupValues[2].toInt()),
                 arcanum.api.CopyException.Colors(listOf(ColorRef.Literal(color)), add = true),
@@ -6892,7 +6891,7 @@ internal class Sentences(
         }
         GAIN_AND_GET.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(
                 listOf(Mechanic.GainAbilities(keywords), Mechanic.ModifyPowerToughness(xChange(m.groupValues[3]) ?: return null, xChange(m.groupValues[4]) ?: return null)),
                 arcanum.api.Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
@@ -7046,7 +7045,7 @@ internal class Sentences(
         // blb chunk 12: "one mana of the chosen color"
         if (text == "one mana of the chosen color") return ManaKind.Choose(Value.Fixed(1), listOf(ColorRef.Remembered(CHOSEN_COLOR)))
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
-        val colors = text.split(Regex(""",? or |, """)).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
+        val colors = text.split(LazyRegexes.OR_LIST).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
             ?.let { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: return null }
         return ManaKind.Choose(Value.Fixed(1), colors.map { ColorRef.Literal(it) })
     }
@@ -7321,7 +7320,7 @@ internal class Sentences(
         // blb chunk 05: "Permanents you control with counters on them have ward {1}." (keywords with values, CR 613.1f)
         Blb.HAVE_KEYWORDS_WITH_VALUES.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let }
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(filter)))
         }
         // blb chunk 05: "If a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, it
@@ -7369,7 +7368,7 @@ internal class Sentences(
         // blb chunk 02: "Equipped creature gets +3/+3 and loses flying.", "… gets +2/+0 and has first strike, vigilance,
         // trample, and haste." (CR 613.4c, 613.1f)
         Blb.ATTACHED_GETS_HAS_LOSES.matchEntire(line)?.let { m ->
-            fun keywords(text: String) = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
+            fun keywords(text: String) = text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) }
             val has = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { keywords(it) }
             val loses = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { keywords(it) }
             if (has == null && loses == null) return null
@@ -7814,7 +7813,7 @@ internal class Sentences(
         }
         // blb chunk 06: "It gains vigilance and trample until end of turn." about an object chosen before
         Blb.IT_GAINS.matchEntire(sentence)?.takeIf { context.it is Objects.Bound }?.let { m ->
-            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(context.it!!), arcanum.api.Duration.EndOfTurn)))
         }
         // blb chunk 06: "Choose artifact or enchantment." (a card type, CR 205.2a)
@@ -7954,14 +7953,14 @@ internal class Sentences(
                 m.groupValues[1] == "It" -> context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
                 else -> return null
             }
-            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
             val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)) +
                 listOfNotNull(keywords?.let { Mechanic.GainAbilities(it) })
             return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
         }
         // blb chunk 04: "Target creature you control gets +1/+1 and gains trample until end of turn."
         Blb.TARGET_GETS_AND_GAINS.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[4].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null,
                 ptChange(m.groupValues[3]) ?: return null), Mechanic.GainAbilities(keywords)), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
@@ -8339,7 +8338,7 @@ internal class Sentences(
         }
         // rtr chunk 06: "This creature has trample as long as it has a +1/+1 counter on it."
         Rtr.HAS_KEYWORDS_AS_LONG_AS_COUNTER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             val kind = Counters.kind(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1)))
@@ -8351,7 +8350,7 @@ internal class Sentences(
         // rtr chunk 06: "During turns other than yours, tapped creatures you control have hexproof."
         Rtr.DURING_OTHER_TURNS_HAVE.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(filter)),
                 condition = arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn))
         }
@@ -8848,7 +8847,7 @@ internal class Sentences(
         if (text != sentence.removeSuffix(".") && m.groupValues[7].isNotEmpty()) return null
         val colors = m.groupValues[4].split(" and ").map { Tokens.color(it) ?: return null }
         val subtypes = m.groupValues[5].split(' ').map { s -> arcanum.api.SubtypeRef.Literal(Subtype(s.takeIf { it in RulesWords.subtypes } ?: return null)) }
-        val keywords = m.groupValues[6].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+        val keywords = m.groupValues[6].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
         return listOf(Step.Do(Effect.ApplyMechanics(listOfNotNull(
             Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes, replaceSubtypes = true),
             Mechanic.SetColors(colors.map { ColorRef.Literal(it) }),
@@ -8887,7 +8886,7 @@ internal class Sentences(
                 }
                 tail.startsWith(" and gains ") -> {
                     val end = tail.indexOf(" until end of turn").let { if (it < 0) tail.length else it }
-                    keywords += tail.substring(" and gains ".length, end).split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+                    keywords += tail.substring(" and gains ".length, end).split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
                     tail = tail.substring(end)
                 }
                 else -> return null
@@ -8998,7 +8997,7 @@ internal class Sentences(
         Rtr.REPEAT_THIS_PROCESS_FOR.matchEntire(sentence)?.let { m ->
             val move = last as? Effect.Move ?: return null
             val search = ((steps.getOrNull(steps.size - 2) as? Step.Do)?.effect as? Effect.Search) ?: return null
-            val values = m.groupValues[2].split(Regex(""",? and |, """)).map { it.toIntOrNull() ?: return null }
+            val values = m.groupValues[2].split(LazyRegexes.AND_LIST).map { it.toIntOrNull() ?: return null }
             val noun = Filters.noun(m.groupValues[1]) ?: return null
             return steps + values.flatMap { v ->
                 listOf(Step.Do(search.copy(filter = Filters.all(noun, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(v))))), Step.Do(move))
@@ -9706,7 +9705,7 @@ internal class Sentences(
             val abilities = when {
                 with.isEmpty() -> emptyList()
                 with.startsWith("\"") -> listOf(Sentences(setOf("this token", "This token", "this creature")).line(with.trim('"').removeSuffix(".") + ".") ?: return null)
-                else -> with.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+                else -> with.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
             }
             val token = defined.copy(face = defined.face.copy(name = m.groupValues[3], abilities = abilities))
             val create = Step.Do(Effect.CreateToken(token, count, controller = Players.You, bind = "created"))
@@ -9895,7 +9894,7 @@ internal class Sentences(
         // fra chunk 07: "It gains your choice of trample, hexproof, or haste until end of turn."
         Fra.GAINS_YOUR_CHOICE_OF.matchEntire(sentence)?.let { m ->
             val objects = fraObjects(m.groupValues[1], context) ?: return@let
-            val options = m.groupValues[2].split(Regex(""",? or |, """))
+            val options = m.groupValues[2].split(LazyRegexes.OR_LIST)
             val keywords = options.map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             // one choice, each keyword in its branch: If(first, otherwise = If(second, otherwise = third))
             fun gain(keyword: Ability) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))), Affected.Objects(objects), eot))
@@ -10166,7 +10165,7 @@ internal class Sentences(
     /** fra: a plural noun at the start of a sentence ("Planeswalkers you control", "Instant and sorcery spells you control"). */
     private fun fraPlural(phrase: String): ObjectFilter? {
         val lower = phrase.replaceFirstChar { it.lowercase() }.replace("instant and sorcery spells", "instant or sorcery spell")
-        return Filters.noun(lower) ?: Filters.noun(lower.replaceFirst(Regex("""^(\w+)s\b"""), "$1"))
+        return Filters.noun(lower) ?: Filters.noun(lower.replaceFirst(LazyRegexes.PLURAL_FIRST_WORD, "$1"))
     }
 
     /** fra: the objects a subject names: this object, "it", "target [noun]", "each [noun]". */
@@ -10479,6 +10478,15 @@ internal class Sentences(
     }
 
     private companion object {
+        // one for all instances of the class: first compiled as the first instance is made, as they were
+        val RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT = Regex("""Return (.+?) from your graveyard to your hand""")
+        val MSH_UP_TO_ONE_TARGET = Regex("""(?:[Uu]p to one) target (.+)""")
+        val PAY_X_WHEN_YOU_DO = Regex("""You may pay \{X\}\. When you do, (.+)""")
+        val CAST_MV_EQUAL_TO_POWER = Regex("""you cast an? (.+?) spell with mana value equal to (.+?)'s power""")
+        val ATTACK_WITH_N_OR_MORE = Regex("""you attack with (\w+) or more (\w+)""")
+        val DEALS_N_OR_MORE_DAMAGE = Regex("""(.+?) deals (\d+) or more damage""")
+        val ENTERS_FROM_A = Regex("""(.+?) enters from an? (graveyard|exile)""")
+        val COUNTERS_ON_SELF = Regex("""the number of (\w+) counters on (.+)""")
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
         val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
         // msh: "Power-up —", "I LOVE Squirrels! —", "Do You Like Squirrels? —"
@@ -11089,7 +11097,7 @@ internal class Sentences(
         copyExceptions(text)?.let { return it }
         val m = BlbGaps.TYPE_IN_ADDITION_AND_HAS.matchEntire(text) ?: return null
         val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
-        val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+        val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
         return listOf(arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
             arcanum.api.CopyException.AddAbilities(keywords))
     }
@@ -11208,7 +11216,7 @@ internal class Sentences(
             val conditions = m.groupValues[1].split(" or if ").map { gapCondition(it, context) ?: return@let }
             val g = BlbGaps.GAIN_CONTROL_UNTAP_GAINS.matchEntire(m.groupValues[2]) ?: return@let
             val it = context.it ?: return@let
-            val keywords = g.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            val keywords = g.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let }
             val then = listOf(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(it), arcanum.api.Duration.EndOfTurn)),
                 Step.Do(Effect.Untap(it)),
@@ -11503,7 +11511,7 @@ internal class Sentences(
             return arcanum.api.Trigger.On(EventPattern.Cast(quality, PlayerFilter.Opponent))
         }
         // hob chunk 10: "you attack with creatures with total power 12 or greater for the first time each turn" (CR 508.3d)
-        Regex("""you attack with creatures with total power (\d+) or greater for the first time each turn""").matchEntire(events)?.let { m ->
+        LazyRegexes.ATTACK_WITH_TOTAL_POWER.matchEntire(events)?.let { m ->
             return arcanum.api.Trigger.On(listOf(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true, nthThisTurn = 1,
                 batchTotal = arcanum.api.Total(arcanum.api.NumericProperty.Power, Value.Fixed(m.groupValues[1].toInt())))
         }
@@ -11796,7 +11804,7 @@ internal class Sentences(
         }
         // hob chunk 06: "Each equipped attacking creature gains double strike until end of turn." (fixed as it resolves, CR 611.2c)
         Hob.EACH_EQUIPPED_ATTACKING_GAINS.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[1].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val keywords = m.groupValues[1].split(LazyRegexes.COMMA_AND_WORDS).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             val filter = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
                 ObjectFilter.Attached(attachments = ObjectFilter.Sub(Subtype("Equipment"))))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
@@ -11889,7 +11897,7 @@ internal class Sentences(
         // hob chunk 08: "until end of turn, this creature gets +1/+0 and creatures you control gain trample."
         Hob.UNTIL_EOT_GETS_AND_GAIN.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val others = Filters.noun(m.groupValues[4]) ?: return null
-            val keywords = m.groupValues[5].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val keywords = m.groupValues[5].split(LazyRegexes.COMMA_AND_WORDS).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             return listOf(hobPump(Objects.Self, m.groupValues[2].toInt(), m.groupValues[3].toInt()),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(Objects.Each(others)), arcanum.api.Duration.EndOfTurn)))
         }
@@ -11923,7 +11931,7 @@ internal class Sentences(
             val noun = m.groupValues[1]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             val type = if (m.groupValues[2] == "artifact") CardType.Artifact else CardType.Enchantment
-            val keywords = m.groupValues[3].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val keywords = m.groupValues[3].split(LazyRegexes.COMMA_AND_WORDS).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(type)), Mechanic.GainAbilities(keywords)),
                 Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
@@ -12241,7 +12249,7 @@ internal class Sentences(
     private fun tlaTrigger(events: String): arcanum.api.Trigger.On? {
         // tla chunk 01: "you waterbend, earthbend, firebend, or airbend" (CR 701.65b, 701.66b, 701.67c, 702.189b)
         if (Tla.YOU_BEND.matches(events)) {
-            val words = Regex("""(waterbend|earthbend|firebend|airbend)""").findAll(events).map { it.value }.toList()
+            val words = LazyRegexes.BENDING_WORD.findAll(events).map { it.value }.toList()
             return arcanum.api.Trigger.On(words.map { word ->
                 when (word) {
                     "waterbend" -> EventPattern.Waterbend(PlayerFilter.You); "earthbend" -> EventPattern.Earthbend(PlayerFilter.You)
@@ -12314,7 +12322,7 @@ internal class Sentences(
 
     /** tla chunk 04: a "where X is" value that reads the trigger event ("that creature's power": the creature that died, CR 603.10a). */
     private fun tlaValue(text: String, event: EventPattern?): Value? {
-        if (event is EventPattern.ZoneChange && event.from == Zone.Battlefield && Regex("""that creature's (power|toughness)""").matches(text)) {
+        if (event is EventPattern.ZoneChange && event.from == Zone.Battlefield && LazyRegexes.THAT_CREATURES_POWER_OR_TOUGHNESS.matches(text)) {
             val property = if (text.endsWith("power")) arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
             return Value.Of(property, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
         }
@@ -12424,7 +12432,7 @@ internal class Sentences(
         // lifelink, and hexproof." (layers 4, 6)
         Tla.BECOMES_TYPE_AND_GAINS.matchEntire(sentence)?.let { m ->
             val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
-            val keywords = m.groupValues[3].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             return listOf(tlaUntilEndOfTurn(target, Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
                 Mechanic.GainAbilities(keywords)))
@@ -12623,7 +12631,7 @@ internal class Sentences(
         }
         // "Noble creatures you control and Lesson spells you control have lifelink." (layer 6)
         Tla.TWO_GROUPS_HAVE.matchEntire(line)?.let { m ->
-            val keywords = m.groupValues[3].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             val groups = ObjectFilter.Or(listOf(Filters.noun(m.groupValues[1]) ?: return null, Filters.noun(m.groupValues[2]) ?: return null))
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(groups)))
         }
@@ -12731,7 +12739,7 @@ internal class Sentences(
         }
         // "Ozai has flying and indestructible as long as you have six or more unspent mana." (layer 6)
         Tla.HAS_AS_LONG_AS_UNSPENT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.Compare(Value.ManaInPool(Players.You), arcanum.api.Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null)))
         }
@@ -12838,7 +12846,7 @@ internal class Sentences(
         // token at the beginning of the next end step." (CR 111.4, 508.4, 603.7)
         Tla.CREATE_NAMED_TAPPED_ATTACKING_SACRIFICE.tla(sentence)?.let { m ->
             val token = Tokens.defined(m.groupValues[1]) ?: return null
-            val keywords = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+            val keywords = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
             val named = token.copy(face = token.face.copy(name = m.groupValues[3], abilities = keywords))
             return listOf(Step.Do(Effect.CreateToken(named, Value.Fixed(1), Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
@@ -12864,7 +12872,7 @@ internal class Sentences(
         // "put X +1/+1 counters on target attacking creature, where X is …. If X is three or more, that creature gains lifelink until end of turn."
         Tla.IF_X_IS_N_OR_MORE_THAT_CREATURE_GAINS.matchEntire(sentence)?.let { m ->
             val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             val n = Numbers.count(m.groupValues[1]) ?: return null
             // a count of this turn's events against a number is HappenedThisTurn (the canonical form)
             val condition = (context.definedX as? Value.EventsThisTurn)?.let { arcanum.api.Condition.HappenedThisTurn(it.event, atLeast = n, measure = it.measure) }
@@ -13002,7 +13010,7 @@ internal class Sentences(
         // "Each creature you control gains firebending 5 until end of turn." (layer 6)
         Tla.EACH_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val objects = Filters.noun(m.groupValues[1]) ?: return@let
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return@let }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return@let }
             return listOf(tlaUntilEndOfTurn(Objects.Each(objects), Mechanic.GainAbilities(keywords)))
         }
         // "Up to two target creatures you control each deal damage equal to their power to target creature an opponent controls."
@@ -13094,7 +13102,7 @@ internal class Sentences(
         }
         // "Until end of turn, this creature has base power 4 and gains trample." (layers 6, 7b)
         Tla.BASE_POWER_AND_GAINS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val keywords = m.groupValues[3].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             return listOf(tlaUntilEndOfTurn(Objects.Self, Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), null), Mechanic.GainAbilities(keywords)))
         }
         // "you may search your library for a basic land card and put it onto the battlefield tapped. If you search your library this way, put
@@ -13265,7 +13273,7 @@ internal class Sentences(
     private fun tmtSlot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
         TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
     private fun tmtNewSlotName(context: Context, base: String) = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
-    private fun tmtKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, |,? or """)).map { OracleParser.keyword(it.trim()) ?: return null }
+    private fun tmtKeywords(text: String): List<Ability>? = text.split(LazyRegexes.AND_OR_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
     private fun tmtSentence(text: String) = text.replaceFirstChar { it.uppercase() }.let { if (it.endsWith(".")) it else "$it." }
     private val tmtSneakPaid get() = arcanum.api.Condition.Paid(arcanum.api.Keyword.Sneak.Kind, times = 1, of = Objects.Self)
     private val tmtP1P1 get() = arcanum.api.CounterKind.PowerToughness(1, 1)
@@ -13562,7 +13570,7 @@ internal class Sentences(
     private fun tmtSpendUse(use: String): ObjectFilter? {
         val u = use.removePrefix("to ")
         if (u == "activate an ability" || u == "activate abilities") return ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated)
-        Regex("""cast an? (\w+) spell""").matchEntire(u)?.let { m ->
+        LazyRegexes.CAST_A_WORD_SPELL.matchEntire(u)?.let { m ->
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), Filters.noun(m.groupValues[1]) ?: return null)
         }
         return null
@@ -13989,7 +13997,7 @@ internal class Sentences(
         TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
     private fun mshUntilEndOfTurn(objects: Objects, vararg mechanics: Mechanic) =
         Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), arcanum.api.Duration.EndOfTurn))
-    private fun mshKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+    private fun mshKeywords(text: String): List<Ability>? = text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
     private fun mshCap(text: String) = text.replaceFirstChar { it.uppercase() }
     private fun mshSentence(text: String) = mshCap(text).let { if (it.endsWith(".")) it else "$it." }
     private fun mshLastTarget(context: Context): Objects? = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
@@ -14039,8 +14047,8 @@ internal class Sentences(
     /** msh: a token's "with …": keywords and quoted abilities ("flying, indestructible, and "…""). */
     private fun mshTokenAbilities(with: String, names: Set<String>): List<Ability>? {
         if (with.isEmpty()) return emptyList()
-        val quoted = Regex(""""(.+?)"""").findAll(with).map { it.groupValues[1] }.toList()
-        val rest = with.replace(Regex(""",? ?(?:and )?"(.+?)""""), "").trim().removeSuffix(",").removeSuffix(" and").trim()
+        val quoted = LazyRegexes.QUOTED.findAll(with).map { it.groupValues[1] }.toList()
+        val rest = with.replace(LazyRegexes.AND_QUOTED, "").trim().removeSuffix(",").removeSuffix(" and").trim()
         val keywords = if (rest.isEmpty()) emptyList() else mshKeywords(rest.removeSuffix(","))?.takeIf { it.isNotEmpty() } ?: return null
         val inner = Sentences(names)
         return keywords + quoted.map { q -> inner.multi(mshSentence(q))?.singleOrNull() ?: inner.line(mshSentence(q)) ?: return null }
@@ -14665,7 +14673,6 @@ internal class Sentences(
         return null
     }
 
-    private val MSH_UP_TO_ONE_TARGET = Regex("""(?:[Uu]p to one) target (.+)""")
     // ---- msh: batch 3
 
     private fun mshTargetYourGraveyard(noun: String): ObjectFilter? = (Filters.noun(noun) ?: Filters.noun(noun.removeSuffix(" card").let { "$it card" }))
@@ -14690,10 +14697,10 @@ internal class Sentences(
     private fun mshSpendUse(use: String): ObjectFilter? {
         val u = use.removePrefix("to ")
         if (u == "activate equip abilities") return ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, keyword = arcanum.api.Keyword.Equip.Kind)
-        Regex("""activate (?:an ability|abilities) of (?:an? )?(\w+) sources?""").matchEntire(u)?.let { m ->
+        LazyRegexes.ACTIVATE_ABILITIES_OF_SOURCES.matchEntire(u)?.let { m ->
             return ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, source = Filters.noun(m.groupValues[1]) ?: return null)
         }
-        if (u != use) Regex("""cast (?:an? )?(.+?) spells?""").matchEntire(u)?.let { m ->
+        if (u != use) LazyRegexes.CAST_SPELLS.matchEntire(u)?.let { m ->
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), Filters.noun(m.groupValues[1]) ?: return null)
         }
         return null
@@ -14759,7 +14766,7 @@ internal class Sentences(
         val n = mshN(m.groupValues[1]) ?: return null
         val names = mutableListOf<String>()
         val options = modeLines.map { line ->
-            val t = Regex("""Target (.+)\.""").matchEntire(line) ?: return null
+            val t = LazyRegexes.TARGET_SENTENCE.matchEntire(line) ?: return null
             val noun = t.groupValues[1]
             // msh backfill: each mode's own slot ("artifact card", "creature card"), so the step after the modes reads every
             // chosen target (one shared name kept only the first mode's)
@@ -15015,7 +15022,7 @@ internal class Sentences(
         // Super-Adaptoid. Do the same for flying, first strike, …, and vigilance." (keyword counters, CR 122.1b)
         Msh.ADAPTOID.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val target = context.target("creature", Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Type(CardType.Creature)))
-            val words = listOf(m.groupValues[1]) + m.groupValues[3].split(Regex(""",? and |, """))
+            val words = listOf(m.groupValues[1]) + m.groupValues[3].split(LazyRegexes.AND_LIST)
             return words.map { word ->
                 val keyword = OracleParser.keyword(mshCap(word.trim())) ?: return null
                 val has = ObjectFilter.HasKeyword(keyword.kind)
@@ -15108,7 +15115,7 @@ internal class Sentences(
     private fun mshEffect3(sentence: String, context: Context): List<Step>? {
         mshEffect4(sentence, context)?.let { return it }
         // msh chunk 10: "each opponent draws a card"
-        Regex("""[Ee]ach opponent draws (a|\w+) cards?\.""").matchEntire(sentence)?.let { m ->
+        LazyRegexes.EACH_OPPONENT_DRAWS.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Draw(Players.Each(PlayerFilter.Opponent), Value.Fixed(mshN(m.groupValues[1]) ?: return null))))
         }
         // msh chunk 03: "you control target opponent during their next turn" (CR 723)
@@ -15222,7 +15229,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Tap(target)))
         }
         // msh chunk 13: "it deals 1 damage to each opponent" in a trigger on the equipped creature: that creature deals it (CR 120.1)
-        Regex("""It deals (\d+) damage to each opponent\.""").matchEntire(sentence)?.let { m ->
+        LazyRegexes.IT_DEALS_DAMAGE_TO_EACH_OPPONENT.matchEntire(sentence)?.let { m ->
             val attached = ObjectFilter.Is(Objects.AttachedTo(Objects.Self))
             val about = when (val event = context.event) {
                 is EventPattern.Tap -> event.objects
@@ -15285,7 +15292,7 @@ internal class Sentences(
                     replaceSubtypes = true)))), Affected.Objects(Objects.Self), arcanum.api.Duration.UntilYourNextTurn)))
         }
         // msh chunk 09: 'create a 1/1 red Alien creature token with haste and "This token attacks each combat if able."'
-        Regex("""[Cc]reate (.+ creature tokens? with .+)\.""").matchEntire(sentence)?.takeIf { Tokens.spec(it.groupValues[1]) == null }?.let { m ->
+        LazyRegexes.CREATE_TOKENS_WITH.matchEntire(sentence)?.takeIf { Tokens.spec(it.groupValues[1]) == null }?.let { m ->
             val (count, token) = mshToken(m.groupValues[1]) ?: return@let
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, bind = "token")))
         }
@@ -15375,7 +15382,7 @@ internal class Sentences(
     private val sosSelfOnly get() = Affected.Objects(Objects.Self)
     private val sosP1P1 get() = arcanum.api.CounterKind.PowerToughness(1, 1)
     private fun sosYourGraveyard(filter: ObjectFilter) = Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
-    private fun sosKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+    private fun sosKeywords(text: String): List<Ability>? = text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
     /** A condition only the sos wordings read ("five or more mana was spent to cast that spell"), so the general rules aren't shadowed. */
     private fun sosCondition(text: String): arcanum.api.Condition? = SosPhrases.condition(text, self)
     /** The steps of "look at the top [n] cards; put [keep] into your hand and the rest [rest]" (CR 401.4: the rest in any or a random order). */
@@ -16430,7 +16437,7 @@ internal class Sentences(
         }
         // spm chunk 08: "Other Spiders, Boars, Bats, …, and Wolves you control get +1/+1." (each permanent of any of those creature types)
         Spm.OTHER_PLURAL_LIST_GET.matchEntire(line)?.let { m ->
-            val types = m.groupValues[1].split(Regex(""",? and |, """)).map { SpmPhrases.pluralSubtype(it.trim()) ?: return null }
+            val types = m.groupValues[1].split(LazyRegexes.AND_LIST).map { SpmPhrases.pluralSubtype(it.trim()) ?: return null }
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
                 affects = Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Or(types.map { ObjectFilter.Sub(it) }),
                     ObjectFilter.ControlledBy(PlayerFilter.You)))))
@@ -16776,8 +16783,6 @@ internal class Sentences(
         return null
     }
 
-    private val PAY_X_WHEN_YOU_DO = Regex("""You may pay \{X\}\. When you do, (.+)""")
-
     /** spm: effect sentences, tried first in [effect]. */
     private fun spmEffect(sentence: String, context: Context): List<Step>? {
         // spm chunk 02: "put its +1/+1 counters on target creature you control" (this creature as it last existed, CR 603.10a)
@@ -16963,7 +16968,7 @@ internal class Sentences(
 
     /** spm chunk 07: "Spider and legendary creature you control": each permanent that's either (a Spider, or a legendary creature). */
     private fun spmSpiderAndLegendary(phrase: String): ObjectFilter? {
-        val m = Regex("""([A-Z]\w+) and legendary creature you control""").matchEntire(phrase) ?: return null
+        val m = LazyRegexes.WORD_AND_LEGENDARY_CREATURE.matchEntire(phrase) ?: return null
         val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
         return Filters.all(ObjectFilter.Or(listOf(ObjectFilter.Sub(Subtype(subtype)), Filters.all(ObjectFilter.Super(Supertype.Legendary), ObjectFilter.Type(CardType.Creature)))),
             ObjectFilter.ControlledBy(PlayerFilter.You))
@@ -16977,12 +16982,6 @@ internal class Sentences(
         }
         return Values.value(text)
     }
-
-    private val CAST_MV_EQUAL_TO_POWER = Regex("""you cast an? (.+?) spell with mana value equal to (.+?)'s power""")
-    private val ATTACK_WITH_N_OR_MORE = Regex("""you attack with (\w+) or more (\w+)""")
-    private val DEALS_N_OR_MORE_DAMAGE = Regex("""(.+?) deals (\d+) or more damage""")
-    private val ENTERS_FROM_A = Regex("""(.+?) enters from an? (graveyard|exile)""")
-    private val COUNTERS_ON_SELF = Regex("""the number of (\w+) counters on (.+)""")
 
     // ---- ecl: Lorwyn Eclipsed (tried first; each rule reads one wording and falls through when it can't)
 
@@ -16998,7 +16997,7 @@ internal class Sentences(
     private fun eclCap(text: String) = text.replaceFirstChar { it.uppercase() }
     /** ecl chunk 13: a creature type in the plural ("Elementals", "Elves") as a subtype filter. */
     private fun eclPluralSubtype(plural: String): ObjectFilter? = listOf(plural.removeSuffix("s"), plural.removeSuffix("es"),
-        plural.replace(Regex("ves$"), "f"), plural).firstOrNull { it in RulesWords.subtypes }?.let { ObjectFilter.Sub(Subtype(it)) }
+        plural.replace(LazyRegexes.VES_END, "f"), plural).firstOrNull { it in RulesWords.subtypes }?.let { ObjectFilter.Sub(Subtype(it)) }
 
     /** ecl chunk 01: "blight N" (CR 701.68a) by [players], naming the creature "blighted" (701.68c). */
     private fun eclBlight(players: Players, count: Value): arcanum.api.KeywordAction.Blight = arcanum.api.KeywordAction.Blight(players, count)
@@ -17323,8 +17322,8 @@ internal class Sentences(
 
     /** ecl: keywords and quoted abilities ("haste and "…"", ""…""). */
     private fun eclKeywordsAndQuoted(text: String, names: Set<String>): List<Ability>? {
-        val quoted = Regex(""""(.+?)"""").findAll(text).map { it.groupValues[1] }.toList()
-        val rest = text.replace(Regex(""",? ?(?:and )?"(.+?)""""), "").trim().removeSuffix(",").removeSuffix(" and").trim()
+        val quoted = LazyRegexes.QUOTED.findAll(text).map { it.groupValues[1] }.toList()
+        val rest = text.replace(LazyRegexes.AND_QUOTED, "").trim().removeSuffix(",").removeSuffix(" and").trim()
         val keywords = if (rest.isEmpty()) emptyList() else keywords(rest) ?: return null
         val inner = Sentences(names)
         return keywords + quoted.map { q -> val s = if (q.endsWith(".")) q else "$q."; inner.line(s) ?: return null }
@@ -17554,7 +17553,7 @@ internal class Sentences(
         // ecl chunk 06: "As this artifact enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk." (a creature type of
         // those, kept as the chosen type, CR 614.12, 607.2d)
         Ecl.AS_ENTERS_CHOOSE_TYPE_AMONG.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val types = m.groupValues[2].split(Regex(",? or |, ")).map { it.takeIf { t -> t in RulesWords.subtypes } ?: return@let }
+            val types = m.groupValues[2].split(LazyRegexes.OR_LIST).map { it.takeIf { t -> t in RulesWords.subtypes } ?: return@let }
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(
                 Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.CreatureTypeAmong(types.map { Subtype(it) }), bind = "type", chooser = Players.You,
                     remember = true)))))), affects = eclSelfOnly)
@@ -17779,7 +17778,7 @@ internal class Sentences(
                 "that creature", "it" -> context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
                 else -> return null
             }
-            val kinds = m.groupValues[1].split(Regex(""",? and |, """)).map { Counters.kind(it.removePrefix("a ").removePrefix("an ").removeSuffix(" counter")) ?: return null }
+            val kinds = m.groupValues[1].split(LazyRegexes.AND_LIST).map { Counters.kind(it.removePrefix("a ").removePrefix("an ").removeSuffix(" counter")) ?: return null }
             return kinds.map { Step.Do(Effect.PutCounters(on, it, Value.Fixed(1))) }
         }
         // ecl chunk 08: "Ashling's Command deals 2 damage to each creature target player controls."
@@ -18617,7 +18616,7 @@ internal class Sentences(
         }
         // fin chunk 04: "Add {W}{W}, {U}{U}, {B}{B}, {R}{R}, and {G}{G}." (all of it, CR 106.3)
         Fin.ADD_MANA_LIST.matchEntire(sentence)?.let { m ->
-            val all = Regex("""\{[^}]+\}""").findAll(m.groupValues[1]).joinToString("") { it.value }
+            val all = LazyRegexes.MANA_SYMBOL.findAll(m.groupValues[1]).joinToString("") { it.value }
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(all) ?: return null)), Players.You)))
         }
         // fin chunk 05: "Put a number of +1/+1 counters on Vincent equal to that creature's power." (in a dies trigger: as it last existed)
@@ -19774,7 +19773,7 @@ internal class Sentences(
         // end of turn." (layers 4, 6, 7b)
         Eoe.BECOMES_ARTIFACT_CREATURE_BASE_GAINS.matchEntire(sentence)?.let { m ->
             val target = eoeTarget(m.groupValues[1], context) ?: return null
-            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[4].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             return listOf(eoeUntilEndOfTurn(target, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature)),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())), Mechanic.GainAbilities(keywords)))
         }
@@ -19864,7 +19863,7 @@ internal class Sentences(
         // until end of turn." (CR 702.185a: its warp cost was paid for the spell it was)
         Eoe.GETS_IF_WARPED_ALSO_GAINS.matchEntire(sentence)?.let { m ->
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
-            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+            val keywords = m.groupValues[4].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
             return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
                 Step.If(arcanum.api.Condition.Paid(arcanum.api.Keyword.Warp.Kind, times = 1, of = target), then = listOf(
                     eoeUntilEndOfTurn(target, Mechanic.GainAbilities(keywords)))))
@@ -20324,7 +20323,7 @@ internal class Sentences(
     private fun tdmSlot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
         TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
     private fun tdmNewSlotName(context: Context, base: String) = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
-    private fun tdmKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return null }
+    private fun tdmKeywords(text: String): List<Ability>? = text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return null }
     private fun tdmPower(of: Objects) = Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single)
     private fun tdmInGraveyard(filter: ObjectFilter) = Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
     private val tdmWarrior get() = arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition("Warrior Token", colorIndicator = listOf(Color.Red),
@@ -20468,7 +20467,7 @@ internal class Sentences(
         }
         // tdm chunk 06: "Activated abilities of artifacts, creatures, and planeswalkers can't be activated." (CR 602.5)
         Tdm.ACTIVATED_ABILITIES_OF_LIST_CANT.matchEntire(line)?.let { m ->
-            val items = m.groupValues[1].split(Regex(""",? and |, """)).map { Filters.noun(it.removeSuffix("s")) ?: return null }
+            val items = m.groupValues[1].split(LazyRegexes.AND_LIST).map { Filters.noun(it.removeSuffix("s")) ?: return null }
             return Ability.Static(listOf(Mechanic.CantActivate(ObjectFilter.AbilityOf(source = ObjectFilter.Or(items)))), affects = Affected.Players(Players.Each(PlayerFilter.Any)))
         }
         // tdm chunk 06: "During your turn, this creature has base power and toughness 5/2." (layer 7b, CR 613.4b)
@@ -21899,7 +21898,7 @@ internal class Sentences(
         // mh2 chunk 03: "X target creatures gain flying until end of turn." (X announced, CR 107.3a)
         Mh2.X_TARGET_GAIN_UNTIL_EOT.matchEntire(sentence)?.takeIf { announcedX }?.let { m ->
             val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return@let
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return@let }
+            val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return@let }
             val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1].removeSuffix("s")) + "s")
             context.targets += TargetSlot(name, TargetKind.Objects(noun), min = Value.Announced(name = "X"), max = Value.Announced(name = "X"))
             return listOf(mh2UntilEndOfTurn(Objects.Target(name), Mechanic.GainAbilities(keywords)))
@@ -22893,7 +22892,7 @@ internal class Sentences(
         }
         // ltr chunk 11: "Put your choice of a counter from among first strike, vigilance, deathtouch, and lifelink on Arathorn." (CR 122.1b)
         Ltr.CHOOSE_COUNTER_FROM_AMONG.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            val names = m.groupValues[1].split(Regex(""",? and |, """)).map { it.trim() }
+            val names = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.trim() }
             val kinds = names.map { (OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let).kind }
             fun put(i: Int): Step = Step.Do(Effect.PutCounters(Objects.Self, arcanum.api.CounterKind.Keyword(kinds[i]), Value.Fixed(1)))
             fun chain(i: Int): List<Step> = if (i == names.lastIndex) listOf(put(i))

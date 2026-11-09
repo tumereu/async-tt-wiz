@@ -302,15 +302,14 @@ internal fun ungendered(line: String, self: Set<String>): String {
     val names = self.filter { it.isNotEmpty() && line.contains(it) }.sortedByDescending { it.length }
     var masked = line
     names.forEachIndexed { i, name -> masked = masked.replace(name, "\u0001$i\u0001") }
-    val nouns = "power|toughness|owner's|controller's|mana|base"
     masked = masked
-        .replace(Regex("""\b(?:he|she)'s\b"""), "it's").replace(Regex("""\b(?:He|She)'s\b"""), "It's")
-        .replace(Regex("""\b(?:he|she)\b(?!-)"""), "it").replace(Regex("""\b(?:He|She)\b(?!-)"""), "It")
-        .replace(Regex("""\bhis\b"""), "its").replace(Regex("""\bHis\b"""), "Its")
-        .replace(Regex("""\b(?:himself|herself)\b"""), "itself")
-        .replace(Regex("""\bhim\b"""), "it")
-        .replace(Regex("""\bher (?=(?:$nouns)\b)"""), "its ").replace(Regex("""\bHer (?=(?:$nouns)\b)"""), "Its ")
-        .replace(Regex("""\bher\b"""), "it")
+        .replace(LazyRegexes.HE_OR_SHE_IS, "it's").replace(LazyRegexes.HE_OR_SHE_IS_CAPITAL, "It's")
+        .replace(LazyRegexes.HE_OR_SHE, "it").replace(LazyRegexes.HE_OR_SHE_CAPITAL, "It")
+        .replace(LazyRegexes.HIS, "its").replace(LazyRegexes.HIS_CAPITAL, "Its")
+        .replace(LazyRegexes.HIMSELF_OR_HERSELF, "itself")
+        .replace(LazyRegexes.HIM, "it")
+        .replace(LazyRegexes.HER_BEFORE_NOUN, "its ").replace(LazyRegexes.HER_BEFORE_NOUN_CAPITAL, "Its ")
+        .replace(LazyRegexes.HER, "it")
     names.forEachIndexed { i, name -> masked = masked.replace("\u0001$i\u0001", name) }
     return masked
 }

@@ -83,7 +83,7 @@ object OracleNormalizer {
     private fun values(line: String, typeRegex: Regex?): String {
         var result = SYMBOLS.replace(line) { run ->
             SYMBOL.findAll(run.value).joinToString("") { s -> if (s.groupValues[1] in NON_MANA) s.value else "{M}" }
-                .replace(Regex("""(\{M\})+"""), "{M}")
+                .replace(LazyRegexes.MANA_RUN, "{M}")
         }
         result = DIGITS.replace(result, "N")
         result = NUMBER_WORDS.replace(result, "N")

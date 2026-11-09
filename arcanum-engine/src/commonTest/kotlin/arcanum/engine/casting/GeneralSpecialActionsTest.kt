@@ -384,6 +384,37 @@ class GeneralSpecialActionsTest {
         assertEquals(listOf(alice.id), done.map { it.player })
     }
 
+    // CR 701.59a: collecting evidence as a cost is the same choice: its decision carries the total, refused below it
+    @Test
+    fun evidenceAsACostCarriesItsTotal() = scenario {
+        val desk = Cards.invent("Quiet Desk", "{0}", "Artifact", "Collect evidence 4: You gain 3 life.")
+        alice.battlefield(desk)
+        alice.graveyard(one, four)
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(desk) })
+        val choice = decision<Decision.ChooseObjects>()
+        assertEquals(1 to null, choice.min to choice.max)
+        assertEquals(Total(NumericProperty.ManaValue, Value.Fixed(4)), choice.total)
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
+        answer(Answer.Objects(listOf(card(four), card(one))))
+        expect {
+            alice.exile has four
+            alice.exile has one
+        }
+    }
+
+    // CR 702.122a: so is crew's, with its power
+    @Test
+    fun crewCarriesItsTotal() = scenario {
+        val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
+        alice.battlefield(skiff, one, two)
+        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        val choice = decision<Decision.ChooseObjects>()
+        assertEquals(Total(NumericProperty.PowerFor(Keyword.Crew.Kind), Value.Fixed(2)), choice.total)
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
+        answer(Answer.Objects(listOf(card(two))))
+        assertTrue(state.objOrThrow(card(two)).tapped)
+    }
+
     // CR 701.59a: the selection is done only from the total on, more cards too; every card stays a candidate
     @Test
     fun selectionIsDoneOnlyFromTheTotalOn() = scenario {

@@ -65,6 +65,7 @@ class CollectEvidenceSelectionTest : E2e() {
         })
         val choice = toTheSelection(sifters = 2, milled = 4)
         assertNull(choice.max, "any number")
+        assertTrue(alice.showsText("Tap cards with total mana value 2 or more, then OK."), "the hint reads the total: ${alice.screen()}")
         assertTrue(alice.shows(ok and isNotEnabled()), "nothing picked: ${alice.screen()}")
 
         pick(0, 1)

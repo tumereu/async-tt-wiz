@@ -440,12 +440,11 @@ internal object Options {
     /** For a cost or a choice that asks objects with a total ("tap any number of untapped creatures with total power N or more",
      * crew, CR 702.122a; collecting evidence as it resolves, CR 701.59a): the largest first until the total is reached. */
     private fun reachingTotal(snap: Snapshot, pending: Pending): List<ObjectId>? {
-        (pending.decision as? Decision.ChooseObjects)?.let { d ->
-            val total = d.total ?: return@let
+        val c = pending.continuation as? Continuation.Announcing ?: return (pending.decision as? Decision.ChooseObjects)?.let { d ->
+            val total = d.total ?: return null
             val e = snap.evaluator(d.player)
-            return largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
+            largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
         }
-        val c = pending.continuation as? Continuation.Announcing ?: return null
         if (c.choices.names[Plan.MANUAL] != null) return null
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null

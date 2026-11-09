@@ -451,8 +451,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
   crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
 - Done, learn (CR 701.48a, `view/LearnTest`; `SUPPORT_VERSION` 11): played by its expansion, a host bringing the player's cards outside
-  the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once; the chosen Lesson is revealed and nothing else of
-  those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
+  the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once, and with no card to discard she may still take a
+  Lesson, or choose none; the chosen Lesson is revealed and nothing else of those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
 - Done, collecting evidence as it resolves (CR 701.59a, b; `casting/GeneralSpecialActionsTest`): one `Decision.ChooseObjects` of any number
   of the graveyard's cards, with its `total`, exiled together. An answer below the total is refused, `Engine.selection` is done only
   from the total on, and it is asked whenever there is anything to choose, even when only all the cards reach the total. With no way to

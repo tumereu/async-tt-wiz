@@ -81,7 +81,7 @@ internal data class ObjectsShape(
                 // library for a basic land card"), an activated ability's cost left out
                 SEARCH.find(text) != null -> ObjectsShape(Shape.Pick, SEARCH.find(text)!!.groupValues[1].trim(),
                     "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards", search = true)
-                else -> ObjectsShape(Shape.Pick, pickTitle(text), "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards")
+                else -> ObjectsShape(Shape.Pick, pickTitle(text), "Tap ${d.total?.let(::reaching) ?: pickCount(d.min, d.max, n)}, then OK.", "Cards")
             }
         }
 
@@ -104,6 +104,19 @@ internal data class ObjectsShape(
             min == 0 -> "up to $max"
             max == null || max >= n -> "at least $min"
             else -> "$min to $max"
+        }
+
+        /** A choice up to a total says the total: "at least 1" would read as if one card were enough (CR 701.59a, 702.122a). */
+        private fun reaching(total: arcanum.api.Total): String? {
+            val amount = (total.atLeast as? arcanum.api.Value.Fixed)?.value ?: return null
+            val what = when (total.property) {
+                arcanum.api.NumericProperty.ManaValue -> "mana value"
+                // Crew and saddle count power by their own rule (CR 702.122a, 702.171a)
+                arcanum.api.NumericProperty.Power, is arcanum.api.NumericProperty.PowerFor -> "power"
+                arcanum.api.NumericProperty.Toughness -> "toughness"
+                else -> return null
+            }
+            return "cards with total $what $amount or more"
         }
 
         private fun pickCount(min: Int, max: Int?, n: Int): String = when {

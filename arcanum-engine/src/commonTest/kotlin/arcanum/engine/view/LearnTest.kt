@@ -89,9 +89,10 @@ class LearnTest {
         assertEquals(1, revealed().size)
     }
 
-    // CR 701.48a: discard a card, and only then draw; the option already said so, no second "may"
+    // CR 701.48a: discard a card, and only then draw; the option already said so, no second "may". She did discard, so no Lesson
     @Test
     fun rummagingDiscardsThenDraws() = scenario {
+        outside(primer)
         alice.library("Island")
         alice.hand("Forest", "Plains")
         toTheQuestion()
@@ -115,6 +116,58 @@ class LearnTest {
         expect {
             alice.hand.size shouldBe 0
             alice.library.size shouldBe 1
+        }
+    }
+
+    // CR 701.48a: "If you didn't discard a card, you may reveal a Lesson": choosing to discard with an empty hand discards nothing,
+    // so she still may: she takes it, and still draws nothing
+    @Test
+    fun anEmptyHandMayStillTakeALesson() = scenario {
+        val (first) = outside(primer)
+        alice.library("Island")
+        toTheQuestion()
+        alice.answers(rummageOption)
+        val d = decision<Decision.ChooseObjects>()
+        assertEquals(listOf(first), d.options)
+        assertEquals(0 to 1, d.min to d.max)
+        alice.chooses(primer)
+        assertNull(pending)
+        assertEquals(listOf(listOf(first)), revealed().map { it.ids })
+        expect {
+            alice.hand has primer
+            alice.library.size shouldBe 1
+        }
+    }
+
+    // CR 701.48a: that "may" is hers to decline: choosing none reveals nothing, and the Lesson stays outside the game
+    @Test
+    fun anEmptyHandMayDeclineTheLesson() = scenario {
+        val (first) = outside(primer)
+        toTheQuestion()
+        alice.answers(rummageOption)
+        answer(Answer.Objects(emptyList()))
+        assertNull(pending)
+        assertEquals(emptyList(), revealed())
+        assertEquals(listOf(first), state.player(alice.id).outside.toList())
+        expect { alice.hand.size shouldBe 0 }
+    }
+
+    // CR 701.48a, I-D18: an empty hand and no Lesson outside: no stall, skipping on or off (off, cards only she sees decide, so
+    // she is asked the empty choice with its one answer)
+    @Test
+    fun anEmptyHandWithNoLessonOutsideDoesNotStall() = listOf(true, false).forEach { skip ->
+        scenario {
+            alice.skipWhenNoChoice = skip
+            outside(bear)
+            toTheQuestion()
+            alice.answers(rummageOption)
+            if (!skip) {
+                val d = decision<Decision.ChooseObjects>()
+                assertEquals(emptyList(), d.options)
+                answer(Answer.Objects(emptyList()))
+            }
+            assertNull(pending)
+            assertEquals(emptyList(), revealed())
         }
     }
 

@@ -718,15 +718,13 @@ object KeywordExpansions {
         // card
         KeywordAction.Learn -> listOf(
             Step.Choose(Choice.Option(listOf(LEARN_LESSON, LEARN_RUMMAGE, LEARN_NOTHING)), bind = "learn", chooser = Players.You),
-            Step.If(Condition.Chose("learn", LEARN_LESSON), listOf(
-                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Outside), ObjectFilter.OwnedBy(PlayerFilter.You),
-                    ObjectFilter.Sub(Subtype("Lesson")))), Value.Fixed(1), Value.Fixed(1)), bind = "lesson", chooser = Players.You),
-                Step.Do(Effect.Reveal(Objects.Bound("lesson"))),
-                Step.Do(Effect.Move(Objects.Bound("lesson"), Destination(Zone.Hand))))),
+            Step.If(Condition.Chose("learn", LEARN_LESSON), takeALesson(least = 1)),
             Step.If(Condition.Chose("learn", LEARN_RUMMAGE), listOf(
-                // The option chosen was the "may": it is no second question; with no card to discard, nothing is drawn
+                // The option chosen was the "may" of discarding, so it is no second question; with no card to discard nothing is
+                // drawn, and "if you didn't discard a card" she may still take a Lesson
                 Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, Value.Fixed(1))))), payer = Players.You, mandatory = true, bind = "rummaged"),
-                Step.If(Condition.Did("rummaged"), listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))))))))
+                Step.If(Condition.Did("rummaged"), listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1)))),
+                    otherwise = takeALesson(least = 0)))))
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
@@ -739,6 +737,14 @@ object KeywordExpansions {
     /** Firebending [amount] (CR 702.189a): an attack trigger adding [amount] {R} kept until end of combat. */
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
         ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
+
+    /** CR 701.48a: reveal a Lesson card you own from outside the game and put it into your hand, choosing at least [least] of at most
+     * one: choosing none reveals nothing. */
+    private fun takeALesson(least: Int): List<Step> = listOf(
+        Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Outside), ObjectFilter.OwnedBy(PlayerFilter.You),
+            ObjectFilter.Sub(Subtype("Lesson")))), Value.Fixed(least), Value.Fixed(1)), bind = "lesson", chooser = Players.You),
+        Step.Do(Effect.Reveal(Objects.Bound("lesson"))),
+        Step.Do(Effect.Move(Objects.Bound("lesson"), Destination(Zone.Hand))))
 
     private const val ENDURE_COUNTERS = "+1/+1 counters"
     private const val ENDURE_SPIRIT = "Spirit token"

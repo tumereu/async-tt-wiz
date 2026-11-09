@@ -268,9 +268,12 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     private val copiable = Copiable(state, reads)
     private val started = LinkedHashMap<String, Started>()
     private val withCounters: List<arcanum.engine.state.GameObject> by lazy { state.objects.values.filter { it.counters.isNotEmpty() } }
-    /** The suspected permanents, not phased out (spm), in the battlefield's order. */
-    private val suspected: List<ObjectId> by lazy {
-        state.battlefield.filter { id -> state.obj(id)?.let { !it.phasedOut && arcanum.api.ObjectMark.Suspected in it.marks } == true }
+    /** The permanents, not phased out, with a mark that gives abilities ([arcanum.api.MarkRules]), in the battlefield's order. */
+    private val markGiving: List<Pair<ObjectId, arcanum.api.MarkRule>> by lazy {
+        state.battlefield.flatMap { id ->
+            val o = state.obj(id)?.takeIf { !it.phasedOut } ?: return@flatMap emptyList()
+            o.marks.map { arcanum.api.MarkRules.of(it) }.filter { it.abilities.isNotEmpty() }.map { id to it }
+        }
     }
 
     fun run(): View {
@@ -469,7 +472,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         }
         effectObjects(board).forEach { e -> if (e.key !in found && e.mechanicsIn(layer).isNotEmpty()) found[e.key] = e }
         counterEffects(board, layer).forEach { e -> if (e.key !in found) found[e.key] = e }
-        suspectedEffects(board, layer).forEach { e -> if (e.key !in found) found[e.key] = e }
+        markEffects(board, layer).forEach { e -> if (e.key !in found) found[e.key] = e }
         return found.values.toList()
     }
 
@@ -523,15 +526,15 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         }
 
     /** CR 613.4c, 613.1f, 613.7c: P/T counters in 7c and keyword counters in layer 6, at the counters' timestamps. */
-    /** spm: a suspected permanent has menace (CR 701.60c), whatever its abilities: not from an ability, so "loses all abilities"
-     * before it doesn't remove it; its "can't block" is a rule ([collect]). */
-    private fun suspectedEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = if (layer != Layer.Ability) emptyList() else
-        suspected.filter { id -> id in board.work }.map { id ->
+    /** The abilities a mark gives ([arcanum.api.MarkRule.abilities]: a suspected permanent's menace and "can't block", CR 701.60c), at the
+     * object's timestamp: not from an ability of it, so "loses all abilities" before it doesn't remove them and one after it does. */
+    private fun markEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = if (layer != Layer.Ability) emptyList() else
+        markGiving.filter { (id, _) -> id in board.work }.map { (id, rule) ->
             val o = state.obj(id)!!
             ContinuousEffect(
-                key = "suspected:$id", timestamp = o.timestamp, cda = false, mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.Menace))),
+                key = "${rule.name}:$id", timestamp = o.timestamp, cda = false, mechanics = listOf(Mechanic.GainAbilities(rule.abilities)),
                 you = board.controller(id) ?: o.owner, self = id, names = Bindings.EMPTY, affects = Affected.Objects(Objects.Self), locked = null,
-                condition = null, holder = null, instance = AbilityInstance(arcanum.api.Ability.Unparsed("suspected"), AbilityOrigin.Rule("suspected")), effect = null,
+                condition = null, holder = null, instance = AbilityInstance(arcanum.api.Ability.Unparsed(rule.name), AbilityOrigin.Rule(rule.name)), effect = null,
             )
         }
 
@@ -653,6 +656,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         e.effect != null -> AbilityOrigin.FromEffect(e.effect, mechanic, index)
         e.instance?.origin is AbilityOrigin.FromCounter -> e.instance.origin
         e.holder != null && e.instance != null -> AbilityOrigin.FromAbility(e.holder, e.instance.origin, mechanic, index)
+        // What a mark gives: the rules give it to the object itself
+        e.instance?.origin is AbilityOrigin.Rule && e.self != null -> AbilityOrigin.FromAbility(e.self, e.instance.origin, mechanic, index)
         else -> AbilityOrigin.FromEffect(EffectId(e.key), mechanic, index)
     }
 
@@ -796,23 +801,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
         }
-        // spm: a suspected creature can't block (CR 701.60c)
-        state.battlefield.forEach { id ->
-            val o = state.obj(id) ?: return@forEach
-            if (o.phasedOut || arcanum.api.ObjectMark.Suspected !in o.marks) return@forEach
-            objectMechanics.getOrPut(id) { mutableListOf() } += AppliedMechanic(Mechanic.CantBlock(arcanum.api.ObjectFilter.Any),
-                board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
-        }
-        // fra: a prepared permanent's controller may cast the copy of its prepare spell (CR 722.3c)
-        arcanum.engine.prepare.Prepare.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
-            if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
-        }
-        // CR 702.143a: a foretold card's owner may cast it for its foretell cost after the turn it was foretold
-        arcanum.engine.foretell.Foretell.permissions(state).forEach { (id, applied) ->
-            if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
-        }
-        // CR 702.170d: a plotted card's owner may cast it without paying its mana cost on a later turn
-        arcanum.engine.foretell.Plot.permissions(state).forEach { (id, applied) ->
+        // What marks let be cast from exile (CR 702.143a, 702.170d, 722.3c)
+        arcanum.engine.foretell.MarkCasts.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
             if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
         }
 

@@ -382,10 +382,11 @@ internal object Steps {
             val players = Snapshot(recorder.state).evaluator(e.controller, e.source, e.names).players((e.duration as Duration.UntilEndOfNextTurnOf).players)
             if (s.turn.active in players) recorder.record(Change.EffectRemoved(e))
         }
-        // CR 702.171b: a permanent stays saddled until the end of the turn
-        val saddled = StatusFlag.Marked(arcanum.api.ObjectMark.Saddled)
-        s.battlefield.filter { s.obj(it)?.marks?.contains(arcanum.api.ObjectMark.Saddled) == true }
-            .forEach { recorder.record(Change.Status(it, saddled, true, false)) }
+        // The marks that last until the end of the turn (saddled, CR 702.171b)
+        s.battlefield.forEach { id ->
+            s.obj(id)?.marks.orEmpty().filter { arcanum.api.MarkClear.EndOfTurn in arcanum.api.MarkRules.of(it).clears }
+                .forEach { recorder.record(Change.Status(id, StatusFlag.Marked(it), true, false)) }
+        }
         val before = recorder.changes.size
         return when (val p = Perform.checks(recorder)) {
             is Progress.Waiting -> Next.Wait(p)

@@ -30,6 +30,38 @@ class EngineSharedFlowTest {
         return flow.sending(payment.suggestion).cast.working
     }
 
+    // STK-060 (CR 701.44c, d): an explorer that left is offered beside one still there, by what it was: no longer an object, but public as it left
+    @Test fun anExplorerThatLeftIsOfferedByWhatItWas() {
+        val everyone = arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Creature)
+        val goners = arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype("Goner"))
+        val trek = arcanum.engine.cards.Cards.define("Parting Trail", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition("Parting Trail",
+            manaCost = arcanum.api.ManaCost.parse("{0}"), types = listOf(arcanum.api.CardType.Sorcery),
+            abilities = listOf(arcanum.api.Ability.Spell(arcanum.api.Instructions(steps = listOf(
+                arcanum.api.Step.Bind(arcanum.api.Objects.Each(everyone), "them"),
+                arcanum.api.Step.Do(arcanum.api.Effect.Destroy(arcanum.api.Objects.Each(goners))),
+                arcanum.api.Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Explore(arcanum.api.Objects.Bound("them")))),
+            ))))))))
+        val goner = arcanum.engine.cards.Cards.invent("Parting Goner", "{0}", "Creature — Goner", "", "1/1")
+        val scout = arcanum.engine.cards.Cards.invent("Remaining Scout", "{0}", "Creature — Elf Scout", "", "1/1")
+        val (gone) = table.put(alice, Zone.Battlefield, goner)
+        table.put(alice, Zone.Battlefield, scout)
+        table.put(alice, Zone.Library, "Island", "Island")
+        table.put(bob, Zone.Library, "Island")
+        val left = table.obj(gone)
+        val (spell) = table.put(alice, Zone.Hand, trek)
+        val state = table.state()
+        val cast = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(spell).first(), CastFlow.Seeds(table::seed)).sending(null).cast.working
+        val resolved = table.flow(table.flow(cast).pass(alice).working).pass(bob).working
+        val flow = table.flow(resolved)
+        val choice = assertIs<Decision.ChooseObjects>(flow.decision)
+        assertTrue(left in choice.options)
+        assertNull(flow.state.obj(left))
+        assertTrue(flow.offeredAfterLeaving(left))
+        assertEquals("Parting Goner", arcanum.engine.Engine.lastKnown(flow.state, left)?.characteristics?.name)
+        // One still there isn't one that left
+        assertTrue(!flow.offeredAfterLeaving(choice.options.first { it != left }))
+    }
+
     // SYS-067 (CR 117.3a, 117.3d): the active player holds priority in their main phase; the step arrow passes it, so the
     // other player may act once the active player has passed
     @Test fun theActivePlayerPassesToTheOther() {

@@ -27,6 +27,7 @@ Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pendin
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
+Engine.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
 Engine.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
 Engine.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
@@ -224,6 +225,8 @@ tests play). One rule, in the event pipeline and the effects that look:
   - Foretelling (CR 702.143) is a special action the rules give a card in a hand (`AbilityOrigin.Rule("foretell")`): another
     player's state takes it with the card unknown, as the host forwards it, so the card isn't revealed; the foretold card is
     face down in exile, `ObjectMark.Foretold`, known to its owner only (`Knowledge.mayKnow`), and filled publicly as it is cast.
+    Not yet: a card foretold only through foretell another object gave it, when it was unknown to the view: the view never learned that cost, so it
+    refuses the forwarded cast (a host holding full information, as ATW does, isn't affected).
   - Not yet: a face-down cast of a card unknown to the view is filled publicly (CR 708.2 would keep it unknown; the
     face-down cost comes from the card's own ability, which the view can't read).
 
@@ -514,8 +517,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   adventurer played from exile after its Adventure (CR 715.3d).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
-  (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),
-  plot (`foretell/Plot`: plotted cards cast free on a later turn as a sorcery, CR 702.170d), disguise and cloak (face-down with ward
+  (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
+  KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold or
+  has printed, CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
+  gained in one record (`ObjectFacts.marksGained`; `foretoldTurn` and `plottedTurn` stay for stored games until the one approved wipe, read by
+  `ObjectFacts.gained`), disguise and cloak (face-down with ward
   {2}, `Copiable.faceDown`), manifest, backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
   transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: game ledger, untap check CR 731.2, daybound and nightbound

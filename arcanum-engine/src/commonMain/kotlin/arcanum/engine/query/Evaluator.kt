@@ -450,6 +450,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
         } ?: true
         val keywordOk = filter.keyword?.let { kind ->
+            // CR 702.143a: foretelling is the rules' special action of the foretell keyword, not its expansion
+            if (arcanum.engine.foretell.Foretell.isForetell(item.origin)) return@let kind == Keyword.Foretell.Kind
             val root = item.origin?.root
             // mh2: a source that left (modular's "when it dies") is read as it last existed (CR 608.2h)
             item.origin is AbilityOrigin.Expansion && root != null &&

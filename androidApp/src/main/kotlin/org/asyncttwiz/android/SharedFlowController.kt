@@ -314,12 +314,13 @@ internal class SharedFlowController(
     /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers in
      * zones that aren't public (their library during a search). Objects in public zones are named only when visible to
      * the viewer, so a face-down creature stays hidden from the player dividing damage onto it (#4). Someone choosing for
-     * the other player sees that player's hidden cards only as hidden cards. */
+     * the other player sees that player's hidden cards only as hidden cards. An option that has left (STK-060) shows what it was. */
     override fun shown(id: ObjectId): Boolean {
         val flow = view ?: return false
         if (id is ObjectId.StackItem) return true
         val known = visible ?: flow.visible(viewer).also { visible = it }
         if (id in known) return true
+        if (flow.offeredAfterLeaving(id)) return true
         val zone = flow.state.obj(id)?.zone
         return flow.decision?.player?.value == viewer && zone != null && zone !in PUBLIC_ZONES
     }

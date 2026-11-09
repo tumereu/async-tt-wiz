@@ -170,9 +170,9 @@ internal object Legality {
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
         val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
-        // CR 702.170d: a plotted card is cast during its owner's main phase while the Stack is empty
-        val plotted = arcanum.engine.foretell.Plot.isPlotted(permission?.second?.origin)
-        val instant = !plotted && during != null || !plotted && !faceDown && (CardType.Instant in types || flash ||
+        // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
+        val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
+        val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
             // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
             chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
@@ -220,15 +220,18 @@ internal object Legality {
 
     /** ltr: "you may activate equip abilities any time you could cast an instant" ([Mechanic.ActivateAtInstantSpeed]): the ability is the
      * expansion of a keyword the filter names, or of an ability of a source the filter's source matches (CR 602.5d). */
-    private fun activatesAtInstantSpeed(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): Boolean =
+    fun activatesAtInstantSpeed(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.ActivateAtInstantSpeed ?: return@any false
             val filter = m.abilities as? ObjectFilter.AbilityOf ?: return@any false
             val keywordOk = filter.keyword?.let { kind ->
+                // CR 702.143a: foretelling is the rules' special action of the foretell keyword, not its expansion
+                if (arcanum.engine.foretell.Foretell.isForetell(instance.origin)) return@let kind == Keyword.Foretell.Kind
                 val root = (instance.origin as? arcanum.engine.view.AbilityOrigin.Expansion)?.let { instance.origin.root } ?: return@any false
                 snap.view[source]?.characteristics?.abilities.orEmpty().any { it.origin == root && (it.ability as? arcanum.api.Keyword)?.kind == kind }
             } ?: true
-            val sourceOk = filter.source?.let { snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
+            // D60: a card the state doesn't know is judged by the host that forwards the action
+            val sourceOk = filter.source?.let { snap.state.obj(source)?.unknown == true || snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
             keywordOk && sourceOk
         }
 
@@ -423,7 +426,7 @@ internal object Legality {
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
             ?: faceDownActions(snap, id).firstOrNull { it.origin == origin }
-            ?: arcanum.engine.foretell.Foretell.actions(snap.state, snap.view, id, forwarded = true).firstOrNull { it.origin == origin }
+            ?: arcanum.engine.foretell.Foretell.actions(snap, id, forwarded = true).firstOrNull { it.origin == origin }
 
     /**
      * The special actions a face-down permanent's own card offers (CR 702.37e, 116.2b: turning it face up for its

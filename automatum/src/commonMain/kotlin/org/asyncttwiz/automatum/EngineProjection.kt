@@ -88,7 +88,7 @@ object EngineProjection {
             val prepared = byCard[obj.card.value]
             if (prepared != null && !obj.token && !obj.copyOfCard) return@getOrPut prepared.definition
             val definition = obj.definition ?: return@getOrPut prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
-            val made = AtwTokens.submitted(definition, token = true)
+            val made = AtwTokens.submitted(definition, token = true, gained = obj.gainedInCopying)
             // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
             // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
             val shown = copied(made, base)

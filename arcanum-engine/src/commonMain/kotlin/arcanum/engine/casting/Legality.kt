@@ -433,7 +433,7 @@ internal object Legality {
     fun faceDownActions(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
         val o = snap.state.obj(id) ?: return emptyList()
         // CR 709.5e: unlocking a Room's locked door
-        if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.state, id)
+        if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.view[id])
         val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
         // CR 701.40b: a manifested creature card turns face up for its mana cost
         // CR 701.58b: so does a cloaked one

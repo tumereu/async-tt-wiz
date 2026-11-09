@@ -73,13 +73,18 @@ data class GameObject(
     /** A battle's protector (CR 310.9): chosen as it enters (310.9a, 310.12a) or by the state-based action of 310.11; it
      * stays when the permanent stops being a battle (310.9g). */
     val protector: PlayerId? = null,
+    /** A permanent that isn't a flip card flipped while a copy of one (CR 707.3, 110.5c); its [face] stays what is up. */
+    val flippedStatus: Boolean = false,
+    /** A token's copiable abilities that are in none of its faces ([CopiableValues.gained], CR 707.9a, 702.140e). */
+    val gainedInCopying: List<arcanum.api.Ability> = emptyList(),
 ) {
     val card: CardId get() = id.card
 
     /** Not known to the caller (D60). */
     val unknown: Boolean get() = definition == null
 
-    /** A transformed double-faced permanent (CR 712): its back face is up. */
+    /** A transformed double-faced permanent (CR 712, 701.27g): its back face is up. What it is physically: a permanent
+     * copying a double-faced permanent isn't double-faced (CR 712.9), a token copy of one is (CR 707.8a, its [definition]). */
     val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
 
     /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
@@ -87,8 +92,9 @@ data class GameObject(
     val bestowed: Boolean get() = facts.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
         zone == arcanum.api.Zone.Battlefield)
 
-    /** A flipped flip card (CR 710). */
-    val flipped: Boolean get() = definition?.layout == Layout.Flip && face == 1
+    /** Flipped (CR 710), a status (CR 110.5) kept whatever it copies later (CR 110.5c): a flip card's is its [face]; any other
+     * permanent's, flipped while a copy of a flip card, is [flippedStatus]. */
+    val flipped: Boolean get() = if (definition?.layout == Layout.Flip) face == 1 else flippedStatus
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 
@@ -210,4 +216,6 @@ sealed interface StatusFlag {
     @Serializable @SerialName("face-down") data object FaceDown : StatusFlag
     @Serializable @SerialName("phased-out") data object PhasedOut : StatusFlag
     @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : StatusFlag
+    /** [GameObject.flippedStatus]. */
+    @Serializable @SerialName("flipped") data object Flipped : StatusFlag
 }

@@ -175,7 +175,8 @@ internal object Effects {
                 onBattlefield(scope, effect.objects).forEach { if (TargetRef.Object(it) != to) Actions.attach(act, it, to) }
             }
             is Effect.Unattach -> onBattlefield(scope, effect.objects).forEach { Actions.attach(act, it, null) }
-            // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g)
+            // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g). What
+            // represents it decides, not its copiable values (CR 712.9): a double-faced token does, a copy on a one-faced card doesn't
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
@@ -187,9 +188,13 @@ internal object Effects {
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 asTransforms(scope, id)
             }
+            // CR 707.3, 110.5: a flip card flips, and so does a permanent that's a copy of one; the status is the object's own, and
+            // what isn't a flip card keeps the face it has up (CR 712.8d)
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (o.definition?.layout == Layout.Flip && o.face == 0) act.record(Change.Face(id, 0, 1, listOf(Meaning.Flipped)))
+                if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
+                act.record(if (o.definition?.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
+                    else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             is Effect.TurnFaceUp -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
@@ -421,7 +426,7 @@ internal object Effects {
             // CR 709.5f: the chooser picks a locked door of each (or the door named)
             is Effect.UnlockDoor -> {
                 val unlocked = onBattlefield(scope, effect.objects).filter { id ->
-                    val locked = arcanum.engine.room.Rooms.locked(act.state.objOrThrow(id))
+                    val locked = arcanum.engine.room.Rooms.locked(act.view()[id])
                     val door = effect.door?.takeIf { it in locked } ?: when (locked.size) {
                         0 -> null
                         1 -> if (effect.door == null) locked.single() else null
@@ -435,7 +440,7 @@ internal object Effects {
             // CR 709.5g
             is Effect.LockDoor -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (!arcanum.engine.room.Rooms.isRoom(o.definition)) return@forEach
+                if (!arcanum.engine.room.Rooms.isRoom(act.view()[id]?.copiable)) return@forEach
                 val open = listOf(arcanum.api.Door.Left, arcanum.api.Door.Right).filter { arcanum.engine.room.Rooms.unlocked(o, it) }
                 val door = when (open.size) {
                     0 -> return@forEach
@@ -502,7 +507,7 @@ internal object Effects {
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
         val player = scope.players(chooser).firstOrNull() ?: scope.actor
-        val names = scope.act.state.objOrThrow(id).definition?.faces.orEmpty()
+        val names = scope.act.view()[id]?.copiable?.faces.orEmpty()
         val options = doors.map { names.getOrNull(arcanum.engine.room.Rooms.face(it))?.name ?: it.toString() }
         val chosen = scope.act.chooseOption(player, id, options)
         return doors[options.indexOf(chosen).coerceAtLeast(0)]
@@ -853,11 +858,11 @@ internal object Effects {
     private fun createToken(scope: Scope, effect: Effect.CreateToken) {
         val act = scope.act
         val e = scope.eval()
-        val face = Actions.tokenFace(act, e, effect.token)
+        val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val created = scope.players(effect.controller).flatMap { p ->
-            Actions.createTokens(act, scope.cause, face, count, p, effect.tapped, attachTo)
+            Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }
         effect.attacking?.let { target ->
             val to = attackTarget(scope, target)
@@ -930,8 +935,12 @@ internal object Effects {
                 }
             }
             // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
-            val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
-                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except) else original.kind
+            val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) {
+                val copied = (original.kind as? StackItemKind.SpellCopy)?.copied ?: id
+                StackItemKind.SpellCopy(copied, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except,
+                    // CR 707.10g, 709.5b: its faces, for the token it becomes even if that spell has left the Stack by then
+                    values = (arcanum.engine.view.Copiable(act.state).values(copied) ?: (original.kind as? StackItemKind.SpellCopy)?.values)?.takeIf { it.faces.size > 1 })
+            } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
@@ -1067,11 +1076,15 @@ internal object Effects {
             if (affects.objects is Objects.Target) arcanum.engine.query.Lki.newObject(act.state, id) ?: id else id
         } else null
         val lockedPlayers = (affects as? Affected.Players)?.let { e.players(it.players) }
+        // CR 707.2b: a copy effect has the original's copiable values as it starts; changing the original later doesn't change it
+        val copiedValues = fixed.filterIsInstance<Mechanic.CopyOf>().firstOrNull()?.let { copy ->
+            arcanum.engine.view.Copiable(act.state).forCopyEffect(copy, scope.you, scope.self, names)
+        }
         act.record(Changes.effect(act.state) { ts ->
             EffectObject(
                 id = EffectId("E$ts"), mechanics = fixed, affects = affected, locked = lockedObjects, lockedPlayers = lockedPlayers,
                 source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, duration = duration,
-                usesLeft = uses, amountLeft = amountLeft, names = names,
+                usesLeft = uses, amountLeft = amountLeft, names = names, copiedValues = copiedValues,
             )
         })
     }
@@ -1375,8 +1388,8 @@ internal object Effects {
                     e.characteristics(it)?.isType(CardType.Creature) == true }
                 val chosen = act.chooseObjects(scope.actor, scope.self, tokens, 1, 1, "Populate").firstOrNull() ?: return
                 scope.bind(POPULATED, NamedValue.Objects(listOf(chosen)))
-                val face = Actions.tokenFace(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
-                scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, face, 1, scope.actor)))
+                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
+                scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, values, 1, scope.actor)))
             }
             // CR 701.44a: reveal the top card; a land goes to hand, otherwise a +1/+1 counter and you may put it in the graveyard
             is KeywordAction.Explore -> onBattlefield(scope, action.objects).forEach { explorer ->
@@ -1396,10 +1409,10 @@ internal object Effects {
                 val e = scope.eval()
                 val armies = act.state.battlefield.filter { e.controllerOf(it) == scope.actor &&
                     e.characteristics(it)?.hasSubtype(arcanum.api.Subtype("Army")) == true }
-                val army = if (armies.isEmpty()) Actions.createTokens(act, cause, FaceDefinition("${action.subtype.name} Army Token",
+                val army = if (armies.isEmpty()) Actions.createTokens(act, cause, arcanum.engine.state.CopiableValues.of(FaceDefinition("${action.subtype.name} Army Token",
                     colorIndicator = listOf(Color.Black), types = listOf(CardType.Creature),
                     subtypes = listOf(action.subtype, arcanum.api.Subtype("Army")), power = arcanum.api.PrintedNumber.Fixed(0),
-                    toughness = arcanum.api.PrintedNumber.Fixed(0)), 1, scope.actor).first()
+                    toughness = arcanum.api.PrintedNumber.Fixed(0))), 1, scope.actor).first()
                 else act.chooseObjects(scope.actor, scope.self, armies, 1, 1, "Amass").first()
                 Actions.putCounters(act, cause, TargetRef.Object(army), CounterKind.PowerToughness(1, 1), e.value(action.count))
                 // hob: "If it isn't a [subtype], it becomes a [subtype] in addition to its other types" (for good)

@@ -19,12 +19,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.DeckJson
 import org.asyncttwiz.protocol.DefinitionFace
+import org.asyncttwiz.protocol.PhysicalCardFaces
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.CardDefinition as AtwCard
 
 /**
  * ATW card data for an engine definition: what ATW shows of a token the engine creates (D35): one ATW face per engine face where ATW shows faces separately (transform, modal
- * double-faced), one face otherwise, with its printed values and rules text ([rulesText]).
+ * double-faced), else one face holding every part as a card's does ([PhysicalCardFaces.sharedFace]: a token copy of a Room or an adventurer card), with its printed
+ * values and rules text ([rulesText]).
  */
 internal object AtwTokens {
     /** A fixed namespace for these face ids. */
@@ -40,10 +42,10 @@ internal object AtwTokens {
         return SubmittedDefinition(DeckJson.digest(card), card)
     }
 
-    fun submitted(definition: CardDefinition, token: Boolean = true): SubmittedDefinition {
+    fun submitted(definition: CardDefinition, token: Boolean = true, gained: List<Ability> = emptyList()): SubmittedDefinition {
         val separate = definition.layout == Layout.Transform || definition.layout == Layout.ModalDoubleFaced
-        val shown = if (separate || definition.faces.size == 1) definition.faces
-            else listOf(definition.faces.first().copy(name = definition.faces.joinToString(" // ") { it.name }))
+        // What it has in no face ([arcanum.engine.state.GameObject.gainedInCopying]) reads with every part: it counts whichever is in use
+        val shown = definition.faces.map { if (gained.isEmpty()) it else it.copy(abilities = it.abilities + gained) }
         val ids = shown.mapIndexed { i, face -> CommandIds.uuidV5(NAMESPACE, "${face.name}/$i/${shown.size}") }
         val faces = shown.mapIndexed { i, face ->
             DefinitionFace(ids[i], face.name, otherFaceIds = ids - ids[i], typeLine = typeLine(face, token),
@@ -55,9 +57,13 @@ internal object AtwTokens {
         val layout = when (definition.layout) {
             Layout.Transform -> "transform"
             Layout.ModalDoubleFaced -> "modal_dfc"
+            Layout.Split -> "split"
+            Layout.Flip -> "flip"
+            Layout.Adventure -> "adventure"
             else -> "normal"
         }
-        val card = AtwCard(shown.first().name, faces, layout = layout, token = token)
+        val name = if (separate) shown.first().name else shown.joinToString(" // ") { it.name }
+        val card = AtwCard(name, faces, layout = layout, token = token).let { if (separate || faces.size == 1) it else PhysicalCardFaces.sharedFace(it) }
         return SubmittedDefinition(DeckJson.digest(card), card)
     }
 

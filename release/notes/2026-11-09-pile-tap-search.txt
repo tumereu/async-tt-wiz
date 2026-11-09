@@ -1,0 +1,1 @@
+mod: A tap on a graveyard or exile opens its search view at once, also in timeline mode; the menu with its one Search button is gone.

@@ -306,9 +306,9 @@ class AbReviewTest {
         assertTrue(server.act(alice, Input.PassPriority(bob), assumed = true).isSuccess)
     }
 
-    // abreview #11 (I-D56 §11): a result is confirmed once every player saw it: the confirming player too
+    // TRN-065 (owner, 2026-11-09; was abreview #11): an OK isn't tied to what the other player saw: it stands on the head
     @Test
-    fun aResultIsConfirmedOnlyByAPlayerWhoSawIt() {
+    fun anOkStandsWhateverTheOtherPlayerHasSeen() {
         val server = AsyncServer(EngineGames(9))
         server.start()
         val alice = server.alice; val bob = server.bob
@@ -317,10 +317,9 @@ class AbReviewTest {
         server.submit(Submission("r2", server.head, listOf(Act.Perform(Input.AgreedResult(GameResult.Draw))),
             listOf(TableChange.Suggestion(suggestion, null))), bob).getOrThrow()
         assertEquals(GameResult.Draw, Engine.result(server.state().engine))
-        val confirm = Submission("c1", server.head, table = listOf(TableChange.ResultConfirmed(null, alice)))
-        assertTrue(server.submit(confirm, alice).isFailure, "Alice hasn't been shown Bob's agreement")
-        server.seen(alice, server.head)
-        assertTrue(server.submit(confirm.copy(id = "c2"), alice).isSuccess)
+        val ok = Submission("c1", server.head, table = listOf(TableChange.ResultOk(alice, true)))
+        assertTrue(server.submit(ok, alice).isSuccess, "Alice hasn't been shown Bob's agreement")
+        assertEquals(setOf(alice), server.state().table.resultOks)
     }
 
     // abreview #12 (I-D56 §5, §14): the waiting bar's "is choosing · <card>" names the card only when the viewer can

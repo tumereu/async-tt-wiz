@@ -1,0 +1,1 @@
+mod: A card with two or more abilities now always opens its chips when tapped, even if only one can be used right now; the others are greyed and say why. A land with one ability is still one tap, and during a payment a tap still picks the source.

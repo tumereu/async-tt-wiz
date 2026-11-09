@@ -574,6 +574,89 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
+    // TBL-122, TBL-124 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
+    // even with only one usable now, the other greyed with why, activating nothing; a source with one ability stays one tap
+    @Test fun aCardWithTwoAbilitiesOpensItsChipsEvenWithOneUsableAndOneAbilityStaysOneTap() {
+        start(deck(TestCards.cairn to 20, TestCards.shard to 20), mapOf("Ember Cairn" to 1, "Ember Shard" to 1))
+        plays(alice, "Ember Cairn", "Ember Shard")
+        alice.battlefieldCard("Ember Shard").performClick()
+        waitUntil("the Shard's one ability at one tap, no chips") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Shard") == 1 }
+        alice.battlefieldCard("Ember Cairn").performClick()
+        val add = hasContentDescription("{T}: Add {R}.")
+        val greyed = hasContentDescription("{5}: You gain 1 life. (Not now: a cost it can't pay, or nothing to target.)")
+        waitUntil("both chips: ${alice.screen()}") { alice.shows(add) && alice.shows(greyed and isNotEnabled()) }
+        assertEquals(0, alice.tappedCount("Ember Cairn"), "the tap only opened them")
+        val life = alice.state.player(alice.me).life
+        alice.node(greyed).performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertEquals(life, alice.state.player(alice.me).life, "a greyed chip activates nothing")
+        assertTrue(alice.shows(add), "the chips stay")
+        alice.node(add).performClick()
+        waitUntil("the mana chip activated") { alice.state.player(alice.me).manaPool.size == 2 && alice.tappedCount("Ember Cairn") == 1 && !alice.shows(add) }
+    }
+
+    // TBL-122, TBL-124, STK-024 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
+    @Test fun duringAPaymentATapPicksTheSourceWithoutItsChips() {
+        start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
+        plays(alice, "Ember Cairn")
+        alice.playFromHand("Red Flash", this)
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        alice.onTable("Ember Cairn")
+        waitUntil("paid") { alice.payment() == "Payment: Paid with Ember Cairn" }
+        assertFalse(alice.shows(hasContentDescription("{T}: Add {R}.")), "no chips")
+        alice.tapCast()
+        waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() }
+    }
+
+    private fun E2ePlayer.shardStack(n: Int) = hasContentDescription("Ember Shard, owner $name,", substring = true) and hasContentDescription("stack of $n", substring = true)
+
+    // STK-024, TBL-053 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only
+    // with Cast; what pays it, Autotap's picks too, lies in its own pile to the right of its stack
+    @Test fun aConvokeSpellAlwaysOpensThePanelAndWhatPaysItLiesInItsOwnPile() {
+        start(deck(TestCards.shard to 20, TestCards.rally to 20), mapOf("Ember Shard" to 4, "Ember Rally" to 1))
+        plays(alice, "Ember Shard", "Ember Shard", "Ember Shard", "Ember Shard")
+        waitUntil("the four Shards in one stack") { alice.shows(alice.shardStack(4)) }
+        assertTrue(alice.shown.settings.autotap, "Autotap on")
+        alice.playFromHand("Ember Rally", this)
+        waitUntil("the panel opens: ${alice.screen()}") { alice.showsControl("Hide cast panel") }
+        assertTrue(alice.engine { device.session.pending.isEmpty() } && alice.state.stack.isEmpty(), "nothing sent")
+        waitUntil("Autotap's three in their own pile, one left: ${alice.screen()}") { alice.shows(alice.shardStack(3)) && !alice.shows(alice.shardStack(4)) }
+        alice.tapCast()
+        waitUntil("the Rally resolved, the three tapped", along = listOf(bob)) { alice.tappedCount("Ember Shard") == 3 && alice.state.stack.isEmpty() && alice.inOwnMain() }
+        waitUntil("the stack whole again") { alice.shows(alice.shardStack(4)) }
+    }
+
+    // STK-024, TBL-130 (owner, 2026-11-09): in any payment a picked card moves into its own pile: picked by hand from a stack it
+    // leaves, a tap on it there takes it out and back; a partial override with Autotap on moves the same way
+    @Test fun aPickedSourceMovesIntoItsOwnPileAndATapTakesItBack() {
+        start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 3, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
+        plays(alice, "Ember Shard", "Ember Shard", "Ember Shard")
+        waitUntil("the three Shards in one stack") { alice.shows(alice.shardStack(3)) }
+        alice.playFromHand("Red Flash", this)
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        alice.tap("Hide cast panel")
+        waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }
+        alice.node(alice.shardStack(3)).performClick()
+        val picked = SemanticsMatcher("what pays") { "source" in it.config.getOrElse(TableMarks) { emptySet() } }
+        waitUntil("the one picked in its own pile: ${alice.screen()}") { alice.shows(alice.shardStack(2)) && alice.shows(picked) }
+        alice.node(picked).performClick()
+        waitUntil("taken out, back in its stack: ${alice.screen()}") { alice.shows(alice.shardStack(3)) && !alice.shows(picked) }
+        alice.node(alice.shardStack(3)).performClick()
+        waitUntil("picked again") { alice.shows(alice.shardStack(2)) }
+        alice.tap("Show cast panel")
+        waitUntil("paid") { alice.payment() == "Payment: Paid with Ember Shard" }
+        alice.tapCast()
+        waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() && alice.tappedCount("Ember Shard") == 1 }
+    }
+
+    // STK-024 (owner, 2026-11-09): a spell with no convoke goes out paid at once with Autotap on, as before
+    @Test fun aSpellWithoutConvokeStillGoesOutAtOnceWithAutotap() {
+        start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 1, "Red Flash" to 1))
+        plays(alice, "Ember Shard")
+        alice.playFromHand("Red Flash", this)
+        waitUntil("the Flash cast without a panel", along = listOf(bob)) { alice.tappedCount("Ember Shard") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain() }
+    }
+
     // TBL-122, STK-025, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
     @Test fun nonManaAbilitiesAreRefusedDuringACast() {
         start(deck(TestCards.engineRock to 10, TestCards.brood to 10, TestCards.shard to 10, TestCards.emberStone to 10), mapOf("Ember Engine" to 1, "Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1))

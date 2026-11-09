@@ -53,10 +53,10 @@ data class SessionCreated(val token: String, val account: AccountIdentity) {
 enum class DeckVisibility { VISIBLE, HIDDEN, AFTER_FIRST_GAME }
 
 /** Server-side account preferences (`GET`/`PUT /account/settings`). Defaults are omitted on the wire. [playDefaults]: the
- * response mode, Always assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7). */
+ * response mode, Assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7). */
 @Serializable
 data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.AFTER_FIRST_GAME,
-    val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings())
+    val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES)
 
 @Serializable
 data class AccountError(val code: String, val field: String? = null)

@@ -112,6 +112,10 @@ object TestCards {
     /** Counters unless paid, for free. */
     val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
     val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
+    /** A free source with a second ability it can't use early on (TBL-124): its chips open even with only the mana usable. */
+    /** A spell with convoke and something to do (STK-024: its panel always opens). */
+    val rally = card("Ember Rally", "Sorcery", "{2}{R}", "Convoke\nDraw a card.")
+    val cairn = card("Ember Cairn", "Artifact", "{0}", "{T}: Add {R}.\n{5}: You gain 1 life.")
     val study = card("Ember Study", "Sorcery", "{0}", "Draw a card.")
     /** A triggered mana ability of a colour chosen as it resolves (CR 605.1b, 605.4a). */
     val bounty = card("Ember Bounty", "Enchantment — Aura", "{0}", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
@@ -176,6 +180,8 @@ object TestCards {
     /** A free sorcery that reveals its caster's top card and puts it into their hand (HIS-110: the other player's reveal
      * panel). */
     val insight = card("Ember Insight", "Sorcery", "{0}", "Reveal the top card of your library and put that card into your hand.")
+    /** A free sorcery with a reveal until a land (HIS-110: House Cartographer's wording). */
+    val scouting = card("Ember Scouting", "Sorcery", "{0}", "Reveal cards from the top of your library until you reveal a land card. Put that card into your hand and the rest on the bottom of your library in a random order.")
     /** A free sorcery whose resolution stops on the top two library cards: which one is manifested (report DH3QX6). */
     val dread = card("Ember Dread", "Sorcery", "{0}", "Manifest dread.")
     /** A free creature with haste: it attacks the turn it is cast. */

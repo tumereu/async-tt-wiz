@@ -131,6 +131,8 @@ class PlayShowTest {
         assertNull(alices.show)
         // Bob's own table: his trigger shows, his casts never did
         val bobs = sim.device(sim.bob)
+        assertNotNull(bobs.reveal, "his own reveal first (HIS-110)")
+        bobs.dismissReveal()
         val own = bobs.openShows.single()
         assertEquals(GameDevice.PlayKind.Triggered, own.kind)
         assertEquals(warden, card(bobs.model, own.card))

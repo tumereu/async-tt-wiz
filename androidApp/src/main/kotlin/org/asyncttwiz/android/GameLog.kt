@@ -75,6 +75,11 @@ internal class GameLog(gameId: String, private val me: PlayerId) {
     }
     private var loggedDecision: arcanum.engine.decision.DecisionId? = null
 
+    /** HIS-110: a reveal panel opening on [state], with the cards named as the panel shows them. */
+    fun reveal(state: GameState, reveal: org.asyncttwiz.protocol.game.GameDevice.Reveal): String =
+        "$game ${at(state)}: reveal by ${reveal.by.value.take(8)} · ${reveal.sourceName}: " +
+            reveal.cards.map { c -> state.current(c)?.definition?.faces?.firstOrNull()?.name ?: "hidden card" }
+
     /** TRN-057, STK-053: the device itself passed this player's own main phase on [state], for [why] ([org.asyncttwiz.protocol.game.GameDevice.ownMainPass]). */
     fun ownMainPass(state: GameState, why: String) = "$game ${at(state)}: the device passed the player's own main phase: $why"
 

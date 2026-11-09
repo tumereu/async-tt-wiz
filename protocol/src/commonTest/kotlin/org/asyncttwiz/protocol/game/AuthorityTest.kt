@@ -331,18 +331,22 @@ class AuthorityTest {
         assertEquals(GameResult.Won(alice), Engine.result(server.state().engine))
     }
 
-    // I-D56 §11: the result is confirmed only once both players' local heads reached it
+    // TRN-065 (owner, 2026-11-09): each player's OK is their own, needs a result, and can be taken back; nothing makes a
+    // result final by one player's word any more
     @Test
-    fun aResultIsConfirmedOnceBothHaveSeenIt() {
+    fun anOkIsTheAuthorsOwnAndNeedsAResult() {
         val server = AsyncServer(EngineGames(8))
         server.start()
         val alice = server.alice; val bob = server.bob
+        assertTrue(server.submit(Submission("c0", server.head, table = listOf(TableChange.ResultOk(alice, true))), alice).isFailure, "no result yet")
         server.act(alice, Input.Concede(alice)).getOrThrow()
-        val confirm = Submission("c1", server.head, table = listOf(TableChange.ResultConfirmed(null, alice)))
-        // Bob hasn't seen the concession yet
-        assertTrue(server.submit(confirm, alice).isFailure)
-        server.seen(bob, server.head)
-        assertTrue(server.submit(confirm.copy(id = "c2"), alice).isSuccess)
+        assertTrue(server.submit(Submission("c1", server.head, table = listOf(TableChange.ResultConfirmed(null, alice))), alice).isFailure)
+        assertTrue(server.submit(Submission("c2", server.head, table = listOf(TableChange.ResultOk(bob, true))), alice).isFailure, "Bob's to make")
+        assertTrue(server.submit(Submission("c3", server.head, table = listOf(TableChange.ResultOk(alice, true))), alice).isSuccess, "Bob hasn't seen it")
+        assertEquals(setOf(alice), server.state().table.resultOks)
+        assertTrue(server.submit(Submission("c4", server.head, table = listOf(TableChange.ResultOk(alice, true))), alice).isFailure, "already there")
+        assertTrue(server.submit(Submission("c5", server.head, table = listOf(TableChange.ResultOk(alice, false))), alice).isSuccess)
+        assertEquals(emptySet(), server.state().table.resultOks)
     }
 
     // TRN-048, SYS-006: a result suggestion is its own table event, not an undo
@@ -357,7 +361,7 @@ class AuthorityTest {
         val clear = listOf(TableChange.Suggestion(suggestion, null))
         assertTrue(server.submit(Submission("r2", server.head, agree, clear), alice).isFailure)
         server.seen(alice, server.head)
-        server.submit(Submission("r3", server.head, agree, clear + TableChange.ResultConfirmed(null, bob)), bob).getOrThrow()
+        server.submit(Submission("r3", server.head, agree, clear), bob).getOrThrow()
         assertEquals(GameResult.Draw, Engine.result(server.state().engine))
     }
 

@@ -41,7 +41,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
     val timelinePlayback: TimelinePlaybackStatus? = null,
-    /** TRN-066: why the table waits for the other player, faint over the battlefield (never taking a touch); null when
+    /** TRN-066: why the table waits for the other player, in the band under their hand (never taking a touch); null when
      * it doesn't. */
     val waitingLine: String? = null,
     /** HIS-094: the large text in the board's centre that a tap acts on ("Bob has made moves · Tap to watch"), as does a

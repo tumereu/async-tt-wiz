@@ -33,31 +33,22 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     }
     // HIS-112: a play shown in the middle of the table takes the place of the wait's words and the Stack line
     val showing = LocalEngineRoutes.current?.showing() == true
-    // TRN-066: the wait, faint like timeline mode's words; purely visual (no pointer handlers), so the board stays usable
-    if (!runtime.reviewing && !showing) runtime.waitingLine?.let { line -> scene.world?.visibleViewport?.let { board ->
-        Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
-            Text(line, Modifier.padding(horizontal = 24.dp).semantics { contentDescription = line }, color = TimelineFaintInk,
-                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
+    // TRN-066 (owner, 2026-11-09): the wait, in the band under the other player's hand; purely visual (no pointer handlers),
+    // so the board stays usable
+    if (!runtime.reviewing && !showing) runtime.waitingLine?.let { line -> WaitBand(scene, accountId) {
+        Text(line, Modifier.semantics { contentDescription = line }, color = Color.White,
+            style = WaitBandText, maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     } }
-    // STK-057 (owner playtest 2026-11-07): what the other player's top Stack entry is while you hold priority over it, in
-    // the wait's place (they never show together) and look, a little darker; purely visual. Live and in catch-up playback,
-    // not under the catch-up's centre text or in timeline mode
+    // STK-057 (owner playtest 2026-11-07, 2026-11-09): what the other player's top Stack entry is while you hold priority over it,
+    // in the wait's place (they never show together) and look; purely visual. Live and in catch-up playback, not under the
+    // catch-up's centre text or in timeline mode
     if (!runtime.reviewing && runtime.waitingLine == null && runtime.centreAction == null && !showing) {
         val names = remember(game) { gameNames(game) }
         val pieces = remember(IdentityKey(play.board), accountId, names) { StackLine.pieces(play, accountId, names) }
-        if (pieces != null) scene.world?.visibleViewport?.let { board ->
+        if (pieces != null) WaitBand(scene, accountId) {
             val stackLine = pieces.plain()
-            // Clear of the Stack at the board's right edge (STK-007), kept centred
-            val side = maxOf(24f, scene.stackRegion?.let { board.right - it.x + 8f } ?: 0f).coerceAtMost(board.width / 3)
-            Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
-                CardText(pieces.tinted(accountId), Modifier.padding(horizontal = side.dp).widthIn(max = 520.dp).testTag("stack-line")
-                    .semantics { contentDescription = stackLine }, color = StackLineInk,
-                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center),
-                    maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            }
+            CardText(pieces.tintedOnDark(accountId), Modifier.testTag("stack-line").semantics { contentDescription = stackLine }, color = Color.White,
+                style = WaitBandText, maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
     // HIS-094: the catch-up's centre text, a tap resumes playback
@@ -84,8 +75,25 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     }
 }
 
-/** STK-057: the Stack line's ink: the wait's (TRN-066), darker, so a two-line sentence still reads over the board. */
-internal val StackLineInk = Color(0xff253d44).copy(alpha = .72f)
+/** TRN-066, STK-057: the band's words, smaller than the board's old centre text, at most 4 lines of them. */
+internal val WaitBandText = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium,
+    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+
+/** The narrowest the band goes, where the other player's hand is narrower (landscape). */
+private const val WAIT_BAND_MIN_WIDTH = 240f
+
+/**
+ * TRN-066, STK-057 (owner, 2026-11-09): the one place the wait and the other player's top Stack entry say what goes on: a
+ * semi-transparent dark band right under the other player's hand, as wide as it. Purely visual: it has no pointer handlers,
+ * so touches go through to the table under it.
+ */
+@Composable
+internal fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
+    val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer }?.bounds ?: return
+    Box(Modifier.offset(hand.x.dp, hand.bottom.dp).width(hand.width.coerceAtLeast(WAIT_BAND_MIN_WIDTH).dp)
+        .background(Color.Black.copy(alpha = .62f)).padding(horizontal = 10.dp, vertical = 3.dp).testTag("wait-band"),
+        contentAlignment = Alignment.Center) { content() }
+}
 
 /** The game's players' names by account id. */
 internal fun gameNames(game: GameSummary): Map<String, String> =

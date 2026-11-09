@@ -148,9 +148,11 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
-    if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
-        val reconnecting = state.detail.id in state.reconnectingGames
-        var dismissedReconnect by remember(state.detail.id, reconnecting) { mutableStateOf(false) }
+    // TRN-065: the other player's concession or accepted suggestion leaves you at the table until your own OK
+    val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
+    if (atTable != null) {
+        val reconnecting = atTable.id in state.reconnectingGames
+        var dismissedReconnect by remember(atTable.id, reconnecting) { mutableStateOf(false) }
         TableScreen(controller, accountId, hamburger, landscape)
         if (reconnecting && state.board != null && !dismissedReconnect)
             ReconnectingDialog(controller::back, dismiss = { dismissedReconnect = true })
@@ -274,7 +276,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     state.detail?.takeIf { it.lifecycle == GameLifecycle.LOBBY && controller.resultUnseen(it) }?.let { game ->
         val notice = game.resultNotice!!
         val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
-        key(resultKey(game)) { GameEndDialog(GameEndText.of(notice, accountId, names), null, controller::acknowledgeResult) }
+        key(resultKey(game)) { GameEndDialog(GameEndText.of(notice, accountId, names), ok = controller::acknowledgeResult) }
     }
     }
     }

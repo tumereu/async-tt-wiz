@@ -189,11 +189,15 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun acknowledgeResult() {
         val game = state.detail ?: return
         if (closed) return
-        state = state.copy(resultsOk = state.resultsOk + resultKey(game))
+        AppLog.info("game", "Result OK pressed on ${resultKey(game)}: ${game.resultNotice?.ending}")
+        session?.releaseEnd(game.id, "own OK")
+        state = state.copy(resultsOk = state.resultsOk + resultKey(game), board = null)
         queue.whenReady(game.id, "acknowledgeResult") {
             state.detail?.takeIf { it.id == game.id }?.let { current -> session?.acknowledgeResult(current) }; connectionState()
         }
     }
+    /** TRN-065: whether [game]'s table stays on after its play ended, until the viewer's own OK. */
+    fun tableHeldAtEnd(game: GameSummary?): Boolean = game != null && session?.tableHeldAtEnd(game.id) == true && resultUnseen(game)
     /** TRN-065: whether the viewer still has to tap OK on [game]'s last result (the server's word, unless OK'd here). */
     fun resultUnseen(game: GameSummary): Boolean =
         game.resultNotice?.unseen?.contains(accountId()) == true && resultKey(game) !in state.resultsOk

@@ -100,13 +100,13 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-113 (I-D56 §7, §13; owner 2026-11-06): new games start in Quick with Assume resolves Normal and Autotap on; without an
+    // LOB-113 (I-D56 §7, §13; owner 2026-11-09): new games start in Quick with Assume resolves When they have no mana and Autotap on; without an
     // account (signed out) the device keeps them per account
     @Test fun automatumPlayDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent { ScreenTheme { AutomatumPauseSettings("pauses") } }
         compose.onNodeWithTag("response-mode-Quick").assertIsSelected()
-        compose.onNodeWithTag("assume-resolves-normal").assertIsSelected()
+        compose.onNodeWithTag("assume-resolves-no-mana").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOn()
         compose.onNodeWithTag("response-mode-Control").performClick()
         compose.onNodeWithTag("assume-resolves-always").performClick()
@@ -114,7 +114,7 @@ class SettingsScreenTest {
         compose.waitForIdle()
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(org.asyncttwiz.protocol.game.ResponseMode.FullControl,
             assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false), PausePreferences(context, "pauses").engineDefaults)
-        assertEquals(org.asyncttwiz.protocol.game.PlaySettings(), PausePreferences(context, "someone else").engineDefaults)
+        assertEquals(org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES, PausePreferences(context, "someone else").engineDefaults)
         compose.onNodeWithTag("response-mode-Control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()
         // "When they have no mana" is the third choice, Never the first; one choice at a time

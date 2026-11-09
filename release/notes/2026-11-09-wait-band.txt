@@ -1,0 +1,1 @@
+mod: What the other player is doing or may respond to now shows in one place, a small dark band under their hand, instead of faint words over the battlefield. The chip on the top bar shows and then fades, even while they keep deciding.

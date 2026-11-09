@@ -27,8 +27,12 @@ data class TableState(
     val blockDraft: List<Block>? = null,
     /** A suggested result (draw, or one player's win) waiting for the other player's answer. */
     val suggestion: ResultSuggestion? = null,
-    /** Who confirmed the result the engine reports (I-D53); once set, the result is final. */
+    /** Who confirmed the result the engine reports (I-D53); once set, the result is final. Games now end by [resultOks]:
+     * nothing writes this any more, it stays for the events already stored. */
     val resultConfirmedBy: PlayerId? = null,
+    /** TRN-065 (owner, 2026-11-09): the players whose OK stands on the result the rules gave: final once it holds every
+     * player. It lives on the line, so anything that takes the result back (an undo, a branch) takes the OKs with it. */
+    val resultOks: Set<PlayerId> = emptySet(),
     /** The game's random secret, made by the server when the play starts and held by both devices (I-D27: data a device
      * holds isn't shown): every random answer is worked out from it ([LineRandom]). */
     val secret: String = "",
@@ -50,14 +54,19 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
  * catch-up playback alike (STK-036, HIS-095; set from the quick actions in both); the other player's device learns it too
  * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
  * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
- * instead of waiting with Assume (TRN-059, LOB-113, HIS-096), Normal by default. [autotap] pays mana costs with the
- * engine's suggestion (I-D47).
+ * instead of waiting with Assume (TRN-059, LOB-113, HIS-096). [autotap] pays mana costs with the engine's suggestion
+ * (I-D47). A new game of an account that chose nothing else starts with [NEW_GAMES].
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val assume: AssumeResolves = AssumeResolves.Normal,
     val autotap: Boolean = true) {
     /** These settings with [assume] as [value]. */
     fun assuming(value: AssumeResolves): PlaySettings = copy(assume = value)
+
+    companion object {
+        /** LOB-113 (owner, 2026-11-09): what a new game starts with until the account chooses otherwise: "No mana". */
+        val NEW_GAMES = PlaySettings(assume = AssumeResolves.WhenNoMana)
+    }
 }
 
 /** Where a player's device assumes the other player's passes at once (HIS-096) instead of waiting with Assume on the
@@ -179,6 +188,16 @@ sealed interface TableChange {
             return table.copy(resultConfirmedBy = after)
         }
         override fun inverse() = copy(before = after, after = before)
+    }
+
+    /** TRN-065 (owner, 2026-11-09): [player] pressed OK on the result the rules gave ([ok]), or took their OK back. */
+    @Serializable @SerialName("result-ok")
+    data class ResultOk(val player: PlayerId, val ok: Boolean) : TableChange {
+        override fun apply(table: TableState): TableState {
+            check((player in table.resultOks) != ok) { "The result's OK of $player is already $ok" }
+            return table.copy(resultOks = if (ok) table.resultOks + player else table.resultOks - player)
+        }
+        override fun inverse() = copy(ok = !ok)
     }
 
     /** The [TableState.line] moves (I-D56 §9): random answers were made on it, or a new line started. Made by an

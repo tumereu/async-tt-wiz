@@ -62,6 +62,8 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
                 is TableChange.Suggestion -> writes += StateKey.Table("suggestion")
                 // Confirming confirms the result the engine reports
                 is TableChange.ResultConfirmed -> { writes += StateKey.Table("result-confirmed"); reads += StateKey.Game }
+                // TRN-065: an OK stands on the result the engine reports; two players' OKs don't meet
+                is TableChange.ResultOk -> { writes += StateKey.Table("result-ok:${change.player.value}"); reads += StateKey.Game }
             }
         }
 

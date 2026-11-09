@@ -34,7 +34,7 @@ import kotlin.test.assertTrue
 /**
  * HIS-110 (owner playtest 2026-11-07): Alice casts an Ember Insight ("Reveal the top card of your library and put that
  * card into your hand.") while Bob is away; Bob's catch-up playback stops at the reveal with its panel above his hand,
- * his table held there until he taps OK. Alice's own reveal opens nothing on her table.
+ * his table held there until he taps OK. Alice's own reveal opens her own panel (owner, 2026-11-09), her OK her own.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -103,7 +103,8 @@ class RevealPanelTest {
     /** Bob, catching up on Alice's turn in which she cast her Ember Insight, stopped at her reveal. */
     private fun bobAtReveal(): EngineGame {
         val alice = aliceCastsInsight()
-        assertNull(alice.shown?.reveal, "her own reveal opens nothing")
+        assertNotNull(alice.shown?.reveal, "her own panel")
+        alice.dismissReveal()
         alice.endTurn()
         alice.tick(5_000)
         val bob = EngineGame(f.game.id, f.b, f.base, f.behind(alice.device.session.pending, alice.device.model))
@@ -239,11 +240,19 @@ class RevealPanelTest {
         card.assertWidthIsEqualTo(42.dp).assertHeightIsEqualTo(60.dp)
     }
 
-    // HIS-110: Alice's own reveal opens no panel on her table
-    @Test fun yourOwnRevealOpensNothing() {
+    // HIS-110 (owner, 2026-11-09): Alice's own reveal of a card she couldn't see opens her own panel: "You revealed · <source>",
+    // the card, OK; her table's actions wait for her OK, and it closes only for her
+    @Test fun yourOwnRevealShowsYouThePanelWithItsOk() {
         val alice = aliceCastsInsight()
-        assertNull(alice.shown?.reveal)
+        val reveal = assertNotNull(alice.shown?.reveal)
+        assertEquals(PlayerId(f.a), reveal.by)
         render(alice, f.a)
+        compose.onNodeWithText("You revealed · ${EngineGameFixture.Choices.INSIGHT}").assertExists()
+        compose.onNodeWithTag(REVEAL_OK_TAG).assertExists()
+        captureShot("$SCREENSHOTS/engine/reveal-panel-own.png", "Alice cast her own Ember Insight: it revealed her top card, so the " +
+            "panel above her hand says \"You revealed\" with the card and the Insight, and her table waits for her own OK.")
+        compose.onNodeWithTag(REVEAL_OK_TAG).performClick()
+        refresh()
         compose.onNodeWithTag(REVEAL_OK_TAG).assertDoesNotExist()
     }
 }

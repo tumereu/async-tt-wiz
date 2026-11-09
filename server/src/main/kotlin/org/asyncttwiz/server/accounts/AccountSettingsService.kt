@@ -33,10 +33,10 @@ class AccountSettingsService(private val runtime: ServiceRuntime) {
 internal object PlayDefaultsStore {
     fun read(sql: DSLContext, account: UUID): PlaySettings =
         sql.select(ACCOUNT.PLAY_DEFAULTS).from(ACCOUNT).where(ACCOUNT.ID.eq(account)).fetchOne(ACCOUNT.PLAY_DEFAULTS)
-            ?.let { runCatching { GameWire.json.decodeFromString(PlaySettings.serializer(), it) }.getOrNull() } ?: PlaySettings()
+            ?.let { runCatching { GameWire.json.decodeFromString(PlaySettings.serializer(), it) }.getOrNull() } ?: PlaySettings.NEW_GAMES
 
     fun save(sql: DSLContext, account: UUID, settings: PlaySettings) {
-        sql.update(ACCOUNT).set(ACCOUNT.PLAY_DEFAULTS, if (settings == PlaySettings()) null
+        sql.update(ACCOUNT).set(ACCOUNT.PLAY_DEFAULTS, if (settings == PlaySettings.NEW_GAMES) null
             else GameWire.json.encodeToString(PlaySettings.serializer(), settings)).where(ACCOUNT.ID.eq(account)).execute()
     }
 }

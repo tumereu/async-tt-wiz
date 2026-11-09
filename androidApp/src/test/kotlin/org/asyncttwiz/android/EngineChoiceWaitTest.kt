@@ -72,10 +72,10 @@ class EngineChoiceWaitTest {
 
     private fun redraw() { version++; compose.waitForIdle() }
 
-    // HIS-075, TRN-066, TBL-118, LOB-081 (owner, 2026-11-05): Alice kept while Bob (online) is still deciding on a
-    // mulligan: her event text says so in the wait's words, with Event text off too, and doesn't fade; her double-tap,
-    // drag and tap of a hand card are refused: the card shakes and the event text flashes, without a message; once Bob
-    // keeps, the event text is the events' again
+    // HIS-075, TRN-066, TBL-118, LOB-081 (owner, 2026-11-05, 2026-11-09): Alice kept while Bob (online) is still deciding on a
+    // mulligan: her event text says so in the wait's words, with Event text off too, and fades after a chip's time while the
+    // wait band under his hand goes on saying it; her double-tap, drag and tap of a hand card are refused: the card shakes
+    // and the event text flashes again, without a message; once Bob keeps, the event text is the events' again
     @Test fun theOtherPlayersMulliganShowsInTheEventTextAndRefusalsFlashIt() {
         val toolkit = kit.toolkit
         // Bob is seen online before Alice keeps
@@ -86,14 +86,19 @@ class EngineChoiceWaitTest {
         assertEquals(GameDevice.Wait.Keep, waiting.reason)
         render(f.a)
         compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Bob is deciding on a mulligan")
+        compose.onNodeWithTag("wait-band").assertExists()
         compose.mainClock.advanceTimeBy(EVENT_TEXT_MIN_MILLIS * 5)
-        compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Bob is deciding on a mulligan")
+        compose.onNodeWithTag("event-text").assertDoesNotExist()
+        compose.onNodeWithTag("wait-band").assertExists()
+        compose.onNodeWithText("Bob is deciding on a mulligan").assertExists()
 
         val card = kit.atw(kit.hand("Mountain").first())
         kit.gestures().let { (gestures, _) -> kit.doubleTap(gestures, kit.item(card, PlayZone.HAND).bounds.center) }
         assertEquals(card, toolkit.shaking?.id, "the double-tapped card shakes")
         var flashes = toolkit.choiceFlashes
         assertTrue(flashes > 0, "the event text flashes")
+        redraw()
+        compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Bob is deciding on a mulligan")
         kit.gestures().let { (gestures, _) ->
             kit.drag(gestures, kit.item(card, PlayZone.HAND).bounds.center, kit.scene().fields.last().bounds.center)
         }
@@ -121,14 +126,14 @@ class EngineChoiceWaitTest {
     }
 
     // HIS-075, STK-032, TRN-066: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
-    // choosing" while his faint words over the battlefield stay; her own table says nothing of it
+    // choosing" while the band under her hand stays; her own table says nothing of it
     @Test fun theOtherPlayersChoiceShowsInTheEventText() {
         kit.toAliceDiscard()
         kit.settle()
         render(f.b, eventTextOn = true)
         compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Alice is choosing")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/event-text-choosing.png",
-            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing, and stays while she chooses; the faint words over the battlefield say the same.")
+            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses.")
         assertNull(kit.routes.choosingText(kit.alice.play()), "Alice's own table doesn't say she is choosing")
     }
 }

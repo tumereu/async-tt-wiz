@@ -1,0 +1,1 @@
+mod: A spell with convoke always opens the payment panel, also with Autotap on. In any payment, the cards paying move out of their pile into their own pile to its right, so they are easy to see and take back.

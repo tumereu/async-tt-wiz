@@ -33,6 +33,23 @@ class AssumeNoManaTest : E2e() {
         alice.node(hasContentDescription("${bob.name}, life", substring = true)).performClick()
     }
 
+    // LOB-113, HIS-096 (owner, 2026-11-09): "No mana" is the default: a new account that chose nothing starts its game with
+    // it: Bob has no mana source, so Alice's Spark's pause for him is assumed at once, and Settings says so
+    @Test fun aNewGameOfAnAccountThatChoseNothingAssumesWhenTheyHaveNoMana() {
+        startGame(TestDeck.sparks(), TestDeck.sparks(), aliceChoseNothing = true,
+            deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        assertEquals(AssumeResolves.WhenNoMana, alice.shown.settings.assume)
+        assertTrue(alice.showsText("Assume:\nNo mana"), "the quick action says so")
+        alice.playFromHand("Mountain", this)
+        waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        val offers = assumeOffers()
+        aliceSparksBob()
+        waitUntil("the Spark resolved without waiting for Bob") { alice.state.player(bob.me).life == 17 && alice.inOwnMain() }
+        assertTrue(offers.isEmpty(), "no wait with Assume: $offers")
+    }
+
     // HIS-096, TRN-059, TRN-070: in her first turn Bob has no mana source: her Spark's pause for him is assumed at once;
     // in her next turn he has an untapped Mountain: her Spark waits for him with "Assume resolves"
     @Test fun aSpellIsAssumedAtOnceOnlyWhileTheyHaveNoMana() {

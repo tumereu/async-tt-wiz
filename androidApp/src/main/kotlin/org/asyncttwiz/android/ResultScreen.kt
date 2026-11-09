@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -15,6 +16,8 @@ import org.asyncttwiz.protocol.*
 
 @Composable
 internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultControls?, modifier: Modifier = Modifier) {
+    // TRN-047 (owner, 2026-11-09): Accept stays greyed for the panel's first moments: a misplaced tap can't accept it
+    val armed = rememberOkArmed()
     Surface(modifier.widthIn(max = 320.dp), shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surface, contentColor = MenuInk, border = BorderStroke(1.dp, MenuBorder),
         shadowElevation = 2.dp) {
@@ -22,7 +25,7 @@ internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultCo
             // I-D53 (MTG Arena's result screen): the rules ended the game; one OK, which either player may press
             if (model.byRules) {
                 Text(model.text, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
-                Button(onClick = { controls?.accept?.invoke(model.target) }, enabled = controls?.enabled == true) {
+                Button(onClick = { controls?.accept?.invoke(model.target) }, enabled = controls?.enabled == true && armed) {
                     Icon(menuIcon("Accept"), null); Spacer(Modifier.width(8.dp)); Text("OK")
                 }
                 return@Column
@@ -35,7 +38,7 @@ internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultCo
                     Icon(if (model.canAccept) menuIcon("Cancel") else Icons.AutoMirrored.Outlined.Undo,
                         if (model.canAccept) "Decline result" else "Withdraw result")
                 }
-                if (model.canAccept) FilledIconButton(onClick = { controls?.accept?.invoke(model.target) }, enabled = controls?.enabled == true) {
+                if (model.canAccept) FilledIconButton(onClick = { controls?.accept?.invoke(model.target) }, Modifier.testTag("result-accept"), enabled = controls?.enabled == true && armed) {
                     Icon(menuIcon("Accept"), "Accept result")
                 }
             }

@@ -61,7 +61,7 @@ class SwitchReviewTest {
         sim.settle(only = listOf(bob))
         val over = assertIs<GameDevice.Status.Over>(sim.device(bob).status)
         assertEquals(GameResult.Won(bob), over.result)
-        assertTrue(!over.confirmable, "You won · waiting for Alice to catch up")
+        assertTrue(over.confirmable && !over.final, "You won · OK works, however far Alice has seen")
         assertNotNull(Engine.result(sim.server.state().engine))
         // The server's view of Alice: nothing waits for her, so she is never told
         assertNotNull(sim.server.nextStop(alice), "the result Alice hasn't seen is something waiting for her")

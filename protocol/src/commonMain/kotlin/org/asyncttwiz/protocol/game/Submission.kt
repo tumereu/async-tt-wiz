@@ -60,16 +60,15 @@ class Refusal(val reason: String) : RuntimeException(reason) {
  * answer is the line's ([LineRandom]) and every table change fits the table and is the author's to make. Always the
  * player's own: conceding (CR 104.3a), early answers, their result suggestion, accepting a result the other player
  * suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion] of that result), and
- * confirming a result the engine reports.
+ * their OK on a result the engine reports.
  */
 object Authority {
     /**
      * What a submission may do beyond its inputs: [nextLine], the number a new line takes here (null: none may start);
      * [tentative], the author's line is tentative (an assumption of theirs is unconfirmed), so the information rule
-     * applies (I-D56 §5); [resultSeenByAll], every player's local head has reached the result the engine reports, so it
-     * may be confirmed (I-D56 §11).
+     * applies (I-D56 §5).
      */
-    data class Rules(val nextLine: Int? = null, val tentative: Boolean = false, val resultSeenByAll: Boolean = true,
+    data class Rules(val nextLine: Int? = null, val tentative: Boolean = false,
         /** The game's assume reveal settings (LOB-135): the cards the information rule lets through. */
         val reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE)
 
@@ -142,10 +141,11 @@ object Authority {
             is TableChange.EarlyAnswered -> (change.after ?: change.before)?.player
             // Anyone may take a suggestion back or decline it; only its author makes it
             is TableChange.Suggestion -> change.after?.by
-            is TableChange.ResultConfirmed -> {
-                if (change.after != null && Engine.result(model.engine) == null) throw Refusal("No result to confirm")
-                if (change.after != null && !rules.resultSeenByAll) throw Refusal("The result is confirmed once both players have seen it (I-D56 §11)")
-                change.after
+            is TableChange.ResultConfirmed -> throw Refusal("A result's end comes from each player's OK (TRN-065)")
+            // TRN-065 (owner, 2026-11-09): whenever the result is there, however far the other player has seen; only your own
+            is TableChange.ResultOk -> {
+                if (change.ok && Engine.result(model.engine) == null) throw Refusal("No result to press OK on")
+                change.player
             }
             is TableChange.LineMoved -> throw Refusal("The line moves only with the event's own random answers")
             is TableChange.AttackDraft, is TableChange.BlockDraft -> null
@@ -412,11 +412,8 @@ object Acceptance {
                 if (due == null && acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
                 val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
                 val tentative = others.any { other -> tentativeFor(history, head, other, author) }
-                // A result is confirmed once every player saw it, its author too (I-D56 §11)
-                val seen = ahead.all { it.engine == null } &&
-                    others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
                 val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
-                    Authority.Rules(nextLine = due, tentative = tentative, resultSeenByAll = seen, reveals = reveals))
+                    Authority.Rules(nextLine = due, tentative = tentative, reveals = reveals))
                 return Accepted(event, LiveState(event.id, model), authorHead = event.engine?.steps.orEmpty().any { it.input != null } || parent == own)
             }
             val next = rest.first()

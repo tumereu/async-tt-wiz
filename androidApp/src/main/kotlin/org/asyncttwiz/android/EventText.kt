@@ -122,7 +122,7 @@ private val EventTextFill = Color(0xf0253d44)
 /**
  * Overlays the table's top row. Purely visual (no pointer handlers), so taps reach the controls below. [status]: the
  * other player's open choice in the wait's words (HIS-075, TRN-066), shown instead of the event chips, also with Event
- * text off, without fading while it lasts; each rise of [flashes] (a refusal meanwhile, TBL-118) flashes it once in the
+ * text off, fading after a chip's time even while it lasts; each rise of [flashes] (a refusal meanwhile, TBL-118) flashes it once in the
  * warning colour.
  */
 @Composable
@@ -145,7 +145,14 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
         }
     }
     val warning = MaterialTheme.colorScheme.error
-    val shownChip = status?.let { EventTextChip(STATUS_CURSOR, it, -1, 0) } ?: chip
+    // HIS-075 (owner, 2026-11-09): the status shows for a chip's time, then fades, even while the choice lasts (the wait band
+    // under the other player's hand keeps saying it, TRN-066); a refusal meanwhile shows it again
+    var statusShown by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(status, flashes) {
+        statusShown = status
+        if (status != null) { delay(eventTextLifetimeMillis(pauseMillis)); statusShown = null }
+    }
+    val shownChip = statusShown?.let { EventTextChip(STATUS_CURSOR, it, -1, 0) } ?: chip
     RecordShown(shownChip?.text, shownChip)
     Box(modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
         InstantShowFadeOut(shownChip) { shown ->

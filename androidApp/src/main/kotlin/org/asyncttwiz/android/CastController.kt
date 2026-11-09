@@ -419,6 +419,7 @@ internal class CastController(
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
         val group = groupOf(cardId) ?: return false
+        AppLog.info("cast", "Payment: source $cardId tapped, paying before ${paySources()}")
         toggleMana(group)
         return true
     }
@@ -698,7 +699,8 @@ internal class CastController(
         hand: org.asyncttwiz.automatum.HandCastOptions? = null, choosing: Boolean? = null): Step {
         val payment = next.pending as? Decision.ManaPayment
         if (auto && next.complete) complete(next, autotapOn)?.let { return it }
-        if (auto && payment != null) {
+        // STK-024 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on
+        if (auto && payment != null && !convokes(next, payment)) {
             val chosen = chosen(next, payment, autotapOn, custom, keep, picks)
             if (chosen.isNotEmpty() && next.pays(chosen)) complete(next, autotapOn, chosen)?.let { return it }
         }
@@ -709,6 +711,16 @@ internal class CastController(
         val listed = if (pending != null && pending !is Decision.Targets && pending !is Decision.ManaPayment) next.listedAnswers() else emptyList()
         return Step.Show(next, mana, if (ahead != null && due != null) ahead.pays(mana) else true, listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear,
             mostAnnounced(next), ahead, if (pending is Decision.Targets || pending is Decision.ChooseObjects) next.selection(emptyList()) else null, hand, choosing)
+    }
+
+    /** STK-024: whether [flow]'s spell has convoke (CR 702.51), its own or granted, whatever creatures there are to tap now. */
+    private fun convokes(flow: CastFlow, payment: Decision.ManaPayment): Boolean {
+        val tapsCreatures = arcanum.api.Mechanic.PayManaBy(arcanum.api.ManaPaymentWay.TapCreatures)
+        if (payment.options.any { it is ManaUse.Special && it.way == arcanum.api.ManaPaymentWay.TapCreatures }) return true
+        val spell = payment.source ?: return false
+        return Engine.view(flow.state)[spell]?.characteristics?.abilities.orEmpty().any { instance ->
+            (instance.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it == tapsCreatures }
+        }.also { if (it) AppLog.info("cast", "The panel opens for a spell with convoke, no creature to tap") }
     }
 
     /** The mana chosen for [payment] of [flow]: with Autotap on its suggestion, around the player's picks once they made any ([filled]);

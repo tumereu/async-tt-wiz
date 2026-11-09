@@ -54,6 +54,10 @@ class MatchHistoryTest : E2e() {
         bothKeep(bobAway = false)
         concede(alice)
         lobbyHistory(alice, "Loss", 1)
+        // TRN-065 (owner, 2026-11-09): Bob stays at the table until his own OK
+        val ok = hasTestTag(org.asyncttwiz.android.GAME_END_OK_TAG) and androidx.compose.ui.test.isEnabled()
+        waitUntil("Bob's OK no longer greyed") { bob.shows(ok) }
+        bob.node(ok).performClick()
         lobbyHistory(bob, "Win", 1)
         stats(alice, "Loss", 1)
         stats(bob, "Win", 1)

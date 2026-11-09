@@ -259,19 +259,25 @@ class MoveTest {
         }
     }
 
-    // TRN-058, TRN-065: the result of Alice's line, reached while Bob is away, waits for Bob (his move for both) until he
-    // has been shown it; then the game waits for nobody
+    // TRN-058, TRN-065 (owner, 2026-11-09): the result of Alice's line, reached while Bob is away, is the move of whoever
+    // hasn't pressed OK on it; Alice's OK leaves it Bob's, seen or not, and nobody's once both stand
     @Test
-    fun aResultNotSeenYetIsTheMoveOfThePlayerWhoHasntSeenIt() {
+    fun aResultIsTheMoveOfWhoeverHasntPressedOk() {
         val sim = seers()
         sim.seersToResult()
         val alice = sim.alice; val bob = sim.bob
         assertEquals(GameResult.Won(alice), assertIs<GameDevice.Status.Over>(sim.device(alice).status).result)
         val bobs = sim.load(bob)
         assertTrue(bobs.session.behind)
-        sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob hasn't been shown the result")
+        assertEquals(alice, sim.device(alice).move, "Alice hasn't pressed OK")
+        assertEquals(bob, sim.device(bob).move, "Bob hasn't pressed OK")
+        assertIs<GameDevice.Acted.Sent>(sim.device(alice).confirmResult())
+        sim.settle(only = listOf(alice))
         sim.catchUp(bob)
-        sim.assertMoves(mapOf(alice to null, bob to null), "both have seen the result")
+        sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob has seen the result, Alice's OK stands")
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).confirmResult())
+        sim.settle()
+        sim.assertMoves(mapOf(alice to null, bob to null), "both OKs stand")
     }
 
     private fun DeviceSim.catchUp(p: PlayerId) {

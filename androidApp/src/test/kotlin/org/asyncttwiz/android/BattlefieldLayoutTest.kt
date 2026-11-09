@@ -47,6 +47,29 @@ class BattlefieldLayoutTest {
         assertEquals(listOf(listOf("f1", "f4", "f2")), groups[0].units, "identical cards mean one thing")
     }
 
+    // STK-024, TBL-053 (owner, 2026-11-09): the sources paying the open payment leave their stack for a pile of their own, right
+    // after it, also with something between the stack's cards in arrival order; in the upper band it lies in the same row
+    @Test fun payingSourcesLieInTheirOwnPileToTheRightOfTheirStack() {
+        val same = StackIdentity("land", "f", false, "a", emptyList(), "", "", emptyList(), false, false)
+        val other = same.copy(definition = "other")
+        val lands = listOf(card("l1", BattlefieldRow.Lands, same), card("o1", BattlefieldRow.Lands, other),
+            card("l2", BattlefieldRow.Lands, same), card("l3", BattlefieldRow.Lands, same), card("l4", BattlefieldRow.Lands, same))
+        assertEquals(listOf(listOf("l1", "l2", "l3", "l4"), listOf("o1")), BattlefieldLayout.groups(lands).map { it.members }, "no payment: one stack")
+        val paying = BattlefieldLayout.groups(lands, setOf("l3", "l4"))
+        assertEquals(listOf(listOf("l1", "l2"), listOf("l3", "l4"), listOf("o1")), paying.map { it.members })
+        val spots = BattlefieldLayout.place(paying, 400f)
+        assertTrue(spots.getValue("l3").x > spots.getValue("l2").x && spots.getValue("o1").x > spots.getValue("l4").x, "$spots")
+        assertEquals(paying[0].key, paying[1].besideOf)
+        // All of a stack paying: it stays where it lies
+        assertEquals(listOf(listOf("l1", "l2", "l3", "l4"), listOf("o1")), BattlefieldLayout.groups(lands, setOf("l1", "l2", "l3", "l4")).map { it.members })
+        val creature = same.copy(definition = "bear")
+        val creatures = listOf(card("c1", BattlefieldRow.Creatures, creature), card("c2", BattlefieldRow.Creatures, creature),
+            card("d1", BattlefieldRow.Creatures, other))
+        val band = BattlefieldLayout.place(BattlefieldLayout.groups(creatures, setOf("c2")), 400f)
+        assertEquals(band.getValue("c1").row, band.getValue("c2").row, "in the same row as its stack")
+        assertEquals(band.getValue("c1").x + BattlefieldLayout.SLOT, band.getValue("c2").x)
+    }
+
     // TBL-053, TBL-130 (owner, 2026-11-08): stacks merging or a new member joining never leave a tapped member in the middle:
     // the tapped lie on top in arrival order, the untapped under them; with none tapped, arrival order; a tap acts on the
     // top untapped member, and tapping from the top down keeps the order

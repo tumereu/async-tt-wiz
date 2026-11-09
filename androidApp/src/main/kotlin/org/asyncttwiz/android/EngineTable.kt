@@ -441,7 +441,7 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
      * choosing · Ember Divination", "Bob is deciding on a mulligan"), or null when the game doesn't wait for one. */
     fun choosingText(play: TableBoard): String? = choiceWait()?.let { waitingText(it, play, opponentName) }
 
-    /** The faint words over the battlefield while the other player must act (TRN-066), or null. */
+    /** The wait band's words while the other player must act (TRN-066), or null. */
     fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
@@ -674,15 +674,18 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val opponent = names[shown.opponent.value] ?: "The other player"
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
     val reviewing = routes.review != null
-    // TRN-066, TRN-068: the wait is faint words over the battlefield (TableRuntimeHooks.waitingLine) with its Assume or
+    // TRN-066, TRN-068: the wait is the band under the other player's hand (TableRuntimeHooks.waitingLine) with its Assume or
     // Cancel in the step arrow's place, and the unconfirmed mark sits at the arrow's corner (QuickActionStrip): nothing
     // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
-    // HIS-110: the other player's reveal stops the view until dismissed, before anything else docked above the hand
+    // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
     val reveal = shown.reveal.takeIf { !reviewing }
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
-        RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
+        RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent) {
+            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}")
+            game.dismissReveal(); routes.pump()
+        }
     }
     // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the
     // "Show plays and combat" time, then to the Stack; the view holds meanwhile. Timeline mode ends it
@@ -711,16 +714,25 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         else -> if (reveal != null) Unit else when (status) {
-        // TRN-065 (owner 2026-11-07): the result in a dialog in the middle of the screen until the player taps OK; the player
-        // whose own action made it final (a concession, an accepted suggestion) has seen it and goes on to the lobby
-        is GameDevice.Status.Over -> if (!(status.final && status.endedBy == PlayerId(routes.viewer))) {
+        // TRN-065 (owner 2026-11-09): the result in a dialog in the middle of the screen until the player's own OK; the player
+        // whose own action made it final (a concession, an accepted suggestion) has seen it and goes on to the lobby, as both
+        // do once both OKs stand on a result the rules gave
+        is GameDevice.Status.Over -> if (!(status.final && (status.ownOk || status.endedBy == PlayerId(routes.viewer)))) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner?.value
             val causes = shown.engine.players.mapNotNull { p -> p.lossReason?.let { org.asyncttwiz.protocol.lossCause(it) }?.let { p.id.value to it } }.toMap()
             val text = GameEndText.of(won, status.ending, causes, routes.viewer, names)
-            GameEndDialog(text, if (!status.final && !status.confirmable) "Waiting for $opponent to catch up" else null) {
-                if (status.final) routes.acknowledgeResult() else game.confirmResult()
-                routes.pump()
-            }
+            GameEndDialog(text, if (status.ownOk) "Waiting for $opponent to acknowledge" else null,
+                // An open undo request freezes the game (HIS-100): the answer comes first
+                enabled = shown.request == null,
+                takeBack = if (status.ownOk) ({
+                    AppLog.info("game", "Result OK taken back")
+                    game.takeBackResult(); routes.pump()
+                }) else null,
+                ok = {
+                    AppLog.info("game", "Result OK pressed: ${status.ending}, final ${status.final}")
+                    if (status.final) routes.acknowledgeResult() else game.confirmResult()
+                    routes.pump()
+                })
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
         else -> {}

@@ -1,0 +1,1 @@
+fix: A reveal you already tapped OK on no longer comes back, and an open one stays until your own OK, also if the game reloads or ends meanwhile.

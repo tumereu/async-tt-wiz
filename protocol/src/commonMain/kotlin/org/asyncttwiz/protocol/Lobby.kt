@@ -25,9 +25,10 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val resultNotice: ResultNotice? = null)
 
 /**
- * TRN-065 (owner 2026-11-07): how the last match ended, kept from its end until both players have tapped OK on its result
- * dialog: the [winner] (null: a draw), how it ended ([ending]), why each loser lost by the rules ([causes], by account),
- * and who still has to tap OK ([unseen]; the player whose own action ended it never does).
+ * TRN-065 (owner 2026-11-09): how the last match ended, after a concession or an accepted suggestion, kept from its end until
+ * the other player has tapped OK on its result dialog (a result the rules gave ended on both OKs, so it needs none): the
+ * [winner] (null: a draw), how it ended ([ending]), why each loser lost by the rules ([causes], by account), and who still has
+ * to tap OK ([unseen]; the player whose own action ended it never does).
  */
 @Serializable data class ResultNotice(val winner: String? = null, val ending: MatchEnding, val causes: Map<String, LossCause> = emptyMap(),
     val unseen: List<String>)

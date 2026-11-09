@@ -516,7 +516,7 @@ class EngineGameServiceTest {
         val mine = PlaySettings(ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
         assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(mine)).outcome)
         assertEquals(mine, f.snapshot(f.b).settings)
-        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
         assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("\"assume\":{") })
     }
 
@@ -529,7 +529,7 @@ class EngineGameServiceTest {
         assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.AutoSkip), f.snapshot(f.a).modes)
         assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(PlaySettings(ResponseMode.FullControl, autotap = false))).outcome)
         assertEquals(ResponseMode.FullControl, f.snapshot(f.a).modes[b])
-        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
         val change = f.revisions(f.a, "0").last()
         assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.FullControl), change.engine?.modes)
         assertTrue(!GameWire.encode(change).contains("autotap"), "only the mode is shared")
@@ -602,7 +602,7 @@ class EngineGameServiceTest {
         val f = Fixture(runtime, engine = true, tag = "d", bobDefaults = defaults)
         assertEquals(defaults, org.asyncttwiz.server.accounts.AccountSettingsService(runtime).read(f.b.account.accountId).playDefaults)
         assertEquals(defaults, f.snapshot(f.b).settings)
-        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
     }
 
     // TRN-059, LOB-113, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
@@ -649,7 +649,7 @@ class EngineGameServiceTest {
             assertEquals(expected, GameWire.json.decodeFromString(PlaySettings.serializer(), read(seat)))
         }
         // The other player's seat and accounts without defaults stay as they were
-        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
         db.connection().use { c -> c.createStatement().executeQuery(
             "SELECT play_defaults FROM account WHERE id = '${f.a.account.accountId}'").use { it.next(); assertNull(it.getString(1)) } }
     }

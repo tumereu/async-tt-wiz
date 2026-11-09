@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
 
 /**
  * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the unconfirmed mark, the
- * wait's faint words with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
+ * wait's band with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
  * they go back to, the strip and timeline mode on engine events, and the other player's shared attack staging (the
  * combat band itself: [CombatBandTest]).
  */
@@ -222,8 +222,8 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("main-button-working").assertDoesNotExist()
     }
 
-    // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
-    // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
+    // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
+    // says so and nothing stands in the step arrow's place: his keep is never assumed
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
@@ -232,10 +232,25 @@ class EngineTableScreenshotTest {
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), game.device.status)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
         compose.onNodeWithText("Bob is deciding on a mulligan").assertExists()
+        compose.onNodeWithTag("wait-band").assertExists()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
         compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: faint words over the battlefield say Bob is deciding on a mulligan, nothing covers the board or her hand, and the main button's place is empty (his keep is never assumed).")
+            "Alice kept while Bob is online: a dark band under his hand says Bob is deciding on a mulligan, in small words, nothing covers her hand, and the main button's place is empty (his keep is never assumed).")
+    }
+
+    // TRN-066 (owner, 2026-11-09): in landscape the band lies under the other player's hand as well, and takes no touch: a tap
+    // through it reaches the table
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theWaitBandInLandscape() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        game.tick(1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        game.tick(2_000)
+        render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
+        val band = compose.onNodeWithTag("wait-band").assertExists()
+        assertTrue(androidx.compose.ui.semantics.SemanticsActions.OnClick !in band.fetchSemanticsNode().config, "no touch taken")
+        compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-band-landscape.png",
+            "In landscape, Alice kept while Bob is online: the same dark band under his hand says Bob is deciding on a mulligan.")
     }
 
     // HIS-033, HIS-094 (§29.1, owner 2026-11-05): coming back after the opening, Bob's playback of what Alice did starts
@@ -407,7 +422,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, the band under his hand says Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
@@ -444,7 +459,7 @@ class EngineTableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Assuming this would show you hidden cards or a random result: wait for Bob.").assertExists()
         captureShot("$SCREENSHOTS/engine/assume-greyed.png",
-            "Alice cast Ember Glance at Bob, who is away (a green arrow runs from the Stack to his life square): assuming his pass would show her his hidden hand, so faint words say she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
+            "Alice cast Ember Glance at Bob, who is away (a green arrow runs from the Stack to his life square): assuming his pass would show her his hidden hand, so the band under his hand says she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
         compose.onNodeWithTag("engine-wait-action").performTouchInput { up() }
     }
 

@@ -1018,9 +1018,9 @@ class GameDeviceTest {
         }
     }
 
-    // I-D56 §3, §4, §11, §12, CMB-040: declaring attackers leaves a wait with Assume blockers (the screen it opens, with
-    // "No blocks", assumes them); the lethal damage's result waits for Bob to catch up (OK greyed); his playback always stops at
-    // assumed blocks, and the same blocks confirm; OK once both local heads reached the result
+    // I-D56 §3, §4, §12, CMB-040, TRN-065 (owner, 2026-11-09): declaring attackers leaves a wait with Assume blockers (the
+    // screen it opens, with "No blocks", assumes them); Alice's OK on the lethal damage's result works at once and stands
+    // while Bob catches up; his playback always stops at assumed blocks, and the same blocks confirm; both OKs make it final
     @Test
     fun assumedBlockersAndAResultOnATentativeLine() {
         val sim = seers()
@@ -1034,8 +1034,11 @@ class GameDeviceTest {
         sim.passToDamage()
         val over = assertIs<GameDevice.Status.Over>(sim.device(alice).status)
         assertEquals(GameResult.Won(alice), over.result)
-        assertTrue(!over.confirmable && !over.final, "You won · waiting for Bob to catch up")
-        assertEquals(GameDevice.Acted.Refused("waitForCatchUp"), sim.device(alice).confirmResult())
+        assertTrue(over.confirmable && !over.final, "You won · OK works before Bob has seen it")
+        assertIs<GameDevice.Acted.Sent>(sim.device(alice).confirmResult())
+        sim.settle(only = listOf(alice))
+        val waited = assertIs<GameDevice.Status.Over>(sim.device(alice).status)
+        assertTrue(waited.ownOk && !waited.confirmable && !waited.final, "Waiting for Bob to acknowledge")
         // Bob comes back: playback stops at the assumed blocks whatever his mode (Auto-skip here)
         val bobs = sim.load(bob)
         bobs.settings(PlaySettings(mode = ResponseMode.AutoSkip))
@@ -1044,11 +1047,123 @@ class GameDeviceTest {
         assertEquals(GameDevice.Acted.Confirmed, bobs.act(stop.assumed))
         bobs.playToStop()
         sim.settle()
-        assertEquals(GameDevice.Status.Over(GameResult.Won(alice), confirmable = true, final = false), sim.device(alice).status)
-        assertIs<GameDevice.Acted.Sent>(sim.device(alice).confirmResult())
+        assertEquals(false, (sim.device(alice).status as GameDevice.Status.Over).final, "seeing it isn't Bob's OK")
+        assertEquals(setOf(alice), sim.server.state().table.resultOks)
+        val bobsOver = assertIs<GameDevice.Status.Over>(bobs.status)
+        assertTrue(bobsOver.confirmable && !bobsOver.ownOk && !bobsOver.final, "Bob's dialog: Alice's OK doesn't take his away")
+        assertIs<GameDevice.Acted.Sent>(bobs.confirmResult())
         sim.settle()
         assertEquals(true, (bobs.status as GameDevice.Status.Over).final)
+        assertEquals(true, (sim.device(alice).status as GameDevice.Status.Over).final)
         assertTrue(sim.leaks.isEmpty())
+    }
+
+    /** Alice's Seer takes Bob's life to 0, Bob away and then caught up: both stand at the result, no OK yet. */
+    private fun DeviceSim.bothAtTheResult(): GameDevice {
+        seersToCombat()
+        device(alice).assume()
+        settle(only = listOf(alice))
+        passToDamage()
+        val bobs = load(bob)
+        bobs.play()
+        while (bobs.session.behind) {
+            bobs.playToStop()
+            (bobs.status as? GameDevice.Status.Stopped)?.let { bobs.act(it.assumed) }
+        }
+        settle()
+        assertIs<GameDevice.Status.Over>(bobs.status)
+        return bobs
+    }
+
+    // TRN-065 (owner, 2026-11-09): your OK can be taken back until the other player presses theirs; the other player's OK
+    // or take-back reaches the table at once, never a playback in front of the dialog
+    @Test
+    fun anOkIsTakenBackUntilTheOtherPlayerPressesTheirsAndShowsAtOnce() {
+        val sim = seers()
+        val bobs = sim.bothAtTheResult()
+        val alices = sim.device(sim.alice)
+        assertEquals(GameDevice.Acted.Refused("noOkToTakeBack"), alices.takeBackResult())
+        assertIs<GameDevice.Acted.Sent>(alices.confirmResult())
+        sim.settle()
+        assertTrue(!bobs.session.behind, "Alice's OK isn't played back: Bob's dialog stays")
+        assertIs<GameDevice.Status.Over>(bobs.status)
+        assertEquals(setOf(sim.alice), bobs.model.table.resultOks)
+        assertIs<GameDevice.Acted.Sent>(alices.takeBackResult())
+        sim.settle()
+        val over = assertIs<GameDevice.Status.Over>(alices.status)
+        assertTrue(over.confirmable && !over.ownOk && !over.final)
+        assertTrue(!bobs.session.behind && bobs.model.table.resultOks.isEmpty())
+        assertIs<GameDevice.Acted.Sent>(alices.confirmResult())
+        assertIs<GameDevice.Acted.Sent>(bobs.confirmResult())
+        sim.settle()
+        assertEquals(setOf(sim.alice, sim.bob), sim.server.state().table.resultOks, "both pressing at once: both stand")
+        assertEquals(true, (alices.status as GameDevice.Status.Over).final)
+        assertEquals(true, (bobs.status as GameDevice.Status.Over).final)
+        assertEquals(GameDevice.Undo.Unavailable("final"), alices.undo(), "a final result stays")
+    }
+
+    // TRN-065 (owner, 2026-11-09): opening the game on another device shows where the OK stands, and no catch-up for an OK
+    @Test
+    fun anOkShowsOnAnotherDeviceWithoutACatchUp() {
+        val sim = seers()
+        sim.bothAtTheResult()
+        assertIs<GameDevice.Acted.Sent>(sim.device(sim.alice).confirmResult())
+        sim.settle(only = listOf(sim.alice))
+        val again = sim.load(sim.alice)
+        assertTrue((again.status as GameDevice.Status.Over).ownOk, "Alice's OK stands on her other device")
+        val bobs = sim.load(sim.bob)
+        assertEquals(false, bobs.catchUp, "nothing to watch in Alice's OK")
+        assertIs<GameDevice.Status.Over>(bobs.status)
+    }
+
+    // HIS-035, TRN-065: a revision with no OK in it leaves a player who left the app paused: what arrives after waits as ever
+    @Test
+    fun aRevisionWithoutAnOkKeepsTheCatchUpPause() {
+        val sim = seers()
+        val bobs = sim.bothAtTheResult()
+        bobs.away()
+        bobs.revision(emptyList(), null)
+        assertEquals(true, bobs.catchUp, "still away")
+    }
+
+    // TRN-065, HIS-084 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
+    // is; with the other player's OK on it, by the usual request; either way no OK stands afterwards
+    @Test
+    fun undoBeforeTheResultIsFinalClearsTheOks() {
+        val sim = seers()
+        val bobs = sim.bothAtTheResult()
+        val alices = sim.device(sim.alice)
+        val target = alices.undoTarget()
+        assertIs<GameDevice.Acted.Sent>(alices.confirmResult())
+        sim.settle()
+        assertEquals(target, alices.undoTarget(), "the OK isn't what Undo goes back to")
+        assertIs<GameDevice.Acted.Sent>(bobs.confirmResult())
+        assertIs<GameDevice.Acted.Sent>(alices.takeBackResult())
+        sim.settle()
+        assertEquals(setOf(sim.bob), sim.server.state().table.resultOks)
+        // Bob's OK stands on what Alice would take back: his approval first
+        assertIs<GameDevice.Undo.Request>(alices.undo(target))
+        alices.requestUndo(target!!)
+        sim.settle()
+        bobs.answerRequest(true)
+        sim.settle()
+        assertEquals(emptySet(), sim.server.state().table.resultOks, "the OKs went with the result")
+        assertEquals(null, Engine.result(sim.server.state().engine))
+        assertEquals(emptySet(), alices.model.table.resultOks)
+        assertEquals(emptySet(), bobs.model.table.resultOks)
+    }
+
+    // TRN-065, LOB-075, LOB-076 (owner, 2026-11-09): a player who hasn't pressed OK is what the game waits for, seen or not;
+    // the player whose OK stands has nothing waiting
+    @Test
+    fun theServerWaitsForThePlayerWhoHasntPressedOk() {
+        val sim = seers()
+        sim.bothAtTheResult()
+        assertEquals(sim.server.head, sim.server.nextStop(sim.bob)?.at)
+        assertIs<GameDevice.Acted.Sent>(sim.device(sim.alice).confirmResult())
+        sim.settle()
+        assertEquals(null, sim.server.nextStop(sim.alice), "Alice's OK stands")
+        assertNotNull(sim.server.nextStop(sim.bob), "Bob has seen it, but it can't be final without him")
     }
 
     // I-D56 §8, §12: Bob blocks instead of the assumed "No blocks": a branch; Alice's result is taken back with a note

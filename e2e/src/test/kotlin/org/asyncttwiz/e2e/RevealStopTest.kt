@@ -19,7 +19,9 @@ import kotlin.test.assertTrue
  * Owner prod playtest 2026-11-07: "Opponent reveal effects must stop for you and wait for dismissal at least locally,
  * otherwise you don't see the reveals?" Bob starts and casts an Ember Insight ("Reveal the top card of your library and
  * put that card into your hand."): Alice's phone opens the reveal panel with the card, her table stays at that event
- * while Bob plays on (his Mountain, his turn's end), and plays on once she taps OK; the same in catch-up playback.
+ * while Bob plays on (his Mountain, his turn's end), and plays on once she taps OK; the same in catch-up playback. Owner
+ * 2026-11-09: every reveal shows to both players with an OK, your own included, each OK your own; a reveal until a land
+ * counts, for every card turned over; a card you chose yourself asks nothing twice.
  */
 class RevealStopTest : E2e() {
     private val inPanel = hasAnyAncestor(hasContentDescription("Reveal"))
@@ -53,7 +55,7 @@ class RevealStopTest : E2e() {
     // HIS-110, STK-044, TBL-104 (owner problem, prod playtest 2026-11-07): live, Alice's phone shows Bob's reveal in its
     // panel and her table doesn't move past that event until she taps OK, while Bob's phone plays on unblocked (a Mountain,
     // the end of his turn, his phone assuming her passes); after OK her table plays on to his Mountain and her own turn.
-    // Bob's own reveal opens nothing on his phone
+    // Bob's own reveal opens his own panel, which waits for his OK alone
     @Test fun aLiveRevealWaitsForAlicesOkWhileBobPlaysOn() {
         start()
         bob.playFromHand("Ember Insight", this)
@@ -63,7 +65,9 @@ class RevealStopTest : E2e() {
         assertTrue(alice.shows(hasTestTag(REVEAL_OK_TAG)))
         val at = alice.shown.tip
         assertEquals(at, alice.shown.reveal!!.event, "her table at the reveal's event")
-        assertFalse(bob.shows(hasTestTag(REVEAL_OK_TAG)), "no panel for Bob's own reveal")
+        waitUntil("Bob's own panel on his phone") { bob.showsText("You revealed · Ember Insight") && bob.shows(hasContentDescription(name) and inPanel) }
+        bob.tagged(REVEAL_OK_TAG).performClick()
+        waitUntil("Bob's own panel gone, Alice's still open") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) && alice.showsText(title) }
         bobPlaysOn()
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
         // SYS-077: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
@@ -89,6 +93,9 @@ class RevealStopTest : E2e() {
         waitUntil("the Insight resolved on Bob's table") {
             bob.state.player(bob.me).graveyard.isNotEmpty() && bob.state.stack.isEmpty() && bob.inOwnMain()
         }
+        waitUntil("Bob's own panel") { bob.shows(hasTestTag(REVEAL_OK_TAG)) }
+        bob.tagged(REVEAL_OK_TAG).performClick()
+        waitUntil("Bob's own panel gone") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) }
         bobPlaysOn()
         alice.back()
         // She watches as a player does: the centre text's tap, and at a stop of hers (HIS-095) the main button
@@ -113,5 +120,34 @@ class RevealStopTest : E2e() {
             !alice.showsText(title) && alice.showsOnBattlefield("Mountain", bob) && alice.state.turn.active == alice.me
         }
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+    }
+
+    // HIS-110 (owner, 2026-11-09, a report's House Cartographer): a reveal until a land shows every card turned over, the land
+    // last, in the panel of both phones, each player's OK their own; while Bob's is open his own table's actions wait for it
+    @Test fun aRevealUntilALandShowsEveryCardTurnedOverToBothPlayers() {
+        startGame(TestDeck.thirds(), TestDeck("Scouts", listOf(TestCards.mountain to 8, TestCards.scouting to 16, TestCards.spark to 16)), bobStarts = true,
+            bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
+            deal = { _, b -> "Ember Scouting" in hand(b) })
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        bob.playFromHand("Ember Scouting", this)
+        // Alice's phone passes by itself; no playing along here: that taps her OK
+        waitUntil("the panel on both phones") {
+            alice.showsText("${bob.name} revealed · Ember Scouting") && bob.showsText("You revealed · Ember Scouting")
+        }
+        val reveal = assertNotNull(bob.shown.reveal)
+        assertEquals(reveal.cards, alice.shown.reveal?.cards, "the same cards on both")
+        val names = reveal.cards.map { c -> bob.engine { device.model.engine }.current(c)!!.definition!!.faces.first().name }
+        assertEquals("Mountain", names.last(), "the land last: $names")
+        assertFalse(names.dropLast(1).contains("Mountain"), "no land before it: $names")
+        for (p in listOf(alice, bob)) for (name in names.toSet()) assertTrue(p.shows(hasContentDescription(name) and inPanel),
+            "${p.name}'s panel shows $name: ${p.screen()}")
+        alice.tagged(REVEAL_OK_TAG).performClick()
+        waitUntil("Alice's OK leaving Bob's panel open") { !alice.shows(hasTestTag(REVEAL_OK_TAG)) && bob.shows(hasTestTag(REVEAL_OK_TAG)) }
+        bob.tagged(REVEAL_OK_TAG).performClick()
+        waitUntil("Bob's panel gone") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) }
+        assertFalse(alice.shows(hasTestTag(REVEAL_OK_TAG)), "Alice's stays dismissed")
     }
 }

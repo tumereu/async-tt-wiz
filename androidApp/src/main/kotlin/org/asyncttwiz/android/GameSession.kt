@@ -149,7 +149,7 @@ class GameSession(private val connection: GameConnection, private val credential
         statusChanged()
     }
     private fun clearContext(gameId: String) {
-        ownPodDeckNames.remove(gameId); presences.remove(gameId)
+        ownPodDeckNames.remove(gameId); presences.remove(gameId); endHeld.remove(gameId)
         preparations.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
         acceptedRevisions.remove(gameId)
@@ -171,7 +171,40 @@ class GameSession(private val connection: GameConnection, private val credential
     /** The game [game] played on engine state on this device, while it is its current active play (once it first loaded
      * on the engine thread). */
     internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
-        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
+        game.id in endHeld || current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
+    /**
+     * TRN-065 (owner, 2026-11-09): the games whose play the other player's concession or accepted suggestion ended while
+     * this player stood at the table: the result is final, but they go to the lobby only after their own OK, so the ended
+     * play's last board stays on this device, showing the dialog ([EngineGame.holdEnd]). Nothing it makes is sent any more.
+     */
+    private val endHeld = mutableSetOf<String>()
+    /** TRN-065: whether [gameId]'s table stays on after its play ended ([endHeld]). */
+    internal fun tableHeldAtEnd(gameId: String): Boolean = gameId in endHeld
+    /** TRN-065: the player's own OK on [gameId]'s result (here or on another device): the held table goes, and the lobby shows. */
+    internal fun releaseEnd(gameId: String, why: String) {
+        if (!endHeld.remove(gameId)) return
+        AppLog.info("game", "End of game: table let go, $why")
+        engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        summaries[gameId]?.let { changed(summary(it)) }
+        statusChanged()
+    }
+    /** TRN-065: [message] ended [game]'s play: whether its table stays on until the player's own OK ([endHeld]). Only when
+     * the game is open here with its board on the table and the OK is still theirs; else, the lobby at once with the dialog
+     * over it (a device that wasn't at the table, a device that can't follow the line). */
+    private fun holdEnd(game: EngineGame, message: GameRevision): Boolean {
+        val owes = message.summary.lifecycle == GameLifecycle.LOBBY &&
+            message.summary.resultNotice?.unseen?.contains(account ?: accountId()) == true
+        if (!owes || !engineLoad(message.gameId) || game.shown == null || game.loadFailed) {
+            releaseEnd(message.gameId, "no OK owed here")
+            return false
+        }
+        if (endHeld.add(message.gameId)) {
+            AppLog.info("game", "End of game: ${message.summary.resultNotice?.ending} while at the table, staying until the OK")
+            game.holdEnd(message) { releaseEnd(message.gameId, "the device can't show the end") }
+        }
+        install(message.summary, message.resultRevision, message.preparation)
+        return true
+    }
     internal fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
 
     /** The newest engine head of a game that isn't loaded, kept until it opens (switchreview #11: only the open game loads
@@ -248,6 +281,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go
         // (what it still has to send goes first) and its subscription becomes a summary one
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
+            endHeld.remove(gameId)
             val game = engineGames.getValue(gameId)
             if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
             engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
@@ -276,6 +310,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** An accepted revision of an engine game's play. */
     private fun engineRevision(game: EngineGame, message: GameRevision) {
         if (message.summary.lifecycle != GameLifecycle.ACTIVE || message.summary.playId != game.base.id) {
+            if (holdEnd(game, message)) return
             engineGames.remove(message.gameId)
             if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
             else install(message.summary, message.resultRevision, message.preparation)
@@ -325,7 +360,7 @@ class GameSession(private val connection: GameConnection, private val credential
         statusChanged()
     }
     private fun deliverEngine(gameId: String, game: EngineGame, actions: List<GameAction>) {
-        if (engineGames[gameId] !== game) return
+        if (engineGames[gameId] !== game || gameId in endHeld) return
         // SYS-013: the player's own game action waits for the connection: the next background attempt doesn't wait longer
         if (!ready && actions.any { it !is GameAction.EngineSeen }) nextConnectAt = 0L
         // SYS-016: a game action waiting for the server; after 3 s the table says "Reconnecting…" and refuses actions

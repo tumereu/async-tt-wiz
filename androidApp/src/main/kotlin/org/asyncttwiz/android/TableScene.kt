@@ -195,19 +195,22 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         // CMB-028: the viewer declares attackers: the band's lanes keep room for the next
         val attackerSlots = !runtime.reviewing && writable && toolkit?.combat?.readyOrLast(play)?.choices
             ?.let { it.attackers && it.declaring == accountId } == true
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
+        // STK-024: what pays the open payment lies in its own pile, to the right of its stack
+        val paying = if (runtime.reviewing) emptySet() else toolkit?.cast?.paySources().orEmpty()
+        val laid = if (paying.isEmpty()) layout else layout.copy(paying = paying)
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
+                maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
                 computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots)
         }
-        var previousLayout by remember { mutableStateOf(layout) }
+        var previousLayout by remember { mutableStateOf(laid) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card and opening or closing a battlefield group
-        // (TBL-122) are the only layout changes that animate, at the card move speed; any other layout change (camera,
+        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card, opening or closing a battlefield group
+        // (TBL-122) and a source joining or leaving a payment's pile (STK-024) are the only layout changes that animate, at the card move speed; any other layout change (camera,
         // panels) or a new size jumps
-        val raiseOnly = previousLayout != layout &&
-            previousLayout.copy(raised = layout.raised, expandedGroup = layout.expandedGroup) == layout
-        val navigation = previousLayout != layout && !raiseOnly || previousSize != (maxWidth to maxHeight)
+        val raiseOnly = previousLayout != laid &&
+            previousLayout.copy(raised = laid.raised, expandedGroup = laid.expandedGroup, paying = laid.paying) == laid
+        val navigation = previousLayout != laid && !raiseOnly || previousSize != (maxWidth to maxHeight)
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.playId, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
@@ -260,7 +263,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val artwork = tableArtwork(scene.copy(items = semanticItems))
         val drawCache = remember(density, play.playId) { TableDrawCache(density) }
         val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
-        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
+        SideEffect { previousLayout = laid; previousSize = maxWidth to maxHeight }
         val tableWidth = maxWidth.value; val tableHeight = maxHeight.value
         SideEffect {
             presentation = { rendered.value.scene }

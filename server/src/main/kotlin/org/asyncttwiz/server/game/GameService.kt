@@ -456,13 +456,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // Game history §1.1: the finished match's record, from the decks it was played with (before the lobby's return)
             org.asyncttwiz.server.history.MatchRecords.finished(sql, summary, play, outcome.facts!!, now)
             PlayStore.endEngine(sql, summary, command.requestId, outcome.result) { lobby.summary(sql, it) }
-            // TRN-065 (owner 2026-11-07): each player sees the result until they tap OK; the player whose own action ended
-            // it (this request's: a concession, an accepted suggestion, a confirmation) has seen it
+            // TRN-065 (owner 2026-11-09): after a concession or an accepted suggestion the other player sees the result until
+            // their OK; the player whose own action ended it has seen it. A result the rules gave ended on both OKs: nobody owes one
             val facts = outcome.facts!!
+            val endedByAction = facts.ending is org.asyncttwiz.protocol.MatchEnding.Conceded || facts.ending is org.asyncttwiz.protocol.MatchEnding.Agreed
             val notice = org.asyncttwiz.protocol.ResultNotice(
                 facts.results.entries.firstOrNull { it.value == org.asyncttwiz.protocol.SuggestedResult.WIN }?.key, facts.ending,
                 facts.causes, listOf(game.inviterId!!, game.recipientId!!).filter { it != account }.map(UUID::toString))
-            sql.update(GAME).set(GAME.RESULT_NOTICE, json.encodeToString(notice)).where(GAME.ID.eq(game.id)).execute()
+                .takeIf { endedByAction }
+            game.resultNotice = notice?.let { json.encodeToString(it) }
+            sql.update(GAME).set(GAME.RESULT_NOTICE, game.resultNotice).where(GAME.ID.eq(game.id)).execute()
         }
         return null to outcome
     }

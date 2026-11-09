@@ -30,7 +30,7 @@ internal class PausePreferences(context: Context, private val accountId: String)
                 else -> org.asyncttwiz.protocol.game.ResponseMode.AutoSkip
             },
             assume = org.asyncttwiz.protocol.game.AssumeResolves.all.firstOrNull { it.key() == preferences.getString(assumeKey, null) }
-                ?: org.asyncttwiz.protocol.game.AssumeResolves.Normal,
+                ?: org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES.assume,
             autotap = preferences.getBoolean(autotapKey, true))
         set(value) {
             preferences.edit().putString("engine-mode/$accountId", when (value.mode) {
@@ -81,7 +81,7 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
             SettingsLabel(mode.label(), mode.meaning(), Modifier.weight(1f).padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
         }
     }
-    // HIS-096: where the other player's passes are assumed at once: Never, Normal (the default), When they have no mana, Always
+    // HIS-096: where the other player's passes are assumed at once: Never, Normal, When they have no mana (the default), Always
     Text("Assume resolves in new games", Modifier.padding(top = 8.dp, bottom = 4.dp),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     for (choice in org.asyncttwiz.protocol.game.AssumeResolves.all) {

@@ -243,7 +243,7 @@ internal object Costs {
                     if (tapped.isNotEmpty()) Actions.tap(act, tapped, true, listOf(Meaning.Paid))
                     act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))))
                 }
-                act.record(Change.Happened(GameEvent.Waterbended(payer)))
+                act.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, payer)))
             }
         }
     }

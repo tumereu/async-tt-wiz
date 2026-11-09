@@ -196,6 +196,15 @@ object TestCards {
     /** A free wish (LOB-141): its caster may put a card they own from outside the game (their Side and Maybe) into their hand. */
     val wish = card("Ember Wish", "Instant", "{0}", "You may put a card you own from outside the game into your hand.")
 
+    /** A modal double-faced card, an instant with a land for a back (STK-041). */
+    val pathCrag: SubmittedDefinition = run {
+        val ids = listOf("Ember Path", "Ember Crag").map { UUID.nameUUIDFromBytes("e2e/$it".encodeToByteArray()).toString() }
+        val definition = CardDefinition("Ember Path // Ember Crag", listOf(
+            DefinitionFace(ids[0], "Ember Path", listOf(ids[1]), typeLine = "Instant", manaCost = "{1}{R}", rulesText = "Draw a card."),
+            DefinitionFace(ids[1], "Ember Crag", listOf(ids[0]), typeLine = "Land", rulesText = "{T}: Add {R}.")), provider = "mtgjson", layout = "modal_dfc")
+        SubmittedDefinition(DeckJson.digest(definition), definition)
+    }
+
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */
     val trailBlaze: SubmittedDefinition = run {

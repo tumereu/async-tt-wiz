@@ -185,6 +185,24 @@ class CatalogCardSearchTest {
         assertEquals(DeckImportResolver(repository).resolve("1 Delver of Secrets").entries.single().faces, delver.faces)
     }
 
+    // STK-041, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
+    @Test fun aCardsNamesComeApartWithTheirTypeLines() {
+        val repository = install()
+        val fire = page(repository, "\"ice\"").cards.first { it.name == "Fire // Ice" }
+        assertEquals(listOf(CatalogNamedPart("Fire", "Instant"), CatalogNamedPart("Ice", "Instant")), fire.namedParts())
+        assertEquals(listOf(CatalogNamedPart("Delver of Secrets", "Creature — Human Wizard"), CatalogNamedPart("Insectile Aberration", "Creature — Human Insect")),
+            page(repository, "t:insect").cards.single().namedParts())
+        assertEquals(listOf(CatalogNamedPart("Kitchen Finks", "Creature — Ouphe")), page(repository, "!\"kitchen finks\"").cards.single().namedParts())
+    }
+
+    // STK-041: the exact term the name picker also runs finds a card by one face's name or its whole name, accents aside
+    @Test fun anExactNameFindsTheCardByAFaceOrWholeNameWithoutAccents() {
+        val repository = install()
+        assertEquals(listOf("Fire // Ice"), names(repository, "!\"ice\""))
+        assertEquals(listOf("Fire // Ice"), names(repository, "!\"Fire // Ice\""))
+        assertEquals(listOf("Æther Vial"), names(repository, "!\"aether vial\""))
+    }
+
     @Test fun traitsFromTheDownloadDriveColourIdentityFormatAndRarityFilters() {
         val repository = install()
         val rows = listOf(

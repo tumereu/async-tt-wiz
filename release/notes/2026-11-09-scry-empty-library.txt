@@ -1,0 +1,1 @@
+fix: Scrying or surveilling with an empty library now still counts, so cards that trigger on it do.

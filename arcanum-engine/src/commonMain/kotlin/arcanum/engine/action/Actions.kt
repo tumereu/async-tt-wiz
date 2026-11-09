@@ -238,7 +238,7 @@ internal object Actions {
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", listOf(Mechanic.CopyOf(Objects.Bound(COPIED), except)), next, m.controller, ts, act,
                     Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))),
                     // CR 707.2, 730.2a: a merged permanent's copiable values include every component's abilities
-                    copied = arcanum.engine.view.Copiable.copiedFace(arcanum.engine.view.Copiable(act.state).faces(of))) })
+                    copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of)) })
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
                 lockedEffect("E$ts", listOf(Mechanic.GainAbilities(m.abilities)), next, m.controller, ts, act)
@@ -362,11 +362,11 @@ internal object Actions {
 
     private fun lockedEffect(
         id: String, mechanics: List<Mechanic>, on: ObjectId, controller: PlayerId?, ts: Long, act: Act,
-        names: Bindings = Bindings.EMPTY, copied: FaceDefinition? = null,
+        names: Bindings = Bindings.EMPTY, copied: arcanum.engine.state.CopiableValues? = null,
     ) = EffectObject(
         id = EffectId(id), mechanics = mechanics, affects = Affected.Objects(Objects.Self), locked = listOf(on), source = on,
         controller = controller ?: act.state.turn.active, timestamp = ts, createdTurn = act.state.turn.number,
-        duration = Duration.Indefinitely, names = names, copied = copied,
+        duration = Duration.Indefinitely, names = names, copiedValues = copied,
     )
 
     /** Destroys [ids] (CR 701.8): indestructible permanents aren't (CR 702.12b); regeneration shields replace it (CR
@@ -753,37 +753,38 @@ internal object Actions {
     // ---- Tokens (CR 111)
 
     /**
-     * Creates [count] tokens of [face] under [controller]'s control as one event (CR 111.2), after replacements on
-     * creating tokens ("twice that many", "those tokens plus …", CR 614.1) and on entering. Their card ids are
-     * name-based from [cause] (D35). Returns the new ids.
+     * Creates [count] tokens with the copiable values [values] (one face, or a copy's layout and all its faces with the face
+     * up, CR 707.8a, 709.5b) under [controller]'s control as one event (CR 111.2), after replacements on creating tokens
+     * ("twice that many", "those tokens plus …", CR 614.1) and on entering. Their card ids are name-based from [cause]
+     * (D35). Returns the new ids.
      *
      * [fromSpellCopy]: a copy of a permanent spell becoming a token as it resolves (CR 111.13, 608.3f, 707.10f), with
      * the copy's facts; it isn't "created", so replacements and triggers on creating tokens don't see it.
      */
     fun createTokens(
-        act: Act, cause: Cause, face: FaceDefinition, count: Int, controller: PlayerId, tapped: Boolean = false,
+        act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean = false,
         attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.ObjectFacts? = null,
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
         // D35, D60: from the timestamp, not the cause's key (a spell's card id differs between views)
         val creator = TokenIds.created("token", act.state.nextTimestamp())
-        fun planned(specs: List<Pair<FaceDefinition, Int>>): List<GameObject> {
+        fun planned(specs: List<Pair<arcanum.engine.state.CopiableValues, Int>>): List<GameObject> {
             var n = 0
             val first = act.state.nextTimestamp()
             return specs.flatMap { (f, k) -> List(k) { f } }.map { f ->
                 val i = n++
                 GameObject(
                     id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = controller, controller = controller,
-                    zone = Zone.Battlefield, definition = CardDefinition(Layout.Normal, listOf(f)), token = true, tapped = tapped,
+                    zone = Zone.Battlefield, definition = f.definition, face = f.up, gainedInCopying = f.gained, token = true, tapped = tapped,
                     timestamp = first + i, controlSince = ControlSince(controller, act.state.turn.number), attachedTo = attachTo,
                 ).let { o -> if (fromSpellCopy != null) o.copy(facts = fromSpellCopy) else o }
             }
         }
-        val specs = if (fromSpellCopy != null) listOf(face to count) else Replacements.apply(act, cause, listOf(face to count), controller, null,
+        val specs = if (fromSpellCopy != null) listOf(values to count) else Replacements.apply(act, cause, listOf(values to count), controller, null,
             proposed = { s -> Change.Created(planned(s).mapIndexed { i, o -> Placed(o, act.state.battlefield.size + i) }) },
             modify = { s, r, _ ->
-                var result: List<Pair<FaceDefinition, Int>>? = s
+                var result: List<Pair<arcanum.engine.state.CopiableValues, Int>>? = s
                 // "That many" (CR 614.1a): the tokens this event would create so far
                 val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names,
                     event = arcanum.engine.state.TriggerEvent(amount = s.sumOf { it.second })))
@@ -792,14 +793,14 @@ internal object Actions {
                         Modification.Skip -> null
                         is Modification.MultiplyAmount -> result?.map { (f, k) -> f to k * mod.factor }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
-                        is Modification.AlsoCreate -> result?.plus(tokenFace(act, e, mod.token) to e.value(mod.count))
+                        is Modification.AlsoCreate -> result?.plus(tokenValues(act, e, mod.token) to e.value(mod.count))
                         // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
                         is Modification.CreateInstead -> result?.map { (f, k) ->
                             val probe = planned(listOf(f to 1)).single()
                             val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken
                             val matches = pattern == null || Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
                                 Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
-                            if (matches) tokenFace(act, e, mod.token) to k else f to k
+                            if (matches) tokenValues(act, e, mod.token) to k else f to k
                         }
                         is Modification.EntersTapped -> result
                         else -> result
@@ -850,21 +851,21 @@ internal object Actions {
         return tokens.map { it.id }
     }
 
-    /** The face of a token spec (CR 111.4, 111.10, 707.2). */
-    fun tokenFace(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): FaceDefinition = when (spec) {
-        is arcanum.api.TokenSpec.Defined -> spec.face.copy(
+    /** The copiable values of a token spec (CR 111.4, 111.10, 707.2): a copy's are its layout and all its faces (CR 707.8a, 709.5b). */
+    fun tokenValues(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): arcanum.engine.state.CopiableValues = when (spec) {
+        is arcanum.api.TokenSpec.Defined -> arcanum.engine.state.CopiableValues.of(spec.face.copy(
             power = spec.power?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.power,
             toughness = spec.toughness?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.toughness,
-        )
-        is arcanum.api.TokenSpec.Predefined -> arcanum.api.PredefinedTokens.face(spec.name)
-            ?: FaceDefinition("${spec.name} Token")
+        ))
+        is arcanum.api.TokenSpec.Predefined -> arcanum.engine.state.CopiableValues.of(arcanum.api.PredefinedTokens.face(spec.name)
+            ?: FaceDefinition("${spec.name} Token"))
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
-            val face = of?.let { arcanum.engine.view.Copiable(act.state).faces(it)?.firstOrNull()?.face }
-                ?: of?.let { e.characteristics(it) }?.let { c -> FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors, c.supertypes, c.types,
+            val values = of?.let { arcanum.engine.view.Copiable(act.state).forToken(it)?.takeIf { v -> v.faces.isNotEmpty() } }
+                ?: arcanum.engine.state.CopiableValues.of(of?.let { e.characteristics(it) }?.let { c -> FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors, c.supertypes, c.types,
                     c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) }) }
-                ?: FaceDefinition("Copy")
-            arcanum.engine.view.Copiable.exceptions(face, spec.except)
+                    ?: FaceDefinition("Copy"))
+            arcanum.engine.view.Copiable.exceptions(values, spec.except)
         }
     }
 
@@ -964,6 +965,7 @@ internal object Actions {
             StatusFlag.FaceDown -> o.faceDown
             StatusFlag.PhasedOut -> o.phasedOut
             is StatusFlag.Marked -> flag.mark in o.marks
+            StatusFlag.Flipped -> o.flippedStatus
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
         // CR 702.170d: a card becoming plotted is castable on later turns

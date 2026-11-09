@@ -19,14 +19,15 @@ import arcanum.engine.action.Act
 import arcanum.engine.action.Actions
 import arcanum.engine.change.Change
 import arcanum.engine.change.GameEvent
+import arcanum.engine.state.CopiableValues
 import arcanum.engine.state.GameObject
-import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StatusFlag
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.IndexedFace
+import arcanum.engine.view.ObjectView
 
 /**
  * Rooms and other permanents with a shared type line (CR 709.5): their doors (halves) are locked or unlocked, a locked
@@ -34,9 +35,15 @@ import arcanum.engine.view.IndexedFace
  * controller may pay a locked half's mana cost to unlock it as a sorcery (a special action).
  */
 internal object Rooms {
-    /** A split card whose halves are both permanent cards: a single shared type line (CR 709.5). */
-    fun isRoom(definition: CardDefinition?): Boolean = definition != null && definition.layout == Layout.Split &&
-        definition.faces.size == 2 && definition.faces.all { isPermanentFace(it) }
+    /** A split card whose halves are both permanent cards: a single shared type line (CR 709.5). What it is printed as:
+     * what is cast and enters. */
+    fun isRoom(definition: CardDefinition?): Boolean = definition != null && isRoom(definition.layout, definition.faces)
+
+    /** Copiable values with a shared type line (CR 709.5, 709.5b): what a permanent works by, a copy of a Room too. */
+    fun isRoom(values: CopiableValues?): Boolean = values != null && isRoom(values.layout, values.faces)
+
+    private fun isRoom(layout: Layout, faces: List<FaceDefinition>) =
+        layout == Layout.Split && faces.size == 2 && faces.all { isPermanentFace(it) }
 
     private fun isPermanentFace(face: FaceDefinition) =
         face.types.isNotEmpty() && face.types.none { it == CardType.Instant || it == CardType.Sorcery }
@@ -49,19 +56,21 @@ internal object Rooms {
 
     fun unlocked(o: GameObject, door: Door): Boolean = ObjectMark.Unlocked(door) in o.marks
 
-    /** The locked doors of [o], a Room on the battlefield. */
-    fun locked(o: GameObject): List<Door> =
-        if (o.zone != Zone.Battlefield || !isRoom(o.definition)) emptyList() else listOf(Door.Left, Door.Right).filterNot { unlocked(o, it) }
+    /** The locked doors of [o] as the view has it, a Room on the battlefield (a copy of a Room too, CR 709.5c). */
+    fun locked(o: ObjectView?): List<Door> {
+        val obj = o?.obj ?: return emptyList()
+        return if (obj.zone != Zone.Battlefield || !isRoom(o.copiable)) emptyList() else listOf(Door.Left, Door.Right).filterNot { unlocked(obj, it) }
+    }
 
     /**
      * CR 709.5: on the battlefield, a half without its unlocked designation doesn't have its name, mana cost or rules text
-     * (its shared types stay, 709.5a). Applies to the faces of a Room after copy effects (the abilities are copiable
-     * values; the designations are the object's own).
+     * (its shared types stay, 709.5a). Applies to the faces of a Room after copy effects ([values]: the halves are copiable
+     * values, 709.5b; the designations are the object's own, 709.5c).
      */
-    fun lockedHalves(o: GameObject, faces: List<IndexedFace>): List<IndexedFace> {
-        if (o.zone != Zone.Battlefield || faces.size != 2 || !faces.all { isPermanentFace(it.face) }) return faces
-        if (!isRoom(o.definition) && o.marks.none { it is ObjectMark.Unlocked }) return faces
+    fun lockedHalves(o: GameObject, values: CopiableValues, faces: List<IndexedFace>): List<IndexedFace> {
+        if (o.zone != Zone.Battlefield || !isRoom(values)) return faces
         return faces.map { f ->
+            if (f.abilitiesOnly) return@map f
             if (unlocked(o, door(f.index))) f else IndexedFace(f.index, f.face.copy(name = "", manaCost = null, abilities = emptyList()))
         }
     }
@@ -94,20 +103,19 @@ internal object Rooms {
     }
 
     /**
-     * CR 709.5e: the special actions of paying a locked door's mana cost (as printed on that half) to unlock it, any time
-     * its controller could cast a sorcery.
+     * CR 709.5e: the special actions of paying a locked door's mana cost (as its copiable values have it on that half) to
+     * unlock it, any time its controller could cast a sorcery.
      */
-    fun unlockActions(state: GameState, id: ObjectId): List<AbilityInstance> {
-        val o = state.obj(id) ?: return emptyList()
-        return locked(o).mapNotNull { door ->
-            val cost = o.definition?.faces?.getOrNull(face(door))?.manaCost ?: return@mapNotNull null
+    fun unlockActions(o: ObjectView?): List<AbilityInstance> =
+        locked(o).mapNotNull { door ->
+            val half = o?.copiable?.faces?.getOrNull(face(door)) ?: return@mapNotNull null
+            val cost = half.manaCost ?: return@mapNotNull null
             AbilityInstance(Ability.SpecialAction(Cost.mana(cost),
                 Instructions(steps = listOf(Step.Do(Effect.UnlockDoor(Objects.Self, chooser = Players.You, door = door)))),
                 timing = Timing.Sorcery, functionsIn = listOf(Zone.Battlefield),
-                text = "Unlock the ${if (door == Door.Left) "left" else "right"} door (${o.definition.faces[face(door)].name})"),
+                text = "Unlock the ${if (door == Door.Left) "left" else "right"} door (${half.name})"),
                 AbilityOrigin.Rule(unlockRule(door)))
         }
-    }
 
     fun unlockRule(door: Door) = if (door == Door.Left) "unlock-left" else "unlock-right"
 

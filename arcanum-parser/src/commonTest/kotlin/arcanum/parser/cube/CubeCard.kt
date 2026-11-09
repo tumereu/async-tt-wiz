@@ -50,6 +50,7 @@ infix fun OracleCard.parsesTo(expected: List<Ability>) {
     val face = OracleParser.parse(this)
     checkFace(this, face, expected)
     assertEquals(emptyList(), DefinitionChecks.problems(CardDefinition(Layout.Normal, listOf(face))), name)
+    recordCoveredAbilities(face.abilities)
 }
 
 /** A card with two faces or halves (CR 709 split, 712 double-faced, 715 adventurer): each face, written as
@@ -59,6 +60,7 @@ fun cardFaces(layout: Layout, vararg faces: Pair<OracleCard, List<Ability>>) {
     assertEquals(layout, definition.layout)
     faces.zip(definition.faces).forEach { (printed, face) -> checkFace(printed.first, face, printed.second) }
     assertEquals(emptyList(), DefinitionChecks.problems(definition), faces.first().first.name)
+    definition.faces.forEach { recordCoveredAbilities(it.abilities) }
 }
 
 /** The printed characteristics read back unchanged and the abilities are [expected]; their texts are checked apart

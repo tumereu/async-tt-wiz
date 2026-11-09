@@ -192,7 +192,7 @@ internal object Filters {
         }
         // blb chunk 10: "attacking, blocking, or tapped creature": statuses as alternatives, the noun for all of them
         STATUS_ALTERNATIVES.matchEntire(phrase)?.let { m ->
-            val statuses = m.groupValues[1].split(Regex(""",? or |, """)).map { word(it) ?: return null }
+            val statuses = m.groupValues[1].split(LazyRegexes.OR_LIST).map { word(it) ?: return null }
             return all(ObjectFilter.Or(statuses), noun(m.groupValues[2]) ?: return null)
         }
         // dsk chunk 09: "creatures and/or enchantments you own"
@@ -219,7 +219,7 @@ internal object Filters {
         }
         // chunk 26: "blue or black creature": colours as alternatives, the noun for all of them
         COLOR_ALTERNATIVES.matchEntire(phrase)?.let { m ->
-            val colors = m.groupValues[1].split(Regex(""",? or |, """)).map { ObjectFilter.OfColor(COLORS[it] ?: return null) }
+            val colors = m.groupValues[1].split(LazyRegexes.OR_LIST).map { ObjectFilter.OfColor(COLORS[it] ?: return null) }
             return all(ObjectFilter.Or(colors), noun(m.groupValues[2]) ?: return null)
         }
         // chunk 20: "1/1 creature": power and toughness as printed in the phrase
@@ -233,7 +233,7 @@ internal object Filters {
             return all(noun(phrase.removeSuffix(" spell")) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 36: "creatures with flying or reach": keyword abilities as alternatives
         WITH_KEYWORDS.matchEntire(phrase)?.let { m ->
-            val keywords = m.groupValues[2].split(Regex(""",? or |, """)).map { OracleParser.keyword(it) }
+            val keywords = m.groupValues[2].split(LazyRegexes.OR_LIST).map { OracleParser.keyword(it) }
             if (keywords.all { it != null }) {
                 val has = keywords.map { ObjectFilter.HasKeyword(it!!.kind) }
                 return all(noun(m.groupValues[1]) ?: return null, has.singleOrNull() ?: ObjectFilter.Or(has))
@@ -241,12 +241,12 @@ internal object Filters {
         }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
-            val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
             return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
         }
         // blb chunk 08: "Rabbits, Bats, Birds, and Mice": a list of creature types is any of them (CR 205.3m)
         if (phrase.contains(", and ")) {
-            val items = phrase.split(Regex(""",? and |, """)).map { singular(it) }
+            val items = phrase.split(LazyRegexes.AND_LIST).map { singular(it) }
             if (items.all { it in RulesWords.subtypes }) return ObjectFilter.Or(items.map { ObjectFilter.Sub(Subtype(it)) })
         }
         if (phrase.contains(", ")) {
@@ -519,6 +519,7 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        ActionWordings.event(text) { subject(it, self) }?.let { return it }
         MechanicWordings.event(text)?.let { return it }
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
@@ -660,10 +661,6 @@ internal object Events {
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         // blb chunk 01
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
-        // blb chunk 02: CR 702.174c
-        if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
-        // blb chunk 03: CR 701.61a
-        if (text == "you forage") return EventPattern.Forage(PlayerFilter.You)
         // blb chunk 05: "this Class becomes level 2" (CR 716.2a)
         BECOMES_LEVEL.matchEntire(text)?.let { m -> return EventPattern.BecomesLevel(subject(m.groupValues[1], self) ?: return null, m.groupValues[2].toInt()) }
         // blb chunk 05: "one or more creatures you control die"
@@ -1334,7 +1331,7 @@ internal object Tokens {
         val quoted = QUOTED.matchEntire(m.groupValues[3])?.let { q ->
             listOf(Sentences(setOf("this token", "this creature")).line(q.groupValues[1]) ?: return null)
         }
-        val keywords = quoted ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+        val keywords = quoted ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
         return count to token.copy(face = token.face.copy(abilities = keywords))
     }
 
@@ -1412,7 +1409,7 @@ internal object Values {
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
-        if (Regex("""the number of \S+ counters removed this way""").matches(text)) return Value.Announced(name = "X")
+        if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
         if (text == "the power of the creature you chose or the card you revealed") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound("beheld"), Combine.Single)
         // dsk chunk 12: "the greatest power among creatures you control"

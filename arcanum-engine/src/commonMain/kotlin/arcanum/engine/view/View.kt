@@ -56,6 +56,9 @@ data class ObjectView(
     /** Its characteristics after layer 1 only (printed, copied or face down, CR 613.2), before every other continuous
      * effect: what [characteristics] is compared with to show what effects changed. Null for an unknown object. */
     val base: Characteristics? = null,
+    /** Its copiable values as a whole (CR 707.2): layout and all faces, printed or copied, before its Room's doors lock
+     * anything (CR 709.5). Null for an unknown object. */
+    val copiable: arcanum.engine.state.CopiableValues? = null,
 ) {
     val name: String? get() = characteristics?.name
     val power: Int? get() = characteristics?.power

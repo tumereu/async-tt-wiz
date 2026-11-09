@@ -38,6 +38,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -85,9 +87,16 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, sc
         AboveHand(handRow) { TargetBar(cast, flow, play, source, toolkit.viewer) }
         return
     }
+    // STK-024: the panel's height says which of the sources paying lie under it
+    var panelHeight by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
     DockedAboveHand(handRow) {
-        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) { CastPanel(cast, flow, play, names, source) }
+        Box(Modifier.onSizeChanged { panelHeight = with(density) { it.height.toDp().value } }) {
+            CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
+                CastPanel(cast, flow, play, names, source) { card -> scene == null || handRow == null || scene.inView(card, handRow.y - panelHeight) }
+            }
+        }
     }
 }
 
@@ -248,7 +257,7 @@ internal fun IconText(icon: ImageVector, text: String) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData) {
+private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
     val inspector = remember { ChoiceInspector() }
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
@@ -304,7 +313,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
                         ?: CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
-                PaymentLine(cast, play)
+                PaymentLine(cast, play, inView)
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
                 cast.notice?.let { CardText(it, color = Color(0xffb3261e), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)) }
             }
@@ -603,13 +612,14 @@ internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
 }
 
 /**
- * STK-024 (owner 2026-11-07): what pays the open cast, compact: its mana and "Paid with" the sources chosen (Autotap's
- * suggestion, outlined on the table, until the player taps sources there), or in red why it isn't paid (Cast is greyed
- * then); pool mana, life and other ways the table can't tap are chips here.
+ * STK-024 (owner 2026-11-07, gallery review 2026-11-09): what pays the open cast reads from the table, its sources outlined
+ * there (Autotap's suggestion, until the player taps sources there); this section, compact, says only that and how to change
+ * it, or in red why it isn't paid (Cast is greyed then). A source is named only while the table can't show it ([inView]);
+ * pool mana, life and other ways the table can't tap are chips here. The names stay in the section's description for screen readers.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PaymentLine(cast: CastController, play: TableBoard) {
+private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String) -> Boolean) {
     val payment = cast.payment ?: return
     val due = payment.cost.toString()
     if (due.isEmpty()) return
@@ -619,13 +629,17 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
         names.isEmpty() -> "Tap sources on the table to pay $due."
         else -> "Not enough to pay $due: tap more sources on the table."
     }
+    val onTable = cast.mana.filter { cast.tableSource(it) != null }
+    val outOfView = onTable.filterNot { inView(cast.tableSource(it)!!) }.map { useName(cast, play, it) }
     Section("Mana · $due") {
         val line = if (names.isEmpty()) "Nothing chosen yet." else "Paid with ${names.joinToString()}"
-        CardText(if (cast.paid || names.isEmpty()) line else "Chosen: ${names.joinToString()}", Modifier.semantics { contentDescription = "Payment: $line" },
-            style = TextStyle(fontSize = 12.sp))
-        if (reason != null) CardText(reason, Modifier.semantics { contentDescription = "Not paid: $reason" }, color = Color(0xffb3261e),
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
-        else Text("Tap a source on the table to change it.", fontSize = 11.sp, color = Color(0xff4b5a5f))
+        Column(Modifier.semantics { contentDescription = "Payment: $line" }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (outOfView.isNotEmpty()) CardText("Out of view: ${outOfView.joinToString()}", style = TextStyle(fontSize = 12.sp))
+            if (reason != null) CardText(reason, Modifier.semantics { contentDescription = "Not paid: $reason" }, color = Color(0xffb3261e),
+                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
+            else Text(if (onTable.isEmpty()) "Tap a source on the table to change it." else "Outlined sources pay. Tap sources on the table to change them.",
+                fontSize = 11.sp, color = Color(0xff4b5a5f))
+        }
         val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null }
         if (others.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (group in others) {
@@ -638,6 +652,15 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
             }
         }
     }
+}
+
+/** STK-024: whether the battlefield card [card] can be seen on the table with an open panel's top at [top] (dp): at least half
+ * of it inside its battlefield, above the panel. */
+internal fun TableScene.inView(card: String, top: Float): Boolean {
+    val item = items.firstOrNull { it.cardId == card && it.zone == PlayZone.BATTLEFIELD } ?: return false
+    val field = viewports.firstOrNull { it.id == item.viewport }?.bounds ?: item.bounds
+    val seen = item.bounds.intersection(field) ?: return false
+    return seen.width >= item.bounds.width / 2 && minOf(seen.bottom, top) - seen.y >= item.bounds.height / 2
 }
 
 /** A payment's use as the payment line names it: its source card, "Pool mana", "2 life". */

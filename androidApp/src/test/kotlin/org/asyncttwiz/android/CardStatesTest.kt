@@ -220,7 +220,7 @@ class CardStatesTest {
             assertTrue(chips.isNotEmpty(), "${life.id} has chips")
             assertTrue(chips.zipWithNext().all { (a, b) -> a.bounds.intersection(b.bounds) == null }, "apart: $chips")
             val others = scene.items.filter { hands && it.kind == TableItemKind.HAND || it.kind == TableItemKind.PILE || it.kind == TableItemKind.LIFE }
-                .map { it.bounds } + life.emblemChips
+                .flatMap { it.visible } + life.emblemChips
             for (chip in chips) {
                 assertTrue(chip.bounds.x >= 0 && chip.bounds.right <= width && chip.bounds.y >= 0 && chip.bounds.bottom <= height, "on the screen: $chip")
                 others.forEach { other -> assertEquals(null, other.intersection(chip.bounds), "${life.id}: ${chip.label} clear of $other") }
@@ -234,11 +234,36 @@ class CardStatesTest {
         for (width in listOf(412f, 360f)) assertClear(scene(board(play) { playerStates() }, width = width), width, 892f)
         // TRN-069: with a dungeon, the fourth pile's room still holds them
         assertClear(scene(board(play) { playerStates(); dungeon() }, width = 360f), 360f, 892f)
-        // Where the room right of the piles is too narrow, by the life square as the emblems are (TRN-053), on their line
-        val narrow = scene(board(play) { playerStates(); dungeon() }, width = 300f)
-        assertClear(narrow, 300f, 892f, hands = false)
-        val life = narrow.items.single { it.id == "life/${f.b}" }
-        assertTrue(life.stateChips.first().bounds.x > life.emblemChips.last().right, "beside the emblems: ${life.stateChips}")
+    }
+
+    // TRN-072, TRN-053, TRN-069 (owner gallery review 2026-11-09, gallery 157): on any width, a dungeon's fourth pile or not, each
+    // player's chips, emblems and room stay in their own row, clear of the hands and of the piles as drawn: what doesn't fit folds
+    // into "+N", which stands for the rest
+    @Test fun chipsStayInTheirRowOnAnyWidth() {
+        val play = withEmblems(f.initial)
+        for (width in listOf(412f, 360f, 320f, 300f, 280f, 240f)) for (withDungeon in listOf(false, true)) {
+            val all = scene(board(play) { playerStates(); if (withDungeon) dungeon() }, width = width)
+            assertClear(all, width, 892f)
+            for (life in all.items.filter { it.kind == TableItemKind.LIFE }) {
+                val row = all.viewports.single { it.id == "dock/${life.owner}" }.bounds.let { TableBounds(0f, it.y, width, it.height) }
+                val where = "$width, dungeon $withDungeon, ${life.id}"
+                val parts = life.stateChips.map { it.bounds } + life.emblemChips + listOfNotNull(life.emblemArea)
+                parts.forEach { assertEquals(it, it.intersection(row), "$where: $it in the row $row") }
+                assertEquals(PlayerStates.of(board { playerStates() }.engine!!.state, life.owner!!).size,
+                    life.stateChips.count { it.chip != null } + life.stateChips.sumOf { it.hidden.size }, "$where: all of them, shown or under +N")
+            }
+        }
+    }
+
+    // TRN-072, TRN-069: gallery 157's 320 dp phone: the opponent's fourth pile leaves the least room, and their chips fold there as yours do
+    @Test fun chipsFoldWhereTheDungeonLeavesTheLeastRoom() {
+        val all = scene(board(withEmblems(f.initial)) { playerStates(); dungeon() }, width = 320f)
+        val opponent = all.items.single { it.id == "life/${f.b}" }
+        assertEquals(listOf("Initiative", "+3"), opponent.stateChips.map { it.label })
+        assertEquals(1, opponent.emblemChips.size)
+        assertEquals(listOf("Room: Hall of Moths"), opponent.emblems)
+        val own = all.items.single { it.id == "life/${f.a}" }
+        assertEquals("+2", own.stateChips.last().label, "your side folds as before")
     }
 
     // TRN-072: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
@@ -299,10 +324,10 @@ class CardStatesTest {
                 "above their dungeon room with a +N chip for the rest; Night sits above the Stack.")
     }
 
-    // LOB-136, TRN-072 (owner, 2026-11-08): on a narrow phone the other player's chips lie under their life square: the chat
-    // bubble lies over them, and a tap on it reads it, never reaching the chip under it
+    // LOB-136, TRN-072 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
+    // used to lie under the life square): the bubble under the square lies clear of them; a tap on it reads it, holding opens the chat
     @Config(qualifiers = "w320dp-h640dp-port-mdpi")
-    @Test fun aChatBubbleLiesOverStateChipsAndTakesTheTap() {
+    @Test fun aChatBubbleLiesClearOfStateChipsOnANarrowPhone() {
         var read: String? = null
         var opened: String? = null
         render(shotPlay, allStates(), runtime = TableRuntimeHooks(chatBubbles = TableChatBubbles(
@@ -310,10 +335,10 @@ class CardStatesTest {
             read = { read = it }, open = { opened = it }, sentShown = {})))
         val bubble = compose.onNode(hasTestTag("chat-bubble"))
         val at = bubble.fetchSemanticsNode().boundsInRoot
-        assertTrue(compose.onAllNodes(hasTestTag(STATE_CHIP_TAG)).fetchSemanticsNodes().any { it.boundsInRoot.overlaps(at) }, "over a chip: $at")
-        compose.onRoot().captureShot("$SCREENSHOTS/states/bubble-over-chips.png",
-            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his room and state chips, " +
-                "which lie there on so narrow a screen.")
+        assertTrue(compose.onAllNodes(hasTestTag(STATE_CHIP_TAG)).fetchSemanticsNodes().none { it.boundsInRoot.overlaps(at) }, "clear of the chips: $at")
+        compose.onRoot().captureShot("$SCREENSHOTS/states/bubble-clear-of-chips.png",
+            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his hand, while his chips, room and " +
+                "emblem stay above it in his row right of the piles.")
         bubble.performTouchInput { longClick() }
         compose.waitForIdle()
         assertEquals("m1", opened, "holding it opens the chat, no chip's explanation")
@@ -325,8 +350,8 @@ class CardStatesTest {
     @Test fun playerChipsNarrowScreen() {
         render(shotPlay, allStates())
         compose.onRoot().captureShot("$SCREENSHOTS/states/player-chips-narrow.png",
-            "A narrow 320 dp phone with the same states, emblems and a dungeon: the opponent's row by their life square as the emblems are, under the room " +
-                "chip and beside the emblem; yours still right of your piles, over two lines.")
+            "A narrow 320 dp phone with the same states, emblems and a dungeon: the opponent's chips stay in their row right of the piles, which scroll under " +
+                "them, Initiative and a +3 chip above their room chip and emblem, clear of their hand; yours right of your piles, over two lines.")
     }
 
     // TRN-072, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing

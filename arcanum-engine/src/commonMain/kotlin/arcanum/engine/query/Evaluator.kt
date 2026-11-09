@@ -343,11 +343,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Named -> filter.name in names(c)
             // CR 709.4a: a split card has each of its halves' names
             is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
-            is ObjectFilter.ChosenName -> c?.name != null && (ctx.names[filter.name] as? NamedValue.Name)?.name == c.name
+            is ObjectFilter.ChosenName -> hasChosenName(c, ctx.names[filter.name])
             // CR 702.106f: double agenda's second name counts as the chosen name too
-            is ObjectFilter.RememberedName -> c?.name != null && ((selfMemory(filter.key) as? NamedValue.Name)?.name == c.name ||
+            is ObjectFilter.RememberedName -> hasChosenName(c, selfMemory(filter.key)) ||
                 (filter.key == arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME &&
-                    (selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME) as? NamedValue.Name)?.name == c.name))
+                    hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
@@ -573,6 +573,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
+
+    /** CR 709.4a: an object has the chosen name if one of its names is it. The whole name of a split card ("A // B") matches
+     * only for names chosen in stored games, from when a host offered it; it goes with the wipe (docs/backlog.md). */
+    private fun hasChosenName(c: Characteristics?, chosen: NamedValue?): Boolean {
+        val name = (chosen as? NamedValue.Name)?.name ?: return false
+        return c?.name == name || name in names(c)
+    }
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }
     // fra: a planeswalker's planeswalker types (CR 205.3j)

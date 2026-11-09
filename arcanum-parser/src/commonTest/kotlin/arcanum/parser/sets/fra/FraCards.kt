@@ -96,7 +96,7 @@ val diesSelf: Trigger = on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self)
 val attacksSelf: Trigger = on(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
 fun stepBegins(step: TurnStep, whose: PlayerFilter): Trigger = on(EventPattern.StepBegins(step, whose))
 val youGainLife: Trigger = on(EventPattern.GainLife(PlayerFilter.You))
-val youScryOrSurveil: Trigger = Trigger.On(listOf(EventPattern.Scry(PlayerFilter.You), EventPattern.Surveil(PlayerFilter.You)))
+val youScryOrSurveil: Trigger = Trigger.On(listOf(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Scry, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Surveil, PlayerFilter.You)))
 fun youCast(spells: ObjectFilter): Trigger = on(EventPattern.Cast(spells, PlayerFilter.You))
 val youActivateLoyalty: Trigger = on(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, kind = arcanum.api.AbilityKind.Loyalty))
 
@@ -154,7 +154,7 @@ fun creatureToken(subtypes: String, colors: List<arcanum.api.Color>, power: Int,
 // ---- Conditions and values
 
 fun thisTurn(event: EventPattern, atLeast: Int = 1, measure: Measure = Measure.Events): Condition = Condition.HappenedThisTurn(event, atLeast, measure)
-val scriedOrSurveilledThisTurn: Condition = Condition.Or(listOf(thisTurn(EventPattern.Scry(PlayerFilter.You)), thisTurn(EventPattern.Surveil(PlayerFilter.You))))
+val scriedOrSurveilledThisTurn: Condition = Condition.Or(listOf(thisTurn(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Scry, PlayerFilter.You)), thisTurn(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Surveil, PlayerFilter.You))))
 val opponentDealtNoncombatDamage: EventPattern = EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false)
 /** "Threshold — … as long as there are seven or more cards in your graveyard" (CR 207.2c) */
 val threshold: Condition = Condition.Exists(yourGraveyard, atLeast = 7)

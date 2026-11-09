@@ -239,11 +239,11 @@ class TlaChunk05WaterbendMoreTest {
         ) to abilities(
             Keyword.Flying,
             firebending(2),
-            triggered(Trigger.On(listOf(EventPattern.Waterbend(PlayerFilter.You), EventPattern.Earthbend(PlayerFilter.You), EventPattern.Firebend(PlayerFilter.You),
-                    EventPattern.Airbend(PlayerFilter.You))),
+            triggered(Trigger.On(listOf(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Earthbend, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Firebend, PlayerFilter.You),
+                    EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Airbend, PlayerFilter.You))),
                 draw(1),
-                Step.If(Condition.And(listOf(EventPattern.Waterbend(PlayerFilter.You), EventPattern.Earthbend(PlayerFilter.You), EventPattern.Firebend(PlayerFilter.You),
-                    EventPattern.Airbend(PlayerFilter.You)).map { Condition.HappenedThisTurn(it, atLeast = 1, measure = Measure.Events) }),
+                Step.If(Condition.And(listOf(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Earthbend, PlayerFilter.You), EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Firebend, PlayerFilter.You),
+                    EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Airbend, PlayerFilter.You)).map { Condition.HappenedThisTurn(it, atLeast = 1, measure = Measure.Events) }),
                     then = listOf(doing(Effect.Transform(Objects.Self))))),
         ),
         card(

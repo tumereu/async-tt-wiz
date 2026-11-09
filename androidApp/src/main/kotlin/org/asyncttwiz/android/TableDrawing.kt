@@ -293,20 +293,17 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     // chips (TRN-053) are EmblemChipsOverlay's.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
         val below = i.owner != viewer
-        val area = i.emblemArea
-        val maxChipText = if (area != null) (area.width - 2 * ChipText.PADDING).coerceAtLeast(12f)
-            else (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
-        /** TRN-069: the room chip right of the piles, or beside the life square, away from it. */
+        val area = i.emblemArea ?: continue
+        val maxChipText = (area.width - 2 * ChipText.PADDING).coerceAtLeast(12f)
+        /** TRN-069: the room chip in the room right of the piles, or after them in the bar row. */
         run {
-            var last: TableBounds? = null
             val previousSize = paint.textSize
             paint.textSize = ChipText.TEXT * density; paint.isFakeBoldText = false
             val texts = i.emblems.map { text -> ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density } }
-            val stacked = area?.let { a -> EmblemChips.stacked(a, below,
-                texts.map { lines -> lines.maxOf { cache.measure(it) } / density }, texts.map { it.size }) }
+            val stacked = EmblemChips.stacked(area, below,
+                texts.map { lines -> lines.maxOf { cache.measure(it) } / density }, texts.map { it.size })
             for ((index, lines) in texts.withIndex()) {
-                val chip = stacked?.get(index)
-                    ?: EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
+                val chip = stacked[index]
                 drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
                 drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
                 paint.color = android.graphics.Color.rgb(48, 30, 82)
@@ -314,7 +311,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                     text(line, chip.x + ChipText.PADDING, chip.y + ChipText.HEIGHT / 2 + n * ChipText.LINE -
                         cache.centerOffset() / density, line.length)
                 }
-                last = chip
             }
             paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
         }

@@ -12,6 +12,8 @@ import arcanum.api.EventPattern
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.KeywordAction
+import arcanum.api.KeywordActionKind
+import arcanum.api.kind
 import arcanum.api.KeywordExpansions
 import arcanum.api.Layout
 import arcanum.api.ManaKind
@@ -175,7 +177,8 @@ internal object Effects {
                 onBattlefield(scope, effect.objects).forEach { if (TargetRef.Object(it) != to) Actions.attach(act, it, to) }
             }
             is Effect.Unattach -> onBattlefield(scope, effect.objects).forEach { Actions.attach(act, it, null) }
-            // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g)
+            // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g). What
+            // represents it decides, not its copiable values (CR 712.9): a double-faced token does, a copy on a one-faced card doesn't
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
@@ -187,9 +190,13 @@ internal object Effects {
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 asTransforms(scope, id)
             }
+            // CR 707.3, 110.5: a flip card flips, and so does a permanent that's a copy of one; the status is the object's own, and
+            // what isn't a flip card keeps the face it has up (CR 712.8d)
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (o.definition?.layout == Layout.Flip && o.face == 0) act.record(Change.Face(id, 0, 1, listOf(Meaning.Flipped)))
+                if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
+                act.record(if (o.definition?.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
+                    else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             is Effect.TurnFaceUp -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
@@ -421,7 +428,7 @@ internal object Effects {
             // CR 709.5f: the chooser picks a locked door of each (or the door named)
             is Effect.UnlockDoor -> {
                 val unlocked = onBattlefield(scope, effect.objects).filter { id ->
-                    val locked = arcanum.engine.room.Rooms.locked(act.state.objOrThrow(id))
+                    val locked = arcanum.engine.room.Rooms.locked(act.view()[id])
                     val door = effect.door?.takeIf { it in locked } ?: when (locked.size) {
                         0 -> null
                         1 -> if (effect.door == null) locked.single() else null
@@ -435,7 +442,7 @@ internal object Effects {
             // CR 709.5g
             is Effect.LockDoor -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (!arcanum.engine.room.Rooms.isRoom(o.definition)) return@forEach
+                if (!arcanum.engine.room.Rooms.isRoom(act.view()[id]?.copiable)) return@forEach
                 val open = listOf(arcanum.api.Door.Left, arcanum.api.Door.Right).filter { arcanum.engine.room.Rooms.unlocked(o, it) }
                 val door = when (open.size) {
                     0 -> return@forEach
@@ -502,7 +509,7 @@ internal object Effects {
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
         val player = scope.players(chooser).firstOrNull() ?: scope.actor
-        val names = scope.act.state.objOrThrow(id).definition?.faces.orEmpty()
+        val names = scope.act.view()[id]?.copiable?.faces.orEmpty()
         val options = doors.map { names.getOrNull(arcanum.engine.room.Rooms.face(it))?.name ?: it.toString() }
         val chosen = scope.act.chooseOption(player, id, options)
         return doors[options.indexOf(chosen).coerceAtLeast(0)]
@@ -720,7 +727,11 @@ internal object Effects {
     private fun scry(scope: Scope, player: PlayerId, n: Int, bind: String?) {
         val act = scope.act
         val top = act.state.player(player).library.take(n)
-        if (top.isEmpty()) return
+        // CR 701.22b, d: scrying 0 is no event; scrying with no library is, the actions being impossible
+        if (top.isEmpty()) {
+            if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Scry, player, amount = 0)))
+            return
+        }
         act.fill(player, scope.self, top, "scry")
         val chosen = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
         val kept = act.order(player, scope.self, top.filter { it !in chosen }, "Order on top, first on top")
@@ -728,7 +739,7 @@ internal object Effects {
         val rest = act.state.player(player).library.drop(top.size)
         val after = kept + rest + bottom
         if (after != act.state.player(player).library) act.record(Change.Reorder(Zone.Library, player, act.state.player(player).library, after))
-        act.record(Change.Happened(GameEvent.Scried(player, top.size)))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Scry, player, amount = top.size)))
         scope.bind(bind, NamedValue.Objects(bottom))
     }
 
@@ -736,7 +747,11 @@ internal object Effects {
     private fun surveil(scope: Scope, player: PlayerId, n: Int, bind: String?) {
         val act = scope.act
         val top = act.state.player(player).library.take(n)
-        if (top.isEmpty()) return
+        // CR 701.25c, d: surveilling 0 is no event; surveilling with no library is, the actions being impossible
+        if (top.isEmpty()) {
+            if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = 0)))
+            return
+        }
         act.fill(player, scope.self, top, "surveil")
         val toGraveyard = act.chooseObjects(player, scope.self, top, 0, top.size, "Put into your graveyard")
         val moved = Actions.moveTo(act, scope.cause, toGraveyard, Zone.Graveyard)
@@ -746,7 +761,7 @@ internal object Effects {
         if (ordered != kept && library.take(kept.size) == kept) {
             act.record(Change.Reorder(Zone.Library, player, library, ordered + library.drop(kept.size)))
         }
-        act.record(Change.Happened(GameEvent.Surveilled(player, top.size)))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = top.size)))
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
     }
 
@@ -853,11 +868,11 @@ internal object Effects {
     private fun createToken(scope: Scope, effect: Effect.CreateToken) {
         val act = scope.act
         val e = scope.eval()
-        val face = Actions.tokenFace(act, e, effect.token)
+        val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val created = scope.players(effect.controller).flatMap { p ->
-            Actions.createTokens(act, scope.cause, face, count, p, effect.tapped, attachTo)
+            Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }
         effect.attacking?.let { target ->
             val to = attackTarget(scope, target)
@@ -930,8 +945,12 @@ internal object Effects {
                 }
             }
             // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
-            val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
-                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except) else original.kind
+            val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) {
+                val copied = (original.kind as? StackItemKind.SpellCopy)?.copied ?: id
+                StackItemKind.SpellCopy(copied, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except,
+                    // CR 707.10g, 709.5b: its faces, for the token it becomes even if that spell has left the Stack by then
+                    values = (arcanum.engine.view.Copiable(act.state).values(copied) ?: (original.kind as? StackItemKind.SpellCopy)?.values)?.takeIf { it.faces.size > 1 })
+            } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
@@ -1067,11 +1086,15 @@ internal object Effects {
             if (affects.objects is Objects.Target) arcanum.engine.query.Lki.newObject(act.state, id) ?: id else id
         } else null
         val lockedPlayers = (affects as? Affected.Players)?.let { e.players(it.players) }
+        // CR 707.2b: a copy effect has the original's copiable values as it starts; changing the original later doesn't change it
+        val copiedValues = fixed.filterIsInstance<Mechanic.CopyOf>().firstOrNull()?.let { copy ->
+            arcanum.engine.view.Copiable(act.state).forCopyEffect(copy, scope.you, scope.self, names)
+        }
         act.record(Changes.effect(act.state) { ts ->
             EffectObject(
                 id = EffectId("E$ts"), mechanics = fixed, affects = affected, locked = lockedObjects, lockedPlayers = lockedPlayers,
                 source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, duration = duration,
-                usesLeft = uses, amountLeft = amountLeft, names = names,
+                usesLeft = uses, amountLeft = amountLeft, names = names, copiedValues = copiedValues,
             )
         })
     }
@@ -1310,7 +1333,11 @@ internal object Effects {
             }
             if (applied == null) {
                 val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
-                Steps.run(Scope(act, scope.cause, one, scope.event, scope.actor), KeywordExpansions.expand(action.copy(objects = Objects.Bound(CONNIVER)))!!)
+                val single = action.copy(objects = Objects.Bound(CONNIVER))
+                val inner = Scope(act, scope.cause, one, scope.event, scope.actor)
+                val done = doers(inner, single)
+                Steps.run(inner, KeywordExpansions.expand(single)!!)
+                done.forEach { (player, objects) -> act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Connive, player, objects))) }
                 return@forEach
             }
             val m = applied.mechanic as arcanum.api.Mechanic.Replacement
@@ -1337,9 +1364,49 @@ internal object Effects {
         return (state.player(player).hand + state.battlefield.filter { e.controllerOf(it) == player }).filter { e.matches(filter, it) }
     }
 
+    /**
+     * Does [action], then records that it is done ([GameEvent.KeywordActionDone]), for every verb, so a new verb needs nothing here. Who did it
+     * and with what is worked out first (an amount can change as the action happens). A few say so themselves, as they know more:
+     * [KeywordAction.Explore] and [KeywordAction.Blight] per permanent, as each is done; [KeywordAction.ManifestDread] per player;
+     * [KeywordAction.Airbend], [KeywordAction.Earthbend] and [KeywordAction.Forage] only when they happened (CR 701.65b, 701.66b, 701.61a).
+     */
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
-        val act = scope.act
+        val done = when (action) {
+            is KeywordAction.Explore, is KeywordAction.Blight, is KeywordAction.ManifestDread, is KeywordAction.Airbend, is KeywordAction.Earthbend,
+            KeywordAction.Forage -> emptyList()
+            else -> doers(scope, action)
+        }
+        // A connive some replacement replaced says so itself, for the ones that still connived
         if (action is KeywordAction.Connive && connive(scope, action)) return
+        performKeywordAction(scope, action, bind)
+        done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+    }
+
+    /** One [GameEvent.KeywordActionDone] each: who does [action], and to or with what. */
+    private fun doers(scope: Scope, action: KeywordAction): List<Pair<PlayerId, List<ObjectId>>> = when (action) {
+        // CR 701.16a: investigating twice is investigating, then investigating again
+        is KeywordAction.Investigate -> List(scope.value(action.count).coerceAtLeast(0)) { scope.actor to emptyList() }
+        // CR 701.50e: conniving 0 is no event; CR 701.50b: one that has left connives as it last existed
+        is KeywordAction.Connive -> if (scope.value(action.count) <= 0) emptyList() else scope.objects(action.objects).distinct().mapNotNull(lastControlled(scope))
+        // CR 701.63b: enduring 0 is nothing
+        is KeywordAction.Endure -> if (scope.value(action.count) <= 0) emptyList() else scope.objects(action.objects).distinct().mapNotNull(lastControlled(scope))
+        // CR 701.43c: only what is on the battlefield can be exerted
+        is KeywordAction.Exert -> onBattlefield(scope, action.objects).mapNotNull(lastControlled(scope))
+        is KeywordAction.Goad -> onBattlefield(scope, action.objects).map { scope.actor to listOf(it) }
+        is KeywordAction.Detain -> onBattlefield(scope, action.objects).map { scope.actor to listOf(it) }
+        is KeywordAction.Regenerate -> onBattlefield(scope, action.objects).map { scope.actor to listOf(it) }
+        is KeywordAction.Monstrosity, is KeywordAction.Adapt ->
+            listOfNotNull(scope.self?.takeIf { scope.act.state.obj(it)?.zone == Zone.Battlefield }).mapNotNull(lastControlled(scope))
+        else -> listOf(scope.actor to emptyList())
+    }
+
+    /** [id] with who controls it, or who last did if it has left (CR 701.44c, 701.50b). */
+    private fun lastControlled(scope: Scope): (ObjectId) -> Pair<PlayerId, List<ObjectId>>? = { id ->
+        (scope.act.controllerOf(id) ?: arcanum.engine.query.Lki.find(scope.act.state, id)?.let { it.controller ?: it.owner })?.let { it to listOf(id) }
+    }
+
+    private fun performKeywordAction(scope: Scope, action: KeywordAction, bind: String?) {
+        val act = scope.act
         // tla: CR 701.65a: exile them; each card exiled may be cast by its owner for {2} for as long as it stays exiled
         if (action is KeywordAction.Airbend) return airbend(scope, action, bind)
         // tla: CR 701.66a, b: the land, its counters and the delayed return; earthbending happens as that trigger is created
@@ -1347,7 +1414,7 @@ internal object Effects {
             KeywordExpansions.expand(action)?.let { Steps.run(scope, it) }
             val land = scope.objects(arcanum.api.Objects.Target(action.slot))
             scope.bind(bind, NamedValue.Objects(land))
-            if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.Earthbended(scope.actor)))
+            if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
@@ -1375,20 +1442,19 @@ internal object Effects {
                     e.characteristics(it)?.isType(CardType.Creature) == true }
                 val chosen = act.chooseObjects(scope.actor, scope.self, tokens, 1, 1, "Populate").firstOrNull() ?: return
                 scope.bind(POPULATED, NamedValue.Objects(listOf(chosen)))
-                val face = Actions.tokenFace(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
-                scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, face, 1, scope.actor)))
+                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
+                scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, values, 1, scope.actor)))
             }
-            // CR 701.44a: reveal the top card; a land goes to hand, otherwise a +1/+1 counter and you may put it in the graveyard
-            is KeywordAction.Explore -> onBattlefield(scope, action.objects).forEach { explorer ->
-                val controller = act.controllerOf(explorer) ?: return@forEach
-                val top = act.state.player(controller).library.firstOrNull()
-                if (top == null) { Actions.putCounters(act, cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1); return@forEach }
-                act.fill(controller, explorer, listOf(top), "explore", public = true)
-                act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
-                if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, cause, listOf(top), Zone.Hand)
-                else {
-                    Actions.putCounters(act, cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1)
-                    if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, cause, listOf(top), Zone.Graveyard)
+            // CR 701.44c: one no longer on the battlefield explores too, as it last existed. CR 701.44d: several at once: the first player in APNAP
+            // order who controls (or last controlled) one of them chooses which explores next, until each has
+            is KeywordAction.Explore -> {
+                var left = scope.objects(action.objects).distinct().filter { act.state.obj(it).let { o -> o == null || o.zone == Zone.Battlefield } }
+                while (true) {
+                    val owned = left.mapNotNull(lastControlled(scope))
+                    val chooser = act.state.apnap().firstOrNull { p -> owned.any { it.first == p } } ?: owned.firstOrNull()?.first ?: break
+                    val explorer = act.chooseObjects(chooser, scope.self, owned.filter { it.first == chooser }.flatMap { it.second }, 1, 1, "Which one explores next?").single()
+                    explore(scope, explorer, chooser)
+                    left = left - explorer
                 }
             }
             // CR 701.47a: put counters on an Army you control, or create a 0/0 Army token first
@@ -1396,10 +1462,10 @@ internal object Effects {
                 val e = scope.eval()
                 val armies = act.state.battlefield.filter { e.controllerOf(it) == scope.actor &&
                     e.characteristics(it)?.hasSubtype(arcanum.api.Subtype("Army")) == true }
-                val army = if (armies.isEmpty()) Actions.createTokens(act, cause, FaceDefinition("${action.subtype.name} Army Token",
+                val army = if (armies.isEmpty()) Actions.createTokens(act, cause, arcanum.engine.state.CopiableValues.of(FaceDefinition("${action.subtype.name} Army Token",
                     colorIndicator = listOf(Color.Black), types = listOf(CardType.Creature),
                     subtypes = listOf(action.subtype, arcanum.api.Subtype("Army")), power = arcanum.api.PrintedNumber.Fixed(0),
-                    toughness = arcanum.api.PrintedNumber.Fixed(0)), 1, scope.actor).first()
+                    toughness = arcanum.api.PrintedNumber.Fixed(0))), 1, scope.actor).first()
                 else act.chooseObjects(scope.actor, scope.self, armies, 1, 1, "Amass").first()
                 Actions.putCounters(act, cause, TargetRef.Object(army), CounterKind.PowerToughness(1, 1), e.value(action.count))
                 // hob: "If it isn't a [subtype], it becomes a [subtype] in addition to its other types" (for good)
@@ -1424,8 +1490,10 @@ internal object Effects {
             // CR 701.37a: if it isn't monstrous, put N +1/+1 counters on it and it becomes monstrous
             is KeywordAction.Monstrosity -> scope.self?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield }?.let { id ->
                 if (ObjectMark.Monstrous in act.state.objOrThrow(id).marks) return
-                Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.PowerToughness(1, 1), scope.value(action.count))
-                Actions.tapStatus(act, id, StatusFlag.Marked(ObjectMark.Monstrous), true)
+                val n = scope.value(action.count)
+                Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.PowerToughness(1, 1), n)
+                // CR 701.37c: what other abilities of it mean by X, as it became monstrous
+                Actions.tapStatus(act, id, StatusFlag.Marked(ObjectMark.Monstrous), true, listOf(Meaning.CostX(n)))
             }
             // CR 701.46a: if it has no +1/+1 counters, put N on it
             is KeywordAction.Adapt -> scope.self?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield }?.let { id ->
@@ -1485,7 +1553,7 @@ internal object Effects {
             // blb: CR 701.61a: exile three cards from your graveyard or sacrifice a Food; nothing if neither can be done
             KeywordAction.Forage -> if (Costs.canPay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))) {
                 Costs.pay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))
-                act.record(Change.Happened(GameEvent.Foraged(scope.actor)))
+                act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Forage, scope.actor)))
             }
             is KeywordAction.ManifestDread -> scope.players(action.players).forEach { p -> manifestDread(scope, p, bind) }
             // ecl: CR 701.68a: each player puts N -1/-1 counters on a creature they control; nothing without one (701.68b); the creature
@@ -1497,6 +1565,7 @@ internal object Effects {
                     if (options.isEmpty() || n <= 0) return@flatMap emptyList<ObjectId>()
                     val chosen = act.chooseObjects(p, scope.self, options, 1, 1, "Blight $n").firstOrNull() ?: return@flatMap emptyList<ObjectId>()
                     Actions.putCounters(act, cause, TargetRef.Object(chosen), CounterKind.PowerToughness(-1, -1), n)
+                    act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Blight, p, listOf(chosen))))
                     listOf(chosen)
                 }
                 scope.bind(bind, NamedValue.Objects(blighted))
@@ -1509,6 +1578,25 @@ internal object Effects {
             is KeywordAction.Meld -> meld(scope, action)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${arcanum.engine.decision.Texts.className(action)}")
         }
+    }
+
+    /** CR 701.44a: [controller] reveals their top card; a land goes to their hand, otherwise a +1/+1 counter on [explorer] (none if it has left, CR
+     * 701.44c) and they may put the card into their graveyard. CR 701.44b: it has explored once that is done, even if some of it was impossible. */
+    private fun explore(scope: Scope, explorer: ObjectId, controller: PlayerId) {
+        val act = scope.act
+        fun counter() { if (act.state.obj(explorer)?.zone == Zone.Battlefield) Actions.putCounters(act, scope.cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1) }
+        val top = act.state.player(controller).library.firstOrNull()
+        if (top == null) counter()
+        else {
+            act.fill(controller, explorer, listOf(top), "explore", public = true)
+            act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
+            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)
+            else {
+                counter()
+                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)
+            }
+        }
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer))))
     }
 
     /** CR 701.40a, c, 701.58a, c: the actor's top card onto the battlefield face down, [count] times one at a time, each [mark]ed
@@ -1545,6 +1633,7 @@ internal object Effects {
         val rest = top.filterNot { it in chosen }.filter { act.state.obj(it) != null }
         val graveyard = Actions.moveTo(act, scope.cause, rest, Zone.Graveyard)
         act.record(Change.Happened(GameEvent.ManifestedDread(player, manifested, graveyard.values.toList())))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.ManifestDread, player, listOfNotNull(manifested))))
         scope.bind(bind, NamedValue.Objects(listOfNotNull(manifested)))
     }
 
@@ -1570,7 +1659,7 @@ internal object Effects {
             })
         }
         scope.bind(bind, NamedValue.Objects(exiled))
-        act.record(Change.Happened(GameEvent.Airbended(scope.actor)))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Airbend, scope.actor, exiled)))
     }
 
     private val BEFORE_COMBAT = setOf(arcanum.api.TurnStep.Untap, arcanum.api.TurnStep.Upkeep, arcanum.api.TurnStep.Draw,

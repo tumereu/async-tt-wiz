@@ -90,7 +90,7 @@ catalog wins. Where neither says, ask rather than pick.
 - Build/test with `./scripts/gradle.sh <tasks>` (wraps gradlew for WSL). Useful
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
-  `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:e2e:test` (slow, Docker;
+  `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:arcanum-tools:test`, `:e2e:test` (slow, Docker;
   see End-to-end coverage).
   `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in every set worker's checklist, and needs network on its first run.
   `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
@@ -108,6 +108,7 @@ catalog wins. Where neither says, ask rather than pick.
   green run. One test: `./scripts/gradle.sh :e2e:test --tests '*CoreLoopTest*'` (a failure leaves both phones'
   screens and the app log in `e2e/build/e2e/failures/`). The two-emulator smoke (`scripts/smoke-emulators.sh`) is
   its short half on the shrunk build.
+- **Logging with problem reports (owner rule, 2026-11-09):** whoever works on a problem report also adds log statements to all the code related to it, so the next report of that area explains itself. Logging here means what reaches the problem report (the app log, the Automatum log and bundle): check it does, and that the volume won't push out what matters. Hidden game information may be logged, cards in hand included: players can't easily read it, and the client is trusted anyway. Passwords, tokens and email addresses still never are. Undo, rewinds and the timeline are a recurring source of bugs, so log them fully: what was asked, from where to where, what was taken back or refused and why.
 - Never weaken or delete a test just to make it pass. A test may change only
   when it encodes behaviour your task names (see "Protecting existing features").
 - Exactly one version of the apps and server exists at a time: the server serves

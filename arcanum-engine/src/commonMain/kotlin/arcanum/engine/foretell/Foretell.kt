@@ -5,6 +5,7 @@ import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.KeywordActionKind
 import arcanum.api.ManaCost
 import arcanum.api.Mechanic
 import arcanum.api.ObjectMark
@@ -16,6 +17,8 @@ import arcanum.engine.action.Act
 import arcanum.engine.action.Actions
 import arcanum.engine.action.Cause
 import arcanum.engine.action.PlannedMove
+import arcanum.engine.change.Change
+import arcanum.engine.change.GameEvent
 import arcanum.engine.change.Meaning
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
@@ -64,6 +67,8 @@ internal object Foretell {
     fun exile(act: Act, cause: Cause, id: ObjectId): ObjectId? {
         val moved = Actions.move(act, cause, listOf(PlannedMove(id, Zone.Exile, faceDown = true, meanings = listOf(Meaning.Exiled),
             marks = listOf(ObjectMark.Foretold))))
+        // CR 702.143c: foretelling a card is this special action
+        moved[id]?.let { act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Foretell, cause.controller, listOf(it)))) }
         return moved[id]
     }
 

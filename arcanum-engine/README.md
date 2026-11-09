@@ -103,7 +103,10 @@ seeded random games of cube cards, failing on any open player decision without a
   `AppliedRestriction` (`Engine.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
   (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's
   own printed text and what a keyword means aren't listed (the host lists the keyword);
-  the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
+  the layer system (`Layers`, `Copiable`; `ObjectView.copiable` is an object's whole copiable values, `CopiableValues`, CR 707.2:
+  layout and all faces, what a Room's doors and a prepare spell work by on a copy too, CR 709.5b, 722.2b, and what a token copy holds
+  in its definition, CR 707.8a; designations and status stay on the object, and what can transform or meld goes by its own
+  definition, CR 712.9; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
   keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
@@ -360,7 +363,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   chapters, "triggers an additional time"; keyword events: cycling (the card discarded for a cycling cost, also a
   discard, triggering from where it went, CR 702.29c–d), becoming crewed (a crew ability resolving, CR 702.122e),
   becoming saddled (saddle marks it until the cleanup step, CR 702.171), expending (the mana spent on spells this turn
-  reaching N, CR 700.14); waiting triggers in `GameState.triggered`, put on
+  reaching N, CR 700.14), and every keyword action done and mark gained: `Effects.keywordAction` records `GameEvent.KeywordActionDone` for every
+  verb once the rules say it counts as done (explore, CR 701.44b, c, several at once in the order the first player in APNAP order chooses, 701.44d; discover, 701.57b; proliferate with nothing to choose, 701.34a; scry and surveil
+  with no library, 701.22d, 701.25d; collecting evidence or foraging as a cost; foretelling, 702.143c), and a mark gained is seen in
+  `Change.Status` or a move (`EventPattern.GotMark`). The per-verb events (`GameEvent.Scried`, `Foraged`, …) are no longer recorded; both kinds of pattern
+  read both kinds of event, for stored games, until the one approved wipe. Waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.

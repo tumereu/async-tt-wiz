@@ -34,9 +34,10 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 7. Back: on-screen Back/close controls everywhere on the web. Screens get real URLs, so the browser's Back moves
    between screens. Dialogs and popups get **no** history entries; Esc closes them on desktop, and on Android Chrome the
    system back closes them through the browser's CloseWatcher where it is supported.
-8. **Server-built card catalog** (both clients): the server fetches MTGJSON every night, builds a trimmed catalog and
-   serves it; its checksum is its version. When the version changes, Android and web must install it before playing.
-   Android switches to it once serving works and drops its own MTGJSON download and incremental updates. Card pictures
+8. **Server-built card catalog** (both clients; revised by the owner 2026-11-09, section 3): one pinned MTGJSON file,
+   trimmed into our catalog at release and deployed with the server; its checksum is its version, and it changes only
+   with a release. Android and web install it before anything that reads card records. Android switches to it once
+   serving works and drops its own MTGJSON download and incremental updates. Card pictures
    still come straight from Scryfall's image server, never through the Pi.
 9. Light requests that a browser can't make directly (sites without CORS, such as Archidekt) go through the Pi.
 10. Web notifications are opt-in only: a Settings switch, off by default, plus one dismissible hint in the Games list.
@@ -140,29 +141,43 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
    sends through Firebase (LOB-072–078, LOB-111, LOB-114, LOB-116, DRF-135–138).
 5. Problem and crash reports use the existing endpoints.
 
-## 3. Server-built card catalog (first build piece, both clients)
+## 3. Server-built card catalog (first build piece, both clients; owner 2026-11-09)
 
-1. Every night (proposal: 04:00 Pi time) the server checks MTGJSON's `Meta.json`; when it changed, the server downloads
-   `AllPrintings`, builds the trimmed catalog with the same import code the app uses today (moved to shared JVM code)
-   and stores it.
-2. The trimmed catalog holds only what the clients read: card faces (name, cost, type line, rules text, P/T, loyalty,
+The catalog changes only with a release, because a changed wording can break the parser: what the tests check, the
+server and both phones all read one pinned file.
+
+1. **The pin.** A small file in the repo, `catalog/pin.properties` (proposal), names the MTGJSON version, the SHA-256 of
+   the raw `AllPrintings.json.gz`, and the SHA-256 of our trimmed catalog built from it. No card data is committed. The
+   raw file lives in `~/projects/atw-cache/AllPrintings.json.gz`, where the Arcanum tools already read it
+   (`ParserCorpus`), and on the Pi next to the server's catalog. `scripts/catalog-pin.sh fetch` gets the pinned raw file
+   onto a fresh clone, by checksum, from the Pi over the tailnet (never a public URL); `verify` checks the local file;
+   `move` takes MTGJSON's current build and rewrites the pin. A fresh clone builds and passes every test without it:
+   unit tests and e2e use invented cards; only the real-card tools (`setSupport`, `parserDiff`, `patternFrequencies`)
+   and a release need it.
+2. **Moving the pin** is a deliberate task: `setSupport` and `parserDiff` run against the new file first, and their
+   changes are fixed or accepted before it ships. New sets and previews reach players only with a release (LOB-092's
+   automatic updates go away). The first pin is MTGJSON's latest build at the time (owner), as its own first step.
+3. **The trimmed catalog** holds only what clients read: card faces (name, cost, type line, rules text, P/T, loyalty,
    defense, colours, colour identity, layout, side), legalities and rarity for search (LOB-110), related cards and
-   tokens (LOB-125), and each English printing's set, number and Scryfall id for pictures. A measured estimate on the
-   2026-10-23 AllPrintings: 42,435 faces, 121,888 printings, **about 9 MB gzip** (184 MB today).
-3. Its version is the checksum of its content: a rebuild with no real change keeps the version and publishes nothing.
-   The server serves the file under its checksum, cached for good, and says which version is current.
-4. Clients check the current version at start, on every return to the app and when the server says it changed. A
-   new version shows the card records screen (like LOB-091: what it is and its size, with Download); until it is
-   installed nothing else in the app works (one code path with the first download).
-5. The server takes requests only from clients on the current catalog version (sent with every connection and
-   request); an older one gets "Update card records to continue" and the client shows the card records screen. So
-   both players and the server always work from the same card texts.
-6. **Android** switches to this file once it is served: the MTGJSON download, incremental updates and on-device
-   indexing of 184 MB go away (changes LOB-091–096, LOB-110, LOB-125).
-7. Draft data is part of the catalog: the booster recipes of draftable sets (with the printings they name), measured
-   at about 3.4 MB gzip for 184 sets, so the whole catalog is roughly 12–13 MB. The per-set MTGJSON downloads and their
-   Redownload buttons go away (changes DRF-089, DRF-088, DRF-090); since the server holds the same catalog, it builds
-   set packs from it.
+   tokens (LOB-125), each English printing's set, number and Scryfall id for pictures, the set list (DRF-088), and the
+   booster recipes of draftable sets with the printings they name. Estimate: about 12–13 MB gzip. Its version is the
+   checksum of its content, so a change in what we extract makes a new version too, even on the same pin.
+4. **At release** `scripts/prod-release.sh` verifies the raw file against the pin, builds the trimmed catalog with the
+   same code the server and clients read it with, checks its checksum against the pin (a mismatch stops the release),
+   and deploys both files to the Pi with the server. The Pi never downloads MTGJSON. The server keeps the previous
+   catalog for a rollback. Endpoints, open without sign-in (the first download comes before sign-in, LOB-091): the
+   current version (checksum, size, date, counts) and the file by checksum, cached for good.
+5. **Clients** carry the expected checksum, built in from the pin. The one-version rule already sends an older app to
+   the update screen, so a new catalog only ever comes with a new app: on start the app compares its installed
+   catalog with the built-in checksum and downloads the file from the server when they differ. No catalog version is
+   sent with requests. Always the whole file, no partial updates; indexing it is quick.
+6. **While it installs** the app is usable: menus, Settings, chat, profile, match history and the games list work. Every
+   control whose action reads card records stays visible but greyed, saying "Card records updating · 43%" (opening a
+   game, creating or joining one, deck and cube editing, imports, card search, pod picks, avatars); content that needs
+   card records (a deck's cards, a game's table) shows a placeholder with the same line in its place. A failed download
+   is tried once more by itself, then the line says so with Retry.
+7. **Set pods** get packs the server builds from its own catalog; clients send only the set code, so the set upload and
+   its limits (`SetSourceValidation.MAX_SHEETS`, `MAX_CARDS`) go away and Reality Fracture and The List can be chosen.
 
 ## 4. Layouts and input
 
@@ -326,39 +341,37 @@ Desktop results are in section 1. No phone-browser run (decision 20).
   change). Arcanum libraries stay ATW-free (`verifyModuleBoundaries`).
 - No behaviour change, no catalog change, no release note. Small (one batch).
 
-### Step 1a: the server builds and serves the catalog
+### Step 1a: the pin and the server catalog
 
-- The MTGJSON import (today `client-storage`'s streaming `MtgJsonCatalog`, JVM code) moves to a module the server can
-  use; the trimmed catalog's format and reader go in common code (Android and browser read it).
-- Format (proposal): gzip-compressed JSON lines, one record per face, printing, set and booster recipe; browsers unpack
-  it natively (`DecompressionStream`). Contents: section 3.2 plus the set list (DRF-088) and the booster recipes of
-  draftable sets with the printings they name.
-- A nightly job (section 3.1) streams `AllPrintings` (never loads it whole: the Pi has 8 GB), writes the file, computes
-  its checksum, keeps the current and previous files on disk. A manual "build now" for operations (CLI or admin
-  endpoint).
-- Endpoints, open without sign-in (the first download happens before sign-in, LOB-091): current version (checksum, size,
-  date, counts) and the file by checksum, cached for good.
-- Version check: clients send their catalog version with every request and socket handshake; the server answers lobby,
-  deck, pod and game requests from an older one with "Update card records to continue". Account, catalog, update and
-  problem-report requests stay open.
-- Set pods: the server builds set packs from its own catalog; clients send only the set code (PodService no longer takes
-  uploaded set files).
-- Tests: server tests with a small synthetic MTGJSON (no real card data committed): build, unchanged rebuild keeps the
-  version, endpoints, the version refusal, set packs from the catalog.
+- `scripts/catalog-pin.sh` (fetch, verify, move) and the pin file (section 3.1); the Arcanum tools read the pinned file
+  and check it against the pin.
+- The MTGJSON import (today `client-storage`'s streaming `MtgJsonCatalog`, JVM code) moves to a module the release
+  script and server can use; the trimmed catalog's format and reader go in common code (Android and browser read it).
+  Format (proposal): gzip-compressed JSON lines, one record per face, printing, set and booster recipe; browsers unpack
+  it natively (`DecompressionStream`).
+- Release: section 3.4 in `scripts/prod-release.sh` and the Ansible role; the e2e stack and the local dev stack serve
+  a catalog built from the test cards.
+- Set pods: the server builds set packs from its catalog; `PodService` no longer takes uploaded set files.
+- Tests: with a small synthetic MTGJSON (no real card data): the build, the same input giving the same checksum, a pin
+  mismatch stopping the release script, the endpoints, set packs from the catalog.
 
 ### Step 1b: Android uses the server catalog
 
-- The app downloads the server file instead of MTGJSON and builds its search indexes from it (small, so indexing is
-  quick). A different version shows the card records screen and blocks the app until installed (owner decision 16);
-  a refused request does the same.
+- The app downloads the server file instead of MTGJSON and builds its search indexes from it; section 3.5 and 3.6.
 - Removed: incremental and metered-connection updates, "Refresh full catalog", per-set downloads and Redownload, the
   "downloaded again once" migrations.
-- Catalog: LOB-092 removed; LOB-091, LOB-093, LOB-094, LOB-095, LOB-110, LOB-125, DRF-088, DRF-089 changed; DRF-090
-  unchanged in effect (recipes now from the server). Release note "mod: Card records now come from the ATW server: a
-  much smaller download, and both players always have the same ones."
-- E2E: a new catalog version published while both players are in a game: each app asks for the update, play continues
-  after it; a pod from a set starts with server-built packs.
-- Steps 1a + 1b can go to prod on their own, before any web work (owner approves that release as usual).
+- Catalog: LOB-092 removed; LOB-091, LOB-093, LOB-094, LOB-095, LOB-096, LOB-110, LOB-125, DRF-088, DRF-089 changed;
+  DRF-090 unchanged in effect (recipes now from the server). Release note "mod: Card records now come from the ATW
+  server: a much smaller download, and both players always have the same ones."
+- E2E: an app whose built-in checksum differs from its installed catalog downloads it on start; meanwhile the menu,
+  chat and the games list work, opening a game is greyed with "Card records updating", and the table works once
+  installed; a pod from a set starts with server-built packs.
+
+### Step 1c: the first pin moves to MTGJSON's latest build
+
+- `scripts/catalog-pin.sh move`, then `setSupport` and `parserDiff` against it; changed cards are fixed or reported to
+  the owner before the release.
+- Steps 1a–1c go to prod together, before any web work (owner approves that release as usual).
 
 ### Step 2: the shared UI module
 
@@ -432,7 +445,7 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 - Compose for web is Beta: upgrades may need small fixes; iOS Safari is untested (no device).
 - Step 2 is large and collides with any concurrent Android work.
 - Bandwidth from the Pi: the app (~3.8 MB) and catalog (~12–13 MB) per new device or version, cached by Cloudflare under
-  content-hashed names; the nightly MTGJSON download (184 MB) when it changed.
+  content-hashed names.
 - Web e2e on a canvas: kept small by testing shared UI in the JVM harness and only smoke-testing the real browser.
 
 ### Possible follow-ups (not planned)
@@ -449,7 +462,7 @@ All design questions are answered (2026-11-07, round 3 the same day). Claude's c
 1. Step 0b adds wasm test tasks to AGENTS.md's task list.
 2. Catalog file format: gzip-compressed JSON lines (1a).
 3. Steps 1a + 1b may go to prod before any web work (1b).
-4. Account, catalog, update and problem-report requests stay open to clients on an old catalog (1a).
+4. Superseded 2026-11-09: no catalog version on requests; the one-version rule covers it (section 3.5).
 5. Step 2 runs when no other Android batch is open (2).
 6. The real browser is only smoke-tested (Playwright on Chrome); everything else is tested through the shared UI in the
    existing JVM e2e harness, at phone and desktop sizes (3–5).

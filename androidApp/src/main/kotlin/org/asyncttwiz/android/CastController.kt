@@ -419,6 +419,7 @@ internal class CastController(
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
         val group = groupOf(cardId) ?: return false
+        AppLog.info("cast", "Payment: source $cardId tapped, paying before ${paySources()}")
         toggleMana(group)
         return true
     }

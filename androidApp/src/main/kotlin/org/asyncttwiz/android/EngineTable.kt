@@ -441,7 +441,7 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
      * choosing · Ember Divination", "Bob is deciding on a mulligan"), or null when the game doesn't wait for one. */
     fun choosingText(play: TableBoard): String? = choiceWait()?.let { waitingText(it, play, opponentName) }
 
-    /** The faint words over the battlefield while the other player must act (TRN-066), or null. */
+    /** The wait band's words while the other player must act (TRN-066), or null. */
     fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
@@ -674,7 +674,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val opponent = names[shown.opponent.value] ?: "The other player"
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
     val reviewing = routes.review != null
-    // TRN-066, TRN-068: the wait is faint words over the battlefield (TableRuntimeHooks.waitingLine) with its Assume or
+    // TRN-066, TRN-068: the wait is the band under the other player's hand (TableRuntimeHooks.waitingLine) with its Assume or
     // Cancel in the step arrow's place, and the unconfirmed mark sits at the arrow's corner (QuickActionStrip): nothing
     // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point

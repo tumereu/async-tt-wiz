@@ -126,14 +126,14 @@ class EngineChoiceWaitTest {
     }
 
     // HIS-075, STK-032, TRN-066: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
-    // choosing" while his faint words over the battlefield stay; her own table says nothing of it
+    // choosing" while the band under her hand stays; her own table says nothing of it
     @Test fun theOtherPlayersChoiceShowsInTheEventText() {
         kit.toAliceDiscard()
         kit.settle()
         render(f.b, eventTextOn = true)
         compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Alice is choosing")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/event-text-choosing.png",
-            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing, and stays while she chooses; the faint words over the battlefield say the same.")
+            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses.")
         assertNull(kit.routes.choosingText(kit.alice.play()), "Alice's own table doesn't say she is choosing")
     }
 }

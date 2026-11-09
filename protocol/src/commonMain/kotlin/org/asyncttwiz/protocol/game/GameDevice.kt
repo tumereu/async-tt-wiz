@@ -520,11 +520,13 @@ class GameDevice(
     /** TRN-065: the other player's OK on the result, or its take-back, next in line: shown at once, whatever else waits (no
      * playback, no pause, no catch-up: the result's dialog stays as it is, with their word in it). */
     private fun showResultOks() {
+        var shown = false
         while (!needsReload && !holding && !session.drafting && session.pending.isEmpty() && session.behind && okOnly(session.buffered.first())) {
             val event = session.showNext()
             remember("result OK of ${event.author} shown: ${event.table}")
+            shown = true
         }
-        if (!session.behind) { pausing = false; catchUp = false }
+        if (shown && !session.behind) { pausing = false; catchUp = false }
     }
 
     /**
@@ -536,6 +538,7 @@ class GameDevice(
     fun showToTheEnd(): Boolean {
         if (needsReload || holding) return false
         session.abandon()
+        checkDraft()
         catchUp = false
         pausing = false
         endChain("game over")

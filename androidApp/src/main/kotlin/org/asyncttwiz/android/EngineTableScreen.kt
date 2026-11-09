@@ -219,6 +219,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // HIS-075: while the other player makes a choice the event text says so (also with Event text off, never in timeline
     // mode); TBL-118: a refused control's shake meanwhile flashes it
     val choosing = if (reviewPlay == null) routes.choosingText(play) else null
+    // TRN-066: what the band says reaches the report, once per change
+    val waitLogged = remember(game.id) { java.util.concurrent.atomic.AtomicReference<String?>(null) }
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -237,7 +239,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             if (rewindingBranch) scope.launch { delay(rewindPause); motion.settled() } else motion.settled()
                         }),
                         sceneVersion = if (reviewPlay != null) null else motion.key(),
-                        waitingLine = routes.waitingLine(play),
+                        waitingLine = routes.waitingLine(play).also { line -> if (waitLogged.getAndSet(line) != line) AppLog.info("game", "Wait: $line") },
                         timelinePlayback = when {
                             rewindingBranch -> TimelinePlaybackStatus.REWINDING
                             reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED

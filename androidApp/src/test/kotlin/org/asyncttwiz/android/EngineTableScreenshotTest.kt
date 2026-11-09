@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
 
 /**
  * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the unconfirmed mark, the
- * wait's faint words with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
+ * wait's band with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
  * they go back to, the strip and timeline mode on engine events, and the other player's shared attack staging (the
  * combat band itself: [CombatBandTest]).
  */
@@ -422,7 +422,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, the band under his hand says Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
@@ -459,7 +459,7 @@ class EngineTableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Assuming this would show you hidden cards or a random result: wait for Bob.").assertExists()
         captureShot("$SCREENSHOTS/engine/assume-greyed.png",
-            "Alice cast Ember Glance at Bob, who is away (a green arrow runs from the Stack to his life square): assuming his pass would show her his hidden hand, so faint words say she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
+            "Alice cast Ember Glance at Bob, who is away (a green arrow runs from the Stack to his life square): assuming his pass would show her his hidden hand, so the band under his hand says she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
         compose.onNodeWithTag("engine-wait-action").performTouchInput { up() }
     }
 

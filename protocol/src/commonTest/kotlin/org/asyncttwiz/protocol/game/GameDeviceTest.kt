@@ -1116,6 +1116,16 @@ class GameDeviceTest {
         assertIs<GameDevice.Status.Over>(bobs.status)
     }
 
+    // HIS-035, TRN-065: a revision with no OK in it leaves a player who left the app paused: what arrives after waits as ever
+    @Test
+    fun aRevisionWithoutAnOkKeepsTheCatchUpPause() {
+        val sim = seers()
+        val bobs = sim.bothAtTheResult()
+        bobs.away()
+        bobs.revision(emptyList(), null)
+        assertEquals(true, bobs.catchUp, "still away")
+    }
+
     // TRN-065, HIS-084 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
     // is; with the other player's OK on it, by the usual request; either way no OK stands afterwards
     @Test

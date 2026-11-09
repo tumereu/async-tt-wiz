@@ -161,7 +161,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val offered = activatable(play, cardId)
         if (offered.isNullOrEmpty()) return false
         dismiss()
-        if (abilities(play, cardId).orEmpty().size < 2) play(cardId, offered.single()) else abilityCard = cardId
+        val all = abilities(play, cardId).orEmpty()
+        AppLog.info("table", "Tap on $cardId: ${all.size} abilities, ${offered.size} usable: ${if (all.size < 2) "activated" else "chips"}")
+        if (all.size < 2) play(cardId, offered.single()) else abilityCard = cardId
         return true
     }
 
@@ -169,7 +171,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     internal fun activateChip(index: Int): Boolean {
         val card = abilityCard ?: return false
         val play = current() ?: return false
-        val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: return false
+        val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: run {
+            AppLog.info("table", "Chip $index of $card greyed or gone: nothing activated")
+            return false
+        }
         closeAbilities()
         collapse()
         return play(card, chosen)

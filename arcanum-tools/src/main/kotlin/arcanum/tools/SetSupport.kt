@@ -144,16 +144,28 @@ private fun colorIndicator(record: JsonObject): String? {
 /** The set's cards, once per oracle id (the first printing), skipping Un-cards, online-only and rebalanced printings. */
 internal fun setCards(file: File): List<SetCard> {
     val root = GZIPInputStream(file.inputStream().buffered(1 shl 16)).reader(Charsets.UTF_8).use { JsonParser.parseReader(it) }
-    val records = root.asJsonObject.getAsJsonObject("data").getAsJsonArray("cards").map { it.asJsonObject }
-        .filterNot { card -> listOf("isFunny", "isOnlineOnly", "isRebalanced").any { card.get(it)?.asBoolean == true } }
+    val records = playableRecords(root.asJsonObject.getAsJsonObject("data").getAsJsonArray("cards").map { it.asJsonObject })
     val byId = records.associateBy { it.get("uuid").asString }
     val seen = HashSet<String>()
-    return records.filter { (it.get("side")?.asString ?: "") in setOf("", "a") }.mapNotNull { card ->
-        val oracle = card.getAsJsonObject("identifiers")?.get("scryfallOracleId")?.asString ?: card.get("name").asString
-        if (!seen.add(oracle)) return@mapNotNull null
-        val others = card.getAsJsonArray("otherFaceIds")?.mapNotNull { byId[it.asString] }.orEmpty()
-        val faces = (others + card).distinctBy { it.get("uuid").asString }
-            .sortedWith(compareBy<JsonObject> { it.get("side")?.asString ?: "" }.thenBy { it.get("uuid").asString })
-        SetCard(card.get("name").asString, card.get("layout")?.asString ?: "normal", faces)
+    return frontRecords(records).mapNotNull { card ->
+        if (!seen.add(oracleId(card))) return@mapNotNull null
+        SetCard(card.get("name").asString, card.get("layout")?.asString ?: "normal", printedFaces(card, byId))
     }
+}
+
+/** A set's card records without Un-cards, online-only and rebalanced printings. */
+internal fun playableRecords(cards: List<JsonObject>): List<JsonObject> =
+    cards.filterNot { card -> listOf("isFunny", "isOnlineOnly", "isRebalanced").any { card.get(it)?.asBoolean == true } }
+
+/** The records that start a card: one-faced cards and front faces. */
+internal fun frontRecords(records: List<JsonObject>): List<JsonObject> = records.filter { (it.get("side")?.asString ?: "") in setOf("", "a") }
+
+/** What identifies a card across its printings. */
+internal fun oracleId(card: JsonObject): String = card.getAsJsonObject("identifiers")?.get("scryfallOracleId")?.asString ?: card.get("name").asString
+
+/** The records of [card]'s faces in printed order, from its set's records [byId]. */
+internal fun printedFaces(card: JsonObject, byId: Map<String, JsonObject>): List<JsonObject> {
+    val others = card.getAsJsonArray("otherFaceIds")?.mapNotNull { byId[it.asString] }.orEmpty()
+    return (others + card).distinctBy { it.get("uuid").asString }
+        .sortedWith(compareBy<JsonObject> { it.get("side")?.asString ?: "" }.thenBy { it.get("uuid").asString })
 }

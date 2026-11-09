@@ -162,4 +162,7 @@ coverage in its header, and `unparsed-keywords.tsv` (never committed).
   templates or merged from several cards. No real card data is committed.
 - Unparsed text is kept and reported, never guessed.
 - Any change to the parser's output bumps `OracleParser.VERSION` in the same commit.
+- A change meant to keep every card's output runs `:arcanum-tools:parserDiff` against a snapshot taken before it (see `arcanum-tools/README.md`).
+- A regex compiles once: an object's `val`, or `LazyRegexes` for one only a function uses (compiled at first use, since a phone's first
+  parse compiles what its objects hold). Never `Regex(...)` in a function body, unless its pattern holds a card's name.
 - Generic MTG code: no dependency on any ATW module; Kotlin Multiplatform common code.

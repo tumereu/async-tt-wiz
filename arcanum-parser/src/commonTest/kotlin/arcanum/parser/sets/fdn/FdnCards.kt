@@ -243,3 +243,7 @@ fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyLi
 /** "I, II —": one chapter ability for each listed chapter (CR 714.2c). */
 fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(numbers), Instructions(targets = targets, steps = steps.toList()))
+
+// chunk 08: a loyalty ability (CR 606.4)
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)

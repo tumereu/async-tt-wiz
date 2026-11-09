@@ -408,6 +408,10 @@ sealed interface Mechanic {
     @Serializable @SerialName("spend-mana-as-any-color") data class SpendManaAsAnyColor(
         /** Only when paying for spells or abilities matching this ("to activate abilities of creatures you control"). */
         val onlyFor: ObjectFilter? = null,
+        // fdn
+        /** "Mana of any type": also as though it were colorless mana (CR 118.14, 609.4b: "You can spend mana of any type to cast
+         * creature spells"). */
+        val anyType: Boolean = false,
     ) : Mechanic
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */

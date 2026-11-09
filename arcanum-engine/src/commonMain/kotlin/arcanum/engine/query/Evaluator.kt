@@ -651,7 +651,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.CastX -> objects(value.of).firstNotNullOfOrNull { id ->
             facts(id)?.x ?: ctx.stackItem?.takeIf { it.id == id }?.announced?.get("X")
         } ?: 0
-        is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of))
+        is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of), value.spells, value.caster)
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
@@ -1030,12 +1030,17 @@ internal object History {
     }
 
     /** Spells cast this turn before the cast of [of] (storm, CR 702.40a). */
-    fun spellsCastBefore(evaluator: Evaluator, of: List<ObjectId>): Int {
+    fun spellsCastBefore(evaluator: Evaluator, of: List<ObjectId>, spells: ObjectFilter? = null, caster: arcanum.api.PlayerFilter? = null): Int {
         evaluator.board.readingLog()
         val state = evaluator.board.state
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
         val index = casts.indexOfFirst { c -> arcanum.engine.trigger.EventMatcher.castObject(c) in of }
-        return if (index < 0) casts.size else index
+        val before = if (index < 0) casts else casts.take(index)
+        if (spells == null && caster == null) return before.size
+        // fdn: only the matching spells, judged as they were cast (CR 608.2h), by the matching caster
+        return before.map { (it as arcanum.engine.change.Change.StackItemAdded).item }.count { item ->
+            (caster == null || evaluator.matches(caster, item.controller)) && (spells == null || evaluator.matches(spells, item.id))
+        }
     }
 
     /** blb gaps 2: whether [id] is the [ObjectFilter.NthSpellThisTurn.n]th spell matching its filter that its caster cast

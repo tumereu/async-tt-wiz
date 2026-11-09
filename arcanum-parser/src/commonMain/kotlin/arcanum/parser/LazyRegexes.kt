@@ -45,7 +45,7 @@ internal object LazyRegexes {
     val BENDING_WORD by lazy { Regex("""(waterbend|earthbend|firebend|airbend)""") }
     val THAT_CREATURES_POWER_OR_TOUGHNESS by lazy { Regex("""that creature's (power|toughness)""") }
     val CAST_A_WORD_SPELL by lazy { Regex("""cast an? (\w+) spell""") }
-    val ACTIVATE_ABILITIES_OF_SOURCES by lazy { Regex("""activate (?:an ability|abilities) of (?:an? )?(\w+) sources?""") }
+    val ACTIVATE_ABILITIES_OF_SOURCES by lazy { Regex("""activate (?:an ability|abilities) of (?:an? )?(\w+) sources?( of the chosen type)?""") }
     val CAST_SPELLS by lazy { Regex("""cast (?:an? )?(.+?) spells?""") }
     val TARGET_SENTENCE by lazy { Regex("""Target (.+)\.""") }
     val EACH_OPPONENT_DRAWS by lazy { Regex("""[Ee]ach opponent draws (a|\w+) cards?\.""") }

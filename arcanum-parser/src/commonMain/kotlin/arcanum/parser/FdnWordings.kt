@@ -34,4 +34,14 @@ internal object Fdn {
     val EFFECT_WOULD_PUT_COUNTERS_TWICE = Regex("""If an effect would put one or more counters on an? (.+?), it puts twice that many of those counters on that \S+ instead\.""")
     val PLAY_LAND_AND_EACH_PERMANENT_TYPE_FROM_GRAVEYARD = Regex("""During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard\.""")
     val IF_SELF_IS_A_IT_BECOMES_PT_AND_GAINS = Regex("""If (.+?) is an? ([A-Z]\w+), it becomes an? (?:(\d+)/(\d+) )?([A-Z]\w+(?: [A-Z]\w+)*) and gains (.+?)\.?""")
+    // chunk 08
+    val X_SPELLS_AND_Y_SPELLS = Regex("""(\w+) spells and (\w+) spells( you cast)?""")
+    val FLASH_IF_PAY_MORE = Regex("""You may cast this spell as though it had flash if you pay ((?:\{[^}]+\})+) more to cast it\.""")
+    val SELF_BECOMES_SUBTYPES = Regex("""(.+?) becomes an? ((?:[A-Z]\w+ ?)+)\.""")
+    val DEALS_DAMAGE_CREATE_EXCESS = Regex("""([^.]+ deals (?:X|\d+) damage to target [^.]+\.) Create a number of (.+? tokens?) equal to the amount of excess damage dealt to that creature this way\.""")
+    val COPY_FOR_EACH_SPELL_CAST_BEFORE = Regex("""[Cc]opy it for each other (.+?) spell you've cast before it this turn\. You may choose new targets for the copies\.""")
+    val IT_HAD_A_COUNTER = Regex("""it had an? (\S+) counter on it""")
+    val RETURN_IT_WITH_ONE_FEWER_AT_NEXT_END_STEP = Regex("""[Rr]eturn it to the battlefield with one fewer (\S+) counter on it at the beginning of the next end step\.""")
+    val REMOVE_COUNTERS_FROM_AMONG = Regex("""Remove (\w+) counters from among (.+)""")
+    val SPEND_ANY_TYPE_TO_CAST = Regex("""You can spend mana of any type to cast (.+) spells\.""")
 }

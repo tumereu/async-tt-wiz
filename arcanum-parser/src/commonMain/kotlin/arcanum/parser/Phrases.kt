@@ -58,6 +58,10 @@ internal object Filters {
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
+        // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
+        Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
+            return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
+        }
         gtcNoun(phrase)?.let { return it }
         // blb chunk 12: "creatures you control of the chosen type" (the creature type chosen as this permanent entered)
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
@@ -313,7 +317,7 @@ internal object Filters {
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
     private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with power less than or equal to (.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
-    private val GTC_NAMED = Regex("""(creatures?|permanents?) named (.+?)( you control)?""")
+    private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
     /** "creature you control" → every such object; "card named [this card] in each graveyard". */
     fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = noun(phrase)?.let { Objects.Each(it) }

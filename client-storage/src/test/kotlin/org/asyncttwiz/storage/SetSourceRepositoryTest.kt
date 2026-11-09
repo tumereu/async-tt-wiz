@@ -443,7 +443,7 @@ class SetSourceRepositoryTest {
         assertEquals(2, named.faces.size)
     }
 
-    // DRF-166, found checking 7ZZC89 over the supported sets: a play booster of more sheets than the limit (Reality
+    // DRF-168, found checking 7ZZC89 over the supported sets: a play booster of more sheets than the limit (Reality
     // Fracture has 109) is refused in words the player reads, not as an unreadable file
     @Test fun aRecipeOverTheSheetLimitSaysSo() {
         val sheets = (1..SetSourceValidation.MAX_SHEETS + 1).map { "sheet$it" }
@@ -466,7 +466,7 @@ class SetSourceRepositoryTest {
 
     private fun problem(block: () -> Unit) = assertThrows(SetSourceProblem::class.java) { block() }
 
-    // DRF-166: a set that can't be handled says why, in the player's words; the log says what was refused
+    // DRF-168: a set that can't be handled says why, in the player's words; the log says what was refused
     @Test fun aCardThatCantBecomeCardDataNamesTheCardAndGoesInTheLog() {
         val long = "x".repeat(60_000)
         val bad = card(1).apply { addProperty("text", long); addProperty("type", long); addProperty("manaCost", long) }
@@ -479,7 +479,7 @@ class SetSourceRepositoryTest {
         assertTrue(lines.any { "refused" in it && "Card 1" in it && uuid(1) in it }, lines.toString())
     }
 
-    // DRF-166
+    // DRF-168
     @Test fun aDownloadThatFailsSaysWhichCardsAndAsksToCheckTheConnection() {
         val main = set().withRecipes("play" to recipe(listOf(1), listOf("DEP")))
         val catalog = catalog(main)
@@ -491,14 +491,14 @@ class SetSourceRepositoryTest {
         assertTrue(lines.any { it.startsWith("DEP: refused") && "IOException" in it }, lines.toString())
     }
 
-    // DRF-166: The List's kind of size
+    // DRF-168: The List's kind of size
     @Test fun aSetOverTheCardLimitSaysSo() {
         val big = set(cards = (1..SetSourceValidation.MAX_CARDS + 1).map { card(it) })
         val failure = problem { repository(catalog(set()), FixtureSource().apply { put(big) }).load("OLD") }
         assertEquals("Set OLD has too many cards to use as a draft source.", failure.playerMessage)
     }
 
-    // DRF-166
+    // DRF-168
     @Test fun anUnreadableFileAndNoInstalledCardsSayWhatToDo() {
         val source = FixtureSource().apply { put(set().apply { addProperty("code", "OTHER") }) }
         source.files["OLD"] = source.files.getValue("OTHER")

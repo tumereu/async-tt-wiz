@@ -763,7 +763,7 @@ class PodControllerTest {
         assertFalse(f.controller.setPicker.state.busy)
     }
 
-    // DRF-166, problem report 7ZZC89: the player reads why the set can't be loaded, the log (and so the report) its cause
+    // DRF-168, problem report 7ZZC89: the player reads why the set can't be loaded, the log (and so the report) its cause
     @Test fun aSetThatCantBeLoadedSaysWhyAndLogsTheCause() = Fixture(PodPhase.SETUP).use { f ->
         f.open(); f.controller.chooseSet(); f.deliver()
         f.sets.failure = SetSourceProblem("Invalid catalog definition for some-card-7ZZC89", "Test set can't be used as a draft source.")

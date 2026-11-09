@@ -59,6 +59,7 @@ fun scenario(players: Int = 2, seed: Long = 1, start: ((List<PlayerId>) -> GameS
     val scenario = Scenario(players, seed, start)
     scenario.block()
     scenario.checkEveryChangeReverts()
+    scenario.recordCoveredAbilities()
 }
 
 class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<PlayerId>) -> GameState)? = null) {
@@ -76,6 +77,9 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     /** All changes applied since setup ended, in order. */
     val applied = mutableListOf<Change>()
     private var setupState: GameState? = null
+
+    /** The state after setup. */
+    internal val startState: GameState get() = setupState ?: state
     private val random = Random(seed)
     private val scripted = ArrayDeque<(RandomKind) -> Answer>()
     private val secrets = mutableMapOf<CardId, CardDefinition>()

@@ -22,6 +22,7 @@ internal object ParserToolPaths {
     val cube get() = File(System.getProperty("arcanum.cube") ?: File(cache, "arcanum-cube-cards.json").path)
     val outputs get() = File(System.getProperty("arcanum.parserOutputs") ?: File(cache, "parser-migration").path)
     val parserSources get() = File(System.getProperty("arcanum.parserSources") ?: "../arcanum-parser/src/commonMain/kotlin")
+    val setPlans get() = File(System.getProperty("arcanum.setPlans") ?: File(cache, "set-plans").path)
     val setCache get() = File(System.getProperty("arcanum.setCache") ?: (System.getProperty("user.home") + "/.cache/arcanum-sets"))
 }
 

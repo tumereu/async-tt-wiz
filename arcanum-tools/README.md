@@ -35,7 +35,19 @@ JVM developer tools for the Arcanum libraries. Not a library and never shipped.
   abilities, which is how a future set's cost is measured, from the same cached set file as `setSupport` (needs network the first time).
   `./scripts/gradle.sh :arcanum-tools:parserMetrics [--args="--set MOM"]`
 
-Both read `~/projects/atw-cache/AllPrintings.json.gz` and `arcanum-cube-cards.json` (or `-Pmtgjson=`, `-Pcube=`) and write to
+- `coveredShapes`: writes `~/projects/atw-cache/set-plans/covered-shapes.tsv`, the ability shapes (`AbilityShape.kt`: one ability's model without printed text and names,
+  numbers masked to `0`, `1` or `N`, mana costs to a placeholder) the tests cover. It runs the parser's and the engine's tests once more through their
+  `recordCoveredAbilities` tasks, with the recorder in their test helpers on (`jvmTest` records nothing). Parser: cards a `parsesTo` or `cardFaces` passed.
+  Engine: abilities that resolved, or mana abilities activated, in a scenario that passed; a static ability's effect can't be seen, so of what is only in play, only simple
+  keywords count, and modal abilities never do. `./scripts/gradle.sh :arcanum-tools:coveredShapes`
+- `parserExplain`: for an oracle text, which lines, sentences and clauses read alone (in carrier sentences, through the parser's public API), the first unread clause and
+  up to 8 nearest rules as `file:line` by the words they share. At most 30 lines. `./scripts/gradle.sh :arcanum-tools:parserExplain --args='"<text>"'`
+- `setPlan`: writes `~/projects/atw-cache/set-plans/CODE/` from the same cached set file as `parserMetrics --set`: `plan.tsv` (each card's verdict `UNREAD`, `TEST` or `REPEAT`,
+  the reason and shape ids; `CardVerdict.kt` has the conditions, and whatever can't be judged is `TEST`), `chunks/NN.md`, `digest.md`, `difficult.md`, `notes.md` and `audit/`
+  (`batch-NN.md`, plus `seeded.tsv`: about 8% of entries are deliberately wrong copies, the same for one card list). A rerun keeps `notes.md`, and the audit once it has results.
+  Needs `coveredShapes` first. `./scripts/gradle.sh :arcanum-tools:setPlan --args=MOM`
+
+`parserDiff` and `parserMetrics` read `~/projects/atw-cache/AllPrintings.json.gz` and `arcanum-cube-cards.json` (or `-Pmtgjson=`, `-Pcube=`) and write to
 `~/projects/atw-cache/parser-migration/` (or `-PparserOutputs=`), never into the repository. The cards are one printing per oracle id: no Un-cards, online-only or
 rebalanced printings, no card printed only in memorabilia, token, minigame, alchemy, vanguard or treasure chest sets or in token, art series,
 planar, scheme, vanguard, host, augment, reversible, emblem or sticker layouts. Cube cards those rules leave out are read from the cube's list. A card is "read"

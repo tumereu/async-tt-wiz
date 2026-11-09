@@ -30,3 +30,17 @@ kotlin {
         }
     }
 }
+
+// The module's tests once more, noting which abilities they cover (:arcanum-tools:coveredShapes reads the file); jvmTest records nothing.
+// A failing test just covers nothing, so it doesn't stop the run.
+tasks.register<Test>("recordCoveredAbilities") {
+    val jvmTest = tasks.named<Test>("jvmTest").get()
+    testClassesDirs = jvmTest.testClassesDirs
+    classpath = jvmTest.classpath
+    useJUnitPlatform()
+    ignoreFailures = true
+    val output = layout.buildDirectory.file("arcanum/covered-abilities.tsv").get().asFile
+    systemProperty("arcanum.coveredAbilities", output.path)
+    outputs.upToDateWhen { false }
+    doFirst { output.parentFile.mkdirs(); output.delete() }
+}

@@ -179,6 +179,17 @@ server and both phones all read one pinned file.
    is tried once more by itself, then the line says so with Retry.
 7. **Set pods** get packs the server builds from its own catalog; clients send only the set code, so the set upload and
    its limits (`SetSourceValidation.MAX_SHEETS`, `MAX_CARDS`) go away and Reality Fracture and The List can be chosen.
+8. **Support marks** (owner 2026-11-09): the catalog says which cards Automatum supports and which sets can be drafted,
+   worked out at release with the parser and engine that ship with it, so clients know at once (no working it out on
+   the phone: `CatalogSetSupport` and LOB-118's "Checking which cards Automatum can play…" go away). A card is supported
+   by the backlog's "support moves set by set" rule (a printing in a listed set, or on the single-card list) and only if
+   `AutomatumSupport.handParts` finds nothing for it; a set can be drafted when every card its packs can hold is
+   supported (DRF-161's rule). The marks are part of the catalog, so a release that changes support makes a new
+   catalog version too. Deck and cube warnings (LOB-115, DRF-161) read the same marks.
+9. **Showing them** (owner): in the draft set search an unsupported set is greyed and can't be selected at all; deck
+   building and card search show an unsupported card with a mark over its art, and so do the visual deck editor and
+   Inspect. Proposed mark: LOB-115's amber warning sign in the art's corner; holding it says "Automatum can't play this
+   card yet"; a set row's hold names its unsupported cards as DRF-161 does.
 
 ## 4. Layouts and input
 
@@ -353,12 +364,15 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 - Release: section 3.4 in `scripts/prod-release.sh` and the Ansible role; the e2e stack and the local dev stack serve
   a catalog built from the test cards.
 - Set pods: the server builds set packs from its catalog; `PodService` no longer takes uploaded set files.
+- Support marks (section 3.8) built into the catalog from `supported-sets.txt` and a new single-card list, starting
+  with the backlog's cube list; the server refuses a pod from a set that can't be drafted, by the marks.
 - Tests: with a small synthetic MTGJSON (no real card data): the build, the same input giving the same checksum, a pin
   mismatch stopping the release script, the endpoints, set packs from the catalog.
 
 ### Step 1b: Android uses the server catalog
 
 - The app downloads the server file instead of MTGJSON and builds its search indexes from it; section 3.5 and 3.6.
+- Support marks shown as section 3.9; LOB-115, LOB-118, DRF-161 and DRF-162 read them.
 - Removed: incremental and metered-connection updates, "Refresh full catalog", per-set downloads and Redownload, the
   "downloaded again once" migrations.
 - Catalog: LOB-092 removed; LOB-091, LOB-093, LOB-094, LOB-095, LOB-096, LOB-110, LOB-125, DRF-088, DRF-089 changed;

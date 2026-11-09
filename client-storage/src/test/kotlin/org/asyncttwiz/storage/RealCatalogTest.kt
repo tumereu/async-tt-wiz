@@ -15,7 +15,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-/** No download or external network: opt in with -Datw.realCatalog=/path/to/cached/mtgjson. */
+/** No download or external network: opt in with -Datw.realCatalog=/path/to/<checksum>.jsonl.gz, a card catalog built from
+ * the pinned MTGJSON file (scripts/catalog-pin.sh build <dir>). */
 @EnabledIf("enabled")
 class RealCatalogTest {
     @TempDir lateinit var temporary: Path
@@ -32,7 +33,7 @@ class RealCatalogTest {
         sampler.scheduleAtFixedRate(::sample, 0, 5, TimeUnit.MILLISECONDS)
         val start = System.nanoTime()
         val installed = try {
-            CatalogInstaller(directory, repository, source).install(source.metadata(), source.size())
+            CatalogInstaller(directory, repository, source).install(source.checksum)
         } finally {
             sample()
             sampler.shutdownNow()
@@ -45,11 +46,12 @@ class RealCatalogTest {
         println("REAL catalog: ${installed.records} records; index on disk: ${indexFile.length()} bytes")
         DriverManager.getConnection("jdbc:sqlite:${indexFile.absolutePath}").use { connection ->
             connection.createStatement().use { statement ->
-                statement.executeQuery("""SELECT sum(token), sum(name LIKE 'A-%'), sum(language != 'English'),
-                    sum(instr(json, '"isOnlineOnly":true') > 0), max(length(json)) FROM printing""").use { rows ->
+                statement.executeQuery("""SELECT sum(token), sum(name LIKE 'A-%'),
+                    sum(instr(json, '"isOnlineOnly":true') > 0), max(length(json)), (SELECT count(*) FROM automatum_printing),
+                    (SELECT count(*) FROM catalog_set WHERE automatum=1) FROM printing""").use { rows ->
                     assertTrue(rows.next())
-                    for (column in 1..4) assertTrue(rows.getLong(column) > 0, "Real catalog category $column is missing")
-                    println("REAL installed categories: tokens=${rows.getLong(1)} A-cards=${rows.getLong(2)} non-English=${rows.getLong(3)} online-only=${rows.getLong(4)} largest record=${rows.getLong(5)} characters")
+                    for (column in 1..3) assertTrue(rows.getLong(column) > 0, "Real catalog category $column is missing")
+                    println("REAL installed categories: tokens=${rows.getLong(1)} A-cards=${rows.getLong(2)} online-only=${rows.getLong(3)} largest record=${rows.getLong(4)} characters; supported printings=${rows.getLong(5)}, draftable sets=${rows.getLong(6)}")
                 }
             }
         }
@@ -147,12 +149,10 @@ class RealCatalogTest {
         assertTrue(Regex("https://api\\.scryfall\\.com/cards/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}").matches(requests.single()))
     }
 
-    private class LocalCatalogSource(private val directory: File) : CatalogSource {
-        private val gzip get() = File(directory, "AllPrintings.json.gz")
-        override fun metadata() = File(directory, "Meta.json").inputStream().use { MtgJsonCatalog().metadata(it) }
-        override fun checksum() = File(directory, "AllPrintings.json.gz.sha256").readText().trim()
-        override fun size() = gzip.length()
-        override fun download(output: OutputStream, progress: (Long) -> Unit) {
+    private class LocalCatalogSource(private val gzip: File) : CatalogSource {
+        val checksum = gzip.name.removeSuffix(org.asyncttwiz.catalog.CardCatalogFiles.SUFFIX)
+        override fun current() = org.asyncttwiz.catalog.CatalogVersion(checksum, gzip.length(), "", "", 0, 0, 0)
+        override fun download(checksum: String, output: OutputStream, progress: (Long) -> Unit) {
             gzip.inputStream().buffered().use { input ->
                 val buffer = ByteArray(64 * 1024)
                 var bytes = 0L

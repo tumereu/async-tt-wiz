@@ -1,17 +1,13 @@
 package org.asyncttwiz.android
 
-import arcanum.api.Layout
-import arcanum.parser.OracleCard
-import arcanum.parser.OracleParser
 import org.asyncttwiz.protocol.*
-import org.asyncttwiz.storage.ParsedCard
 import org.junit.Test
 import java.util.UUID
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
-/** I-D51 (LOB-115, DRF-161): decks' and cubes' Automatum support, worked out on the device. Invented cards. */
+/** LOB-115, DRF-161: decks' and cubes' Automatum support, from the card catalog's marks (section 3.8). Invented cards. */
 class CardListSupportTest {
     private fun id() = UUID.randomUUID().toString()
     private fun card(name: String, text: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = "Creature — Bear",
@@ -23,42 +19,23 @@ class CardListSupportTest {
     private val unreadable = CardDefinition("Broken Cub", listOf(DefinitionFace(id(), "Broken Cub", typeLine = "Creature — Bear", rulesText = "Trample")),
         layout = "split")
     private val cards = listOf(plain, odd, banded, unreadable).associateBy(DeckJson::digest)
-    private val parsed = mutableListOf<String>()
-
-    /** As the device parses a game's card data (CardDefinitions), without its cache. */
-    private val check = CardListSupportCheck({ submitted ->
-        submitted.associate { item ->
-            parsed += item.definition.name
-            val face = item.definition.faces.single()
-            item.digest to if (item.definition.layout != "normal") ParsedCard.Unreadable("halves missing")
-                else ParsedCard.Read(arcanum.api.CardDefinition(Layout.Normal, listOf(OracleParser.parse(OracleCard(face.name,
-                    face.manaCost, face.typeLine, face.rulesText, power = face.power, toughness = face.toughness)))), 0)
-        }
-    }, parserVersion = 21, engineVersion = 3)
+    /** The card records' marks: the odd, banded and unreadable cubs' printings aren't supported. */
+    private val unsupportedPrintings = listOf(odd, banded, unreadable).mapNotNull { it.printingId }.toSet()
+    private var installed = true
+    private val check = CardListSupportCheck({ emptyMap() }, { ids -> if (installed) ids.filter { it in unsupportedPrintings }.toSet() else null },
+        parserVersion = 21, engineVersion = 3)
     private fun submitted(vararg definitions: CardDefinition) = definitions.map { SubmittedDefinition(DeckJson.digest(it), it) }
 
-    // LOB-115: unread text (two cards) and unreadable card data are by hand; each card is read once (no keyword is by hand any more)
-    @Test fun aListNamesItsCardsPlayedByHand() {
+    // LOB-115: the cards whose printings the card catalog doesn't mark as supported, and a card without a printing
+    @Test fun aListNamesItsCardsTheCatalogDoesntSupport() {
         assertEquals(CardListSupport(21, engineVersion = 3), check.support(submitted(plain)))
         assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub"), 3), check.support(submitted(plain, odd, banded, unreadable)))
-        assertEquals(listOf("Banded Cub", "Broken Cub", "Odd Cub", "Plain Cub"), parsed.sorted())
+        assertEquals(CardListSupport(21, listOf("Plain Cub"), 3), check.support(submitted(plain.copy(printingId = null))))
         assertEquals("Automatum can't play 3 cards yet: Banded Cub, Broken Cub, Odd Cub", automatumSupportTip(check.support(submitted(odd, banded, unreadable))))
         assertEquals("Automatum can't play 1 card yet: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
-    }
-
-    // LOB-123 (I-D52): a card that ventures or takes the initiative is by hand when the card records hold no dungeon Automatum plays
-    // fully for it (here only a plain venture's)
-    @Test fun aVenturingCardNeedsADungeonTheDeviceCanBring() {
-        fun spell(name: String, type: String, text: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type,
-            manaCost = "{W}", rulesText = text)), printingId = id())
-        val map = spell("Torch Map", "Sorcery", "Venture into the dungeon.")
-        val claim = spell("Claim Rite", "Instant", "You take the initiative.")
-        val plainOnly = CardListSupportCheck({ submitted -> submitted.associate { item ->
-            val face = item.definition.faces.single()
-            item.digest to ParsedCard.Read(arcanum.api.CardDefinition(Layout.Normal, listOf(OracleParser.parse(OracleCard(face.name,
-                face.manaCost, face.typeLine, face.rulesText, power = face.power.ifBlank { null }, toughness = face.toughness.ifBlank { null })))), 0)
-        } }, parserVersion = 21, engineVersion = 3, dungeons = { setOf(org.asyncttwiz.protocol.game.OutsideCards.Need.Dungeon) })
-        assertEquals(CardListSupport(21, listOf("Claim Rite"), 3), plainOnly.support(submitted(map, claim, plain)))
+        // Without card records nothing is known, so nothing is kept
+        installed = false
+        assertFailsWith<IllegalStateException> { check.support(submitted(plain)) }
     }
 
     private class Worker : AbstractExecutorService() {

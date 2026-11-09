@@ -40,15 +40,8 @@ class CatalogPublicationTest {
         assertArrayEquals(previous, activeFile().readBytes())
     }
 
-    @Test fun finishingBuildsNoTokenNameSearchAndDropsAnOldGenerationsTables() {
+    @Test fun finishingBuildsNoTokenNameSearch() {
         install(listOf(token(1)))
         assertTrue(tables().none { it.startsWith("token_search") })
-        JdbcSqliteDriver("jdbc:sqlite:${activeFile().absolutePath}").use {
-            it.execute(null, "CREATE TABLE token_search (gram TEXT NOT NULL)", 0)
-            it.execute(null, "CREATE TABLE token_search_ready (version INTEGER NOT NULL)", 0)
-        }
-        repo().stage(copyInstalled = true) { index -> index.addBatch(listOf(token(2))); CatalogMetadata("2026-10-24", "5.2.2") }
-        assertTrue(tables().none { it.startsWith("token_search") })
-        assertEquals(token(2), repo().printing(id(2)))
     }
 }

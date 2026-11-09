@@ -28,6 +28,11 @@ object E2eStack {
     /** The server's public origin, e.g. `http://127.0.0.1:41234`. */
     val origin: String get() = System.getProperty(ORIGIN) ?: start()
 
+    /** The checksum of the card catalog the server serves (the test cards', :catalog:testCardsCatalog), as an app built
+     * for it carries. */
+    val catalogChecksum: String get() =
+        java.io.File(requireNotNull(System.getProperty("atw.e2e.catalogDir")), "current").readText().trim()
+
     /** The file the server reads each new game's random secret from (TEST_GAME_SECRET_FILE). */
     val secretFile: File get() { origin; return File(System.getProperty(SECRET)) }
 

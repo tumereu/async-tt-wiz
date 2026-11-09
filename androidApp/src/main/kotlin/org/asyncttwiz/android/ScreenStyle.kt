@@ -117,66 +117,32 @@ internal fun HoldTip(description: String, modifier: Modifier = Modifier, content
     }
 }
 
-// A shell-wide catalog task takes precedence over a screen's shorter-lived busy indicator.
-internal val LocalBusySuppressed = compositionLocalOf { false }
-
 /** Busy feedback is always an overlay: showing it never remeasures or moves screen content. */
 @Composable
-internal fun ScreenBusyOverlay(message: String?, progress: org.asyncttwiz.storage.CatalogProgress? = null,
-    modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
-    val suppressed = LocalBusySuppressed.current
+internal fun ScreenBusyOverlay(message: String?, modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
     Box(modifier) {
         content()
-        FloatingBusyPill(message?.takeUnless { suppressed }, progress, Modifier.align(Alignment.BottomCenter))
-    }
-}
-
-/** LOB-096: the shell-wide card records progress sits below the screen, which is laid out above it while it shows, so it
- * never covers the screen's own buttons (a screen's bottom "Ready" stays visible and tappable). */
-@Composable
-internal fun CatalogProgressDock(message: String?, progress: org.asyncttwiz.storage.CatalogProgress?,
-    modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
-    Column(modifier) {
-        Box(Modifier.weight(1f).fillMaxWidth(), content = content)
-        FloatingBusyPill(message, progress, Modifier.align(Alignment.CenterHorizontally))
+        FloatingBusyPill(message, Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
-internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage.CatalogProgress? = null,
-    modifier: Modifier = Modifier) {
+internal fun FloatingBusyPill(message: String?, modifier: Modifier = Modifier) {
     var lastMessage by remember { mutableStateOf(message.orEmpty()) }
-    var lastProgress by remember { mutableStateOf(progress) }
-    if (message != null) SideEffect { lastMessage = message; lastProgress = progress }
+    if (message != null) SideEffect { lastMessage = message }
     AnimatedVisibility(message != null, modifier.padding(16.dp).widthIn(max = 540.dp),
         enter = fadeIn(tween(250, easing = FastOutSlowInEasing)), exit = fadeOut(tween(250))) {
         Surface(shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp,
             color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface,
             modifier = Modifier.testTag("floating-busy-pill").semantics { liveRegion = LiveRegionMode.Polite }) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (lastProgress?.total?.let { it > 0 } != true) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.inversePrimary, strokeWidth = 2.dp)
-                    }
-                    Text(lastMessage, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
-                }
-                lastProgress?.let { value -> CatalogProgressBar(value, Modifier.fillMaxWidth()) }
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.inversePrimary, strokeWidth = 2.dp)
+                Text(lastMessage, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
             }
         }
     }
 }
-
-@Composable
-internal fun CatalogProgressBar(progress: org.asyncttwiz.storage.CatalogProgress, modifier: Modifier = Modifier) {
-    val fraction = catalogFraction(progress)
-    if (fraction == null) LinearProgressIndicator(modifier)
-    else LinearProgressIndicator(progress = { fraction }, modifier = modifier)
-}
-
-/** Determinate share of the whole update, or null (indeterminate) when the total is unknown or finishing. */
-internal fun catalogFraction(progress: org.asyncttwiz.storage.CatalogProgress): Float? =
-    progress.total?.takeIf { it > 0 && progress.phase != org.asyncttwiz.storage.CatalogPhase.FINISHING }
-        ?.let { (progress.done.toFloat() / it).coerceIn(0f, 1f) }
 
 @Composable
 internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: String,

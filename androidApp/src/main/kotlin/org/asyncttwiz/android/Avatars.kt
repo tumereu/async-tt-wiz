@@ -95,14 +95,16 @@ internal class AvatarPromptMemory(context: Context) {
     fun shown(accountId: String) { preferences.edit().putBoolean(accountId, true).apply() }
 }
 
+/** LOB-091: before sign-in, how far the card records' installation is (sign-in works meanwhile). */
 @Composable
 internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
     val state = catalog.state
-    if (state.installed == null || state.progress != null) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(state.status ?: "Preparing card records…", style = MaterialTheme.typography.bodySmall)
-            state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
-            if (state.error) TextButton(onClick = { catalog.foreground(force = true) }) { ButtonLabel("refresh", "Retry download") }
+    if (!state.ready) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog::retry) {
+            Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CardRecordsNote(Modifier.fillMaxWidth())
+                if (!state.failed) LinearProgressIndicator(progress = { (state.progress?.percent ?: 0) / 100f }, modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }
@@ -118,19 +120,6 @@ internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel
     }
 }
 
-internal fun avatarCatalogStatus(state: CatalogUiState): String {
-    val progress = state.progress
-    val phase = when {
-        state.error -> "Download failed"
-        progress?.phase == CatalogPhase.INDEXING -> "Indexing…"
-        progress?.phase == CatalogPhase.FINISHING -> "Finishing…"
-        else -> "Downloading…"
-    }
-    val percentage = progress?.total?.takeIf { it > 0 && progress.phase != CatalogPhase.FINISHING }
-        ?.let { " ${(progress.done.toDouble() / it * 100).toInt().coerceIn(0, 100)}%" }.orEmpty()
-    return "Avatars need the card catalog. $phase$percentage"
-}
-
 @Composable
 private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
     choose: (org.asyncttwiz.protocol.Avatar) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
@@ -139,7 +128,7 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
     var choices by remember { mutableStateOf(emptyList<CatalogAvatar>()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf(false) }
-    val ready = catalog?.state?.installed != null
+    val ready = catalog?.state?.ready == true
     LaunchedEffect(ready, query, reroll) {
         if (!ready) return@LaunchedEffect
         loading = true
@@ -164,20 +153,10 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
             keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (!ready) {
+                // Avatars are card pictures: the card records' placeholder until they are installed (section 3.6)
                 val state = catalog?.state ?: CatalogUiState()
-                if (compact) {
-                    if (state.error && catalog != null) HoldTip("Retry catalog download") {
-                        FilledTonalIconButton(onClick = catalog::consent) { EntryIcon("Retry catalog download", "refresh") }
-                    } else CircularProgressIndicator()
-                } else Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(avatarCatalogStatus(state))
-                        state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
-                            ?: LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (state.error && catalog != null) HoldTip("Retry catalog download") {
-                            FilledTonalIconButton(onClick = catalog::consent) { EntryIcon("Retry catalog download", "refresh") }
-                        }
-                    }
+                CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog?.let { it::retry }) {
+                    CardRecordsPlaceholder(Modifier.fillMaxWidth())
                 }
             } else {
                 LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -150,19 +150,6 @@ class LimitedDraftHttpTest {
         assertEquals(PodAutoStartOff("too_many_players"), f.get(f.a, invited).autoStartOff)
     }
 
-    /** An approximate-booster set (no recipe): packs take the configured size. */
-    private fun setUpload(): PodSetSource {
-        val definitions = List(12) { index ->
-            val card = CardDefinition("Set fixture $index", listOf(DefinitionFace(id(), "Set fixture $index")))
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
-        val cards = definitions.mapIndexed { index, definition ->
-            SetSourceCard(definition.digest, "00000000-0000-4000-8000-${index.toString().padStart(12, '0')}",
-                listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index % 3])
-        }
-        return PodSetSource(SetSourceSnapshot("TST", "Uploaded test set", cards), definitions)
-    }
-
     // DRF-151, DRF-139: Sealed has no draft phase; every pool is private and goes straight to Build.
     @Test fun `Sealed deals private pools from a cube or boosters and goes straight to Build`() = fixture { f ->
         val pod = f.create(DraftSettings.sealed().copy(cardsPerPlayer = 40))
@@ -187,12 +174,12 @@ class LimitedDraftHttpTest {
         }
         val attempt = details[1].draftAttemptId!!
         assertTrue(json.decodeFromString<PodDetail>(f.send(f.b, "POST", "/v1/pods/$pod/submit", SubmitPodDeck(id(), attempt))).submitted)
-        // From a set: each player opens their own boosters.
-        val set = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Set sealed", setSource = setUpload(),
+        // From a set (the test cards' catalog, 4 cards a pack): each player opens their own boosters.
+        val set = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Set sealed", setCode = "TST",
             mode = DraftMode.SEALED, settings = DraftSettings.sealed().copy(packsPerPlayer = 2, cardsPerPack = 10)), 201)).id
         f.join(set, f.b)
         assertEquals(PodPhase.DRAFTED, json.decodeFromString<PodDetail>(f.start(set)).phase)
-        assertEquals(listOf(20, 20), listOf(f.a, f.b).map { f.get(it, set).limited!!.pool.size })
+        assertEquals(listOf(8, 8), listOf(f.a, f.b).map { f.get(it, set).limited!!.pool.size })
     }
 
     // DRF-152, DRF-136, DRF-087: snake turns over HTTP, "Your pick" when a turn begins, a public board, private pools.

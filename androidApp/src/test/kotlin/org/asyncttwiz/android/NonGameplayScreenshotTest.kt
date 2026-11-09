@@ -21,6 +21,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.performScrollTo
@@ -60,7 +61,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
     companion object {
         @JvmStatic @Parameters(name = "{0}") fun screens() = listOf(
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
-            "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
+            "play", "games-loading", "records-downloading", "records-indexing", "records-failed", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "ready-waiting",
              "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-text", "deck-edit-cover", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-link", "reconnecting", "gameplay-chat")
@@ -85,18 +86,17 @@ class NonGameplayScreenshotTest(private val screen: String) {
             rememberedAccounts = if (screen == "navigation-accounts") listOf(
                 RememberedAccount(ScreenFixtures.alex, "alex@example.test"),
                 RememberedAccount(ScreenFixtures.riley, "riley@example.test")) else emptyList()))
-        val catalog = if (screen == "catalog-checking" || screen.startsWith("records-")) {
+        val catalog = if (screen.startsWith("records-")) {
             fixtures.auth.seed(fixtures.auth.state.copy(destination = ShellDestination.GAMES))
             fixtures.lobby.seed(fixtures.lobby.state.copy(busy = true))
             val progress = when (screen) {
-                "records-indexing" -> CatalogProgress(CatalogPhase.INDEXING, 160_000_000, 450_000_000, 45_123)
-                "records-downloading" -> CatalogProgress(CatalogPhase.DOWNLOADING, 160_000_000, 450_000_000)
-                "records-downloading-unknown" -> CatalogProgress(CatalogPhase.DOWNLOADING, 160_000_000, null)
+                "records-indexing" -> CatalogProgress(CatalogPhase.INDEXING, 7_000_000, 13_000_000)
+                "records-downloading" -> CatalogProgress(CatalogPhase.DOWNLOADING, 5_000_000, 13_000_000)
                 else -> null
             }
             CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
                 viewModels.put("catalog", it)
-                it.seed(CatalogUiState(busy = true, progress = progress, status = progress?.label() ?: "Checking card records…"))
+                it.seed(CatalogUiState(progress = progress, failed = screen == "records-failed"))
             }
         } else null
         if (screen == "prepare-deck") compose.mainClock.autoAdvance = false
@@ -147,9 +147,6 @@ class NonGameplayScreenshotTest(private val screen: String) {
                         }
                         SetupCancellationDialogs(fixtures.lobby)
                         GameDeletionDialogs(fixtures.lobby)
-                        if (screen in listOf("catalog-startup", "catalog-update")) CatalogStartupDialog(CatalogUiState(
-                            installed = if (screen == "catalog-update") CatalogMetadata("2026-10-20", "5.2.2") else null,
-                            available = CatalogMetadata("2026-10-24", "5.2.2"), size = 450_000_000, metered = true), {}, {})
                     }
                 }
             }
@@ -189,21 +186,10 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 compose.onNodeWithText("Loading games…").assertDoesNotExist()
                 compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
             }
-            "catalog-startup", "catalog-update" -> {
-                compose.onNodeWithText("Download size: 450 MB.").assertIsDisplayed()
-                compose.onNodeWithText("Download").assertIsDisplayed()
-                compose.onNodeWithContentDescription("Not now").assertDoesNotExist()
-                dialogActions(if (screen == "catalog-startup") "Exit" else "Not now", "Download")
-            }
-            "catalog-checking" -> {
-                compose.onNodeWithText("Checking card records…").assertDoesNotExist()
+            "records-downloading", "records-indexing", "records-failed" -> {
+                compose.onNodeWithText(catalog!!.state.records.line()!!).assertIsDisplayed()
                 compose.onNodeWithText("Loading games…").assertDoesNotExist()
-            }
-            "records-downloading", "records-downloading-unknown", "records-indexing" -> {
-                compose.onNodeWithText(catalog!!.state.progress!!.label()).assertIsDisplayed()
-                compose.onNodeWithText("Loading games…").assertDoesNotExist()
-                compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate))
-                    .assertCountEquals(if (screen == "records-downloading-unknown") 2 else 0)
+                compose.onNodeWithTag("new-game").assertIsNotEnabled()
             }
             "navigation-accounts" -> {
                 compose.onNodeWithText("Add account").performScrollTo().assertIsDisplayed()
@@ -286,12 +272,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 "for alex and riley, scrolled to Add account"
             "play" -> "Games list for alex: riley's pending invitation with Accept and Decline, then two games with riley"
             "games-loading" -> "Games list while it refreshes in the background, with no loading text"
-            "catalog-startup" -> "first-start Download card records? dialog over the main menu: 450 MB on a metered connection, with Exit and Download"
-            "catalog-update" -> "Update card records? dialog over the main menu: 450 MB on a metered connection, with Not now and Download"
-            "catalog-checking" -> "Games screen while card records are checked in the background, with no status text"
-            "records-downloading" -> "Games screen while card records download, showing 160 of 450 MB done"
-            "records-downloading-unknown" -> "Games screen while card records download with unknown total size, showing indeterminate progress"
-            "records-indexing" -> "Games screen while downloaded card records are indexed, showing bytes and cards processed"
+            "records-downloading" -> "Games screen while the card records download: New game and the games greyed under \"Card records updating · 7%\""
+            "records-indexing" -> "Games screen while the downloaded card records are indexed: New game and the games greyed under \"Card records updating · 62%\""
+            "records-failed" -> "Games screen after the card records' download failed twice: the controls stay greyed and the line offers Retry"
             "contacts" -> "Contacts screen with riley and morgan, and a search for sam showing one result"
             "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create"
             "waiting-invite" -> "game lobby after riley declined the invitation, your deck chosen, with Change deck and Prepare deck"

@@ -1,8 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // The card catalog (docs/specs/web-client.md section 3): the trimmed catalog's format and reader (common code, read by
-// the server and the clients), the MTGJSON import (JVM and Android: `src/mtgjson`, until step 1b removes the app's own
-// download) and, on the JVM only, the catalog build with its support marks, run at release (`catalogCommand`).
+// the server and the clients; `src/shared`: its files and the card records the app indexes it into, JVM and Android)
+// and, on the JVM only, the MTGJSON import (`src/mtgjson`) and the catalog build with its support marks, run at release
+// (`catalogCommand`). The app's tests compile `src/mtgjson` into their own sources to index invented MTGJSON fixtures.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
@@ -30,8 +31,8 @@ kotlin {
             api(project(":protocol"))
             implementation(libs.serialization.json)
         }
-        // The MTGJSON import is the same code on the JVM (the catalog build) and on Android (the app's download).
         jvmMain {
+            kotlin.srcDir("src/shared/kotlin")
             kotlin.srcDir("src/mtgjson/kotlin")
             dependencies {
                 api(libs.gson)
@@ -40,7 +41,7 @@ kotlin {
             }
         }
         androidMain {
-            kotlin.srcDir("src/mtgjson/kotlin")
+            kotlin.srcDir("src/shared/kotlin")
             dependencies { api(libs.gson) }
         }
         commonTest.dependencies { implementation(libs.kotlin.test) }

@@ -27,11 +27,6 @@ import kotlinx.serialization.Serializable
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
-/** A draft set as a pod's source, uploaded atomically with it (every snapshot definition must be included); [support]: which of its cards Automatum plays by hand, as the creator's device worked it out
- * (I-D51, null when not known yet), stored with the pod and checked when its draft and games start (I-D52). */
-@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-@Serializable data class PodSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val support: CardListSupport? = null)
 @Serializable data class PodMember(
     /**
      * packsWaiting: picks the member can make in a row if nobody else does anything (DraftEngine/GridEngine
@@ -73,19 +68,19 @@ import kotlinx.serialization.Serializable
 }
 /** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
 @Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
-/** POST /v1/pods: exactly one of cubeId/setSource/setCode is required. [setCode]: a draft set the server builds the
- * packs of from its card catalog (docs/specs/web-client.md section 3.7); [setSource] (an uploaded set) goes in step 1b.
- * GET /v1/pods returns PodList, GET /v1/pods/{id} returns PodDetail. */
+/** POST /v1/pods: exactly one of cubeId/setCode is required. [setCode]: a draft set the server builds the packs of from
+ * its card catalog (docs/specs/web-client.md section 3.7). GET /v1/pods returns PodList, GET /v1/pods/{id} returns
+ * PodDetail. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class CreatePod(val requestId: String, val name: String, val cubeId: String? = null,
-    val mode: DraftMode = DraftMode.BOOSTER, val setSource: PodSetSource? = null,
+    val mode: DraftMode = DraftMode.BOOSTER,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val settings: DraftSettings? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
 /** PUT /v1/pods/{id}. Omitted fields are unchanged; settings replace the complete settings object.
- * At most one of cubeId/setSource/setCode may be supplied, replacing the entire source snapshot in setup. */
+ * At most one of cubeId/setCode may be supplied, replacing the entire source snapshot in setup. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class UpdatePod(val requestId: String, val name: String? = null, val cubeId: String? = null,
-    val settings: DraftSettings? = null, val setSource: PodSetSource? = null,
+    val settings: DraftSettings? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
 /** POST /v1/pods/{id}/invitations. */
 @Serializable data class InviteToPod(val requestId: String, val accountId: String)

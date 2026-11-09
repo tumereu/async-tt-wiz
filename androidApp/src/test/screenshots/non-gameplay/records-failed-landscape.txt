@@ -1,0 +1,1 @@
+Landscape Games screen after the card records' download failed twice: the controls stay greyed and the line offers Retry.

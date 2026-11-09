@@ -28,17 +28,17 @@ class AvatarTest {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
-        val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 10, 100)
-        catalog.seed(CatalogUiState(busy = true, progress = progress, status = progress.label()))
+        val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 50, 100)
+        catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { AccountEntry(fixture.auth, fixture.reset, catalog) }
-        compose.onNodeWithText(progress.label()).assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 10%").assertIsDisplayed()
         compose.onNodeWithText("Not now").assertDoesNotExist()
         compose.onNodeWithTag("email").performTextInput("player@example.test")
         assertEquals("player@example.test", fixture.auth.state.email)
         compose.onNodeWithText("Create account").performScrollTo().performClick()
         compose.onNodeWithTag("username").performTextInput("Wizard")
         assertEquals("Wizard", fixture.auth.state.username)
-        compose.onNodeWithText(progress.label()).assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 10%").assertIsDisplayed()
     }
 
     // LOB-011, LOB-012
@@ -48,10 +48,10 @@ class AvatarTest {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
-        catalog.seed(CatalogUiState(busy = true, status = "Downloading card records…"))
+        catalog.seed(CatalogUiState())
         compose.setContent { AccountEntry(fixture.auth, fixture.reset, catalog) }
         compose.onNodeWithText("Choose your avatar").assertIsDisplayed()
-        compose.onNodeWithText("Avatars need the card catalog. Downloading…").assertIsDisplayed()
+        compose.onNodeWithTag("card-records-placeholder").assertIsDisplayed()
         compose.onNodeWithText("Skip").performClick()
         compose.onNodeWithText("Choose your avatar").assertDoesNotExist()
         compose.runOnIdle { fixture.auth.seed(AuthState(restoring = false)) }
@@ -67,12 +67,12 @@ class AvatarTest {
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 43, 100)
-        catalog.seed(CatalogUiState(busy = true, progress = progress))
+        catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { MaterialTheme { ProfileSettings(fixture.auth, catalog) } }
         compose.onNodeWithText("Change username").assertDoesNotExist()
         compose.onNodeWithText("Change avatar").assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit profile").performClick()
-        compose.onNodeWithText("Avatars need the card catalog. Downloading… 43%").assertDoesNotExist()
+        compose.onNodeWithTag("card-records-placeholder").assertIsDisplayed()
         compose.onNodeWithText("Search by card name").assertIsDisplayed()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsNotEnabled()
         compose.onNodeWithText("Skip").assertDoesNotExist()
@@ -89,12 +89,12 @@ class AvatarTest {
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, avatarChooser = true))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.INDEXING, 50, 100)
-        catalog.seed(CatalogUiState(busy = true, progress = progress))
+        catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { MaterialTheme { AvatarChooser(fixture.auth, catalog) } }
-        compose.onNodeWithText("Avatars need the card catalog. Indexing… 50%").assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 59%").assertIsDisplayed()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsNotEnabled()
-        compose.runOnIdle { catalog.seed(CatalogUiState(installed = org.asyncttwiz.storage.CatalogMetadata("2026-10-27", "test"))) }
-        compose.onNodeWithText("Avatars need the card catalog. Indexing… 50%").assertDoesNotExist()
+        compose.runOnIdle { catalog.seed(CatalogUiState(installed = org.asyncttwiz.storage.CatalogMetadata("2026-10-27", "test"), ready = true)) }
+        compose.onNodeWithText("Card records updating · 59%").assertDoesNotExist()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsEnabled()
         compose.onNodeWithText("Skip").assertIsDisplayed()
     }

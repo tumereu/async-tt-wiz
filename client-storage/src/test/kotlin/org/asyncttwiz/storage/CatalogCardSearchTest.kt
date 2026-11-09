@@ -353,21 +353,6 @@ class CatalogCardSearchTest {
         assertEquals(listOf("Odd Card"), names(repository, "odd id:g -f:commander"))
     }
 
-    @Test fun incrementalSetRefreshRebuildsSearchOnTheNewGeneration() {
-        val repository = install()
-        repository.stage(copyInstalled = true) { index -> index.removeSet("BBB"); index.metadata() }
-        assertEquals("AAA", page(repository, "bolt").cards.single().printing.set)
-        assertEquals(emptyList<String>(), names(repository, "jace"))
-        assertEquals(emptyList<String>(), names(repository, "s:bbb"))
-        val sets = sets()
-        repository.stage(copyInstalled = true) { index ->
-            val bbb = JsonObject().apply { add("meta", meta()); add("data", set("BBB", sets.getValue("BBB"))) }
-            MtgJsonCatalog().import(bbb.toString().byteInputStream(), index, CatalogMetadata("2026-10-31", "5.3.0"), "BBB")
-        }
-        assertEquals("BBB", page(repository, "bolt").cards.single().printing.set)
-        assertEquals(listOf("Jace, the Mind Sculptor"), names(repository, "jace r:mythic"))
-    }
-
     @Test fun lowerCaseHelpersStayLocaleIndependent() {
         val previous = Locale.getDefault()
         try {

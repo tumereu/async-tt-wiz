@@ -58,9 +58,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
                     !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
                 }) { error(response, 415, "json_required"); return true }
-                // Only source creation/replacement needs room for an entire set and its definitions.
-                val maxBytes = if ((path == "/v1/pods" && request.method == "POST") ||
-                    (parts.size == 1 && request.method == "PUT")) 8 * 1024 * 1024 else 65536
+                val maxBytes = 65536
                 val bytes = request.inputStream.readNBytes(maxBytes + 1)
                 if (bytes.size > maxBytes) { error(response, 413, "request_too_large"); return true }
                 val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)

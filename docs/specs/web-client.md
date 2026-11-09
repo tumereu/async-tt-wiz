@@ -369,18 +369,11 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 - Tests: with a small synthetic MTGJSON (no real card data): the build, the same input giving the same checksum, a pin
   mismatch stopping the release script, the endpoints, set packs from the catalog.
 
-### Step 1b: Android uses the server catalog
+### Step 1b: Android uses the server catalog (built)
 
-- The app downloads the server file instead of MTGJSON and builds its search indexes from it; section 3.5 and 3.6.
-- Support marks shown as section 3.9; LOB-115, LOB-118, DRF-161 and DRF-162 read them.
-- Removed: incremental and metered-connection updates, "Refresh full catalog", per-set downloads and Redownload, the
-  "downloaded again once" migrations.
-- Catalog: LOB-092 removed; LOB-091, LOB-093, LOB-094, LOB-095, LOB-096, LOB-110, LOB-125, DRF-088, DRF-089 changed;
-  DRF-090 unchanged in effect (recipes now from the server). Release note "mod: Card records now come from the ATW
-  server: a much smaller download, and both players always have the same ones."
-- E2E: an app whose built-in checksum differs from its installed catalog downloads it on start; meanwhile the menu,
-  chat and the games list work, opening a game is greyed with "Card records updating", and the table works once
-  installed; a pod from a set starts with server-built packs.
+- The app installs the server's catalog (checked against its built-in checksum) as its card records, greys what reads
+  them while it installs (section 3.6), and shows the support marks (section 3.9); set pods send only the set code.
+- MTGJSON downloads, incremental updates, per-set files, the set upload and its limits are gone.
 
 ### Step 1c: the first pin moves to MTGJSON's latest build
 

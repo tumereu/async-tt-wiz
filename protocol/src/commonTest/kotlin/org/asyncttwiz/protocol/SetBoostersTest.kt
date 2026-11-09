@@ -259,7 +259,6 @@ class SetBoostersTest {
             base.copy(setName = "s".repeat(257)) to SetSourceIssue.SET_NAME,
             base.copy(setName = "bad\u0000name") to SetSourceIssue.SET_NAME,
             base.copy(cards = emptyList()) to SetSourceIssue.CARDS,
-            base.copy(cards = List(5001) { card(it) }) to SetSourceIssue.CARDS,
             base.copy(cards = listOf(card(1).copy(definition = "bad"))) to SetSourceIssue.CARD,
             base.copy(cards = listOf(card(1).copy(uuid = "bad"))) to SetSourceIssue.CARD,
             base.copy(cards = listOf(card(1), card(1))) to SetSourceIssue.DUPLICATE_UUID,
@@ -270,7 +269,8 @@ class SetBoostersTest {
             assertContains(source.validate(), issue)
             assertFailsWith<IllegalArgumentException> { generate(source) }
         }
-        assertTrue(source(List(5000) { card(it) }).validate().isEmpty())
+        // No limit on a set's cards: the server builds set sources from its card catalog
+        assertTrue(source(List(6000) { card(it) }).validate().isEmpty())
         // Different UUIDs may legitimately resolve to the same definition.
         assertTrue(base.copy(cards = listOf(card(1), card(2).copy(definition = card(1).definition))).validate().isEmpty())
     }
@@ -284,8 +284,6 @@ class SetBoostersTest {
             base.copy(boosters = emptyList()) to SetSourceIssue.RECIPE_SIZE,
             base.copy(boosters = List(1001) { base.boosters.single() }) to SetSourceIssue.RECIPE_SIZE,
             base.copy(sheets = emptyMap()) to SetSourceIssue.RECIPE_SIZE,
-            base.copy(sheets = (0..100).associate { "s$it" to main }) to SetSourceIssue.RECIPE_SIZE,
-            base.copy(sourceSetCodes = List(101) { "TST" }) to SetSourceIssue.RECIPE_SIZE,
             base.copy(sourceSetCodes = listOf("")) to SetSourceIssue.RECIPE_SIZE,
             base.copy(name = "") to SetSourceIssue.RECIPE_SIZE,
             base.copy(boostersTotalWeight = 2) to SetSourceIssue.WEIGHT,
@@ -297,7 +295,6 @@ class SetBoostersTest {
             withSheet(sheet(cards) { -1 }) to SetSourceIssue.WEIGHT,
             withSheet(sheet(cards) { Long.MAX_VALUE }) to SetSourceIssue.WEIGHT,
             withSheet(SetBoosterSheet(emptyMap())) to SetSourceIssue.SHEET,
-            withSheet(SetBoosterSheet((0..5000).associate { card(it).uuid to 1 })) to SetSourceIssue.SHEET,
             base.copy(sheets = mapOf("" to main)) to SetSourceIssue.SHEET,
             withSheet(sheet(listOf(card(3)))) to SetSourceIssue.UNKNOWN_CARD,
             base.copy(boosters = listOf(SetBoosterComposition(emptyMap(), 1))) to SetSourceIssue.COMPOSITION,

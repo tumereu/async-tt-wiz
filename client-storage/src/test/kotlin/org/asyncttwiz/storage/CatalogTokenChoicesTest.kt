@@ -66,7 +66,7 @@ class CatalogTokenChoicesTest {
         assertEquals(reads, opens, "Reopening workers/repositories reuses the generation without SQL or decoding")
     }
 
-    @Test fun incrementalAndFullUpdatesRebuildAllFacesAndKeepFailedPublicationIsolated() {
+    @Test fun updatesRebuildAllFacesAndKeepFailedPublicationIsolated() {
         val repository = repo()
         fun pair(n: Int, set: String) = listOf(token(n, set, side = "a", others = listOf(id(n + 1))),
             token(n + 1, set, name = "The Claim", text = "(You can take the initiative.)", type = "Card", side = "b", others = listOf(id(n))))
@@ -78,17 +78,17 @@ class CatalogTokenChoicesTest {
         val before = repository.loadTokens()
         assertEquals(1, before.choices.size)
         assertEquals(listOf(id(20), id(21)), before.choices.single().submitted.definition.faces.map { it.faceId })
-        repository.stage(copyInstalled = true) { index ->
-            index.removeSet("NEW"); index.addSet("NEW", "2026-10-01")
-            index.addBatch(pair(30, "NEW") + token(40, "NEW", name = "Sunken City"))
+        repository.stage { index ->
+            index.addSet("OLD", "2020-01-01"); index.addSet("NEW", "2026-10-01")
+            index.addBatch(pair(10, "OLD") + pair(30, "NEW") + token(40, "NEW", name = "Sunken City"))
             CatalogMetadata("two", "5")
         }
         val after = repository.loadTokens()
         assertNotEquals(before.generation, after.generation)
         assertEquals(setOf("Lantern Crypt", "Sunken City"), after.choices.map { it.name }.toSet())
         assertEquals(id(30), after.choices.single { it.name == "Lantern Crypt" }.submitted.definition.printingId)
-        assertThrows(IllegalStateException::class.java) { repository.stage(copyInstalled = true) { index ->
-            index.removeSet("NEW"); error("Interrupted import")
+        assertThrows(IllegalStateException::class.java) { repository.stage { index ->
+            index.addSet("NEW", "2026-10-01"); error("Interrupted import")
         } }
         assertSame(after, repository.loadTokens())
         repository.stage { index -> index.addBatch(listOf(token(50, name = "Mossy Maze"))); CatalogMetadata("three", "5") }

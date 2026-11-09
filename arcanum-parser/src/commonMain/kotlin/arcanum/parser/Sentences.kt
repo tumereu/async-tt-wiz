@@ -1410,10 +1410,14 @@ internal class Sentences(
         // that damage instead." (CR 614.1a)
         WOULD_DEAL_DOUBLE.matchEntire(line)?.let { m ->
             val combat = when (m.groupValues[1]) { "noncombat " -> false; "combat " -> true; else -> null }
-            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You),
-                RecipientFilter(objects = ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), players = PlayerFilter.Any), combat = combat),
+            val permanent = ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            // fdn chunk 04: "an opponent or a permanent an opponent controls"
+            val recipients = if (m.groupValues[2].startsWith("an opponent"))
+                RecipientFilter(objects = Filters.all(permanent, ObjectFilter.ControlledBy(PlayerFilter.Opponent)), players = PlayerFilter.Opponent)
+            else RecipientFilter(objects = permanent, players = PlayerFilter.Any)
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), recipients, combat = combat),
                 modify = listOf(Modification.MultiplyAmount(2)))), affects = Affected.Objects(Objects.Self),
-                condition = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null })
+                condition = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null })
         }
         // dsk chunk 06: "You may look at face-down creatures your opponents control any time."
         MAY_LOOK_AT_ANY_TIME.matchEntire(line)?.let { m ->
@@ -2261,6 +2265,11 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // fdn chunk 04: "you gain life for the first time during each of your turns": the first such event of a turn that is yours (CR 603.2)
+        Fdn.FIRST_TIME_DURING_EACH_OF_YOUR_TURNS.matchEntire(text)?.let { m ->
+            val (first, _) = trigger(m.groupValues[1]) ?: return null
+            return first.copy(nthThisTurn = 1) to arcanum.api.Condition.YourTurn
+        }
         ltrTrigger(text)?.let { return it } // ltr
         mh2Trigger(text)?.let { return it } // mh2
         dftTrigger(text)?.let { return it } // dft
@@ -3883,6 +3892,13 @@ internal class Sentences(
         // fdn chunk 02: "When enchanted creature dies, return this card to its owner's hand.": by then the Aura is a new object in the graveyard (CR 400.7, 704.5m)
         if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && context.event.let { it is EventPattern.ZoneChange && it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) && it.to == Zone.Graveyard })
             return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))))
+        // fdn chunk 04: "you may have it fight target creature you don't control": the same fight, if its controller chooses it (CR 701.14)
+        Fdn.MAY_HAVE_IT_FIGHT.matchEntire(sentence)?.let { m ->
+            return listOf(Step.May(effect("It fights target ${m.groupValues[1]}.", context) ?: return null, player = Players.You))
+        }
+        // fdn chunk 04: "you may put this card from your graveyard on top of your library" (it works only there: CR 113.6m, see triggered)
+        if (Fdn.PUT_SELF_FROM_GRAVEYARD_ON_TOP.matches(sentence))
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Library, libraryPosition = 0))))
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         MechanicWordings.effect(sentence)?.let { return it }
@@ -6474,6 +6490,12 @@ internal class Sentences(
             }
         }
         // dgm: "Double the number of each kind of counter on target artifact, creature, or land." (CR 701.10)
+        // fdn chunk 04: "... on up to two target creatures and/or artifacts you control." (CR 601.2c, 602.2b)
+        Fdn.DOUBLE_COUNTERS_ON_UP_TO.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            context.targets[context.targets.lastIndex] = context.targets.last().copy(min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(target, null)))))
+        }
         Gtc.DOUBLE_COUNTERS_ON_TARGET.matchEntire(sentence)?.let { m ->
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(target, null)))))
@@ -7535,7 +7557,8 @@ internal class Sentences(
         }
         // blb chunk 11: "Double the number of +1/+1 counters on it." (CR 701.10e)
         Blb.DOUBLE_COUNTERS_ON_IT.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: Objects.EventObject(EventRole.Object)
+            // fdn chunk 04: "on this creature" is this permanent whatever the trigger's event was about
+            val it = if (m.groupValues[2] != "it") Objects.Self else context.it ?: Objects.EventObject(EventRole.Object)
             return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(it, Counters.kind(m.groupValues[1]) ?: return null)))))
         }
         // blb chunk 11: "Tap up to one target creature and put three stun counters on it. If you control that creature, draw two
@@ -10390,7 +10413,7 @@ internal class Sentences(
         val RETURN_UP_TO_ONE_LESSER = Regex("""Return up to one target (.+) with lesser mana value to its owner's hand\.""")
         val YOU_PUT_COUNTERS_ON = Regex("""you put one or more (\S+) counters on (.+)""")
         val COUNTER_ON_EACH_OF_UP_TO = Regex("""Put an? (\S+) counter on each of up to (two|three) target (.+)\.""")
-        val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on it\.""")
+        val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on (it|this \w+)\.""")
         val TAP_UP_TO_ONE_AND_COUNTERS = Regex("""Tap up to one target (.+?) and put (\w+) (\S+) counters on it\.""")
         val IF_YOU_CONTROL_THAT = Regex("""If you control that creature, (.+)""")
         val FLICKER_OTHER_WITH_COUNTER = Regex("""Exile another target (.+?), then return it to the battlefield under its owner's control with (a|an|two) (\S+) counters? on it\.""")
@@ -10705,13 +10728,13 @@ internal class Sentences(
         val SELF_COSTS_LESS_AS_LONG_AS = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast as long as (.+)\.""")
         val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
         val MAXIMUM_HAND_SIZE_MINUS_CARD_TYPES = Regex("""Each opponent's maximum hand size is equal to (\w+) minus the number of those card types\.""")
-        val WOULD_DEAL_DOUBLE = Regex("""If a source you control would deal (noncombat |combat )?damage to a permanent or player(?: while (.+?))?, it deals double that damage instead\.""")
+        val WOULD_DEAL_DOUBLE = Regex("""If a source you control would deal (noncombat |combat )?damage to (a permanent or player|an opponent or a permanent an opponent controls)(?: while (.+?))?, it deals double that damage instead\.""")
         val ACTIVATE_ONLY_IF_AND_AS_SORCERY = Regex("""Activate only if (.+?) and only as a sorcery\.""")
         val CREATE_A_NUMBER_EQUAL_TO = Regex("""Create a number of (.+? tokens?(?: with .+?)?) equal to (the number of .+)\.""")
         val DEALS_THAT_AMOUNT_TO_TARGET = Regex("""(.+?) deals that (?:amount of|much) damage to target (.+)\.""")
         val IF_ITS_A_YOU_MAY_PUT_ONTO_BATTLEFIELD = Regex("""If it's an? (.+?), you may put it onto the battlefield\.""")
         val DISTRIBUTE_COUNTERS_AMONG = Regex("""Distribute (\w+) (\S+) counters among (\w+) or (\w+) target (.+)\.""")
-        val DOUBLE_COUNTERS_ON_THOSE = Regex("""Double the number of (\S+) counters on those creatures\.""")
+        val DOUBLE_COUNTERS_ON_THOSE = Regex("""Double the number of (\S+) counters on (?:each of )?those creatures\.""")
         val EACH_OPPONENT_MAY = Regex("""Each opponent may (.+)\.""")
         val DAMAGE_TO_EACH_WHO_DIDNT = Regex("""(.+?) deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard a card this way\.""")
         val CHOOSE_TWO_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
@@ -20048,7 +20071,8 @@ internal class Sentences(
         }
         // "double the power of target creature you control until end of turn." (CR 701.10b: +X/+0, X its power as it resolves)
         Eoe.DOUBLE_POWER_UNTIL_EOT.matchEntire(sentence)?.let { m ->
-            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val noun = m.groupValues[1].ifEmpty { m.groupValues[2] }
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single),
                 Value.Fixed(0))))
         }

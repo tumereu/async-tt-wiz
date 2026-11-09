@@ -5847,7 +5847,8 @@ internal class Sentences(
             val combat = if (m.groupValues[1].isEmpty()) null else true
             val to = when (val who = m.groupValues[2]) {
                 "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
-                "him", "her", "it" -> arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))
+                "him", "her" -> arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))
+                // "it" is the spell's or ability's target when it has one (CR 115.1, 608.2c), else this permanent
                 else -> arcanum.api.RecipientFilter(objects = ObjectFilter.Is(gtcSubject(who, context) ?: return null))
             }
             return listOf(apply(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, to, combat = combat))), null))

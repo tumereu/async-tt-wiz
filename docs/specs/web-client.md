@@ -375,11 +375,10 @@ Desktop results are in section 1. No phone-browser run (decision 20).
   them while it installs (section 3.6), and shows the support marks (section 3.9); set pods send only the set code.
 - MTGJSON downloads, incremental updates, per-set files, the set upload and its limits are gone.
 
-### Step 1c: the first pin moves to MTGJSON's latest build
+### Step 1c: the first pin moves to MTGJSON's latest build (built)
 
-- `scripts/catalog-pin.sh move`, then `setSupport` and `parserDiff` against it; changed cards are fixed or reported to
-  the owner before the release.
-- Steps 1a–1c go to prod together, before any web work (owner approves that release as usual).
+- The pin names MTGJSON 5.3.0+20261109; `setSupport` and a model comparison against the old file found no change on
+  supported cards. Steps 1a–1c go to prod together, before any web work (owner approves that release as usual).
 
 ### Step 2: the shared UI module
 

@@ -353,7 +353,7 @@ Desktop results are in section 1. No phone-browser run (decision 20).
   change). Arcanum libraries stay ATW-free (`verifyModuleBoundaries`).
 - No behaviour change, no catalog change, no release note. Small (one batch).
 
-### Step 1a: the pin and the server catalog
+### Step 1a: the pin and the server catalog (built)
 
 - `scripts/catalog-pin.sh` (verify, move) and the pin file (section 3.1); the Arcanum tools read the pinned file, check
   it against the pin, and stop with section 3.1's message without it.

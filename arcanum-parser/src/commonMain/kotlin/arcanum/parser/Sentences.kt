@@ -71,6 +71,17 @@ internal class Sentences(
             return listOf(each(PlayKind.Play, CardType.Land)) +
                 listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Planeswalker).map { each(PlayKind.Cast, it) }
         }
+        // fdn chunk 09: "During your turn, you may play cards you don't own with stash counters on them from exile, and mana of any type can be spent
+        // to cast those spells.": a permission on those cards and the any-type payment for spells cast from exile you don't own (CR 118.14, 609.4b)
+        Fdn.PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE.matchEntire(line)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            val notOwned = ObjectFilter.Not(ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(
+                Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)), condition = arcanum.api.Condition.YourTurn,
+                    affects = Affected.Objects(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Exile), notOwned, ObjectFilter.HasCounter(kind, 1))))),
+                Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = Filters.all(ObjectFilter.WasCast(Zone.Exile), notOwned), anyType = true)),
+                    condition = arcanum.api.Condition.YourTurn, affects = Affected.Players(Players.You)))
+        }
         // fdn chunk 05: "As long as X, Elenda gets +1/+1 and has menace. Elenda gets an additional +5/+5 as long as Y.": two static abilities on one line
         Fdn.TWO_AS_LONG_AS.matchEntire(line)?.let { m ->
             return listOf(static(m.groupValues[1]) ?: return@let, static(m.groupValues[2]) ?: return@let)
@@ -3930,6 +3941,12 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
+        Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.Move(if (context.event is EventPattern.Discard) Objects.EventObject(EventRole.After) else context.it ?: return@let, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.PutCounters(Objects.Bound("exiled"), kind, Value.Fixed(1))))
+        }
         // fdn chunk 09: "Destroy each nonland permanent with mana value X whose controller was dealt combat damage by this creature this turn."
         // (CR 120.2a, 700.1; the event is this turn's combat damage from the source to a player)
         Fdn.DESTROY_EACH_MV_X_CONTROLLER_DEALT_COMBAT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -4835,7 +4852,7 @@ internal class Sentences(
                 // dsk chunk 07: "that creature gains double strike" after a target
                 subject == "That creature" -> context.that ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
                 // dsk chunk 13: "Gremlins you control" (a capitalised subtype)
-                else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { Objects.Each(it) }
+                else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }.removePrefix("all ")) ?: Filters.noun(subject))?.let { Objects.Each(it) } // fdn chunk 09: "all creatures you control gain deathtouch"
             }
             val keywords = m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) }
             if (objects != null && keywords.all { it != null })
@@ -11065,7 +11082,7 @@ internal class Sentences(
         val LOOK_PUT_UP_TO_ONE_ON_TOP = Regex("""Look at the top (\w+) cards of your library\. Put up to one of them on top of your library and the rest on the bottom of your library in a random order\.""")
         val WIN_IF_X_AT_LEAST = Regex("""If X is greater than or equal to (.+), you win the game\.""")
         val RETURN_ALL_OR_SELF_TO_BATTLEFIELD = Regex("""Return (target |all )?(.+) from your graveyard to the battlefield( tapped)?\.""")
-        val GAINS_FLASHBACK = Regex("""Target (.+) gains flashback until end of turn\. The flashback cost is equal to its mana cost\.""")
+        val GAINS_FLASHBACK = Regex("""[Tt]arget (.+) gains flashback until end of turn\. The flashback cost is equal to (?:its|that card's) mana cost\.""")
         val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
         val MAY_PUT_FROM_HAND = Regex("""You may put an? (.+) from your hand onto the battlefield( tapped)?\.""")
         val GRAVEYARD_ON_BOTTOM = Regex("""(Up to one target|Target) player puts all the cards from their graveyard on the bottom of their library in a random order\.""")
@@ -15058,6 +15075,12 @@ internal class Sentences(
         else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 09: "Destroy all creatures. You gain 1 life for each creature destroyed this way." (the count is of those destroyed, CR 608.2c)
+        Fdn.DESTROY_ALL_GAIN_FOR_EACH.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.Destroy(Objects.Each(filter), postBind = "destroyed")),
+                Step.Do(Effect.GainLife(Players.You, Value.Times(Value.Count(Objects.Bound("destroyed")), m.groupValues[2].toInt()))))
+        }
         // fdn chunk 09: Abyssal Harvester: "Exile target creature card from a graveyard that was put there this turn. Create a token that's a copy of it,
         // except it's a Nightmare in addition to its other types. Then exile all other Nightmare tokens you control." (CR 707.2, 111.1; the new token stays)
         Fdn.EXILE_PUT_THERE_THIS_TURN_COPY_EXCEPT_SUBTYPE_EXILE_OTHERS.matchEntire(text)?.let { m ->
@@ -18696,10 +18719,13 @@ internal class Sentences(
         }
         // fin chunk 04: "Those creatures gain flying until end of turn." after putting counters on each of a group: the same group
         Fin.THOSE_CREATURES_GAIN.matchEntire(sentence)?.let { m ->
-            val last = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters ?: return null
-            if (last.objects !is Objects.Each) return null
+            val lastEffect = (steps.lastOrNull() as? Step.Do)?.effect
+            // fdn chunk 09: also after "Draw a card for each creature you control with …": the creatures counted
+            val group = (lastEffect as? Effect.PutCounters)?.objects
+                ?: ((lastEffect as? Effect.Draw)?.count as? Value.Count)?.objects ?: return null
+            if (group !is Objects.Each) return null
             val granted = keywords(m.groupValues[1]) ?: return null
-            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(last.objects),
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(group),
                 arcanum.api.Duration.EndOfTurn))
         }
         // fin chunk 05: "If you put a card into your hand this way, [effect]." after "you may reveal it and put it into your hand": the optional
@@ -19406,6 +19432,20 @@ internal class Sentences(
         // fin chunk 03: "Until end of turn, [target] gains trample and gets +X/+X" read as "[target] gets +X/+X and gains trample until end of turn."
         Fin.UNTIL_EOT_GAINS_AND_GETS.matchEntire(sentence)?.let { m ->
             return effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} gets ${m.groupValues[3]} and gains ${m.groupValues[2]} until end of turn.", context)
+        }
+        // fdn chunk 09: "[another target creature you control] gains trample and gets +X/+X until end of turn." read in the other order
+        Fdn.GAINS_AND_GETS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            return effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} gets ${m.groupValues[3]}/${m.groupValues[4]} and gains ${m.groupValues[2]} until end of turn.", context)
+        }
+        // fdn chunk 09: "You gain that much life." (the event's amount, like losing it, CR 120.4)
+        if (sentence == "You gain that much life.") {
+            return listOf(Step.Do(Effect.GainLife(Players.You, context.thatMuch ?: Value.EventAmount.takeIf { context.event != null } ?: return null)))
+        }
+        // fdn chunk 09: "Target opponent gains control of target permanent you control." (layer 2, CR 613.1b)
+        Fdn.OPPONENT_GAINS_CONTROL.matchEntire(sentence)?.let { m ->
+            val opponent = context.targetOpponent()
+            val permanent = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(opponent)), Affected.Objects(permanent), arcanum.api.Duration.Indefinitely)))
         }
         // fin-late-effect-end
         return null

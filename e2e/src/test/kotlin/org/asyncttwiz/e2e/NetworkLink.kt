@@ -27,6 +27,8 @@ class NetworkLink(target: String) : AutoCloseable {
                 val upstream = runCatching { Socket(server.host, server.port) }.getOrNull()
                 if (upstream == null) { runCatching { client.close() }; continue }
                 open += client; open += upstream
+                // A cut while this connection was being made went past it: its sockets weren't open yet
+                if (!up) { runCatching { client.close() }; runCatching { upstream.close() }; open -= client; open -= upstream; continue }
                 pump(client, upstream, incoming = false); pump(upstream, client, incoming = true)
             }
         }, "e2e-link-${listener.localPort}").apply { isDaemon = true }.start()

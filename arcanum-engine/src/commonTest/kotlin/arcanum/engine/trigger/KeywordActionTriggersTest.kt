@@ -569,6 +569,36 @@ class KeywordActionTriggersTest {
         assertEquals(true, Snapshot(state).evaluator(alice.id).holds(did))
     }
 
+    /**
+     * For each verb, the general pattern meets the general event: one instance, the player who did it, the amount kept, and none for the
+     * other player (CR 701.22d, 701.25d, 701.61a, 701.65b, 701.66b, 701.67c, 702.174c, 702.189b).
+     */
+    @Test
+    fun theGeneralPatternMeetsTheGeneralEventForEachVerb() = scenario {
+        val p = alice.id
+        val verbs = listOf<Pair<KeywordActionKind, Int?>>(
+            KeywordActionKind.Scry to 2,
+            KeywordActionKind.Surveil to 2,
+            KeywordActionKind.Forage to null,
+            KeywordActionKind.GiveGift to null,
+            KeywordActionKind.Airbend to null,
+            KeywordActionKind.Earthbend to null,
+            KeywordActionKind.Firebend to null,
+            KeywordActionKind.Waterbend to null,
+        )
+        val yours = Snapshot(state).evaluator(alice.id)
+        val theirs = Snapshot(state).evaluator(bob.id)
+        verbs.forEach { (kind, amount) ->
+            val pattern = EventPattern.KeywordActionDone(kind, PlayerFilter.You)
+            val event = Change.Happened(GameEvent.KeywordActionDone(kind, p, amount = amount))
+            val found = EventMatcher.instances(yours, pattern, event)
+            assertEquals(1, found.size, "$pattern on $event")
+            assertEquals(listOf(p), found.single().players)
+            assertEquals(amount, found.single().amount)
+            assertEquals(0, EventMatcher.instances(theirs, pattern, event).size, "$pattern on $event, seen by the other player")
+        }
+    }
+
     private fun gains(event: EventPattern) = CardDefinition(Layout.Normal, listOf(FaceDefinition(
         "A Keeper", types = listOf(CardType.Enchantment), abilities = listOf(Ability.Triggered(Trigger.On(event),
             Instructions(steps = listOf(Step.Do(Effect.GainLife(Players.You, Value.Fixed(1))))))))))

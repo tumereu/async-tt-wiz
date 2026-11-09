@@ -1,1 +1,1 @@
-mod: Games in progress are deleted by this update. Saved decks, cubes, pods and match records stay.
+mod: All games that have started, finished ones too, are deleted by this update. Saved decks, cubes, pods and match records stay.

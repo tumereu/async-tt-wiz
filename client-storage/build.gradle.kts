@@ -48,6 +48,8 @@ sqldelight {
 dependencies {
     implementation(project(":core"))
     implementation(project(":protocol"))
+    // The MTGJSON import (MtgJsonCatalog), shared with the server's catalog build until step 1b (docs/specs/web-client.md).
+    api(project(":catalog"))
     // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
     implementation(project(":arcanum-parser"))
     implementation(libs.serialization.json)

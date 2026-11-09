@@ -152,7 +152,7 @@ local frequency list, decide how they parse and what definition they produce, wr
 test cards, implement. The frequency list comes from `arcanum-tools`:
 
 ```
-./scripts/gradle.sh :arcanum-tools:patternFrequencies -Pmtgjson=/path/to/AllPrintings.json.gz
+./scripts/gradle.sh :arcanum-tools:patternFrequencies   # reads the pinned MTGJSON file
 ```
 
 It writes `arcanum-tools/build/arcanum/pattern-frequencies.tsv`, with the parser's

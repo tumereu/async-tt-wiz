@@ -287,6 +287,12 @@ internal class SharedFlowController(
     override fun atwCard(id: ObjectId): String? = view?.atwCard(id)
     /** Worked out with the flow, off the main thread ([SharedFlow.prepared], SYS-025). */
     override fun listedAnswers(): List<Answer> = view?.listedAnswers().orEmpty()
+
+    /** A choice up to a total (CR 701.59a): OK waits for the total, as in a cast or crew; any other choice is as the decision says. */
+    override fun selectionOf(chosen: List<ObjectId>, done: (arcanum.engine.Selection?) -> Unit) {
+        val flow = view?.takeIf { (it.decision as? Decision.ChooseObjects)?.total != null } ?: return done(null)
+        work.run({ runCatching { flow.selection(chosen.map { TargetRef.Object(it) }) }.getOrNull() }, done)
+    }
     /** Worked out once per flow and tapping, off the main thread: the suggestion with the flow ([SharedFlow.prepared]),
      * each tapping by [toggleMana] (SYS-025, final cast review #9). */
     private var paidFor: Triple<SharedFlow, List<ManaUse>, Boolean>? = null

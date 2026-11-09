@@ -110,11 +110,14 @@ sealed interface Decision {
     ) : Decision
 
     /** Choose [min] to [max] (null: any number) of [options], not targeting (CR 608.2d, 701.x): a card to discard, a
-     * creature to sacrifice, cards from among them. [text] says what for. */
+     * creature to sacrifice, cards from among them. [text] says what for. [total], when given: the chosen must also add up
+     * to at least that, its [arcanum.api.Total.atLeast] a fixed value (collecting evidence as it resolves, CR 701.59a); an
+     * answer below it is refused, and [arcanum.engine.Engine.selection] says when it is reached. */
     @Serializable @SerialName("objects")
     data class ChooseObjects(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String,
+        val total: arcanum.api.Total? = null,
     ) : Decision
 
     /** Choose one of named [options] ("odd or even"). [text], when given, says what the choice is about where neither a

@@ -241,8 +241,10 @@ internal object Options {
         val c = pending.continuation as? Continuation.Announcing
         val plan = c?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }?.let { Plan(state, it) }
         val limits = plan != null && d is Decision.Targets && plan.targetsLimitEachOther(d.slot)
-        // Not a cast or activation: as the decision says
-        if (plan == null) return Selection(options, picked.size in min..max)
+        // Not a cast or activation: as the decision says, a total too (CR 701.59a: any option can be part of a selection reaching it,
+        // since more can always be added)
+        if (plan == null) return Selection(options, picked.size in min..max && (d !is Decision.ChooseObjects ||
+            arcanum.engine.decision.AnswerCheck.reachesTotal(state, d, picked.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id })))
         val snap = Snapshot(state)
         val budget = Budget(SELECTION)
         val done = picked.size in min..max && goesOnAfter(snap, pending, answerOf(picked))
@@ -435,21 +437,30 @@ internal object Options {
         else -> emptyList()
     }
 
-    /** For a cost that asks objects with a total ("tap any number of untapped creatures with total power N or more",
-     * crew, CR 702.122a): the largest first until the total is reached. */
+    /** For a cost or a choice that asks objects with a total ("tap any number of untapped creatures with total power N or more",
+     * crew, CR 702.122a; collecting evidence as it resolves, CR 701.59a): the largest first until the total is reached. */
     private fun reachingTotal(snap: Snapshot, pending: Pending): List<ObjectId>? {
+        (pending.decision as? Decision.ChooseObjects)?.let { d ->
+            val total = d.total ?: return@let
+            val e = snap.evaluator(d.player)
+            return largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
+        }
         val c = pending.continuation as? Continuation.Announcing ?: return null
         if (c.choices.names[Plan.MANUAL] != null) return null
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null
         val total = q.choice.total ?: return null
-        val atLeast = plan.eval.value(total.atLeast)
+        return largestFirst(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
+    }
+
+    /** [options], the largest [value] first, up to the first that reach [atLeast] and are at least [min]. */
+    private fun largestFirst(options: List<ObjectId>, min: Int, atLeast: Int, value: (ObjectId) -> Int): List<ObjectId> {
         val chosen = mutableListOf<ObjectId>()
         var sum = 0
-        for (id in q.choice.options.sortedByDescending { plan.eval.property(total.property, it) }) {
-            if (sum >= atLeast && chosen.size >= q.choice.min) break
+        for (id in options.sortedByDescending(value)) {
+            if (sum >= atLeast && chosen.size >= min) break
             chosen += id
-            sum += plan.eval.property(total.property, id)
+            sum += value(id)
         }
         return chosen
     }

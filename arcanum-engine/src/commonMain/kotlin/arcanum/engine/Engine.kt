@@ -108,8 +108,9 @@ object Engine {
      * What may be picked next in the open choice of targets or objects with [picked] picked so far (castability §3, CR 601.2c,
      * 601.2f): a candidate is listed when some finished selection including it and [picked] can be paid and is legal, not when the
      * selection is payable right now, since a cost can fall as more are picked. A search bound keeps a candidate listed;
-     * [Selection.done] is for [picked] itself. Blocking: run it off the main thread. Picked candidates stay listed (they can be
-     * taken back).
+     * [Selection.done] is for [picked] itself, false until a total the choice asks is reached (at any later point too, CR 701.59a:
+     * [arcanum.engine.decision.Decision.ChooseObjects.total]). Blocking: run it off the main thread. Picked candidates stay listed
+     * (they can be taken back).
      */
     fun selection(state: GameState, picked: List<arcanum.engine.state.TargetRef>): Selection = Options.selection(state, picked)
 

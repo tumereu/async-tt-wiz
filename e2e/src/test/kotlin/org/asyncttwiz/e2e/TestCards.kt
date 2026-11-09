@@ -206,6 +206,11 @@ object TestCards {
     /** A free Lesson that learns: a pod of only this card has a Lesson in every hand and outside the game (LOB-141). */
     val lecture = card("Ember Lecture", "Sorcery — Lesson", "{0}", LEARN)
 
+    /** Collects evidence as its trigger resolves (CR 701.59a). */
+    val witness = card("Ember Witness", "Creature — Human Detective", "{0}", "When this creature enters, you may collect evidence 2. If you do, draw a card.", "1", "1")
+    /** A free permanent, so what it mills is all that is in the graveyard. */
+    val sifter = card("Ember Sifter", "Artifact", "{0}", "When this artifact enters, mill two cards.")
+
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag: SubmittedDefinition = run {
         val ids = listOf("Ember Path", "Ember Crag").map { UUID.nameUUIDFromBytes("e2e/$it".encodeToByteArray()).toString() }
@@ -246,6 +251,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
         /** 40 cards, Mountains and Ember Studies, with an Ember Primer and a Cinder Hound in Side and an Ember Treatise in Maybe (LOB-141). */
         fun studies() = TestDeck("Studies", listOf(TestCards.mountain to 20, TestCards.learner to 20),
             side = listOf(TestCards.primer to 1, TestCards.hound to 1), maybe = listOf(TestCards.treatise to 1))
+
+        /** 40 cards: Ember Witnesses and Ember Sifters, and Storm Sparks ({R}) to mill. */
+        fun witnesses() = TestDeck("Witnesses", listOf(TestCards.witness to 8, TestCards.sifter to 8, TestCards.spark to 24))
 
         /** 40 cards: Mountains and Idle Glimmers (a free instant: its holder can always respond). */
         fun glimmers() = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))

@@ -51,10 +51,6 @@ Arcanum foretell gaps, found building the mark table (2026-11-09), apart from th
 - An effect that gives a foretell cost as a card becomes foretold (CR 702.143d; Ethereal Valkyrie: "It becomes foretold. Its foretell cost is its mana cost reduced by {2}"): `Effect.Mark` has no cost to give, so the card is cast only for a foretell cost it already has.
 - A granted foretell whose cost depends on the card (Dream Devourer, Bohn: "Its foretell cost is equal to its mana cost reduced by {2}"): a fixed granted cost is kept as the card is foretold, but `Keyword.Foretell` can't say this one and these printed cards stay unread. Also CR 702.143a's "any foretell cost it has" for foretell granted later to a card already in exile: only the costs it had as it became foretold and its printed ones are read.
 
-Learn and collecting evidence (owner, 2026-11-09), one worker, reviewed by session async-tt-wiz-74, before the wipe step and apart from it:
-
-- Collecting evidence as it resolves is one selection: "You select at least up to the required amount, which if other conditions are fulfilled enables the button to cast etc, but you may make more selections." (CR 701.59a), as at cast time.
-
 Arcanum copies, found building copiable values (2026-11-09), apart from the order above and from its wipe (either can be done any time):
 
 - Static copy effects stay live, against CR 707.2c ("determined only at the time that effect first starts to apply"): `Copiable.staticCopiesOn` makes a fresh effect each time, so a permanent under one follows the original's later changes. Fixing it needs state recording, per affected object, the values as the effect first applied to it (add-only, a new field on `GameObject` or a list on `GameState`), found again by source and ability.

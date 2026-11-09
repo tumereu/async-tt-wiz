@@ -901,8 +901,10 @@ class GameDevice(
     }
 
     /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
-     * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. */
-    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers) null
+     * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
+     * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
+    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
+        (d is Decision.ChooseObjects && d.total != null)) null
         else Engine.options(s, d.player, model.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2, [Stops.passes]: never

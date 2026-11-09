@@ -3000,6 +3000,7 @@ internal class Sentences(
                 revealsUntil(previous) -> steps + moves
                 previous is Step.If && previous.otherwise.isEmpty() && revealsUntil(previous.then.lastOrNull()) ->
                     steps.dropLast(1) + previous.copy(then = previous.then + moves)
+                previous is Step.May && revealsUntil(previous.steps.lastOrNull()) -> steps.dropLast(1) + previous.copy(steps = previous.steps + moves)
                 else -> null
             }
         }
@@ -4004,12 +4005,34 @@ internal class Sentences(
         // fdn chunk 06: "return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield"
         // (her power, or as it last existed if she left: CR 608.2h, 113.7a)
         Fdn.RETURN_MANA_VALUE_AT_MOST_SELF_POWER.matchEntire(sentence)?.let { m ->
-            val power = selfNumber(m.groupValues[2] + "'s power") ?: return@let
-            val name = Filters.slotName(m.groupValues[1])
-            val cards = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, power),
-                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val power = selfNumber(m.groupValues[3] + "'s power") ?: return@let
+            val name = Filters.slotName(m.groupValues[2])
+            // "another": not the dying creature's own card (a new object in the graveyard, CR 400.7)
+            val another = if (m.groupValues[1].isEmpty()) emptyList()
+                else listOf(ObjectFilter.Not(ObjectFilter.Is(if (context.event is EventPattern.ZoneChange) Objects.SelfAfter else Objects.Self)))
+            val cards = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, power),
+                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You), *another.toTypedArray())
             val target = context.target(name, cards)
             return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield))))
+        }
+        // fdn chunk 11a: "Put all creature cards from all graveyards onto the battlefield under your control." (CR 400.7: each is a new object)
+        Fdn.PUT_ALL_FROM_ALL_GRAVEYARDS_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))),
+                Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // fdn chunk 11a: "Return all nonland permanents target player controls to their owner's hand." (CR 115.1)
+        Fdn.RETURN_ALL_TARGET_PLAYER_CONTROLS_TO_HAND.matchEntire(sentence)?.let { m ->
+            val player = context.targetPlayer()
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.Is(player)))), Destination(Zone.Hand))))
+        }
+        // fdn chunk 11a: "put a +1/+1 counter on Ramos for each of that spell's colors" in a cast trigger (CR 105.1: the spell's colors)
+        Fdn.PUT_COUNTER_FOR_EACH_COLOR_OF_THAT_SPELL.matchEntire(sentence)?.let { m ->
+            if (context.event !is EventPattern.Cast) return@let
+            val spell = Objects.EventObject(EventRole.Object)
+            val on = if (isSelf(m.groupValues[2])) Objects.Self else return@let
+            return listOf(Step.Do(Effect.PutCounters(on, Counters.kind(m.groupValues[1]) ?: return@let,
+                Value.SharedColors(spell, listOf(ColorRef.Of(spell))))))
         }
         // fdn chunk 08: "Each opponent chooses a permanent they control of each permanent type and sacrifices the rest.": one kept for each permanent
         // type (CR 110.4) they have (a permanent of several types may be kept as each of them), then the rest sacrificed together (CR 701.21a)
@@ -7759,8 +7782,11 @@ internal class Sentences(
         // blb chunk 11: "Put a +1/+1 counter on each of up to two target creatures."
         Blb.COUNTER_ON_EACH_OF_UP_TO.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
-            val name = Filters.slotName(m.groupValues[3])
-            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[3]) ?: return null), min = Value.Fixed(0),
+            val name = Filters.slotName(m.groupValues[4])
+            // fdn chunk 11a: "other": not this creature (CR 115.1)
+            val noun = Filters.noun(m.groupValues[4]) ?: return null
+            val filter = if (m.groupValues[3].isEmpty()) noun else Filters.all(noun, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(0),
                 max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
             return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(1))))
         }
@@ -10630,7 +10656,7 @@ internal class Sentences(
         val RETURN_TO_OWNERS_HAND = Regex("""Return (.+) to its owner's hand\.""")
         val RETURN_UP_TO_ONE_LESSER = Regex("""Return up to one target (.+) with lesser mana value to its owner's hand\.""")
         val YOU_PUT_COUNTERS_ON = Regex("""you put one or more (\S+) counters on (.+)""")
-        val COUNTER_ON_EACH_OF_UP_TO = Regex("""Put an? (\S+) counter on each of up to (two|three) target (.+)\.""")
+        val COUNTER_ON_EACH_OF_UP_TO = Regex("""Put an? (\S+) counter on each of up to (two|three) (other )?target (.+)\.""")
         val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on (it|this \w+)\.""")
         val TAP_UP_TO_ONE_AND_COUNTERS = Regex("""Tap up to one target (.+?) and put (\w+) (\S+) counters on it\.""")
         val IF_YOU_CONTROL_THAT = Regex("""If you control that creature, (.+)""")
@@ -15131,6 +15157,32 @@ internal class Sentences(
         else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 11a: Loot: look at the top N, you may reveal a creature card with mana value at most the number of lands you control from
+        // among them and put it onto the battlefield, the rest on the bottom in a random order (CR 701.20, 400.7)
+        Fdn.LOOK_REVEAL_MV_AT_MOST_COUNT_PUT_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val count = Value.Count(Objects.Each(Filters.noun(m.groupValues[3]) ?: return@let))
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return@let, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, count))
+            val seen = Objects.Bound("seen")
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = seen), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("chosen"))),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Except(seen, Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // fdn chunk 11a: Genesis Wave: reveal the top X, put any number of permanent cards with mana value X or less from among them onto the
+        // battlefield, the rest revealed cards into the graveyard (CR 701.20a, 400.7)
+        Fdn.REVEAL_X_PUT_ANY_NUMBER_MV_X_REST_GRAVEYARD.matchEntire(text)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return@let,
+                ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Announced(name = "X")))
+            val revealed = Objects.Bound("revealed")
+            return listOf(
+                Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Announced(name = "X"), fromTop = true), bind = "revealed")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null, from = revealed), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Except(revealed, Objects.Bound("chosen")), Destination(Zone.Graveyard))))
+        }
         // fdn chunk 10b: "This land becomes a 3/3 creature with vigilance and all creature types. It's still a land." (for good, CR 611.2a; layers 4 and 7b)
         Fdn.SELF_BECOMES_CREATURE_WITH_ALL_TYPES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val keywords = keywords(m.groupValues[4]) ?: return@let

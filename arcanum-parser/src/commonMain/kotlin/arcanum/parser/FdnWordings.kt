@@ -40,7 +40,7 @@ internal object Fdn {
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
     // chunk 06
     val AS_LONG_AS_HAS_AND_IS_IN_ADDITION = Regex("""As long as (.+?), (it|.+?) has ([a-z ,]+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
-    val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
+    val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn (another )?target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
     // chunk 07
     val TARGET_PLAYER_HAS_EXACTLY_LIFE = Regex("""target player has exactly (\d+) life""")
     val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)""")
@@ -73,4 +73,10 @@ internal object Fdn {
     val SPELLS_YOU_CONTROL_CANT_BE_COUNTERED = Regex("""(\w+) and (\w+) spells you control can't be countered\.""")
     val TWO_GROUPS_YOU_CONTROL_GET = Regex("""(.+? you control) and (other .+? you control) (get .+)""")
     val IT_HAS_AND_IS_IN_ADDITION = Regex("""It has ([a-z ,]+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
+    // chunk 11a
+    val PUT_ALL_FROM_ALL_GRAVEYARDS_UNDER_YOUR_CONTROL = Regex("""Put all (.+?) from all graveyards onto the battlefield under your control\.""")
+    val RETURN_ALL_TARGET_PLAYER_CONTROLS_TO_HAND = Regex("""Return all (.+?) target player controls to their owner's hand\.""")
+    val PUT_COUNTER_FOR_EACH_COLOR_OF_THAT_SPELL = Regex("""[Pp]ut an? (\S+) counter on (.+?) for each of that spell's colors\.""")
+    val REVEAL_X_PUT_ANY_NUMBER_MV_X_REST_GRAVEYARD = Regex("""Reveal the top X cards of your library\. You may put any number of (.+?) with mana value X or less from among them onto the battlefield\. Then put all cards revealed this way that weren't put onto the battlefield into your graveyard\.""")
+    val LOOK_REVEAL_MV_AT_MOST_COUNT_PUT_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. You may reveal an? (.+?) with mana value less than or equal to the number of (.+? you control) from among them and put it onto the battlefield\. Put the rest on the bottom(?: of your library)? in a random order\.""")
 }

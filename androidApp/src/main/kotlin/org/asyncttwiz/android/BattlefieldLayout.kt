@@ -67,10 +67,11 @@ data class BattlefieldCard(val id: String, val field: String, val row: Battlefie
  * A group on a battlefield (TBL-053): a stack of identical permanents, a permanent with the cards attached to it, or one
  * card alone. [members] from the bottom up: a stack's untapped members in arrival order, then its tapped ones in arrival
  * order, on top (owner, 2026-11-08); a host first and then what is attached to it; [staged] the members staged as
- * attackers or placed as blockers while those are declared (they stay in their stack then, CMB-047).
+ * attackers or placed as blockers while those are declared (they stay in their stack then, CMB-047); [besideOf] the group it
+ * lies right of (STK-024: the sources paying the open payment, by that stack's key).
  */
 data class BattlefieldGroup(val key: String, val field: String, val row: BattlefieldRow, val members: List<String>,
-    val kind: Kind, val staged: Map<String, CombatRole> = emptyMap()) {
+    val kind: Kind, val staged: Map<String, CombatRole> = emptyMap(), val besideOf: String? = null) {
     sealed interface Kind {
         data object Single : Kind
         /** Identical permanents: lands fan out, others lie tight with a ×N badge. */
@@ -115,9 +116,10 @@ object BattlefieldLayout {
      * group of the card it is attached to (its host's battlefield, wherever it is), a card with attachments is a group of
      * its own, and identical cards of one battlefield and row ([BattlefieldCard.identity]) form one stack, its tapped
      * members on top (TBL-053: whichever way it came together, stacks merging at a turn's end included). Groups are in
-     * arrival order (a group arrives with its first card).
+     * arrival order (a group arrives with its first card). STK-024: [paying], the sources paying the open payment, lie out of
+     * their stack in a pile of their own, right after it ([BattlefieldGroup.besideOf]).
      */
-    fun groups(cards: List<BattlefieldCard>): List<BattlefieldGroup> {
+    fun groups(cards: List<BattlefieldCard>, paying: Set<String> = emptySet()): List<BattlefieldGroup> {
         val byId = cards.associateBy { it.id }
         fun root(card: BattlefieldCard): BattlefieldCard {
             var at = card
@@ -130,7 +132,7 @@ object BattlefieldLayout {
         }
         val attachments = cards.filter { root(it).id != it.id }.groupBy { root(it).id }
         val groups = mutableListOf<BattlefieldGroup>()
-        val stacks = HashMap<Triple<String, BattlefieldRow, StackIdentity>, Int>()
+        val stacks = HashMap<Pair<Triple<String, BattlefieldRow, StackIdentity>, Boolean>, Int>()
         for (card in cards) {
             if (root(card).id != card.id) continue
             val attached = attachments[card.id].orEmpty()
@@ -140,7 +142,7 @@ object BattlefieldLayout {
                 continue
             }
             val identity = card.identity
-            val key = identity?.let { Triple(card.field, card.row, it) }
+            val key = identity?.let { Triple(card.field, card.row, it) to (card.id in paying) }
             val at = key?.let(stacks::get)
             if (at != null) {
                 val stack = groups[at]
@@ -153,8 +155,20 @@ object BattlefieldLayout {
             }
         }
         // A stack is known by its first arrival, whichever joins or leaves later
-        return groups.map { group -> if (group.kind != BattlefieldGroup.Kind.Stack) group else group.copy(key = "stack:${group.members.first()}",
+        val keyed = groups.map { group -> if (group.kind != BattlefieldGroup.Kind.Stack) group else group.copy(key = "stack:${group.members.first()}",
             members = group.members.sortedBy { byId[it]?.tapped == true }) }
+        if (paying.isEmpty()) return keyed
+        // STK-024: each pile of paying sources right after what is left of its stack
+        val ordered = keyed.toMutableList()
+        for (pile in keyed) {
+            val first = byId[pile.members.first()] ?: continue
+            if (pile.kind == BattlefieldGroup.Kind.Attached || first.id !in paying || first.identity == null) continue
+            val rest = keyed.firstOrNull { it.kind != BattlefieldGroup.Kind.Attached && it.field == pile.field && it.row == pile.row &&
+                it.members.first() !in paying && byId[it.members.first()]?.identity == first.identity } ?: continue
+            ordered.remove(pile)
+            ordered.add(ordered.indexOfFirst { it.key == rest.key } + 1, pile.copy(besideOf = rest.key))
+        }
+        return ordered
     }
 
     /** The width [group] takes in its row, [expanded] or not: a stack with staged members a slot more for each (CMB-047). */
@@ -215,23 +229,30 @@ object BattlefieldLayout {
             }
         }
         fun width(group: BattlefieldGroup) = width(group, group.key == expanded)
+        // STK-024: a pile of paying sources lies right of its stack, in the same row: in the upper band its column holds both
+        val beside = groups.filter { it.besideOf != null }.associateBy { it.besideOf }
+        fun taken(group: BattlefieldGroup) = width(group) + (beside[group.key]?.let { width(it) } ?: 0f)
+        fun putWith(group: BattlefieldGroup, left: Float, row: Int) {
+            put(group, left, row)
+            beside[group.key]?.let { put(it, left + width(group), row) }
+        }
         var left = 0f
         for (group in groups.filter { it.row == BattlefieldRow.Lands }) { put(group, left, BattlefieldRow.LAND_ROW); left += width(group) }
         // The upper band's columns: two groups each, the first in the row nearest the middle
-        val creatures = groups.filter { it.row == BattlefieldRow.Creatures }.chunked(2)
-        val others = groups.filter { it.row == BattlefieldRow.Others }.chunked(2)
-        fun columnWidth(column: List<BattlefieldGroup>) = column.maxOf { width(it) }
+        val creatures = groups.filter { it.row == BattlefieldRow.Creatures && it.besideOf == null }.chunked(2)
+        val others = groups.filter { it.row == BattlefieldRow.Others && it.besideOf == null }.chunked(2)
+        fun columnWidth(column: List<BattlefieldGroup>) = column.maxOf { taken(it) }
         val creaturesWidth = creatures.sumOf { columnWidth(it).toDouble() }.toFloat()
         val othersWidth = others.sumOf { columnWidth(it).toDouble() }.toFloat()
         fun row(n: Int) = if (n == 0) BattlefieldRow.BAND_FRONT else BattlefieldRow.BAND_BACK
         var x = 0f
         for (column in creatures) {
-            column.forEachIndexed { n, group -> put(group, x, row(n)) }
+            column.forEachIndexed { n, group -> putWith(group, x, row(n)) }
             x += columnWidth(column)
         }
         var right = maxOf(rowWidth, creaturesWidth + (if (creatures.isNotEmpty() && others.isNotEmpty()) MARGIN else 0f) + othersWidth)
         for (column in others) {
-            column.forEachIndexed { n, group -> put(group, right - width(group), row(n)) }
+            column.forEachIndexed { n, group -> putWith(group, right - taken(group), row(n)) }
             right -= columnWidth(column)
         }
         return spots

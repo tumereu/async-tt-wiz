@@ -122,7 +122,10 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     val overscroll: Map<String, Float> = emptyMap(),
     /** TBL-122: the battlefield group the viewer opened with a tap ([BattlefieldGroup.key]), its members side by side;
      * the viewer's own. */
-    val expandedGroup: String? = null)
+    val expandedGroup: String? = null,
+    /** STK-024: the sources paying the open payment: they lie in a pile of their own, to the right of their stack; the
+     * viewer's own. */
+    val paying: Set<String> = emptySet())
 /** [DUNGEON]: a player's dungeon in the command zone (TRN-069), a small card after their piles (landscape: in the free row). */
 enum class TableItemKind { CARD, PILE, LIFE, HAND, DUNGEON }
 data class TableItem(
@@ -436,7 +439,7 @@ object TablePresentation {
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
         // what is attached to them) in its land row and upper band; the group the viewer opened lies with its members side by side
-        val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(play.board, definitions, computed))
+        val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(play.board, definitions, computed), ui.paying)
         val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
         // TBL-004: the upper band's right end at 1×: the battlefield's own width on the screen left of the Stack pinned at its
         // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view

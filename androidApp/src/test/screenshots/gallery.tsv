@@ -182,3 +182,4 @@ number	item	screenshot	catalog	decisions
 181	Game end dialog with your OK standing	engine/game-end-waiting.png	TRN-065
 182	Your own reveal shows you the panel too	engine/reveal-panel-own.png	HIS-110 STK-044
 183	Ability chips with one greyed, saying why	chips/ability-chips-greyed.png	TBL-124
+184	A source picked in a payment in its own pile	cast-panel/payment-own-pile.png	STK-024 TBL-053

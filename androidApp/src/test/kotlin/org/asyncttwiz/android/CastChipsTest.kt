@@ -225,6 +225,40 @@ class CastChipsTest {
         assertEquals(setOf(mountain), toolkit.cast.paySources())
     }
 
+    // STK-024, TBL-053 (owner, 2026-11-09): a source picked in a payment leaves its stack for a pile of its own, right of it, and
+    // goes back when it is taken out
+    @Test fun aPickedSourceLiesInItsOwnPileToTheRightOfItsStack() {
+        kit.opening()
+        kit.playLand()
+        val shards = kit.hand(Choices.SHARD).map(kit::atw)
+        assertTrue(shards.size >= 2, "two Shards dealt: $shards")
+        for (shard in shards) {
+            assertTrue(toolkit.cast.start(shard), "the Shard is cast: ${toolkit.error}")
+            kit.playOn("the Shard on the battlefield") { shard in kit.field(Choices.SHARD).map(kit::atw) && kit.aliceMain() }
+        }
+        toolkit.cast.autotap = false
+        val card = kit.atw(kit.hand(Choices.KIT).first())
+        render()
+        raise(card)
+        kit.tap(kit.item(card, PlayZone.HAND))
+        assertTrue(toolkit.cast.handExtra(0))
+        toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
+        refresh()
+        fun piles() = BattlefieldLayout.groups(BattlefieldLayout.cards(kit.alice.play().board, kit.alice.play().definitions.associate { it.digest to it.definition },
+            AutomatumBoards.compute(kit.alice.play(), kit.f.a)), toolkit.cast.paySources()).filter { it.members.any { id -> id in shards } }
+        assertEquals(1, piles().size, "one stack of Shards before a pick")
+        val top = piles().single().top
+        kit.tap(kit.item(top))
+        refresh()
+        assertEquals(setOf(top), toolkit.cast.paySources())
+        assertEquals(listOf(shards.size - 1, 1), piles().map { it.members.size }, "its own pile, right after the rest")
+        captureShot("$SCREENSHOTS/cast-panel/payment-own-pile.png",
+            "Alice opened her Ember Kit's cast panel with Autotap off, panned the table up and tapped her stack of Ember Shards: the Shard paying moved out of the stack into its own outlined pile to its right, easy to see and to tap to take back.")
+        kit.tap(kit.item(top))
+        refresh()
+        assertEquals(1, piles().size, "taken out, back in its stack")
+    }
+
     // ZON-080 (owner 2026-11-07): the screenshots: the Kit's chips, the Broodraider's "Cast…" chip, and the Kit's panel
     // paying with the hand-picked Shard (outlined) with Cast enabled, then greyed with the reason while nothing pays
     @Test fun screenshots() {

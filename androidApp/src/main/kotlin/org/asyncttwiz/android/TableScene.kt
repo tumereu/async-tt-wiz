@@ -48,6 +48,13 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     val currentWritable by rememberUpdatedState(writable)
     val currentRuntime by rememberUpdatedState(runtime)
     var presentation by remember(play.playId, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
+    // HIS-021, HIS-112, HIS-113: a finger held on the table, or an Inspect open, pauses what the view is waiting on
+    val viewPause = LocalEngineRoutes.current?.viewPause
+    val currentViewPause by rememberUpdatedState(viewPause)
+    DisposableEffect(viewPause, toolkit) {
+        viewPause?.inspecting = { toolkit?.peek != null }
+        onDispose { viewPause?.finger = false; viewPause?.inspecting = { false } }
+    }
     val density = LocalDensity.current.density
     val coordinator = remember(play.playId, accountId, density) {
         lateinit var owner: TableGestureCoordinator
@@ -77,9 +84,11 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.holdTap != null && !owner.tapOnHand) {
-                    // HIS-113: while a combat holds the view a tap on the table (not the hand) only skips that
-                    currentRuntime.holdTap?.invoke()
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentViewPause?.justTappedShow == true && !owner.tapOnHand) {
+                    // HIS-112: the second tap of a double tap on a shown play, the play gone from under it by then
+                } else if (currentRuntime.holdTap != null && !owner.tapOnHand) {
+                    // HIS-113 (owner, 2026-11-08): while a combat holds the view a single tap on the table (not the hand) does
+                    // nothing; a double tap skips it ([TableGestureCoordinator.viewHoldSkip])
                 } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
@@ -94,6 +103,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                         // TBL-122: a battlefield card's tap is its group's (acts at once, or opens the group)
                         if (item != null) { if (shown != null) toolkit.tap(captured, item, shown) else toolkit.open(captured, item) }
                     }
+                } else if (!currentRuntime.reviewing && presentation?.invoke()?.let { toolkit?.tapCombatSlot(it, owner.tapPoint) } == true) {
+                    // CMB-034, CMB-040: the selected creature blocks the attacker whose slot was tapped
                 } else {
                     // TBL-122: a tap on the empty table closes a battlefield card's ability chips and an opened group
                     toolkit?.closeAbilities()
@@ -108,7 +119,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 else -> if (currentWritable) callback?.invoke(intent)
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
-            onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) })
+            onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) },
+            onHeld = { held -> currentViewPause?.finger = held })
+        owner.viewHoldSkip = { currentRuntime.holdTap }
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -178,10 +191,13 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val cardAppearance = rememberCardAppearance()
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed) {
+        // CMB-028: the viewer declares attackers: the band's lanes keep room for the next
+        val attackerSlots = !runtime.reviewing && writable && toolkit?.combat?.readyOrLast(play)?.choices
+            ?.let { it.attackers && it.declaring == accountId } == true
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                computed, landscapeHome = true, timeline = runtime.timelineOpen)
+                computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
@@ -315,8 +331,12 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
             // STK-024 (owner 2026-11-07): and while the cast panel is open, the sources that pay it
             val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.cast?.paySources().orEmpty()
-            // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange
-            val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.attackable(play, accountId).orEmpty()
+            // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange;
+            // CMB-034, CMB-040 (owner, 2026-11-08): as do those that may block while the viewer places blockers
+            val assumingBlocks = LocalEngineRoutes.current?.assuming() != null
+            val placingBlocks = assumingBlocks || LocalEngineRoutes.current?.mayAct() != false
+            val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.let {
+                it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
@@ -347,7 +367,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
-                    pressed = { pressGlow.value }) { item ->
+                    pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players; not while the viewer
             // picks targets themselves (their violet glow, STK-047)

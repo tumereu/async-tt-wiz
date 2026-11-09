@@ -1,0 +1,1 @@
+mod: Declaring blockers now looks like declaring attackers: creatures that may block glow red-orange, each attacker has a dashed place for its blocker that you can tap or drop on, and "Choose blockers" shows until your first block. The lane you attack with has a dashed place for the next attacker too.

@@ -6,6 +6,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -17,6 +21,7 @@ import arcanum.engine.Engine
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
+import org.asyncttwiz.protocol.CombatRole
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
 import org.junit.Rule
@@ -95,7 +100,86 @@ class CombatBandTest {
         return attacker
     }
 
-    /** The defending player's name, as their chip says it. */
+    /** Alice has attacked with three Ember Cubs (a Cub in her first turn, two in her second); Bob, with a Cub of his own and
+     * an untapped creature to block with, is declaring blockers, the combat worked out on his table. */
+    private fun bobDeclaringAgainstThree(): List<String> {
+        bobCastsACub()
+        k.toReadyCub()
+        k.playLand()
+        k.castCub()
+        k.castCub()
+        k.bobMain = null
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.End(k.scope)), "End turn")
+        k.playOn("Alice's Main 1 with three ready Cubs") { k.aliceMain() && k.scenario.creatures(k.state(), k.me, ready = true).size == 3 }
+        k.toAttacks()
+        k.toolkit.combat.show(k.alice.play(), AutomatumBoards.combat(k.alice.play()))
+        val cubs = k.field("Ember Cub").map(k::atw)
+        assertTrue(k.toolkit.stage(k.alice.play(), cubs, null), "all three staged")
+        k.settle()
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (3)")
+        k.playOn("Bob declaring blockers", bobActs = false) {
+            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+        }
+        k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+        return cubs
+    }
+
+    private fun slots() = compose.onAllNodesWithTag(COMBAT_SLOT_TAG, useUnmergedTree = true)
+
+    // CMB-034 (owner, 2026-11-08): for the whole declare blockers step each attacker has a dashed slot, brighter once the
+    // creature selected may block it; "Choose blockers" on the band until the first block; a tap on a slot blocks as a tap on
+    // the attacker does and the slot goes
+    @Test fun eachAttackerHasADashedBlockerSlot() {
+        bobDeclaringAgainstThree()
+        val blocker = k.atw(k.field("Ember Cub", k.other).single())
+        render(k.f.b)
+        slots().assertCountEquals(3)
+        compose.onNodeWithText(CHOOSE_BLOCKERS).assertExists()
+        compose.onAllNodes(hasTestTag(COMBAT_SLOT_TAG) and hasStateDescription("free"), useUnmergedTree = true).assertCountEquals(3)
+        captureShot("$SCREENSHOTS/combat-band/blocker-slots.png",
+            "Alice attacks with three Ember Cubs and Bob declares blockers: in the band, mirrored for him, each attacker has a dashed blocker slot, \"Choose blockers\" sits between the rows until the first block, and his creature that may block glows red-orange.")
+        k.tap(k.item(blocker, viewer = k.f.b), k.bobToolkit, k.f.b)
+        compose.waitForIdle()
+        compose.onAllNodes(hasTestTag(COMBAT_SLOT_TAG) and hasStateDescription("may go here"), useUnmergedTree = true).assertCountEquals(3)
+        captureShot("$SCREENSHOTS/combat-band/blocker-slots-selected.png",
+            "Bob tapped his Ember Cub to place it: it is framed violet, the three attackers it may block glow violet and their dashed slots are brighter.")
+        val slot = k.scene(k.f.b).combatSlots.first { it.role == CombatRole.BLOCKER }
+        compose.runOnIdle { assertTrue(k.bobToolkit.tapCombatSlot(k.scene(k.f.b), slot.bounds.center), "the tap on the slot") }
+        k.settle(bobActs = false)
+        compose.waitForIdle()
+        assertEquals(1, k.bob.device.model.table.blockDraft.orEmpty().size, "the block staged")
+        assertEquals(2, k.scene(k.f.b).combatSlots.count { it.role == CombatRole.BLOCKER }, "the filled slot gone")
+    }
+
+    // CMB-034, CMB-007 (owner, 2026-11-08): the slots with several attackers in landscape
+    @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    @Test fun theBlockerSlotsInLandscape() {
+        bobDeclaringAgainstThree()
+        render(k.f.b, landscape = true)
+        slots().assertCountEquals(3)
+        captureShot("$SCREENSHOTS/combat-band/blocker-slots-landscape.png",
+            "In landscape Alice attacks with three Ember Cubs and Bob declares blockers: the band, zoomed with the battlefields, holds a dashed slot over each attacker and \"Choose blockers\" between the rows.")
+    }
+
+    // CMB-028 (owner, 2026-11-08): declaring attackers, the active lane has the same dashed slot at its end, in room the lane
+    // keeps for it: it moves on as attackers join; the collapsed band has none
+    @Test fun theActiveLaneHasADashedAttackerSlot() {
+        val attacker = aliceDeclaring()
+        assertTrue(k.scene().combatSlots.isEmpty(), "the collapsed band has none")
+        k.tap(k.item(attacker))
+        k.settle()
+        render()
+        slots().assertCountEquals(1)
+        val scene = TablePresentation.scene(k.f.game, k.alice.play(), k.f.a, 412f, 892f, false, attackerSlots = true)
+        val copy = scene.items.first { it.viewport == "combat" && it.sourceId == attacker }
+        val slot = scene.combatSlots.single { it.role == CombatRole.ATTACKER }
+        assertEquals(copy.bounds.y, slot.bounds.y, .001f, "in the attackers' row")
+        assertTrue(slot.bounds.x >= copy.bounds.right, "after the attacker")
+        assertEquals(null, scene.combatDestination(slot.bounds.center)!!.pairId, "a drop on it is a new attacker")
+        captureShot("$SCREENSHOTS/combat-band/attacker-slot.png",
+            "Alice staged her Ember Cub: the band opened and the lane of her active target, Bob, has a dashed slot for the next attacker beside it.")
+    }
+
     private fun bobName() = listOf(k.f.game.inviter, k.f.game.recipient).single { it.accountId == k.f.b }.username
 
     // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
@@ -254,6 +338,12 @@ class CombatBandTest {
         render()
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume no blockers"))
         k.toolkit.combat.show(placed.board(k.alice.play()), AutomatumBoards.combat(placed.board(k.alice.play())))
+        // CMB-040 (owner, 2026-11-08): the slot and the words as the defender has them
+        compose.waitForIdle()
+        slots().assertCountEquals(1)
+        compose.onNodeWithText(CHOOSE_BLOCKERS).assertExists()
+        captureShot("$SCREENSHOTS/combat-band/assume-slots.png",
+            "Alice attacks while Bob is away: waiting for his blocks her band has the defender's look: a dashed blocker slot over her Ember Cub, \"Choose blockers\" between the rows, and his creature that may block glowing red-orange.")
         k.tap(k.item(blocker))
         assertEquals(blocker, k.toolkit.combat.selected, "Bob's Cub is the blocker to place")
         k.tap(k.item(attacker))
@@ -262,6 +352,10 @@ class CombatBandTest {
         compose.waitForIdle()
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume blockers"))
         compose.onNodeWithContentDescription("Clear").assertExists()
+        // CMB-040 (owner, 2026-11-08): the same look: his creature that may block glows, and the words are gone with the first block
+        compose.onNodeWithText(CHOOSE_BLOCKERS).assertDoesNotExist()
+        assertTrue(blocker in k.toolkit.combat.blockable(placed.board(k.alice.play()), k.f.a, assuming = true))
+        assertTrue(k.toolkit.combat.blockable(placed.board(k.alice.play()), k.f.a, assuming = false).isEmpty())
         captureShot("$SCREENSHOTS/combat-band/assume.png",
             "Bob is away when Alice attacks with her Ember Cub: waiting for his blocks, her table is in assume mode on the band's lanes; she tapped his Cub and then her attacker, so his Cub's copy blocks it with an arrow, Clear is the quick action and the main button reads Assume blockers.")
         val expected = listOf(Block(k.state().battlefield.single { (it as? ObjectId.Card)?.card?.value == blocker },

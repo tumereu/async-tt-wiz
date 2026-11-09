@@ -884,6 +884,26 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         return true
     }
 
+    /**
+     * CMB-034, CMB-040 (owner, 2026-11-08): a tap at [point] on the slot of an attacker with a creature selected as the blocker
+     * to place: it blocks that attacker, as tapping the attacker does. False when the tap is no such thing.
+     */
+    fun tapCombatSlot(scene: TableScene, point: TablePoint): Boolean {
+        val pair = scene.combatSlots.firstOrNull { it.role == CombatRole.BLOCKER && it.bounds.contains(point) }?.pairId ?: return false
+        val blocker = combat.selected ?: return false
+        val live = current() ?: return false
+        val placed = engine?.assuming()
+        val play = placed?.board(live) ?: live
+        val shown = combat.choices(play)
+        if (combat.working(shown)) { error = CombatController.WORKING_OUT; return true }
+        val choices = shown.choices
+        if (choices.declaring == null || choices.attackers || blocker !in choices.blocks) return false
+        if (placed != null) assumeBlock(placed, play, blocker, pair, toggle = true)
+        else if (enabled() && viewer == choices.declaring) block(play, blocker, pair)
+        else return false
+        return true
+    }
+
     /** CMB-034 (owner, 2026-11-06): a placed blocker leaves the blocks being declared: its copies [occurrenceIds] go. */
     private fun removeBlocker(occurrenceIds: List<String>): Boolean {
         val area = current()?.board?.combat ?: return false

@@ -1,0 +1,1 @@
+mod: Hold a finger on the table to pause a play shown, a combat moment or the moves you are catching up on; it goes on when you lift it. Holding a shown card also shows it large. To skip a shown play or a combat moment, double tap: a single tap no longer skips.

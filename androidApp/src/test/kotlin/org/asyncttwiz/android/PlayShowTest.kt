@@ -27,8 +27,8 @@ import kotlin.test.assertTrue
 
 /**
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
- * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; a tap
- * ends one at once, and at 0 none shows. Games played through the simulated server; time on the test clock.
+ * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; a double tap
+ * ends one at once (a single tap does nothing, a held finger pauses it, owner 2026-11-08), and at 0 none shows. Games played through the simulated server; time on the test clock.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -106,14 +106,65 @@ class PlayShowTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112: a tap on the shown card ends it at once, with no time passing
-    @Test fun aTapEndsTheShowAtOnce() {
+    // HIS-112 (owner, 2026-11-08): a single tap on the shown card does nothing; a double tap ends it at once
+    @Test fun aDoubleTapEndsTheShowAtOnceASingleTapDoesNothing() {
         val (kit, _) = bobsSparkShown()
         compose.mainClock.autoAdvance = false
         render(kit)
         compose.onNodeWithTag(PLAY_SHOW_TAG).performClick()
-        compose.runOnIdle { assertNull(kit.alice.shown?.show, "ended by the tap") }
+        compose.mainClock.advanceTimeBy(DOUBLE_TAP_MILLIS + 50)
+        kit.settle()
+        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "a single tap does nothing") }
+        compose.onNodeWithTag(PLAY_SHOW_TAG).performTouchInput { doubleClick() }
+        kit.settle()
+        compose.runOnIdle { assertNull(kit.alice.shown?.show, "ended by the double tap") }
         assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark, live")
+    }
+
+    // HIS-112, HIS-021, TBL-104 (owner, 2026-11-08): a finger held on the shown card inspects it and pauses its time, the pause
+    // icon in the corner; lifted, the show goes on with the time left: 0.6 s and the hold's own time had gone of its 1.2 s
+    @Test fun aHeldFingerPausesTheShowWithTheTimeLeftAndInspectsIt() {
+        val (kit, _) = bobsSparkShown()
+        compose.mainClock.autoAdvance = false
+        render(kit)
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithTag(PLAY_SHOW_TAG).performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(5_000)
+        compose.waitForIdle()
+        kit.settle()
+        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "still shown while held") }
+        compose.onNodeWithContentDescription("Card inspection content").assertExists()
+        compose.onNodeWithTag(VIEW_PAUSED_TAG).assertExists()
+        compose.onNodeWithTag(PLAY_SHOW_TAG).performTouchInput { up() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(100)
+        kit.settle()
+        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "the time left isn't over yet") }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        kit.settle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        kit.settle()
+        compose.runOnIdle { assertNull(kit.alice.shown?.show, "over with the time left, not a whole new time") }
+    }
+
+    // HIS-021, HIS-112 (owner, 2026-11-08): a finger held on the table beside the shown play pauses it, the icon in the corner
+    @Test fun aHeldFingerOnTheTableShowsThePauseIcon() {
+        val (kit, _) = bobsSparkShown()
+        compose.mainClock.autoAdvance = false
+        render(kit)
+        val table = compose.onNodeWithContentDescription("Shared table")
+        table.performTouchInput { down(androidx.compose.ui.geometry.Offset(width * .08f, height * .35f)) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNodeWithTag(VIEW_PAUSED_TAG).assertExists()
+        captureShot("$SCREENSHOTS/engine/hold-pause.png",
+            "Bob's Storm Spark shows on Alice's table and she holds a finger on the board beside it: its time is paused until she lifts her finger, and the pause icon sits in the board's top-right corner.")
+        table.performTouchInput { up() }
+        compose.waitForIdle()
     }
 
     // HIS-112, STK-046, STK-050: Bob cycles Shattered Reason: Alice's table shows the cycling ability, then the cycling

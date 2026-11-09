@@ -9,16 +9,22 @@ import kotlin.math.hypot
 data class TableGesturePreview(val pressedId: String? = null, val scope: TableScope? = null,
     val point: TablePoint? = null, val destination: TableDestination? = null)
 
+/** TBL-042: two taps within this long (and 32 dp) are a double tap. */
+internal const val DOUBLE_TAP_MILLIS = 400L
+
 /** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
-    private val slopDp: Float = 8f, private val doubleMillis: Long = 400, private val holdMillis: Long = CardPeekHoldMillis,
+    private val slopDp: Float = 8f, private val doubleMillis: Long = DOUBLE_TAP_MILLIS, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
     private val onPeekScroll: (Float) -> Unit = {}, // Incremental content scroll in dp; positive reveals lower text.
     // TBL-104: the held finger dx, dy dp from where the hold began; true when it is the pinned swipe's (no scroll then).
     private val onPeekSwipe: (Float, Float) -> Boolean = { _, _ -> false },
-    private val diagnostic: (String) -> Unit = {}
+    private val diagnostic: (String) -> Unit = {},
+    /** HIS-021, HIS-112, HIS-113: a finger is held still on the table (true), until it lifts or the hold ends (false). A pan
+     * or a drag crosses the slop before the hold time and never gets here. */
+    private val onHeld: (Boolean) -> Unit = {}
 ) {
     init { require(density.isFinite() && density > 0f) }
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
@@ -31,8 +37,10 @@ class TableGestureCoordinator(
         /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
         var handStart: Float = 0f,
         /** TBL-104: where the finger was when the hold began. */
-        var holdStart: TablePoint? = null)
-    private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
+        var holdStart: TablePoint? = null,
+        /** HIS-113: the first tap of this double tap came while a combat held the view. */
+        var afterHoldTap: Boolean = false)
+    private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean, val duringViewHold: Boolean = false)
     private var capture: Capture? = null
     private var transformRegion: String? = null
     private var transforming = false
@@ -55,6 +63,10 @@ class TableGestureCoordinator(
     /** D2 (SYS-041): the height (dp) of the open Automatum panel or bar over the table's bottom: the world pans that much
      * further up, so the board can sit above it. */
     var panelInset: () -> Float = { 0f }
+    /** HIS-113: what a double tap on the table does while a combat holds the view (skips it); null when none holds. */
+    var viewHoldSkip: () -> (() -> Unit)? = { null }
+    private var fingerHeld = false
+    private fun held(now: Boolean) { if (now != fingerHeld) { fingerHeld = now; onHeld(now) } }
     /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
      * left beyond the usual bounds where it is until the gesture settles (D2). */
     private var gestureWorld: TableWorld? = null
@@ -73,6 +85,8 @@ class TableGestureCoordinator(
     var actionItem: TableItem? = null; private set
     /** Whether the last tap (an [TableIntent.EmptyTap] or [TableIntent.Actions]) was on the hand row or a hand card. */
     var tapOnHand: Boolean = false; private set
+    /** Where the last tap was. */
+    var tapPoint: TablePoint = TablePoint(0f, 0f); private set
     val busy get() = capture != null || pending != null || spring != null || handSpring != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
@@ -93,6 +107,7 @@ class TableGestureCoordinator(
             c.scope.cardIds.any { id -> scene.items.none { it.cardId == id || id in it.cards } }) {
             if (c.double) diagnostic("nearMiss:targetRemoved")
             if (c.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+            held(false)
             // Invalidate the card operation, not the first-down region. A later second pointer
             // must not acquire the region underneath its new centroid after a remote removal.
             c.phase = Phase.TRANSFORM
@@ -145,6 +160,7 @@ class TableGestureCoordinator(
                 distance(point, old.capture.start) <= slopDp * 4 && time <= old.deadline) {
                 next.double = true
                 next.replacingLocal = old.shown && item != null
+                next.afterHoldTap = old.duringViewHold
                 // The first press's stable scope wins even if sync changed between taps.
                 capture = next.copy(scope = old.capture.scope, sources = old.capture.sources)
                 pending = null
@@ -176,6 +192,7 @@ class TableGestureCoordinator(
             if (c.double && c.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:becameHold")
             c.phase = Phase.HOLD
             c.holdStart = c.point
+            held(true)
             // Covered pile controls never implicitly View a Library.
             peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
             preview = TableGesturePreview()
@@ -243,7 +260,17 @@ class TableGestureCoordinator(
         val c = capture ?: return
         move(point, time)
         capture = null
+        held(false)
         transforming = false; transformRegion = null
+        // HIS-113: while a combat holds the view a double tap on the table but the hand only skips it: it never zooms the
+        // table (TBL-012) or opens a pile, also when the hold ended between its two taps
+        if (c.double && c.phase == Phase.PRESS && c.item?.kind != TableItemKind.HAND && c.item?.zone != PlayZone.HAND &&
+            (c.afterHoldTap || viewHoldSkip() != null)) {
+            viewHoldSkip()?.invoke()
+            settleCamera()
+            preview = TableGesturePreview()
+            return
+        }
         if (reviewing && c.double && c.item != null && c.phase == Phase.PRESS) {
             if (c.replacingLocal) emit(TableIntent.DismissTapUi)
             preview = TableGesturePreview()
@@ -282,13 +309,13 @@ class TableGestureCoordinator(
                 // Opening personal UI never waits for double-tap recognition. The second gesture
                 // dismisses that UI before drawing/rotating/entering explicit Stack actions.
                 single(c)
-                pending = Tap(c, time + doubleMillis, true)
+                pending = Tap(c, time + doubleMillis, true, viewHoldSkip() != null)
                 recentTap = pending; pendingCleared = null
             } else {
                 single(c)
                 // Empty taps remain immediate; retain only recognition metadata for navigation.
                 if (doubleTapEnabled && c.item == null && (scene.worldInput(c.start) || c.panRegion.isCardPanel))
-                    pending = Tap(c, time + doubleMillis, true)
+                    pending = Tap(c, time + doubleMillis, true, viewHoldSkip() != null)
             }
             Phase.DRAG -> {
                 if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)
@@ -306,6 +333,7 @@ class TableGestureCoordinator(
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:secondPointer")
         pendingCleared = "secondPointer"; pending = null
         if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+        held(false)
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
         if (!transforming) {
@@ -371,6 +399,7 @@ class TableGestureCoordinator(
     }
     fun cancel() {
         if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+        held(false)
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:cancelled")
         capture = null; pendingCleared = "cancelled"; pending = null; preview = TableGesturePreview()
         transforming = false; transformRegion = null
@@ -391,6 +420,7 @@ class TableGestureCoordinator(
             return
         }
         tapOnHand = item?.kind == TableItemKind.HAND || item?.zone == PlayZone.HAND
+        tapPoint = c.start
         if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.EmptyTap)
         } else if (c.scope == null || targetsExist(c.scope)) {

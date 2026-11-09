@@ -4,8 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -20,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineScope
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.PlayZone
@@ -106,12 +105,17 @@ internal fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis], then it
  * flies to the Stack's top card, taking its place and size, with an accelerating curve ([playShowFlightMillis]); its line
  * goes as the flight starts and the card fades out over the flight's second half. When it lands it is gone from this
- * screen at once, and [done] (the device's dismissal, on the engine thread) runs. A tap on it ends it at once. The view
- * holds meanwhile (the device holds the later events). Only the card and its line take touches.
+ * screen at once, and [done] (the device's dismissal, on the engine thread) runs. A double tap on it ends it at once, a
+ * single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104, TBL-131). A finger held on it or on the
+ * table pauses its time ([pause]). The view holds meanwhile (the device holds the later events). Only the card and its line
+ * take touches.
  */
 @Composable
 internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
-    names: Map<String, String>, millis: Long, done: () -> Unit) {
+    names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() }, inspect: (Boolean) -> Unit = {},
+    moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
+    /** Outlives this play: a tap's double-tap time goes on after it has gone. */
+    tapScope: CoroutineScope = rememberCoroutineScope(), done: () -> Unit) {
     val board = scene.world?.visibleViewport ?: return
     val shown = remember(show) { PlayShows.of(play, show, viewer, names) }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
@@ -125,13 +129,17 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
     val ended = remember(show) { booleanArrayOf(false) }
     fun end() { gone = true; if (!ended[0]) { ended[0] = true; done() } }
     LaunchedEffect(show) {
-        if (millis > 0) delay(millis)
+        pause.wait(millis)
         flying = true
         if (target != null) flight.animateTo(1f, tween(playShowFlightMillis(multiplier), easing = FastOutLinearInEasing))
+        // A finger held during the flight still holds the view: what comes next waits for it
+        pause.lifted()
         end()
     }
     if (gone) return
     val density = LocalDensity.current
+    // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
+    val touches = Modifier.choiceCardGestures(show, tap = { if (pause.tapOnShow(tapScope)) end() }, hold = { holding -> pause.finger = holding; inspect(holding) }, moved = moved)
     Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
         // The card's centre is the board's, so the flight moves and scales it about its own centre. The flight is read
         // while drawing only: it moves the card without composing it again
@@ -148,7 +156,7 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
             }
             .testTag(PLAY_SHOW_TAG)
             .semantics { contentDescription = shown.description }
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Skip") { end() }) {
+            .then(touches)) {
             val ability = shown.ability
             when {
                 ability != null -> AbilityTokenFace(ability, shown.art, shown.own, Modifier.size(width.dp, height.dp), shown.typeIcon)
@@ -166,7 +174,7 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
                 }
             }
             .widthIn(max = 300.dp)
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Skip") { end() },
+            .then(touches),
             shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
             CardText(shown.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
                 style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,

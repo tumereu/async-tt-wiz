@@ -239,24 +239,36 @@ abstract class E2e {
         compose.mainClock.advanceTimeBy(maxOf(0L, behind) + ahead)
     }
 
-    internal fun holding(node: androidx.compose.ui.test.SemanticsNodeInteraction, millis: Long = 600, held: () -> Unit) {
+    internal fun holding(node: androidx.compose.ui.test.SemanticsNodeInteraction, millis: Long = 600,
+        moveFirst: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Zero,
+        at: androidx.compose.ui.test.TouchInjectionScope.() -> androidx.compose.ui.geometry.Offset = { center }, held: () -> Unit) {
         val looper = shadowOf(Looper.getMainLooper())
         val behind = compose.mainClock.currentTime - android.os.SystemClock.uptimeMillis()
         if (behind > 0) looper.idleFor(Duration.ofMillis(behind))
         compose.mainClock.autoAdvance = false
         try {
-            node.performTouchInput { down(center) }
-            var left = millis
-            while (left > 0) {
-                val step = minOf(left, FRAME_MILLIS)
-                compose.mainClock.advanceTimeBy(step)
-                looper.idleFor(Duration.ofMillis(step))
-                left -= step
+            node.performTouchInput {
+                down(at())
+                // [moveFirst]: the finger moves at once, before the hold's time: a pan or a drag, not a hold
+                if (moveFirst != androidx.compose.ui.geometry.Offset.Zero) moveBy(moveFirst)
             }
+            passWhileHeld(millis)
             held()
             node.performTouchInput { up() }
         } finally { compose.mainClock.autoAdvance = true }
         run()
+    }
+
+    /** Inside [holding]: [millis] more of the phones' time pass with the finger still down, both clocks moving on together. */
+    internal fun passWhileHeld(millis: Long) {
+        val looper = shadowOf(Looper.getMainLooper())
+        var left = millis
+        while (left > 0) {
+            val step = minOf(left, FRAME_MILLIS)
+            compose.mainClock.advanceTimeBy(step)
+            looper.idleFor(Duration.ofMillis(step))
+            left -= step
+        }
     }
 
     /**

@@ -41,6 +41,68 @@ class TableGesturesTest {
         first(6000); g.cancel(); first(6100)
         assertEquals(listOf("nearMiss:cancelled"), diagnostics)
     }
+
+    // HIS-021, HIS-112, HIS-113: a finger held still is reported until it lifts, or a second finger makes it a pinch; a pan or
+    // a drag crosses the slop before the hold's time and is never a hold
+    @Test fun onlyAFingerHeldStillIsReportedAsHeld() {
+        val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
+            kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
+        val held = mutableListOf<Boolean>()
+        val g = TableGestureCoordinator({}, onHeld = held::add)
+        g.update(TableScene(listOf(card), emptyList()), true)
+        val point = card.bounds.center
+        g.down(point, 0); g.tick(349)
+        assertEquals(emptyList(), held, "not yet")
+        g.tick(350)
+        assertEquals(listOf(true), held)
+        g.tick(5000); g.move(TablePoint(60f, 50f), 5010)
+        assertEquals(listOf(true), held, "moving after the hold began stays a hold")
+        g.up(TablePoint(60f, 50f), 5020)
+        assertEquals(listOf(true, false), held)
+        held.clear()
+        g.down(point, 9000); g.move(TablePoint(80f, 50f), 9010); g.tick(9500); g.up(TablePoint(80f, 50f), 9510)
+        assertEquals(emptyList(), held, "a drag isn't a hold")
+        g.down(point, 12000); g.tick(12400); g.transform(TablePoint(0f, 0f), 1.1f, point)
+        assertEquals(listOf(true, false), held, "a second finger ends it")
+        g.cancel()
+    }
+
+    // HIS-113, TBL-012: while a combat holds the view a double tap on the table only skips it: no zoom to fit, nor when the
+    // hold ended between its two taps; the hand keeps its own double tap
+    @Test fun aDoubleTapSkipsAViewHoldInsteadOfWhatItOtherwiseDoes() {
+        val world = TableWorld(TableBounds(0f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
+        val handCard = TableItem("card/h", TableBounds(0f, 500f, 40f, 60f), "Card", "", kind = TableItemKind.CARD, cardId = "h",
+            zone = PlayZone.HAND, viewport = "hand")
+        val scene = TableScene(listOf(handCard), emptyList(), world = world, camera = TableCamera(10f, 10f, 2f))
+        val events = mutableListOf<TableIntent>()
+        var skips = 0
+        var holding = true
+        val g = TableGestureCoordinator(events::add)
+        g.viewHoldSkip = { if (holding) ({ skips++ }) else null }
+        g.update(scene, true)
+        val empty = TablePoint(100f, 100f)
+        fun tap(point: TablePoint, time: Long) { g.down(point, time); g.up(point, time + 10) }
+        tap(empty, 0)
+        assertEquals(0, skips, "a single tap skips nothing")
+        tap(empty, 100)
+        assertEquals(1, skips, "the double tap skips")
+        assertTrue(events.none { it is TableIntent.Camera }, "no zoom to fit: $events")
+        // The hold ends between the two taps: the second doesn't zoom either
+        events.clear()
+        tap(empty, 2000)
+        holding = false
+        tap(empty, 2100)
+        assertEquals(1, skips)
+        assertTrue(events.none { it is TableIntent.Camera }, "no zoom to fit: $events")
+        // No hold: the double tap is the table's own again
+        tap(empty, 4000); tap(empty, 4100)
+        assertTrue(events.any { it is TableIntent.Camera }, "zoomed to fit: $events")
+        // The hand's double tap isn't a skip
+        holding = true
+        tap(handCard.bounds.center, 6000); tap(handCard.bounds.center, 6100)
+        assertEquals(1, skips)
+    }
+
     // TBL-016
     @Test fun firstDownOwnsPanAcrossAllViewportBoundariesAndPinchScalesUntilRelease() {
         val world = TableWorld(TableBounds(200f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))

@@ -218,7 +218,13 @@ internal fun E2ePlayer.continuesPastBranchStop(e2e: E2e) {
 }
 
 /** A tap on the middle of this player's own battlefield (HIS-095: while playback runs it pauses it). */
-internal fun E2ePlayer.tapTable() { node(hasContentDescription("$name Battlefield,", substring = true)).performClick() }
+internal fun E2ePlayer.tapTable() { table().performClick() }
+
+/** This player's own battlefield, to touch (its middle). */
+internal fun E2ePlayer.table() = node(hasContentDescription("$name Battlefield,", substring = true))
+
+/** A double tap on the middle of this player's own battlefield (HIS-113: while a combat holds the view it skips that). */
+internal fun E2ePlayer.doubleTapTable() { table().performTouchInput { doubleClick() } }
 
 /** Whether the table has timeline mode's look (HIS-008: grey bars, the dimmed board's "Timeline mode" label). */
 internal fun E2ePlayer.showsTimelineLook(): Boolean = showsText("Timeline mode")

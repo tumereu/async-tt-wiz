@@ -1204,7 +1204,14 @@ internal object Conditions {
             return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
         // dsk chunk 08: "you have at least 7 life more than your starting life total" (CR 103.4)
         LIFE_MORE_THAN_STARTING.matchEntire(text)?.let { m ->
-            return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed(m.groupValues[1].toInt()))))
+            return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed((m.groupValues[1] + m.groupValues[2]).toInt()))))
+        }
+        // fdn chunk 05: "your life total is greater than your starting life total" (CR 103.4)
+        if (text == "your life total is greater than your starting life total")
+            return Condition.Compare(Value.LifeOf(Players.You), Comparison.Greater, Value.StartingLife(Players.You))
+        // fdn chunk 05: "any player controls a black permanent": the permanent of anyone (CR 110.1)
+        Fdn.ANY_PLAYER_CONTROLS.matchEntire(text)?.let { m ->
+            return Condition.Exists(Filters.noun(m.groupValues[1]) ?: return null, atLeast = 1)
         }
         // dsk chunk 06: "a permanent entered the battlefield face down under your control this turn", "you turned a permanent
         // face up this turn"
@@ -1250,7 +1257,7 @@ internal object Conditions {
     // dsk chunk 09
     private val CAST_IT = Regex("""you cast it( from your hand| from your graveyard)?""")
     // dsk chunk 08
-    private val LIFE_MORE_THAN_STARTING = Regex("""you have at least (\d+) life more than your starting life total""")
+    private val LIFE_MORE_THAN_STARTING = Regex("""(?:you have at least (\d+) life more than|your life total is at least (\d+) greater than) your starting life total""")
     // dsk chunk 04
     private val CONTROL_A_PHRASE = Regex("""you (don't )?control (an?|another) (.+)""")
     private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")

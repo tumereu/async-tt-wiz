@@ -163,7 +163,7 @@ internal object Ltr {
     val HAS_ALL_ACTIVATED_ABILITIES_EXCEPT_MANA = Regex("""(.+?) has all activated abilities of (.+?) except mana abilities\.""")
     val MANA_OF_ANY_TYPE_TO_ACTIVATE_SELFS = Regex("""Mana of any type can be spent to activate (.+?)'s abilities\.""")
     val OPPONENTS_MILL_WHEN_MILLED_EXILE_COPY_CAST = Regex("""Each opponent mills (\w+) cards\. When one or more cards are milled this way, exile (target .+?) with equal or lesser mana value than that spell from an opponent's graveyard\. Copy the exiled card\. You may cast the copy without paying its mana cost\.""")
-    val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
+    val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three|Any number of) target .+?) (?:each )?(gain|get) (.+)""") // fdn chunk 05: "Any number of"
     // ltr chunk 14
     val YOU_GAIN_PROTECTION_FROM_EVERYTHING = Regex("""[Yy]ou gain protection from everything until your next turn\.""")
     val YOU_LOSE_LIFE_FOR_EACH = Regex("""[Yy]ou lose (\d+) life for each (.+)\.""")

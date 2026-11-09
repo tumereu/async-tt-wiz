@@ -18,5 +18,10 @@ internal object Fdn {
     val DOUBLE_COUNTERS_ON_UP_TO = Regex("""Double the number of each kind of counter on up to (\w+) target (.+)\.""")
     val MAY_HAVE_IT_FIGHT = Regex("""[Yy]ou may have it fight target (.+)\.""")
     val PUT_SELF_FROM_GRAVEYARD_ON_TOP = Regex("""[Pp]ut this card from your graveyard on top of your library\.""")
+    // chunk 05
+    val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
+    val ANY_PLAYER_CONTROLS = Regex("""any player controls an? (.+)""")
+    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), it enters with (\S+ \S+) counters? on it\.""")
+    val FOR_EACH_PUT_INTO_GRAVEYARD_CREATE = Regex("""For each (.+?) put into a graveyard this way, (?:you )?create (.+)\.""")
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
 }

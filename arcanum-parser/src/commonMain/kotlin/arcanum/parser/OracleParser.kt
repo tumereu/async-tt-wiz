@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 45
+    const val VERSION: Int = 46
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -587,7 +587,8 @@ object OracleParser {
             return Keyword.HexproofFrom(when (m.groupValues[1]) {
                 "monocolored" -> arcanum.api.ObjectFilter.Monocolored
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
-                else -> return null
+                // fdn chunk 05: "hexproof from black", "hexproof from instants" (a colour or a card type)
+                else -> Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             })
         }
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.

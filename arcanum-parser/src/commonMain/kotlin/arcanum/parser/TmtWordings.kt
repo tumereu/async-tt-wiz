@@ -80,7 +80,7 @@ internal object Tmt {
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?) cost (\{\d+\}) less to activate\.""")
-    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for up to (\w+) (.+?) cards, put them onto the battlefield tapped, then shuffle\.""")
+    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")

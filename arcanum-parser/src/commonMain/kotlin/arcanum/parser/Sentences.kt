@@ -62,6 +62,10 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        // fdn chunk 05: "As long as X, Elenda gets +1/+1 and has menace. Elenda gets an additional +5/+5 as long as Y.": two static abilities on one line
+        Fdn.TWO_AS_LONG_AS.matchEntire(line)?.let { m ->
+            return listOf(static(m.groupValues[1]) ?: return@let, static(m.groupValues[2]) ?: return@let)
+        }
         // dgm: "Whenever an opponent casts a spell during your turn and when this creature dies, [effect]": two trigger conditions,
         // the first only during your turn (CR 603.1)
         Gtc.OPPONENT_CASTS_DURING_YOUR_TURN_AND_DIES.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -2252,14 +2256,17 @@ internal class Sentences(
         mshModalTrigger(header, modeLines)?.let { return it } // msh
         val m = WHENEVER.matchEntire(header) ?: return null
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
-        val choose = CHOOSE_MODES.matchEntire(m.groupValues[3]) ?: return null
+        // fdn chunk 05: "At the beginning of your end step, if a creature died this turn, choose one —" (an intervening "if", CR 603.4)
+        val conditional = INTERVENING_IF.matchEntire(m.groupValues[3])
+        val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1], self) ?: return null }
+        val choose = CHOOSE_MODES.matchEntire(conditional?.groupValues?.get(2) ?: m.groupValues[3]) ?: return null
         val n = Numbers.count(choose.groupValues[1]) ?: return null
         val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) }
         if (options.isEmpty()) return null
         val unchosen = choose.groupValues[2].isNotEmpty()
         val thisTurn = choose.groupValues[3].isNotEmpty()
         return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = n, max = n,
-            onlyUnchosen = unchosen && !thisTurn, onlyUnchosenThisTurn = thisTurn, chooser = Players.You)), triggersOnlyIf = onlyIf)
+            onlyUnchosen = unchosen && !thisTurn, onlyUnchosenThisTurn = thisTurn, chooser = Players.You)), interveningIf = interveningIf, triggersOnlyIf = onlyIf)
     }
 
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
@@ -2683,6 +2690,15 @@ internal class Sentences(
             val granted = Sentences(setOf("this token", "this creature")).line(m.groupValues[1]) ?: return null
             return steps.dropLast(1) + Step.Do(create.copy(token = defined.copy(face = defined.face.copy(abilities = defined.face.abilities + granted))))
         }
+        // fdn chunk 05: "Each player mills X cards. For each creature card put into a graveyard this way, you create a tapped 2/2 black Zombie creature
+        // token." (only those that got there count, CR 400.7)
+        Fdn.FOR_EACH_PUT_INTO_GRAVEYARD_CREATE.matchEntire(sentence)?.let { m ->
+            val mill = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Mill ?: return@let
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val create = (effect("Create ${m.groupValues[2]}.", context)?.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return null
+            return steps.dropLast(1) + Step.Do(mill.copy(postBind = "milled")) +
+                Step.Do(create.copy(count = Value.Count(Objects.Where(Objects.Bound("milled"), Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard))))))
+        }
         // gtc chunk 12: "Target player mills four cards. You draw a card for each creature card put into their graveyard this way."
         Gtc.DRAW_FOR_EACH_MILLED.matchEntire(sentence)?.let { m ->
             val mill = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Mill ?: return@let
@@ -2781,12 +2797,13 @@ internal class Sentences(
         rtrModify(sentence, steps, context)?.let { return it } // rtr
         // blb chunk 02: "If the gift was promised, instead [effect]." replaces the sentence before; each version's targets
         // are chosen only when it is the one that happens (CR 702.174m)
+        // fdn chunk 05: "If this spell was kicked, instead [effect]." (CR 702.33d)
         Blb.GIFT_INSTEAD.matchEntire(sentence)?.let { m ->
             val (targetsFrom, stepsFrom) = context.previous ?: return null
-            val promised = Blb.promised
+            val promised = if (m.groupValues[1] == "the gift was promised") Blb.promised else arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
             val before = context.targets.size
             context.promisedNames = true
-            val then = try { effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) } finally { context.promisedNames = false } ?: return null
+            val then = try { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) } finally { context.promisedNames = false } ?: return null
             for (i in targetsFrom until before) context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(promised))
             for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = promised)
             return steps.take(stepsFrom) + Step.If(promised, then = then, otherwise = steps.drop(stepsFrom))
@@ -7333,7 +7350,9 @@ internal class Sentences(
                 condition = condition)
         }
         // blb chunk 07: "This creature enters with a +1/+1 counter on it if an opponent lost life this turn." (CR 614.1c)
-        Blb.ENTERS_WITH_COUNTER_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // fdn chunk 05: "If this creature was kicked, it enters with two +1/+1 counters on it." (the same rule, the condition first; CR 702.33d)
+        (Fdn.IF_IT_ENTERS_WITH_COUNTER.matchEntire(line)?.let { m -> Blb.ENTERS_WITH_COUNTER_IF.matchEntire("This permanent enters with ${m.groupValues[2]} counters on it if ${m.groupValues[1]}.") }
+            ?: Blb.ENTERS_WITH_COUNTER_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) })?.let { m ->
             val kind = Counters.kind(m.groupValues[3]) ?: return null
             val condition = Conditions.condition(m.groupValues[4], self) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
@@ -8634,6 +8653,8 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Mill(Players.EventPlayer, Value.EventAmount)))
         // rtr chunk 01: "Target player mills X cards." (X defined by the ability)
         if (sentence == "Target player mills X cards.") return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Announced(name = "X"))))
+        // fdn chunk 05: "Each player mills X cards."
+        if (sentence == "Each player mills X cards.") return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Any), Value.Announced(name = "X"))))
         // rtr chunk 05: "That player discards a card at random.", "That player loses 2 life.", "That player draws an additional card.",
         // "That player loses half their life, rounded up.", "That player loses the game." (the event's player)
         Rtr.THAT_PLAYER.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
@@ -10378,7 +10399,7 @@ internal class Sentences(
         // blb chunk 02
         /** "the gift was promised": its optional cost was paid (CR 702.174k). */
         val promised: arcanum.api.Condition = arcanum.api.Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
-        val GIFT_INSTEAD = Regex("""If the gift was promised, instead (.+)\.""")
+        val GIFT_INSTEAD = Regex("""If (the gift was promised|this spell was kicked), instead (.+)\.""")
         val GIFT_IF = Regex("""If the gift (was|wasn't) promised(?: and (.+?))?, (.+)\.""")
         val IF_GIFT_AFTER = Regex("""(.+) if the gift (was|wasn't) promised\.""")
         val ALSO = Regex("""(.+?) also (.+)""")
@@ -10968,7 +10989,7 @@ internal class Sentences(
         val IF_IT_WAS = Regex("""If it was an? (.+?), (.+)""")
         val RETURN_CHOSEN_TO_HAND = Regex("""Return an? (.+) to its owner's hand\.""")
         // chunk 42
-        val SELF_GETS_AS_LONG_AS = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) as long as (.+)\.""")
+        val SELF_GETS_AS_LONG_AS = Regex("""(.+) gets (?:an additional )?([+-]\d+)/([+-]\d+) as long as (.+)\.""") // fdn chunk 05: "an additional"
         val SELF_GETS_FOR_EACH = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each (.+)\.""")
         val TAPPED_TOKENS = Regex("""^(\w+) tapped """)
         val TARGET_REVEALS_TOP = Regex("""Target (opponent|player) reveals the top (\w+) cards? of their library\.""")
@@ -13801,7 +13822,7 @@ internal class Sentences(
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " card") ?: return null
             return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
-                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
                 Step.Do(Effect.Shuffle(Players.You)))
         }
         // tmt chunk 04: "Add that much {R}." (the damage dealt, CR 120.3)

@@ -2578,7 +2578,7 @@ internal class Sentences(
             it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
         val defined = WHERE_X.find(text)?.let { w ->
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
-            else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
+            else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: fdnValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
@@ -3909,6 +3909,16 @@ internal class Sentences(
         // fdn chunk 02: "When enchanted creature dies, return this card to its owner's hand.": by then the Aura is a new object in the graveyard (CR 400.7, 704.5m)
         if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && context.event.let { it is EventPattern.ZoneChange && it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) && it.to == Zone.Graveyard })
             return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))))
+        // fdn chunk 06: "return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield"
+        // (her power, or as it last existed if she left: CR 608.2h, 113.7a)
+        Fdn.RETURN_MANA_VALUE_AT_MOST_SELF_POWER.matchEntire(sentence)?.let { m ->
+            val power = selfNumber(m.groupValues[2] + "'s power") ?: return@let
+            val name = Filters.slotName(m.groupValues[1])
+            val cards = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, power),
+                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val target = context.target(name, cards)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield))))
+        }
         // fdn chunk 04: "you may have it fight target creature you don't control": the same fight, if its controller chooses it (CR 701.14)
         Fdn.MAY_HAVE_IT_FIGHT.matchEntire(sentence)?.let { m ->
             return listOf(Step.May(effect("It fights target ${m.groupValues[1]}.", context) ?: return null, player = Players.You))
@@ -7342,6 +7352,13 @@ internal class Sentences(
             val source = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(source, RecipientFilter()),
                 modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[2].toInt()))))), affects = Affected.Objects(Objects.Self))
+        }
+        // fdn chunk 06: "As long as this creature has three or more +1/+1 counters on it, it has flying and is a Knight in addition to its other types."
+        // (layers 4 and 6, CR 613.1d, 613.1f; CR 205.1b: the subtype adds to the others)
+        Fdn.AS_LONG_AS_HAS_AND_IS_IN_ADDITION.matchEntire(line)?.takeIf { it.groupValues[2] == "it" || isSelf(it.groupValues[2]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords(m.groupValues[3]) ?: return null), Mechanic.SetTypes(addSubtypes = spmSubtypes(m.groupValues[4]) ?: return null)),
+                affects = Affected.Objects(Objects.Self), condition = condition)
         }
         // blb chunk 07: "As long as you've lost life this turn, this creature has flying and vigilance."
         Blb.AS_LONG_AS_SELF_HAS.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -14925,6 +14942,11 @@ internal class Sentences(
             return steps + Step.Do(Effect.ChangeTargets(Objects.EventObject(EventRole.Object), Players.You, optional = true))
         return null
     }
+
+    private fun fdnValue(text: String, event: EventPattern?): Value? =
+        // fdn chunk 06: "where X is the mana value of that spell" in a cast trigger (the spell, or as it last existed: CR 603.4, 608.2h)
+        if (event is EventPattern.Cast && text == "the mana value of that spell") Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single)
+        else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
         // fdn chunk 02: "put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura.": both "it"s are what the

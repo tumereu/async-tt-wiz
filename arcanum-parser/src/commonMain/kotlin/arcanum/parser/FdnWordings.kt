@@ -24,4 +24,7 @@ internal object Fdn {
     val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), it enters with (\S+ \S+) counters? on it\.""")
     val FOR_EACH_PUT_INTO_GRAVEYARD_CREATE = Regex("""For each (.+?) put into a graveyard this way, (?:you )?create (.+)\.""")
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
+    // chunk 06
+    val AS_LONG_AS_HAS_AND_IS_IN_ADDITION = Regex("""As long as (.+?), (it|.+?) has ([a-z ,]+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
+    val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
 }

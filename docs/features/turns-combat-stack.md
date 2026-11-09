@@ -42,7 +42,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 
 - **TRN-027** A game begins with both players "Mulliganing" at the same time (TRN-062); keeping makes you Ready. Declarations made at nearly the same moment both stand (the later one is made again on top of the other). The starting player plays turn 1 only after the other player's own keep: their keep is never assumed, whether they are away or online (HIS-096). While both openings are open, each player's own mulligan is their move (LOB-022, LOB-072). (r53)
 - **TRN-029** There is no Turn 0: both players mulligan during turn 1, while their opening status is set. (r25)
-- **TRN-062** The opening follows the game's rules (opening hand 7, the first mulligan free, London mulligans, CR 103.5), both players declaring at once. While you are "Mulliganing" your quick actions are "Mulligan" (your hand goes back, your library is shuffled and seven are drawn) and "Keep" (with cards owed to the bottom, the Keep / Bottom screen opens first, STK-043); nothing else asks about it or covers the board. (r51)
+- **TRN-062** The opening follows the game's rules (opening hand 7, the first mulligan free, London mulligans, CR 103.5), both players declaring at once. While you are "Mulliganing" your quick actions are "Mulligan" (your hand goes back, your library is shuffled and seven are drawn; from the second mulligan on, the Keep / Bottom screen, STK-043, then opens at once for the cards it puts on the bottom, one more each time, and Mulligan and Keep are greyed until its OK, "Put the card on the bottom first.") and "Keep" (keeps the hand as it is); nothing else asks about it or covers the board. (r51)
 
 ### Life
 

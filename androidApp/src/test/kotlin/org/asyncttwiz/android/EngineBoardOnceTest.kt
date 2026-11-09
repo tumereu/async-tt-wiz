@@ -46,7 +46,7 @@ class EngineBoardOnceTest {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = Inline(early), onShown = { made?.shown?.let { shown += it } })
         made = game
         game.tick(1_000)
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
         return game

@@ -1,0 +1,1 @@
+Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK.

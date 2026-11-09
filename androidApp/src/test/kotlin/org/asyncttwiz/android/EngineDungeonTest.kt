@@ -49,7 +49,7 @@ class EngineDungeonTest {
 
     /** Alice kept while Bob is away and ventured once: her Torch Map resolved and Crypt Door's ability too. */
     private fun ventured(): EngineGame = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply {
-        tick(1_000); keep(emptyList()); tick(2_000)
+        tick(1_000); keep(); tick(2_000)
         assertIs<GameDevice.Acted.Sent>(send(listOf(Input.Cast(alice, map(this)))))
         tick(3_000)
     }

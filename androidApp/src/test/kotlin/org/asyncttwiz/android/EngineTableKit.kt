@@ -159,7 +159,7 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
     /** Both keep (Alice through her table's Keep), then on to Alice's Main 1. */
     fun opening() {
         assertTrue(toolkit.opening(TableActionIntent.Keep(scope)), "Alice keeps")
-        bob.keep(emptyList())
+        bob.keep()
         playOn("Alice's Main 1") { aliceMain() }
     }
 

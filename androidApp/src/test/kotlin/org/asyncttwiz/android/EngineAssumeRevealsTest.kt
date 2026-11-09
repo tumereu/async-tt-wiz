@@ -22,7 +22,7 @@ class EngineAssumeRevealsTest {
         val f = EngineGameFixture(aliceCards = listOf("Mountain", spell))
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         game.assumeReveals(reveals)
-        game.apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        game.apply { tick(1_000); keep(); tick(2_000) }
         val me = PlayerId(f.a)
         val card = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == spell } }
         val copy = game.device.model.engine.deepCopy()

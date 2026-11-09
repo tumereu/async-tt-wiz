@@ -74,6 +74,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
     val holder = flow.priority
     // TRN-062 (owner playtest 2026-11-04 #3): the opening's Mulligan / Keep is answered only with the quick actions
     if (openingDecision(decision)) return
+    // TRN-062 (owner problem report 5DDSKK): the bottom after a mulligan is the Keep / Bottom screen's ([OpeningKeepHost])
+    if (decision != null && decision.player.value == viewer && AutomatumOpening.bottomOwed(play) > 0) return
     // STK-027 (owner playtest 2026-11-04 #5, #6): nothing covers the board while you hold priority with something on the
     // Stack: it shows on the Stack, Resolve sits under it and a response is cast the usual way
     if (decision == null && holder == viewer) return

@@ -398,33 +398,35 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * step go through Automatum ([SharedFlowController.step]); an earlier step, the step it is in, and a step passed into
      * for a quick action's own work are refused. Null with Automatum off (the manual step change goes on).
      */
-    /** I-D49: the viewer's Keep / Bottom screen is open ([OpeningKeepHost]); personal UI. */
-    var keeping by mutableStateOf(false); private set
-    fun closeKeep() { keeping = false }
-
     /**
-     * The viewer's opening with Automatum on (I-D49, TRN-062): "Mulligan" sends the London mulligan as one batch (one
-     * Undo); "Keep" sets Ready at once when nothing is owed to the bottom, otherwise opens the Keep / Bottom screen.
+     * The viewer's opening with Automatum on (I-D49, TRN-062; owner problem report 5DDSKK): "Mulligan" sends the London
+     * mulligan (one Undo); "Keep" only keeps. Right after a mulligan that puts cards on the bottom, the Keep / Bottom screen
+     * is open ([OpeningKeepHost]) and both are refused until its OK.
      */
     override fun opening(intent: TableActionIntent): Boolean {
         val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        val owed = AutomatumOpening.bottomOwed(play)
+        if (owed > 0) {
+            AppLog.info("opening", "${intent::class.simpleName} refused: $owed still to put on the bottom")
+            error = bottomFirst(owed)
+            return false
+        }
         // I-D56 step C: the opening is the engine's setup (simultaneous mulligans, I-D54 §8)
         engine?.let { e ->
             return when (intent) {
-                is TableActionIntent.OpeningMulligan -> { keeping = false; e.mulligan().also { if (!it) error = QuickActions.NO_MORE_MULLIGANS } }
-                is TableActionIntent.Keep -> if (AutomatumOpening.owed(play.board, viewer) > 0) { error = null; keeping = true; true }
-                    else e.keep(emptyList())
+                is TableActionIntent.OpeningMulligan -> e.mulligan().also { if (!it) error = QuickActions.NO_MORE_MULLIGANS }
+                is TableActionIntent.Keep -> e.keep()
                 else -> false
             }
         }
         return false
     }
 
-    /** Keeps the viewer's hand with [bottom] put on the bottom of their library, then Ready (I-D49), as one batch. */
-    fun confirmKeep(bottom: List<String>): Boolean {
-        val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+    /** TRN-062: puts [bottom] on the bottom of the viewer's library, right after a mulligan (the Keep / Bottom screen). */
+    fun confirmBottom(bottom: List<String>): Boolean {
+        current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
         val e = engine ?: return false
-        return e.keep(bottom).also { if (it) keeping = false }
+        return e.bottom(bottom)
     }
 
     override fun automatumStep(intent: TableActionIntent): Boolean {
@@ -489,12 +491,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false; closeAbilities() }
     fun dismissTapUi() = dismiss()
     internal val hasBackOverlay get() = peek != null || capture != null || player != null ||
-        panel != null || keeping
+        panel != null
     internal fun dismissBackOverlay() {
         when {
             peek != null -> peek(null)
             capture != null || player != null || panel != null -> dismiss()
-            keeping -> closeKeep()
         }
     }
     fun tableMenu() { dismiss(); panel = "table" }

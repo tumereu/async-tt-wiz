@@ -19,7 +19,7 @@ class EngineOwnActionProbeTest {
 
     private fun mainPhase(game: EngineGame, drain: () -> Unit = {}) {
         game.tick(1_000); drain()
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); drain()
+        assertIs<GameDevice.Acted.Sent>(game.keep()); drain()
         game.tick(2_000); drain()
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
     }

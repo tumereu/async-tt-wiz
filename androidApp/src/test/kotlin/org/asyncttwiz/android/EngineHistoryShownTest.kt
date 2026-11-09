@@ -56,11 +56,11 @@ class EngineHistoryShownTest {
         sim.settings[f.a] = PLAYS_ON
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
-        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
         sim.flush(f.b)
         sim.deliver(f.a)
         alice.playToStop()
-        assertIs<GameDevice.Acted.Sent>(alice.keep(emptyList()))
+        assertIs<GameDevice.Acted.Sent>(alice.keep())
         sim.flush(f.a)
         // Bob sees the opening end, then goes away
         sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now); sim.flush(f.b)
@@ -112,8 +112,8 @@ class EngineHistoryShownTest {
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
         val routes = EngineTableRoutes(f.b, { bob }, {}, { bob.play() })
-        bob.keep(emptyList()); sim.flush(f.b)
-        sim.deliver(f.a); alice.playToStop(); alice.keep(emptyList()); sim.flush(f.a)
+        bob.keep(); sim.flush(f.b)
+        sim.deliver(f.a); alice.playToStop(); alice.keep(); sim.flush(f.a)
         repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(sim.now); sim.flush(g.me) }; sim.now += 500 }
         assertEquals(GameDevice.Status.YourMove, alice.device.status)
         val land = playLand(sim, alice)
@@ -209,8 +209,8 @@ class EngineHistoryShownTest {
         val sim = EngineAppSim(f)
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
-        bob.keep(emptyList()); sim.flush(f.b)
-        sim.deliver(f.a); alice.playToStop(); alice.keep(emptyList()); sim.flush(f.a)
+        bob.keep(); sim.flush(f.b)
+        sim.deliver(f.a); alice.playToStop(); alice.keep(); sim.flush(f.a)
         repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(sim.now); sim.flush(g.me) }; sim.now += 500 }
         // Alice is away; Bob suggests a draw
         sim.deliver(f.b); bob.playToStop()

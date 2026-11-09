@@ -50,7 +50,7 @@ class EngineOwnActionPartsTest {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker, clock = clock)
         worker.frames()
         game.tick(1_000); worker.frames()
-        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); worker.frames()
+        assertIs<GameDevice.Acted.Sent>(game.keep()); worker.frames()
         game.tick(2_000); worker.frames()
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
         // The keep's own probe gets its computed board, so the next action is the only one measured

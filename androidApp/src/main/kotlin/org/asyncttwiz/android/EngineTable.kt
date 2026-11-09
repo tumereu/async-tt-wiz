@@ -73,7 +73,9 @@ interface EngineRoutes {
     fun pass(): Boolean
     fun endTurn(): Boolean
     fun mulligan(): Boolean
-    fun keep(bottom: List<String>): Boolean
+    fun keep(): Boolean
+    /** TRN-062: the cards a mulligan puts on the bottom, right after it. */
+    fun bottom(cards: List<String>): Boolean
     /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging,
      * attack choices and early answers (shared as table changes at the head, I-D54 §8; behind it the declaring player's
      * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). [requestId]: the batch's
@@ -253,7 +255,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun holdResolve(): Boolean = done(game()?.holdResolve())
     override fun endTurn(): Boolean { val g = game() ?: return false; g.endTurn(); sent(); return true }
     override fun mulligan(): Boolean = done(game()?.mulligan())
-    override fun keep(bottom: List<String>): Boolean = done(game()?.keep(bottom))
+    override fun keep(): Boolean = done(game()?.keep())
+    override fun bottom(cards: List<String>): Boolean = done(game()?.bottom(cards))
 
     override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false

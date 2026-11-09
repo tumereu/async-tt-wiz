@@ -239,13 +239,11 @@ internal object Effects {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
                 act.state.objOrThrow(it).let { o -> if (o.facts.heldPhasedOut) act.record(Change.Facts(it, o.facts, o.facts.copy(heldPhasedOut = false))) }
             }
-            // eoe: a warped card is marked in exile (CR 702.185b)
-            is Effect.Mark -> (if (effect.mark == arcanum.api.ObjectMark.Warped) scope.objects(effect.objects).filter { act.state.obj(it)?.zone == Zone.Exile }
-                else onBattlefield(scope, effect.objects)).forEach {
-                // fra: becoming prepared or unprepared (CR 722.3a–c)
-                if (effect.mark == arcanum.api.ObjectMark.Prepared) {
-                    if (effect.remove) arcanum.engine.prepare.Prepare.unprepare(act, it) else arcanum.engine.prepare.Prepare.becomePrepared(act, it)
-                } else Actions.tapStatus(act, it, StatusFlag.Marked(effect.mark), !effect.remove)
+            // A mark goes only where it can live (a warped or plotted card in exile, CR 702.185b, 702.170c; a suspected permanent, 701.60b)
+            is Effect.Mark -> {
+                val zones = arcanum.api.MarkRules.of(effect.mark).zones
+                scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
+                    .forEach { Actions.setMark(act, it, effect.mark, !effect.remove) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
             is Effect.CreateToken -> createToken(scope, effect)
@@ -1452,7 +1450,10 @@ internal object Effects {
                 while (true) {
                     val owned = left.mapNotNull(lastControlled(scope))
                     val chooser = act.state.apnap().firstOrNull { p -> owned.any { it.first == p } } ?: owned.firstOrNull()?.first ?: break
-                    val explorer = act.chooseObjects(chooser, scope.self, owned.filter { it.first == chooser }.flatMap { it.second }, 1, 1, "Which one explores next?").single()
+                    val theirs = owned.filter { it.first == chooser }.flatMap { it.second }
+                    // Ones that left get no counter and reveal the same cards whichever goes first, so nothing is asked about them alone
+                    val explorer = if (theirs.none { act.state.obj(it)?.zone == Zone.Battlefield }) theirs.first()
+                        else act.chooseObjects(chooser, scope.self, theirs, 1, 1, "Which one explores next?").single()
                     explore(scope, explorer, chooser)
                     left = left - explorer
                 }

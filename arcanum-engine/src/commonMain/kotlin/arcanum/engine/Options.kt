@@ -647,7 +647,7 @@ internal object Options {
             s.player(player).outside
         return sources.asSequence().flatMap { id ->
             (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id) +
-                arcanum.engine.foretell.Foretell.actions(s, snap.view, id))
+                arcanum.engine.foretell.Foretell.actions(snap, id))
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }

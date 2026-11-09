@@ -259,6 +259,11 @@ class SharedFlow private constructor(
     /** The objects whose identity [player] may be shown now (D60, I-D27): public cards and their own. */
     fun visible(player: String): Set<ObjectId> = Engine.visible(state, PlayerId(player))
 
+    /** Whether [id] is an option of the open choice that no longer exists and was face up as it last existed (an explorer that left the
+     * battlefield, CR 701.44c, d): what it was stays public, so it is shown by what it was. */
+    fun offeredAfterLeaving(id: ObjectId): Boolean = state.obj(id) == null &&
+        (decision as? Decision.ChooseObjects)?.options?.contains(id) == true && Engine.lastKnown(state, id)?.characteristics?.name != null
+
     /** The ATW reference of an engine object or player (target glow, labels). */
     fun ref(target: TargetRef): MtgRef = view.ids.ref(target)
 

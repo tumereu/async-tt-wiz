@@ -19,6 +19,7 @@ import arcanum.api.Step
 import arcanum.api.Trigger
 import arcanum.api.Value
 import arcanum.api.Zone
+import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.cards.face
 import arcanum.engine.casting.Snapshot
@@ -179,6 +180,63 @@ class KeywordActionTriggersTest {
             alice.hand has "Forest"
             bob.hand has "Island"
         }
+    }
+
+    /** A sorcery: each creature is to explore, but the Goners are destroyed first. */
+    private val partingTrek by lazy {
+        val everyone = arcanum.api.ObjectFilter.Type(CardType.Creature)
+        Cards.define("Last Trek", CardDefinition(Layout.Normal, listOf(FaceDefinition("Last Trek", types = listOf(CardType.Sorcery),
+            abilities = listOf(Ability.Spell(Instructions(steps = listOf(
+                Step.Bind(arcanum.api.Objects.Each(everyone), "them"),
+                Step.Do(Effect.Destroy(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.And(listOf(everyone, arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype("Goner"))))))),
+                Step.Do(Effect.Action(KeywordAction.Explore(arcanum.api.Objects.Bound("them")))),
+            ))))))))
+    }
+
+    // CR 701.44a, c, d: an explorer that left gets no counter, so among several of them the order changes nothing: no question, each still explores
+    @Test
+    fun onlyExplorersThatLeftArentAskedAbout() = scenario {
+        val first = Cards.invent("First Goner", "{0}", "Creature — Goner", "", "1/1")
+        val second = Cards.invent("Second Goner", "{0}", "Creature — Goner", "", "1/1")
+        alice.battlefield(first, second)
+        alice.library("Forest", "Plains")
+        alice.hand(partingTrek)
+        alice.castsWithoutCosts(partingTrek)
+        val outcome = resolve()
+        assertTrue(outcome.pending?.decision !is arcanum.engine.decision.Decision.ChooseObjects, "${outcome.pending?.decision}")
+        settleAll()
+        assertEquals(2, explored().size)
+        expect {
+            alice.graveyard has first
+            alice.graveyard has second
+            alice.hand has "Forest"
+            alice.hand has "Plains"
+        }
+    }
+
+    // CR 701.44d: with a permanent still there the order matters (it gets the counter or the land), so the one that left is offered beside it
+    @Test
+    fun oneThatLeftIsOfferedBesideOneStillThere() = scenario {
+        val goner = Cards.invent("Lost Goner", "{0}", "Creature — Goner", "", "1/1")
+        val other = Cards.invent("Staying Scout", "{0}", "Creature — Elf Scout", "", "1/1")
+        alice.battlefield(goner, other)
+        alice.library("Storm Spark", "Forest")
+        alice.hand(partingTrek)
+        val left = card(goner)
+        alice.castsWithoutCosts(partingTrek)
+        val asked = resolve().let { decision<arcanum.engine.decision.Decision.ChooseObjects>() }
+        assertEquals(setOf(left, card(other)), asked.options.toSet())
+        // As it last existed: its name for the panel
+        assertEquals("Lost Goner", Engine.lastKnown(state, left)?.characteristics?.name)
+        answer(Answer.Objects(listOf(left)))
+        answer(Answer.YesNo(true))
+        settleAll()
+        expect {
+            other.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 0
+            alice.graveyard has "Storm Spark"
+            alice.hand has "Forest"
+        }
+        assertEquals(listOf(left, card(other)), explored())
     }
 
     // ---- Proliferate

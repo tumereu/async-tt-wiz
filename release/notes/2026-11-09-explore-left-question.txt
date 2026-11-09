@@ -1,0 +1,1 @@
+fix: When several creatures explore at once, one that has already left the battlefield now shows as the card it was, not as a hidden card, and you are no longer asked the order when all of them have left.

@@ -398,7 +398,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             when (val a = ability) {
                 // hob: "you may pay {0} rather than pay the equip cost" (CR 118.9, 602.2b): a free alternative is never worse, so it is used
                 is Ability.Activated -> add(Costs.Contribution("base", freeAlternative() ?: a.cost))
-                is Ability.SpecialAction -> add(Costs.Contribution("base", a.cost))
+                // CR 118.9: so for a special action ("the first card you foretell each turn costs {0} to foretell")
+                is Ability.SpecialAction -> add(Costs.Contribution("base", freeAlternative() ?: a.cost))
                 else -> Unit
             }
         }
@@ -415,8 +416,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         if (m.firstEachTurn) {
             val keyword = (m.abilities as? ObjectFilter.AbilityOf)?.keyword?.id
             val earlier = snap.state.eventsOf(snap.state.turn.number).count { c ->
-                val a = (c as? arcanum.engine.change.Change.Happened)?.event as? arcanum.engine.change.GameEvent.Activated
-                a != null && a.player == player && !a.manaAbility && (keyword == null || a.keyword == keyword)
+                when (val event = (c as? arcanum.engine.change.Change.Happened)?.event) {
+                    is arcanum.engine.change.GameEvent.Activated -> event.player == player && !event.manaAbility && (keyword == null || event.keyword == keyword)
+                    // CR 702.143c: foretelling is a special action, so no activation: its own event counts
+                    is arcanum.engine.change.GameEvent.KeywordActionDone -> keyword == Keyword.Foretell.Kind.id && event.action == arcanum.api.KeywordActionKind.Foretell && event.player == player
+                    else -> false
+                }
             }
             if (earlier > 0) return@firstNotNullOfOrNull null
         }

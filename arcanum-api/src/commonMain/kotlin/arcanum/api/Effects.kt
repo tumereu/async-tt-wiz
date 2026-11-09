@@ -115,8 +115,9 @@ sealed interface Effect {
     @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects, val untilLeaves: Objects? = null, val bind: String? = null) : Effect
     /** mh2: [objects] phase in (CR 702.26c): those [PhaseOut.untilLeaves] holds out, as the object they wait for leaves. */
     @Serializable @SerialName("phase-in") data class PhaseIn(val objects: Objects) : Effect
-    /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). Saddled ends at end of turn or when
-     * it leaves the battlefield (CR 702.171b). */
+    /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"): only on those where it can live ([MarkRules]): a
+     * permanent's marks on permanents, "becomes plotted" or "becomes foretold" on a card in exile (CR 702.170c, 702.143d). When it clears
+     * and what it gives are in the table too. */
     @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 

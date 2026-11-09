@@ -806,6 +806,7 @@ internal fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String
 internal fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
     else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
+        ?: arcanum.engine.Engine.lastKnown(flow.engine, id)?.characteristics?.name
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
 
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {

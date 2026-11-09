@@ -218,7 +218,7 @@ val ringTemptsYou: Trigger = on(EventPattern.RingTempts(PlayerFilter.You))
 /** "if you chose a creature other than [this] as your Ring-bearer" (CR 701.54a) */
 val choseAnotherBearer: Condition = Condition.ObjectMatches(Objects.EventObject(arcanum.api.EventRole.Object), not(ObjectFilter.Is(Objects.Self)))
 /** "Whenever you scry" (CR 701.22) */
-val youScry: Trigger = on(EventPattern.Scry(PlayerFilter.You))
+val youScry: Trigger = on(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Scry, PlayerFilter.You))
 /** "a Goblin or Orc" */
 val goblinOrOrc: ObjectFilter = or(sub("Goblin"), sub("Orc"))
 /** A 1/1 white Human Soldier creature token. */

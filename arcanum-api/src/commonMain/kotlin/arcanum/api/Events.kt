@@ -164,7 +164,9 @@ sealed interface EventPattern {
     @Serializable @SerialName("day-night") data class DayNightChanges(val toNight: Boolean? = null) : EventPattern
     /** A spell matching [spell] is copied by a player matching [by] ("whenever you copy a spell"). */
     @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter, val by: PlayerFilter) : EventPattern
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Scry] (CR 701.22d). */
     @Serializable @SerialName("scry") data class Scry(val players: PlayerFilter) : EventPattern
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Surveil] (CR 701.25d). */
     @Serializable @SerialName("surveil") data class Surveil(val players: PlayerFilter) : EventPattern
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
     @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
@@ -184,16 +186,15 @@ sealed interface EventPattern {
     @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter, val won: Boolean = false) : EventPattern
     /** A Vehicle matching [objects] becomes crewed (CR 702.122). Roles object (the Vehicle), other combatant unused. */
     @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter) : EventPattern
-    /** A Mount matching [objects] becomes saddled (CR 702.171). */
+    /** Stored definitions only, until the wipe: [GotMark] of [ObjectMark.Saddled] (CR 702.171b). */
     @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
-    /** A player gives a gift: an instant or sorcery spell they control whose gift was promised resolves, or the gift
-     * trigger of a permanent they control resolves (CR 702.174c). */
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.GiveGift]: an instant or sorcery spell a player
+     * controls whose gift was promised resolves, or the gift trigger of a permanent they control resolves (CR 702.174c). */
     @Serializable @SerialName("give-gift") data class GiveGift(val players: PlayerFilter) : EventPattern
     /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
     @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
-    /** A player forages (CR 701.61a, "Whenever you forage"). */
     /** A creature matching [objects] mutates (CR 702.140d): a mutating creature spell merged with it as it resolved. Role object: the
      * merged permanent. */
     @Serializable @SerialName("mutates") data class Mutates(val objects: ObjectFilter) : EventPattern
@@ -206,6 +207,7 @@ sealed interface EventPattern {
         /** "Whenever you choose a creature as your Ring-bearer": only when a creature was chosen. */
         val chosen: Boolean = false,
     ) : EventPattern
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Forage] (CR 701.61a). */
     @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
     /** A player completes a dungeon (CR 309.7, "Whenever you complete a dungeon"). */
     @Serializable @SerialName("completes-dungeon") data class CompletesDungeon(val players: PlayerFilter) : EventPattern
@@ -224,13 +226,13 @@ sealed interface EventPattern {
      * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
     // tla
-    /** A player matching [players] airbends: exiles one or more objects as a result of an instruction to airbend (CR 701.65b). */
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Airbend] (CR 701.65b). */
     @Serializable @SerialName("airbend") data class Airbend(val players: PlayerFilter) : EventPattern
-    /** A player matching [players] earthbends: as the delayed triggered ability of an earthbend is created (CR 701.66b). */
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Earthbend] (CR 701.66b). */
     @Serializable @SerialName("earthbend") data class Earthbend(val players: PlayerFilter) : EventPattern
-    /** A player matching [players] firebends: a firebending ability they control resolves (CR 702.189b). */
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Firebend] (CR 702.189b). */
     @Serializable @SerialName("firebend") data class Firebend(val players: PlayerFilter) : EventPattern
-    /** A player matching [players] waterbends: pays a waterbend cost, however they paid it (CR 701.67c). */
+    /** Stored definitions only, until the wipe: [KeywordActionDone] of [KeywordActionKind.Waterbend] (CR 701.67c). */
     @Serializable @SerialName("waterbend") data class Waterbend(val players: PlayerFilter) : EventPattern
     /** A triggered ability of an object matching [source] triggers on an event matching [cause] ("Whenever a creature you control
      * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
@@ -240,6 +242,104 @@ sealed interface EventPattern {
     /** A creature matching [exploiter] exploits a creature: the controller of its exploit ability sacrifices a creature as that ability
      * resolves (CR 702.110b). Roles object (the sacrificed creature, as it last existed) and source (the exploiting creature). */
     @Serializable @SerialName("exploits") data class Exploits(val exploiter: ObjectFilter) : EventPattern
+    /** A player matching [players] (null: any) does the keyword action [action], with an object matching [objects] (null: with or
+     * without one): "Whenever you proliferate", "Whenever a creature you control explores", "Whenever you exert a creature". One pattern
+     * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
+     * most, once its whole process is done even if some of it was impossible (CR 701.22d, 701.25d, 701.44b, 701.50f, 701.57b). Role
+     * object (the objects the action names, as they last existed if they have left, CR 701.44c, 701.50b); [Players.EventPlayer] is
+     * who did it (a permanent's controller, for what a permanent does); the event's amount is the N of "scry N" and "surveil N". */
+    @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
+        val action: KeywordActionKind, val players: PlayerFilter? = null, val objects: ObjectFilter? = null,
+    ) : EventPattern
+    /** An object matching [objects] gains the designation [mark], which it didn't have: "Whenever a creature you control becomes monstrous"
+     * (CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 722.3a). One pattern for
+     * every mark, so a new mark needs no new event type. Role object (the marked object); [Players.EventPlayer] is its controller. */
+    @Serializable @SerialName("got-mark") data class GotMark(val mark: ObjectMark, val objects: ObjectFilter) : EventPattern
+}
+
+/**
+ * A verb a [EventPattern.KeywordActionDone] can wait for: the keyword actions of CR 701 (every [KeywordAction] and those with their own
+ * effect type, [Scry], [Surveil]), and what the rules name like one: foretelling a card (CR 702.143c), firebending (CR 702.189b), giving a
+ * gift (CR 702.174c). Parameters such as the N of "scry N" aren't part of the verb.
+ */
+@Serializable
+sealed interface KeywordActionKind {
+    @Serializable @SerialName("adapt") data object Adapt : KeywordActionKind
+    @Serializable @SerialName("airbend") data object Airbend : KeywordActionKind
+    @Serializable @SerialName("amass") data object Amass : KeywordActionKind
+    @Serializable @SerialName("behold") data object Behold : KeywordActionKind
+    @Serializable @SerialName("blight") data object Blight : KeywordActionKind
+    @Serializable @SerialName("bolster") data object Bolster : KeywordActionKind
+    @Serializable @SerialName("cloak") data object Cloak : KeywordActionKind
+    @Serializable @SerialName("collect-evidence") data object CollectEvidence : KeywordActionKind
+    @Serializable @SerialName("connive") data object Connive : KeywordActionKind
+    @Serializable @SerialName("detain") data object Detain : KeywordActionKind
+    @Serializable @SerialName("discover") data object Discover : KeywordActionKind
+    @Serializable @SerialName("double") data object Double : KeywordActionKind
+    @Serializable @SerialName("earthbend") data object Earthbend : KeywordActionKind
+    @Serializable @SerialName("empower-jace") data object EmpowerJace : KeywordActionKind
+    @Serializable @SerialName("endure") data object Endure : KeywordActionKind
+    @Serializable @SerialName("exert") data object Exert : KeywordActionKind
+    @Serializable @SerialName("explore") data object Explore : KeywordActionKind
+    @Serializable @SerialName("firebend") data object Firebend : KeywordActionKind
+    @Serializable @SerialName("forage") data object Forage : KeywordActionKind
+    @Serializable @SerialName("foretell") data object Foretell : KeywordActionKind
+    @Serializable @SerialName("give-gift") data object GiveGift : KeywordActionKind
+    @Serializable @SerialName("goad") data object Goad : KeywordActionKind
+    @Serializable @SerialName("investigate") data object Investigate : KeywordActionKind
+    @Serializable @SerialName("learn") data object Learn : KeywordActionKind
+    @Serializable @SerialName("manifest") data object Manifest : KeywordActionKind
+    @Serializable @SerialName("manifest-dread") data object ManifestDread : KeywordActionKind
+    @Serializable @SerialName("meld") data object Meld : KeywordActionKind
+    @Serializable @SerialName("monstrosity") data object Monstrosity : KeywordActionKind
+    @Serializable @SerialName("populate") data object Populate : KeywordActionKind
+    @Serializable @SerialName("proliferate") data object Proliferate : KeywordActionKind
+    @Serializable @SerialName("recruit") data object Recruit : KeywordActionKind
+    @Serializable @SerialName("regenerate") data object Regenerate : KeywordActionKind
+    @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordActionKind
+    @Serializable @SerialName("scry") data object Scry : KeywordActionKind
+    @Serializable @SerialName("support") data object Support : KeywordActionKind
+    @Serializable @SerialName("surveil") data object Surveil : KeywordActionKind
+    @Serializable @SerialName("time-travel") data object TimeTravel : KeywordActionKind
+    @Serializable @SerialName("venture") data object Venture : KeywordActionKind
+    @Serializable @SerialName("waterbend") data object Waterbend : KeywordActionKind
+}
+
+/** The verb of this action, whatever its parameters. */
+val KeywordAction.kind: KeywordActionKind get() = when (this) {
+    is KeywordAction.Adapt -> KeywordActionKind.Adapt
+    is KeywordAction.Airbend -> KeywordActionKind.Airbend
+    is KeywordAction.Amass -> KeywordActionKind.Amass
+    is KeywordAction.Behold -> KeywordActionKind.Behold
+    is KeywordAction.Blight -> KeywordActionKind.Blight
+    is KeywordAction.Bolster -> KeywordActionKind.Bolster
+    is KeywordAction.Cloak -> KeywordActionKind.Cloak
+    is KeywordAction.CollectEvidence -> KeywordActionKind.CollectEvidence
+    is KeywordAction.Connive -> KeywordActionKind.Connive
+    is KeywordAction.Detain -> KeywordActionKind.Detain
+    is KeywordAction.Discover -> KeywordActionKind.Discover
+    is KeywordAction.Double -> KeywordActionKind.Double
+    is KeywordAction.Earthbend -> KeywordActionKind.Earthbend
+    is KeywordAction.EmpowerJace -> KeywordActionKind.EmpowerJace
+    is KeywordAction.Endure -> KeywordActionKind.Endure
+    is KeywordAction.Exert -> KeywordActionKind.Exert
+    is KeywordAction.Explore -> KeywordActionKind.Explore
+    KeywordAction.Forage -> KeywordActionKind.Forage
+    is KeywordAction.Goad -> KeywordActionKind.Goad
+    is KeywordAction.Investigate -> KeywordActionKind.Investigate
+    KeywordAction.Learn -> KeywordActionKind.Learn
+    is KeywordAction.Manifest -> KeywordActionKind.Manifest
+    is KeywordAction.ManifestDread -> KeywordActionKind.ManifestDread
+    is KeywordAction.Meld -> KeywordActionKind.Meld
+    is KeywordAction.Monstrosity -> KeywordActionKind.Monstrosity
+    KeywordAction.Populate -> KeywordActionKind.Populate
+    KeywordAction.Proliferate -> KeywordActionKind.Proliferate
+    KeywordAction.Recruit -> KeywordActionKind.Recruit
+    is KeywordAction.Regenerate -> KeywordActionKind.Regenerate
+    is KeywordAction.Support -> KeywordActionKind.Support
+    KeywordAction.TheRingTemptsYou -> KeywordActionKind.TheRingTemptsYou
+    KeywordAction.TimeTravel -> KeywordActionKind.TimeTravel
+    KeywordAction.Venture, is KeywordAction.VentureInto -> KeywordActionKind.Venture
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

@@ -101,11 +101,13 @@ internal object Payment {
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
         total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
         // tla: paying a waterbend cost is waterbending, however it was paid (CR 701.67c)
-        if (total.waterbends) recorder.record(Change.Happened(GameEvent.Waterbended(plan.player)))
+        if (total.waterbends) recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, plan.player)))
         // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
         total.parts.mapNotNull { kp -> kp.key.substringBefore(Costs.FORAGE, "").takeIf { it.isNotEmpty() } }.distinct().forEach {
-            recorder.record(Change.Happened(GameEvent.Foraged(plan.player)))
+            recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Forage, plan.player)))
         }
+        // a keyword action paid as the cost part it is (CR 701.59a: collecting evidence)
+        total.parts.mapNotNull { it.doneAs }.forEach { recorder.record(Change.Happened(GameEvent.KeywordActionDone(it, plan.player))) }
         val names = Bindings(bound)
         return when {
             plan.isManaAbility -> finishManaAbility(act, plan, names, nested, triggered)
@@ -486,6 +488,7 @@ internal object Payment {
                 val n = eval.value((part.action as arcanum.api.KeywordAction.Blight).count)
                 ids.forEach { id -> Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.PowerToughness(-1, -1), n, listOf(Meaning.Paid)) }
                 part.bind?.let { bound[it] = NamedValue.Objects(ids) }
+                recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Blight, player, ids)))
             }
             // ecl: a choice made with the costs ("choose a creature type and behold two creatures of that type"): asked by the plan
             is CostPart.Choose -> Unit
@@ -502,6 +505,7 @@ internal object Payment {
                 val revealed = ids.filter { s.obj(it)?.zone == Zone.Hand }
                 if (revealed.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(player, revealed)))
                 part.bind?.let { bound[it] = NamedValue.Objects(ids) }
+                recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Behold, player, ids)))
             }
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
             is CostPart.Mana, CostPart.ItsManaCost -> Unit

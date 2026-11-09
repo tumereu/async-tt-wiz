@@ -28,6 +28,12 @@ The definition model (overview in `Definitions.kt`):
   Blood and the other tokens of CR 111.10.
   Mechanics that are only a keyword's meaning are `Mechanic.KeywordOnly` and
   appear only there; `DefinitionChecks.problems` reports them in definitions.
+- Generic trigger events: `EventPattern.KeywordActionDone(action, players, objects)` for doing any keyword action (`KeywordActionKind`, with
+  `KeywordAction.kind` the verb of an action; also foretelling, firebending and giving a gift) and `EventPattern.GotMark(mark, objects)` for gaining
+  any `ObjectMark`, so a new verb is one line in `KeywordActionKind` and a new mark needs nothing. New definitions use these. The per-verb
+  patterns they replace (`Scry`, `Surveil`, `Forage`, `GiveGift`, `Airbend`, `Earthbend`, `Firebend`, `Waterbend`, `Saddled`) stay for stored
+  definitions until the one approved wipe; patterns with roles of their own keep their shape (`ManifestDread`, `RingTempts`, `Exploits`, `Enlists`,
+  `Mutates`, `Cycle`, `Search`, `Expend`).
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.

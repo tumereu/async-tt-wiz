@@ -513,6 +513,13 @@ sealed interface GameEvent {
     @Serializable @SerialName("control-changed") data class ControlChanged(val id: ObjectId, val from: PlayerId, val to: PlayerId) : GameEvent
     /** [player] would mill [count] cards (CR 701.17): proposed only, for replacements of the mill. */
     @Serializable @SerialName("milling") data class Milling(val player: PlayerId, val count: Int) : GameEvent
+    /** [player] did the keyword action [action] (a permanent's controller, for what a permanent does) to or with [objects], [amount] the N of
+     * "scry N": what [arcanum.api.EventPattern.KeywordActionDone] reads, one event type for every verb. Recorded when the rules say the
+     * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). The events of one verb above (scried, foraged, ...) stay for
+     * stored games' logs until the wipe; nothing records them now. */
+    @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
+        val action: arcanum.api.KeywordActionKind, val player: PlayerId, val objects: List<ObjectId> = emptyList(), val amount: Int? = null,
+    ) : GameEvent
 }
 
 /**
@@ -536,7 +543,8 @@ sealed interface Meaning {
     /** A card discarded to pay the cost of a cycling ability: it was cycled (CR 702.29c, 702.29f). */
     @Serializable @SerialName("cycled") data object Cycled : Meaning
     // dft
-    /** Done to pay the cost of an ability whose X was announced as [x] ("Cycling {X}{2}{W}", read by "When you cycle this card, create X tokens"). */
+    /** Done to pay the cost of an ability whose X was announced as [x] ("Cycling {X}{2}{W}", read by "When you cycle this card, create X tokens"),
+     * or becoming monstrous by "monstrosity [x]" (read by "When this creature becomes monstrous, create X tokens", CR 701.37c). */
     @Serializable @SerialName("cost-x") data class CostX(val x: Int) : Meaning
     @Serializable @SerialName("drew") data object Drew : Meaning
     @Serializable @SerialName("milled") data object Milled : Meaning

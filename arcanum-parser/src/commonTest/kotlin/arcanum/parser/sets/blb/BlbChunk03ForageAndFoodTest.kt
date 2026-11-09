@@ -267,7 +267,7 @@ class BlbChunk03ForageAndFoodTest {
             instructions = steps(Step.May(listOf(Step.Do(Effect.Action(KeywordAction.Forage))), player = Players.You)),
         ),
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.Forage(PlayerFilter.You)),
+            trigger = Trigger.On(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.Forage, PlayerFilter.You)),
             instructions = steps(counters(Objects.Self)),
         ),
     )

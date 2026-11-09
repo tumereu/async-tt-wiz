@@ -585,6 +585,12 @@ internal object Payment {
                     controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely)
             })
         }
+        // CR 106.6, 603.7a: mana that creates a delayed trigger "when that mana is spent": one trigger for each such mana, with the
+        // spell as its event object (an ability on the Stack above the spell, CR 603.3)
+        spent.filter { it.whenSpent != null }.map { unit ->
+            arcanum.engine.decision.WaitingTrigger(plan.player, Ability.Triggered(arcanum.api.Trigger.On(emptyList()), unit.whenSpent!!), null, unit.source,
+                event = arcanum.engine.state.TriggerEvent(objects = listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id)))))
+        }.let { arcanum.engine.trigger.Triggers.addWaiting(recorder, it) }
         // CR 608.2g: no player receives priority after a spell cast while another resolves
         if (!plan.byEffect) Casting.keepPriority(recorder, plan.player)
         return Progress.Done

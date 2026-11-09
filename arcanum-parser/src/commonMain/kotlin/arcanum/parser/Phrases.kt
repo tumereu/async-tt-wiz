@@ -62,6 +62,11 @@ internal object Filters {
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
         }
+        // fdn chunk 11c: "red instant or sorcery spell": the colour describes both kinds (CR 202.2)
+        Fdn.COLOR_TYPE_OR_TYPE.matchEntire(phrase)?.let { m ->
+            return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} ${m.groupValues[2]}${m.groupValues[4]}") ?: return null,
+                noun("${m.groupValues[1]} ${m.groupValues[3]}${m.groupValues[4]}") ?: return null))
+        }
         gtcNoun(phrase)?.let { return it }
         // fdn chunk 10a: "creatures you control of the chosen color" (the color chosen as this permanent entered, CR 105.1)
         OF_CHOSEN_COLOR.matchEntire(phrase)?.let { m ->
@@ -629,6 +634,10 @@ internal object Events {
         }
         // chunk 12
         // "you cast a creature spell": the event's object is always a spell, so the filter names only its kind.
+        // fdn chunk 11c: "you cast a spell of the chosen color" (the color an as-enters choice remembered)
+        YOU_CAST_OF_CHOSEN.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(spell = Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You)
+        }
         YOU_CAST.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
@@ -715,6 +724,8 @@ internal object Events {
         // chunk 36: "the beginning of each end step": every player's
         BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         // blb chunk 05: "the beginning of each opponent's upkeep"
+        // fdn chunk 11c: "the beginning of each player's draw step" (every turn's step, CR 503.1)
+        BEGINNING_OF_EACH_PLAYERS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         BEGINNING_OF_EACH_OPPONENTS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Opponent) }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
@@ -877,6 +888,7 @@ internal object Events {
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
     // chunk 12
+    private val YOU_CAST_OF_CHOSEN = Regex("""you cast an? (spell of the chosen \w+)""")
     private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")
     // chunk 25
     private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
@@ -924,6 +936,7 @@ internal object Events {
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
+    private val BEGINNING_OF_EACH_PLAYERS = Regex("""the beginning of each player's (upkeep|draw step|end step)""")
     private val BECOMES_LEVEL = Regex("""(.+) becomes level (\d+)""")
     private val ONE_OR_MORE_DIE = Regex("""one or more (.+) die""")
     // blb chunk 04

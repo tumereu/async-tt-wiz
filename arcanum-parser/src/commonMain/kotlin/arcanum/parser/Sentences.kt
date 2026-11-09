@@ -2345,6 +2345,23 @@ internal class Sentences(
             val (first, _) = trigger(m.groupValues[1]) ?: return null
             return first.copy(nthThisTurn = 1) to arcanum.api.Condition.YourTurn
         }
+        // fdn chunk 11c: "you put one or more +1/+1 counters on this creature" (once for the batch, by your spells and abilities, CR 122.6);
+        // "one or more +1/+1 counters are put on another non-Hydra creature you control" (by anything)
+        Fdn.YOU_PUT_COUNTERS_ON_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null,
+                causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to null
+        }
+        Fdn.COUNTERS_ARE_PUT_ON.matchEntire(text)?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.CountersPut(Filters.noun(m.groupValues[2]) ?: return null, Counters.kind(m.groupValues[1]) ?: return null),
+                oneOrMore = true) to null
+        }
+        // fdn chunk 11c: "a creature dealt damage by this creature this turn dies" (CR 603.10a: it looks back at the creature as it died)
+        Fdn.DEALT_DAMAGE_BY_DIES.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val dying = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(Filters.all(dying,
+                ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = EventRole.Object)),
+                from = Zone.Battlefield, to = Zone.Graveyard)) to null
+        }
         ltrTrigger(text)?.let { return it } // ltr
         mh2Trigger(text)?.let { return it } // mh2
         dftTrigger(text)?.let { return it } // dft
@@ -22572,6 +22589,17 @@ internal class Sentences(
             val objects = ltrSelfOrAnother(subject) ?: return@let
             return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.BecomesTarget(objects, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))),
                 Instructions(steps = listOf(Step.Do(Effect.PhaseOut(Objects.EventObject(EventRole.Object))))))
+        }
+        // fdn chunk 11c: "{T}: Add {R}. When that mana is spent to cast a red instant or sorcery spell, copy that spell and you may choose new targets
+        // for the copy." (a delayed trigger for the mana, CR 106.6, 603.7a): the copy step runs only if the spell is of that kind
+        Fdn.ADD_WHEN_THAT_MANA_SPENT.matchEntire(line)?.let { m ->
+            val inner = line(m.groupValues[1]) as? Ability.Activated ?: return@let
+            val add = (inner.instructions.steps.singleOrNull() as? Step.Do)?.effect as? Effect.AddMana ?: return@let
+            val spell = Filters.noun(m.groupValues[2]) ?: return@let
+            if (m.groupValues[3] != "copy that spell and you may choose new targets for the copy") return@let
+            val copy = Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true))
+            val then = Instructions(steps = listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.Object), spell), listOf(copy))))
+            return inner.copy(instructions = inner.instructions.copy(steps = listOf(Step.Do(add.copy(mana = add.mana.copy(whenSpent = then))))))
         }
         // ltr chunk 09: "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can't be countered." (CR 106.6)
         Ltr.SPEND_ONLY_AND_CANT_BE_COUNTERED.matchEntire(line)?.let { m ->

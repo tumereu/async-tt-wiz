@@ -24,6 +24,28 @@ Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the 
 
 - One chat per pod for its members, kept as long as the pod, with a chat button and unread dot on the pod screens; a notification on the Draft activity channel. In a pod game the chat panel has two tabs, Game and Pod. Pod messages show no bubbles on the table, but they do light the dot on the table's chat button, and a tab with a message you haven't seen is highlighted while you are on the other (dismissing a game message's bubble counts as seeing it). Needs server storage, its limits as a game chat's. No "Read" marks unless the implementor finds them plain for several members; list it under choices.
 
+Pod notes, screens (owner, 2026-11-09):
+
+- Pips and sources (DRF-114): full width is 100% of all pips and of all sources, no scaling to the largest, each colour's pip bar over its source bar, so what you see sums to one whole and imbalances show by eye; both shares as percentages.
+- Draft deck cover (LOB-058, DRF-094): a cover thumbnail beside the deck's name in Build; a tap chooses it from your cards.
+- Main and Side headers (DRF-094, DRF-119): a warning icon when Main is under 40 or Side is over its limit; holding it says why.
+- Graveyard and exile (ZON-033, ZON-035): a tap opens the search view at once; the one-button menu goes.
+- Menus (LOB-015, LOB-018): Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and Pods come above the menu section.
+- Stats (LOB-132): match length in 4-turn ranges from 1-4 to 33+; the top tiles fill the whole width; win % by colour uses real mana symbols.
+
+Pod notes, game flow (owner, 2026-11-09), one at a time and after the current undo fix:
+
+- The game's end (TRN-065, LOB-126, HIS-084): OK always works, but is greyed for the first seconds any ending or suggestion dialog shows, so a misclick can't accept it. For a result the rules gave: after your OK you stay at the table, "Waiting for <name> to acknowledge"; your OK can be taken back until they press theirs; both OKs make it final and only then does each player go to the lobby; Undo works until it is final, with the usual approval. A concession or an agreed result is final at once, and each player goes to the lobby only after their own OK.
+- Reveals (HIS-110): every reveal shows to both players with an OK, your own included, and dismissing it is each player's own. Check that "reveal until a land" (House Cartographer) counts as a reveal for both.
+- Assume default (LOB-113, HIS-096): "No mana" is the default, for every account's new games too (a migration); games in play keep theirs.
+- Ability chips (TBL-122, TBL-124, TBL-130): a card with two or more activated abilities opens the chips even when one is usable now, the unusable greyed with why; during a payment a tap still picks the source.
+- Convoke and picked sources (STK-024): a spell with convoke always opens the payment panel, also with Autotap on; in any payment, picked cards move out of their pile into their own pile to its right, so they are easy to see and unpick.
+- The wait (TRN-066, STK-057): one place, a semi-transparent dark band under the other player's hand, smaller text, up to 4 lines, replacing the faint centre text; the "may respond" line moves there too. The chip on the top bar shows, then fades, even when the state lasts.
+
+Needs discussion, owner thinking (2026-11-09):
+
+- When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.
+
 Arcanum engine generalisation (owner, 2026-11-08; after castability merges; reviewed by session async-tt-wiz-74 before each merge; probes ~/projects/atw-cache/engine-genericity-probes-2026-11-08.kt; every card of `:arcanum-tools:setSupport` stays supported; mutate, banding, day/night and the Saga/Aura/Army/Human checks are not in scope). Stored games hold definitions, states and events in a strict format (`EngineJson`). The owner approved one wipe for the release carrying all four items, so the format breaks only once: each item only adds, keeping existing games loading; a last step, after all four, removes the old stored types and fields (`EventPattern.Scry`, `Surveil`, `Forage`, `GiveGift`, `Airbend`, `Earthbend`, `Firebend`, `Waterbend`, `Saddled` and `GameEvent.Scried`, `Surveilled`, `Foraged`, `GaveGift`, `Airbended`, `Earthbended`, `Firebended`, `Waterbended`, with `storedVerb` and the old-event cases of `doneIn` in `EventMatcher` and the tests of them: `StoredVerbFormatTest`, `oldPatternsAndOldEventsStillMeetTheNewOnes`, `aStoredForageTriggerStillTriggers`, the `Saddled` pattern in `SaddleAndExpendTriggersTest`; `ObjectFacts.foretoldTurn` and `plottedTurn`, `ObjectMark` types and fields, `EffectObject.copied`, the engine's match of a whole split name "A // B" in `Evaluator.hasChosenName`) with a single wipe migration. The owner deploys that release themselves, and its summary says plainly that it wipes games. In this order, one implementor at a time:
 
 - A mark rules table beside KeywordExpansions, and one shared exile-cast permission path (Foretell, Plot, Prepare). Fixes: a card foretold through granted foretell is castable later (CR 702.143a); "becomes plotted" works on an exiled card; foretell's cost and timing can be changed.

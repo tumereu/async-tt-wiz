@@ -48,6 +48,13 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     val currentWritable by rememberUpdatedState(writable)
     val currentRuntime by rememberUpdatedState(runtime)
     var presentation by remember(play.playId, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
+    // HIS-021, HIS-112, HIS-113: a finger held on the table, or an Inspect open, pauses what the view is waiting on
+    val viewPause = LocalEngineRoutes.current?.viewPause
+    val currentViewPause by rememberUpdatedState(viewPause)
+    DisposableEffect(viewPause, toolkit) {
+        viewPause?.inspecting = { toolkit?.peek != null }
+        onDispose { viewPause?.finger = false; viewPause?.inspecting = { false } }
+    }
     val density = LocalDensity.current.density
     val coordinator = remember(play.playId, accountId, density) {
         lateinit var owner: TableGestureCoordinator
@@ -78,8 +85,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
                 TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.holdTap != null && !owner.tapOnHand) {
-                    // HIS-113: while a combat holds the view a tap on the table (not the hand) only skips that
-                    currentRuntime.holdTap?.invoke()
+                    // HIS-113 (owner, 2026-11-08): while a combat holds the view a single tap on the table (not the hand) does
+                    // nothing; a double tap skips it ([TableGestureCoordinator.viewHoldSkip])
                 } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
@@ -108,7 +115,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 else -> if (currentWritable) callback?.invoke(intent)
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
-            onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) })
+            onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) },
+            onHeld = { held -> currentViewPause?.finger = held })
+        owner.viewHoldSkip = { currentRuntime.holdTap }
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }

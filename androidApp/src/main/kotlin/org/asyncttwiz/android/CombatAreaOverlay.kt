@@ -305,6 +305,8 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
     LaunchedEffect(key) { if (key != null) appear.animateTo(1f, androidx.compose.animation.core.tween(CHIP_FADE_MILLIS)) }
     if (lanes.isEmpty()) return
     var held by remember(key) { mutableStateOf<CombatLaneLabel?>(null) }
+    // HIS-113: a finger held on a chip is a finger held on the table
+    val pause = LocalEngineRoutes.current?.viewPause
     // The target of the held chip, highlighted where it is on the table
     held?.let { lane ->
         val item = if (lane.cardId == null) scene.items.firstOrNull { it.id == "life/${lane.accountId}" }
@@ -329,7 +331,7 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
                 (lane.chip.height / CombatStackPresentation.CHIP_HEIGHT), lane.bounds.width - 2 * lane.inset)
             val x = lane.chip.center.x - width / 2
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
-                held = { held = if (it) lane else held?.takeIf { h -> h.cardId != lane.cardId } },
+                held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
                 Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
         }
     }

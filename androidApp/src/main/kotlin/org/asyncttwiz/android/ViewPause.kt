@@ -1,0 +1,42 @@
+package org.asyncttwiz.android
+
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+
+/** How finely [ViewPause.wait] counts the time left. */
+private const val VIEW_PAUSE_SLICE_MILLIS = 20L
+
+/**
+ * HIS-021, HIS-094, HIS-112, HIS-113 (owner, 2026-11-08): a finger held on the table, or an Inspect open, pauses whatever
+ * the view is waiting on: a play shown, a combat's hold, playback between events. It goes on with the time left. Only the
+ * view waits: nothing of it is sent, and what waits holds the device's own steps as it always does. Main thread.
+ */
+@Stable
+class ViewPause {
+    /** A finger held still on the table (not a pan or a drag), or on a shown play. */
+    var finger by mutableStateOf(false)
+    /** Whether an Inspect is open, held or pinned (TBL-104, TBL-131); read as snapshot state. */
+    var inspecting: () -> Boolean = { false }
+
+    val paused: Boolean get() = finger || inspecting()
+
+    /** Returns once nothing pauses the view. */
+    suspend fun lifted() { if (paused) snapshotFlow { paused }.first { !it } }
+
+    /** Waits [millis] of time the view isn't paused, ending only when it isn't. */
+    suspend fun wait(millis: Long) {
+        var left = millis
+        while (true) {
+            lifted()
+            if (left <= 0) return
+            val slice = minOf(left, VIEW_PAUSE_SLICE_MILLIS)
+            delay(slice)
+            left -= slice
+        }
+    }
+}

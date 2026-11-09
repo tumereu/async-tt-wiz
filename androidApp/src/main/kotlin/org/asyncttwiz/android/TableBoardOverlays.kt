@@ -69,6 +69,8 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     // Outside the review condition: the end of playback (back to live) still flashes the pause.
     scene.world?.visibleViewport?.let { board ->
         PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
+        // HIS-021, HIS-112, HIS-113: a held finger pausing what the view is waiting on
+        ViewPausedIcon(LocalEngineRoutes.current?.viewPaused() == true, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
     }
     TableChangeOverlay(runtime.changes, accountId, scene.appearance,
         item = { id -> rendered.value.items[id] })

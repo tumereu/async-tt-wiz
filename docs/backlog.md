@@ -22,7 +22,6 @@ Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
 Table batch 2, beta9 playtest notes (owner, 2026-11-08):
 
-- Hold to pause (HIS-021, HIS-112, HIS-113, HIS-094): a finger held on the table pauses whatever your view is waiting on: a play shown, a combat hold, catch-up playback between events. It goes on when lifted; only your view waits, never the game. A pause icon shows in a corner meanwhile, with a quick fade in and out. Holding a shown card also inspects it. Skipping a shown play or combat hold becomes a double tap; a single tap does nothing, so it isn't triggered by accident.
 - Declaring blockers like attackers (CMB-028, CMB-034, CMB-007, CMB-012, CMB-040): creatures that may block glow red-orange as attackers do. For the whole step each attacker has a dashed blocker slot on its lane, brighter on the attackers a selected or dragged creature may block, and a drop target. Declaring attackers gets the same dashed slot on the active lane. A short "Choose blockers" label on the band until the first block. Try it and see: the whole step was the owner's call, the risk a busier band.
 
 Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the batches above:

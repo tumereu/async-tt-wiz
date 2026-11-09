@@ -106,13 +106,13 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
     SideEffect { routes.motionBusy = { motion.playing } }
     // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
-    // it; a tap on the table skips it; timeline mode ends it (EngineAsyncHost)
+    // it; a held finger pauses that time; a double tap on the table skips it; timeline mode ends it (EngineAsyncHost)
     val combatHold = shown.combatHold?.takeIf { reviewId == null }
     SideEffect { motion.stopAtAttackers = combatHold?.kind == GameDevice.CombatMoment.Attackers }
     val combatHoldMillis by playbackPreferences.showPlaysState()
     if (combatHold != null) LaunchedEffect(combatHold) {
         snapshotFlow { !motion.playing || (motion.atAttackers && combatHold.kind == GameDevice.CombatMoment.Attackers) }.first { it }
-        delay(combatHoldMillis)
+        routes.viewPause.wait(combatHoldMillis)
         engine.dismissCombatHold(combatHold); controller.engineSent()
     }
     // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
@@ -188,16 +188,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // made show only the centre text that resumes it; a tap on the table while it runs pauses it
     val catchUp = status == GameDevice.Status.CatchUp
     val pausedStop = (status as? GameDevice.Status.Stopped)?.paused == true
-    // HIS-017: holding a card to inspect it pauses playback, and releasing it doesn't resume it: timeline mode's
-    // Auto stops; a running catch-up pauses as a tap on the table pauses it (HIS-095); a branch's take-back goes on (HIS-106)
+    // HIS-017: holding a card to inspect it stops timeline mode's Auto, and releasing it doesn't resume it (live and in
+    // catch-up playback the hold only pauses what the view waits on, [ViewPause])
     val held = toolkit.peek != null
-    LaunchedEffect(held) {
-        if (!held) return@LaunchedEffect
-        if (routes.review != null) routes.reviewPlaying = false
-        else engine.shown?.takeIf { it.status is GameDevice.Status.Playing && !it.pausing && !it.takingBack }?.let {
-            engine.pause(); controller.engineSent()
-        }
-    }
+    LaunchedEffect(held) { if (held && routes.review != null) routes.reviewPlaying = false }
     // HIS-023 (owner playtest 2026-11-05): the centre text goes at once when tapped, before the engine thread publishes
     // the playing board
     var watchTappedAt by remember(game.id) { mutableStateOf<Long?>(null) }

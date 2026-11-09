@@ -91,7 +91,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     // I-D49: the opening's Keep / Bottom screen
     OpeningKeepHost(toolkit, play, scene)
     // I-D56 §14: the async play panels of a game on engine state
-    if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current, game)
+    if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current, game, peekScroll, peekSwipe)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
     }

@@ -21,6 +21,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import kotlinx.coroutines.delay
 
 internal val TimelineFaintInk = Color(0xff253d44).copy(alpha = .38f)
@@ -82,6 +84,25 @@ internal fun PlaybackStatusFlash(status: TimelinePlaybackStatus?, modifier: Modi
         InstantShowFadeOut(shown, Modifier.padding(8.dp)) { flash ->
             Icon(flash.icon(), null, Modifier.size(56.dp).testTag("playback-flash")
                 .semantics { contentDescription = flash.label() }, tint = Color(0xff253d44).copy(alpha = .85f))
+        }
+    }
+}
+
+/** The test tag of the icon saying a held finger pauses the view. */
+internal const val VIEW_PAUSED_TAG = "view-paused"
+
+/** How quickly that icon fades in and out. */
+private const val VIEW_PAUSED_FADE_MILLIS = 120
+
+/** HIS-021, HIS-112, HIS-113: the pause icon in the board's top-right corner, where timeline mode's flash shows, while a held
+ * finger pauses what the view is waiting on; a quick fade in and out. Purely visual. */
+@Composable
+internal fun ViewPausedIcon(paused: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier, contentAlignment = Alignment.TopEnd) {
+        AnimatedVisibility(paused, Modifier.padding(8.dp), androidx.compose.animation.fadeIn(tween(VIEW_PAUSED_FADE_MILLIS)),
+            androidx.compose.animation.fadeOut(tween(VIEW_PAUSED_FADE_MILLIS))) {
+            Icon(TimelinePlaybackStatus.PAUSED.icon(), null, Modifier.size(56.dp).testTag(VIEW_PAUSED_TAG)
+                .semantics { contentDescription = "Paused while you hold" }, tint = Color(0xff253d44).copy(alpha = .85f))
         }
     }
 }

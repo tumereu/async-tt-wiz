@@ -3,7 +3,9 @@ package org.asyncttwiz.e2e
 import android.content.Context
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.android.HistoryPlaybackPreferences
 import org.asyncttwiz.android.PLAY_SHOW_TAG
@@ -20,7 +22,7 @@ import kotlin.test.assertTrue
 /**
  * Owner-approved feature 2026-11-07 (MTG Arena as the reference): when Bob casts a spell while Alice is live, her phone
  * shows it large in the middle of her table for a moment, her table held at the cast meanwhile, and then it moves to the
- * Stack; a tap ends it at once. Bob's phone is never held: his Ember Glint resolves there at once (his phone assumes her
+ * Stack; a double tap ends it at once (owner, 2026-11-08: a single tap does nothing). Bob's phone is never held: his Ember Glint resolves there at once (his phone assumes her
  * pass) while hers still shows it.
  */
 class PlayShowTest : E2e() {
@@ -52,8 +54,8 @@ class PlayShowTest : E2e() {
     }
 
     // HIS-112, HIS-021: live, Bob's Glint shows on Alice's table; Bob's phone shows nothing and resolves it at once, while
-    // her table stays at the cast (the Glint on her Stack, his life before it) until she taps the shown card, then plays
-    // on; his second Glint, left alone, ends by itself after its time and her table plays on
+    // her table stays at the cast (the Glint on her Stack, his life before it): a single tap on the shown card does nothing,
+    // a double tap ends it and it plays on; his second Glint, left alone, ends by itself after its time and her table plays on
     @Test fun bobsSpellShowsOnAlicesTableWhileBobPlaysOn() {
         start()
         val life = bobsLife(bob)
@@ -68,6 +70,11 @@ class PlayShowTest : E2e() {
         assertTrue(alice.state.stack.isNotEmpty(), "the Glint still on her Stack")
         assertEquals(life, bobsLife(alice), "his life before the Glint on her table")
         alice.tagged(PLAY_SHOW_TAG).performClick()
+        run()
+        assertNotNull(alice.shown.show, "a single tap does nothing")
+        assertEquals(show.event, alice.shown.tip, "her table still at the cast")
+        run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
+        alice.tagged(PLAY_SHOW_TAG).performTouchInput { doubleClick() }
         waitUntil("Alice's table playing on past the Glint") {
             alice.shown.show == null && !alice.shows(hasTestTag(PLAY_SHOW_TAG)) && bobsLife(alice) == life + 2
         }

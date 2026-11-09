@@ -247,3 +247,6 @@ fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> =
 // chunk 08: a loyalty ability (CR 606.4)
 fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+
+// chunk 13
+fun dies(filter: ObjectFilter): Trigger = on(EventPattern.ZoneChange(filter, from = Zone.Battlefield, to = Zone.Graveyard))

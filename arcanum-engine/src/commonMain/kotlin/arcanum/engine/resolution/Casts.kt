@@ -70,9 +70,15 @@ internal object Casts {
                 if (m.onlyUnchosen) addAll(o?.facts?.modesChosen.orEmpty())
                 if (m.onlyUnchosenThisTurn) o?.facts?.modeTurns.orEmpty().filter { it.turn == turn }.forEach { add(it.key.toInt()) }
             }
-            if (m.options.size - used.size < m.min) return null
-            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used, pawprints = mode.pawprints) }
             val ev = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
+            // CR 700.2b: a mode that couldn't choose its targets can't be chosen; with too few left, the ability is removed from the Stack
+            val illegal = if (!required) emptySet() else m.options.indices.filterTo(mutableSetOf()) { i ->
+                m.options[i].instructions.targets.any { slot ->
+                    slot.perPlayer == null && Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event).size < ev.value(slot.min)
+                }
+            }
+            if (m.options.size - (used + illegal).size < m.min) return null
+            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used && i !in illegal, pawprints = mode.pawprints) }
             // mh2: "choose one. If …, choose both instead" on a triggered ability, judged as it is put on the Stack (CR 700.2, 603.3c)
             val raised = m.maxIf?.let { ev.holds(it) } == true
             val printed = if (raised) m.maxIfCount ?: m.max else m.max
@@ -83,6 +89,7 @@ internal object Casts {
                 else (act.ask { Decision.Modes(it, controller, source, options, min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
             require(chosen.size <= max) { "At most $max modes" }
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
+            require(chosen.none { it in illegal }) { "Mode without legal targets: $chosen" }
             if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {
                 act.record(Change.Facts(o.id, o.facts, o.facts.copy(
                     modesChosen = (o.facts.modesChosen + chosen).distinct(),

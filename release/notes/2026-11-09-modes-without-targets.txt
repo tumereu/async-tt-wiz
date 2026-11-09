@@ -1,0 +1,1 @@
+fix: a triggered ability's choice no longer offers an option that has nothing it could target

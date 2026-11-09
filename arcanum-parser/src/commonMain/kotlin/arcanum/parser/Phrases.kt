@@ -998,7 +998,7 @@ internal object Conditions {
             return Condition.Prime(Value.Count(Filters.objects(m.groupValues[1] + " you control") ?: return null))
         }
         // dsk chunk 11: "there are seven or more time counters on it" (this object), "the discarded card wasn't a land card"
-        COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.let { m ->
+        COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[3] == "it" || it.groupValues[3] in self }?.let { m -> // fdn chunk 01: "on this artifact"
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null))
         }
         THE_DISCARDED_CARD_WAS.matchEntire(text)?.let { m ->
@@ -1240,7 +1240,7 @@ internal object Conditions {
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
     private val YOU_CONTROL_PRIME_NUMBER_OF = Regex("""you control a prime number of (.+)""")
     // dsk chunk 11
-    private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on it""")
+    private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on (.+)""")
     private val THE_DISCARDED_CARD_WAS = Regex("""the discarded card (was|wasn't) an? (.+)""")
     // dsk chunk 10
     private val A_DIED_THIS_TURN = Regex("""an? ([\w-]+(?: [\w-]+)?) died this turn""")

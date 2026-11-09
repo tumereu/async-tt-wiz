@@ -162,6 +162,9 @@ internal class Sentences(
      * dies trigger: the new card in the graveyard, CR 400.7). */
     private var triggerIt: Pair<Objects, Zone?>? = null
 
+    /** fdn chunk 01: the ability being read is a state trigger (CR 603.8), which has no event: "it" is this permanent. */
+    private var stateTriggerSelf = false
+
     /** 'You get an emblem with "[quoted]"' (CR 114.2): the emblem's one ability, read with "this emblem" as its self and
      * keeping [quoted] as its printed text (an emblem has only its abilities, CR 114.3: the text is all a player can read
      * of it); null when the ability can't be read. */
@@ -2107,6 +2110,7 @@ internal class Sentences(
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
     private fun triggered(line: String): Ability? {
+        stateTriggered(line)?.let { return it } // fdn
         val m = WHENEVER.matchEntire(line) ?: return null
         // blb chunk 05: a trigger whose own words hold a comma ("one or more noncreature, nonland permanents you control
         // enter"): split at the first comma after which the trigger reads
@@ -2216,6 +2220,16 @@ internal class Sentences(
             ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") }
         return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
             functionsIn = zone?.let { listOf(it) }, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
+    }
+
+    /** fdn chunk 01: "When there are four or more page counters on this artifact, [effect]": a state, not an event (CR 603.8). "It" is this
+     * permanent. */
+    private fun stateTriggered(line: String): Ability? {
+        val m = Fdn.WHEN_THERE_ARE.matchEntire(line) ?: return null
+        val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+        stateTriggerSelf = true
+        val instructions = try { instructions(m.groupValues[2], itZone = Zone.Battlefield) } finally { stateTriggerSelf = false }
+        return Ability.Triggered(arcanum.api.Trigger.State(condition), instructions ?: return null)
     }
 
     /** "Whenever [event], choose one that hasn't been chosen this turn —" with its "• " modes (CR 700.2). */
@@ -2584,6 +2598,7 @@ internal class Sentences(
         if (event is EventPattern.Attack && (event.attacker as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
         context.definedX = x // tla
+        if (stateTriggerSelf) context.it = Objects.Self // fdn
         // chunk 20
         context.that = that
         // blb gaps: the zone "it" is in, when the caller knows it ("you may exile it" about a permanent)
@@ -2609,6 +2624,7 @@ internal class Sentences(
                 ?: sosWhole(body.replaceFirstChar { it.uppercase() }, context) // sos
                 ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
+                ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
@@ -14857,6 +14873,17 @@ internal class Sentences(
         return null
     }
 
+    private fun fdnWhole(text: String, context: Context): List<Step>? {
+        // fdn chunk 01: "Exile it. If you do, you gain 4 life.": whether it was exiled decides (gone before it resolves, it can't be, CR 400.7)
+        Fdn.EXILE_IT_IF_YOU_DO.matchEntire(text)?.let { m ->
+            val it = context.it ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { c -> c.uppercase() }, context) ?: return null
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile), postBind = "exiled")),
+                Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Bound("exiled")), arcanum.api.Comparison.AtLeast, Value.Fixed(1)), then = then))
+        }
+        return null
+    }
+
     private fun mshWhole2(text: String, context: Context): List<Step>? {
         // msh chunk 05: "you may put an artifact card from your hand onto the battlefield. If it's an Equipment, attach it to …"
         Msh.MAY_PUT_FROM_HAND_IF_EQUIPMENT_ATTACH.matchEntire(text)?.let { return mshEffect2(text, context) }
@@ -14865,11 +14892,13 @@ internal class Sentences(
         Msh.EXILE_RETURN_AT_NEXT_END_STEP.matchEntire(text)?.let { m ->
             var filter = Filters.noun(m.groupValues[2]) ?: return null
             if (m.groupValues[1].isNotEmpty()) filter = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter)
-            val target = context.target(Filters.slotName(m.groupValues[2]), filter)
+            val target = context.target(Filters.slotName(m.groupValues[2].removeSuffix(" you own")), filter)
             val exiled = Objects.Bound("exiled")
+            // fdn chunk 01: "Exile another target creature you own. Return it to the battlefield under your control at …"
+            val controller = if (m.groupValues[3] == "your") Players.You else Players.OwnerOf(exiled)
             return listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), postBind = "exiled")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = Players.OwnerOf(exiled)))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = controller))))))))
         }
         // msh chunk 06: "Add {U}. This mana can't be spent to cast a nonartifact spell." (CR 106.6)
         Msh.ADD_MANA_CANT_BE_SPENT.matchEntire(text)?.let { m ->

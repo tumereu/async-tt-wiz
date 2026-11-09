@@ -614,10 +614,12 @@ object TablePresentation {
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
             val dockX = if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
+            // TRN-053, TRN-072: chips always have their room in the row: where the piles don't leave it they scroll under it
             val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
-                else if (portraitCounters >= gridWidth) width - gridWidth
+                else (if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
-                else maxOf(width - gridWidth, minOf(portraitDock, width))
+                else maxOf(width - gridWidth, minOf(portraitDock, width))).let { full ->
+                    if (emblems) minOf(full, width - EmblemChips.MIN_AREA_WIDTH - 16f).coerceAtLeast(0f) else full }
             val dock = TableBounds(dockX, rowY, dockWidth, rowHeight)
             val dp = port("dock/${player.accountId}", dock, if (landscape) dockWidth else portraitDock +
                 (places - 3) * spacing, bar = landscape)
@@ -631,21 +633,20 @@ object TablePresentation {
             val chipsArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
                     val room = (dock.right - x).coerceAtLeast(0f)
                     TableBounds(x, rowY + 4f, room, rowHeight - 8f) }
-                else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
-                .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
+                else (minOf(pilesRight, dock.right) + 8f).let { x -> TableBounds(x, rowY + 4f, width - x - 8f, dockRow - 8f) }
             // TRN-072: the state chips' line takes the top of the row's room while there are emblems or a room chip too
             val lined = stateChips.isNotEmpty() && emblemsOnly
-            val emblemArea = chipsArea?.let { a ->
+            val emblemArea = chipsArea.let { a ->
                 val under = if (lined) a.copy(y = a.y + StateChips.LINE, height = a.height - StateChips.LINE) else a
                 if (landscape && rooms.isEmpty()) under.copy(width = minOf(a.width, EmblemChips.rowWidth(EmblemChips.chipCount(emblemTexts.size)))) else under
             }
             val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - Landscape.LIFE) / 2, Landscape.LIFE, Landscape.LIFE)
                 else TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
-            val emblemChips = EmblemChips.round(emblemTexts.size, life, emblemArea, player.accountId != viewer,
-                EmblemChips.textLines(rooms, life, width))
-            val textArea = emblemArea?.let { a -> if (emblemChips.isEmpty()) a
-                else a.copy(width = a.width - EmblemChips.rowWidth(emblemChips.size) - 6f) }
-            val placedStates = if (chipsArea != null) {
+            val emblemChips = EmblemChips.round(emblemTexts.size, emblemArea,
+                if (rooms.isEmpty()) Float.MAX_VALUE else emblemArea.width - EmblemChips.MIN_ROOM_CHIP_WIDTH)
+            val textArea = if (emblemChips.isEmpty()) emblemArea
+                else emblemArea.copy(width = emblemArea.width - EmblemChips.rowWidth(emblemChips.size) - 6f)
+            val placedStates = run {
                 val y = if (lined) chipsArea.y else chipsArea.y + (chipsArea.height - StateChips.HEIGHT) / 2
                 // TRN-072: a second line beside the emblems, under the first, unless a room chip lies there
                 val y2 = chipsArea.y + StateChips.LINE + 2f
@@ -657,15 +658,6 @@ object TablePresentation {
                     room2 = if (wrap) chipsArea.width - beside else 0f, y2 = secondY, start2 = chipsArea.x + beside)
                 else StateChips.rows(stateChips, chipsArea.width, if (StateChips.rowWidth(stateChips) <= chipsArea.width) y else wrappedY, end = chipsArea.right,
                     room2 = if (wrap) chipsArea.width - beside else 0f, y2 = secondY, end2 = chipsArea.right - beside)
-            } else {
-                // By the life square, past the room chips, on the emblems' line (TRN-053, TRN-069)
-                val texts = EmblemChips.textLines(rooms, life, width).sumOf { ChipText.HEIGHT.toDouble() + (it.coerceIn(1, EmblemChips.MAX_LINES) - 1) * ChipText.LINE + EmblemChips.GAP }.toFloat()
-                val below = player.accountId != viewer
-                val emblem = emblemChips.lastOrNull()
-                val x = emblem?.let { it.right + StateChips.GAP } ?: life.x
-                val y = emblem?.let { it.y + (it.height - StateChips.HEIGHT) / 2 }
-                    ?: if (below) life.bottom + ChipText.TAIL + 1f + texts else life.y - ChipText.TAIL - 1f - texts - StateChips.HEIGHT
-                StateChips.row(stateChips, width - x - 4f, y, start = x)
             }
             items += TableItem("life/${player.accountId}", life,
                 "${name(player.accountId)}, life ${player.life}",

@@ -1,0 +1,1 @@
+fix: On narrow phones a player's chips (room, emblems, Initiative and the like) stay in their own row and fold into a +N chip instead of covering their hand.

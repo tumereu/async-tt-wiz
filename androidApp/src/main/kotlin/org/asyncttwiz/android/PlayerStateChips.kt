@@ -35,8 +35,7 @@ data class PlacedStateChip(val label: String, val bounds: TableBounds, val chip:
 
 /**
  * TRN-072: a player's state chips by the life square, with the rules of the emblems' row (TRN-053): in portrait at the right of
- * the free room right of the piles (when that room is too narrow, by the life square, past the room chip and the emblems), in
- * landscape right after the piles in the player's bar row; above the emblems and the room chip when there are any, those that
+ * the free room right of the piles, in landscape right after the piles in the player's bar row; above the emblems and the room chip when there are any, those that
  * don't fit going on beside the emblems when no room chip is there. Where they still don't fit, the last chip reads "+N".
  * TRN-073: the game's day or night sits above the Stack.
  */

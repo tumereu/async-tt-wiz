@@ -1,0 +1,1 @@
+fix: When a spell's X can't be paid at some values (a cost reduction starts only at a higher X), Cast is greyed at those values instead of leading to a payment you can't make.

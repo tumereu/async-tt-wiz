@@ -29,6 +29,7 @@ class StackLineTest {
     private val burst = invented("burst", "Ember Burst", "Sorcery", "Ember Burst deals X damage to any target.")
     private val snare = invented("snare", "Frost Snare", "Instant", "Tap up to two target creatures.")
     private val insight = invented("insight", "Borrowed Insight", "Sorcery", "Target player draws two cards.")
+    private val charm = invented("charm", "Cinder Charm", "Instant", "Choose one —\n• Cinder Charm deals 1 damage to any target.\n• You gain 2 life.")
 
     private class Invented(val submitted: SubmittedDefinition, val engine: arcanum.api.CardDefinition)
 
@@ -57,12 +58,13 @@ class StackLineTest {
     }
 
     /** [card]'s spell with [targets] chosen for its first target slot ([slot] when it names another key). */
-    private fun spell(card: Invented, targets: List<MtgRef> = emptyList(), x: Int? = null, slot: String? = null): (String) -> MtgStackItem = { id ->
+    private fun spell(card: Invented, targets: List<MtgRef> = emptyList(), x: Int? = null, slot: String? = null,
+        modes: List<Int> = emptyList()): (String) -> MtgStackItem = { id ->
         val ability = card.engine.faces.single().abilities.filterIsInstance<Ability.Spell>().single()
         val key = slot ?: ability.instructions.targets.firstOrNull()?.name ?: "target"
         val engine = StackItem(ObjectId.Card(CardId(id), 0), StackItemKind.Spell, PlayerId(f.b), ObjectId.Card(CardId(id), 0), ability,
             targets = if (targets.isEmpty()) emptyMap() else mapOf(key to targets.map(::engineRef)),
-            announced = listOfNotNull(x?.let { "X" to it }).toMap(), timestamp = 1)
+            announced = listOfNotNull(x?.let { "X" to it }).toMap(), modes = modes, timestamp = 1)
         structured(engine, MtgRef.Card(id, 0), MtgStackKind.Spell)
     }
 
@@ -80,7 +82,7 @@ class StackLineTest {
                 is ObjectId.Card -> MtgRef.Card(o.card.value, o.zoneChanges)
                 else -> MtgRef.StackItem((o as ObjectId.StackItem).id)
             }
-        } } }, values = item.announced,
+        } } }, modes = item.modes, values = item.announced,
         timestamp = item.timestamp, data = kotlinx.serialization.json.Json { encodeDefaults = false }.encodeToString(StackItem.serializer(), item))
 
     private val cycleTrigger: (String) -> MtgStackItem = { id ->
@@ -117,6 +119,28 @@ class StackLineTest {
             StackLine.text(board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4)), f.a, names))
         // A player target is in their own colour
         assertEquals(StackTextPiece("Bob", f.b), StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Player(f.b)))), f.a, names)!!.last())
+    }
+
+    // STK-057 (owner, 2026-11-09): the band shows who cast what as its main line and what it does small under it; X and the
+    // targets that follow the effect stay with the effect
+    @Test fun theBandSplitsTheLineIntoItsMainPartAndWhatItDoes() {
+        val sentinel = f.source(f.a, "1/3")
+        val (main, detail) = StackLine.split(StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0)))), f.a, names)!!)
+        assertEquals("Bob cast Storm Spark", main.plain())
+        assertEquals("deals 3 damage to ${name(sentinel)}", detail.plain())
+        assertEquals(StackTextPiece(name(sentinel), f.a), detail.last())
+        val (_, after) = StackLine.split(StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0)), slot = "elsewhere")), f.a, names)!!)
+        assertEquals("deals 3 damage to any target → ${name(sentinel)}", after.plain())
+        // Without text of its own a permanent spell has only its main line
+        assertEquals(emptyList(), StackLine.split(listOf(StackTextPiece("Bob cast Ember Cub"))).second)
+    }
+
+    // TRN-066 (owner, 2026-11-09): the wait for a player who is behind says where they are, "your" in the viewer's own turn
+    @Test fun aPlayerBehindIsAtTheirTurnAndStep() {
+        assertEquals("Bob is at turn 5 · their combat", behindText(org.asyncttwiz.protocol.game.GameDevice.OpponentAt(5,
+            arcanum.api.TurnStep.DeclareBlockers, PlayerId(f.b)), f.a, "Bob"))
+        assertEquals("Bob is at turn 4 · your precombat main", behindText(org.asyncttwiz.protocol.game.GameDevice.OpponentAt(4,
+            arcanum.api.TurnStep.PrecombatMain, PlayerId(f.a)), f.a, "Bob"))
     }
 
     // STK-057: a target phrase that is its sentence's subject names the viewer by name, so the verb agrees ("Alice draws",
@@ -196,6 +220,14 @@ class StackLineTest {
         val text = requireNotNull(StackAbilities.text(play, entry, f.a, names))
         assertEquals("Ember Burst deals 4 damage to you.", text.pieces.plain())
         assertEquals(listOf("X = 4"), StackAbilities.details(play, entry, f.a, names, text))
+    }
+
+    // STK-057, STK-018: the other player's modal spell says its chosen mode in the line, and the Stack list shows it
+    @Test fun theChosenModeShowsInTheLineAndTheStackList() {
+        val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
+        assertEquals("Bob cast Cinder Charm · you gain 2 life", StackLine.text(play, f.a, names))
+        val entry = CombatStackRules.stack(play.board).cards.first()
+        assertEquals(listOf("Mode: You gain 2 life."), StackAbilities.details(play, entry, f.a, names))
     }
 
     // edgeToward: an arrow leaves the Stack at its edge, towards its target

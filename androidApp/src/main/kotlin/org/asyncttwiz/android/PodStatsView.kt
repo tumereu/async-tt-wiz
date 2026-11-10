@@ -305,6 +305,11 @@ private fun PodStatsCurveColorLegend() {
     }
 }
 
+/** DRF-111 (owner playtest 2026-11-09): a bar's number: in Type view "creatures · noncreatures" ([counts] creature first),
+ * in Color view its total. */
+internal fun podStatsCurveBarLabel(counts: List<Int>, byColor: Boolean): String =
+    if (byColor || counts.size != 2) "${counts.sum()}" else "${counts[0]} · ${counts[1]}"
+
 /** The mana curve: the same slots, scale and totals in both views, stacked creature/noncreature or by colour (DRF-111). */
 @Composable
 private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
@@ -346,7 +351,8 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
             val total = parts.sumOf { it.second }
             if (total > 0) {
                 drawRect(outline, Offset(left, top), Size(slot * .7f, baseline - top), style = Stroke(1.dp.toPx()))
-                drawContext.canvas.nativeCanvas.drawText("$total", slot * (index + .5f), top - textSize * .3f, paint)
+                drawContext.canvas.nativeCanvas.drawText(podStatsCurveBarLabel(parts.map { it.second }, byColor),
+                    slot * (index + .5f), top - textSize * .3f, paint)
             }
             drawContext.canvas.nativeCanvas.drawText(label, slot * (index + .5f), size.height - textSize * .25f, paint)
         }

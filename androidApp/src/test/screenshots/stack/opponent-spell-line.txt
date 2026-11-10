@@ -1,1 +1,1 @@
-Bob cast Storm Spark at Alice's Ember Cub and she holds priority: a line over the battlefield says "Bob cast Storm Spark · deals 3 damage to Ember Cub" with the Cub's name in her green, and a red arrow runs from the Stack to the Cub, which has a soft red highlight.
+Bob cast Storm Spark at Alice's Ember Cub and she holds priority: the band under his hand says "Bob cast Storm Spark" and, small under it, "deals 3 damage to Ember Cub" with the Cub's name in her green, and a red arrow runs from the Stack to the Cub, which has a soft red highlight.

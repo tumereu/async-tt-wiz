@@ -224,17 +224,19 @@ class PodPickViewTest {
         compose.onNodeWithText("Keep").assertDoesNotExist()
     }
 
-    // DRF-063
-    @Test fun settledHoldOwnsVerticalMotionAndHorizontalMoveDismissesWithoutMarking() {
+    // DRF-063 (owner playtest 2026-11-09): a settled hold owns the finger: vertical motion, back past where it began, and a
+    // sideways move leave Inspect open; only lifting the finger closes it, marking nothing
+    @Test fun settledHoldOwnsTheFingerUntilItLifts() {
         show()
         val before = card("1").getUnclippedBoundsInRoot().top
         hold(card("4"), settle = true)
-        card("4").performTouchInput { repeat(3) { moveBy(Offset(0f, -height * .2f)) }; repeat(3) { moveBy(Offset(0f, height * .2f)) } }
+        card("4").performTouchInput { repeat(3) { moveBy(Offset(0f, -height * .2f)) }; repeat(6) { moveBy(Offset(0f, height * .2f)) } }
         compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         assertEquals(before, card("1").getUnclippedBoundsInRoot().top)
         card("4").performTouchInput { moveBy(Offset(width * .6f, 0f)) }
-        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         card("4").performTouchInput { up() }
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         assertMark("4", "Unmarked")
         compose.onNodeWithText("Keep").assertDoesNotExist()
     }

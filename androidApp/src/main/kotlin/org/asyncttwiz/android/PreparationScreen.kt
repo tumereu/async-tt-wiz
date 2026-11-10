@@ -50,8 +50,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
     val undo = controller.preparationUndoStep()
     val definitions = remember(preparation.definitions) { preparation.definitions.associate { it.digest to it.definition } }
     val sections = SavedDeckSection.PREPARED.map { source ->
-        val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
-        PreparationSection(source, opposite, deck.count(source), preparationGroups(deck, source, definitions))
+        PreparationSection.of(SavedDeckSection.PREPARED, source, deck.count(source), preparationGroups(deck, source, definitions))
     }
     PreparationLayout(state.ownPodDeckName ?: "Prepare deck", "preparation", DeckViewScreen.PREPARATION, connected,
         state.transferFeedback, sections, object : PreparationMoves {
@@ -65,7 +64,14 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
 
 /** One section of a preparation screen: its cards and the section a swipe moves them to. */
 internal class PreparationSection(val source: SavedDeckSection, val opposite: SavedDeckSection, val count: Long,
-    val groups: List<PreparationGroup>)
+    val groups: List<PreparationGroup>) {
+    companion object {
+        /** [source] among the screen's two [sections]: a swipe either way moves its cards to the other (the shared rule,
+         * [SectionSwipe]; LOB-048, DRF-141). */
+        fun of(sections: List<SavedDeckSection>, source: SavedDeckSection, count: Long, groups: List<PreparationGroup>) =
+            PreparationSection(source, SectionSwipe.target(sections, source, right = true), count, groups)
+    }
+}
 
 /** What a preparation card does: [capture] the one-copy move a swipe commits on release, [move] one or all copies
  * across from the menu. */
@@ -244,8 +250,9 @@ private fun PreparationGrid(columns: Int, gap: Dp, cellWidth: Dp? = null, conten
     }
 }
 
-/** The move captured when a swipe starts; its release commits exactly this action. */
-private class DeckCardSwipe { var tried = false; var commit: (() -> Boolean)? = null }
+/** The moves captured when a swipe starts, one per direction (right: true); its release commits exactly the one of the
+ * direction it ends in. */
+private class DeckCardSwipe { var tried = false; var commits: Map<Boolean, (() -> Boolean)?> = emptyMap() }
 
 /** Tap opens the move menu, a short hold inspects the card until release, a horizontal swipe either
  * way past the Build threshold moves one copy across. Only a real release commits; a cancelled gesture never moves. */
@@ -258,8 +265,8 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
     val name = tile.name
     val target = opposite.label()
     fun move(all: Boolean) = currentMove(all)
-    SwipeDeckCard(tile, key, tag, title, opposite, enabled, menus,
-        capture = { currentCapture() },
+    SwipeDeckCard(tile, key, tag, title, { opposite }, enabled, menus,
+        capture = { _ -> currentCapture() },
         onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
             CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) })) { close ->
@@ -272,13 +279,13 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
 
 /**
  * A deck tile that moves: tap opens its [menu], a short hold inspects the card until release, a horizontal swipe
- * either way past the Build threshold commits the action [capture] returned when the swipe started (one copy to
- * [target]). Only a real release commits; a cancelled gesture never moves. Shared by game preparation, the card list
- * editor and Prepare cube.
+ * either way past the Build threshold commits the action [capture] returned for its direction (right or not) when the
+ * swipe started (one copy to that direction's [target], [SectionSwipe]). Only a real release commits; a cancelled
+ * gesture never moves. Shared by game preparation, the card list editor and Prepare cube.
  */
 @Composable
-internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: SavedDeckSection,
-    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?,
+internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: (right: Boolean) -> SavedDeckSection,
+    enabled: Boolean, menus: PodCardMenuOwner, capture: (right: Boolean) -> (() -> Boolean)?,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit, actions: List<CustomAccessibilityAction> = emptyList(),
     menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
@@ -299,15 +306,15 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
                 podPickGestures(onTap = { menus.open = key }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },
                     onDrag = if (enabled) { x ->
                         snapBack?.cancel()
-                        if (!swipe.tried) { swipe.tried = true; swipe.commit = currentCapture() }
+                        if (!swipe.tried) { swipe.tried = true; swipe.commits = listOf(true, false).associateWith { currentCapture(it) } }
                         drag = x
                     } else null,
                     onDragEnd = { x ->
-                        val commit = swipe.commit
+                        val commit = swipe.commits[x > 0f]
                         if (commit != null && preparationSwipeCommits(x, threshold)) { drag = 0f; commit() }
                     },
                     onEnd = {
-                        swipe.tried = false; swipe.commit = null
+                        swipe.tried = false; swipe.commits = emptyMap()
                         val from = drag
                         if (from != 0f) snapBack = scope.launch { animate(from, 0f, animationSpec = tween(150)) { value, _ -> drag = value } }
                     })
@@ -317,9 +324,10 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
                 onClick("Actions for $name") { menus.open = key; true }
                 if (actions.isNotEmpty()) customActions = actions
             }) { PreparationTileFace(tile, width, reference) }
-        if (drag != 0f) PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold),
-            if (target == SavedDeckSection.MAINBOARD) PodDeckCategory.MAIN else PodDeckCategory.SIDE,
-            tint = target.sectionFill(), label = target.shortLabel())
+        if (drag != 0f) target(drag > 0f).let { to ->
+            PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold), to.category(),
+                tint = to.sectionFill(), label = to.shortLabel())
+        }
         PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
             menu { if (menus.open == key) menus.open = null }
         }
@@ -327,4 +335,10 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
 }
 
 private fun SavedDeckSection.label() = sectionLabel()
+
+private fun SavedDeckSection.category() = when (this) {
+    SavedDeckSection.MAINBOARD -> PodDeckCategory.MAIN
+    SavedDeckSection.SIDEBOARD -> PodDeckCategory.SIDE
+    SavedDeckSection.MAYBEBOARD -> PodDeckCategory.MAYBE
+}
 

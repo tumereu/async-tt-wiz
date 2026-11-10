@@ -189,7 +189,9 @@ internal const val PodHoldSettleMillis = 300L
 
 /** One recognizer owns tap, horizontal swipe and the short, release-to-close hold.
  * For [PodHoldSettleMillis] after the preview appears, movement past slop closes it and is
- * left to the swipe or the underlying scroll; only a settled hold pans the preview. */
+ * left to the swipe or the underlying scroll; a settled hold pans the preview and only lifting
+ * the finger closes it (DRF-063, owner playtest 2026-11-09: a drag back past where the hold
+ * began closed it). */
 internal suspend fun PointerInputScope.podPickGestures(
     onTap: () -> Unit,
     onInspect: (Boolean) -> Unit,
@@ -209,20 +211,25 @@ internal suspend fun PointerInputScope.podPickGestures(
     suspend fun AwaitPointerEventScope.next() {
         val event = awaitPointerEvent()
         val change = event.changes.firstOrNull { it.id == down.id }
-        if (change == null || change.isConsumed || event.changes.size > 1) { done = true; return }
+        if (change == null || change.isConsumed || event.changes.size > 1) {
+            if (held) AppLog.info("hold", "Card hold ended: " + when {
+                change == null -> "finger gone"; change.isConsumed -> "taken by another gesture"; else -> "a second finger" })
+            done = true; return
+        }
         delta = change.position - down.position
         val horizontal = abs(delta.x) > abs(delta.y)
         when {
             dragging -> { change.consume(); onDrag?.invoke(delta.x) }
-            settled -> if (abs(delta.x) > slop && horizontal) done = true else {
-                onInspectScroll(-change.positionChange().y); change.consume()
-            }
+            settled -> { onInspectScroll(-change.positionChange().y); change.consume() }
             // Movement wins over the timers, even on a late input frame.
             delta.getDistance() > slop -> if (onDrag != null && horizontal) {
-                if (held) { held = false; onInspect(false) }
+                if (held) { held = false; onInspect(false); AppLog.info("hold", "Card hold ended early: the finger moved sideways, a swipe") }
                 dragging = true
                 change.consume(); onDrag(delta.x)
-            } else done = true // Unconsumed, so the list or tray scroll continues from here.
+            } else {
+                if (held) AppLog.info("hold", "Card hold ended early: the finger moved, a scroll")
+                done = true // Unconsumed, so the list or tray scroll continues from here.
+            }
         }
         if (change.changedToUpIgnoreConsumed()) {
             if (!done && !dragging && !held) onTap()
@@ -235,12 +242,15 @@ internal suspend fun PointerInputScope.podPickGestures(
         if (withTimeoutOrNull(PodHoldMillis) { while (!done && !dragging) next() } == null) {
             held = true
             onInspect(true)
-            if (withTimeoutOrNull(PodHoldSettleMillis) { while (!done && !dragging) next() } == null) settled = true
+            if (withTimeoutOrNull(PodHoldSettleMillis) { while (!done && !dragging) next() } == null) {
+                settled = true
+                AppLog.info("hold", "Card hold settled: only lifting the finger closes Inspect")
+            }
         }
         while (!done) next()
         if (released && dragging) onDragEnd(delta.x)
     } finally {
-        if (held) onInspect(false)
+        if (held) { onInspect(false); if (released) AppLog.info("hold", "Card hold ended: finger lifted") }
         onEnd()
     }
 }

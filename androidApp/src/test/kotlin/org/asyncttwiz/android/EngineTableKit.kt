@@ -222,6 +222,23 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         }
     }
 
+    /** Bob's Main 1 plan: a Mountain, then casting [card] from his hand once he has an untapped Mountain (or at once when
+     * [free]), answering its questions with [choose] (else the first the engine lists). Bob's decision stops are then his own
+     * to answer ([settle]). */
+    fun bobCasts(card: String, free: Boolean = false, choose: (arcanum.engine.decision.Decision) -> arcanum.engine.decision.Answer? = { null }) {
+        scenario.confirmStops[f.b] = false
+        bobMain = { s ->
+            val land = scenario.cards(s, other, s.player(other).hand, "Mountain").firstOrNull()
+            val held = scenario.cards(s, other, s.player(other).hand, card).firstOrNull()
+            val mana = free || scenario.cards(s, other, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false }
+            when {
+                (s.turn.landsPlayed[other] ?: 0) == 0 && land != null -> { bob.send(listOf(Input.PlayLand(other, land))); true }
+                held != null && mana -> { bobMain = null; bob.send(scenario.cast(s, other, Input.Cast(other, held), choose = choose)); true }
+                else -> false
+            }
+        }
+    }
+
     /** Bob's Main 1 plan: a Mountain, then cycling a [card] from his hand (its only activation). Bob's decision stops are
      * then his own to answer ([settle]). */
     fun bobCycles(card: String) {

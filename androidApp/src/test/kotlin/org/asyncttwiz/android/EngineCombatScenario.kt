@@ -66,8 +66,9 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
     }
 
     /** A cast with its payment, as the cast panel sends it (Autotap: the engine's suggestion); its targets the first the
-     * engine lists, or [target] when given. */
-    fun cast(s: GameState, me: PlayerId, input: Input, target: arcanum.engine.state.TargetRef? = null): List<Input> {
+     * engine lists, or [target] when given; any other question [choose]'s answer, else the first the engine lists. */
+    fun cast(s: GameState, me: PlayerId, input: Input, target: arcanum.engine.state.TargetRef? = null,
+        choose: (Decision) -> Answer? = { null }): List<Input> {
         val copy = s.deepCopy()
         val inputs = mutableListOf(input)
         var next = input
@@ -77,7 +78,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
             if (d is Decision.Random || Engine.decider(copy, d.player) != me) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else if (d is Decision.Targets && target != null) Input.Answer(d.id, Answer.Targets(listOf(target)))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else choose(d)?.let { Input.Answer(d.id, it) } ?: Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
     }

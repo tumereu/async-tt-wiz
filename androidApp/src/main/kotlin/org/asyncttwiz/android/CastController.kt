@@ -132,13 +132,16 @@ internal class CastController(
     /** STK-023 (owner playtest 2026-11-05 evening): the most each announced number of the open cast (an X, open or
      * answered) may be so that the cast can still be paid now, by decision ([HandCasts.mostAnnounced]: below its least
      * when even that can't be paid). */
-    private var announcedMost by mutableStateOf<Map<arcanum.engine.decision.DecisionId, Int>>(emptyMap())
+    private var announcedMost by mutableStateOf<Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable>>(emptyMap())
 
     override fun most(decision: Decision): Int? {
         val own = super.most(decision)
-        val payable = announcedMost[decision.id] ?: return own
+        val payable = announcedMost[decision.id]?.most ?: return own
         return own?.let { minOf(it, payable) } ?: payable
     }
+
+    /** STK-052: a value of an X known not to be payable (a gap a reduction leaves) greys Cast at the X step. */
+    override fun payable(decision: Decision, value: Int): Boolean = announcedMost[decision.id]?.unpayable?.contains(value) != true
 
     /** The text of the ability being activated (§3 I4), shown in the panel instead of the card's whole text; null for
      * a cast or land play. */
@@ -589,7 +592,7 @@ internal class CastController(
         /** [flow] with its open question shown; [ways] set when the cast was just begun. */
         class Show(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val listed: List<Answer>,
             val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean,
-            val most: Map<arcanum.engine.decision.DecisionId, Int>,
+            val most: Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable>,
             /** The cast taken on to its payment ([HandCasts.ahead]), null when it reaches none. */
             val ahead: CastFlow?,
             /** Castability §3: what may be picked in the open choice, nothing picked yet. */
@@ -755,11 +758,14 @@ internal class CastController(
     }
 
     /** STK-023: the most each announcement of [flow] (open or answered) may be ([announcedMost]). */
-    private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, Int> {
-        val most = mutableMapOf<arcanum.engine.decision.DecisionId, Int>()
-        (flow.pending as? Decision.Announce)?.let { open -> HandCasts.mostAnnounced(flow)?.let { most[open.id] = it } }
+    private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable> {
+        val most = mutableMapOf<arcanum.engine.decision.DecisionId, HandCasts.Announceable>()
+        (flow.pending as? Decision.Announce)?.let { open -> HandCasts.announceable(flow)?.let {
+            most[open.id] = it
+            if (it.unpayable.isNotEmpty()) AppLog.info("cast", "X up to ${it.most}, can't be paid at ${it.unpayable.sorted()}")
+        } }
         flow.steps.forEachIndexed { index, (decision, _) ->
-            if (decision is Decision.Announce) runCatching { HandCasts.mostAnnounced(flow.back(index)) }.getOrNull()?.let { most[decision.id] = it }
+            if (decision is Decision.Announce) runCatching { HandCasts.announceable(flow.back(index)) }.getOrNull()?.let { most[decision.id] = it }
         }
         return most
     }

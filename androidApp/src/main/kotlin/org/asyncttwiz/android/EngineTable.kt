@@ -453,6 +453,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        // TRN-066 (owner, 2026-11-09): "Waiting for Bob" says where Bob is when he is behind (the player went ahead on assumptions)
+        if (status.reason == GameDevice.Wait.TheirTurn) shown.opponentAt?.let { return behindText(it, viewer, opponentName) }
         return waitingText(status.reason, play, opponentName)
     }
 }
@@ -524,6 +526,15 @@ internal fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: Stri
     GameDevice.Wait.Request -> "Waiting for the undo request to be answered"
     GameDevice.Wait.Suggestion -> "Waiting for an answer to the suggested result"
     GameDevice.Wait.Sending -> null
+}
+
+/** TRN-066 (owner, 2026-11-09): where the other player [opponent] is when they are behind [viewer]: "Bob is at turn 5 · their
+ * combat" (a combat step as "combat", any other step by its name; "your" in the viewer's own turn). */
+internal fun behindText(at: GameDevice.OpponentAt, viewer: String, opponent: String): String {
+    val whose = if (at.active.value == viewer) "your" else "their"
+    val position = org.asyncttwiz.automatum.EngineProjection.position(at.step)
+    val step = if (position.phase == "COMBAT") "combat" else position.label.lowercase()
+    return "$opponent is at turn ${at.turn} · $whose $step"
 }
 
 /** The name of engine object [id] as the board's viewer may see it, or null; an ability on the Stack is named as its

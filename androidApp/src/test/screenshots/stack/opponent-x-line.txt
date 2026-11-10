@@ -1,0 +1,1 @@
+Bob cast Ember Burst with X = 1 at Alice and she holds priority: the band under his hand says "Bob cast Ember Burst" with "deals 1 damage to you" small under it, X filled in.

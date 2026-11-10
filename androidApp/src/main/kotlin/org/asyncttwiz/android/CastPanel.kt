@@ -163,6 +163,9 @@ internal interface FlowQuestions {
         is Decision.ChooseNumber -> decision.max
         else -> null
     }
+    /** STK-052: whether [value] of the number [decision] asks may be answered: false for a value of a cast's X known not to
+     * be payable (a gap a reduction leaves), so an earlier choice is never a dead end. */
+    fun payable(decision: Decision, value: Int): Boolean = true
 }
 
 /**
@@ -428,7 +431,8 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             // the most the cast can be paid with)
             val max = cast.most(decision)
             var value by remember(decision.id) { mutableIntStateOf(min) }
-            val payable = max == null || max >= min
+            // STK-052: a value in a gap of what can be paid greys Cast too
+            val payable = (max == null || max >= min) && cast.payable(decision, value)
             Section(choiceWhat(decision), choiceHint(decision)) {
                 Stepper(value, min, max?.coerceAtLeast(min)) { value = it }
                 if (!payable) Text("It can't be paid now.", fontSize = 11.sp, color = Color(0xff4b5a5f))

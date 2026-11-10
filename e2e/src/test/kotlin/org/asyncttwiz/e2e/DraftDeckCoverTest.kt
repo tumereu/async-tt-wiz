@@ -40,6 +40,10 @@ class DraftDeckCoverTest : E2e() {
         waitUntil("the first card as the cover before any choice") {
             alice.shows(hasTestTag("pod-build-cover-${choices.first()}") and hasAnyDescendant(hasContentDescription("Selected cover")))
         }
+        // LOB-058, DRF-166 (owner playtest 2026-11-09): the choices are listed alphabetically
+        val names = choices.associateWith { digest -> alice.pods.state.detail!!.definitions.single { it.digest == digest }.definition.name }
+        val listed = choices.sortedBy { alice.tagged("pod-build-cover-$it").fetchSemanticsNode().boundsInRoot.top }.map(names::getValue)
+        assertEquals(listed.sortedBy { it.lowercase() }, listed, "the cover choices in alphabetical order")
         alice.text("Cancel").performClick()
         waitUntil("the list closed") { !alice.shows(hasTestTag("pod-build-cover-dialog")) }
 

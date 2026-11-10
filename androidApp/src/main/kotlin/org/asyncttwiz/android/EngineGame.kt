@@ -178,7 +178,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val combatHold: GameDevice.CombatHold? = null,
         /** SYS-025: the player's own action shown at its performed point, before what follows by itself is folded into its
          * event ([preview]). */
-        val ownActionShown: Boolean = false) {
+        val ownActionShown: Boolean = false,
+        /** TRN-066 (owner, 2026-11-09): where the other player is while the game waits for them and they are behind this
+         * player (who went ahead on assumptions), else null ([GameDevice.opponentAt]). */
+        val opponentAt: GameDevice.OpponentAt? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -374,7 +377,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, takingBack,
-            device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold)
+            device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
+            opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -476,7 +480,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true)
+            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }

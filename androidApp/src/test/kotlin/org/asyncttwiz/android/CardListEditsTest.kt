@@ -71,13 +71,19 @@ class CardListEditsTest {
         assertEquals(listOf(1, 1, 1), CardListEdits.removeOne(list, "rune bear", DeckSection.MAINBOARD).map { it.quantity })
     }
 
-    // LOB-105: a swipe moves one copy to the next section; the last wraps to Main.
-    @Test fun swipesCycleThroughTheListsSections() {
-        assertEquals(DeckSection.SIDEBOARD, CardListKind.DECK.next(DeckSection.MAINBOARD))
-        assertEquals(DeckSection.MAYBEBOARD, CardListKind.DECK.next(DeckSection.SIDEBOARD))
-        assertEquals(DeckSection.MAINBOARD, CardListKind.DECK.next(DeckSection.MAYBEBOARD))
-        assertEquals(DeckSection.MAYBEBOARD, CardListKind.CUBE.next(DeckSection.MAINBOARD))
-        assertEquals(DeckSection.MAINBOARD, CardListKind.CUBE.next(DeckSection.MAYBEBOARD))
+    // LOB-105, LOB-048 (owner, 2026-11-09): right moves a copy one section up, left one down, in the order Main, Side, Maybe,
+    // wrapping; a cube's two sections either way to the other
+    @Test fun swipesMoveUpRightAndDownLeft() {
+        assertEquals(DeckSection.MAYBEBOARD, CardListKind.DECK.swipe(DeckSection.MAINBOARD, right = true))
+        assertEquals(DeckSection.SIDEBOARD, CardListKind.DECK.swipe(DeckSection.MAINBOARD, right = false))
+        assertEquals(DeckSection.MAINBOARD, CardListKind.DECK.swipe(DeckSection.SIDEBOARD, right = true))
+        assertEquals(DeckSection.MAYBEBOARD, CardListKind.DECK.swipe(DeckSection.SIDEBOARD, right = false))
+        assertEquals(DeckSection.SIDEBOARD, CardListKind.DECK.swipe(DeckSection.MAYBEBOARD, right = true))
+        assertEquals(DeckSection.MAINBOARD, CardListKind.DECK.swipe(DeckSection.MAYBEBOARD, right = false))
+        for (right in listOf(true, false)) {
+            assertEquals(DeckSection.MAYBEBOARD, CardListKind.CUBE.swipe(DeckSection.MAINBOARD, right))
+            assertEquals(DeckSection.MAINBOARD, CardListKind.CUBE.swipe(DeckSection.MAYBEBOARD, right))
+        }
     }
 
     // LOB-059: lines with problems are underlined in red; general problems (line 0) and a changed text underline nothing.

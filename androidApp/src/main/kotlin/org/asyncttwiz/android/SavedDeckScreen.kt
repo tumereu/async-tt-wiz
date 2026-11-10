@@ -142,7 +142,9 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
         LazyVerticalGrid(GridCells.Fixed(if (landscape) 3 else 2),
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(detail.saved.entries.distinctBy { it.definition }, key = { it.definition }) { entry ->
+            // LOB-058 (owner playtest 2026-11-09): listed alphabetically
+            items(detail.saved.entries.distinctBy { it.definition }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { detail.definitions[it.definition]?.name.orEmpty() }), key = { it.definition }) { entry ->
                 val definition = detail.definitions.getValue(entry.definition)
                 val chosen = state.draftCover == entry.definition
                 Surface(selected = chosen, onClick = { controller.cover(entry.definition) },

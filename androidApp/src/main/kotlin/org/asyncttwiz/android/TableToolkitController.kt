@@ -21,7 +21,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
     tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** I-D56 step C: the routes of the game played on engine state (null: none, as in tests of the table alone). */
-    val engine: EngineRoutes? = null) : TableActionRoutes {
+    val engine: EngineRoutes? = null,
+    /** TRN-064: the player is at the table, whoever's move it is (Concede needs no more); [connected] by default. */
+    private val atTable: () -> Boolean = connected) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.playId) }
     /** R4a: the batch being drafted on the board of a game on engine state ([EngineStaging]). */
     private var engineDraft: EngineDraft? = null
@@ -269,7 +271,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
         panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
-    val table = TableActionController(::current, ::enabled, this)
+    val table = TableActionController(::current, ::enabled, this, atTable = { atTable() && current() != null })
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
     private var lastInvocation: String? = null

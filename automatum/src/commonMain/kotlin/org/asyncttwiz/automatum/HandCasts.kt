@@ -360,7 +360,16 @@ object HandCasts {
      * paid; at most [cap] (and the decision's own most). Null when no announcement is open. Blocking (a look-ahead per value
      * tried); the app runs it on the Automatum worker.
      */
-    fun mostAnnounced(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Int? {
+    fun mostAnnounced(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Int? = announceable(flow, cap)?.most
+
+    /** What the X stepper offers for the announcement open in a cast: up to [most] ([mostAnnounced]), with [unpayable] the
+     * values up to it known not to be payable (the gaps a reduction leaves, CR 601.2f): Cast is greyed on them (STK-052). */
+    data class Announceable(val most: Int, val unpayable: Set<Int> = emptySet())
+
+    /** [mostAnnounced] with the values known not to be payable ([Announceable]). Where a reduction may apply each value is
+     * tried; a run of [GAP_TRIED] that can't be paid ends the look without answering "no": the stepper then stays open up to
+     * the top (STK-052: the payment's final check is exact). */
+    fun announceable(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Announceable? {
         val open = flow.pending as? Decision.Announce ?: return null
         val top = minOf(open.max ?: cap, cap).coerceAtLeast(open.min)
         fun pays(value: Int) = Engine.finishableWith(flow.state, Answer.Number(value))
@@ -368,12 +377,19 @@ object HandCasts {
         if (Engine.anyReduction(flow.state)) {
             var most = open.min - 1
             var value = open.min
+            val unpayable = mutableSetOf<Int>()
             while (value <= top && value - most <= GAP_TRIED) {
-                if (pays(value)) most = value
+                if (pays(value)) most = value else unpayable += value
                 value++
             }
-            return most
+            // The run of values that can't be paid ran out before the top: unknown beyond it, so open up to the top
+            return if (value <= top) Announceable(top, unpayable) else Announceable(most, unpayable.filterTo(mutableSetOf()) { it < most })
         }
+        return Announceable(mostWithoutGaps(open, top, ::pays))
+    }
+
+    /** The most of an announcement whose cost only grows with it: one less than its least when even that can't be paid. */
+    private fun mostWithoutGaps(open: Decision.Announce, top: Int, pays: (Int) -> Boolean): Int {
         if (!pays(open.min)) return open.min - 1
         // Doubling steps up to the first value that can't be paid, then halving between it and the last that can
         var good = open.min

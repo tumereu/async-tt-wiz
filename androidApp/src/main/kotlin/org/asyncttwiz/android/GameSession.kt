@@ -604,7 +604,8 @@ class GameSession(private val connection: GameConnection, private val credential
                     "final" -> { val result = requireNotNull(status.result); require(result.requestId == status.requestId); result(result) }
                     "pending" -> sent.add(status.requestId)
                     "notAdmitted" -> if (available(message.gameId)) sent.remove(status.requestId) else {
-                        pending.remove(status.requestId); sent.remove(status.requestId)
+                        // A lobby action that will never be taken: what it showed is taken back
+                        pending.remove(status.requestId); sent.remove(status.requestId); preparations.forget(status.requestId, "game unavailable")
                     }
                     else -> error("Invalid recovery status")
                 }
@@ -688,7 +689,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
                     message.requestId?.let { id ->
                         chats.failed(id, "Not sent. This request could not be used.")
-                        pending.remove(id); preparations.forget(id); sent.remove(id)
+                        pending.remove(id); preparations.forget(id, "admission ${message.code}"); sent.remove(id)
                     }
                     if (original != null) error = "This game changed or the request could not be used. Refresh and try again."
                 }

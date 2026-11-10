@@ -126,7 +126,8 @@ internal object Ltr {
     val PERMANENT_YOU_CONTROLLED_LEFT = Regex("""a permanent you controlled left the battlefield this turn""")
     val RING_TEMPTS_REVEAL_UNTIL_X_LANDS = Regex("""The Ring tempts you\. Then reveal cards from the top of your library until you reveal X (\w+) cards(?:, where X is (.+?))?\. Put those \1 cards onto the battlefield tapped and the rest on the bottom of your library in a random order\.""")
     // ltr chunk 11
-    val MAY_REVEAL_TOP_IF_REVEALED = Regex("""You may reveal the top card of your library\. If an? (.+?) card is revealed this way, (.+)""")
+    // inr chunk 01: also "Look at the top card of your library. You may reveal that card." (group 1 set)
+    val MAY_REVEAL_TOP_IF_REVEALED = Regex("""(?:You may reveal the top card of your library|([Ll]ook at the top card of your library\. )You may reveal that card)\. If an? (.+?) card is revealed this way, (.+)""")
     val GAIN_PROTECTION_FROM_EACH_OF_COLORS = Regex("""(.+?) gains? protection from each of that creature's colors until end of turn\.""")
     val SCRY_REVEAL_ATTACKING_UNTIL_NEXT_TURN = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, put it onto the battlefield tapped and attacking\. Until your next turn, it gains (\w+) if you control an? (\w+) and (\w+) if you control an? (\w+)\.""")
     val EACH_DEAL_DAMAGE_EQUAL_TO_THEIR_POWER = Regex("""(Target .+?) and (up to one other target .+?) each deal damage equal to their power to (target .+)\.""")

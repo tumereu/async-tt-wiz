@@ -138,7 +138,8 @@ internal object Eoe {
     val IF_YOU_DIDNT_PUT_INTO_HAND = Regex("""If you didn't put a card into your hand this way, (.+)""")
     val RETURN_UP_TO_TOTAL_MV_COUNTER_EACH = Regex("""Return up to (\w+) target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\. Put a \+1/\+1 counter on each of them\.""")
     val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate if (.+?)\.""")
-    val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.)"""")
+    // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
+    val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
     val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with an? (\S+) counter on it for each (.+)\.""")
     val ENTERS_WITH_NUMBER_EQUAL_TO = Regex("""(.+) enters with a number of (\S+) counters on it equal to (.+)\.""")
 

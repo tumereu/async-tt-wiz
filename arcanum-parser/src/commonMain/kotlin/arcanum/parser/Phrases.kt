@@ -431,7 +431,9 @@ internal object Filters {
         // msh
         "Heroes" to "Hero",
         // tla chunk 02
-        "Allies" to "Ally")
+        "Allies" to "Ally",
+        // inr chunk 01
+        "Werewolves" to "Werewolf")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -967,6 +969,7 @@ internal object Conditions {
         MshPhrases.condition(text, self)?.let { return it } // msh
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
+        InrPhrases.condition(text, self)?.let { return it } // inr
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

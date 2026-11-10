@@ -4629,6 +4629,8 @@ internal class Sentences(
             // chunk 52: "another target creature you control"
             val filter = Filters.noun(noun) ?: return null
             val target = context.target(Filters.slotName(noun), if (m.groupValues[1].isEmpty()) filter else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter))
+            // inr chunk 16: "it" in a following sentence is the returned card, a new object (CR 400.7)
+            context.it = Objects.Bound("exiled")
             return listOf(
                 Step.Do(Effect.Move(target, Destination(Zone.Exile), postBind = "exiled")),
                 Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))))
@@ -17438,7 +17440,8 @@ internal class Sentences(
         }
         // spm chunk 07: "If it's a Spider, you gain 2 life." (the target, as the spell resolves)
         Spm.IF_ITS_A.matchEntire(sentence)?.let { m ->
-            val it = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            // inr chunk 16: a sentence before has said which object "it" is (the card returned from exile, CR 400.7)
+            val it = context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
             val subtype = m.groupValues[1].takeIf { s -> s in RulesWords.subtypes } ?: return null
             val then = effect(spmCap(m.groupValues[2]), context) ?: return null
             return steps + Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Sub(Subtype(subtype))), then = then)

@@ -525,6 +525,63 @@ class KeywordActionTriggersTest {
         expect { alice.life shouldBe 21 }
     }
 
+    private val eachCreatureConnives = spellWith("Grand Scheme", Effect.Action(KeywordAction.Connive(
+        arcanum.api.Objects.Each(arcanum.api.ObjectFilter.Type(CardType.Creature)), Value.Fixed(1))))
+
+    /** The connivers in the order they connived. */
+    private fun Scenario.connived() = state.eventsOf(state.turn.number).mapNotNull { (it as? Change.Happened)?.event as? GameEvent.KeywordActionDone }
+        .filter { it.action == KeywordActionKind.Connive }.flatMap { it.objects }
+
+    /** Answers the discards that come, each with the card just drawn (the only one in hand). */
+    private fun Scenario.discardEach() {
+        repeat(4) {
+            val pending = state.pending?.decision as? arcanum.engine.decision.Decision.ChooseObjects ?: return
+            answer(Answer.Objects(listOf(pending.options.first())))
+        }
+    }
+
+    // CR 701.50c: their controller chooses which connives next, which decides what each draws: the one chosen first draws the nonland on top,
+    // discards it and gets its counter; the other then draws the land
+    @Test
+    fun theControllerChoosesWhichConnivesNext() = scenario {
+        val first = Cards.invent("First Schemer", "{0}", "Creature — Rogue", "", "1/1")
+        val other = Cards.invent("Second Schemer", "{0}", "Creature — Rogue", "", "1/1")
+        alice.battlefield(first, other)
+        alice.hand(eachCreatureConnives)
+        alice.library("Storm Spark", "Forest")
+        alice.castsWithoutCosts(eachCreatureConnives)
+        val asked = resolve().let { decision<arcanum.engine.decision.Decision.ChooseObjects>() }
+        assertEquals(setOf(card(first), card(other)), asked.options.toSet())
+        alice.chooses(other)
+        discardEach()
+        settleAll()
+        expect {
+            other.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 1
+            first.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 0
+            alice.graveyard has "Storm Spark"
+            alice.graveyard has "Forest"
+        }
+        assertEquals(listOf(card(other), card(first)), connived())
+    }
+
+    // CR 701.50c, 101.4: the first player in APNAP order goes first, whoever's spell it is
+    @Test
+    fun theActivePlayersPermanentsConniveFirst() = scenario {
+        val mine = Cards.invent("Near Schemer", "{0}", "Creature — Rogue", "", "1/1")
+        val theirs = Cards.invent("Far Schemer", "{0}", "Creature — Rogue", "", "1/1")
+        turn(active = bob)
+        alice.battlefield(mine)
+        bob.battlefield(theirs)
+        alice.library("Forest")
+        bob.library("Island")
+        bob.hand(eachCreatureConnives)
+        bob.castsWithoutCosts(eachCreatureConnives)
+        resolve()
+        discardEach()
+        settleAll()
+        assertEquals(listOf(card(theirs), card(mine)), connived())
+    }
+
     // CR 701.22b, d: scrying N with no library is scrying, the actions being impossible; scrying 0 isn't an event
     @Test
     fun scryingWithNoLibraryStillTriggersButScryingZeroDoesnt() = scenario {

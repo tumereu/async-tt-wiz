@@ -63,10 +63,6 @@ Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 - Cards leaving a public pile (owner): when the other player moves a card from their graveyard or exile to a hidden zone (hand, library), your table shows it as a reveal does (the reveal panel, closed only by your own OK, the same stops; HIS-110 and the reveal entries): "Bob returned Storm Spark from their graveyard to their hand". Not for moves to the battlefield or another public pile, nor for your own.
 - Tokens in Inspect (TBL-104, TBL-018; owner): Inspect shows a token's picture as it is, with normal corners, so the cut corners no longer hide its P/T and text; the battlefield keeps the cut corners.
 
-Small, not urgent (owner, 2026-11-08):
-
-- Connive at once (CR 701.50c; found building explore's order, 2026-11-09): several permanents told to connive at the same time connive in object order, through the `Step.ForEach` of `KeywordExpansions`; the first player in APNAP order who controls (or last controlled) one should choose which is next, as explore now does (CR 701.44d). Needs `Effects.connive`'s per-permanent path to run for every connive, with the choice in front of it.
-
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.

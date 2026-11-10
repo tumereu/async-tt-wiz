@@ -52,7 +52,7 @@ Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
-- Intermittent (found 2026-11-10, full run on d057aef13's catalog branch, 1 of 4 runs): `MatchHistoryTest.aPodMatchShowsInThePodGamesTabWithoutDecks` waited 60 s with the pod's Games tab showing the match "In play · Turn 0" and standings 0–0–0, although Alice's phone had the server's result notice (revision 4) of her concession at the mulligan; the server writes the match record in the same transaction that ends the game. Passed 3 of 3 alone in 2 s. Investigate when it recurs: whether the pod matches request ran before the end committed or the screen kept an older list.
+- Pod Games tab misses a just-ended match (MatchHistoryTest.aPodMatchShowsInThePodGamesTabWithoutDecks, 2 of ~8 full runs): the server ends the game and writes the record at once, but the tab reads its matches only when it opens, and Alice's own concession shows "Waiting for Bob to acknowledge" before the server took it, so her one read can beat the server and keep "In play · Turn 0", 0–0–0 for good (likely; nothing logs the pod matches read). Fix: re-read the pod's matches when one of its games ends (and log the reads); the test then passes reliably.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

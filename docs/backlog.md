@@ -55,6 +55,7 @@ Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
+- Intermittent (2 full runs, passes alone 3/3): e2e `PodReopenTest.aDraftingPodOpensAfterConnectionFailures` timed out "waiting for the pick unconfirmed" with Alice on the pod showing "Can't reach the server · retrying" and "All your picks are done" while Bob still had 3 packs. Investigate when it recurs: whether the unconfirmed pick is shown before the retry finishes, or the test's network hold releases too early.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

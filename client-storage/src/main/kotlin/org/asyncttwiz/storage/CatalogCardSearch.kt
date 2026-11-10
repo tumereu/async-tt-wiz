@@ -53,10 +53,11 @@ internal fun CatalogIndex.hasCardSearch(): Boolean =
 /**
  * Rebuilt on the unpublished generation in the finishing transaction, from installed printings only: one row per
  * card with its preferred printing (the deck import default) and every printing's set and rarity. Reads bounded
- * batches in oracle order, never the whole catalog. [onPrinting] sees every installed printing on the way (enrich-free:
- * no other faces or release date), so other finishing data can be built in the same pass.
+ * batches in oracle order, never the whole catalog, and writes the cards a few hundred at a time. [onPrinting] sees every
+ * installed printing on the way (enrich-free: no other faces or release date), so other finishing data can be built in the
+ * same pass; [onProgress] how many printings have been read.
  */
-internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Unit = {}) {
+internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Unit = {}, onProgress: (Long) -> Unit = {}) {
     listOf("search_ready", "search_card", "search_data", "search_printing").forEach { sql("DROP TABLE IF EXISTS $it") }
     // Filter columns stay narrow so scans are cheap; the matcher's card data is fetched only for prefiltered rows.
     sql("""CREATE TABLE search_card (oracle TEXT NOT NULL PRIMARY KEY, name_key TEXT NOT NULL, printing_id TEXT NOT NULL,
@@ -65,69 +66,118 @@ internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Uni
         pow_min REAL, pow_max REAL, tou_min REAL, tou_max REAL, loy_min REAL, loy_max REAL)""")
     sql("CREATE TABLE search_data (oracle TEXT NOT NULL PRIMARY KEY, data TEXT NOT NULL)")
     sql("CREATE TABLE search_printing (oracle TEXT NOT NULL, rank INTEGER NOT NULL, printing_id TEXT NOT NULL, set_code TEXT NOT NULL, rarity TEXT NOT NULL, PRIMARY KEY(oracle, rank))")
-    val started = System.nanoTime()
-    sql("CREATE INDEX IF NOT EXISTS printing_oracle ON printing(oracle, id)")
-    val group = mutableListOf<SearchRow>()
+    times.time("search order") { sql("CREATE INDEX IF NOT EXISTS printing_oracle ON printing(oracle, id)") }
+    var group = mutableListOf<SearchRow>()
+    val cards = SearchCards(this)
     var afterOracle = ""
     var afterId = ""
+    var read = 0L
     while (true) {
         check(!Thread.currentThread().isInterrupted)
-        val batch = select("""SELECT id, name, set_code, number, language, side, token, json, oracle, rarity, identity, legal, scryfall
-            FROM printing WHERE (oracle, id) > (?, ?) ORDER BY oracle, id LIMIT 512""", listOf(afterOracle, afterId), SEARCH_BATCH) { cursor ->
-            SearchRow(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getString(3)!!,
-                cursor.getString(4)!!, cursor.getString(5)!!, cursor.getLong(6) == 1L, cursor.getString(7)!!,
-                cursor.getString(8)!!, cursor.getString(9)!!, cursor.getLong(10)?.toInt(), cursor.getLong(11)!!, cursor.getString(12))
+        val batch = times.time("search reads") {
+            select("""SELECT id, name, set_code, number, language, side, token, json, oracle, rarity, identity, legal, scryfall
+                FROM printing WHERE (oracle, id) > (?, ?) ORDER BY oracle, id LIMIT 1024""", listOf(afterOracle, afterId), SEARCH_BATCH) { cursor ->
+                SearchRow(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getString(3)!!,
+                    cursor.getString(4)!!, cursor.getString(5)!!, cursor.getLong(6) == 1L, cursor.getString(7)!!,
+                    cursor.getString(8)!!, cursor.getString(9)!!, cursor.getLong(10)?.toInt(), cursor.getLong(11)!!, cursor.getString(12))
+            }
         }
         if (batch.isEmpty()) break
         for (row in batch) {
-            onPrinting(CatalogPrinting(row.id, row.name, row.set, row.number, row.language, row.side, row.scryfall, row.token,
-                emptyList(), row.raw))
-            if (group.isNotEmpty() && group.first().oracle != row.oracle) { addSearchCard(group); group.clear() }
-            if (!row.token && row.side in setOf("", "a") && row.layout !in NON_CARD_LAYOUTS) group += row
+            times.time("avatar choices") {
+                onPrinting(CatalogPrinting(row.id, row.name, row.set, row.number, row.language, row.side, row.scryfall, row.token,
+                    emptyList(), row.raw))
+            }
+            if (group.isNotEmpty() && group.first().oracle != row.oracle) { cards.add(group); group = mutableListOf() }
+            if (times.time("search layouts") { !row.token && row.side in setOf("", "a") && row.layout !in NON_CARD_LAYOUTS }) group += row
         }
         afterOracle = batch.last().oracle; afterId = batch.last().id
+        read += batch.size
+        onProgress(read)
     }
-    if (group.isNotEmpty()) addSearchCard(group)
-    // Covers every numeric filter, so those scans never read the wide text columns.
-    sql("""CREATE INDEX search_card_name ON search_card(name_key, oracle, extra, colors, identity, mv, legal, rarities, layout,
-        pow_min, pow_max, tou_min, tou_max, loy_min, loy_max, printing_id)""")
-    sql("CREATE INDEX search_printing_set ON search_printing(set_code, oracle)")
+    if (group.isNotEmpty()) cards.add(group)
+    cards.flush()
+    times.time("search indexes") {
+        // Covers every numeric filter, so those scans never read the wide text columns.
+        sql("""CREATE INDEX search_card_name ON search_card(name_key, oracle, extra, colors, identity, mv, legal, rarities, layout,
+            pow_min, pow_max, tou_min, tou_max, loy_min, loy_max, printing_id)""")
+        sql("CREATE INDEX search_printing_set ON search_printing(set_code, oracle)")
+    }
     sql("CREATE TABLE search_ready (version INTEGER NOT NULL)")
     sql("INSERT INTO search_ready VALUES (1)")
-    java.util.logging.Logger.getLogger(CatalogIndex::class.java.name).info("Card search index: ${(System.nanoTime() - started) / 1_000_000} ms")
 }
 
 // Prepared-statement cache ids for the constant SQL of the rebuild (arbitrary, distinct from SQLDelight's).
 private const val SEARCH_BATCH = 0x5EA4C001
 private const val SEARCH_FACES = 0x5EA4C002
 private const val SEARCH_FACE = 0x5EA4C003
-private const val SEARCH_CARD = 0x5EA4C004
-private const val SEARCH_PRINTING = 0x5EA4C005
-private const val SEARCH_DATA = 0x5EA4C006
 
 private class SearchRow(val id: String, val name: String, val set: String, val number: String, val language: String,
     val side: String, val token: Boolean, val raw: String, val oracle: String, val rarity: String, val identity: Int?, val legal: Long,
     val scryfall: String?) {
-    val json: JsonObject by lazy { JsonParser.parseString(raw).asJsonObject }
-    val layout: String get() = text(json, "layout") ?: "normal"
-    val english get() = language.equals("English", ignoreCase = true)
-    val promo get() = json.get("isPromo")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
-    val paper get() = json.get("isOnlineOnly")?.takeIf { it.isJsonPrimitive }?.asBoolean != true &&
-        json.get("availability")?.takeIf { it.isJsonArray }?.asJsonArray?.any { it.isJsonPrimitive && it.asString == "paper" } != false
+    // Worked out once each: the ranking compares them many times
+    val json: JsonObject by lazy(LazyThreadSafetyMode.NONE) { JsonParser.parseString(raw).asJsonObject }
+    val layout: String by lazy(LazyThreadSafetyMode.NONE) { text(json, "layout") ?: "normal" }
+    val english by lazy(LazyThreadSafetyMode.NONE) { language.equals("English", ignoreCase = true) }
+    val promo by lazy(LazyThreadSafetyMode.NONE) { json.get("isPromo")?.takeIf { it.isJsonPrimitive }?.asBoolean == true }
+    val paper by lazy(LazyThreadSafetyMode.NONE) { json.get("isOnlineOnly")?.takeIf { it.isJsonPrimitive }?.asBoolean != true &&
+        json.get("availability")?.takeIf { it.isJsonArray }?.asJsonArray?.any { it.isJsonPrimitive && it.asString == "paper" } != false }
 }
 
 private fun text(json: JsonObject, key: String): String? =
     json.get(key)?.takeIf { it.isJsonPrimitive }?.asString
 
-private fun CatalogIndex.addSearchCard(group: List<SearchRow>) {
-    // Same preference as a deck import without a printing: English, not promo, paper, newest, lowest number.
-    val ranked = group.sortedWith(compareByDescending<SearchRow> { it.english }.thenBy { it.promo }.thenByDescending { it.paper }
-        .thenByDescending { releaseDates[it.set].orEmpty() }
-        .thenComparator { a, b -> compareCollectorNumbers(a.number, b.number) }
-        .thenBy { it.number }.thenBy { it.set }.thenBy { it.id })
+/** The search rows of cards (each a group of printings of one oracle), written [PENDING] cards at a time: one query for
+ * their other faces, then a few multi-row inserts per table. */
+private class SearchCards(private val index: CatalogIndex) {
+    private val pending = ArrayList<List<SearchRow>>(PENDING)
+
+    fun add(group: List<SearchRow>) {
+        pending += group
+        if (pending.size == PENDING) flush()
+    }
+
+    fun flush() {
+        if (pending.isEmpty()) return
+        // Same preference as a deck import without a printing: English, not promo, paper, newest, lowest number.
+        val ranked = index.times.time("search ranks") { pending.map { group ->
+            group.sortedWith(compareByDescending<SearchRow> { it.english }.thenBy { it.promo }.thenByDescending { it.paper }
+                .thenByDescending { index.releaseDates[it.set].orEmpty() }
+                .thenComparator { a, b -> compareCollectorNumbers(a.number, b.number) }
+                .thenBy { it.number }.thenBy { it.set }.thenBy { it.id })
+        } }
+        val sources = ranked.map { it.first().id }
+        val faces = index.times.time("search faces") {
+            sources.distinct().chunked(MAX_VALUES).flatMap { chunk ->
+                index.select("SELECT f.source, p.id, p.name, p.side, p.json FROM face f JOIN printing p ON p.id=f.target WHERE f.source IN " +
+                    chunk.joinToString(",", "(", ")") { "?" }, chunk, SEARCH_FACES.takeIf { chunk.size == MAX_VALUES }) {
+                    it.getString(0)!! to Triple(it.getString(1)!!, it.getString(3)!!, it.getString(2)!! to it.getString(4)!!)
+                }
+            }.groupBy({ it.first }, { it.second })
+        }
+        val cards = ArrayList<List<Any?>>(ranked.size)
+        val data = ArrayList<List<Any?>>(ranked.size)
+        val printings = ArrayList<List<Any?>>()
+        index.times.time("search cards") {
+            for (group in ranked) index.searchRows(group, faces[group.first().id].orEmpty(), cards, data, printings)
+        }
+        index.times.time("search writes") {
+            index.insertRows("INSERT INTO search_card", cards)
+            index.insertRows("INSERT INTO search_data", data)
+            index.insertRows("INSERT INTO search_printing", printings)
+        }
+        pending.clear()
+    }
+
+    private companion object { const val PENDING = 256 }
+}
+
+/** One card's search rows from its printings, best first ([ranked]), and the other faces of the first ([others]: id, side,
+ * name and record), added to [cards], [data] and [printings]. */
+private fun CatalogIndex.searchRows(ranked: List<SearchRow>, others: List<Triple<String, String, Pair<String, String>>>,
+    cards: MutableList<List<Any?>>, data: MutableList<List<Any?>>, printings: MutableList<List<Any?>>) {
+    val group = ranked // order-free folds below
     val preferred = ranked.first()
-    val others = select("SELECT p.id, p.name, p.side, p.json FROM face f JOIN printing p ON p.id=f.target WHERE f.source=?",
-        listOf(preferred.id), SEARCH_FACES) { Triple(it.getString(0)!!, it.getString(2)!!, it.getString(1)!! to it.getString(3)!!) }
     val faces = (others.filter { it.first != preferred.id } + Triple(preferred.id, preferred.side, preferred.name to preferred.raw))
         .sortedWith(compareBy<Triple<String, String, Pair<String, String>>> { it.second }.thenBy { it.first })
         .map { (id, _, record) -> searchFace(record.first, if (id == preferred.id) preferred.json else JsonParser.parseString(record.second).asJsonObject) }
@@ -143,17 +193,16 @@ private fun CatalogIndex.addSearchCard(group: List<SearchRow>) {
     }
     fun range(stat: (CardSearchFace) -> String?): List<Double?> = faces.mapNotNull { CardSearchRules.statValue(stat(it)) }
         .map { it.coerceIn(-1e300, 1e300) }.let { listOf(it.minOrNull(), it.maxOrNull()) }
-    execute("INSERT INTO search_card VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", listOf(preferred.oracle,
+    cards += listOf(preferred.oracle,
         CardSearchRules.foldName(card.name), preferred.id,
         faces.joinToString("\n") { CardSearchRules.foldText(it.typeLine) },
         faces.joinToString("\n") { CardSearchRules.foldText(it.text) },
         card.colorUnits.fold(0L) { bits, mask -> bits or (1L shl mask) }, 1L shl card.identity, card.manaValue,
         legalBits, rarities, card.layout, if (card.extra) 1L else 0L) + range { it.power } + range { it.toughness } +
-        range { it.loyalty }, SEARCH_CARD)
-    execute("INSERT INTO search_data VALUES (?, ?)", listOf(preferred.oracle, searchJson.encodeToString(CardSearchCard.serializer(), card)), SEARCH_DATA)
+        range { it.loyalty }
+    data += listOf(preferred.oracle, times.time("search encoding") { searchJson.encodeToString(CardSearchCard.serializer(), card) })
     ranked.forEachIndexed { rank, row ->
-        execute("INSERT INTO search_printing VALUES (?, ?, ?, ?, ?)", listOf(row.oracle, rank.toLong(), row.id,
-            row.set.lowercase(Locale.ROOT), row.rarity), SEARCH_PRINTING)
+        printings += listOf(row.oracle, rank.toLong(), row.id, row.set.lowercase(Locale.ROOT), row.rarity)
     }
 }
 

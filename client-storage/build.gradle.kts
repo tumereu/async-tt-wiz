@@ -20,6 +20,14 @@ android {
         it.useJUnitPlatform()
         it.systemProperty("storage.fixture", file("src/main/sqldelight/databases/1.db").absolutePath)
         it.systemProperty("catalog.fixtures", rootProject.file("tests/fixtures/catalogs").absolutePath)
+        // CatalogInstallAnswersTest compares with src/test/resources/catalog-answers; -PcatalogAnswers=record rewrites them.
+        it.systemProperty("catalog.answers", file("src/test/resources/catalog-answers").absolutePath)
+        val recordAnswers = providers.gradleProperty("catalogAnswers").orNull == "record"
+        it.systemProperty("catalog.answers.record", recordAnswers.toString())
+        it.inputs.property("catalogAnswersMode", recordAnswers)
+        // The test cards' card catalog (tests/fixtures/card-catalog), as the server serves it
+        it.dependsOn(":catalog:testCardsCatalog")
+        it.systemProperty("catalog.testCards", rootProject.file("catalog/build/test-cards-catalog").absolutePath)
         val realCatalog = providers.systemProperty("atw.realCatalog")
             .orElse(providers.environmentVariable("atw.realCatalog"))
         if (realCatalog.isPresent) {

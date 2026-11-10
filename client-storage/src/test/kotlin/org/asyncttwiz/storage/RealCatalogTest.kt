@@ -44,6 +44,11 @@ class RealCatalogTest {
         assertEquals(installed, repository.metadata())
         val indexFile = File(directory, File(directory, "current").readText())
         println("REAL catalog: ${installed.records} records; index on disk: ${indexFile.length()} bytes")
+        // What is stored, to compare between ways of installing (CatalogInstallAnswersTest does so for the fixtures)
+        println("REAL stored:\n" + CatalogAnswers.stored(indexFile).prependIndent("REAL stored "))
+        val answers = CatalogAnswers.answered(repository, pagesPerSearch = 4)
+        println("REAL answers: ${answers.lines().size} lines, SHA-256 " +
+            java.security.MessageDigest.getInstance("SHA-256").digest(answers.toByteArray()).joinToString("") { "%02x".format(it) })
         DriverManager.getConnection("jdbc:sqlite:${indexFile.absolutePath}").use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeQuery("""SELECT sum(token), sum(name LIKE 'A-%'),

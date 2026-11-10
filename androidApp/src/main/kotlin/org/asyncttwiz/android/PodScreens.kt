@@ -545,7 +545,13 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
         }
         // DRF-121 (game history §3.2): the pod's standings and every match of it, played or being played, no decks
         if (lobby != null) {
-            LaunchedEffect(detail.id) { lobby.history.loadPod(detail.id) }
+            // Read on opening, and again when one of the pod's games starts or ends (its match record is written as it
+            // ends): a read made just before the server took an ending would otherwise keep showing the match in play
+            val stages = games.map { "${it.id.take(8)} ${it.lifecycle.name.lowercase()}${if (it.resultNotice != null) " ended" else ""}" }.sorted()
+            val opened = remember(detail.id) { stages }
+            LaunchedEffect(detail.id, stages) {
+                lobby.history.loadPod(detail.id, if (stages == opened) "opened" else "a game changed: ${stages.joinToString()}")
+            }
             PodMatchesSection(detail, lobby.history.pods[detail.id])
         }
         if (games.isNotEmpty()) {

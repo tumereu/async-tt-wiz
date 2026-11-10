@@ -61,6 +61,8 @@ object DefinitionChecks {
         "becomes-target" to setOf("object", "source"),
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
+        // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
+        "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),

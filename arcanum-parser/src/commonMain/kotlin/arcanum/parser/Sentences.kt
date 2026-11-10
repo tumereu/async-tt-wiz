@@ -5212,10 +5212,11 @@ internal class Sentences(
         // chunk 56: "Exile Jace, then return him to the battlefield transformed under his owner's control." (a new object,
         // back face up, CR 400.7, 712.14a)
         EXILE_SELF_RETURN_TRANSFORMED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val controller = if (m.groupValues[2] == "your") Players.You else Players.OwnerOf(Objects.Bound("exiled"))
+            val controller = if (m.groupValues[3] == "your") Players.You else Players.OwnerOf(Objects.Bound("exiled"))
+            // inr chunk 06: also without "transformed" ("Exile this creature, then return it to the battlefield under your control.", CR 400.7)
             return listOf(
                 Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "exiled")),
-                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, transformed = true, controller = controller))))
+                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, transformed = m.groupValues[2].isNotEmpty(), controller = controller))))
         }
         // chunk 56: "Transform this creature." / "transform it" (CR 701.27)
         TRANSFORM.matchEntire(sentence)?.let { m ->
@@ -5763,6 +5764,10 @@ internal class Sentences(
         // dgm: "Your opponents can't cast spells with the chosen name." / "Spells with the chosen name you cast cost {2} less to cast."
         if (line == "Your opponents can't cast spells with the chosen name.")
             return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.RememberedName(CHOSEN_NAME))), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
+        // inr chunk 06: "Your opponents can't cast spells with mana value 3 or less." (CR 101.2)
+        Inr.OPPONENTS_CANT_CAST_SPELLS_WITH.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantCast(Filters.noun(m.groupValues[1]) ?: return null)), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
+        }
         Gtc.CHOSEN_NAME_COSTS_LESS.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.RememberedName(CHOSEN_NAME),
                 ObjectFilter.ControlledBy(PlayerFilter.You)), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))), affects = self)
@@ -8481,6 +8486,14 @@ internal class Sentences(
         }
         // blb chunk 02: "[Effect] at the beginning of the next end step." (a delayed trigger, CR 603.7)
         Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" }?.let { m ->
+            // inr chunk 06: "When you sacrifice this creature, return it to the battlefield transformed ... at the beginning of the next end step":
+            // "it" is the card in the graveyard (CR 400.7), named now because the delayed trigger has another event (CR 603.7c)
+            if (context.event is EventPattern.Sacrifice && context.it == Objects.EventObject(EventRole.Object)) {
+                context.it = Objects.Bound("sacrificed")
+                val inner = effect(m.groupValues[1] + ".", context) ?: return null
+                return listOf(Step.Bind(Objects.EventObject(EventRole.After), "sacrificed"), Step.Do(Effect.CreateDelayedTrigger(
+                    arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)), Instructions(steps = inner))))
+            }
             val targets = context.targets.size
             val inner = effect(m.groupValues[1] + ".", context)?.takeIf { context.targets.size == targets } ?: return null
             return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
@@ -11397,7 +11410,7 @@ internal class Sentences(
         val UP_TO_ONE_TARGET_GETS = Regex("""Up to one target (.+) gets ([+-]\d+)/([+-]\d+) until (end of turn|your next turn)\.""")
         val TARGET_GETS_FOR_EACH_UNTIL_EOT = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) until end of turn for each (.+)\.""")
         val MAY_CAST_TARGET_FROM_GRAVEYARD_THIS_TURN = Regex("""You may cast target (.+) from your graveyard this turn\.""")
-        val EXILE_SELF_RETURN_TRANSFORMED = Regex("""Exile (.+), then return (?:it|him|her) to the battlefield transformed under (?:his owner's|her owner's|its owner's|(your)) control\.""")
+        val EXILE_SELF_RETURN_TRANSFORMED = Regex("""Exile (.+), then return (?:it|him|her) to the battlefield( transformed)? under (?:his owner's|her owner's|its owner's|(your)) control\.""")
         val TRANSFORM = Regex("""Transform (.+)\.""")
         val RETURN_ALL_TO_HANDS = Regex("""Return all (.+) to their owners' hands\.""")
         val BECOMES_CREATURE = Regex("""(Up to one target|Target) (.+?) becomes an? (\d+)/(\d+) (\w+) (\w+) creature(?: with (.+?))? in addition to its other types\.""")
@@ -15358,6 +15371,11 @@ internal class Sentences(
 
     /** inr: single-sentence effects. */
     private fun inrEffect(sentence: String, context: Context): List<Step>? {
+        // inr chunk 06: "Creatures your opponents control attack this turn if able." (a requirement, CR 508.1d)
+        Inr.CREATURES_ATTACK_THIS_TURN_IF_ABLE.matchEntire(sentence)?.let { m ->
+            val group = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack()), Affected.Objects(Objects.Each(group)), arcanum.api.Duration.EndOfTurn)))
+        }
         // inr chunk 04: "You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater." (one choice each,
         // from the revealed hand, CR 701.9; the player then discards "those cards")
         Inr.YOU_CHOOSE_FROM_IT_A_AND_B.matchEntire(sentence)?.let { m ->
@@ -15407,6 +15425,12 @@ internal class Sentences(
 
     /** inr: whole multi-sentence effects. */
     private fun inrWhole(text: String, context: Context): List<Step>? {
+        // inr chunk 06: "Mill a card. If an instant or sorcery card was milled this way, transform this creature." (CR 701.17a, 701.27a)
+        Inr.MILL_IF_MILLED_TRANSFORM.matchEntire(text)?.let { m ->
+            val kind = Filters.noun(m.groupValues[2] + " card") ?: return null
+            return listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), postBind = "milled")),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound("milled"), kind), then = listOf(Step.Do(Effect.Transform(Objects.Self)))))
+        }
         // inr chunk 03: "Look at the top X cards of your library, where X is the amount of mana spent to cast this spell. Put two of them into
         // your hand and the rest on the bottom of your library in a random order." (CR 107.3, 601.2h)
         Inr.LOOK_TOP_X_PUT_N_REST_BOTTOM_RANDOM.matchEntire(text)?.let { m ->
@@ -20115,17 +20139,25 @@ internal class Sentences(
                     arcanum.api.Condition.Compare(Value.TurnsTaken(Players.You), arcanum.api.Comparison.AtMost, Value.Fixed(3))))))
         }
         // "At the beginning of your first main phase, if you both own and control Vanille and a creature named Fang, Fearless l'Cie, you may pay {3}{B}{G}.
-        // If you do, exile them, then meld them into Ragnarok, Divine Deliverance." (CR 701.42a, 712.4)
-        Fin.MELD_AT_FIRST_MAIN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[2]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
-            return Ability.Triggered(on(EventPattern.StepBegins(arcanum.api.TurnStep.PrecombatMain, PlayerFilter.You)), Instructions(steps = listOf(
-                Step.Pay(cost(m.groupValues[3]) ?: return null, payer = Players.You, bind = "paid"),
-                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
-                    Step.Choose(arcanum.api.Choice.Objects(partner, Value.Fixed(1), Value.Fixed(1)), bind = "partner", chooser = Players.You),
-                    Step.Do(Effect.Move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Destination(Zone.Exile), postBind = "exiled")),
-                    Step.Do(Effect.Action(arcanum.api.KeywordAction.Meld(Objects.Bound("exiled"), m.groupValues[4]))))))),
+        // If you do, exile them, then meld them into Ragnarok, Divine Deliverance." Also "At the beginning of your end step, if you both own and control
+        // Gisela and a creature named Bruna, exile them, then meld them into Brisela." (CR 701.42a, 712.4)
+        Fin.MELD_AT_STEP.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+            val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
+            if (onlyIf != null) return null
+            val pay = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { cost(it) ?: return null }
+            val meld = meldSteps(partner, m.groupValues[5])
+            return Ability.Triggered(trigger, Instructions(steps = if (pay == null) meld else listOf(
+                Step.Pay(pay, payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = meld))),
                 interveningIf = arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
                     arcanum.api.Condition.Exists(partner, atLeast = 1))))
+        }
+        // "{3}{R}{R}, {T}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township."
+        Fin.MELD_ACTIVATED.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+            return Ability.Activated(cost(m.groupValues[1]) ?: return null, Instructions(steps = listOf(Step.If(
+                arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                    arcanum.api.Condition.Exists(partner, atLeast = 1))), then = meldSteps(partner, m.groupValues[4])))), rules())
         }
         // "When Ragnarok dies, destroy target permanent and return target nonlegendary permanent card from your graveyard to the battlefield."
         Fin.DIES_DESTROY_AND_RETURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -20137,6 +20169,10 @@ internal class Sentences(
         }
         return null
     }
+    private fun meldSteps(partner: ObjectFilter, into: String): List<Step> = listOf(
+        Step.Choose(arcanum.api.Choice.Objects(partner, Value.Fixed(1), Value.Fixed(1)), bind = "partner", chooser = Players.You),
+        Step.Do(Effect.Move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Destination(Zone.Exile), postBind = "exiled")),
+        Step.Do(Effect.Action(arcanum.api.KeywordAction.Meld(Objects.Bound("exiled"), into))))
     // ---- fin end
 
     // ---- eoe: Edge of Eternities wordings (the set's parser tests, sets/eoe/EoeChunk*Test.kt); regexes in [Eoe], phrases in [EoePhrases]

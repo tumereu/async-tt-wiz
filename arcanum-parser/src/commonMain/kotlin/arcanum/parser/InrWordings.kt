@@ -27,6 +27,12 @@ internal object Inr {
     // inr chunk 01: Ravager of the Fells: the creature target belongs to the player or the planeswalker's controller (CR 115.1)
     val DEALS_TO_OPPONENT_OR_PW_AND_UP_TO_ONE_CREATURE_THAT_PLAYER_CONTROLS = Regex(
         """(.+?) deals (\d+) damage to target ((?:opponent|player) or planeswalker) and (\d+) damage to up to one target creature that player or that planeswalker's controller controls\.""")
+    // inr chunk 06: Briseis: "Your opponents can't cast spells with mana value 3 or less." (CR 101.2)
+    val OPPONENTS_CANT_CAST_SPELLS_WITH = Regex("""Your opponents can't cast (spells with .+)\.""")
+    // inr chunk 06: Grisly Eelfish: "Creatures your opponents control attack this turn if able." (CR 508.1d)
+    val CREATURES_ATTACK_THIS_TURN_IF_ABLE = Regex("""(Creatures .+?) attack this turn if able\.""")
+    // inr chunk 06: Aberrant Scholar: "Mill a card. If an instant or sorcery card was milled this way, transform this creature." (CR 701.17a)
+    val MILL_IF_MILLED_TRANSFORM = Regex("""Mill (an?|\w+) cards?\. If an? (.+?) card was milled this way, transform (?:this creature|it)\.""")
 }
 
 /** Conditions first met in INR. */

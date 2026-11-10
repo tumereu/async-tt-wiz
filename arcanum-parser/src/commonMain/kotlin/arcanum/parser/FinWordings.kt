@@ -268,7 +268,10 @@ internal object Fin {
     val MAY_ATTACH_IF_YOU_DO_FIRST_STRIKE_LURE = Regex("""When (.+?) enters, you may attach it to target creature you control\. If you do, that creature gains first strike until end of turn and must be blocked this turn if able\.""")
     val PLAY_HIDEAWAY_IF_LEGENDS = Regex("""(.+?): You may play the exiled card without paying its mana cost if you control (\w+) or more legendary creatures\.""")
     val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
-    val MELD_AT_FIRST_MAIN = Regex("""At the beginning of your first main phase, if you both own and control (.+?) and a creature named (.+?), you may pay ((?:\{[^}]+\})+)\. If you do, exile them, then meld them into (.+)\.""")
+    /** A meld trigger: "At the beginning of <step>, if you both own and control X and a creature named Y, [you may pay {cost}. If you do, ]exile them, then meld them into Z." */
+    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if you both own and control (.+?) and a creature named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
+    /** A meld activated ability: "<cost>: If you both own and control X and a creature named Y, exile them, then meld them into Z." */
+    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and a creature named (.+?), exile them, then meld them into (.+)\.""")
     val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
     val COUNTER_ON_IT_FOR_EACH = Regex("""Put an? (\S+) counter on it for each (.+)\.""")
 }

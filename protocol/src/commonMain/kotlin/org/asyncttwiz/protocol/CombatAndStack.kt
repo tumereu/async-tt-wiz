@@ -156,15 +156,9 @@ object CombatStackRules {
             rulesVersion >= 21 && source.zone == PlayZone.LIBRARY ||
             source.zone == PlayZone.HAND && source.accountId == card.owner
     }
-    /** Top first. New play only ever puts effect entries into the Stack (STK-003); the "card" kind remains so
-     * the digests of recorded states from before rules v35, when a face-down cast moved the real card through
-     * the Stack, still compute. */
+    /** Top first. The Stack holds only effect entries (STK-003): the engine's board puts nothing else there. */
     fun identities(board: BoardState): List<StackIdentity> = stack(board).cards.map { id ->
-        val effect = board.stackEffects.singleOrNull { it.id == id }
-        if (effect != null) StackIdentity("effect", id, effect.sourceId) else {
-            require(board.cards.singleOrNull { it.id == id }?.containerId == stack(board).id)
-            StackIdentity("card", id, id)
-        }
+        StackIdentity("effect", id, board.stackEffects.single { it.id == id }.sourceId)
     }
     fun stackDigest(playId: String, board: BoardState): String = "sha256:" +
         DeckJson.intent("stack", DeckJson.canonical(StackProjection(playId, identities(board))))

@@ -54,8 +54,6 @@ Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74),
 Old forms only read now, found at the wipe (2026-11-09; read, not run; can be done any time after the wipe release):
 
 - `EngineEventText.hidden`'s line-only branch (a rewind's own line start): no game holds such an event after V74 and no caller found makes one. `GameDevice.finish` and `Authority.make` don't refuse one, though: a draft sent empty while a line is due would make it, so refuse that first. Its test `anOldRewindLineStartIsShownNowhere` names HIS-086, whose entry stays as it is; agree with the owner how that test goes.
-- The "card" kind in `CombatStackRules.identities`: `EngineProjection` puts only effects in the Stack, so a board from a game never has a card there; only that branch reads it, for states from before rules v35.
-- `GameWire`'s `RETIRED` fields: no stored type has them, and rows written since R4d (2026-11-05) don't. Rows of games that never started survive V74 and may still hold them (`game_revision`, `game_inbox`), so first see that none are left, or wipe them with the owner's permission. Checked 2026-11-10: only two cancelled games that never started hold them (69c8fbf7: 11 revision + 11 inbox rows; 95b06786: 1 + 1; their outbox rows already published), no play row does; the owner allowed deleting those rows (2026-11-10), so a migration removes them and the filter goes.
 
 Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 

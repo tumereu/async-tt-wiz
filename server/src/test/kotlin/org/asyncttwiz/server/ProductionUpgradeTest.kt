@@ -291,12 +291,25 @@ class ProductionUpgradeTest {
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             // No migration deleted anything but V54's, V59's, V63's and V74's (I-D52, I-D54, stable decision ids, the engine's general forms; owner-approved): every game that had started a play, with
-            // everything that belongs to it, but its match records: they are never deleted (V66).
+            // everything that belongs to it, but its match records: they are never deleted (V66); and V76's (owner 2026-11-10): the request rows
+            // holding the old model's fields (R4d) at their top level or in their play, with the outbox rows of those requests.
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
             val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()
+            val retired = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",
+                "mutation", "group", "treeDelta", "targetNodeId")
+            fun oldForm(text: String?): Boolean {
+                val stored = text?.let { runCatching { json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return false
+                return stored.keys.any { it in retired } || (stored["play"] as? JsonObject)?.keys?.any { it in retired } == true
+            }
+            fun JsonObject.value(key: String) = this[key]?.jsonPrimitive?.contentOrNull
+            val oldRequests = tables["game_inbox"].orEmpty().map { it.jsonObject }
+                .filter { oldForm(it.value("command")) || oldForm(it.value("result")) }.map { it.value("request_id") }.toSet()
             fun wiped(table: String, row: JsonObject): Boolean {
-                fun value(key: String) = row[key]?.jsonPrimitive?.contentOrNull
+                fun value(key: String) = row.value(key)
                 if (table == "match_record") return false
+                if (table == "game_revision" && oldForm(value("payload")) || table == "game_inbox" && value("request_id") in oldRequests ||
+                    table == "game_outbox" && (value("request_id") in oldRequests || oldForm(value("revision")) || oldForm(value("result"))))
+                    return true
                 return (table == "game" && value("id") in wipedGames) || value("game_id") in wipedGames || value("play_id") in wipedPlays
             }
             assertTrue(started in wipedGames)

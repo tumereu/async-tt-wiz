@@ -80,10 +80,15 @@ class TablePickTest {
         render(kit)
         compose.onNode(hasText("Sacrifice") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
+        // TBL-117 (owner gallery review 2026-11-10, gallery 145): the Pups' closed stack is drawn framed in violet as a whole, both
+        // members, though a tap opens it
+        val framed = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
+            SemanticsMatcher("framed as a target") { "target" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
+        assertEquals(2, framed.size, "both Pups of the closed stack framed")
         compose.onRoot().captureShot("$SCREENSHOTS/table-pick/sacrifice-bar.png",
             "Alice tapped her Ember Altar, whose cost sacrifices another creature: the slim bar above her hand says \"Sacrifice\" over " +
-                "the ability's text with the ability at its right, and her two Ash Pups glow " +
-                "violet on the table to be picked.")
+                "the ability's text with the ability at its right, and the closed stack of her two Ash Pups is framed " +
+                "in violet as a whole on the table, to be picked.")
         // A tap on a Pup picks it: the cost's one creature, so the ability goes on at once
         kit.tap(kit.item(pups[0]))
         assertTrue(!cast.targeting, "the pick answered the cost: ${kit.toolkit.error}")

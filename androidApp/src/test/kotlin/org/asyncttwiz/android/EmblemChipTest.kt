@@ -62,7 +62,7 @@ class EmblemChipTest {
         assertEquals(1, opponent.emblemChips.size)
         assertEquals(5, own.emblemTexts.size)
         assertEquals(EmblemChips.SHOWN + 1, own.emblemChips.size, "three chips and +2")
-        assertTrue(own.emblems.isEmpty() && opponent.emblems.isEmpty(), "no text chips without a dungeon room")
+        assertTrue(own.stateChips.isEmpty() && opponent.stateChips.isEmpty(), "no state chips without states or a dungeon room")
     }
 
     // TRN-053: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
@@ -73,20 +73,19 @@ class EmblemChipTest {
         val piles = scene.items.filter { it.zone == PlayZone.LIBRARY || it.zone == PlayZone.GRAVEYARD || it.zone == PlayZone.EXILE }
         for (player in listOf("a", "b")) {
             val life = scene.items.single { it.id == "life/$player" }
-            val area = assertNotNull(life.emblemArea)
+            val area = assertNotNull(life.chipsArea)
             for (chip in life.emblemChips) {
                 assertTrue(hands.none { it.intersection(chip) != null }, "$chip")
                 assertTrue(piles.filter { it.owner == player }.all { it.bounds.right < chip.x })
                 assertEquals(EmblemChips.SIZE, chip.width)
-                assertTrue(chip.y >= area.y && chip.bottom <= area.bottom && chip.x >= area.right)
+                assertTrue(chip.y >= area.y && chip.bottom <= area.bottom && chip.x >= area.x && chip.right <= area.right, "$chip in $area")
             }
             assertTrue(life.emblemChips.zipWithNext().all { (a, b) -> a.right < b.x && a.y == b.y }, "one row")
-            val stacked = EmblemChips.stacked(area, player == "b", listOf(80f), listOf(1))
-            assertTrue(stacked.all { it.x == area.x && it.right <= life.emblemChips.first().x }, "text chips left of the row")
         }
         // TBL-009: in landscape right after the piles in the player's bar row (the opponent's top bar, your bottom bar),
         // inside the row, clear of the hands and of the controls in the bottom bar's right half; on a narrow screen your
-        // row gives way to your hand in the bar (owner, 2026-11-08) down to a chip and "+N"
+        // row gives way to your hand in the bar (owner, 2026-11-08): there its chips shrink and take two lines where the bar is
+        // tall enough (owner gallery review 2026-11-10: the player's round chips in lines, never overlapping)
         for ((width, height) in listOf(892f to 412f, 640f to 360f)) {
             val landscape = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, true)
             val landscapeHands = landscape.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
@@ -94,7 +93,7 @@ class EmblemChipTest {
                 val life = landscape.items.single { it.id == "life/$player" }
                 val row = landscape.viewports.single { it.id == "dock/$player" }.bounds
                 val exile = landscape.items.single { it.id == "$player/EXILE" }
-                assertEquals(if (player == "b") 1 else if (width >= 892f) EmblemChips.SHOWN + 1 else 2, life.emblemChips.size,
+                assertEquals(if (player == "b") 1 else EmblemChips.SHOWN + 1, life.emblemChips.size,
                     "$width: ${life.emblemChips}")
                 for (chip in life.emblemChips) {
                     assertEquals(chip, chip.intersection(row), "$width: $chip in $row")
@@ -103,7 +102,9 @@ class EmblemChipTest {
                     assertTrue(chip.width >= EmblemChips.MIN_SIZE)
                     if (player == "a") assertTrue(chip.right <= width / 2, "$width: clear of the controls: $chip")
                 }
-                assertTrue(life.emblemChips.zipWithNext().all { (a, b) -> a.right < b.x && a.y == b.y }, "one row")
+                val chips = life.emblemChips
+                for ((n, a) in chips.withIndex()) for (b in chips.drop(n + 1)) assertEquals(null, a.intersection(b), "$width: apart: $a, $b")
+                if (width >= 892f) assertTrue(chips.zipWithNext().all { (a, b) -> a.right < b.x && a.y == b.y }, "one row")
             }
         }
     }

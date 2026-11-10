@@ -78,7 +78,7 @@ class EngineDungeonTest {
         assertEquals(shown.cardId, item.cardId)
         val exile = scene.items.single { it.zone == org.asyncttwiz.protocol.PlayZone.EXILE && it.owner == f.a && it.kind == TableItemKind.PILE }
         assertTrue(item.bounds.x > exile.bounds.right, "after the Exile pile")
-        assertEquals("Room: Crypt Door", scene.items.single { it.id == "life/${f.a}" }.emblems.first())
+        assertEquals("Room: Crypt Door", scene.items.single { it.id == "life/${f.a}" }.stateChips.first().label)
         assertNull(scene.items.firstOrNull { it.kind == TableItemKind.DUNGEON && it.owner == f.b }, "Bob has no dungeon")
         // A tap does nothing; holding inspects it
         val toolkit = toolkit(game)
@@ -88,7 +88,7 @@ class EngineDungeonTest {
         assertEquals(shown.cardId, toolkit.peek?.cardId)
         render(game, toolkit(game))
         compose.onRoot().captureShot("$SCREENSHOTS/engine/dungeon-on-table.png",
-            "Alice cast Torch Map and ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile, and the violet chip beside it says the venture marker is in Room: Crypt Door.")
+            "Alice cast Torch Map and ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile, and the round violet chip with a door beside it stands for the room the venture marker is in, Crypt Door, which a hold names.")
     }
 
     // TRN-069, TBL-009: in landscape the dungeon takes the fourth place after the piles in the player's bar row, unscrolled

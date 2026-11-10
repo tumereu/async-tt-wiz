@@ -318,8 +318,10 @@ data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>
          * TBL-117 for groups: a collapsed group of several ([taps]: what a tap on each does) glows as a whole when any member
          * glows: in the usual colours when the tap acts at once (every member as strong as its strongest; a legal target
          * framed whole, a stack that may attack red-orange whole), in the expand colour when the tap opens it; one holding a
-         * [picked] target shows picked as a whole (STK-047). Cards alone and the opened group's members glow as themselves:
-         * a legal target framed, a picked one drawn picked, exactly as a card alone.
+         * [picked] target shows picked as a whole (STK-047). A group holding a legal target is framed whole in the targets'
+         * violet even when its tap opens it (owner gallery review 2026-11-10, gallery 145: the expand colour didn't show it
+         * could be picked from). Cards alone and the opened group's members glow as themselves: a legal target framed, a
+         * picked one drawn picked, exactly as a card alone.
          */
         fun of(groups: List<BattlefieldGroup>, taps: Map<String, GroupTap>, playable: Map<String, Float>, targets: Set<String>,
             attack: Set<String> = emptySet(), picked: Set<String> = emptySet()): TableGlows {
@@ -336,8 +338,10 @@ data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>
                 val target = group.members.any { it in targets }
                 val attacks = group.members.any { it in attack }
                 if (strength <= 0f && !target && !attacks) continue
-                if (tap == GroupTap.Expand) for (id in group.members) {
-                    white[id] = if (target || attacks) 1f else strength; cyan -= id; violet -= id; orange -= id
+                if (tap == GroupTap.Expand && target) for (id in group.members) {
+                    violet += id; cyan -= id; orange -= id
+                } else if (tap == GroupTap.Expand) for (id in group.members) {
+                    white[id] = if (attacks) 1f else strength; cyan -= id; violet -= id; orange -= id
                 } else {
                     if (strength > 0f) for (id in group.members) cyan[id] = strength
                     if (target && tap is GroupTap.Act) violet += group.members

@@ -14,7 +14,7 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
     rendered: State<TableRenderFrame>, runtime: TableRuntimeHooks,
     crossinline currentRuntime: () -> TableRuntimeHooks, coordinator: TableGestureCoordinator, writable: Boolean,
     toolkit: TableToolkitController?, crossinline preview: () -> TableGesturePreview,
-    layoutState: MutableState<TableLayoutState>) {
+    layoutState: MutableState<TableLayoutState>, groupTaps: Map<String, GroupTap> = emptyMap()) {
     var layout by layoutState
     for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
         .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
@@ -24,9 +24,13 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
         })
     // Semantics-only children do not install a second pointer detector. Dock piles expose
     // the same minimum touch rectangle used by the scene's pointer hit testing.
-    // TBL-117, STK-047, ZON-079: what the table draws on a card and doesn't say, for accessibility services and tests
-    val targets = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
-    val picks = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty()
+    // TBL-117, STK-047, ZON-079: what the table draws on a card and doesn't say, for accessibility services and tests: the
+    // targets' violet frame and the picked look as drawn, a closed group's as a whole ([TableGlows])
+    val drawn = TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(),
+        toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty(),
+        picked = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty())
+    val targets = drawn.targets
+    val picks = drawn.picked
     val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
     val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined }) }
     for (item in semanticItems) {

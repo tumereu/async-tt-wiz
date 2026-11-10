@@ -289,32 +289,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     }
     // STK-058: drawn here unless the caller draws them over its overlays (drawPileBadges)
     if (pileBadges) pileBadges(this@with, scene)
-    // The room chip of a dungeon (TRN-069) is drawn only: taps and drags reach whatever lies beneath it. The emblems' round
-    // chips (TRN-053) are EmblemChipsOverlay's.
-    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
-        val below = i.owner != viewer
-        val area = i.emblemArea ?: continue
-        val maxChipText = (area.width - 2 * ChipText.PADDING).coerceAtLeast(12f)
-        /** TRN-069: the room chip in the room right of the piles, or after them in the bar row. */
-        run {
-            val previousSize = paint.textSize
-            paint.textSize = ChipText.TEXT * density; paint.isFakeBoldText = false
-            val texts = i.emblems.map { text -> ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density } }
-            val stacked = EmblemChips.stacked(area, below,
-                texts.map { lines -> lines.maxOf { cache.measure(it) } / density }, texts.map { it.size })
-            for ((index, lines) in texts.withIndex()) {
-                val chip = stacked[index]
-                drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
-                drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
-                paint.color = android.graphics.Color.rgb(48, 30, 82)
-                lines.forEachIndexed { n, line ->
-                    text(line, chip.x + ChipText.PADDING, chip.y + ChipText.HEIGHT / 2 + n * ChipText.LINE -
-                        cache.centerOffset() / density, line.length)
-                }
-            }
-            paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
-        }
-    }
     val landing = tableDragLanding(scene, preview)
     for ((b, insertionX) in listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands) {
         drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))

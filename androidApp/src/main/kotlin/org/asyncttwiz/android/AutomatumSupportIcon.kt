@@ -1,6 +1,27 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.PointerInputModifierNode
+import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -118,9 +139,11 @@ internal class CardMarks(private val unsupported: (Collection<String>) -> Set<St
 internal val LocalCardMarks = staticCompositionLocalOf<CardMarks?> { null }
 
 /**
- * Section 3.9 (deck building, card search, the visual deck editor, Inspect): LOB-115's amber warning sign over the art's
- * corner of a card Automatum can't play yet ([scryfallId]: its picture's printing); holding it says so. Nothing while
- * unknown or for a supported card.
+ * LOB-144 (owner gallery review 2026-11-10, gallery 188): a card Automatum can't play yet ([scryfallId]: its picture's printing)
+ * carries a warning triangle stamped over its picture's art box: the triangle alone (no disc), as big as the art box's smaller
+ * side and centred in it, a little translucent like a stamp, with a thin dark outline so it reads on light and dark art alike.
+ * [modifier] gives it the card picture's bounds (the caller's matchParentSize). Holding the triangle says so; taps and holds
+ * still reach the card under it. Nothing while unknown or for a supported card.
  */
 @Composable
 internal fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
@@ -129,8 +152,91 @@ internal fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier)
     val unsupported by produceState(false, marks, scryfallId) {
         value = withContext(Dispatchers.IO) { runCatching { marks.unsupported(scryfallId) }.getOrNull() } == true
     }
-    if (unsupported) androidx.compose.material3.Surface(modifier.padding(4.dp), shape = androidx.compose.foundation.shape.CircleShape,
-        color = Color.White.copy(alpha = .9f)) {
-        HoldWarningIcon(AUTOMATUM_CARD_UNSUPPORTED, Modifier.size(32.dp))
+    if (unsupported) BoxWithConstraints(modifier) {
+        val art = CardArtBox.of(maxWidth.value, maxHeight.value)
+        val side = minOf(art.width, art.height)
+        UnsupportedStamp(Modifier.offset((art.x + (art.width - side) / 2).dp, (art.y + (art.height - side) / 2).dp).size(side.dp))
+    }
+}
+
+/** LOB-144: where a printed card's art box lies in its picture (a modern frame's, as fractions of the card's size). */
+internal object CardArtBox {
+    const val LEFT = .08f
+    const val TOP = .11f
+    const val RIGHT = .92f
+    const val BOTTOM = .555f
+    /** The art box of a card picture [width] by [height] (dp). */
+    fun of(width: Float, height: Float) = TableBounds(width * LEFT, height * TOP, width * (RIGHT - LEFT), height * (BOTTOM - TOP))
+}
+
+/** LOB-144: how see-through the stamp's amber fill is, and its ink. */
+private const val STAMP_FILL_ALPHA = .5f
+private val StampEdge = Color(0xff2b1d00)
+
+/** LOB-144: the warning triangle stamp (see [CardSupportMark]); holding it says [AUTOMATUM_CARD_UNSUPPORTED]. */
+@Composable
+internal fun UnsupportedStamp(modifier: Modifier) {
+    var tooltip by remember { mutableStateOf(false) }
+    Box(modifier.semantics { contentDescription = AUTOMATUM_CARD_UNSUPPORTED }.then(SharedHoldElement { tooltip = it })) {
+        Canvas(Modifier.matchParentSize()) {
+            val w = size.width; val h = size.height
+            val edge = (minOf(w, h) * .03f).coerceAtLeast(1.5.dp.toPx())
+            val triangle = Path().apply {
+                moveTo(w * .5f, h * .07f); lineTo(w * .97f, h * .9f); lineTo(w * .03f, h * .9f); close()
+            }
+            drawPath(triangle, AutomatumWarning.copy(alpha = STAMP_FILL_ALPHA))
+            drawPath(triangle, StampEdge.copy(alpha = .75f), style = Stroke(edge, join = StrokeJoin.Round))
+            // The exclamation mark, in the edge's ink
+            val bar = w * .075f
+            drawRoundRect(StampEdge.copy(alpha = .8f), Offset(w * .5f - bar / 2, h * .36f), Size(bar, h * .3f), CornerRadius(bar / 2))
+            drawCircle(StampEdge.copy(alpha = .8f), bar * .62f, Offset(w * .5f, h * .76f))
+        }
+        if (tooltip) HoldTooltip(AUTOMATUM_CARD_UNSUPPORTED)
+    }
+}
+
+/**
+ * LOB-144: a hold on a sign lying over a card ([onHold] true after the long-press timeout, false on release or cancel) that
+ * shares every touch with the siblings under it, so the card's own taps and holds go on working there.
+ */
+private data class SharedHoldElement(val onHold: (Boolean) -> Unit) : ModifierNodeElement<SharedHoldNode>() {
+    override fun create() = SharedHoldNode(onHold)
+    override fun update(node: SharedHoldNode) { node.onHold = onHold }
+}
+
+private class SharedHoldNode(var onHold: (Boolean) -> Unit) : Modifier.Node(), PointerInputModifierNode,
+    CompositionLocalConsumerModifierNode {
+    private var waiting: Job? = null
+    private var down: Offset? = null
+    private var held = false
+
+    override fun sharePointerInputWithSiblings() = true
+
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (pass != PointerEventPass.Main) return
+        val change = pointerEvent.changes.firstOrNull() ?: return
+        val configuration = currentValueOf(LocalViewConfiguration)
+        when {
+            change.changedToDown() -> {
+                end()
+                down = change.position
+                waiting = coroutineScope.launch {
+                    delay(configuration.longPressTimeoutMillis)
+                    held = true
+                    onHold(true)
+                }
+            }
+            !change.pressed -> end()
+            !held -> down?.let { if ((change.position - it).getDistance() > configuration.touchSlop) end() }
+        }
+    }
+
+    override fun onCancelPointerInput() = end()
+
+    override fun onDetach() { if (held) onHold(false); held = false }
+
+    private fun end() {
+        waiting?.cancel(); waiting = null; down = null
+        if (held) { held = false; onHold(false) }
     }
 }

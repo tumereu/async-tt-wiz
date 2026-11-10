@@ -120,7 +120,7 @@ class StoredDataContainmentTest {
     }
 
     // SYS-052
-    @Test fun `an unreadable game pod preset or deck cover stays out of lists while its own reads fail as unreadable`() {
+    @Test fun `an unreadable game pod or preset stays out of lists while its own reads fail as unreadable`() {
         FreshDatabase().start().use { db ->
             val s = seed(db)
             ServiceRuntime(db.settings).use { runtime ->
@@ -158,8 +158,9 @@ class StoredDataContainmentTest {
 
                 val decks = DeckService(runtime).list(a, null)
                 assertEquals(200, decks.status, "One unreadable card must not break the decks list")
+                // Saved decks hold printings (owner 2026-11-10): their covers come from the catalog, never from stored card data
                 val covers = json.decodeFromString<DeckList>(decks.body).decks.associate { it.id to it.cover?.name }
-                assertEquals(mapOf(s.coverKept to "Ash Pup", s.coverLost to null), covers)
+                assertEquals(mapOf(s.coverKept to "Ash Pup", s.coverLost to "Lone Goat"), covers)
             }
             // Nothing was deleted or rewritten.
             assertEquals("true", text(db, "SELECT (payload LIKE '{\"retiredField\":true,%')::text FROM game_play WHERE game_id = '${s.badGame}'"))

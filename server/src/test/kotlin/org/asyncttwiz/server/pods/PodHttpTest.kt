@@ -40,15 +40,9 @@ class PodHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             a = account("pod-a"); b = account("pod-b"); c = account("pod-c")
-            val cards = (0 until 90).map { n ->
-                // Under a printing the catalog's marks support (LOB-124), so the cube can be a pod's source
-                val card = CardDefinition("Private fixture $n", listOf(DefinitionFace(id(), "Private fixture $n", manaCost = "{W}",
-                    sourceData = if (n % 2 == 0) "{\"colors\":[\"U\"]}" else null)), printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
-                SubmittedDefinition(DeckJson.digest(card), card)
-            }
-            // Invented card data (explicit colours apart from their cost), stored as a cube from before holds it
-            val stored = db.connection().use { org.asyncttwiz.server.StoredDecks.cube(it, a.account.accountId, "Snapshot cube", cards.map { it.definition }) }
-            cube = json.decodeFromString(request(a, "GET", "/v1/cubes/$stored").also { assertEquals(200, it.statusCode(), it.body()) }.body())
+            // 90 different cards of the test cards' catalog, one each
+            cube = json.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(id(), "Snapshot cube",
+                org.asyncttwiz.server.TestPrintings.names("E2E").take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)
@@ -754,47 +748,48 @@ class PodHttpTest {
             settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 16)), 201)).id
         assertEquals(PodSource("Prepared cube", 30, maybeCopies = 4), f.get(f.a, pod).source)
         fun cube(): PodCube = json.decodeFromString(f.request(f.a, "GET", "/v1/pods/$pod/cube").body())
-        assertEquals(main.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAINBOARD }.toSet())
-        assertEquals(maybe.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.toSet())
+        // The pod keeps the cards by digest, each with its printing and name for the phone to show it
+        fun cards(section: SavedDeckSection) = cube().entries.filter { it.section == section }.map { Triple(it.printingId, it.name, it.quantity) }.toSet()
+        assertEquals(main.map { Triple(it.printingId, it.name, it.quantity) }.toSet(), cards(SavedDeckSection.MAINBOARD))
+        assertEquals(maybe.map { Triple(it.printingId, it.name, it.quantity) }.toSet(), cards(SavedDeckSection.MAYBEBOARD))
+        val digests = cube().entries.associate { it.printingId to it.definition }
+        fun d(entry: SavedCubeEntry) = digests.getValue(entry.printingId)
         f.join(pod)
         // 2 players × 16 cards: 30 in Main is too few until Maybe cards move in.
         assertFalse(f.get(f.a, pod).supply.sufficient)
-        f.send(f.b, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD), 403)
+        f.send(f.b, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[0]), SavedDeckSection.MAYBEBOARD), 403)
         assertEquals(403, f.request(f.b, "GET", "/v1/pods/$pod/cube").statusCode())
         assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod/cube").statusCode())
-        val move = MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD)
+        val move = MovePodCubeCards(id(), d(maybe[0]), SavedDeckSection.MAYBEBOARD)
         val moved = f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move)
         assertEquals(moved, f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move))
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD))
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[1]), SavedDeckSection.MAYBEBOARD))
         assertEquals("not_enough_copies", json.decodeFromString<PodError>(f.send(f.a, "PUT", "/v1/pods/$pod/cube/move",
-            MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD), 409)).code)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD, 2), 409)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.SIDEBOARD), 400)
+            MovePodCubeCards(id(), d(maybe[1]), SavedDeckSection.MAYBEBOARD), 409)).code)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAINBOARD, 2), 409)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.SIDEBOARD), 400)
         assertEquals(PodSource("Prepared cube", 32, maybeCopies = 2), f.get(f.a, pod).source)
         assertTrue(f.get(f.a, pod).supply.sufficient)
         // Moving one back and forth again: the card returns to the same section entry.
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD))
-        assertEquals(1, cube().entries.single { it.definition == main[0].definition }.quantity)
-        assertEquals(SavedDeckSection.MAYBEBOARD, cube().entries.single { it.definition == main[0].definition }.section)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAYBEBOARD))
-        // Definitions are read for the prepared cube's cards only.
-        val digests = cube().entries.map { it.definition }
-        val definitions = json.decodeFromString<SubmittedDefinitions>(f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions",
-            ReadCubeDefinitions(digests))).definitions
-        assertEquals(digests.toSet(), definitions.map { it.digest }.toSet())
-        f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions", ReadCubeDefinitions(listOf(f.cube.entries.last().definition)), 404)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAINBOARD))
+        assertEquals(1, cube().entries.single { it.definition == d(main[0]) }.quantity)
+        assertEquals(SavedDeckSection.MAYBEBOARD, cube().entries.single { it.definition == d(main[0]) }.section)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAYBEBOARD))
+        // The phone builds the cards itself: there is no read of their card data
+        assertEquals(404, f.request(f.a, "POST", "/v1/pods/$pod/cube/definitions").statusCode())
         // The saved cube is unchanged.
         val unchanged = json.decodeFromString<SavedCube>(f.request(f.a, "GET", "/v1/cubes/${saved.cube.id}").body())
         assertEquals((main + maybe).toSet(), unchanged.entries.toSet())
         val started = f.start(pod)
         assertEquals(PodPhase.DRAFTING, started.phase)
         val drafted = (f.get(f.a, pod).draft!!.head!!.cards + f.get(f.b, pod).draft!!.head!!.cards).map { it.definition }.toSet()
-        assertTrue(maybe[0].definition in drafted && maybe[1].definition in drafted, "moved Maybe cards are drafted")
-        assertFalse(maybe[2].definition in drafted || maybe[3].definition in drafted, "Maybe cards are not drafted")
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[2].definition, SavedDeckSection.MAYBEBOARD), 409)
+        assertTrue(d(maybe[0]) in drafted && d(maybe[1]) in drafted, "moved Maybe cards are drafted")
+        assertFalse(d(maybe[2]) in drafted || d(maybe[3]) in drafted, "Maybe cards are not drafted")
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[2]), SavedDeckSection.MAYBEBOARD), 409)
         // Choosing the cube again starts from the saved cube's own sections.
         val other = f.create().id
-        f.send(f.a, "PUT", "/v1/pods/$other/cube/move", MovePodCubeCards(id(), f.cube.entries[0].definition, SavedDeckSection.MAINBOARD))
+        val otherCube = json.decodeFromString<PodCube>(f.request(f.a, "GET", "/v1/pods/$other/cube").body())
+        f.send(f.a, "PUT", "/v1/pods/$other/cube/move", MovePodCubeCards(id(), otherCube.entries[0].definition, SavedDeckSection.MAINBOARD))
         assertEquals(PodSource("Snapshot cube", 89, maybeCopies = 1), f.get(f.a, other).source)
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), cubeId = f.cube.cube.id))
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, other).source)
@@ -828,7 +823,7 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId))
         f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
         // Cube rename, contents replacement and deletion do not alter the chosen pod snapshot.
-        f.send(f.a, "PUT", "/v1/cubes/${f.cube.cube.id}", UpdateCube(id(), name = "Changed", entries = f.cube.entries.take(1).map { CardListEntry(it.section, it.definition, it.quantity) }))
+        f.send(f.a, "PUT", "/v1/cubes/${f.cube.cube.id}", UpdateCube(id(), name = "Changed", entries = f.cube.entries.take(1).map { CardListEntry(it.section, it.printingId, it.quantity) }))
         f.send(f.a, "DELETE", "/v1/cubes/${f.cube.cube.id}", DeleteCube(id()))
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
         f.start(pod)
@@ -837,14 +832,14 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId), 409)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), name = "Too late"), 409)
         assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod").statusCode())
-        // Snapshot stores explicit front colors, not only mana-cost inference.
+        // The snapshot keeps the catalog's colours of each card (owner 2026-11-10).
         f.db.connection().use { connection ->
             connection.prepareStatement("select source_snapshot::text from pod where id = ?").use { statement ->
                 statement.setObject(1, UUID.fromString(pod))
                 statement.executeQuery().use { rows ->
                     assertTrue(rows.next())
                     val source = json.decodeFromString<List<DraftCubeEntry>>(rows.getString(1))
-                    assertTrue(source.any { it.colors == setOf(DraftColor.U) }); assertTrue(source.any { it.colors == setOf(DraftColor.W) })
+                    assertTrue(source.any { it.colors == setOf(DraftColor.R) }); assertTrue(source.any { it.colors.isEmpty() })
                 }
             }
         }

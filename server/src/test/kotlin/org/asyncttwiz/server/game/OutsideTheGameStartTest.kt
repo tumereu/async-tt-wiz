@@ -32,18 +32,15 @@ class OutsideTheGameStartTest {
             test(runtime)
         }
     }
-    // Under a printing the catalog's marks support (LOB-124), so the decks can be chosen
-    private fun card(name: String, type: String, text: String = "", cost: String = "", layout: String = "normal") =
-        CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type, manaCost = cost, rulesText = text)), layout = layout,
-            printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
-    private fun submitted(card: CardDefinition) = SubmittedDefinition(DeckJson.digest(card), card)
+    // Cards of the test cards' catalog, by name
+    private val forest = "Forest"
+    private val wish = "Ember Wish"
+    private val hound = "Cinder Hound"
+    private val herald = "Ember Herald"
 
-    private val forest = card("Forest", "Basic Land — Forest")
-    private val wish = card("Grove Wish", "Instant", "You may put a card you own from outside the game into your hand.", "{0}")
-    private val bear = card("Side Grove Bear", "Creature — Bear", cost = "{1}{G}")
-    private val owl = card("Maybe Grove Owl", "Creature — Bird", "Flying", "{1}{G}")
-
-    private inner class Fixture(runtime: ServiceRuntime, tag: String, aliceDeck: List<Pair<SavedDeckSection, Pair<CardDefinition, Int>>>) {
+    /** [selected]: what Alice's deck choice comes to (accepted, or the reason it is refused). */
+    private inner class Fixture(runtime: ServiceRuntime, tag: String, aliceDeck: List<Pair<SavedDeckSection, Pair<String, Int>>>,
+        selected: String = "accepted") {
         val a = account(runtime, "OutsideA$tag"); val b = account(runtime, "OutsideB$tag")
         val games = GameService(runtime)
         val game: GameSummary
@@ -56,10 +53,10 @@ class OutsideTheGameStartTest {
             execute(b, GameAction.AcceptInvitation)
             val bobDeck = listOf(SavedDeckSection.MAINBOARD to (forest to 40))
             for ((actor, deck) in listOf(a to aliceDeck, b to bobDeck)) {
-                // Invented cards, stored as a deck from before holds them
-                val saved = org.asyncttwiz.server.StoredDecks.save(runtime, actor, "Outside deck",
-                    deck.map { (section, entry) -> Triple(section, entry.first, entry.second) })
-                assertEquals("accepted", execute(actor, GameAction.SelectDeck(saved.deck.id, saved.deck.revision)).outcome)
+                val saved = GameWire.json.decodeFromString<SavedDeck>(DeckService(runtime).create(actor, CreateDeck(id(), "Outside deck",
+                    deck.map { (section, entry) -> org.asyncttwiz.server.TestPrintings.entry(entry.first, entry.second, section) })).body)
+                val result = execute(actor, GameAction.SelectDeck(saved.deck.id, saved.deck.revision))
+                assertEquals(if (actor == a) selected else "accepted", if (result.outcome == "accepted") result.outcome else result.reason)
             }
             assertEquals("accepted", execute(a, GameAction.SetStarter(StarterChoice(a.account.accountId))).outcome)
         }
@@ -76,7 +73,7 @@ class OutsideTheGameStartTest {
 
     @Test fun `a constructed game's cards outside the game are the deck's Side and Maybe`() = withService { runtime ->
         val f = Fixture(runtime, "s", listOf(SavedDeckSection.MAINBOARD to (forest to 36), SavedDeckSection.MAINBOARD to (wish to 4),
-            SavedDeckSection.SIDEBOARD to (bear to 2), SavedDeckSection.MAYBEBOARD to (owl to 1)))
+            SavedDeckSection.SIDEBOARD to (hound to 2), SavedDeckSection.MAYBEBOARD to (herald to 1)))
         assertEquals("accepted", f.execute(f.a, GameAction.Ready).outcome)
         assertEquals("accepted", f.execute(f.b, GameAction.Ready).outcome)
         val head = f.games.head(f.a, f.game.id)
@@ -85,25 +82,21 @@ class OutsideTheGameStartTest {
         val model = EngineJson(EngineJson.decodeDefinitions(snapshot.definitions)).decodeModel(snapshot.state)
         val alice = model.engine.player(arcanum.engine.state.PlayerId(f.a.account.accountId))
         fun name(id: arcanum.engine.state.ObjectId) = model.engine.obj(id)!!.definition!!.faces.single().name
-        assertEquals(listOf("Side Grove Bear", "Side Grove Bear", "Maybe Grove Owl"), alice.outside.map(::name))
+        assertEquals(listOf(hound, hound, herald), alice.outside.map(::name))
         assertEquals(40, alice.library.size + alice.hand.size)
-        assertTrue((alice.library + alice.hand).map(::name).none { it == "Maybe Grove Owl" || it == "Side Grove Bear" })
+        assertTrue((alice.library + alice.hand).map(::name).none { it == herald || it == hound })
         assertTrue(model.engine.player(arcanum.engine.state.PlayerId(f.b.account.accountId)).outside.isEmpty())
         // The play's card data holds the Maybe card's (for the choice that fetches it and the hand it goes to)
-        assertTrue(head.play!!.definitions.any { it.definition.name == "Maybe Grove Owl" })
+        assertTrue(head.play!!.definitions.any { it.definition.name == herald })
         // The wish reads as Automatum plays it: a choice among its owner's cards outside the game
-        assertNotNull(org.asyncttwiz.protocol.game.GameCards.parse(wish).definition)
+        assertNotNull(org.asyncttwiz.protocol.game.GameCards.parse(org.asyncttwiz.server.TestPrintings.definition(wish)).definition)
     }
 
-    @Test fun `a Maybe card the server can't read keeps the deck out of the game`() = withService { runtime ->
-        // Card data made before parts were kept: a split card's halves only in its combined text (GameCards: unreadable)
-        val split = card("Blaze // Frost", "Instant // Instant", "Blaze deals 2 damage to any target. // Draw a card.", "{R} // {U}", "split")
-        assertNull(org.asyncttwiz.protocol.game.GameCards.parse(split).definition, "the server can't read it")
-        val f = Fixture(runtime, "u", listOf(SavedDeckSection.MAINBOARD to (forest to 40), SavedDeckSection.MAYBEBOARD to (split to 1)))
-        f.execute(f.a, GameAction.Ready)
-        val started = f.execute(f.b, GameAction.Ready)
-        assertEquals("rejected", started.outcome, "the start is refused: ${started.reason}")
-        assertEquals("automatumUnsupported", started.reason)
+    // LOB-141, LOB-118: a Maybe card Automatum can't play (the catalog's marks, LOB-124) keeps the deck out of the game
+    @Test fun `a Maybe card Automatum can't play keeps the deck out of the game`() = withService { runtime ->
+        val f = Fixture(runtime, "u", listOf(SavedDeckSection.MAINBOARD to (forest to 40), SavedDeckSection.MAYBEBOARD to ("Odd Relic" to 1)),
+            selected = "automatumUnsupported")
+        assertEquals("deckRequired", f.execute(f.a, GameAction.Ready).reason)
         assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, f.game.id).summary.lifecycle)
     }
 }

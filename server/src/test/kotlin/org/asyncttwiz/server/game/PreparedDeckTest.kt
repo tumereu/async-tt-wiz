@@ -34,21 +34,13 @@ class PreparedDeckTest {
         val lobby = LobbyService(runtime); lobby.add(a, AddContact(id(), b.account.accountId))
         return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Prepared Spark")).body)
     }
-    private fun definitions(): List<SubmittedDefinition> {
-        val front = id(); val back = id()
-        val cards = listOf(CardDefinition("Retained Front // Back", listOf(
-            DefinitionFace(front, "Front", listOf(back), corner = "2/4"),
-            DefinitionFace(back, "Back", listOf(front), rulesText = "Original backside")), sourceVersion = "old-source",
-            printingId = org.asyncttwiz.server.TestPrintings.id("Forest")),
-            CardDefinition("Side card", listOf(DefinitionFace(id(), "Side card", rulesText = "Original side text")), printingId = org.asyncttwiz.server.TestPrintings.id("Forest")))
-        // Under a printing the catalog's marks support (LOB-124), so the deck can be chosen
-        return cards.map { SubmittedDefinition(DeckJson.digest(it), it) }
-    }
-    private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, defs: List<SubmittedDefinition>): SavedDeck {
-        // Invented card data a deck holds from before: the test checks a game keeps its exact texts
-        return org.asyncttwiz.server.StoredDecks.save(runtime, actor, "Original deck 😀",
-            listOf(Triple(SavedDeckSection.MAINBOARD, defs[0].definition, 3), Triple(SavedDeckSection.SIDEBOARD, defs[1].definition, 2)))
-    }
+    /** A modal double-faced card and a plain one of the test cards' catalog, as the server builds them by printing. */
+    private fun definitions(): List<SubmittedDefinition> =
+        listOf("Ember Path // Ember Crag", "Idle Glimmer").map(org.asyncttwiz.server.TestPrintings::submitted)
+    private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, defs: List<SubmittedDefinition>): SavedDeck =
+        json.decodeFromString(DeckService(runtime).create(actor, CreateDeck(id(), "Original deck 😀", listOf(
+            CardListEntry(SavedDeckSection.MAINBOARD, defs[0].definition.printingId, 3),
+            CardListEntry(SavedDeckSection.SIDEBOARD, defs[1].definition.printingId, 2)))).body)
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString())
         val connection = UUID.randomUUID()
@@ -66,27 +58,26 @@ class PreparedDeckTest {
         }
     }
 
-    @Test fun `old saved adventure definitions become durable single face game definitions without modifying saved decks`() {
+    // Owner 2026-11-10 (card data from the server's catalog): a saved deck holds printings; choosing it copies the cards the
+    // server builds from its catalog into the game, a double-faced card with both its sides
+    @Test fun `a chosen deck's cards are the catalog's cards of its printings`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
                 val a = account(runtime, "PhysicalA"); val b = account(runtime, "PhysicalB")
                 val summary = game(runtime, a, b)
-                val defs = definitions().mapIndexed { index, submitted ->
-                    val definition = if (index == 0) submitted.definition.copy(layout = "adventure", provider = "mtgjson") else submitted.definition
-                    SubmittedDefinition(DeckJson.digest(definition), definition)
-                }
+                val defs = definitions()
                 val source = deck(runtime, a, defs)
                 val games = GameService(runtime); val stream = Stream(games, a, summary)
                 assertEquals("accepted", stream.execute(stream.selection(source)).outcome)
                 val preparation = games.head(a, summary.id).preparation!!
                 val digest = preparation.players.first().deck!!.entries.first().definition
-                assertNotEquals(defs.first().digest, digest)
-                assertEquals(1, preparation.definitions.single { it.digest == digest }.definition.faces.size)
+                assertEquals(defs.first().digest, digest)
+                assertEquals(2, preparation.definitions.single { it.digest == digest }.definition.faces.size)
                 assertEquals(1L, number(db, "SELECT count(*) FROM definition WHERE digest='$digest'"))
-                assertEquals(source.entries.first().definition, defs.first().digest)
-                assertEquals(1L, number(db, "SELECT count(*) FROM deck_entry WHERE definition_digest='${defs.first().digest}'"))
+                assertEquals(defs.first().definition.printingId, source.entries.first().printingId)
+                assertEquals(1L, number(db, "SELECT count(*) FROM deck_entry WHERE printing_id='${defs.first().definition.printingId}'"))
             }
         }
     }
@@ -159,7 +150,7 @@ class PreparedDeckTest {
                 summary = game(runtime, a, b); val source = deck(runtime, a, definitions()); val games = GameService(runtime)
                 val stream = Stream(games, a, summary); hello = stream.hello
                 stream.execute(stream.selection(source)); before = games.head(a, summary.id)
-                val captured = PreparationRules.capture(before.preparation!!, a.account.accountId, source.entries[0].definition,
+                val captured = PreparationRules.capture(before.preparation!!, a.account.accountId, definitions()[0].digest,
                     SavedDeckSection.MAINBOARD, false)!!
                 original = stream.transfer(captured)
                 val action = original.action as GameAction.TransferPreparedCard
@@ -272,8 +263,8 @@ class PreparedDeckTest {
                 val original = games.head(a, summary.id).preparation!!
                 val revision = games.head(a, summary.id).revision
                 val decks = DeckService(runtime)
-                val change = UpdateDeck(id(), "New name", defs[1].digest, DeckContentsImport(
-                    listOf(CardListEntry(SavedDeckSection.MAINBOARD, defs[1].digest, 7))))
+                val change = UpdateDeck(id(), "New name", defs[1].definition.printingId, DeckContentsImport(
+                    listOf(CardListEntry(SavedDeckSection.MAINBOARD, defs[1].definition.printingId, 7))))
                 assertEquals(200, decks.update(a, source.deck.id, change).status)
                 assertEquals(original, games.head(a, summary.id).preparation)
                 val rejected = stream.execute(stream.selection(source)); assertEquals("sourceChanged", rejected.reason)

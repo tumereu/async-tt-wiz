@@ -42,15 +42,11 @@ class LimitedDraftHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             players = List(5) { account("limited-$it") }
-            val cards = (0 until 120).map { n ->
-                // Under a printing the catalog's marks support (LOB-124), so the cube can be a pod's source
-                val card = CardDefinition("Limited fixture $n", listOf(DefinitionFace(UUID.randomUUID().toString(), "Limited fixture $n", manaCost = "{G}")),
-                    printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
-                SubmittedDefinition(DeckJson.digest(card), card)
-            }
-            // 120 different invented cards (more than the test cards' catalog has), stored as a cube from before holds them
-            val stored = db.connection().use { org.asyncttwiz.server.StoredDecks.cube(it, a.account.accountId, "Limited cube", cards.map { it.definition }) }
-            cube = json.decodeFromString(request(a, "GET", "/v1/cubes/$stored").also { assertEquals(200, it.statusCode(), it.body()) }.body())
+            // 120 cards of the test cards' catalog: its supported cards, each once
+            val cards = org.asyncttwiz.server.TestPrintings.supported().take(120)
+            check(cards.size == 120) { "the test cards' catalog has ${cards.size} supported cards" }
+            cube = DeckJson.format.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(UUID.randomUUID().toString(), "Limited cube",
+                cards.map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)

@@ -2,12 +2,15 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** One card of a cube's [section]: [SavedDeckSection.MAINBOARD] (drafted) or [SavedDeckSection.MAYBEBOARD] (never drafted).
- * Main is omitted on the wire, so Main-only cubes read and hash exactly as before Maybe existed. */
+/** One card of a cube's [section]: [SavedDeckSection.MAINBOARD] (drafted) or [SavedDeckSection.MAYBEBOARD] (never drafted),
+ * by printing as a deck's ([SavedDeckEntry]). Main is omitted on the wire. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-@Serializable data class SavedCubeEntry(val definition: String, val quantity: Int,
+@Serializable data class SavedCubeEntry(val printingId: String?, val name: String, val quantity: Int,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val section: SavedDeckSection = SavedDeckSection.MAINBOARD)
+    val section: SavedDeckSection = SavedDeckSection.MAINBOARD) {
+    /** The card's key in its list ([SavedCards.key]). */
+    val card: String get() = SavedCards.key(printingId, name)
+}
 /** A new cube of [entries] (as [CardListEntry]: their card data comes from the server's catalog). */
 @Serializable data class CreateCube(val requestId: String, val name: String, val entries: List<CardListEntry>, val cubeCobraId: String? = null)
 @Serializable data class UpdateCube(val requestId: String, val name: String? = null,
@@ -24,24 +27,21 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: CardListSupport? = null)
 @Serializable data class SavedCube(val cube: CubeSummary, val entries: List<SavedCubeEntry>)
 @Serializable data class CubeList(val cubes: List<CubeSummary>, val next: String? = null)
-@Serializable data class ReadCubeDefinitions(val digests: List<String>)
-@Serializable data class SubmittedDefinitions(val definitions: List<SubmittedDefinition>)
 
 object CubeValidation {
     const val MAX_CARDS = 3000
-    const val MAX_DEFINITIONS_PER_READ = 250
-    fun definitionRead(digests: List<String>) = digests.size in 1..MAX_DEFINITIONS_PER_READ &&
-        digests.all(DeckValidation::digest)
     fun name(value: String) = value.isNotBlank() && DeckValidation.text(value)
     fun provenance(value: String?) = value == null || Regex("[A-Za-z0-9_-]{1,256}").matches(value)
-    /** A save's cards: Main and Maybe only, each a printing id or a digest; the limit counts every section (DRF-007). */
+    /** A save's cards: Main and Maybe only, each a printing or a name ([DeckValidation.card]); the limit counts every
+     * section (DRF-007). */
     fun input(value: List<CardListEntry>) = value.isNotEmpty() &&
-        value.all { (DeckValidation.uuid(it.printingId) || DeckValidation.digest(it.printingId)) && it.quantity in 1..MAX_CARDS &&
+        value.all { DeckValidation.card(it) && it.quantity in 1..MAX_CARDS &&
             it.section in SavedDeckSection.CUBE } &&
         value.sumOf { it.quantity.toLong() } in 1..MAX_CARDS.toLong()
     /** The limit counts every section (DRF-007); a card may be in both Main and Maybe. */
     fun entries(value: List<SavedCubeEntry>) = value.isNotEmpty() &&
-        value.all { DeckValidation.digest(it.definition) && it.quantity in 1..MAX_CARDS && it.section in SavedDeckSection.CUBE } &&
+        value.all { (it.printingId == null || DeckValidation.uuid(it.printingId)) && DeckValidation.name(it.name) &&
+            it.quantity in 1..MAX_CARDS && it.section in SavedDeckSection.CUBE } &&
         value.sumOf { it.quantity.toLong() } in 1..MAX_CARDS.toLong() &&
-        value.map { it.section to it.definition }.distinct().size == value.size
+        value.map { it.section to it.card }.distinct().size == value.size
 }

@@ -103,19 +103,19 @@ class PreparationPresentationTest {
 
     // LOB-056, SYS-051
     @Test fun aSavedDeckUsesTheSameTypeGroupsWithEveryEntryBasicsIncludedAsATile() {
-        fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
-            .let { SubmittedDefinition(DeckJson.digest(it), it) }
+        fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)), printingId = id())
         val bear = card("Bear", "Creature — Bear"); val forest = card("Forest", "Basic Land — Forest"); val bolt = card("Bolt", "Instant")
-        val definitions = listOf(bear, forest, bolt).associate { it.digest to it.definition }
+        // A saved deck's cards by printing (owner 2026-11-10)
+        val definitions = listOf(bear, forest, bolt).associateBy { it.printingId!! }
         val saved = SavedDeck(DeckSummary(id(), "Deck", "1", "now", 21, 2), listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, forest.digest, 17),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 3),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 1),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, bolt.digest, 2)))
+            savedEntry(SavedDeckSection.MAINBOARD, forest, 17),
+            savedEntry(SavedDeckSection.MAINBOARD, bear, 3),
+            savedEntry(SavedDeckSection.MAINBOARD, bear, 1),
+            savedEntry(SavedDeckSection.SIDEBOARD, bolt, 2)))
         val main = preparationGroups(saved, SavedDeckSection.MAINBOARD, definitions)
         assertEquals(listOf(CardTypeGroup.CREATURES to listOf("Bear" to 4L), CardTypeGroup.LANDS to listOf("Forest" to 17L)),
             main.map { group -> group.type to group.tiles.map { it.name to it.quantity } })
-        assertEquals(listOf(PreparationGroup(CardTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 2)))),
+        assertEquals(listOf(PreparationGroup(CardTypeGroup.INSTANTS, listOf(PreparationTile(bolt.printingId!!, bolt, 2)))),
             preparationGroups(saved, SavedDeckSection.SIDEBOARD, definitions))
     }
 

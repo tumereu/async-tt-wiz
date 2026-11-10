@@ -13,6 +13,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val main = Handler(Looper.getMainLooper())
     private val catalogStore = ViewModelStore()
     val catalog = ViewModelProvider(catalogStore, ViewModelProvider.AndroidViewModelFactory(application))[CatalogViewModel::class.java]
+    /** Saved decks' and cubes' cards come from the phone's card records by printing (owner 2026-11-10). */
+    private val cardRecords = SavedCardRecords { ids -> SavedCardFaces(catalog.repository.cards(ids), catalog.repository.metadata()) }
     val deckImport = DeckImportController(DeckImportResolver(catalog.repository)::resolve,
         Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } }).apply {
         connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
@@ -123,6 +125,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }, main, lobby::tick)
 
     init {
+        deckImport.cardRecords = cardRecords; decks.cardRecords = cardRecords; cubes.cardRecords = cardRecords
+        pods.cardRecords = cardRecords; lobby.cardRecords = cardRecords
         lobby.gameInput = heartbeat::input
         activity.authenticationRequired = ::authenticationRequired
         activity.activityHints = { hints ->

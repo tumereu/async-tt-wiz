@@ -40,6 +40,19 @@ object TestCatalog {
     }
     private val definitions = java.util.concurrent.ConcurrentHashMap<String, CardDefinition>()
 
+    /** The test cards' catalog's build, as a phone's installed card records name it. */
+    val metadata: org.asyncttwiz.storage.CatalogMetadata by lazy {
+        org.asyncttwiz.storage.CatalogMetadata(catalog.header.mtgjsonDate, catalog.header.mtgjsonVersion)
+    }
+
+    /** The faces of the card printing [printingId] is a face of, front first, as a phone's card records hold them (the
+     * records the app indexes the catalog into); null for a printing the catalog doesn't have. */
+    fun faces(printingId: String): List<org.asyncttwiz.storage.CatalogPrinting>? = catalog.printing[printingId]?.let { printing ->
+        CatalogCards.linked(catalog, printing).map { side -> val face = catalog.faces[side.face]
+            org.asyncttwiz.storage.CatalogPrinting(side.id, face.name, side.set, side.number, "English", face.side, side.scryfall, side.token,
+                side.others, CatalogCards.sourceRecord(side, face).toString()) }
+    }
+
     /** The card data of the physical card printing [printingId] is a face of. */
     fun definition(printingId: String): CardDefinition = definitions.getOrPut(printingId) {
         // As a deck or cube holds it (the server's ServerCatalog.card)

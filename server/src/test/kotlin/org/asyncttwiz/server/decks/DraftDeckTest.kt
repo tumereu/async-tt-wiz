@@ -23,6 +23,13 @@ class DraftDeckTest {
     private fun id() = UUID.randomUUID().toString()
     /** LOB-052: the basic lands the server supplies from its catalog (the test cards' M21). */
     private val lands get() = org.asyncttwiz.server.TestPrintings.catalog.basics!!.mapValues { it.value.digest }
+    /** A draft deck holds the pod's cards by printing (owner 2026-11-10): each test card's and basic land's, by digest. */
+    private val cards get() = (listOf("Ash Pup", "Ember Cub", "Cinder Hound", "Lone Goat", "Drowsy Pup", "Warded Pup", "Ember Sprite",
+        "Cinder Brute", "Ember Dasher").map(org.asyncttwiz.server.TestPrintings::submitted) +
+        org.asyncttwiz.server.TestPrintings.catalog.basics!!.values).associate { it.digest to it.definition }
+    private fun printing(digest: String) = cards.getValue(digest).printingId
+    private fun saved(section: SavedDeckSection, digest: String, quantity: Int) =
+        cards.getValue(digest).let { SavedDeckEntry(section, it.printingId, it.name, quantity) }
 
     private inner class Fixture(val db: TestPostgres, val runtime: ServiceRuntime) {
         private val accounts = AccountService(runtime)
@@ -94,10 +101,10 @@ class DraftDeckTest {
         assertNull(f.detail(f.b, pod).deckCover)
         assertEquals(200, f.submit(f.a, pod))
         val summary = f.drafts(f.a).single()
-        assertEquals(copies[1], summary.cover!!.definition)
+        assertEquals(printing(copies[1]), summary.cover!!.definition)
         assertEquals(200, cover(copies[0]).status)
         val after = f.read(f.a, summary.id).deck
-        assertEquals(copies[0], after.cover!!.definition)
+        assertEquals(printing(copies[0]), after.cover!!.definition)
         assertEquals("2", after.revision)
         assertEquals(after.revision, run { assertEquals(200, cover(copies[0]).status); f.read(f.a, summary.id).deck.revision })
     }
@@ -113,7 +120,7 @@ class DraftDeckTest {
         val built = f.build(f.a, pod) // moves that third card to Maybe
         assertEquals(definition.getValue(third.copyId), built.deckCover)
         assertEquals(200, f.submit(f.a, pod))
-        assertEquals(definition.getValue(built.build!!.copies[0].copyId), f.drafts(f.a).single().cover!!.definition)
+        assertEquals(printing(definition.getValue(built.build!!.copies[0].copyId)), f.drafts(f.a).single().cover!!.definition)
     }
 
     // LOB-055: Main, Side (with the Side basics) and the Build's Maybe as its own section
@@ -130,12 +137,13 @@ class DraftDeckTest {
         assertTrue(f.drafts(f.b).isEmpty())
         val deck = f.read(f.a, summary.id)
         val seventeen = PodDeckBasics(17, 17, 17, 17, 17)
-        assertEquals(listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, copies[0], 1)) +
-            BasicLand.entries.map { SavedDeckEntry(SavedDeckSection.MAINBOARD, lands.getValue(it), 8) } +
-            listOf(SavedDeckEntry(SavedDeckSection.SIDEBOARD, copies[1], 1)) +
-            BasicLand.entries.map { SavedDeckEntry(SavedDeckSection.SIDEBOARD, lands.getValue(it), it.count(seventeen)) } +
-            listOf(SavedDeckEntry(SavedDeckSection.MAYBEBOARD, copies[2], 1)),
-            deck.entries.sortedWith(compareBy({ it.section }, { it.definition in lands.values })))
+        val landPrintings = lands.values.map(::printing).toSet()
+        assertEquals(listOf(saved(SavedDeckSection.MAINBOARD, copies[0], 1)) +
+            BasicLand.entries.map { saved(SavedDeckSection.MAINBOARD, lands.getValue(it), 8) } +
+            listOf(saved(SavedDeckSection.SIDEBOARD, copies[1], 1)) +
+            BasicLand.entries.map { saved(SavedDeckSection.SIDEBOARD, lands.getValue(it), it.count(seventeen)) } +
+            listOf(saved(SavedDeckSection.MAYBEBOARD, copies[2], 1)),
+            deck.entries.sortedWith(compareBy({ it.section }, { it.printingId in landPrintings })))
         assertEquals(41L, summary.mainboard); assertEquals(1L + 85, summary.sideboard); assertEquals(1L, summary.maybeboard)
 
         // The private pod deck name, also when changed after submitting.
@@ -197,7 +205,8 @@ class DraftDeckTest {
         }
         assertEquals("accepted", execute(GameAction.SelectDeck(oldest.id, oldest.revision)).outcome)
 
-        val entries = f.read(f.a, oldest.id).entries
+        // Draft decks of pods' cards by digest: forty of a test card
+        val entries = listOf(DraftDeckStore.Entry(SavedDeckSection.MAINBOARD, cards.keys.first(), 40))
         repeat(DraftDecks.LIMIT - 1) { n -> f.runtime.transaction { connection ->
             DraftDeckStore.save(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(f.a.account.accountId),
                 UUID.randomUUID(), "Old pod $n", "Old draft $n", entries)
@@ -220,35 +229,6 @@ class DraftDeckTest {
         val prepared = f.games.head(f.a, game.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
         assertEquals(oldest.id, prepared.sourceId); assertEquals(41L, prepared.count(SavedDeckSection.MAINBOARD))
         assertEquals("accepted", execute(GameAction.Ready).outcome)
-    }
-
-    @Test fun `the V44 backfill rebuilds draft decks from submitted pod decks`() = fixture { f ->
-        val pod = f.pod()
-        // V44 predates Maybe in draft decks (it folded the then Trash into Side): builds without one
-        f.build(f.a, pod, maybe = false); f.build(f.b, pod, maybe = false)
-        assertEquals(200, f.submit(f.a, pod)); assertEquals(200, f.submit(f.b, pod))
-        val name = f.detail(f.a, pod).draftAttemptId!!
-        assertEquals(200, f.pods.deckName(f.b, pod, SetPodDeckName(id(), name, "B's pile")).status)
-        // A pod game records the basic printings the backfill reuses.
-        assertEquals(201, f.pods.challenge(f.a, pod, ChallengeFromPod(id(), f.b.account.accountId, "Pod game")).status)
-        fun snapshot() = listOf(f.a, f.b).map { who -> f.drafts(who).map { summary ->
-            val deck = f.read(who, summary.id)
-            Triple(summary.name, summary.draft, deck.entries)
-        } }
-        val autosaved = snapshot()
-        assertTrue(autosaved.all { it.size == 1 })
-        f.execute("DELETE FROM saved_deck WHERE draft_pod_id IS NOT NULL")
-        val migration = javaClass.getResource("/db/migration/V44__draft_decks.sql")!!.readText()
-        val backfill = migration.substring(migration.indexOf("-- Backfill"))
-        f.db.connection().use { connection ->
-            connection.autoCommit = false
-            // V78 dropped the grants the backfill also wrote: a table of this session's own takes them
-            connection.createStatement().execute("CREATE TEMP TABLE account_definition (account_id uuid, digest text, PRIMARY KEY (account_id, digest))")
-            connection.createStatement().execute(backfill)
-            connection.commit()
-        }
-        assertEquals(autosaved, snapshot())
-        assertEquals("B's pile", autosaved[1].single().first)
     }
 
     // DRF-092, LOB-141: V70 turns a stored Trash into Maybe with nothing lost: the build keeps every copy, a submitted deck

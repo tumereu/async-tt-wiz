@@ -48,6 +48,7 @@ class CardListEditorUiTest {
     private val detail get() = fixture.library.state.detail!!
     private fun digest(name: String) = detail.definitions.entries.first { it.value.name == name }.key
     private fun editor(): DeckImportController = DeckImportController({ error("No lookup expected") }, Immediate, { it() }).also {
+        it.cardRecords = testCardRecords(fixture.definitions.map { card -> card.definition }, set = "")
         it.openEditor(detail)
     }
     private fun count(editor: CardListEditor, name: String, section: DeckSection) = CardListEdits.count(editor.entries!!, name, section)
@@ -242,7 +243,7 @@ class CardListEditorUiTest {
 
         // A cover the change cleared comes back with it; a Text tab edit starts the undo over.
         compose.runOnIdle {
-            val ward = editor.coverCards.first { it.definition.name == "Aegis Ward" }.digest
+            val ward = editor.coverCards.first { it.definition.name == "Aegis Ward" }.definition.printingId!!
             editor.cover(ward)
             editor.applyCards(CardListEdits.removeAll(editor.entries!!, digest("Aegis Ward"), DeckSection.MAINBOARD), editor.listCatalog)
             assertNull(editor.state.cover)
@@ -299,19 +300,20 @@ class CardListEditorUiTest {
 
     // LOB-121, DRF-003: a cube's results show only Main and Maybe squares; the chosen section's square counts up.
     @Test fun cubeSearchSquaresShowMainAndMaybe() {
-        val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
-        val digest = DeckJson.digest(bear)
+        val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")),
+            printingId = "00000000-0000-4000-8000-000000000201")
+        val digest = bear.printingId!!
         val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 2, maybeCopies = 1),
-            listOf(SavedCubeEntry(digest, 2), SavedCubeEntry(digest, 1, SavedDeckSection.MAYBEBOARD)))
+            listOf(SavedCubeEntry(digest, bear.name, 2), SavedCubeEntry(digest, bear.name, 1, SavedDeckSection.MAYBEBOARD)))
         val api = Proxy.newProxyInstance(Cubes::class.java.classLoader, arrayOf(Cubes::class.java)) { _, method, args ->
             when (method.name) {
                 "readCube" -> saved
-                "cubeDefinitions" -> SubmittedDefinitions((args[2] as ReadCubeDefinitions).digests.map { SubmittedDefinition(it, bear) })
                 "close" -> Unit
                 else -> error("unused ${method.name}")
             }
         } as Cubes
         val cubes = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, Immediate, { it() })
+        cubes.cardRecords = testCardRecords(bear)
         cubes.open("cube"); cubes.edit()
         try {
             cubes.search.source = { _, _ -> CatalogCardSearch.Page("g", metadata,
@@ -434,20 +436,20 @@ class CardListEditorUiTest {
 
     // DRF-003, LOB-064, LOB-105, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
     @Test fun cubeEditorUsesMainAndMaybeAndConfirmsDiscard() {
-        val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
-        val digest = DeckJson.digest(bear)
-        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(digest, 3)))
+        val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")),
+            printingId = "00000000-0000-4000-8000-000000000201")
+        val digest = bear.printingId!!
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(digest, bear.name, 3)))
         val api = object : Cubes {
             override suspend fun listCubes(token: String, after: String?) = CubeList(listOf(saved.cube))
             override suspend fun readCube(token: String, id: String) = saved
-            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
-                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, bear) })
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
             override fun close() = Unit
         }
         val cubes = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, Immediate, { it() })
+        cubes.cardRecords = testCardRecords(bear)
         cubes.open("cube"); cubes.edit()
         try {
             compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { CubeScreen(cubes, null) } } }
@@ -485,7 +487,7 @@ class CardListEditorUiTest {
     @Test fun savedDeckShowsMaybeAndOnlyEdit() {
         val library = fixture.library
         library.seed(library.state.copy(detail = detail.copy(saved = detail.saved.copy(entries = detail.saved.entries +
-            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, digest("Ember Adept"), 2)))))
+            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, digest("Ember Adept"), "Ember Adept", 2)))))
         compose.setContent { ScreenTheme { SavedDeckScreen(library, null, importDeck = {}) } }
         compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Maybeboard · 2"))
         compose.onNodeWithContentDescription("Ember Adept, 2 copies, Maybeboard").assertExists()
@@ -558,19 +560,21 @@ class CardListEditorUiTest {
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class PodCubePreparationTest {
     @get:Rule val compose = createComposeRule()
-    private val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
-    private val bolt = CardDefinition("Rune Bolt", listOf(DefinitionFace("rune-bolt", "Rune Bolt", typeLine = "Instant")))
-    private val cards = listOf(bear, bolt).associateBy { DeckJson.digest(it) }
+    private val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")),
+        printingId = "00000000-0000-4000-8000-000000000201")
+    private val bolt = CardDefinition("Rune Bolt", listOf(DefinitionFace("rune-bolt", "Rune Bolt", typeLine = "Instant")),
+        printingId = "00000000-0000-4000-8000-000000000202")
     private val bearDigest = DeckJson.digest(bear)
     private val boltDigest = DeckJson.digest(bolt)
-    private var cube = PodCube("Runes", listOf(SavedCubeEntry(bearDigest, 3), SavedCubeEntry(boltDigest, 1, SavedDeckSection.MAYBEBOARD)))
+    /** The pod keeps its cards by digest, each with its printing for the phone to show it from its records (owner 2026-11-10). */
+    private var cube = PodCube("Runes", listOf(PodCubeEntry(bearDigest, bear.printingId, bear.name, 3),
+        PodCubeEntry(boltDigest, bolt.printingId, bolt.name, 1, SavedDeckSection.MAYBEBOARD)))
     private val moves = mutableListOf<MovePodCubeCards>()
     private var refused = false
     private var offline = false
     private val api = Proxy.newProxyInstance(Pods::class.java.classLoader, arrayOf(Pods::class.java)) { _, method, args ->
         when (method.name) {
             "cube" -> cube
-            "cubeDefinitions" -> SubmittedDefinitions((args[2] as ReadCubeDefinitions).digests.map { SubmittedDefinition(it, cards.getValue(it)) })
             "moveCube" -> {
                 val input = args[2] as MovePodCubeCards
                 if (refused) throw PodFailure("not_setup")
@@ -585,7 +589,7 @@ class PodCubePreparationTest {
     // DRF-141, DRF-142
     @Test fun prepareCubeMovesCardsBetweenMainAndMaybeAndUndoes() {
         var refreshed = 0
-        val preparation = PodCubePreparation(api, { "token" }, Immediate, { it() }) { refreshed++ }
+        val preparation = PodCubePreparation(api, { "token" }, Immediate, { it() }) { refreshed++ }.also { it.cardRecords = testCardRecords(bear, bolt) }
         preparation.open("00000000-0000-4000-8000-000000000001")
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { if (preparation.state.open) PodCubePreparationScreen(preparation) } } }
         compose.onNodeWithText("Prepare cube · Runes").assertIsDisplayed()

@@ -548,7 +548,11 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 game.id, account, action.deckId, support.byHand.size, support.byHand.take(20))
             return "automatumUnsupported"
         }
-        val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
+        // The deck's cards built from the server's card catalog by their printings (owner 2026-11-10)
+        val definitions = org.asyncttwiz.server.catalog.ServerCatalogs.current()?.let { catalog ->
+            source?.entries.orEmpty().mapNotNull { it.printingId }.distinct().mapNotNull(catalog::card)
+                .map { SubmittedDefinition(DeckJson.digest(it), it) }
+        }.orEmpty()
         val current = PreparationStore.read(sql, summary)
         val change = PreparationRules.select(summary, current, account.toString(),
             command.requestId, command.scope, action, source, definitions)

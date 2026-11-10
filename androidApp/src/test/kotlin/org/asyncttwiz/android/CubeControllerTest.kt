@@ -80,26 +80,25 @@ class CubeControllerTest {
         controller.close(); worker.drain()
     }
 
-    private val card = CardDefinition("Retained card", listOf(DefinitionFace(UUID.randomUUID().toString(), "Retained card")))
-    private val digest = DeckJson.digest(card)
+    private val card = CardDefinition("Retained card", listOf(DefinitionFace(UUID.randomUUID().toString(), "Retained card")),
+        printingId = UUID.randomUUID().toString())
+    /** The cube's card, by its printing (owner 2026-11-10). */
+    private val digest = card.printingId!!
     private val summary = CubeSummary(UUID.randomUUID().toString(), "Accepted cube", "1", "2026-10-26T00:00:00Z", "2026-10-26T00:00:00Z", 1500, "fixture")
     private inner class Api : Cubes {
-        var saved: SavedCube? = SavedCube(summary, listOf(SavedCubeEntry(digest, 1500)))
+        var saved: SavedCube? = SavedCube(summary, listOf(SavedCubeEntry(digest, card.name, 1500)))
         val creates = mutableListOf<CreateCube>(); val updates = mutableListOf<UpdateCube>(); val deletes = mutableListOf<DeleteCube>()
-        val definitions = mutableMapOf(digest to card)
+        /** The cards of the card records, by printing. */
+        val cards = mutableMapOf(digest to card)
         var fail = false
         var afterRead: () -> Unit = {}
         var cubeReads = 0
-        val definitionBatches = mutableListOf<List<String>>()
-        var failBatch: Int? = null
-        /** [entries] as the server stores them: a printing's card data built as the phone makes it (the server builds the
-         * same), a card the cube holds from before kept by its digest. */
+        /** The card records' reads, each its printing ids. */
+        val recordReads = mutableListOf<Collection<String>>()
+        val records = SavedCardRecords { ids -> recordReads += ids; testCardRecords(cards.values).read(ids) }
+        /** [entries] as the server stores them: each card by printing and name. */
         private fun stored(entries: List<CardListEntry>) = entries.map { entry ->
-            val digest = if (DeckValidation.digest(entry.printingId)) entry.printingId else {
-                val built = PhysicalCardFaces.normalize(result().entries.single { it.printing.id == entry.printingId }.definition(null))
-                DeckJson.digest(built).also { definitions[it] = built }
-            }
-            SavedCubeEntry(digest, entry.quantity, entry.section)
+            SavedCubeEntry(entry.printingId, entry.name ?: cards.getValue(entry.printingId!!).name, entry.quantity, entry.section)
         }
         override suspend fun create(token: String, value: CreateCube): SavedCube {
             creates += value
@@ -108,11 +107,6 @@ class CubeControllerTest {
         }
         override suspend fun listCubes(token: String, after: String?) = CubeList(listOfNotNull(saved?.cube))
         override suspend fun readCube(token: String, id: String): SavedCube { cubeReads++; afterRead(); return saved ?: throw DeckFailure("not_found") }
-        override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
-            definitionBatches += value.digests
-            if (definitionBatches.size == failBatch) throw DeckFailure("try_later")
-            return SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, definitions.getValue(it)) })
-        }
         override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube {
             updates += value
             if (fail) throw DeckFailure("request_conflict")
@@ -138,36 +132,35 @@ class CubeControllerTest {
         fun drain() { while (queue.isNotEmpty()) queue.removeFirst().run() }
     }
     private fun result(quantity: Int = 2) = DeckImportResult("$quantity Retained card",
-        listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, quantity, listOf(CatalogPrinting(card.faces.first().faceId, card.name, "", "", "English", "a", null, false, emptyList(), "{}")), listOf(1))), emptyList(), null)
+        listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, quantity, testPrintings(card), listOf(1))), emptyList(), null)
     private fun controller(api: Api, worker: Worker, lookup: (String) -> DeckImportResult = { result() }, post: (() -> Unit) -> Unit = { it() }, credential: () -> String? = { "token" }) =
         CubeController(api, credential, lookup, { result() }, worker, post,
             fetchCobra = { CubeCobraImport.parse("""{"cards":{"mainboard":[{"details":{"name":"Retained card"}}]}}""") })
+            .also { it.cardRecords = api.records }
 
-    @Test fun editPrefillsAndPreservesMoreThanOneThousandAcceptedCopiesWithoutCatalog() {
+    // Owner 2026-11-10 (card data from the server's catalog): a saved cube opens from the card records, and a save names printings
+    @Test fun editPrefillsAndPreservesMoreThanOneThousandAcceptedCopies() {
         val api = Api(); val worker = Worker()
-        val controller = controller(api, worker, lookup = { error("Retained card must not be re-resolved") })
+        val controller = controller(api, worker, lookup = testResolver(card, cube = true))
         controller.open(summary.id); worker.drain()
         controller.edit(); worker.drain()
         assertTrue(controller.state.text.contains("1500 Retained card"))
         assertTrue(controller.state.result!!.resolved)
         controller.text("Deck\n2000 Retained card"); controller.lookup(); worker.drain()
         controller.save(); worker.drain()
-        assertEquals(2000, api.updates.single().entries!!.single().quantity)
-        // Card data from the server's catalog (owner 2026-11-10): a card the cube holds from before is named by its digest
-        assertEquals(card, api.definitions.getValue(api.updates.single().entries!!.single().printingId))
+        assertEquals(CardListEntry(SavedDeckSection.MAINBOARD, digest, 2000), api.updates.single().entries!!.single())
         assertFalse(controller.state.editing)
         assertEquals(2000L, controller.state.detail!!.saved.cube.totalCopies)
-        assertEquals(1, api.definitionBatches.size)
         controller.close(); worker.drain()
     }
     // DRF-003: a cube's Maybe survives editing and saving, and pasted sideboard lines go to Maybe.
     @Test fun editingACubeKeepsItsMaybeSectionAndSideboardLinesGoToMaybe() {
         val api = Api(); val worker = Worker()
         api.saved = SavedCube(summary.copy(maybeCopies = 2),
-            listOf(SavedCubeEntry(digest, 1500), SavedCubeEntry(digest, 2, SavedDeckSection.MAYBEBOARD)))
-        val controller = controller(api, worker, lookup = { error("Retained card must not be re-resolved") })
+            listOf(SavedCubeEntry(digest, card.name, 1500), SavedCubeEntry(digest, card.name, 2, SavedDeckSection.MAYBEBOARD)))
+        val controller = controller(api, worker, lookup = testResolver(card, cube = true))
         controller.open(summary.id); worker.drain(); controller.edit(); worker.drain()
-        assertEquals("Deck\n1500 Retained card\nMaybeboard\n2 Retained card", controller.state.text)
+        assertEquals("Deck\n1500 Retained card (TST) 1\nMaybeboard\n2 Retained card (TST) 1", controller.state.text)
         assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD), controller.state.result!!.entries.map { it.section })
         controller.text("Deck\n1500 Retained card\nSideboard\n3 Retained card"); controller.lookup(); worker.drain()
         controller.save(); worker.drain()
@@ -185,7 +178,6 @@ class CubeControllerTest {
         controller.save(); worker.drain()
         assertEquals("fixture", api.creates.single().cubeCobraId)
         assertEquals(2L, controller.state.detail!!.saved.cube.totalCopies)
-        // Use a retained editor source so the synthetic fixture resolves to the exact accepted definition.
         controller.back(); worker.drain(); controller.open(summary.id); worker.drain(); controller.edit(); worker.drain()
         controller.name("Edited"); api.fail = true; controller.save(); worker.drain(); controller.save(); worker.drain()
         assertEquals(2, api.updates.size); assertEquals(api.updates[0], api.updates[1])
@@ -214,7 +206,7 @@ class CubeControllerTest {
         val api = Api(); val worker = Worker(); val controller = controller(api, worker)
         api.afterRead = controller::clear
         controller.open(summary.id); worker.drain()
-        assertTrue(api.definitionBatches.isEmpty())
+        assertTrue(api.recordReads.isEmpty())
         assertNull(controller.state.detail)
         controller.close(); worker.drain()
     }
@@ -245,71 +237,21 @@ class CubeControllerTest {
             controller.close(); worker.drain()
         }
     }
-    private fun populate(api: Api, count: Int) {
-        api.definitions.clear()
-        repeat(count) { index ->
-            val card = CardDefinition("Card $index", listOf(DefinitionFace(UUID.randomUUID().toString(), "Card $index")))
-            api.definitions[DeckJson.digest(card)] = card
+    // Owner 2026-11-10: the largest cube's cards come from the card records in one read, none from the server
+    @Test fun maximumCubeReadsItsCardsFromTheRecordsOnce() {
+        val api = Api()
+        api.cards.clear()
+        repeat(3000) { index ->
+            val card = CardDefinition("Card $index", listOf(DefinitionFace(UUID.randomUUID().toString(), "Card $index")), printingId = UUID.randomUUID().toString())
+            api.cards[card.printingId!!] = card
         }
-        api.saved = SavedCube(summary.copy(totalCopies = count.toLong()), api.definitions.keys.map { SavedCubeEntry(it, 1) })
-    }
-    @Test fun largeCubeLoadsInBatchesAndReusesDefinitionsAcrossReopenRenameAndOtherCubes() {
-        val api = Api(); populate(api, 720)
-        val worker = Worker(); val controller = controller(api, worker)
-        controller.open(summary.id); worker.drain()
-        assertNull(controller.state.error)
-        assertEquals(api.definitions, controller.state.detail!!.definitions)
-        assertEquals(4, api.cubeReads + api.definitionBatches.size)
-        assertEquals(listOf(250, 250, 220), api.definitionBatches.map { it.size })
-        controller.back(); worker.drain(); controller.open(summary.id); worker.drain()
-        controller.dialog(CubeDialog.RENAME); controller.name("Renamed"); controller.confirm(); worker.drain()
-        assertEquals("Renamed", controller.state.detail!!.saved.cube.name)
-        val otherId = UUID.randomUUID().toString()
-        api.saved = api.saved!!.copy(cube = api.saved!!.cube.copy(id = otherId))
-        controller.open(otherId); worker.drain()
-        assertEquals(720, controller.state.detail!!.definitions.size)
-        assertEquals(3, api.definitionBatches.size)
-        controller.clear(); controller.open(otherId); worker.drain()
-        assertEquals(6, api.definitionBatches.size)
-        controller.close(); worker.drain()
-    }
-    @Test fun maximumCubeUsesTwelveBatches() {
-        val api = Api(); populate(api, 3000)
+        api.saved = SavedCube(summary.copy(totalCopies = 3000), api.cards.values.map { SavedCubeEntry(it.printingId, it.name, 1) })
         val worker = Worker(); val controller = controller(api, worker)
         controller.open(summary.id); worker.drain()
         assertNull(controller.state.error)
         assertEquals(3000, controller.state.detail!!.definitions.size)
-        assertEquals(12, api.definitionBatches.size)
-        assertTrue(api.definitionBatches.all { it.size == 250 })
-        controller.close(); worker.drain()
-    }
-    @Test fun retryAfterPartialFailureOnlyFetchesMissingDefinitions() {
-        val api = Api(); populate(api, 720); api.failBatch = 2
-        val worker = Worker(); val controller = controller(api, worker)
-        controller.open(summary.id); worker.drain()
-        assertNotNull(controller.state.error)
-        assertNull(controller.state.detail)
-        api.failBatch = null
-        controller.retry(); worker.drain()
-        assertNull(controller.state.error)
-        assertEquals(720, controller.state.detail!!.definitions.size)
-        assertEquals(listOf(250, 250, 250, 220), api.definitionBatches.map { it.size })
-        assertEquals(api.definitionBatches[1], api.definitionBatches[2])
-        assertTrue(api.definitionBatches[0].toSet().intersect(api.definitionBatches.drop(1).flatten().toSet()).isEmpty())
-        controller.close(); worker.drain()
-    }
-    @Test fun cobraRequestedIdentitySurvivesRelookupAndTextQuantityEdits() {
-        val api = Api(); val worker = Worker()
-        val requested = UUID.randomUUID().toString()
-        val seen = mutableListOf<ParsedDeck>()
-        val controller = CubeController(api, { "token" }, { error("Cobra lines must retain their requested printing") },
-            { parsed -> seen += parsed; result() }, worker, { it() },
-            fetchCobra = { CubeCobraImport.parse("""{"cards":{"mainboard":[{"cardID":"$requested","details":{"name":"Retained card"}}]}}""") })
-        controller.newCube(); controller.cobraInput("fixture"); controller.importCobra(); worker.drain()
-        controller.lookup(); worker.drain()
-        controller.text("3 Retained card"); controller.lookup(); worker.drain()
-        assertEquals(listOf(requested, requested, requested), seen.map { it.lines.single().scryfallId })
-        assertEquals(3, seen.last().lines.single().quantity)
+        assertEquals(api.cards.values.map { it.name }.toSet(), controller.state.detail!!.definitions.values.map { it.name }.toSet())
+        assertEquals(1, api.recordReads.size); assertEquals(1, api.cubeReads)
         controller.close(); worker.drain()
     }
 }

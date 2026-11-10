@@ -116,6 +116,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     val chat = PodChatController(api, credential, chatWorker, post)
     /** Prepare cube for the open pod's setup (creator). */
     val cubePreparation = PodCubePreparation(api, credential, worker, post) { refresh() }
+    /** The phone's card records, which the prepared cube's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords
+        get() = cubePreparation.cardRecords
+        set(value) { cubePreparation.cardRecords = value }
     /** Draft table presets for the New pod form and the creator's setup form. */
     internal val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
 

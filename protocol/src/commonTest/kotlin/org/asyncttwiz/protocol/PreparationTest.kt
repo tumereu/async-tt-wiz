@@ -9,11 +9,13 @@ class PreparationTest {
         AccountIdentity(id(3), "B"), id(11), id(12), InvitationState.PENDING)
     private val front = id(20); private val back = id(21)
     private val definition = CardDefinition("Two faces", listOf(DefinitionFace(front, "Front", listOf(back), corner = "2/4"),
-        DefinitionFace(back, "Back", listOf(front), rulesText = "Retained text")), sourceVersion = "old catalog", layout = "transform")
+        DefinitionFace(back, "Back", listOf(front), rulesText = "Retained text")), sourceVersion = "old catalog", printingId = front,
+        layout = "transform")
+    /** The card as the catalog builds it from its printing (owner 2026-11-10: a saved deck holds printings). */
     private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     private val source = SavedDeck(DeckSummary(id(30), "  Chosen 😀  ", "9007199254740993", "2026-10-21T00:00:00Z",
-        2, 1, DeckCover(submitted.digest, definition.name)), listOf(
-        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 2), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 1)))
+        2, 1, DeckCover(front, definition.name)), listOf(
+        SavedDeckEntry(SavedDeckSection.MAINBOARD, front, definition.name, 2), SavedDeckEntry(SavedDeckSection.SIDEBOARD, front, definition.name, 1)))
     private val action = GameAction.SelectDeck(source.deck.id, source.deck.revision)
     private val scope = GameScope(game.id, game.preparationRound)
     private fun select(summary: GameSummary = game, current: LobbyPreparation = PreparationRules.empty(summary),
@@ -46,10 +48,10 @@ class PreparationTest {
     // LOB-047, LOB-141: Maybe comes along to the game (outside the game with Side) after Main and Side, which keep their card
     // ids; its card records are needed too. Preparation moves cards between Main and Side only: a Maybe card stays.
     @Test fun maybeCardsComeAlongAfterMainAndSideAndStayWhereTheyAre() {
-        val considered = CardDefinition("Considered", listOf(DefinitionFace(id(22), "Considered")))
+        val considered = CardDefinition("Considered", listOf(DefinitionFace(id(22), "Considered")), printingId = id(22))
         val maybe = SubmittedDefinition(DeckJson.digest(considered), considered)
-        val saved = source.copy(entries = listOf(SavedDeckEntry(SavedDeckSection.MAYBEBOARD, maybe.digest, 4)) + source.entries +
-            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, submitted.digest, 1))
+        val saved = source.copy(entries = listOf(SavedDeckEntry(SavedDeckSection.MAYBEBOARD, id(22), "Considered", 4)) + source.entries +
+            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, front, definition.name, 1))
         val state = select(saved = saved, definitions = listOf(submitted, maybe)).state!!
         val deck = state.players[0].deck!!
         val plain = select().state!!.players[0].deck!!
@@ -71,20 +73,15 @@ class PreparationTest {
         assertNotNull(PreparationRules.capture(state, actor, submitted.digest, SavedDeckSection.SIDEBOARD, all = true))
     }
 
-    // I-D52
-    @Test fun existingSavedMultipartDeckNormalizesOnlyItsNewGameSnapshot() {
-        val old = definition.copy(layout = "adventure")
-        val digest = DeckJson.digest(old)
-        val saved = source.copy(entries = source.entries.map { it.copy(definition = digest) },
-            deck = source.deck.copy(cover = source.deck.cover!!.copy(definition = digest)))
-        val selected = select(saved = saved, definitions = listOf(SubmittedDefinition(digest, old))).state!!
-        val physical = PhysicalCardFaces.normalize(old)
-        val expected = DeckJson.digest(physical)
-        assertEquals(listOf(SubmittedDefinition(expected, physical)), selected.definitions)
-        assertEquals(expected, selected.players.first().deck!!.cover)
-        assertTrue(selected.players.first().deck!!.entries.all { it.definition == expected })
-        assertEquals(2, old.faces.size)
-        assertEquals(1, selected.definitions.single().definition.faces.size)
+    // Owner 2026-11-10, LOB-115: a deck's cards are its printings' as the catalog builds them; a card without a printing
+    // (or a printing nothing was built for) keeps the deck from being chosen
+    @Test fun aDeckIsChosenWithItsPrintingsCardsOnly() {
+        val selected = select().state!!
+        assertTrue(selected.players.first().deck!!.entries.all { it.definition == submitted.digest })
+        val unprinted = source.copy(entries = source.entries + SavedDeckEntry(SavedDeckSection.SIDEBOARD, null, "Lost card", 1))
+        assertEquals("definitionsUnavailable", select(saved = unprinted).reason)
+        val other = source.copy(entries = source.entries + SavedDeckEntry(SavedDeckSection.SIDEBOARD, id(23), "Unbuilt card", 1))
+        assertEquals("definitionsUnavailable", select(saved = other).reason)
     }
 
     // LOB-033

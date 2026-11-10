@@ -41,7 +41,7 @@ class DeckImportControllerTest {
         val controller = DeckImportController(resolve, worker) { it() }
         controller.connectUrl({ resolve(it.text) }, { ImportedDeck("Site deck", DeckTextParser.parse(next)) })
         controller.open(); controller.name("My deck"); controller.edit("1 Shield\n1 Owl"); controller.lookup(); worker.drain()
-        val shield = controller.coverCards.first { it.definition.name == "Shield" }.digest
+        val shield = controller.coverCards.first { it.definition.name == "Shield" }.definition.printingId!!
         controller.chooseCover(); controller.cover(shield)
         controller.openLink(); controller.url("archidekt:1"); controller.importUrl(); worker.drain()
         assertEquals("My deck", controller.state.name)

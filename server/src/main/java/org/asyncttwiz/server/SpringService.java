@@ -79,7 +79,7 @@ public final class SpringService implements AutoCloseable {
             activity.start();
             cleanup.start();
             runtime.start();
-            org.asyncttwiz.server.catalog.ServerCatalogs.preload();
+            org.asyncttwiz.server.catalog.ServerCatalogs.preload(runtime);
         } catch (RuntimeException failure) { close(); throw failure; }
     }
 

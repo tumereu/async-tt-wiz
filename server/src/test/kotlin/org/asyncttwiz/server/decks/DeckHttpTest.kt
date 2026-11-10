@@ -67,12 +67,14 @@ class DeckHttpTest {
     }
     private fun entry(name: String, quantity: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD) = TestPrintings.entry(name, quantity, section)
     private fun saved(name: String, quantity: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD) =
-        SavedDeckEntry(section, TestPrintings.digest(name), quantity)
-    /** A card from before the current catalog, as a deck may still hold it: stored in [deck] of [account] by SQL. */
-    private fun keep(db: TestPostgres, account: String, deck: String, position: Int, card: SubmittedDefinition, section: SavedDeckSection, quantity: Int) =
+        SavedDeckEntry(section, TestPrintings.definition(name).printingId, name, quantity)
+    private fun printing(name: String) = TestPrintings.definition(name).printingId!!
+    /** A card without a printing (owner 2026-11-10: one whose printing was never found again), as a deck may hold it:
+     * stored in [deck] of [account] by SQL. */
+    private fun keep(db: TestPostgres, account: String, deck: String, position: Int, name: String, section: SavedDeckSection, quantity: Int) =
         db.connection().use { c ->
-            c.prepareStatement("INSERT INTO definition VALUES (?,1,?) ON CONFLICT DO NOTHING").use { it.setString(1, card.digest); it.setString(2, DeckJson.canonical(card.definition)); it.executeUpdate() }
-            c.createStatement().execute("INSERT INTO deck_entry VALUES ('$deck','$account',$position,'${section.name}','${card.digest}',$quantity)")
+            c.createStatement().execute("INSERT INTO deck_entry (deck_id, account_id, position, section, printing_id, name, quantity) " +
+                "VALUES ('$deck','$account',$position,'${section.name}',NULL,'$name',$quantity)")
         }
 
     // Card data from the server's catalog (owner 2026-11-10): a save names printings; the server builds the cards
@@ -102,14 +104,15 @@ class DeckHttpTest {
                     saved = json.decodeFromString(original)
                 } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
                 assertEquals(create.name, saved.deck.name); assertEquals(entries, saved.entries)
-                assertEquals("1", saved.deck.revision); assertEquals(TestPrintings.digest(first), saved.deck.cover!!.definition)
-                assertEquals(1, count(db, "saved_deck")); assertEquals(3, count(db, "definition"))
+                assertEquals("1", saved.deck.revision); assertEquals(printing(first), saved.deck.cover!!.definition)
+                // A save stores no card data: the deck holds printings
+                assertEquals(1, count(db, "saved_deck")); assertEquals(0, count(db, "definition"))
                 assertEquals(3, count(db, "deck_entry")); assertEquals(1, count(db, "account_request"))
                 assertEquals(409, post(settings, "/v1/decks", create.copy(name = "changed"), owner.token).statusCode())
                 val foreignId = post(settings, "/v1/decks", create, foreign.token)
                 assertEquals(409, foreignId.statusCode()); assertFalse(foreignId.body().contains(saved.deck.id))
-                // A printing the catalog doesn't have, and a card from before in a new deck, are refused
-                for (bad in listOf(CardListEntry(SavedDeckSection.MAINBOARD, id(), 1), CardListEntry(SavedDeckSection.MAINBOARD, TestPrintings.digest(first), 1))) {
+                // A printing the catalog doesn't have, and a card without a printing in a new deck, are refused
+                for (bad in listOf(CardListEntry(SavedDeckSection.MAINBOARD, id(), 1), CardListEntry(SavedDeckSection.MAINBOARD, null, 1, first))) {
                     val unavailable = post(settings, "/v1/decks", create.copy(requestId = id(), entries = create.entries + bad), owner.token)
                     assertEquals(400, unavailable.statusCode()); assertEquals("definitions_unavailable", json.decodeFromString<DeckError>(unavailable.body()).code)
                 }
@@ -119,13 +122,10 @@ class DeckHttpTest {
                 val missingDeck = request(settings, "GET", deckPath.replace(saved.deck.id, id()), token = foreign.token)
                 assertEquals(404, denied.statusCode()); assertEquals(missingDeck.body(), denied.body())
                 assertFalse(denied.body().contains(first))
-                val deniedCards = post(settings, "$deckPath/definitions", ReadCubeDefinitions(listOf(TestPrintings.digest(first))), foreign.token)
-                assertEquals(404, deniedCards.statusCode()); assertFalse(deniedCards.body().contains(first))
                 assertEquals(emptyList<DeckSummary>(), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = foreign.token).body()).decks)
-                val missing = post(settings, "/v1/decks/${saved.deck.id}/definitions", ReadCubeDefinitions(listOf("sha256:${"0".repeat(64)}")), owner.token)
-                assertEquals(404, missing.statusCode())
-                // The upload of card data is gone
-                assertEquals(404, post(settings, "/v1/definitions", ReadCubeDefinitions(listOf(TestPrintings.digest(first))), owner.token).statusCode())
+                // The upload and the read of card data are gone: the phone builds the cards from its records
+                assertEquals(404, request(settings, "POST", "/v1/decks/${saved.deck.id}/definitions", "{}", owner.token).statusCode())
+                assertEquals(404, request(settings, "POST", "/v1/definitions", "{}", owner.token).statusCode())
             }
             // New normal service instance, retained actual PostgreSQL. No public catalog/art service exists.
             SpringService(config).use { service ->
@@ -134,12 +134,8 @@ class DeckHttpTest {
                 val list = json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body())
                 assertEquals(listOf(saved.deck), list.decks); assertNull(list.next)
                 assertEquals(saved, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${saved.deck.id}", token = owner.token).body()))
-                val cards = post(settings, "/v1/decks/${saved.deck.id}/definitions", ReadCubeDefinitions(entries.map { it.definition }), owner.token)
-                assertEquals(200, cards.statusCode())
-                assertEquals(listOf(first, multi, side).map(TestPrintings::submitted), json.decodeFromString<SubmittedDefinitions>(cards.body()).definitions)
-                // Card data is stored once, whoever saves it
                 assertEquals(201, post(settings, "/v1/decks", create.copy(requestId = id()), foreign.token).statusCode())
-                assertEquals(3, count(db, "definition"))
+                assertEquals(0, count(db, "definition"))
                 assertEquals(204, request(settings, "DELETE", "/session", token = owner.token).statusCode())
                 assertEquals(401, post(settings, "/v1/decks", create, owner.token).statusCode())
                 assertEquals(1, json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = foreign.token).body()).decks.size)
@@ -177,12 +173,12 @@ class DeckHttpTest {
                     create.copy(requestId = id(), entries = create.entries.map { it.copy(quantity = -1) }),
                     create.copy(requestId = id(), entries = create.entries.map { it.copy(quantity = 1001) }),
                     create.copy(requestId = id(), entries = create.entries.map { it.copy(printingId = "not a printing") }),
-                    create.copy(requestId = id(), cover = TestPrintings.digest("Ember Cub")))) {
+                    create.copy(requestId = id(), cover = printing("Ember Cub")))) {
                     val rejected = post(settings, "/v1/decks", bad, owner.token)
                     assertEquals(400, rejected.statusCode()); assertEquals(rejected.body(), post(settings, "/v1/decks", bad, owner.token).body())
                     assertEquals(409, post(settings, "/v1/decks", create.copy(requestId = bad.requestId), owner.token).statusCode())
                 }
-                assertEquals(1, count(db, "saved_deck")); assertEquals(1, count(db, "deck_entry")); assertEquals(1, count(db, "definition"))
+                assertEquals(1, count(db, "saved_deck")); assertEquals(1, count(db, "deck_entry")); assertEquals(0, count(db, "definition"))
                 assertEquals(201, post(settings, "/v1/decks", create, owner.token).statusCode())
                 println("PASS malformed/unknown/oversize/media/interrupted HTTP and invalid names/quantities/printings/covers store nothing; bad saves keep the good deck and their rejection outcomes")
             }
@@ -196,20 +192,19 @@ class DeckHttpTest {
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner")
-                val failDigest = listOf("Storm Spark", "Ember Cub").maxOf(TestPrintings::digest)
                 db.connection().use { it.createStatement().execute("""
-                    CREATE FUNCTION fail_definition() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
-                    BEGIN IF NEW.digest = '$failDigest' THEN RAISE EXCEPTION 'test-owned interruption'; END IF; RETURN NEW; END ${'$'}${'$'};
-                    CREATE TRIGGER fail_definition BEFORE INSERT ON definition FOR EACH ROW EXECUTE FUNCTION fail_definition();
+                    CREATE FUNCTION fail_deck() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
+                    BEGIN IF NEW.name = 'Rollback' THEN RAISE EXCEPTION 'test-owned interruption'; END IF; RETURN NEW; END ${'$'}${'$'};
+                    CREATE TRIGGER fail_deck BEFORE INSERT ON saved_deck FOR EACH ROW EXECUTE FUNCTION fail_deck();
                 """.trimIndent()) }
                 val create = CreateDeck(id(), "Rollback", listOf(entry("Storm Spark", 7), entry("Ember Cub", 3, SavedDeckSection.SIDEBOARD)))
                 assertEquals(503, post(settings, "/v1/decks", create, owner.token).statusCode())
-                assertEquals(0, count(db, "definition")); assertEquals(0, count(db, "saved_deck"))
+                assertEquals(0, count(db, "deck_entry")); assertEquals(0, count(db, "saved_deck"))
                 assertEquals(0, count(db, "request_identity")); assertEquals(0, count(db, "account_request"))
-                db.connection().use { it.createStatement().execute("DROP TRIGGER fail_definition ON definition; DROP FUNCTION fail_definition()") }
+                db.connection().use { it.createStatement().execute("DROP TRIGGER fail_deck ON saved_deck; DROP FUNCTION fail_deck()") }
                 ready(settings)
                 assertEquals(201, post(settings, "/v1/decks", create, owner.token).statusCode())
-                assertEquals(2, count(db, "definition")); assertEquals(1, count(db, "saved_deck"))
+                assertEquals(2, count(db, "deck_entry")); assertEquals(1, count(db, "saved_deck"))
                 val second = CreateDeck(id(), "Rollback", listOf(entry("Storm Spark", 7), entry("Storm Spark", 3, SavedDeckSection.SIDEBOARD)))
                 db.connection().use { it.createStatement().execute("""
                     CREATE FUNCTION fail_second_entry() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
@@ -223,7 +218,7 @@ class DeckHttpTest {
                 ready(settings)
                 assertEquals(201, post(settings, "/v1/decks", second, owner.token).statusCode())
                 assertEquals(2, count(db, "saved_deck")); assertEquals(4, count(db, "deck_entry"))
-                println("PASS real SQL failure storing card data and after deck/first entry rolls back all effects/request/outcome; writer recovery and unchanged identity retries create exactly once")
+                println("PASS real SQL failure storing the deck and after deck/first entry rolls back all effects/request/outcome; writer recovery and unchanged identity retries create exactly once")
             }
         }
     }
@@ -280,9 +275,9 @@ class DeckHttpTest {
         }
     }
 
-    // LOB-040 (owner playtest 2026-11-06): a deck's card data is read in one request, not one per card (the deck
-    // service's per-account limit); only the owner's deck, only its own cards
-    @Test fun `a deck's card data is read in one request`() {
+    // LOB-040 (owner playtest 2026-11-06: no request per card; owner 2026-11-10: card data from the server's catalog): a deck
+    // names its cards by printing and name, so choosing it reads no card data at all; only the owner reads the deck
+    @Test fun `a deck names its cards by printing and its card data is never read`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val config = settings(db)
@@ -290,22 +285,15 @@ class DeckHttpTest {
                 val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "batch-owner"); val other = account(settings, "batch-stranger")
                 val names = listOf("Storm Spark", "Ember Cub", "Cinder Hound")
-                val cards = names.map(TestPrintings::submitted)
-                val outside = TestPrintings.submitted("Ember Herald")
-                post(settings, "/v1/decks", CreateDeck(id(), "Elsewhere", listOf(entry("Ember Herald", 1))), owner.token)
                 val deck = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Batch", listOf(
                     entry(names[0], 20), entry(names[1], 20), entry(names[1], 2, SavedDeckSection.SIDEBOARD), entry(names[2], 3, SavedDeckSection.SIDEBOARD))),
                     owner.token).body())
-                val path = "/v1/decks/${deck.deck.id}/definitions"
-                val read = post(settings, path, ReadCubeDefinitions(cards.map { it.digest }), owner.token)
-                assertEquals(200, read.statusCode(), read.body())
-                assertEquals(SubmittedDefinitions(cards), json.decodeFromString<SubmittedDefinitions>(read.body()))
-                val denied = post(settings, path, ReadCubeDefinitions(listOf(cards[0].digest)), other.token)
+                assertEquals(listOf(saved(names[0], 20), saved(names[1], 20), saved(names[1], 2, SavedDeckSection.SIDEBOARD),
+                    saved(names[2], 3, SavedDeckSection.SIDEBOARD)), deck.entries)
+                val path = "/v1/decks/${deck.deck.id}"
+                assertEquals(404, request(settings, "POST", "$path/definitions", "{}", owner.token).statusCode())
+                val denied = request(settings, "GET", path, token = other.token)
                 assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(names[0]))
-                assertEquals(404, post(settings, path, ReadCubeDefinitions(listOf(cards[0].digest, outside.digest)), owner.token).statusCode())
-                assertEquals(400, post(settings, path, ReadCubeDefinitions(emptyList()), owner.token).statusCode())
-                assertEquals(404, post(settings, "/v1/decks/${id()}/definitions", ReadCubeDefinitions(listOf(cards[0].digest)), owner.token).statusCode())
-                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
             }
         }
     }
@@ -328,21 +316,21 @@ class DeckHttpTest {
                     request(settings, "PUT", target, json.encodeToString(value), token)
                 fun read() = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
                 assertEquals(12L, saved.deck.mainboard); assertEquals(3L, saved.deck.sideboard)
-                assertEquals(first.digest, saved.deck.cover!!.definition)
+                assertEquals(first.definition.printingId, saved.deck.cover!!.definition)
                 val rename = UpdateDeck(id(), name = " Exact renamed é 🧙 ")
                 assertEquals(401, request(settings, "PUT", path, json.encodeToString(rename)).statusCode())
                 assertEquals(404, update(rename.copy(requestId = id()), foreign.token).statusCode())
                 assertEquals(update(rename.copy(requestId = id()), foreign.token).body(), update(rename.copy(requestId = id()), target = "/v1/decks/${id()}").body())
-                val invalid = update(UpdateDeck(id(), cover = outside.digest)); assertEquals(400, invalid.statusCode())
+                val invalid = update(UpdateDeck(id(), cover = outside.definition.printingId)); assertEquals(400, invalid.statusCode())
                 assertFalse(invalid.body().contains(outside.definition.name)); assertEquals("1", read().deck.revision)
                 val original = update(rename); assertEquals(200, original.statusCode(), original.body())
-                val cover = UpdateDeck(id(), cover = second.digest)
+                val cover = UpdateDeck(id(), cover = second.definition.printingId)
                 val pool = Executors.newFixedThreadPool(4)
                 try {
                     val responses = pool.invokeAll(List(4) { Callable { update(cover) } }).map { it.get(30, TimeUnit.SECONDS) }
                     assertTrue(responses.all { it.statusCode() == 200 }); assertEquals(1, responses.map { it.body() }.distinct().size)
                 } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
-                assertEquals("3", read().deck.revision); assertEquals(second.digest, read().deck.cover!!.definition)
+                assertEquals("3", read().deck.revision); assertEquals(second.definition.printingId, read().deck.cover!!.definition)
                 assertEquals(rename.name, read().deck.name); assertEquals(entries, read().entries)
                 assertEquals(original.body(), update(rename).body()) // older original, not current state or another mutation
                 assertEquals("3", read().deck.revision)
@@ -350,7 +338,7 @@ class DeckHttpTest {
                 assertEquals(409, update(rename, target = "/v1/decks/${id()}").statusCode())
                 val list = json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body())
                 assertEquals(read().deck, list.decks.single())
-                assertEquals(2, count(db, "definition")); assertEquals(2, count(db, "deck_entry"))
+                assertEquals(0, count(db, "definition")); assertEquals(2, count(db, "deck_entry"))
                 val deletion = DeleteDeck(id())
                 assertEquals(404, request(settings, "DELETE", path, json.encodeToString(DeleteDeck(id())), foreign.token).statusCode())
                 val deleted = request(settings, "DELETE", path, json.encodeToString(deletion), owner.token)
@@ -358,10 +346,8 @@ class DeckHttpTest {
                 assertEquals(deleted.body(), request(settings, "DELETE", path, json.encodeToString(deletion), owner.token).body())
                 assertEquals(404, update(UpdateDeck(id(), name = "Do not recreate")).statusCode())
                 assertEquals(404, request(settings, "GET", path, token = owner.token).statusCode())
-                assertEquals(404, request(settings, "POST", "$path/definitions", json.encodeToString(ReadCubeDefinitions(listOf(first.digest))), owner.token).statusCode())
                 assertTrue(json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body()).decks.isEmpty())
                 assertEquals(0, count(db, "saved_deck")); assertEquals(0, count(db, "deck_entry"))
-                assertEquals(2, count(db, "definition"))
                 assertEquals(original.body(), update(rename).body()); assertEquals(0, count(db, "saved_deck"))
                 println("PASS actual HTTP owned rename/sideboard cover/counts, four duplicate updates/revisions, unchanged immutable entries, account/target/intent binding, private refusal, exact old outcomes after deletion and no upsert/cascade to definitions")
             }
@@ -397,14 +383,14 @@ class DeckHttpTest {
                     assertEquals(200, success.statusCode(), success.body())
                     assertEquals(success.body(), request(settings, method, path, input, owner.token).body())
                 }
-                assertEquals(0, count(db, "saved_deck")); assertEquals(1, count(db, "definition"))
+                assertEquals(0, count(db, "saved_deck")); assertEquals(0, count(db, "deck_entry"))
                 println("PASS real PostgreSQL failure after metadata/delete effects rolls back deck/entries/revision/request/outcome atomically; same original identities recover once")
             }
         }
     }
 
-    // An import into an existing deck replaces its whole list, Maybe included (merge import is gone). A card the deck
-    // holds from before the current catalog is kept as stored when the save names its digest.
+    // An import into an existing deck replaces its whole list, Maybe included (merge import is gone). A card without a
+    // printing the deck holds (owner 2026-11-10) is kept when the save names it by name, only while the deck holds it.
     @Test fun `contextual imports replace the list preserve immutable content and recover original outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -414,9 +400,9 @@ class DeckHttpTest {
             lateinit var replace: UpdateDeck
             lateinit var original: String
             val first = TestPrintings.submitted("Storm Spark")
-            // A card from before: the same name and printing, other card data. Never rewritten.
-            val old = submitted(first.definition.copy(faces = first.definition.faces.map { it.copy(rulesText = "Changed external record") }))
-            fun oldEntry(quantity: Int) = CardListEntry(SavedDeckSection.MAINBOARD, old.digest, quantity)
+            // A card without a printing, by its name
+            val old = "Old Spark"
+            fun oldEntry(quantity: Int) = CardListEntry(SavedDeckSection.MAINBOARD, null, quantity, old)
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)
                 owner = account(settings, "owner"); val foreign = account(settings, "foreign")
@@ -446,25 +432,25 @@ class DeckHttpTest {
                 assertEquals(409, put(replace.copy(contents = add.copy(entries = add.entries.take(1)))).statusCode())
                 assertEquals(409, put(replace, target = "/v1/decks/${id()}").statusCode())
                 assertEquals(409, put(replace, foreign.token).statusCode())
-                // A card from before that the deck doesn't hold can't be named
+                // A card without a printing that the deck doesn't hold can't be named
                 val notHeld = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(oldEntry(4)))))
                 assertEquals(400, notHeld.statusCode()); assertEquals("definitions_unavailable", json.decodeFromString<DeckError>(notHeld.body()).code)
                 keep(db, owner.account.accountId, saved.deck.id, 2, old, SavedDeckSection.SIDEBOARD, 1)
                 val both = put(UpdateDeck(id(), contents = DeckContentsImport(add.entries + oldEntry(4))))
                 assertEquals(200, both.statusCode(), both.body()); assertEquals(3, read().entries.size)
                 assertEquals(listOf(2, 1, 4), read().entries.map { it.quantity })
-                val cards = request(settings, "POST", "$path/definitions", json.encodeToString(ReadCubeDefinitions(listOf(first.digest, old.digest))), owner.token)
-                assertEquals(listOf(first, old), json.decodeFromString<SubmittedDefinitions>(cards.body()).definitions)
-                put(UpdateDeck(id(), cover = first.digest))
+                assertEquals(SavedDeckEntry(SavedDeckSection.MAINBOARD, null, old, 4), read().entries.last())
+                put(UpdateDeck(id(), cover = first.definition.printingId))
                 val overwrite = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(oldEntry(7)))))
                 assertEquals(200, overwrite.statusCode(), overwrite.body())
                 val current = read(); assertEquals(7L, current.deck.mainboard); assertEquals(0L, current.deck.sideboard)
                 assertEquals(0L, current.deck.maybeboard)
                 assertEquals(saved.deck.id, current.deck.id); assertEquals(saved.deck.createdAt, current.deck.createdAt)
-                assertEquals("Retained name", current.deck.name); assertEquals(old.digest, current.deck.cover!!.definition)
+                // A card without a printing is never the cover
+                assertEquals("Retained name", current.deck.name); assertNull(current.deck.cover)
                 assertEquals(original, put(replace).body()); assertEquals(current, read())
-                assertEquals(2, count(db, "definition"))
-                println("PASS four duplicate replacements apply once, independent replacements serialize, Maybe kept, target/contents/account intent binding, a card from before kept only while held and never rewritten, replacing clears sideboard and retains deck metadata")
+                assertEquals(0, count(db, "definition"))
+                println("PASS four duplicate replacements apply once, independent replacements serialize, Maybe kept, target/contents/account intent binding, a card without a printing kept only while held, replacing clears sideboard and retains deck metadata")
             }
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)
@@ -475,7 +461,7 @@ class DeckHttpTest {
                 assertEquals(200, request(settings, "DELETE", path, json.encodeToString(DeleteDeck(id())), owner.token).statusCode())
                 assertEquals(original, request(settings, "PUT", path, json.encodeToString(replace), owner.token).body())
                 assertEquals(404, request(settings, "PUT", path, json.encodeToString(replace.copy(requestId = id())), owner.token).statusCode())
-                assertEquals(0, count(db, "saved_deck")); assertEquals(2, count(db, "definition"))
+                assertEquals(0, count(db, "saved_deck")); assertEquals(0, count(db, "definition"))
                 println("PASS actual service restart and deleted-target old replacement outcome recovery without reapplication/upsert; immutable snapshots retained")
             }
         }
@@ -536,7 +522,7 @@ class DeckHttpTest {
                 """.trimIndent())
             }
             assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
+            db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_printing FROM saved_deck").use {
                 assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
             } }
             assertEquals(1, count(db, "deck_entry")); assertEquals(1, count(db, "definition")); assertEquals(1, count(db, "account_request"))

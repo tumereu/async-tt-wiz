@@ -345,7 +345,17 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
     val importer = DeckImportController({ error("Screenshot attempted lookup") }, worker, { it() })
     val definitions = listOf("Meadow Sentinel", "Aegis Ward", "Training Land", "Ember Adept", "Quiet Grove").mapIndexed { n, name ->
         CardDefinition(name, listOf(DefinitionFace("face-$n", name, typeLine = "Creature", corner = "1/3",
-            scryfallId = placeholderPrinting(name)))).let { SubmittedDefinition(DeckJson.digest(it), it) }
+            scryfallId = placeholderPrinting(name))), printingId = "00000000-0000-4000-8000-00000000010$n").let { SubmittedDefinition(DeckJson.digest(it), it) }
+    }
+    /** Opens the deck editor on [detail] as the card records build it (the fixture's worker runs nothing). */
+    fun editDeck(detail: DeckDetail) {
+        importer.openEditor(detail)
+        val entries = detail.saved.entries.map { entry ->
+            ResolvedDeckEntry(DeckSection.valueOf(entry.section.name), entry.quantity,
+                testPrintings(detail.definitions.getValue(entry.card), set = ""), emptyList())
+        }
+        val text = CardListEdits.text(CardListKind.DECK, entries)
+        importer.seed(importer.state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), null), busy = false))
     }
     val decks = listOf("Training deck", "Woodland practice", "Starter list").mapIndexed { n, name ->
         DeckSummary("deck-$n", name, "1", "2026-10-20T12:00:00Z", 60, 15)
@@ -377,21 +387,19 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
         if (screen == "game-context") lobby.gameContext(lobby.state.games.first())
         if (screen == "delete-game") lobby.requestGameDeletion(lobby.state.games.first())
         if (screen == "cancel-lobby") lobby.requestCancelSetup(game)
-        val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[0].digest, 4),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[3].digest, 4),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[1].digest, 4),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[2].digest, 48),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, definitions[4].digest, 15))
+        fun saved(section: SavedDeckSection, n: Int, quantity: Int) = definitions[n].definition.let { SavedDeckEntry(section, it.printingId, it.name, quantity) }
+        val entries = listOf(saved(SavedDeckSection.MAINBOARD, 0, 4), saved(SavedDeckSection.MAINBOARD, 3, 4),
+            saved(SavedDeckSection.MAINBOARD, 1, 4), saved(SavedDeckSection.MAINBOARD, 2, 48), saved(SavedDeckSection.SIDEBOARD, 4, 15))
         val shown = if (screen == "draft-deck-detail") decks.first().copy(name = "Cube night · Alex",
             draft = DraftDeckOrigin("pod-1", "Cube night")) else decks.first()
         library.seed(DeckLibraryState(decks = decks, selected = decks.first().id, loaded = true,
-            detail = DeckDetail(SavedDeck(shown, entries), definitions.associate { it.digest to it.definition }),
+            detail = DeckDetail(SavedDeck(shown, entries), definitions.associate { it.definition.printingId!! to it.definition }),
              dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; else -> null },
-            draftCover = definitions.first().digest))
+            draftCover = definitions.first().definition.printingId))
         val text = "Deck\n4 Meadow Sentinel\n4 Ember Adept\n4 Aegis Ward\n48 Training Land\nSideboard\n15 Quiet Grove"
         val result = DeckImportResult(text, entries.map { entry ->
-            val definition = definitions.first { it.digest == entry.definition }.definition
-            val printing = CatalogPrinting(entry.definition, definition.name, "TST", "1", "English", "", placeholderPrinting(definition.name), false, emptyList(), "{}")
+            val definition = definitions.first { it.definition.printingId == entry.printingId }.definition
+            val printing = CatalogPrinting(entry.card, definition.name, "TST", "1", "English", "", placeholderPrinting(definition.name), false, emptyList(), "{}")
             ResolvedDeckEntry(if (entry.section == SavedDeckSection.MAINBOARD) DeckSection.MAINBOARD else DeckSection.SIDEBOARD,
                 entry.quantity, listOf(printing), listOf(1))
         }, if (screen == "import-errors") listOf(ImportIssue(3, "Unknown Card could not be resolved.")) else emptyList(),
@@ -401,9 +409,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
              linkDialog = screen == "import-link", url = if (screen == "import-link") "https://archidekt.com/decks/123" else "",
              clipboardRead = true))
          if (screen.startsWith("deck-edit") || screen == "delete-deck") {
-             importer.openEditor(library.state.detail!!)
-             val resolved = DeckEditorSource(library.state.detail!!).resolve(importer.state.text) { error("No new cards") }
-             importer.seed(importer.state.copy(result = resolved, busy = false))
+             editDeck(library.state.detail!!)
              if (screen == "deck-edit-cover") importer.chooseCover()
              if (screen == "delete-deck") importer.requestDelete()
          }

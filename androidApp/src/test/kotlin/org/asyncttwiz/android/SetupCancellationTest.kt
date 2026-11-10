@@ -53,10 +53,10 @@ internal class CancellationFixture(recipient: Boolean = false, pendingInvite: Bo
         message(GameHead(value.id, value.revision, value, preparation = preparation, play = play))
     fun commands() = wire.frames.filterIsInstance<GameCommand>()
     fun play(): PlayState {
-        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Retained")))
+        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Retained")), printingId = id())
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val source = SavedDeck(DeckSummary(id(), "Source", "1", game.createdAt, 1, 0),
-            listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 1)))
+            listOf(savedEntry(SavedDeckSection.MAINBOARD, definition, 1)))
         var preparation = PreparationRules.empty(game)
         for (actor in listOf(owner, other)) preparation = PreparationRules.select(game, preparation, actor.accountId, id(),
             GameScope(game.id, game.preparationRound), GameAction.SelectDeck(source.deck.id, "1"), source, listOf(submitted)).state!!

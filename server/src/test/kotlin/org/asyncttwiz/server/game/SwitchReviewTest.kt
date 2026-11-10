@@ -66,14 +66,16 @@ class SwitchReviewTest {
     }
 
     /** A lobby game of Alice (inviter, the starting player) and Bob, started by both players' Ready (Bob's last). */
-    /** [card]: invented card data the decks hold instead of the catalog's Forest, stored as a deck from before may hold it. */
-    private inner class Fixture(val runtime: ServiceRuntime, seam: Boolean = true, card: CardDefinition? = null) {
+    /** [card]: the test cards' catalog's card the decks hold instead of its Forest. */
+    private inner class Fixture(val runtime: ServiceRuntime, seam: Boolean = true, card: String = "Forest") {
         val a = account(runtime, "SwitchA"); val b = account(runtime, "SwitchB")
         /** The result of the Ready that starts the game (Bob's). */
         val started: GameResult
         val games = GameService(runtime)
         val game: GameSummary
         val owner: Stream; val recipient: Stream
+        /** The deck choices' results, Alice's then Bob's. */
+        val selections = mutableListOf<GameResult>()
         init {
             val lobby = LobbyService(runtime); lobby.add(a, AddContact(id(), b.account.accountId))
             game = GameWire.json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Switch Spark")).body)
@@ -81,11 +83,9 @@ class SwitchReviewTest {
             recipient.execute(GameAction.AcceptInvitation)
             for ((actor, stream) in listOf(a to owner, b to recipient)) {
                 val service = DeckService(runtime)
-                val deck = if (card != null) org.asyncttwiz.server.StoredDecks.save(runtime, actor, "Switch deck",
-                        listOf(Triple(SavedDeckSection.MAINBOARD, card, 40)))
-                    else GameWire.json.decodeFromString<SavedDeck>(service.create(actor, CreateDeck(id(), "Switch deck",
-                        listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 40)))).body)
-                stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
+                val deck = GameWire.json.decodeFromString<SavedDeck>(service.create(actor, CreateDeck(id(), "Switch deck",
+                    listOf(org.asyncttwiz.server.TestPrintings.entry(card, 40)))).body)
+                selections += stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
             val seats = listOf(a, b).map { p -> PlayerId(p.account.accountId) }.map { p ->
@@ -173,20 +173,13 @@ class SwitchReviewTest {
         assertNull(row.reminderActivityId, "no '<Alice> is waiting for you' reminder for a move Bob already made")
     }
 
-    // switchreview #9, I-D51/I-D52, SYS-055: the server now parses every starting deck itself (EngineDecks), but a start is
-    // refused only by the support the owner's device stored for the deck; a deck with none stored (saved before I-D51,
-    // changed since, or a client that never sent it) starts with every card the server can't read as an unknown object:
-    // a dead card in the library that nobody can play. Expected: the server's own parse refuses such a start.
+    // switchreview #9, I-D51/I-D52, SYS-055, LOB-124: a deck holding a card Automatum can't read never starts a game as a
+    // dead card nobody can play: the card catalog's marks (the same parse) keep it from being chosen, so nothing starts.
     @Test fun `a deck with a card the server can't read doesn't start`() = withService { runtime ->
-        // Card data made before parts were kept: a split card's halves only in its combined text (GameCards: unreadable)
-        val split = CardDefinition("Blaze // Frost", listOf(DefinitionFace(id(), "Blaze // Frost", typeLine = "Instant // Instant",
-            manaCost = "{R} // {U}", rulesText = "Blaze deals 2 damage to any target. // Draw a card.")), layout = "split",
-            // Under a printing the catalog's marks support (LOB-124): the deck can be chosen, so the parse decides
-            printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
-        assertNull(org.asyncttwiz.protocol.game.GameCards.parse(split).definition, "the server can't read it")
-        val f = Fixture(runtime, seam = false, card = split)
-        assertEquals("rejected", f.started.outcome, "the start is refused: ${f.started.reason}")
-        assertEquals("automatumUnsupported", f.started.reason)
+        // Odd Relic's text Automatum can't read: the catalog doesn't mark it supported
+        val f = Fixture(runtime, seam = false, card = "Odd Relic")
+        assertEquals(listOf("automatumUnsupported", "automatumUnsupported"), f.selections.map { it.reason })
+        assertNull(f.games.head(f.a, f.game.id).play, "nothing started")
     }
 
     // switchreview #8, LOB-111: an agreed result must be recorded as the suggestion's, not as the rules' result, so the notice

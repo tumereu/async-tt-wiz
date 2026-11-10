@@ -83,16 +83,34 @@ object SectionSwipe {
         return sections[(at + (if (right) -1 else 1) + sections.size) % sections.size]
     }
 }
-@Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
+/**
+ * One card of a saved deck (owner 2026-11-10: card data from the server's catalog): [quantity] copies in [section] of the card
+ * whose front face is printing [printingId] in the card catalog, which the phone and the server build the card from; [name]
+ * is the card's name. A card without a printing ([printingId] null: one an earlier list held whose printing was never
+ * found again) is its name alone; Automatum can't play it (LOB-115).
+ */
+@Serializable data class SavedDeckEntry(val section: SavedDeckSection, val printingId: String?, val name: String, val quantity: Int) {
+    /** The card's key in its list ([SavedCards.key]). */
+    val card: String get() = SavedCards.key(printingId, name)
+}
+/** The cards of saved decks and cubes, by printing (owner 2026-11-10). */
+object SavedCards {
+    private const val NO_PRINTING = "name:"
+    /** A card's key in a list: its printing id, or for a card without a printing "name:" and its name. */
+    fun key(printingId: String?, name: String) = printingId ?: (NO_PRINTING + name)
+    /** The name of the card without a printing [key] is the key of, or null for a printing's key. */
+    fun unprinted(key: String): String? = key.takeIf { it.startsWith(NO_PRINTING) }?.removePrefix(NO_PRINTING)
+}
 /**
  * One card of a deck or cube save (owner 2026-11-10: card data from the server's card catalog): [quantity] copies in
- * [section] of the card [printingId] is a printing of (any face of a card of several faces names the whole card), its card
- * data built by the server from its catalog; or, for a card the list already holds from before (an editor keeps it as
- * stored), that card's digest. The same card named twice in a section is one entry, its copies added up.
+ * [section] of the card [printingId] is a printing of (any face of a card of several faces names the whole card); or, for a
+ * card without a printing its list already holds ([printingId] null), that card by [name]. The same card named twice in a
+ * section is one entry, its copies added up.
  */
-@Serializable data class CardListEntry(val section: SavedDeckSection, val printingId: String, val quantity: Int)
-/** A new deck, in one request: its [entries] and its [cover], the digest of one of its cards as the server builds them. */
+@Serializable data class CardListEntry(val section: SavedDeckSection, val printingId: String?, val quantity: Int, val name: String? = null)
+/** A new deck, in one request: its [entries] and its [cover], the printing id of one of its cards. */
 @Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<CardListEntry>, val cover: String? = null)
+/** A deck's cover card: [definition] is its printing id in a saved deck, its card data digest in a match record. */
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
 /** Present only on a draft deck: saved automatically from a pod deck submission, read-only until copied. */
 @Serializable data class DraftDeckOrigin(val podId: String, val podName: String)
@@ -114,7 +132,7 @@ object SectionSwipe {
     val supported: Boolean get() = byHand.isEmpty()
 }
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
-/** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL.
+/** Omitted fields are unchanged. Cover is the printing id of one of the deck's cards, never an arbitrary URL.
  * New contents always replace the whole list. */
 @Serializable data class DeckContentsImport(val entries: List<CardListEntry>)
 @Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
@@ -217,11 +235,14 @@ object DeckValidation {
     fun cardCount(value: Long): Boolean = value in 1..MAX_CARDS.toLong()
     fun quantities(value: List<Int>): Boolean = value.all(::quantity) && cardCount(value.sumOf { it.toLong() })
     fun entries(value: List<SavedDeckEntry>): Boolean = value.isNotEmpty() &&
-        quantities(value.map { it.quantity }) && value.all { digest(it.definition) } &&
-        value.map { it.section to it.definition }.distinct().size == value.size
-    /** A save's cards ([CardListEntry]): some, each a printing id or a digest, at most [MAX_CARDS] copies in all. */
-    fun input(value: List<CardListEntry>): Boolean = value.isNotEmpty() && quantities(value.map { it.quantity }) &&
-        value.all { uuid(it.printingId) || digest(it.printingId) }
+        quantities(value.map { it.quantity }) && value.all { (it.printingId == null || uuid(it.printingId)) && name(it.name) } &&
+        value.map { it.section to it.card }.distinct().size == value.size
+    /** A card's name in a list: some text, at most 1 KiB. */
+    fun name(value: String) = value.isNotBlank() && text(value, 1024)
+    /** A save's card: a printing id, or a card without a printing by its name. */
+    fun card(entry: CardListEntry) = entry.printingId?.let(::uuid) ?: (entry.name?.let(::name) == true)
+    /** A save's cards ([CardListEntry]): some, each a printing or a name ([card]), at most [MAX_CARDS] copies in all. */
+    fun input(value: List<CardListEntry>): Boolean = value.isNotEmpty() && quantities(value.map { it.quantity }) && value.all(::card)
     fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() && input(value.entries) &&
-        (value.cover == null || digest(value.cover))
+        (value.cover == null || uuid(value.cover))
 }

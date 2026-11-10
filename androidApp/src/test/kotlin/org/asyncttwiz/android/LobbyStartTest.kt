@@ -12,10 +12,10 @@ class LobbyStartTest {
     private val owner = AccountIdentity(id(), "Inviter")
     private val other = AccountIdentity(id(), "Recipient")
     private val game = GameSummary(id(), "Initial Spark", "2026-10-23T00:00:00Z", owner, other, id(), id(), InvitationState.ACCEPTED)
-    private val definition = CardDefinition("Retained without catalog", listOf(DefinitionFace(id(), "Retained without catalog")))
+    private val definition = CardDefinition("Retained without catalog", listOf(DefinitionFace(id(), "Retained without catalog")), printingId = id())
     private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     private val source = SavedDeck(DeckSummary(id(), "Prepared source", "1", game.createdAt, 4, 2), listOf(
-        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 11), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))
+        savedEntry(SavedDeckSection.MAINBOARD, definition, 11), savedEntry(SavedDeckSection.SIDEBOARD, definition, 2)))
     private fun prepared(): LobbyPreparation {
         var state = PreparationRules.empty(game)
         for (player in listOf(owner, other)) state = PreparationRules.select(game, state, player.accountId, id(),
@@ -114,9 +114,9 @@ class LobbyStartTest {
     // like any other deck's, is just the Ready
     @Test fun aVenturingDecksReadyIsJustTheReady() {
         val map = CardDefinition("Torch Map", listOf(DefinitionFace(id(), "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
-            rulesText = "Venture into the dungeon.")))
+            rulesText = "Venture into the dungeon.")), printingId = id())
         val venturing = SubmittedDefinition(DeckJson.digest(map), map)
-        val deck = SavedDeck(DeckSummary(id(), "Venturing", "1", game.createdAt, 1, 0), listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, venturing.digest, 40)))
+        val deck = SavedDeck(DeckSummary(id(), "Venturing", "1", game.createdAt, 1, 0), listOf(savedEntry(SavedDeckSection.MAINBOARD, map, 40)))
         var base = PreparationRules.empty(game)
         for (player in listOf(owner, other)) base = PreparationRules.select(game, base, player.accountId, id(),
             GameScope(game.id, game.preparationRound), GameAction.SelectDeck(deck.deck.id, deck.deck.revision), deck, listOf(venturing)).state!!

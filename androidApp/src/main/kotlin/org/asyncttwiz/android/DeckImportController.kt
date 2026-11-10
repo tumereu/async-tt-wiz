@@ -25,9 +25,9 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
 
 /**
  * One deck save, a single request (owner 2026-11-10: card data from the server's catalog): a new deck ([target] null, with
- * its [cover]) or the new list of deck [target], its cards by printing, a card the deck holds from before by its digest
- * (kept as stored); kept while uncertain so a retry sends the same request. [cards]: the cards as the phone makes them
- * from its records (the server builds the same), for the support check and the pictures.
+ * its [cover], a printing id) or the new list of deck [target], its cards by printing, a card without a printing the deck
+ * holds by its name; kept while uncertain so a retry sends the same request. [cards]: the cards as the phone makes them
+ * from its records (the server builds the same), for the pictures.
  */
 data class DeckSave(val name: String, val entries: List<CardListEntry>, val cover: String?, val target: String?,
     val editMetadata: Boolean, val cards: List<SubmittedDefinition>, val requestId: String = UUID.randomUUID().toString()) {
@@ -35,28 +35,33 @@ data class DeckSave(val name: String, val entries: List<CardListEntry>, val cove
     /** Saving into an existing deck replaces its whole list. */
     fun update() = UpdateDeck(requestId, name = name.takeIf { editMetadata }, cover = cover, contents = DeckContentsImport(entries))
     companion object {
-        /** [entry]'s card as the deck holds it: a card from before as stored ([retained], by digest), else the
-         * catalog's. */
+        /** [entry]'s card: one the records can't build as the editor keeps it ([retained], by its printing id: a card
+         * without a printing, or one the records don't have), else the catalog's. */
         fun card(entry: ResolvedDeckEntry, catalog: CatalogMetadata?, retained: Map<String, CardDefinition>): SubmittedDefinition =
-            retained[entry.printing.id]?.let { SubmittedDefinition(entry.printing.id, it) }
-                ?: PhysicalCardFaces.normalize(entry.definition(catalog)).let { SubmittedDefinition(DeckJson.digest(it), it) }
+            (retained[entry.printing.id] ?: PhysicalCardFaces.normalize(entry.definition(catalog))).let { SubmittedDefinition(DeckJson.digest(it), it) }
 
         fun from(result: DeckImportResult, name: String, target: String? = null, cover: String? = null,
             retained: Map<String, CardDefinition> = emptyMap(), editMetadata: Boolean = false): DeckSave {
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val cards = linkedMapOf<String, SubmittedDefinition>()
-            val copies = linkedMapOf<Pair<SavedDeckSection, String>, Long>()
+            val copies = linkedMapOf<Pair<SavedDeckSection, ResolvedDeckEntry>, Long>()
+            val first = HashMap<Pair<SavedDeckSection, String>, ResolvedDeckEntry>()
             for (entry in result.entries) {
-                card(entry, result.catalog, retained).let { cards[it.digest] = it }
-                copies.merge(SavedDeckSection.valueOf(entry.section.name) to entry.printing.id, entry.quantity.toLong(), Long::plus)
+                card(entry, result.catalog, retained).let { card -> card.definition.printingId?.let { cards[it] = card } }
+                val section = SavedDeckSection.valueOf(entry.section.name)
+                val key = section to (first.getOrPut(section to entry.printing.id) { entry })
+                copies.merge(key, entry.quantity.toLong(), Long::plus)
             }
             if (copies.values.any { it > Int.MAX_VALUE }) throw DeckFailure("invalid_deck")
             if (cover != null && cover !in cards) throw DeckFailure("invalid_cover")
-            return DeckSave(name, copies.map { (key, quantity) -> CardListEntry(key.first, key.second, quantity.toInt()) }, cover,
+            return DeckSave(name, copies.map { (key, quantity) -> key.second.listEntry(key.first, quantity.toInt()) }, cover,
                 target, editMetadata, cards.values.toList())
         }
     }
 }
+
+/** A card's printing id ([CardDefinition.printingId]): what a deck names its cover by. */
+internal val SubmittedDefinition.printing: String? get() = definition.printingId
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -72,7 +77,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     override val editable get() = state.active && !state.saving && !state.busy
     override val destination get() = state.destination
     override fun destination(section: DeckSection) { if (section in kind.sections) state = state.copy(destination = section) }
-    override fun retainedDefinition(printingId: String) = source?.definitions?.get(printingId)
+    override fun retainedDefinition(printingId: String) = placeholders[printingId]
     override val cardsError get() = state.error
     override fun cardsMessage(message: String?) { state = state.copy(error = message) }
     /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
@@ -108,7 +113,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var catalogMetadata: CatalogMetadata? = null
     private var catalogInstalling = false
     private var relookupAfterCurrent = false
-    private var source: DeckEditorSource? = null
+    /** The open deck's cards the records can't build, by their entries' printing ids ([SavedCardFaces.placeholders]). */
+    private var placeholders: Map<String, CardDefinition> = emptyMap()
+    /** The phone's card records, which an open deck's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords = SavedCardRecords.NONE
     private var initial = DeckImportState()
     private var saveAfterLookup = false
     private var chosenCover: SubmittedDefinition? = null
@@ -168,34 +176,35 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                 else {
                     // An ordinary editable paste list: the list is replaced, a typed name is kept and
                     // the cover stays while it is still one of the cards (the sources have no cover).
-                    source = null; pendingSave = null; undo.clear()
+                    placeholders = emptyMap(); pendingSave = null; undo.clear()
                     state = state.copy(text = imported.parsed.text, name = state.name.ifBlank { imported.name },
                         result = resolved?.getOrNull(), busy = false, fetchingUrl = false, linkDialog = false,
                         linkError = null, preview = false, lookupFailed = resolved?.isFailure == true,
                         error = if (resolved?.isFailure == true) "Card records could not be read. Retry lookup." else null)
-                    if (state.cover != null && coverCards.none { it.digest == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
+                    if (state.cover != null && coverCards.none { it.printing == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
                 }
             } }
         }
     }
+    /** The cards that can be the cover: the list's cards with a printing, each once. */
     val coverCards: List<SubmittedDefinition> get() = state.result?.let { result ->
-        result.entries.map { entry -> DeckSave.card(entry, result.catalog, source?.definitions.orEmpty()) }.distinctBy { it.digest }
+        result.entries.map { entry -> DeckSave.card(entry, result.catalog, placeholders) }.filter { it.printing != null }.distinctBy { it.printing }
     }.orEmpty()
-    val currentCover: DeckCover? get() = (state.cover ?: coverCards.firstOrNull()?.digest)?.let { digest ->
-        val card = coverCards.find { it.digest == digest } ?: chosenCover?.takeIf { it.digest == digest }
-            ?: source?.detail?.definitions?.get(digest)?.let { SubmittedDefinition(digest, it) }
+    val currentCover: DeckCover? get() = (state.cover ?: coverCards.firstOrNull()?.printing)?.let { printing ->
+        val card = coverCards.find { it.printing == printing } ?: chosenCover?.takeIf { it.printing == printing }
         card?.let {
             val face = it.definition.faces.first()
-            DeckCover(digest, it.definition.name, face.scryfallId, face.imageUri)
+            DeckCover(printing, it.definition.name, face.scryfallId, face.imageUri)
         }
     }
     fun chooseCover() { if (!state.saving && state.result?.resolved == true) state = state.copy(choosingCover = true) }
     fun dismissError() { state = state.copy(error = null) }
     fun closeCover() { state = state.copy(choosingCover = false) }
-    fun cover(digest: String) {
-        if (!state.saving && coverCards.any { it.digest == digest }) {
-            chosenCover = coverCards.first { it.digest == digest }
-            pendingSave = null; state = state.copy(cover = digest, choosingCover = false)
+    /** Chooses the cover, by its printing id. */
+    fun cover(printing: String) {
+        if (!state.saving && coverCards.any { it.printing == printing }) {
+            chosenCover = coverCards.first { it.printing == printing }
+            pendingSave = null; state = state.copy(cover = printing, choosingCover = false)
         }
     }
     fun cancel() {
@@ -222,7 +231,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         connectSave(action = {
             credential()?.let { token -> { plan: DeckSave -> kotlinx.coroutines.runBlocking {
                 AppLog.info("decks", "save ${if (plan.target == null) "new deck" else "deck ${plan.target}"}: ${plan.entries.size} entries, " +
-                    "${plan.entries.count { DeckValidation.digest(it.printingId) }} kept from before, request ${plan.requestId}")
+                    "${plan.entries.count { it.printingId == null }} without a printing, request ${plan.requestId}")
                 // One request: the server builds the cards from its catalog (owner 2026-11-10) and works out their
                 // Automatum support from its marks (LOB-124)
                 serviceRetry(current = { credential() == token }) {
@@ -272,23 +281,39 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } }
         }
     }
-    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); pendingSave = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); pendingSave = null; placeholders = emptyMap(); chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    /** Opens saved deck [detail] for editing: its cards built from the card records by printing (owner 2026-11-10), a card
+     * the records can't build kept as a card of its name alone; no lookup runs. */
     fun openEditor(detail: DeckDetail) {
         open()
         if (closed) return
-        val retained = DeckEditorSource(detail)
-        source = retained
         val cover = detail.saved.deck.cover?.definition
-        state = state.copy(target = detail.saved.deck.id, name = detail.saved.deck.name, text = retained.text,
-            cover = cover, editing = true)
+        state = state.copy(target = detail.saved.deck.id, name = detail.saved.deck.name, cover = cover, editing = true, busy = true)
         initial = state
-        lookup()
+        val generation = ++epoch
+        val cards = detail.saved.cards()
+        worker.execute {
+            if (generation != epoch) return@execute
+            val outcome = runCatching { cardRecords.read(cards.mapNotNull { it.printingId }) }
+            post { if (!closed && generation == epoch && state.active) {
+                val faces = outcome.getOrElse { failure ->
+                    AppLog.warn("decks", "card records for deck ${detail.saved.deck.id} not read", failure)
+                    SavedCardFaces(emptyMap(), null)
+                }
+                placeholders = faces.placeholders(cards)
+                AppLog.info("decks", "edit deck ${detail.saved.deck.id}: ${cards.size} entries, ${placeholders.size} not in the card records")
+                val entries = faces.entries(cards)
+                val text = CardListEdits.text(kind, entries)
+                state = state.copy(busy = false, text = text, result = DeckImportResult(text, entries, emptyList(), faces.catalog))
+                initial = initial.copy(text = text, busy = false)
+            } }
+        }
     }
     fun openExisting(deck: DeckSummary) {
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun exit() { epoch++; search.reset(); undo.clear(); pendingSave = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
+    fun exit() { epoch++; search.reset(); undo.clear(); pendingSave = null; placeholders = emptyMap(); chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; pendingSave = null
             relookupAfterCurrent = false; saveAfterLookup = false; undo.clear()
@@ -298,16 +323,15 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         if (closed || !state.active || state.busy || state.saving || state.preview || catalogInstalling) return
         val generation = ++epoch
         val text = state.text
-        val retained = source
         state = state.copy(busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
-            val outcome = runCatching { retained?.resolve(text, resolve) ?: resolve(text) }
+            val outcome = runCatching { resolve(text) }
             val result = outcome.getOrNull()
             post { if (!closed && generation == epoch && state.active) {
                 state = state.copy(busy = false, result = result, lookupFailed = outcome.isFailure,
                     error = if (outcome.isFailure) "Card records could not be read. Check storage or update card records, then retry lookup." else null)
-                if (result?.resolved == true && state.cover != null && coverCards.none { it.digest == state.cover }) {
+                if (result?.resolved == true && state.cover != null && coverCards.none { it.printing == state.cover }) {
                     pendingSave = null; state = state.copy(cover = null)
                 }
                 if (saveAfterLookup) {
@@ -340,8 +364,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         }
         val generation = ++epoch
         val previous = pendingSave
-        val retained = source?.definitions.orEmpty()
-        val cover = input.cover ?: coverCards.firstOrNull()?.digest
+        val retained = placeholders
+        val cover = input.cover ?: coverCards.firstOrNull()?.printing
         state = state.copy(saving = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute

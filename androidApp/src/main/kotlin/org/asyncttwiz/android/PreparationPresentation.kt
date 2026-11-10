@@ -80,11 +80,11 @@ internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
 /** A saved deck's section in the same type groups as game preparation; every entry, basics included, is a tile. */
 internal fun preparationGroups(deck: SavedDeck, section: SavedDeckSection,
     definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
-    deck.entries.filter { it.section == section }.map { it.definition to it.quantity.toLong() }, definitions)
+    deck.entries.filter { it.section == section }.map { it.card to it.quantity.toLong() }, definitions)
 
 /** A saved cube's section in the same type groups as saved decks. */
 internal fun preparationGroups(cube: SavedCube, section: SavedDeckSection, definitions: Map<String, CardDefinition>): List<PreparationGroup> =
-    preparationGroups(cube.entries.filter { it.section == section }.map { it.definition to it.quantity.toLong() }, definitions)
+    preparationGroups(cube.entries.filter { it.section == section }.map { it.card to it.quantity.toLong() }, definitions)
 
 internal fun preparationGroups(cards: List<Pair<String, Long>>, definitions: Map<String, CardDefinition>): List<PreparationGroup> {
     val tiles = cards.groupBy({ it.first }, { it.second })

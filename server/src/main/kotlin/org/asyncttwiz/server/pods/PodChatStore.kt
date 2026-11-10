@@ -3,11 +3,9 @@ package org.asyncttwiz.server.pods
 import java.util.UUID
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.accounts.AccountService
-import org.asyncttwiz.server.activity.ActivityService
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
 import org.asyncttwiz.server.generated.tables.PodChatReadCursor.POD_CHAT_READ_CURSOR as CURSOR
-import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
 import org.asyncttwiz.server.generated.tables.records.PodChatRecord
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
@@ -73,8 +71,9 @@ internal object PodChatStore {
 
     /**
      * Stores [text] by [author] in [pod] (under its exclusive row lock) as message [id]. A retried send of the same message
-     * returns it again; the same id with other content is refused. Every other member gets a "New message" notice
-     * ([ActivityKind.POD_MESSAGE]). The author has read their own message.
+     * returns it again; the same id with other content is refused. It notifies no one (owner, 2026-11-10: people use real
+     * chat apps for urgent things); the other members see it by the in-app dots (DRF-170). The author has read their own
+     * message.
      */
     fun send(sql: DSLContext, pod: UUID, author: UUID, id: UUID, text: String): Sent {
         sql.selectFrom(POD_CHAT).where(POD_CHAT.ID.eq(id)).fetchOne()?.let { existing ->
@@ -86,8 +85,6 @@ internal object PodChatStore {
         val stored = sql.insertInto(POD_CHAT).set(POD_CHAT.ID, id).set(POD_CHAT.POD_ID, pod).set(POD_CHAT.AUTHOR_ID, author)
             .set(POD_CHAT.TEXT, text).set(POD_CHAT.ORDINAL, ordinal).returning().fetchSingle()
         read(sql, pod, author, id)
-        val members = sql.select(POD_MEMBER.ACCOUNT_ID).from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(pod)).fetch(POD_MEMBER.ACCOUNT_ID)
-        for (member in members) ActivityService.record(sql, member!!, ActivityKind.POD_MESSAGE, pod, id, author)
         return Sent(message(stored))
     }
 }

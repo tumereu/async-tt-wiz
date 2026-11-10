@@ -57,14 +57,14 @@ internal fun rememberSlowActionSign(pending: () -> Boolean): Boolean {
  * bottom, over its content, with the state "Working" for accessibility. [modifier] sizes and clips it to the button.
  */
 @Composable
-internal fun SlowActionShimmer(modifier: Modifier) {
+internal fun SlowActionShimmer(modifier: Modifier, color: Color = AutomatumViolet) {
     val sweep by rememberInfiniteTransition(label = "slow action").animateFloat(-0.4f, 1.4f,
         infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "sweep")
     Box(modifier.testTag("main-button-working").semantics { stateDescription = "Working" }.drawBehind {
         val band = size.width * .45f
         val x = sweep * size.width
-        drawRect(Brush.linearGradient(listOf(Color.Transparent, AutomatumViolet.copy(alpha = .24f), Color.Transparent),
+        drawRect(Brush.linearGradient(listOf(Color.Transparent, color.copy(alpha = .24f), Color.Transparent),
             start = Offset(x - band / 2, 0f), end = Offset(x + band / 2, size.height)))
-        drawRect(AutomatumViolet.copy(alpha = .6f), Offset(0f, size.height - 2.5f * density), Size(size.width, 2.5f * density))
+        drawRect(color.copy(alpha = .6f), Offset(0f, size.height - 2.5f * density), Size(size.width, 2.5f * density))
     })
 }

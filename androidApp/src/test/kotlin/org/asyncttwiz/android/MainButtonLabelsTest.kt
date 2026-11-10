@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -53,8 +55,9 @@ class MainButtonLabelsTest {
                     FlowRow(Modifier.testTag("buttons").width(412.dp).background(Color(0xfff3f5f5)).padding(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (label in labels) Column(Modifier.width(width.dp)) {
-                            if (label.startsWith("Assume") || label == "Cancel request")
-                                EngineWaitArrow(EngineTableRoutes.WaitAction(label, Icons.Outlined.DoneAll) {}, Modifier.width(width.dp))
+                            if (label.startsWith("Assume")) EngineWaitArrow(EngineTableRoutes.WaitAction(label, AssumeIcon) {}, Modifier.width(width.dp))
+                            else if (label == "Cancel request")
+                                EngineWaitArrow(EngineTableRoutes.WaitAction(label, Icons.Outlined.Close, assumption = false) {}, Modifier.width(width.dp))
                             else MainActionArrow(MainAction(label, Icons.Outlined.DoneAll) {}, true, Modifier.width(width.dp))
                         }
                     }
@@ -82,7 +85,7 @@ class MainButtonLabelsTest {
         render(width = 128, fontScale = 1f)
         labels.forEach(::readsWhole)
         compose.onNodeWithTag("buttons").captureShot("$SCREENSHOTS/main-button/names.png",
-            "Every name the main button can show, each on a button as wide as on a phone in portrait, its words whole under the icon (the room has two lines).")
+            "Every name the main button can show, each on a button as wide as on a phone in portrait, its words whole under the icon (the room has two lines); the Assumes are violet with white words.")
     }
 
     // TRN-063: on a narrow phone with large system text the names still read whole, drawn smaller where two lines don't fit
@@ -91,5 +94,37 @@ class MainButtonLabelsTest {
         labels.forEach(::readsWhole)
         compose.onNodeWithTag("buttons").captureShot("$SCREENSHOTS/main-button/names-narrow-large-text.png",
             "The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume no response and Assume no blockers on two), drawn a little smaller where needed.")
+    }
+
+    // TRN-063, TRN-070 (owner, 2026-11-10): the main button tells an assumption from your own action at a glance: your own
+    // actions (Resolve, Cast, Cancel request) are white with the dark teal words; an Assume is filled violet with white words
+    // and the Assume icon; a greyed Assume stays greyed
+    @Test fun anAssumptionReadsApartFromYourOwnAction() {
+        val assume = EngineTableRoutes.WaitAction("Assume resolves", AssumeIcon) {}
+        val greyed = EngineTableRoutes.WaitAction("Assume resolves", AssumeIcon, refusal = "Assuming this would show you hidden cards") {}
+        val cancel = EngineTableRoutes.WaitAction("Cancel request", Icons.Outlined.Close, assumption = false) {}
+        assertTrue(assumeLook(assume))
+        kotlin.test.assertFalse(assumeLook(greyed), "a greyed Assume stays greyed")
+        kotlin.test.assertFalse(assumeLook(cancel), "Cancel request is your own action")
+        compose.setContent {
+            MaterialTheme {
+                FlowRow(Modifier.testTag("sides").width(412.dp).background(Color(0xfff3f5f5)).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MainActionArrow(MainAction("Resolve", Icons.Outlined.PlayArrow) {}, true, Modifier.width(128.dp))
+                    EngineWaitArrow(assume, Modifier.width(128.dp))
+                    MainActionArrow(MainAction("Cast", Icons.Outlined.DoneAll) {}, true, Modifier.width(128.dp))
+                    EngineWaitArrow(EngineTableRoutes.WaitAction("Assume blockers", AssumeIcon) {}, Modifier.width(128.dp))
+                    EngineWaitArrow(cancel, Modifier.width(128.dp))
+                    EngineWaitArrow(greyed, Modifier.width(128.dp))
+                }
+            }
+        }
+        compose.onAllNodes(hasTestTag("engine-wait-action") and
+            SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Assumption"))
+            .assertCountEquals(2)
+        compose.onNodeWithTag("sides").captureShot("$SCREENSHOTS/main-button/assume-or-own.png",
+            "The main button's two sides drawn as in play: Resolve, Cast and Cancel request, your own actions, white with dark " +
+                "teal words; Assume resolves and Assume blockers filled violet with white words and the Assume icon; a greyed " +
+                "Assume (it would show hidden cards) stays greyed.")
     }
 }

@@ -2,6 +2,8 @@ package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import kotlinx.coroutines.runBlocking
@@ -140,5 +142,37 @@ class DraftHistoryTest : E2e() {
         holding(alice.node(first)) { assertInspectOverDialog(alice, "pod-history-dialog") }
         alice.described("Close draft history").performClick()
         waitUntil("the history closed, back at Build") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.shows(hasTestTag("pod-history")) }
+    }
+
+    // DRF-165 (owner, 2026-11-10): the history shows a header per round with the way its packs passed, and Returning packs
+    // only leaves just the packs that came back to you in a round (here the first pack's last card, given automatically)
+    @Test fun historyHasRoundHeadersAndReturningPacksOnly() {
+        launchPlayers()
+        val name = "E2E History rounds ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftingPod(alice.account, bob.account, name, settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 3))
+        // Round 1: two picks each (the last cards come back automatically); round 2: one pick each
+        repeat(3) { for (player in listOf(alice, bob)) pickOver(pod, player) }
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
+        alice.tagged("menu-PODS").performClick()
+        waitUntil("the pod in Alice's list") { alice.showsText(name) }
+        alice.text(name).performScrollTo().performClick()
+        waitUntil("Alice's History button") { alice.shows(hasTestTag("pod-history")) }
+        alice.tagged("pod-history").performClick()
+        waitUntil("both rounds in Alice's history") {
+            alice.pods.history?.picks?.count { !it.automatic } == 3 &&
+                alice.showsText("Round 1 · passed left") && alice.showsText("Pack 1 · Pick 1")
+        }
+        alice.node(hasTestTag("pod-history-picks")).performScrollToNode(hasText("Round 2 · passed right"))
+        waitUntil("round 2's header") { alice.showsText("Round 2 · passed right") }
+        val returning = alice.pods.history!!.picks.withIndex().filter { it.value.returning }
+        kotlin.test.assertEquals(listOf(Triple(1, 3, true)), returning.map { Triple(it.value.round, it.value.pick, it.value.automatic) },
+            "the one pack that came back to Alice: her first pack's last card")
+        alice.tagged("pod-history-returning").performClick()
+        waitUntil("only the returning pack") {
+            alice.shows(hasTestTag("pod-history-header-${returning.single().index}")) && alice.showsText("Round 1 · passed left") &&
+                !alice.showsText("Pack 1 · Pick 1") && !alice.showsText("Round 2 · passed right")
+        }
+        alice.tagged("pod-history-returning").performClick()
+        waitUntil("every pick again") { alice.showsText("Pack 1 · Pick 1") }
     }
 }

@@ -54,13 +54,18 @@ class PodChatTest {
         assertTrue(view.canSend("Hello"))
     }
 
-    // LOB-145, LOB-066: the chat opens on Pod only when the pod alone has unread messages; the other tab is highlighted while
+    // LOB-145, LOB-066: the chat opens on the tab last used in the game; before any, on Pod only when the pod alone has
+    // unread messages; the other tab is highlighted while
     // it holds an unseen message; the table's chat button counts both
     @Test fun chatTabsOfAPodGame() {
         assertEquals(ChatTab.GAME, ChatTabs.opening(pod = true, gameUnread = 0, podUnread = 0))
         assertEquals(ChatTab.POD, ChatTabs.opening(pod = true, gameUnread = 0, podUnread = 2))
         assertEquals(ChatTab.GAME, ChatTabs.opening(pod = true, gameUnread = 1, podUnread = 2))
         assertEquals(ChatTab.GAME, ChatTabs.opening(pod = false, gameUnread = 0, podUnread = 2))
+        // LOB-145 (owner, 2026-11-10): once a tab was used in the game, the chat opens on it, whatever is unread
+        assertEquals(ChatTab.POD, ChatTabs.opening(pod = true, gameUnread = 1, podUnread = 0, last = ChatTab.POD))
+        assertEquals(ChatTab.GAME, ChatTabs.opening(pod = true, gameUnread = 0, podUnread = 2, last = ChatTab.GAME))
+        assertEquals(ChatTab.GAME, ChatTabs.opening(pod = false, gameUnread = 0, podUnread = 0, last = ChatTab.POD))
         assertTrue(ChatTabs.highlighted(ChatTab.POD, ChatTab.GAME, gameUnread = 0, podUnread = 1))
         assertFalse(ChatTabs.highlighted(ChatTab.POD, ChatTab.POD, gameUnread = 0, podUnread = 1))
         assertFalse(ChatTabs.highlighted(ChatTab.GAME, ChatTab.POD, gameUnread = 0, podUnread = 1))

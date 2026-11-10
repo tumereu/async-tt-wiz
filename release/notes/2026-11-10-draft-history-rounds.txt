@@ -1,0 +1,1 @@
+add: Draft history shows a header for each round saying which way its packs passed, with a divider between rounds, and a "Returning packs only" switch that shows just the packs that came back to you.

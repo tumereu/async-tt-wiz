@@ -40,9 +40,10 @@ class PodHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             a = account("pod-a"); b = account("pod-b"); c = account("pod-c")
-            // 90 different cards of the test cards' catalog, one each
+            // 90 different cards of the test cards' catalog, one each; never the Librarian stand-in, whose cube copies count as
+            // Librarians (the Librarian tests below assume the packs hold none)
             cube = json.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(id(), "Snapshot cube",
-                org.asyncttwiz.server.TestPrintings.names("E2E").take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
+                org.asyncttwiz.server.TestPrintings.names("E2E").filter { it != "Cogwork Librarian" }.take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)
@@ -1486,21 +1487,20 @@ class PodHttpTest {
         })
     }
 
-    // DRF-172: a message notifies every other member ("New message", Draft activity), never its author; once read, the
-    // notice is no longer in the feed
-    @Test fun `a pod chat message notifies the other members until they read it`() = fixture { f ->
+    // DRF-170 (owner, 2026-11-10): a message notifies no one: no notice for the other members (nor its author), so nothing
+    // reaches a phone's notifications; the chat's unread count still tells it
+    @Test fun `a pod chat message notifies no one`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
-        val message = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "Draft tonight?"))
-        assertEquals(0, f.count(ActivityKind.POD_MESSAGE, pod, f.a))
-        for (who in listOf(f.b, f.c)) {
-            assertEquals(1, f.count(ActivityKind.POD_MESSAGE, pod, who))
-            val notice = f.activity(who, "0").entries.single { it.kind == ActivityKind.POD_MESSAGE }
-            assertEquals(pod, notice.gameId); assertEquals(message.id, notice.identity); assertEquals(f.a.account.accountId, notice.authorId)
-            assertEquals(ActivityTarget(pod, ActivityDestination.POD), f.target(who, pod, ActivityKind.POD_MESSAGE))
+        val before = listOf(f.a, f.b, f.c).associateWith { who -> f.activity(who, "0").entries.filter { it.gameId == pod } }
+        f.say(f.a, pod, "Draft tonight?")
+        val rows = f.db.connection().use { connection ->
+            connection.prepareStatement("select count(*) from account_activity where game_id = ? and kind = 'POD_MESSAGE'").use { statement ->
+                statement.setObject(1, UUID.fromString(pod)); statement.executeQuery().use { it.next(); it.getInt(1) }
+            }
         }
-        f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(message.id))
-        assertTrue(f.activity(f.b, "0").entries.none { it.kind == ActivityKind.POD_MESSAGE })
-        assertEquals(1, f.activity(f.c, "0").entries.count { it.kind == ActivityKind.POD_MESSAGE })
+        assertEquals(0, rows)
+        for (who in listOf(f.a, f.b, f.c)) assertEquals(before.getValue(who), f.activity(who, "0").entries.filter { it.gameId == pod })
+        assertEquals(1, f.chat(f.b, pod).read.unread)
     }
 }

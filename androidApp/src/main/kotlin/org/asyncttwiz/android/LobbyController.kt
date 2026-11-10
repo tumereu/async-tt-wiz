@@ -62,17 +62,29 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     val history = HistoryController(api, credential, worker, post)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
-    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
+    /** LOB-145 (owner, 2026-11-10): the chat tab last shown in each game, by game id, while the app runs (personal UI). */
+    private val lastChatTabs = mutableMapOf<String, ChatTab>()
+    /** The chat tab last shown in [gameId]'s chat, null before any. */
+    fun lastChatTab(gameId: String): ChatTab? = lastChatTabs[gameId]
+    fun clear() { lastChatTabs.clear(); queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
     /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136); [tab]: on that tab in a pod
      * game (LOB-145). */
     fun openChat(focus: String? = null, tab: ChatTab = ChatTab.GAME) {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
-            AppLog.info("chat", "Chat opened on ${tab.name.lowercase()}" + (focus?.let { " at message $it" } ?: ""))
+            AppLog.info("chat", "Chat opened on ${tab.name.lowercase()}" + (focus?.let { " at message $it" } ?: "") +
+                (state.detail?.id?.let { id -> lastChatTabs[id]?.let { " (last used here: ${it.name.lowercase()})" } } ?: ""))
+            state.detail?.id?.let { lastChatTabs[it] = tab }
             state = state.copy(chatOpen = true, chatFocus = focus, chatTab = tab); connectionState()
         }
     }
     /** LOB-145: shows the Game or Pod tab of a pod game's chat. */
-    fun chatTab(tab: ChatTab) { if (state.chatOpen && tab != state.chatTab) { AppLog.info("chat", "Chat tab ${tab.name.lowercase()}"); state = state.copy(chatTab = tab, chatFocus = null) } }
+    fun chatTab(tab: ChatTab) {
+        if (state.chatOpen && tab != state.chatTab) {
+            AppLog.info("chat", "Chat tab ${tab.name.lowercase()}")
+            state.detail?.id?.let { lastChatTabs[it] = tab }
+            state = state.copy(chatTab = tab, chatFocus = null)
+        }
+    }
     /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up. */
     fun writeChat() { openChat(); if (state.chatOpen) state = state.copy(chatWrite = true) }
     fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false) }

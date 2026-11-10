@@ -240,7 +240,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread)) },
+                    runtime = TableRuntimeHooks(chat = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) },
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,

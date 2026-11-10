@@ -114,14 +114,16 @@ class CatalogControllerTest {
         } finally { directory.deleteRecursively() }
     }
 
-    // LOB-094: the share of the whole installation, the download first
+    // LOB-094: the share of the whole installation, the download first, then the records, then card search
     @Test fun progressIsOneShareOfTheWholeInstallation() {
         assertEquals(10, CatalogProgress(CatalogPhase.DOWNLOADING, 50, 100).percent)
         assertEquals(0, CatalogProgress(CatalogPhase.DOWNLOADING, 50, null).percent)
         assertEquals(20, CatalogProgress(CatalogPhase.INDEXING, 0, 100).percent)
-        assertEquals(59, CatalogProgress(CatalogPhase.INDEXING, 50, 100).percent)
+        assertEquals(40, CatalogProgress(CatalogPhase.INDEXING, 50, 100).percent)
+        assertEquals(60, CatalogProgress(CatalogPhase.FINISHING, 0, 100).percent)
+        assertEquals(79, CatalogProgress(CatalogPhase.FINISHING, 50, 100).percent)
         assertEquals(99, CatalogProgress(CatalogPhase.FINISHING, 100, 100).percent)
-        assertEquals("Card records updating · 59%", CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)).records.line())
+        assertEquals("Card records updating · 40%", CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)).records.line())
         assertEquals("Card records couldn't be downloaded", CatalogUiState(failed = true).records.line())
     }
 }

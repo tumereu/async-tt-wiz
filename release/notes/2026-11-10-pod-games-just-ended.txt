@@ -1,0 +1,1 @@
+fix: A pod's Games tab now shows a match as soon as it ends, without opening the tab again.

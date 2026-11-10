@@ -44,6 +44,8 @@ class DraftHistoryTest {
         assertEquals(1 to 3, wheel.pack to wheel.pick)
         assertEquals(setOf(first[1], first[2], first[4]), ids(wheel.cards))
         assertEquals(setOf(first[3]), ids(wheel.takenSince))
+        // DRF-165: the pack came back to x, a second time in its round; the first two were new to x
+        assertEquals(listOf(false, false, true), DraftEngine.history(state, x).map { it.returning })
         // y's history is y's own: never x's keeps beyond what y's packs show
         val theirs = DraftEngine.history(state, y)
         assertEquals(listOf(listOf(other[2]), listOf(first[3])), theirs.map { it.kept })
@@ -94,5 +96,22 @@ class DraftHistoryTest {
         val theirs = DraftEngine.history(state, y).last()
         assertTrue(spent in ids(theirs.cards))
         assertTrue(theirs.librarians.isEmpty())
+    }
+
+    // DRF-165: each pick names its pack's round (rounds pass in turn: next seat, previous seat), and a pack is returning
+    // only when it came to the viewer before in that round
+    @Test fun picksNameTheirRoundAndWhetherThePackCameBack() {
+        var state = DraftEngine.startWithPacks(listOf("a", "b"), List(4) { pack -> List(3) { DraftCopy("$pack-$it", "d$pack-$it") } },
+            DraftSettings(packsPerPlayer = 2, cardsPerPack = 3, colorBalance = false), seed)
+        val x = state.seating[0]
+        while (!state.finished) state = state.seating.first { state.queues.getValue(it).isNotEmpty() }
+            .let { p -> pick(state, p, listOf(head(state, p).cards.first().id)) }
+        val history = DraftEngine.history(state, x)
+        // Each round: x's own pack, the other's, then x's own again with its last card (given automatically, so it may come
+        // after x has opened the next round: the history is in time order)
+        assertEquals(mapOf(1 to listOf(false, false, true), 2 to listOf(false, false, true)),
+            history.groupBy({ it.round }, { it.returning }))
+        assertEquals(DraftDirection.NEXT_SEAT, DraftEngine.direction(history[0].round - 1))
+        assertEquals(DraftDirection.PREVIOUS_SEAT, DraftEngine.direction(history.last().round - 1))
     }
 }

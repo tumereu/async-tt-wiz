@@ -3,6 +3,7 @@ package org.asyncttwiz.storage
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Locale
 import java.util.logging.Logger
 import kotlinx.serialization.json.Json
 import org.asyncttwiz.catalog.CardCatalogFiles
@@ -91,20 +92,22 @@ internal class LimitedInput(input: InputStream, private val maximum: Long) : Fil
 
 enum class CatalogPhase { DOWNLOADING, INDEXING, FINISHING }
 
-/** Byte counts always refer to the compressed file, while indexing too. */
+/** Downloading and indexing count the compressed file's bytes; finishing counts printings (its card search goes through
+ * every one). */
 data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?) {
     /** How much of the whole installation is done, 0 to 99 ("Card records updating · 43%", section 3.6): the download is
-     * the first [DOWNLOAD_SHARE] percent, indexing the rest; finishing (the card search) is 99. */
+     * the first [DOWNLOAD_SHARE] percent, indexing up to [FINISHING_FROM], finishing (the card search) the rest to 99. */
     val percent: Int get() {
         val fraction = total?.takeIf { it > 0 }?.let { (done.toDouble() / it).coerceIn(0.0, 1.0) } ?: 0.0
         return when (phase) {
             CatalogPhase.DOWNLOADING -> (fraction * DOWNLOAD_SHARE).toInt()
-            CatalogPhase.INDEXING -> (DOWNLOAD_SHARE + fraction * (99 - DOWNLOAD_SHARE)).toInt()
-            CatalogPhase.FINISHING -> 99
+            CatalogPhase.INDEXING -> (DOWNLOAD_SHARE + fraction * (FINISHING_FROM - DOWNLOAD_SHARE)).toInt()
+            CatalogPhase.FINISHING -> (FINISHING_FROM + fraction * (99 - FINISHING_FROM)).toInt()
         }
     }
 
-    private companion object { const val DOWNLOAD_SHARE = 20 }
+    // After the download, the records and finishing took about as long each on an API 29 emulator (2026-11-10)
+    private companion object { const val DOWNLOAD_SHARE = 20; const val FINISHING_FROM = 60 }
 }
 
 internal class CountingInput(input: InputStream) : FilterInputStream(input) {
@@ -141,6 +144,7 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
         val download = File(directory, "catalog.jsonl.gz.part")
         try {
             log("Card catalog: downloading $checksum (${size ?: "unknown"} bytes)")
+            val downloading = System.nanoTime()
             progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, size))
             FileOutputStream(download).use { file ->
                 source.download(checksum, file) { bytes ->
@@ -150,40 +154,95 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
                 file.flush(); file.fd.sync()
             }
             val total = download.length()
-            log("Card catalog: downloaded $total bytes; indexing")
-            return repository.stage(finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, total, total)) }) { index ->
+            log("Card catalog: downloaded $total bytes in ${(System.nanoTime() - downloading) / 1_000_000} ms; indexing")
+            return repository.stage(finishing = { done, all -> progress(CatalogProgress(CatalogPhase.FINISHING, done, all)) }, log = log) { index ->
                 progress(CatalogProgress(CatalogPhase.INDEXING, 0, total))
-                val indexer = CatalogRecordIndexer(index)
-                CountingInput(FileInputStream(download)).use { counted ->
-                    var last = 0L
-                    val read = CardCatalogFiles.stream(counted) { record ->
-                        indexer.add(record)
-                        if (counted.count - last >= 64 * 1024) {
-                            last = counted.count
-                            check(freeBytes() >= reserve) { "Not enough free space" }
-                            progress(CatalogProgress(CatalogPhase.INDEXING, counted.count, total))
-                        }
-                    }
-                    check(read == checksum) { "Card catalog checksum mismatch: asked for $checksum, read $read" }
-                }
-                indexer.finish(checksum).also { log("Card catalog $checksum indexed: ${it.records} printings") }
+                indexAlongsideReading(download, checksum, CatalogRecordIndexer(index)) { bytes ->
+                    check(freeBytes() >= reserve) { "Not enough free space" }
+                    progress(CatalogProgress(CatalogPhase.INDEXING, bytes, total))
+                }.also { log("Card catalog $checksum indexed: ${it.records} printings") }
             }
         } finally { download.delete() }
     }
+
+    /**
+     * Indexes the catalog in [download] with [indexer] on this thread while a thread of its own unzips, checks and decodes
+     * the file into batches ([CatalogRecordReader]): on a phone each side takes about half the time. [read] gets the file's
+     * bytes read so far, on this thread.
+     */
+    private fun indexAlongsideReading(download: File, checksum: String, indexer: CatalogRecordIndexer,
+        read: (Long) -> Unit): CatalogMetadata {
+        class Read(val bytes: Long)
+        class Done(val metadata: CatalogMetadata)
+        val queue = java.util.concurrent.ArrayBlockingQueue<Any>(4)
+        val stopped = java.util.concurrent.atomic.AtomicBoolean()
+        val readerTimes = CatalogPhaseTimes()
+        fun hand(item: Any) {
+            readerTimes.time("waits for writes") {
+                while (!queue.offer(item, 100, java.util.concurrent.TimeUnit.MILLISECONDS)) check(!stopped.get()) { "Indexing stopped" }
+            }
+        }
+        val reader = Thread({
+            val outcome: Any = try {
+                readerTimes.time("file reads") {
+                    CountingInput(FileInputStream(download)).use { counted ->
+                        val records = CatalogRecordReader(readerTimes)
+                        var last = 0L
+                        val sum = CardCatalogFiles.stream(counted, recipes = false) { record ->
+                            check(!stopped.get()) { "Indexing stopped" }
+                            records.add(record)?.let(::hand)
+                            if (counted.count - last >= 64 * 1024) { last = counted.count; hand(Read(counted.count)) }
+                        }
+                        check(sum == checksum) { "Card catalog checksum mismatch: asked for $checksum, read $sum" }
+                        val (rest, metadata) = records.finish(checksum)
+                        rest?.let(::hand)
+                        Done(metadata)
+                    }
+                }
+            } catch (failure: Throwable) { failure }
+            try { hand(outcome) } catch (_: IllegalStateException) {} // The indexing side has stopped
+        }, "catalog-reader")
+        reader.isDaemon = true
+        reader.start()
+        try {
+            while (true) {
+                val item = indexer.index.times.time("waits for reads") { queue.take() }
+                when (item) {
+                    is CatalogWrites -> indexer.write(item)
+                    is Read -> read(item.bytes)
+                    is Done -> return item.metadata
+                    is Throwable -> throw item
+                }
+            }
+        } finally {
+            stopped.set(true)
+            reader.join()
+            indexer.index.times.addAll(readerTimes, "alongside: ")
+        }
+    }
 }
 
-/** Puts a catalog's records, in file order, into a card records generation: each printing as the record the app keeps
- * (CatalogCards.sourceRecord) with its search traits, the sets with their marks, and the supported printings. */
-internal class CatalogRecordIndexer(private val index: CatalogIndex) {
+/** What a batch of a catalog's records adds to card records: sets with their marks, printings with what the index takes
+ * from them, and the supported printings' ids. */
+internal class CatalogWrites(val sets: List<CatalogSetRecord>, val printings: List<CatalogIndex.StagedPrinting>,
+    val supported: List<String>)
+
+/**
+ * Reads a catalog's records, in file order, into batches of [CatalogWrites]: each printing as the record the app keeps
+ * (CatalogCards.sourceRecord) with its search traits, the sets with their marks, and the supported printings. Touches no
+ * database, so it can run on a thread of its own; [times] gets where its time went.
+ */
+internal class CatalogRecordReader(private val times: CatalogPhaseTimes = CatalogPhaseTimes()) {
     private var header: CatalogHeader? = null
     private val faces = ArrayList<CatalogFaceRecord>()
-    private val batch = ArrayList<CatalogPrinting>(BATCH)
-    private val traits = ArrayList<CatalogPrintingTraits?>(BATCH)
-    private val supported = ArrayList<String>(BATCH)
-    private var sets = 0
+    private var sets = ArrayList<CatalogSetRecord>()
+    private var batch = ArrayList<CatalogIndex.StagedPrinting>(BATCH)
+    private var supported = ArrayList<String>(BATCH)
+    private var setCount = 0
     private var printings = 0L
 
-    fun add(record: CatalogRecord) {
+    /** Takes [record]; returns a batch to write once one is full. */
+    fun add(record: CatalogRecord): CatalogWrites? {
         when (record) {
             is CatalogHeader -> {
                 check(header == null) { "Two catalog headers" }
@@ -193,42 +252,60 @@ internal class CatalogRecordIndexer(private val index: CatalogIndex) {
             }
             is CatalogSetRecord -> {
                 checkNotNull(header) { "No catalog header" }
-                index.addSet(record.code, record.released)
-                index.setName(record.code, record.name)
-                if (record.type.isNotEmpty()) index.setType(record.code, record.type)
-                index.markSet(record.code, record.draftable, record.automatum, record.unsupported)
-                sets++
+                sets += record
+                setCount++
             }
             is CatalogFaceRecord -> { check(record.i == faces.size) { "Face ${record.i} out of order" }; faces += record }
             is CatalogPrintingRecord -> {
                 val face = faces.getOrNull(record.face) ?: error("Printing ${record.id} names a face the catalog doesn't have")
-                batch += CatalogPrinting(record.id, face.name, record.set, record.number, "English", face.side, record.scryfall,
-                    record.token, record.others, CatalogCards.sourceRecord(record, face).toString())
-                traits += CatalogPrintingTraits(record.rarity, CardColors.mask(face.identity), face.legal,
-                    if (record.token) record.makers else record.tokens)
+                val printing = times.time("printing records") {
+                    CatalogPrinting(record.id, face.name, record.set, record.number, "English", face.side, record.scryfall,
+                        record.token, record.others, CatalogCards.sourceRecordText(record, face))
+                }
+                // What addBatch reads back from the record: its scryfallOracleId (search key) and faceName, put there from the face
+                batch += CatalogIndex.StagedPrinting(printing, CatalogPrintingTraits(record.rarity, CardColors.mask(face.identity),
+                    face.legal, if (record.token) record.makers else record.tokens),
+                    face.oracle.ifEmpty { "name:${face.name.lowercase(Locale.ROOT)}" }, face.faceName.ifEmpty { null })
                 if (face.automatum && !record.token) supported += record.id
                 printings++
-                if (batch.size == BATCH) flush()
+                if (batch.size == BATCH) return take()
             }
             is CatalogRecipeRecord -> Unit // Packs are the server's (section 3.7)
         }
+        return null
     }
 
-    fun finish(checksum: String): CatalogMetadata {
-        flush()
+    /** The last batch (null: nothing left) and the catalog's metadata, once the file is read whole. */
+    fun finish(checksum: String): Pair<CatalogWrites?, CatalogMetadata> {
         val read = checkNotNull(header) { "No catalog header" }
-        check(read.sets == sets && read.faces == faces.size && read.printings.toLong() == printings) {
-            "Catalog incomplete: header says ${read.sets}/${read.faces}/${read.printings}, read $sets/${faces.size}/$printings"
+        check(read.sets == setCount && read.faces == faces.size && read.printings.toLong() == printings) {
+            "Catalog incomplete: header says ${read.sets}/${read.faces}/${read.printings}, read $setCount/${faces.size}/$printings"
         }
-        return CatalogMetadata(read.mtgjsonDate, read.mtgjsonVersion, checksum, printings)
+        return (if (sets.isEmpty() && batch.isEmpty()) null else take()) to
+            CatalogMetadata(read.mtgjsonDate, read.mtgjsonVersion, checksum, printings)
     }
 
-    private fun flush() {
-        if (batch.isEmpty()) return
-        index.addBatch(batch, traits)
-        index.markSupported(supported)
-        batch.clear(); traits.clear(); supported.clear()
+    private fun take(): CatalogWrites = CatalogWrites(sets, batch, supported).also {
+        sets = ArrayList(); batch = ArrayList(BATCH); supported = ArrayList(BATCH)
     }
 
-    private companion object { const val BATCH = 500 }
+    private companion object { const val BATCH = 2000 }
+}
+
+/** Puts a catalog's records, in file order, into a card records generation ([index]), read with a [CatalogRecordReader]
+ * (on this thread with [add], or on another one handing over [write]). [readBack] (tests): the index reads its search key
+ * and face name back from each record, as [CatalogIndex.addBatch] does, instead of taking them from the face. */
+internal class CatalogRecordIndexer(val index: CatalogIndex, private val readBack: Boolean = false) {
+    private val reader = CatalogRecordReader(index.times)
+
+    fun add(record: CatalogRecord) { reader.add(record)?.let(::write) }
+
+    fun finish(checksum: String): CatalogMetadata = reader.finish(checksum).let { (rest, metadata) -> rest?.let(::write); metadata }
+
+    fun write(writes: CatalogWrites) {
+        writes.sets.forEach { index.addSet(it.code, it.released, it.name, it.type, it.draftable, it.automatum, it.unsupported) }
+        if (writes.printings.isEmpty()) return
+        if (readBack) index.addBatch(writes.printings.map { it.record }, writes.printings.map { it.trait }) else index.addPrintings(writes.printings)
+        index.markSupported(writes.supported)
+    }
 }

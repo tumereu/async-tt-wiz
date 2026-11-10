@@ -122,14 +122,25 @@ object ServerSetup {
         error("unreachable")
     }
 
-    fun deck(account: TestAccount, deck: TestDeck): SavedDeck = DeckApi(origin).use { api ->
-        runBlocking {
-            val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
-                SavedDeckSection.MAYBEBOARD to deck.maybe)
-            // As a phone saves it: the cards by printing, in one request (the server builds their card data)
-            api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
-                sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } }))
+    /**
+     * [account]'s saved [deck]: again after a connection failure, as [accountCall] and [lobbyCall] (a full run's
+     * DeckChoiceRequestsTest was seen failing once with a bare "Deck request failed" right after the database's reset, the
+     * server's log quiet: no refusal), the same request each time; a refusal fails at once, naming its code.
+     */
+    fun deck(account: TestAccount, deck: TestDeck): SavedDeck {
+        val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
+            SavedDeckSection.MAYBEBOARD to deck.maybe)
+        // As a phone saves it: the cards by printing, in one request (the server builds their card data)
+        val request = CreateDeck(UUID.randomUUID().toString(), deck.name,
+            sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } })
+        repeat(3) { attempt ->
+            try { return DeckApi(origin).use { api -> runBlocking { api.create(account.token, request) } } }
+            catch (failure: org.asyncttwiz.android.DeckFailure) {
+                if (failure.code != "network" || attempt == 2) error("Deck request of the setup (${deck.name}): ${failure.code}")
+                Thread.sleep(200)
+            }
         }
+        error("unreachable")
     }
 
     /**

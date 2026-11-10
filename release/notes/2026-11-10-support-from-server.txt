@@ -1,0 +1,1 @@
+mod: A deck's or cube's warning about cards Automatum can't play yet shows at once for every deck and cube, worked out by the server, and a lobby's Ready is refused for any deck holding such a card.

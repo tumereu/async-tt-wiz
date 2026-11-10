@@ -37,6 +37,16 @@ class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: 
     /** What a pod from [set] keeps as its source's Automatum support (I-D52), from the catalog's marks. */
     fun support(set: CatalogSetRecord) = CardListSupport(catalog.header.parserVersion, set.unsupported, catalog.header.engineVersion)
 
+    /** LOB-124 (I-D51): whether Automatum plays the card of printing [printingId] fully, by the catalog's mark of its card
+     * (SYS-082), the mark the app reads: a token, a printing the catalog doesn't have, or none (null) isn't. */
+    fun supported(printingId: String?): Boolean =
+        printingId?.let { catalog.printing[it] }?.let { !it.token && catalog.faces[it.face].automatum } == true
+
+    /** LOB-124: the support of a deck's or cube's [cards] (each its printing id, or null for a card without one, and its
+     * name): the names of those not [supported], each once, sorted. */
+    fun support(cards: Collection<Pair<String?, String>>): CardListSupport = CardListSupport(catalog.header.parserVersion,
+        cards.filterNot { supported(it.first) }.map { it.second }.distinct().sorted(), catalog.header.engineVersion)
+
     /** The gzip file of catalog [checksum] in this directory (the current one or the one kept before it), or null. */
     fun file(checksum: String): File? = ServerCatalogs.file(directory, checksum)
 

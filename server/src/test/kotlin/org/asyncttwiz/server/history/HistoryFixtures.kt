@@ -59,8 +59,9 @@ internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, v
 
     /** A saved deck [name] of [actor]'s: Main has a red card and a land, Side a blue card. */
     fun deck(actor: AccountService.Principal, name: String, color: String = "R"): SavedDeck {
+        // Under a printing the catalog's marks support (LOB-124), so the deck can be chosen
         fun card(cardName: String, cost: String, type: String) = CardDefinition(cardName, listOf(DefinitionFace(id(), cardName,
-            typeLine = type, manaCost = cost))).let { SubmittedDefinition(DeckJson.digest(it), it) }
+            typeLine = type, manaCost = cost)), printingId = org.asyncttwiz.server.TestPrintings.id("Forest")).let { SubmittedDefinition(DeckJson.digest(it), it) }
         val spell = card("$name Bolt", "{1}{$color}", "Instant")
         val land = card("$name Land", "", "Basic Land — Mountain")
         val side = card("$name Side", "{U}", "Instant")

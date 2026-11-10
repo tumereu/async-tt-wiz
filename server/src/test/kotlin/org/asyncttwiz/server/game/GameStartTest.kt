@@ -158,8 +158,10 @@ class GameStartTest {
         return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark")).body)
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, sideOnly: Boolean = false): SavedDeck {
-        val defs = listOf(CardDefinition("Retained first", listOf(DefinitionFace(id(), "First", corner = "3/5")), sourceVersion = "synthetic-v1"),
-            CardDefinition("Side only", listOf(DefinitionFace(id(), "Side", rulesText = "Not playable"))))
+        // Under a printing the catalog's marks support (LOB-124), so the deck can be chosen
+        val defs = listOf(CardDefinition("Retained first", listOf(DefinitionFace(id(), "First", corner = "3/5")), sourceVersion = "synthetic-v1",
+                printingId = org.asyncttwiz.server.TestPrintings.id("Forest")),
+            CardDefinition("Side only", listOf(DefinitionFace(id(), "Side", rulesText = "Not playable")), printingId = org.asyncttwiz.server.TestPrintings.id("Forest")))
         // Invented card data a deck holds from before: the test checks a game keeps it exactly
         val entries = if (sideOnly) listOf(Triple(SavedDeckSection.SIDEBOARD, defs[1], 1)) else
             listOf(Triple(SavedDeckSection.MAINBOARD, defs[0], 7), Triple(SavedDeckSection.SIDEBOARD, defs[1], 2))

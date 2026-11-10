@@ -43,7 +43,9 @@ class LimitedDraftHttpTest {
             }
             players = List(5) { account("limited-$it") }
             val cards = (0 until 120).map { n ->
-                val card = CardDefinition("Limited fixture $n", listOf(DefinitionFace(UUID.randomUUID().toString(), "Limited fixture $n", manaCost = "{G}")))
+                // Under a printing the catalog's marks support (LOB-124), so the cube can be a pod's source
+                val card = CardDefinition("Limited fixture $n", listOf(DefinitionFace(UUID.randomUUID().toString(), "Limited fixture $n", manaCost = "{G}")),
+                    printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
                 SubmittedDefinition(DeckJson.digest(card), card)
             }
             // 120 different invented cards (more than the test cards' catalog has), stored as a cube from before holds them

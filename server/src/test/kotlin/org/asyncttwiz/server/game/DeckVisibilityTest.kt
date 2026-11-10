@@ -176,11 +176,12 @@ class DeckVisibilityTest {
         fun sql(statement: String) = f.db.connection().use { it.createStatement().execute(statement) }
         sql("UPDATE player_preparation SET deck_shown = false")
         f.settings.set(f.b.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
-        // Back to the V45 schema: undo V78 (the grants of uploaded card data dropped: the table comes back empty), V77 (token favourites
+        // Back to the V45 schema: undo V79 (lists' stored Automatum support dropped: the columns come back empty), V78 (the grants of uploaded card data dropped: the table comes back empty), V77 (token favourites
         // dropped: the table comes back empty), V76 (old-form request rows deleted: nothing to undo here), V75 (pod chat: its tables go below), V74 (games with plays wiped: nothing to undo here), V73 (Assume resolves' new default: data only, nothing to undo here), V72 (a member's draft deck cover), V71 (Assume resolves as one value: data only, nothing to undo here), V70 (Build's Trash renamed Maybe: data only, nothing to undo here), V69 (result notice), V68 (assume reveal settings), V67 (engine seat undone events: its table goes below), V66 (game history records, deck reveals, cleanup columns), V65 (play settings: nothing to undo here), V64 (engine seat take-back position: its table goes below), V63 (games with plays wiped: nothing to undo here), V62 (the old model's tables dropped: V49 below needs its gameplay_mutation
         // constraint back), V61 (games' change marker), V60 (engine seat waits: the table goes below), V59 (games with plays wiped: nothing to undo here), V58 (play defaults, branch notices), V57 (engine async play), V56 (engine history tables), V55 (pods' Automatum support), V54 (games with plays wiped, game Automatum dropped: nothing to undo here), V53 (lists' Automatum support), V52 (opponent ready notices), V51 (game Automatum), V50 (Automatum reports), V49 (automated batch members), V48 (prepared
         // cube), V47 (Maybe sections) and V46, then migrate forward again.
         sql("""
+            ALTER TABLE saved_deck ADD COLUMN automatum_support text; ALTER TABLE saved_cube ADD COLUMN automatum_support text;
             CREATE TABLE account_definition (account_id uuid NOT NULL REFERENCES account(id), digest text NOT NULL REFERENCES definition(digest),
                 PRIMARY KEY (account_id, digest));
             CREATE TABLE account_token_favorites (account_id uuid PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE, keys_json text NOT NULL);
@@ -208,7 +209,7 @@ class DeckVisibilityTest {
             ALTER TABLE cube_entry ADD CONSTRAINT cube_entry_cube_id_definition_digest_key UNIQUE (cube_id, definition_digest);
             ALTER TABLE deck_entry DROP CONSTRAINT deck_entry_section_check;
             ALTER TABLE deck_entry ADD CONSTRAINT deck_entry_section_check CHECK (section IN ('MAINBOARD', 'SIDEBOARD'));
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78')
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79')
         """.trimIndent())
         // Up to V53: V54 would remove the finished game this checks
         assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)

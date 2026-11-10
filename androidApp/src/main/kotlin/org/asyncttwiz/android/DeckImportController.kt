@@ -218,23 +218,16 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         saveAction = action; this.saved = saved
     }
     /** Shared production wiring: reacquire credentials on retry, never regenerate retained intent. */
-    /** I-D51 (LOB-115): works out a saved deck's Automatum support right after saving; without it, or on a failure,
-     * the background run does it later. */
-    internal var supportCheck: CardListSupportCheck? = null
     fun connectSave(api: Decks, credential: () -> String?, saved: (SavedDeck) -> Unit) {
         connectSave(action = {
             credential()?.let { token -> { plan: DeckSave -> kotlinx.coroutines.runBlocking {
                 AppLog.info("decks", "save ${if (plan.target == null) "new deck" else "deck ${plan.target}"}: ${plan.entries.size} entries, " +
                     "${plan.entries.count { DeckValidation.digest(it.printingId) }} kept from before, request ${plan.requestId}")
-                // One request: the server builds the cards from its catalog (owner 2026-11-10)
-                val result = serviceRetry(current = { credential() == token }) {
+                // One request: the server builds the cards from its catalog (owner 2026-11-10) and works out their
+                // Automatum support from its marks (LOB-124)
+                serviceRetry(current = { credential() == token }) {
                     if (plan.target == null) api.create(token, plan.create()) else api.update(token, plan.target, plan.update())
                 }
-                supportCheck?.let { check -> runCatching {
-                    val value = check.support(plan.cards)
-                    if (api.setSupport(token, result.deck.id, SetCardListSupport(result.deck.revision, value)).stored)
-                        result.copy(deck = result.deck.copy(automatum = value)) else null
-                }.getOrNull() } ?: result
             } } }
         }, saved = saved)
     }

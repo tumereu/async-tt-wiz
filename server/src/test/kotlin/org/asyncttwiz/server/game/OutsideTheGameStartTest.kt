@@ -32,8 +32,10 @@ class OutsideTheGameStartTest {
             test(runtime)
         }
     }
+    // Under a printing the catalog's marks support (LOB-124), so the decks can be chosen
     private fun card(name: String, type: String, text: String = "", cost: String = "", layout: String = "normal") =
-        CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type, manaCost = cost, rulesText = text)), layout = layout)
+        CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type, manaCost = cost, rulesText = text)), layout = layout,
+            printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
     private fun submitted(card: CardDefinition) = SubmittedDefinition(DeckJson.digest(card), card)
 
     private val forest = card("Forest", "Basic Land — Forest")

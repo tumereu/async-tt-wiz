@@ -180,7 +180,9 @@ class SwitchReviewTest {
     @Test fun `a deck with a card the server can't read doesn't start`() = withService { runtime ->
         // Card data made before parts were kept: a split card's halves only in its combined text (GameCards: unreadable)
         val split = CardDefinition("Blaze // Frost", listOf(DefinitionFace(id(), "Blaze // Frost", typeLine = "Instant // Instant",
-            manaCost = "{R} // {U}", rulesText = "Blaze deals 2 damage to any target. // Draw a card.")), layout = "split")
+            manaCost = "{R} // {U}", rulesText = "Blaze deals 2 damage to any target. // Draw a card.")), layout = "split",
+            // Under a printing the catalog's marks support (LOB-124): the deck can be chosen, so the parse decides
+            printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
         assertNull(org.asyncttwiz.protocol.game.GameCards.parse(split).definition, "the server can't read it")
         val f = Fixture(runtime, seam = false, card = split)
         assertEquals("rejected", f.started.outcome, "the start is refused: ${f.started.reason}")

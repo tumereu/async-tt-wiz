@@ -38,8 +38,10 @@ class PreparedDeckTest {
         val front = id(); val back = id()
         val cards = listOf(CardDefinition("Retained Front // Back", listOf(
             DefinitionFace(front, "Front", listOf(back), corner = "2/4"),
-            DefinitionFace(back, "Back", listOf(front), rulesText = "Original backside")), sourceVersion = "old-source"),
-            CardDefinition("Side card", listOf(DefinitionFace(id(), "Side card", rulesText = "Original side text"))))
+            DefinitionFace(back, "Back", listOf(front), rulesText = "Original backside")), sourceVersion = "old-source",
+            printingId = org.asyncttwiz.server.TestPrintings.id("Forest")),
+            CardDefinition("Side card", listOf(DefinitionFace(id(), "Side card", rulesText = "Original side text")), printingId = org.asyncttwiz.server.TestPrintings.id("Forest")))
+        // Under a printing the catalog's marks support (LOB-124), so the deck can be chosen
         return cards.map { SubmittedDefinition(DeckJson.digest(it), it) }
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, defs: List<SubmittedDefinition>): SavedDeck {

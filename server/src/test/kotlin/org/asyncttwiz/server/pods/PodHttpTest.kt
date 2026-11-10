@@ -41,8 +41,9 @@ class PodHttpTest {
             }
             a = account("pod-a"); b = account("pod-b"); c = account("pod-c")
             val cards = (0 until 90).map { n ->
+                // Under a printing the catalog's marks support (LOB-124), so the cube can be a pod's source
                 val card = CardDefinition("Private fixture $n", listOf(DefinitionFace(id(), "Private fixture $n", manaCost = "{W}",
-                    sourceData = if (n % 2 == 0) "{\"colors\":[\"U\"]}" else null)))
+                    sourceData = if (n % 2 == 0) "{\"colors\":[\"U\"]}" else null)), printingId = org.asyncttwiz.server.TestPrintings.id("Forest"))
                 SubmittedDefinition(DeckJson.digest(card), card)
             }
             // Invented card data (explicit colours apart from their cost), stored as a cube from before holds it

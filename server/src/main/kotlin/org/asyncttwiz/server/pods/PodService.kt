@@ -137,8 +137,10 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun log(message: String) = println("${java.time.Instant.now()} Pods: $message")
 
-    /** I-D52 (pivot review #2): the pod's stored Automatum support of its source, null when not known. */
-    private fun support(row: PodRecord): CardListSupport? = org.asyncttwiz.server.decks.automatumSupport(row.automatumSupport)
+    /** I-D52 (pivot review #2): the pod's Automatum support of its source, kept with it when the source was chosen (the
+     * catalog's marks then, LOB-124, DRF-161); null when not known or unreadable (another version's). */
+    private fun support(row: PodRecord): CardListSupport? = support(row.automatumSupport)
+    private fun support(value: String?): CardListSupport? = value?.let { runCatching { json.decodeFromString<CardListSupport>(it) }.getOrNull() }
 
     /** Whether pod [id]'s source has cards Automatum can't play fully, as stored with it (I-D52). */
     internal fun unsupported(sql: DSLContext, id: UUID): Boolean =
@@ -157,9 +159,11 @@ class PodService(private val runtime: ServiceRuntime) {
         insert.onConflictDoNothing().execute()
     }
 
-    private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
+    /** A saved cube as a pod's prepared cube, with its Automatum [support] (JSON [CardListSupport]): its cards, Maybe
+     * included, by the card catalog's marks when it was read (LOB-124, DRF-161); null without a catalog. */
+    private inner class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
         val support: String? = null) {
-        val unsupported: Boolean get() = org.asyncttwiz.server.decks.automatumSupport(support)?.supported == false
+        val unsupported: Boolean get() = support(support)?.supported == false
     }
 
     /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. */
@@ -180,10 +184,13 @@ class PodService(private val runtime: ServiceRuntime) {
                 it[CUBE_ENTRY.SECTION] to DraftCubeEntry(it[CUBE_ENTRY.DEFINITION_DIGEST]!!, it[CUBE_ENTRY.QUANTITY]!!,
                     explicit ?: PodDeckManaCost.front(definition).colors)
             }
+        val support = org.asyncttwiz.server.decks.CardListSupports.ofDigests(sql, entries.map { it.second.definition })
+        log("cube $cubeId as a pod source: ${entries.size} entries, " + (support?.let { "${it.byHand.size} cards Automatum can't play " +
+            "by the catalog's marks${if (it.supported) "" else ": " + it.byHand.take(20)}" } ?: "support unknown (no card catalog)"))
         // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
         return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
             entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second },
-            cube.automatumSupport)
+            support?.let { json.encodeToString(it) })
     }
 
     private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)

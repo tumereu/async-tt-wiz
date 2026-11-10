@@ -72,12 +72,18 @@ catalog wins. Where neither says, ask rather than pick.
 - One pinned Comprehensive Rules version, `ComprehensiveRules.EFFECTIVE_DATE` in
   `arcanum-api`. Tests that encode a rule cite its number in that version in the
   test name or a comment above it (`// CR 613.4c`). Such a test changes only when
-  the pin moves and that rule changed, or when the owner decides; the same
-  protection as catalog-linked tests.
+  the pin moves and that rule changed, when it encoded the rule wrongly (owner,
+  2026-11-10: anything not according to the rules is fixed without asking; name
+  each such test and why in your final reply), or when the owner decides.
 - Test cards are invented: our own names and costs with wording copied from real
   oracle templates or merged from several cards. Never commit real card data,
   MTGJSON files or the rules text; tools read them from local files.
-- The parser grows one wording group at a time, decided together with the owner.
+- The parser grows one wording group at a time, decided together with the owner,
+  except in set work, which adds the wordings its set's cards need.
+- Adding a set ("set work"): follow `arcanum-tools/set-work/README.md`; its worker
+  brief and prompts are beside it (an owner-approved exception to the no-process-
+  documentation rule). Engine code must be right for 3+ players, and anything
+  found that isn't according to the rules is fixed, whichever set it's in.
 
 ## Rules
 

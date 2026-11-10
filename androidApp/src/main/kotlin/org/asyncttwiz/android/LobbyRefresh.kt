@@ -125,12 +125,20 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
                         .groupBy { it.id }.values.map { versions -> versions.maxBy { GameWire.ordinal(it.revision) } }
                         .map { game -> latest[game.id]?.takeIf { GameSession.newerOrEqual(it.revision, game.revision) } ?: game }
                     val present = games.map { it.id }.toSet()
-                    for (id in atStart.keys - present) session?.unavailable(id)
+                    for (id in atStart.keys - present) {
+                        AppLog.info("lobby", "Game ${id.take(8)} missing from the list read: unavailable")
+                        session?.unavailable(id)
+                    }
                     state = state.copy(contacts = data.contacts, games = state.games.filter { old -> games.any { it.id == old.id } },
                         invitations = state.invitations.filter { old -> games.any { it.id == old.id } }, busy = false,
                         backgroundLoading = false, loaded = true, error = state.error.takeUnless { it == refreshError })
                     refreshError = null
-                    if (selected != null && state.selected == selected && data.detail == null && latest[selected] == atStart[selected]) {
+                    // Only the server's answer to the head this read asked for says the open game is gone. A read that didn't
+                    // ask for it (the game was open with its detail when it began) has no detail when the player left and
+                    // opened the game again meanwhile (e2e GameEndDialogTest, TRN-065: the background sync's read landing
+                    // after the conceder went back to the game showed the Games list, not the dialog over the lobby)
+                    if (selected != null && needsHead && state.selected == selected && data.detail == null && latest[selected] == atStart[selected]) {
+                        AppLog.info("lobby", "Game ${selected.take(8)} not found by its head read")
                         session?.unavailable(selected); leaveUnavailable()
                     }
                     if (session == null) state = state.copy(games = stableGameRows(state.games, data.games), invitations = stableGameRows(state.invitations, data.invitations),
@@ -149,8 +157,12 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
                     state = state.copy(busy = false, backgroundLoading = false,
                         error = refreshError ?: state.error.takeUnless { it == previousError })
                 }
-                // A user may choose another row while a list refresh is in flight.
-                if (state.selected != selected) refresh()
+                // A user may choose another row while a list refresh is in flight, or the same game again (its detail
+                // reset, its head not asked for by this read): the next read asks for it.
+                if (state.selected != selected || (state.selected != null && state.detail == null && !needsHead)) {
+                    if (state.selected == selected) AppLog.info("lobby", "Game ${selected?.take(8)} opened again during a list read: its head read next")
+                    refresh()
+                }
             } }
         }
     }

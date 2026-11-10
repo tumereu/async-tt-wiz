@@ -150,6 +150,11 @@ sealed interface Effect {
         /** Exceptions to the copy ("copy that spell, except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable
          * values, so the token a permanent spell's copy becomes has them too (CR 707.10c). */
         val except: List<CopyException> = emptyList(),
+        // inr chunk 09
+        /** "Copy that spell for each other creature they control that the spell could target. Each copy targets a different one of those
+         * creatures" (CR 707.10d): one copy for each of these objects, every target of that copy being the object; an object that isn't a legal
+         * target for each target of the spell gets no copy. Null: one copy. */
+        val forEachCouldTarget: Objects? = null,
     ) : Effect
     /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Pay] by that player and a
      * [Step.If] that counters when they didn't (CR 118.12a). */
@@ -257,6 +262,14 @@ sealed interface Effect {
         val onlyAttackers: ObjectFilter? = null,
     ) : Effect
     @Serializable @SerialName("exchange-life") data class ExchangeLife(val first: Players, val second: Players) : Effect
+    // inr
+    /** "Exchange target opponent's life total with this creature's toughness" (CR 701.12g): [player]'s life total becomes
+     * [creature]'s [property] ([NumericProperty.Power] or [NumericProperty.Toughness]), gained or lost, and a continuous
+     * effect sets that [property] to the player's previous life total (layer 7b, CR 613.4b), for as long as the creature
+     * stays. Nothing happens unless both are there (CR 701.12a). */
+    @Serializable @SerialName("exchange-life-with-stat") data class ExchangeLifeWithStat(
+        val player: Players, val creature: Objects, val property: NumericProperty,
+    ) : Effect
     /** [mechanics] apply to the spell [objects] and to the permanent it becomes (CR 400.7d): "that creature enters with
      * two additional +1/+1 counters", "it can't be countered". Inside [mechanics], [Objects.Affected] is the spell and the
      * permanent it becomes; values are fixed when this effect happens (CR 608.2h). Mana riders use the same idea
@@ -347,6 +360,9 @@ sealed interface Effect {
         // tla
         /** Only during their next combat phase ("you control target opponent during their next combat phase", CR 723.2). */
         val combatPhase: Boolean = false,
+        // inr
+        /** "After that turn, that player takes an extra turn" (CR 500.7): the extra turn comes directly after the controlled turn. */
+        val thenExtraTurn: Boolean = false,
     ) : Effect
 }
 

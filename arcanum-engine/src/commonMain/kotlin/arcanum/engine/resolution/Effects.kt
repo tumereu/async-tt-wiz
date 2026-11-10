@@ -106,7 +106,7 @@ internal object Effects {
             is Effect.Sacrifice -> {
                 val ids = onBattlefield(scope, effect.objects)
                 scope.bind(effect.preBind, NamedValue.Objects(ids))
-                moveOrBatch(scope, ids.filter { id -> act.view()[id]?.has { it == Mechanic.CantBeSacrificed } != true }
+                moveOrBatch(scope, ids.filter { id -> !Actions.cantBeSacrificed(act, id, cause.controller) }
                     .map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed)) }, effect.postBind)
             }
             is Effect.Move -> move(scope, effect)
@@ -180,6 +180,8 @@ internal object Effects {
             // represents it decides, not its copiable values (CR 712.9): a double-faced token does, a copy on a one-faced card doesn't
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
+                // CR 701.27, 101.2: "can't transform" wins over the instruction
+                if (act.view()[id]?.has { it == Mechanic.CantTransform } == true) return@forEach
                 // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
                 val layout = o.definition?.layout
                 if (layout != Layout.Transform && layout != Layout.ModalDoubleFaced) return@forEach
@@ -397,6 +399,17 @@ internal object Effects {
                 setLife(scope, a, lb)
                 setLife(scope, b, la)
             }
+            // inr chunk 08: "Exchange target opponent's life total with this creature's toughness." (CR 701.12g; nothing without both, 701.12a)
+            is Effect.ExchangeLifeWithStat -> {
+                val p = scope.players(effect.player).firstOrNull() ?: return
+                val id = onBattlefield(scope, effect.creature).firstOrNull() ?: return
+                val life = act.state.player(p).life
+                val stat = scope.value(Value.Of(effect.property, effect.creature, arcanum.api.Combine.Single))
+                setLife(scope, p, stat)
+                val set = if (effect.property == arcanum.api.NumericProperty.Power) Mechanic.SetPowerToughness(Value.Fixed(life), null)
+                    else Mechanic.SetPowerToughness(null, Value.Fixed(life))
+                applyMechanics(scope, listOf(set), Affected.Objects(effect.creature), Duration.Indefinitely, null, locked = listOf(id))
+            }
             is Effect.SpellGets -> scope.objects(effect.objects).forEach { id ->
                 // CR 400.7d: the effect follows the spell onto the battlefield
                 val next = (id as? ObjectId.Card)?.next()
@@ -478,7 +491,7 @@ internal object Effects {
             is Effect.ControlNextTurn -> {
                 val controller = scope.players(effect.controller).firstOrNull() ?: return
                 scope.players(effect.players).forEach { p ->
-                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase)
+                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase, thenExtraTurn = effect.thenExtraTurn)
                     val turn = act.state.turn
                     // tla: only their next combat phase (CR 723.2): this turn's when it is theirs and its combat is still to come
                     val now = effect.combatPhase && turn.active == p && turn.step in BEFORE_COMBAT
@@ -950,20 +963,53 @@ internal object Effects {
             if (act.view()[id]?.has { it == Mechanic.CantBeCopied } == true) return@forEach
             // fin: "This ability can't be copied" (CR 707.10)
             if ((original.ability as? arcanum.api.Ability.Activated)?.rules?.cantBeCopied == true) return@forEach
+            // inr chunk 09: a copy for each object the spell could target, each targeting only that object (CR 707.10d)
+            effect.forEachCouldTarget?.let { each ->
+                val instructions = arcanum.engine.action.Replacements.instructionsOf(original.ability)
+                val slots = instructions?.targets.orEmpty() + original.modes.flatMap { m -> instructions?.modes?.options?.getOrNull(m)?.instructions?.targets.orEmpty() }
+                    .filter { it.name in original.targets }
+                val provisional = ObjectId.StackItem("copy:${act.state.nextTimestamp()}")
+                val legal = scope.objects(each).filter { candidate ->
+                    val ref = TargetRef.Object(candidate)
+                    slots.isNotEmpty() && slots.all { s -> ref in Targeting.options(act, s, controller, original.source, original.names, self = provisional) }
+                }
+                // The copies go on the Stack in the order of their controller's choice (CR 707.10d, 405.3): first chosen, lowest
+                act.order(controller, scope.self, legal, "Order the copies: the first one chosen goes on the Stack first").forEach { candidate ->
+                    val ts = act.state.nextTimestamp()
+                    val copyId = ObjectId.StackItem("copy:$ts")
+                    copies += addCopy(scope, id, original, copyId, ts, controller, original.targets.mapValues { listOf(TargetRef.Object(candidate)) }, effect)
+                }
+                return@forEach
+            }
             val ts = act.state.nextTimestamp()
             val copyId = ObjectId.StackItem("copy:$ts")
             var targets = original.targets
             if (effect.newTargets) {
                 val instructions = arcanum.engine.action.Replacements.instructionsOf(original.ability)
                 val slots = instructions?.targets.orEmpty() + original.modes.flatMap { m -> instructions?.modes?.options?.getOrNull(m)?.instructions?.targets.orEmpty() }
-                targets = targets.mapValues { (slot, chosen) ->
-                    val s = slots.firstOrNull { it.name == slot } ?: return@mapValues chosen
-                    val options = Targeting.options(act, s, controller, original.source, original.names, self = copyId)
+                // inr sweep: a later slot sees the copy's targets so far, new ones included ("another target creature", "target creature
+                // that player controls", CR 707.10c, 115.3, 601.2c)
+                val now = LinkedHashMap(targets)
+                for ((slot, chosen) in targets) {
+                    val s = slots.firstOrNull { it.name == slot } ?: continue
+                    val names = now.entries.filter { it.key != slot }.fold(original.names) { b, (k, v) -> b.with(k, NamedValue.Targets(v)) }
+                    val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
-                    if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
-                    else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
+                    now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
+                        else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
+                targets = now
             }
+            copies += addCopy(scope, id, original, copyId, ts, controller, targets, effect)
+        }
+        scope.bind(effect.bind, NamedValue.Objects(copies))
+    }
+
+    /** Puts the copy [copyId] of [original] (the spell or ability [id]) with [targets] onto the Stack. */
+    private fun addCopy(scope: Scope, id: ObjectId, original: StackItem, copyId: ObjectId, ts: Long, controller: PlayerId,
+                        targets: Map<String, List<TargetRef>>, effect: Effect.CopySpell): ObjectId {
+        val act = scope.act
+        run {
             // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) {
                 val copied = (original.kind as? StackItemKind.SpellCopy)?.copied ?: id
@@ -976,9 +1022,8 @@ internal object Effects {
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
             act.record(Change.StackItemAdded(copy, act.state.stack.size))
             act.record(Change.Happened(GameEvent.Copied(controller, copyId)))
-            copies += copyId
         }
-        scope.bind(effect.bind, NamedValue.Objects(copies))
+        return copyId
     }
 
     /** CR 707.10: a copy of a spell copies X, the modes chosen and the additional and alternative costs paid (and the
@@ -1080,6 +1125,9 @@ internal object Effects {
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
         // fin: "that player" of the trigger's event, for an effect that lasts after the trigger has resolved
         scope.event?.players?.takeIf { it.isNotEmpty() }?.let { names = names.with(arcanum.engine.query.Evaluator.EVENT_PLAYERS, NamedValue.Players(it)) }
+        // inr chunk 05: and its objects, for an effect that names them after the trigger has resolved ("it doesn't untap during its
+        // controller's next untap step", CR 608.2h)
+        scope.event?.objects?.forEach { r -> names = names.with(arcanum.engine.query.Evaluator.eventObjects(r.role), NamedValue.Objects(r.ids)) }
         // gtc backfill: a copy of the object an event names ("become a copy of that card", the card put into a graveyard) is
         // found now and kept by name (D37): the event is gone when the copy effect is applied later (CR 707.2)
         val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }.map { m ->

@@ -29,7 +29,7 @@ internal object Spm {
     val UNTIL_EOT_BECOMES_SUBTYPE_BASE_PT_GAINS = Regex("""Until end of turn, target (.+?) becomes an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+) and gains (.+)\.""")
     val LOSES_ALL_BECOMES_COLOR_CREATURE = Regex("""(.+?) loses all abilities and becomes an? (white|blue|black|red|green) ([A-Z]\w+) creature with base power and toughness (\d+)/(\d+)\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_PT_UNTIL_EOT = Regex("""(.+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) until end of turn\.""")
-    val IT_BECOMES_TYPES_IN_ADDITION = Regex("""It becomes an? (legendary )?((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
+    val IT_BECOMES_TYPES_IN_ADDITION = Regex("""(?:It|That creature) becomes an? (legendary )?((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_IS_IN_ADDITION = Regex("""Equipped creature gets ([+-]\d+)/([+-]\d+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
     val UNTIL_EOT_GETS_AND_BECOMES_IN_ADDITION = Regex("""Until end of turn, target (.+?) gets ([+-]\d+)/([+-]\d+) and becomes an? ([A-Z]\w+) in addition to its other types\.""")
     val GAINS_AND_BECOMES_COLORLESS = Regex("""(?:It|He|She) gains ([a-z ]+) and becomes colorless until end of turn\.""")
@@ -63,7 +63,7 @@ internal object Spm {
     val TARGET_OPPONENT_LOSES_FOR_THEIR = Regex("""Target opponent loses life equal to the number of (.+?) they control\.""")
     val DEALS_TO_TARGET_AND_ITS_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target (.+?) and (\d+) damage to that (\w+)'s controller\.""")
     val TARGET_DEALS_DAMAGE_TO_ITSELF_IF_ATTACKING = Regex("""Target (.+?) deals damage equal to its power to itself\. If that creature is attacking, (.+?) deals (\d+) damage to that creature's controller\.""")
-    val MAY_SACRIFICE_DRAW_X_PUT_PERMANENT = Regex("""[Yy]ou may sacrifice another creature\. If you do, draw X cards, then you may put an? (.+?) with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature's mana value\.""")
+    val MAY_SACRIFICE_DRAW_X_PUT_PERMANENT = Regex("""[Yy]ou may sacrifice another creature\. If you do, draw X cards, then you may put an? (.+?) with mana value X or less from your hand onto the battlefield(?:, where X is the sacrificed creature's mana value)?\.""") // inr chunk 09: the "where X is" may be read off first
     val GWENOM = Regex("""[Uu]ntil end of turn, you may look at the top card of your library any time and you may play cards from the top of your library\. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\.""")
     val PARKER_LUCK = Regex("""(\w+) target players each reveal the top card of their library\. They each lose life equal to the mana value of the card revealed by the other player\. Then they each put the card they revealed into their hand\.""")
     val EACH_PLAYER_MAY_DISCARD_WHO_DOESNT_LOSES = Regex("""Each player may discard a card\. Each player who doesn't loses (\d+) life\.""")

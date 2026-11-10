@@ -111,7 +111,7 @@ internal object Tla {
 
     // tla chunk 03: black, red and green wordings
     val SACRIFICE_SELF_IF_YOU_DO = Regex("""Sacrifice (.+?)\. If you do, (.+)""")
-    val YOU_CAST_FROM_EXILE = Regex("""you cast a spell from exile""")
+    val YOU_CAST_FROM_EXILE = Regex("""you cast a spell from (exile|your graveyard)""") // inr chunk 09: graveyard
     val CAST_FROM_EXILE_AND_ENTERS_FROM_EXILE = Regex("""you cast a spell from exile and whenever (.+) enters from exile""")
     val CANT_CAST_OTHER_THAN_HANDS = Regex("""Until your next turn, your opponents can't cast spells from anywhere other than their hands\.""")
     val BECOMES_PUT_COUNTERS_ON_IT = Regex("""(.+?)\. Put (\w+) \+1/\+1 counters on it\.""")

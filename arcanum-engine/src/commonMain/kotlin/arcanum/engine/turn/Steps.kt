@@ -194,7 +194,9 @@ internal object Steps {
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
-            extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
+            // inr: "After that turn, that player takes an extra turn": one for each such control of this turn, directly after it (CR 500.7)
+            extraTurns = taken.filter { it.thenExtraTurn }.map { next } +
+                if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
             skippedTurns = skipped,
             controlNext = waiting, controlled = taken.lastOrNull(),
         )

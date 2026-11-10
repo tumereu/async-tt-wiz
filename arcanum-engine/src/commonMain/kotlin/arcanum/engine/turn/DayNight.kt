@@ -65,6 +65,7 @@ internal object DayNight {
             if (day) nightbound.filter { state.obj(it)?.face == 1 } else emptyList()).forEach { id ->
             val o = state.objOrThrow(id)
             if (o.definition?.layout != Layout.Transform || o.definition.faces.size < 2) return@forEach
+            if (view[id]?.has { it == arcanum.api.Mechanic.CantTransform } == true) return@forEach // CR 701.27, 101.2
             act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
             act.record(Change.Restamped(id, o.timestamp, state.nextTimestamp()))
         }

@@ -58,6 +58,7 @@ internal object Filters {
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
+        InrPhrases.noun(phrase)?.let { return it } // inr
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -253,6 +254,24 @@ internal object Filters {
                 return all(noun(m.groupValues[1]) ?: return null, has.singleOrNull() ?: ObjectFilter.Or(has))
             }
         }
+        // inr chunk 10: "attacking Wolf or Werewolf": a leading status or colour describes every creature-type alternative
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }.map { it.removeArticle() }
+            val first = list.first().split(' ')
+            val modifiers = first.dropLast(1)
+            if (list.size > 1 && modifiers.isNotEmpty() && modifiers.all { it[0].isLowerCase() && it !in CARD_TYPES } &&
+                (listOf(first.last()) + list.drop(1)).all { it in RulesWords.subtypes && it[0].isUpperCase() })
+                return all(ObjectFilter.Or((listOf(first.last()) + list.drop(1)).map { ObjectFilter.Sub(Subtype(it)) }),
+                    *modifiers.map { word(it) ?: return null }.toTypedArray())
+        }
+        // inr chunk 07: "Angel or Human creature card": the creature types are the alternatives, the rest describes both (CR 205.3m)
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
+            val last = list.last().split(' ')
+            if (list.size > 1 && last.size > 1 && singular(last[1]) in CARD_TYPES && (list.dropLast(1).map { it.removeArticle() } + last.first()).all { it in RulesWords.subtypes && it[0].isUpperCase() })
+                return all(ObjectFilter.Or((list.dropLast(1).map { it.removeArticle() } + last.first()).map { ObjectFilter.Sub(Subtype(it)) }),
+                    noun(last.drop(1).joinToString(" ")) ?: return null)
+        }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
             val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
@@ -278,8 +297,10 @@ internal object Filters {
         // gtc chunk 03: "artifacts and creatures your opponents control": each object of either type
         GTC_TYPES_AND.matchEntire(phrase)?.let { m ->
             val a = CARD_TYPES[m.groupValues[1]]; val b = CARD_TYPES[m.groupValues[2]]
-            if (a != null && b != null) {
-                val either = ObjectFilter.Or(listOf(ObjectFilter.Type(a), ObjectFilter.Type(b)))
+            // inr chunk 09: "creatures and nonbasic lands your opponents control" (the second type with a supertype negated)
+            val bFilter = b?.let { ObjectFilter.Type(it) } ?: m.groupValues[2].takeIf { it.startsWith("non") && ' ' in it }?.let { noun(it) }
+            if (a != null && bFilter != null) {
+                val either = ObjectFilter.Or(listOf(ObjectFilter.Type(a), bFilter))
                 return if (m.groupValues[3].isEmpty()) either else all(either, noun("permanents" + m.groupValues[3])?.let { p ->
                     (p as? ObjectFilter.And)?.all?.firstOrNull { it is ObjectFilter.ControlledBy } } ?: return null)
             }
@@ -321,7 +342,7 @@ internal object Filters {
 
     // gtc
     private val GTC_TYPE_AND_TYPE = Regex("""([a-z]+) and ([a-z]+)""")
-    private val GTC_TYPES_AND = Regex("""([a-z]+)s and ([a-z]+)s(| you control| your opponents control| an opponent controls)""")
+    private val GTC_TYPES_AND = Regex("""([a-z]+)s and ((?:non[a-z]+ )?[a-z]+)s(| you control| your opponents control| an opponent controls)""")
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
@@ -340,6 +361,8 @@ internal object Filters {
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
+        // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
+        if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -431,7 +454,9 @@ internal object Filters {
         // msh
         "Heroes" to "Hero",
         // tla chunk 02
-        "Allies" to "Ally")
+        "Allies" to "Ally",
+        // inr chunk 01
+        "Werewolves" to "Werewolf")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -641,6 +666,10 @@ internal object Events {
         YOU_CAST_OF_CHOSEN.matchEntire(text)?.let { m ->
             return EventPattern.Cast(spell = Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You)
         }
+        // inr chunk 09: "you cast another Vampire spell" (not this card itself, CR 109.1)
+        YOU_CAST_ANOTHER.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
+        }
         YOU_CAST.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
@@ -739,6 +768,8 @@ internal object Events {
             if (m.groupValues[2] !in self) return null
             return EventPattern.Transform(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Named(m.groupValues[2])))
         }
+        // inr chunk 05: "equipped creature transforms" (CR 701.27a)
+        TRANSFORMS.matchEntire(text)?.let { m -> return EventPattern.Transform(subject(m.groupValues[1], self) ?: return null) }
         return null
     }
 
@@ -893,6 +924,7 @@ internal object Events {
     // chunk 12
     private val YOU_CAST_OF_CHOSEN = Regex("""you cast an? (spell of the chosen \w+)""")
     private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")
+    private val YOU_CAST_ANOTHER = Regex("""you cast another (.+) spell""")
     // chunk 25
     private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
     private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
@@ -935,6 +967,7 @@ internal object Events {
     private val EXILED_FROM_THE_BATTLEFIELD = Regex("""(.+) is exiled from the battlefield""")
     // chunk 56
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
+    private val TRANSFORMS = Regex("""(.+) transforms""")
     // blb chunk 01
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
@@ -967,6 +1000,7 @@ internal object Conditions {
         MshPhrases.condition(text, self)?.let { return it } // msh
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
+        InrPhrases.condition(text, self)?.let { return it } // inr
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1189,7 +1223,9 @@ internal object Conditions {
         }
         // blb chunk 05: "that player has one or fewer cards in hand" (the event's player)
         THAT_PLAYER_HAS_CARDS.matchEntire(text)?.let { m ->
-            return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            // inr chunk 05: "that player has no cards in hand"
+            val most = if (m.groupValues[2].isNotEmpty()) 0 else Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(most))
         }
         // blb chunk 05: "you control a creature with power 4 or greater"
         BLB_CONTROL_A_PHRASE.matchEntire(text)?.let { m -> Filters.noun(m.groupValues[1] + " you control")?.let { return Condition.Exists(it, atLeast = 1) } }
@@ -1337,7 +1373,7 @@ internal object Conditions {
     // blb chunk 07
     private val LIFE_THIS_TURN = Regex("""(you|you've|an opponent) (gained|lost)(?: (or|and) (gained|lost))? life this turn""")
     // blb chunk 05
-    private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (\w+) or fewer cards in hand""")
+    private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (?:(\w+) or fewer|(no)) cards in hand""")
     private val BLB_CONTROL_A_PHRASE = Regex("""you control an? (.+)""")
     // blb chunk 03
     private val OR_IF = Regex("""(.+?) or if (.+)""")
@@ -1443,6 +1479,8 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        // inr chunk 08: "twice the number of Blood tokens you control"
+        if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
@@ -1483,7 +1521,9 @@ internal object Values {
         if (text == "the power of the creature that died") return Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(arcanum.api.EventRole.Before), Combine.Single)
         // rtr chunk 06: "the sacrificed creature's toughness" (as it last existed, CR 608.2h)
         SACRIFICED_PROPERTY.matchEntire(text)?.let { m ->
-            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
+            // inr chunk 09: also "mana value" (Eldritch Evolution)
+            val property = when (m.groupValues[1]) { "power" -> arcanum.api.NumericProperty.Power; "toughness" -> arcanum.api.NumericProperty.Toughness
+                else -> arcanum.api.NumericProperty.ManaValue }
             return Value.Of(property, Objects.Bound(SACRIFICED), Combine.Single)
         }
         // rtr chunk 05: "the total life lost by your opponents this turn"
@@ -1508,7 +1548,7 @@ internal object Values {
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
     // rtr chunk 06
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness)""")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness|mana value)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

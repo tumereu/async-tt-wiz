@@ -117,7 +117,7 @@ internal object Ecl {
     val CREATE_MUTAVAULT = Regex("""[Cc]reate a (tapped )?Mutavault token\.""")
     val UP_TO_ONE_OTHER_LOSES_ALL = Regex("""[Uu]p to one (other target creature) loses all abilities\.""")
     val PUT_KEYWORD_COUNTERS_ON = Regex("""Put (an? [a-z ]+ counter, an? [a-z ]+ counter,? and an? [a-z ]+ counter) on (that creature|it)\.""")
-    val DEALS_TO_EACH_CREATURE_TARGET_PLAYER_CONTROLS = Regex("""(.+?) deals (\d+) damage to each creature target player controls\.""")
+    val DEALS_TO_EACH_CREATURE_TARGET_PLAYER_CONTROLS = Regex("""(.+?) deals (\d+) damage to each creature target (player|opponent) controls\.""")
     val CREATURES_TARGET_PLAYER_CONTROLS_GET_GAIN = Regex("""Creatures target player controls (?:get ([+-]\d+)/([+-]\d+)(?: and )?)?(?:gain ([a-z ,]+?))? until end of turn\.""")
     val MILLS_THEN_PUTS_EACH_INTO_HAND = Regex("""Target player mills (\w+) cards, then puts each (.+?) milled this way into their hand\.""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) from your graveyard to your hand\.""")
@@ -129,7 +129,7 @@ internal object Ecl {
     val REVEALS_X_YOU_CHOOSE_EXILES_BODY = Regex("""Target opponent reveals X cards from their hand\. You choose one of those cards\. That player exiles it\. If an instant or sorcery card is exiled this way, you may cast it for as long as you control (.+?), and mana of any type can be spent to cast that spell\.""")
     val WHEN_THAT_CREATURE_DIES_THIS_TURN = Regex("""(.+?\.) When that creature dies this turn, (.+)""")
     val DISCARD_IF_YOU_DO = Regex("""Discard a card\. If you do, (.+)""")
-    val MAY_PUT_TOTAL_PT_HASTE_SACRIFICE = Regex("""You may put a creature card with total power and toughness (\d+) or less from your hand onto the battlefield\. That creature gains haste\. At the beginning of the next end step, sacrifice that creature\.""")
+    val MAY_PUT_TOTAL_PT_HASTE_SACRIFICE = Regex("""You may put a creature card(?: with total power and toughness (\d+) or less)? from your hand onto the battlefield\. That creature gains haste\. (?:At the beginning of the next end step, sacrifice that creature|Sacrifice that creature at the beginning of the next end step)\.""") // inr chunk 08: Through the Breach
     val EXILE_TOP_INSTEAD_IF = Regex("""Exile the top (\w+) cards of your library\. If (.+?), exile the top (\w+) cards instead\. (.+)""")
     val MAY_COPY_IT_THOSE_GAIN = Regex("""You may copy it\. If you do, those spells gain (\w+)\. You may choose new targets for the copy\.""")
     val REVEAL_UNTIL_X_PUT_ANY_NUMBER = Regex("""Reveal cards from the top of your library until you reveal X (.+?)\. Put any number of those (?:.+?) onto the battlefield, then put the rest of the revealed cards on the bottom of your library in a random order\.""")

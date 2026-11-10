@@ -181,7 +181,14 @@ internal object Steps {
      */
     private fun forEach(scope: Scope, step: Step.ForEach) {
         val values: List<NamedValue> = when (val each = step.each) {
-            is Each.Objects -> scope.objects(each.objects).map { NamedValue.Objects(listOf(it)) }
+            is Each.Objects -> scope.objects(each.objects).let { ids ->
+                // inr chunk 09: "For each creature, its controller sacrifices it unless …" together: the controllers choose in turn order (CR 101.4)
+                if (!step.together) ids else {
+                    val board = scope.act.board()
+                    val order = scope.act.state.playersFrom(scope.act.state.turn.active)
+                    ids.sortedBy { id -> board.controller(id)?.let { order.indexOf(it) } ?: order.size }
+                }
+            }.map { NamedValue.Objects(listOf(it)) }
             is Each.Players -> {
                 val players = scope.players(each.players)
                 val start = step.startingWith?.let { scope.players(it).firstOrNull() } ?: scope.act.state.turn.active
@@ -245,7 +252,8 @@ internal object Steps {
     /** A choice made during resolution (CR 608.2d): bound as [Step.Choose.bind], kept as card memory when [Step.Choose.remember]. */
     private fun choose(scope: Scope, step: Step.Choose) {
         val act = scope.act
-        val chooser = scope.players(step.chooser).firstOrNull() ?: return
+        // inr sweep: "an opponent chooses" with several opponents: the controller picks which one chooses (CR 102.3), not the first
+        val chooser = scope.players(step.chooser).let { all -> act.choosePlayer(scope.you, scope.self, all) } ?: return
         val e = scope.eval()
         val source = scope.self
         val value: NamedValue = when (val choice = step.choice) {
@@ -337,10 +345,24 @@ internal object Steps {
      * pay all of it (CR 601.2h); the outcome is bound as paid, declined or couldn't pay.
      */
     private fun pay(scope: Scope, step: Step.Pay) {
+        // "any opponent may …": each in turn order until one pays (CR 101.4)
+        val payers = scope.players(step.payer).ifEmpty { listOf(scope.actor) }
+        var outcome: PayOutcome = PayOutcome.CouldNotPay
+        for (payer in payers) {
+            when (payOne(scope, step, payer)) {
+                PayOutcome.Paid -> { outcome = PayOutcome.Paid; break }
+                PayOutcome.Declined -> outcome = PayOutcome.Declined
+                PayOutcome.CouldNotPay -> {}
+            }
+        }
+        scope.bind(step.bind, NamedValue.Payment(outcome))
+    }
+
+    private fun payOne(scope: Scope, step: Step.Pay, payer: PlayerId): PayOutcome {
         val act = scope.act
-        val payer = scope.players(step.payer).firstOrNull() ?: scope.actor
         val cost = step.cost
-        val outcome = if (cost != null) {
+        step.payerBind?.let { scope.bind(it, NamedValue.Players(listOf(payer))) }
+        return if (cost != null) {
             val text = arcanum.engine.decision.Texts.pay(scope.cause.item?.ability, "Pay ${Costs.describe(cost)}?")
             // I-D18: whether cards only the payer sees decide if it can be paid (filled in first when unknown)
             val hidden = Costs.hiddenDecides(scope, payer, cost)
@@ -353,7 +375,6 @@ internal object Steps {
             if (!step.mandatory && !act.yesNo(payer, scope.self, mayText(scope, step))) PayOutcome.Declined
             else { withActor(scope, payer) { run(scope, step.steps) }; PayOutcome.Paid }
         }
-        scope.bind(step.bind, NamedValue.Payment(outcome))
     }
 
     /** "As ~ enters" (CR 614.12): changes how [Scope.entering] enters. */

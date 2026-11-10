@@ -4,8 +4,9 @@ code, type, card count, base set size and name, with SUPPORTED on the sets in th
 the set to take: the newest one not supported. Candidates: sets players draft, i.e. expansion and core sets, plus other
 sets sold in draft or play boosters (masters, Modern Horizons), that are released (release date today or earlier), have
 cards, aren't online-only and have at least 150 cards in their base set (MTGJSON's baseSetSize), so Jumpstart, small
-supplements and bonus sheets don't count. At most 40 sets, plus the
-NEXT one if it is older. Usage: next-set.py"""
+supplements and bonus sheets don't count. They are sets of tournament-legal cards: at least 90% of their cards are legal or
+restricted in Vintage (MTGJSON's legalities.vintage) and the set type is never funny or memorabilia, so Un-sets, collector
+editions and playtest grab-bags aren't candidates. At most 40 sets, plus the NEXT one if it is older. Usage: next-set.py"""
 import datetime, gzip, json, os, sys
 
 if len(sys.argv) != 1: sys.exit('Usage: next-set.py (no arguments)')
@@ -22,11 +23,13 @@ for code, s in d['data'].items():
     drafted = s.get('type') in ('expansion', 'core') or 'draft' in boosters or 'play' in boosters
     if not drafted or s.get('isOnlineOnly'): continue
     date, cards, base = s.get('releaseDate', ''), len(s.get('cards', [])), s.get('baseSetSize') or 0
-    if not date or date > today or cards == 0 or base < 150: continue
+    if not date or date > today or cards == 0 or base < 150 or s.get('type') in ('funny', 'memorabilia'): continue
+    vintage = sum(1 for c in s['cards'] if (c.get('legalities') or {}).get('vintage') in ('Legal', 'Restricted')) / cards
+    if vintage < 0.9: continue
     rows.append((date, code, s.get('type'), cards, base, s.get('name', '')))
 rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
 nxt = next((r[1] for r in rows if r[1] not in supported), None)
-print(f"MTGJSON {d['meta'].get('version')}; released by {today}, base set of 150+ cards; newest first (date code type cards base name)")
+print(f"MTGJSON {d['meta'].get('version')}; released by {today}, base set of 150+ cards, 90%+ Vintage-legal; newest first (date code type cards base name)")
 for i, (date, code, kind, cards, base, name) in enumerate(rows):
     if i >= 40 and code != nxt: continue
     mark = '  SUPPORTED' if code in supported else '  NEXT' if code == nxt else ''

@@ -2,6 +2,8 @@
 # Runs a set's parser and engine tests in one Gradle call (through gradle-slot.sh) and prints only counts and failures.
 #   set-tests.sh <code> [extra --tests patterns...]   e.g. set-tests.sh inr '*MechanicWordingsTest*'
 #   set-tests.sh <code> --full                        the whole parser and engine suites (invented card names are global) and parserDiff
+# Before the set's own parser test folder exists, a quick run runs the whole parser suite (about a minute).
+# Extra test patterns apply to the engine only once the set's engine test folder exists.
 # Run from the worktree root. The base snapshot is ~/projects/atw-cache/set-plans/<CODE>/parser-base.snapshot (base-snapshot.sh
 # writes it when the set starts); a --full run's parserDiff output goes to <plan>/full-run/ (replaced each run).
 set -u

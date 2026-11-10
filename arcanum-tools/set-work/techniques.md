@@ -1,7 +1,8 @@
 # Set work: techniques
 
 General know-how from earlier sets' workers, still true. Card names here are generic descriptions, not real cards. Helper
-signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `<Code>Cards.kt` and `<Code>Support.kt`.
+signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `<Code>Cards.kt` (parser) and
+`<Code>Support.kt` or `<Code>Scenarios.kt` (engine).
 
 ## Parser modelling
 - Where a rule goes: a single-sentence whole-ability rule at the top of `Sentences.effectRules` (the set's `<set>Effect`
@@ -64,8 +65,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Several players: "any opponent may" asks `decision<Decision.May>().player` in turn order; a pile split asks the
   separator `ChooseObjects`, then the chooser `Answer.Option("first"/"second")`; several copies of a spell are ordered by
   their controller (`ChooseObjects`).
-- Set support files hold shared drivers (`resolveAll`, `playOut`, `ownAlternative` for an alternative cost); import one
-  from an existing `arcanum.engine.sets.<code>` package rather than copying it.
+- Set support files hold shared drivers (`resolveAll`, `playOut`, `ownAlternative` for an alternative cost); import the
+  one `helpers.md` lists under "Shared scenario drivers" (its package, file and line) rather than copying it.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 

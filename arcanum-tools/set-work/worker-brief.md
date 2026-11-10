@@ -10,7 +10,8 @@ READMEs, specs or whole source files. The rules: `~/projects/atw-cache/MagicComp
 
 ## Find things with tools, not by browsing
 - Each card in your chunk file lists `Nearest tests:` (the most alike existing parser test and engine scenario, `file:line`)
-  and, if it doesn't read, `Nearest rules`. Open those first and copy their format. Look helper names up in `helpers.md`.
+  when a close one was found and, if it doesn't read, `Nearest rules`. Open those first and copy their format. Look helper
+  names up in `helpers.md`.
 - `bin/parser-explain.sh '"<text>"' ['"<more text>"' ...]`: which clause doesn't read and the nearest parser rules as
   `file:line`. It takes seconds after the first run; explain several texts in one call. Run it before searching.
 - Read `sed -n` ranges of about 40 lines; grep with `-m` limits. Put several lookups in one command: every turn rereads
@@ -42,7 +43,8 @@ Your chunk file shows each card's verdict from `plan.tsv`.
   `REPEAT` into `TEST` whenever you doubt it, never the other way.
 - Files: `arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/<code>/<Code>ChunkNN<Theme>Test.kt` and
   `arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/<code>/<Code>ChunkNN<Theme>ScenariosTest.kt`. The set's first
-  chunk copies the newest set's helper file (named in `helpers.md`) to `<Code>Cards.kt` in its package.
+  chunk creates `<Code>Cards.kt` in its package with the generic helpers it needs copied from the most recently worked
+  set's helper file (named in `helpers.md`), not that set's set-specific ones.
 - Each test card has an invented name: check it isn't a real card (`grep -x -F "<name>" ~/projects/atw-cache/all-card-names.txt`)
   and isn't already used by another test (invented names are global across the engine suite). Use the exact oracle text with
   the name replaced; change cost and subtypes only where it doesn't affect play.
@@ -57,6 +59,8 @@ alarm gets a test showing the model right. Name each one and which it was in you
 ## Finish
 - While working: `bin/set-tests.sh <code> ['<pattern of a shared test class you changed>' ...]`: one Gradle call for your
   set's parser and engine tests, printing counts and failures only.
+  Before your set's parser test folder exists it runs the whole parser suite (about a minute).
+  Extra patterns apply to the engine only once your set's engine test folder exists.
 - Last: `bin/set-tests.sh <code> --full`: the whole parser and engine suites plus a comparison of every card's model with
   the set's starting point. Supported cards changed outside your set, cube changes and cards no longer read must all be 0,
   or named in your reply with the reason. Check each held-out card it lists as read differently and fix any now wrong.

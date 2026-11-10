@@ -39,10 +39,14 @@ for f in sorted(glob.glob(plan + '/chunks/*.md')):
     for block in re.split(r'(?m)^(?=## )', src):
         if not block.startswith('## '): out.append(block); continue
         lines = block.split('\n')
-        body = []
+        # lines[1] is the card's header (`<cost> | <type line> | <P/T>`, or just the type line of a card without a cost) and
+        # the line after a `//` is the back face's type line (possibly ` | P/T`); every other line is an ability, `{`... included
+        body, after_split = [], False
         for l in lines[2:]:
             if l.startswith(('Verdict:', 'Explain:', 'Audit')): break
-            if l and l != '//' and not re.match(r'^(\{|Legendary|Creature|Artifact|Enchantment|Land|Instant|Sorcery|Planeswalker|Battle)', l): body.append(l)
+            if l == '//': after_split = True; continue
+            if after_split or ' | ' in l: after_split = False; continue
+            if l: body.append(l)
         found, seen = [], set()
         for l in body:
             for kind in ('parser', 'engine'):

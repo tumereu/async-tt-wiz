@@ -86,7 +86,9 @@ class GameDevice(
 
     /** Each player's current response mode by account, as the server says it ([EngineSnapshot.modes], [EngineUpdate.modes]):
      * the other player's is [opponentMode]. */
-    fun modes(modes: Map<String, ResponseMode>) { modes[opponent.value]?.let { opponentMode = it } }
+    fun modes(modes: Map<String, ResponseMode>) {
+        modes[opponent.value]?.takeIf { it != opponentMode }?.let { remember("their response mode now ${it::class.simpleName}"); opponentMode = it }
+    }
 
     /** The other player's current "Assume resolves" setting (owner 2026-11-10), as the server last said ([assumes]): at a
      * point they began, where their device assumes this player's pass, the game doesn't wait for this player ([move]).
@@ -96,7 +98,9 @@ class GameDevice(
 
     /** Each player's current "Assume resolves" setting by account, as the server says it ([EngineSnapshot.assumes],
      * [EngineUpdate.assumes]): the other player's is [opponentAssume]. */
-    fun assumes(assumes: Map<String, AssumeResolves>) { assumes[opponent.value]?.let { opponentAssume = it } }
+    fun assumes(assumes: Map<String, AssumeResolves>) {
+        assumes[opponent.value]?.takeIf { it != opponentAssume }?.let { remember("their Assume resolves now ${it::class.simpleName}"); opponentAssume = it }
+    }
 
     /** The game's assume reveal settings (LOB-135), as the caller last said ([assumeReveals]): the cards the information
      * rule lets through, in this player's assumptions and own actions alike. Until told, nothing ([AssumeReveals.NONE]). */

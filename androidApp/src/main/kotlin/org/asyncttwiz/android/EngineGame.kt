@@ -893,7 +893,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
+        val theirs = device.opponentMode to device.opponentAssume
         device.revision(events, update)
+        // TRN-059, STK-036 (owner 2026-11-10): the other player's settings as the server says them, at once (a settings-only
+        // update carries no event), into the app log when they change
+        if (device.opponentMode to device.opponentAssume != theirs) AppLog.info("game", "The other player's settings now: response mode " +
+            "${device.opponentMode::class.simpleName}, Assume ${device.opponentAssume?.let { it::class.simpleName }}" +
+            (if (events.isEmpty()) " (a settings update, no event)" else " (with events ${events.joinToString(",") { it.id.take(8) }})"))
         if (device.needsReload && update?.target != null) reloadRewind = rewinding
         val drained = device.notes()
         val branched = branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }

@@ -8,6 +8,7 @@ import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.After
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -294,6 +295,85 @@ class MoveColourTest : E2e() {
                 alice.state.stack.isEmpty() && graveGlimmers(alice) > resolved && inMain(alice)
             }
         }
+        repeat(5) { run(skip = java.time.Duration.ofMillis(300)) }
+        assertNoFlips()
+    }
+
+    /** Waits until [player]'s phone knows the other player's settings as [knows] says, with no event on its line meanwhile
+     * (a settings-only update), and the arrival logged on that phone. */
+    private fun knowsAtOnce(player: E2ePlayer, log: String, knows: GameDevice.() -> Boolean) {
+        val line = player.engine { device.session.head }
+        waitUntil("${player.name}'s phone knowing the other player's new settings") { player.engine { device.knows() } }
+        assertEquals(line, player.engine { device.session.head }, "no event: a settings-only update")
+        assertTrue(E2ePlayer.log().contains("The other player's settings now: $log (a settings update, no event)"), "logged: $log")
+    }
+
+    // TRN-059, TRN-058, HIS-096 (owner 2026-11-10): Alice changes her "Assume resolves" from Never to Always with no move:
+    // Bob's phone learns it at once, with no event. Before, it used her old setting: at her first Glimmer it waited for Bob
+    // (his move, his Normal stopping there); after, at her next Glimmer, her phone assumes his pass and his phone never shows
+    // his move. Neither phone's move flips.
+    @Test fun anAssumeSettingChangeWithNoMoveReachesTheOtherPhoneAtOnce() {
+        startGame(TestDeck("Glimmers only", listOf(TestCards.glimmer to 40)), TestDeck.glimmers(),
+            aliceSettings = PlaySettings().assuming(AssumeResolves.Never), deal = { _, b -> hand(b).count { it == "Idle Glimmer" } >= 1 })
+        bothOpen()
+        recordMoves()
+        alice.press("Keep")
+        bob.press("Keep")
+        answerUntil("Alice's Main 1") { inMain(alice) }
+        mode(bob, ResponseMode.Normal)
+        assertEquals(AssumeResolves.Never, bob.engine { device.opponentAssume }, "Bob's phone knowing her setting")
+        // Her old setting: a wait for Bob at her Glimmer, his move on his phone
+        val first = graveGlimmers(alice)
+        alice.cast("Idle Glimmer")
+        waitUntil("Bob's move at her Glimmer") { bob.shown.board.board.moveHolder == bob.id && bob.state.stack.size == 1 }
+        answerUntil("her first Glimmer resolved") { alice.state.stack.isEmpty() && graveGlimmers(alice) > first && inMain(alice) }
+        // The change, with no move
+        alice.choose(alice.shown.settings.assuming(AssumeResolves.Always))
+        knowsAtOnce(bob, "response mode AutoSkip, Assume Always") { opponentAssume == AssumeResolves.Always }
+        // Her new setting: his pass assumed at once, never his move on his phone
+        val marks = published[bob.id].orEmpty().size
+        val second = graveGlimmers(alice)
+        alice.cast("Idle Glimmer")
+        answerUntil("her second Glimmer resolved") { alice.state.stack.isEmpty() && graveGlimmers(alice) > second && inMain(alice) }
+        val after = published[bob.id].orEmpty().drop(marks)
+        assertTrue(after.none { it.move == bob.id }, "never Bob's move on his phone: ${after.map { name(it.move) to it.what }}")
+        repeat(5) { run(skip = java.time.Duration.ofMillis(300)) }
+        assertNoFlips()
+    }
+
+    // STK-036, TRN-059, HIS-096 (owner 2026-11-10): Alice (only Mountains: she can't respond) changes her response mode with
+    // no move, in Bob's turn; at his Idle Glimmers (a point he began: only her mode decides, his "Assume resolves" Never)
+    // Bob's phone predicts with her mode at once: in Quick she would pass, so his phone assumes it at once; after her change
+    // to Normal it waits for her (her pause); after her change back to Quick it assumes at once again. Neither phone's move
+    // flips.
+    @Test fun aResponseModeChangeWithNoMoveReachesTheOtherPhoneAtOnce() {
+        startGame(TestDeck("Mountains", listOf(TestCards.mountain to 40)), TestDeck.glimmers(),
+            bobSettings = PlaySettings().assuming(AssumeResolves.Never), deal = { _, b -> hand(b).count { it == "Idle Glimmer" } >= 4 })
+        bothOpen()
+        recordMoves()
+        alice.press("Keep")
+        bob.press("Keep")
+        answerUntil("Alice's Main 1") { inMain(alice) }
+        alice.pressHold(alice.stepArrow()!!)
+        answerUntil("Bob's Main 1") { inMain(bob, turn = 2) }
+        assertEquals(ResponseMode.AutoSkip, bob.engine { device.opponentMode }, "Bob's phone knowing her Quick")
+        val waits = mutableListOf<Int>()
+        everyRun += { if ((bob.game?.shown?.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves) waits += graveGlimmers(bob) }
+        /** Bob casts a Glimmer and the game goes on to his main phase again: whether his phone waited for Alice there. */
+        fun bobsGlimmer(what: String): Boolean {
+            val resolved = graveGlimmers(bob)
+            waits.clear()
+            bob.cast("Idle Glimmer")
+            answerUntil("Bob's Glimmer resolved ($what)") { bob.state.stack.isEmpty() && graveGlimmers(bob) > resolved && inMain(bob, turn = 2) }
+            return waits.isNotEmpty()
+        }
+        assertTrue(!bobsGlimmer("her Quick"), "her Quick passes: assumed at once")
+        alice.choose(alice.shown.settings.copy(mode = ResponseMode.Normal))
+        knowsAtOnce(bob, "response mode Normal, Assume ${PlaySettings().assume::class.simpleName}") { opponentMode == ResponseMode.Normal }
+        assertTrue(bobsGlimmer("her Normal"), "her Normal stops at his spell: a wait for her")
+        alice.choose(alice.shown.settings.copy(mode = ResponseMode.AutoSkip))
+        knowsAtOnce(bob, "response mode AutoSkip, Assume ${PlaySettings().assume::class.simpleName}") { opponentMode == ResponseMode.AutoSkip }
+        assertTrue(!bobsGlimmer("her Quick again"), "her Quick passes again: assumed at once")
         repeat(5) { run(skip = java.time.Duration.ofMillis(300)) }
         assertNoFlips()
     }

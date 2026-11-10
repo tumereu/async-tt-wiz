@@ -74,7 +74,7 @@ internal object Fdn {
     val EXILE_PUT_THERE_THIS_TURN_COPY_EXCEPT_SUBTYPE_EXILE_OTHERS = Regex("""[Ee]xile target (.+?) from a graveyard that was put there this turn\. Create a token that's a copy of it, except it's an? ([A-Z]\w+) in addition to its other types\. Then exile all other \2 tokens you control\.""")
     // chunk 10a
     val MAY_HAVE_TARGET_GET = Regex("""[Yy]ou may have (target .+?) get (.+)""")
-    val GETS_UNTIL_EOT_MUST_BE_BLOCKED = Regex("""(.+? gets?|.+? get) ([+-]\d+/[+-]\d+) until end of turn and must be blocked this turn if able\.""")
+    val GETS_UNTIL_EOT_MUST_BE_BLOCKED = Regex("""(.+? (?:gets?|gains?|get|gain) .+?) until end of turn and must be blocked this turn if able\.""")
     val MAY_HAVE_IT_BECOME_PT_SUBTYPE_CREATURE = Regex("""(?:Then )?[Yy]ou may have it become an? (\d+)/(\d+) ([A-Z]\w+(?: [A-Z]\w+)*) creature until end of turn\.""")
     val YOU_HAVE_HEXPROOF = Regex("""You have hexproof\.""")
     val PREVENT_ALL_NONCOMBAT_DAMAGE_TO = Regex("""Prevent all noncombat damage that would be dealt to (.+)\.""")

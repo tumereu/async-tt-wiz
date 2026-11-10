@@ -4110,7 +4110,7 @@ internal class Sentences(
         }
         // fdn chunk 10a: "Each creature you control gets +3/+3 until end of turn and must be blocked this turn if able." (CR 509.1c, 611.2c)
         Fdn.GETS_UNTIL_EOT_MUST_BE_BLOCKED.matchEntire(sentence)?.let { m ->
-            val pump = effect("${m.groupValues[1]} ${m.groupValues[2]} until end of turn.", context)?.singleOrNull() as? Step.Do ?: return@let
+            val pump = effect("${m.groupValues[1]} until end of turn.", context)?.singleOrNull() as? Step.Do ?: return@let
             val apply = pump.effect as? Effect.ApplyMechanics ?: return@let
             return listOf(Step.Do(apply.copy(mechanics = apply.mechanics + Mechanic.MustBeBlocked)))
         }
@@ -6509,10 +6509,12 @@ internal class Sentences(
         Gtc.CREATE_STAR_TOKEN_WITH_QUOTED.matchEntire(sentence)?.let { m ->
             val colors = m.groupValues[1].split(" and ").map { BECOME_COLORS[it] ?: return null }
             val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
-            val granted = Sentences(setOf("this token", "This token")).line(m.groupValues[3]) ?: return null
+            val granted = Sentences(setOf("this token", "This token")).line(m.groupValues[4]) ?: return null
+            // inr chunk 03: "… token with trample and "…"": the keywords come first
+            val keywords = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null } ?: emptyList()
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition("$subtype Token", colorIndicator = colors,
                 types = listOf(CardType.Creature), subtypes = listOf(Subtype(subtype)), power = arcanum.api.PrintedNumber.Star(), toughness = arcanum.api.PrintedNumber.Star(),
-                abilities = listOf(granted))), Value.Fixed(1), controller = Players.You)))
+                abilities = keywords + granted)), Value.Fixed(1), controller = Players.You)))
         }
         fun lastTarget() = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
         fun apply(mechanics: List<Mechanic>, objects: Objects?, duration: arcanum.api.Duration = eot) =
@@ -15373,6 +15375,12 @@ internal class Sentences(
 
     /** inr: whole multi-sentence effects. */
     private fun inrWhole(text: String, context: Context): List<Step>? {
+        // inr chunk 03: "Look at the top X cards of your library, where X is the amount of mana spent to cast this spell. Put two of them into
+        // your hand and the rest on the bottom of your library in a random order." (CR 107.3, 601.2h)
+        Inr.LOOK_TOP_X_PUT_N_REST_BOTTOM_RANDOM.matchEntire(text)?.let { m ->
+            val keep = Numbers.count(m.groupValues[1]) ?: return null
+            return sosLookPut(Value.Announced(name = "X"), keep, sosBottomRandom) // X by "where X is" (read as announced here)
+        }
         // inr chunk 01: "Sacrifice a creature. If you do, search your library for …" (did only if a creature was sacrificed, CR 701.21a)
         Inr.SACRIFICE_A_IF_YOU_DO.matchEntire(text)?.let { m ->
             // "a copy of that creature" names the sacrificed one, which the rest read alone can't see: left unread
@@ -21872,7 +21880,17 @@ internal class Sentences(
         }
         // mh2 chunk 12: "Territorial Kavu's power and toughness are each equal to the number of basic land types among lands you control." (CR 604.3)
         Mh2.PT_EACH_EQUAL_TO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val value = Mh2Phrases.value(m.groupValues[2], null) ?: return@let
+            // inr chunk 03: "… equal to the number of A in your graveyard plus the number of B you own in exile" (a sum of counts, CR 604.3)
+            val value = Mh2Phrases.value(m.groupValues[2], null) ?: m.groupValues[2].split(" plus the number of ").takeIf { it.size > 1 }?.let { parts ->
+                Value.Sum(parts.mapIndexed { i, part ->
+                    val noun = if (i == 0) part.removePrefix("the number of ") else part
+                    // "cards with flashback you own in exile": the cards cast with flashback end there (CR 702.34a)
+                    if (noun == "cards with flashback you own in exile")
+                        Value.Count(Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.HasKeyword(arcanum.api.Keyword.Flashback.Kind),
+                            ObjectFilter.InZone(Zone.Exile), ObjectFilter.OwnedBy(PlayerFilter.You))))
+                    else Value.Count(Filters.objects(noun) ?: return@let null)
+                })
+            } ?: return@let
             return Ability.Static(listOf(Mechanic.SetPowerToughness(value, value)), affects = Affected.Objects(Objects.Self), characteristicDefining = true)
         }
         // mh2 chunk 12: "You can't cast more than one spell each turn." (CR 101.2: none once one was cast this turn)

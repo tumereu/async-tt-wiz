@@ -12,6 +12,7 @@ import arcanum.api.Value
 
 /** Wordings first met in Innistrad Remastered (INR). */
 internal object Inr {
+    val LOOK_TOP_X_PUT_N_REST_BOTTOM_RANDOM = Regex("""Look at the top X cards of your library\. Put (\w+) of them into your hand and the rest on the bottom of your library in a random order\.""")
     // inr chunk 01: Conduit of Storms: mana added later this turn (a delayed trigger, CR 603.7b)
     val ADD_AT_NEXT_MAIN_PHASE_THIS_TURN = Regex("""[Aa]dd ((?:\{[WUBRGC]\})+) at the beginning of your next main phase this turn\.""")
     // inr chunk 01: Garruk Relentless: "That creature deals damage equal to its power to him." (the earlier target fights back one way)

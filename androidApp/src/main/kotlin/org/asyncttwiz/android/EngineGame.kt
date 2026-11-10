@@ -545,7 +545,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // On the transition's node, so the table animates it as one of its steps
         val shownFirst = previewed?.with(nodeId = tip)
         val steps = if (jump || forward.isEmpty()) emptyList() else runCatching {
-            EngineMotion.trim(motionSteps(forward, tip, attention, move), before, after, shownFirst)
+            EngineMotion.trim(motionSteps(forward, tip, attention, move, previewed = shownFirst != null), before, after, shownFirst)
         }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
         lastTransition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
             forward, backward, steps)
@@ -594,38 +594,63 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * colour), the last [EngineMotion.MAX_STEPS] at most. Worked out from the tip backwards (each event reverts exactly),
      * then forwards step by step on a copy: nothing is replayed from the line's start (owner rule).
      */
-    private fun motionSteps(all: List<GameEvent>, tip: String, attention: String?, move: String?): List<TableBoard> {
+    private fun motionSteps(all: List<GameEvent>, tip: String, attention: String?, move: String?, previewed: Boolean = false): List<TableBoard> {
         // A long run of events (a revision with many) shows its last ones step by step, what came before at once
         val forward = all.takeLast(EngineMotion.MAX_EVENTS)
-        if (forward.sumOf { it.engine?.steps?.size ?: 0 } < 2) return emptyList()
+        // HIS-113: a combat's damage shows as a step of its own, even in an event of one step
+        if (forward.sumOf { it.engine?.steps?.size ?: 0 } < 2 && forward.none { e ->
+                GameDevice.momentsIn(e, PlayerId(me)).any { it is GameDevice.CombatHold && it.kind == GameDevice.CombatMoment.Damage } }) return emptyList()
         val walk = device.model.copy()
         val tables = ArrayList<org.asyncttwiz.protocol.game.TableState>(forward.size)
         for (e in forward.asReversed()) { tables.add(0, walk.table); walk.revert(e) }
         if (walk.stale) return emptyList()
-        return boardsAlong(walk, forward, tables, tip, attention, move)
+        // HIS-113: a damage dealt in the own action's first step is already in its preview (shown at once): not again
+        return boardsAlong(walk, forward, tables, tip, attention, move, damageFrom = if (previewed) 1 else 0)
     }
 
     /** The boards after each engine step of [forward] from [start] (a copy, used up; [tables]: the table after each
      * event) that changed what the table draws, projected on [tip] with [attention] and [move], the last
-     * [EngineMotion.MAX_STEPS] at most. */
+     * [EngineMotion.MAX_STEPS] at most. With [damageFrom] (HIS-113, owner playtest 2026-11-09), also the board right after
+     * each combat damage step's damage is dealt ([TableBoard.damageDealt]) in the engine steps from that one on (counted
+     * from 0), splitting the engine step there: the damage marked and life changed, what follows it (the creatures it
+     * destroys dying, triggers) not yet. */
     private fun boardsAlong(start: GameModel, forward: List<GameEvent>, tables: List<org.asyncttwiz.protocol.game.TableState>,
-        tip: String, attention: String?, move: String?): List<TableBoard> {
+        tip: String, attention: String?, move: String?, damageFrom: Int? = null): List<TableBoard> {
         val state = start.engine
         var seen = EngineMotion.objects(state)
-        val boards = ArrayList<Pair<EngineProjection.Board, GameModel>>()
+        val boards = ArrayList<Triple<EngineProjection.Board, GameModel, Boolean>>()
+        fun add(i: Int, dealt: Boolean) {
+            val model = GameModel(state.deepCopy(), tables[i])
+            boards += Triple(EngineProjection.project(base, model, me, tip, attention, staging, tokenArt, pictures, move), model, dealt)
+            if (boards.size > EngineMotion.MAX_STEPS) boards.removeAt(0)
+        }
+        var stepNumber = 0
         forward.forEachIndexed { i, e ->
+            // As GameDevice.momentsIn finds the damage's hold: a damage event in the combat damage step of this event
+            var damageStep = false
             for (step in e.engine?.steps.orEmpty()) {
-                step.changes.forEach(state::apply)
+                val damage = damageFrom != null && stepNumber++ >= damageFrom
+                var dealing = false
+                for (change in step.changes) {
+                    if (dealing && EngineMotion.afterDamage(change)) {
+                        dealing = false
+                        add(i, dealt = true)
+                        seen = EngineMotion.objects(state)
+                        AppLog.info("engine", "Combat damage shown as its own step in ${e.id.take(8)}, before what follows it")
+                    }
+                    state.apply(change)
+                    if (change is arcanum.engine.change.Change.Step) damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
+                    if (change is arcanum.engine.change.Change.Damage && damageStep && change.dealt.isNotEmpty()) { dealing = damage; damageStep = false }
+                }
+                if (dealing) { add(i, dealt = true); seen = EngineMotion.objects(state); continue }
                 val now = EngineMotion.objects(state)
                 if (now == seen) continue
                 seen = now
-                val model = GameModel(state.deepCopy(), tables[i])
-                boards += EngineProjection.project(base, model, me, tip, attention, staging, tokenArt, pictures, move) to model
-                if (boards.size > EngineMotion.MAX_STEPS) boards.removeAt(0)
+                add(i, dealt = false)
             }
         }
         // R3: each step kept comes with its computed values (from the view its projection worked out)
-        return boards.map { (play, model) -> table(play, model, tip) }
+        return boards.map { (play, model, dealt) -> table(play, model, tip).let { if (dealt) it.copy(damageDealt = true) else it } }
     }
 
     /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */

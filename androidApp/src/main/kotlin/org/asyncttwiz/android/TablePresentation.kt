@@ -525,7 +525,9 @@ object TablePresentation {
             val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
                 // TBL-133: a card's states read aloud too, as the chip shows them
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
-                    (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" }
+                    (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
+                    // TBL-024: its damage badge read aloud too
+                    (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "")
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,

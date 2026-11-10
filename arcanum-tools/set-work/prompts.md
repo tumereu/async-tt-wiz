@@ -1,8 +1,8 @@
 # Set work: the prompts
 
 The orchestrator sends these exactly, with the brackets filled in. Every prompt starts with `SET-WORK <code>` so
-`bin/set-cost.py` can find the agents. `<wt>` is the set's worktree (absolute path), `<plan>` is
-`~/projects/atw-cache/set-plans/<CODE>`.
+`bin/set-cost.py` can find the agents. `<wt>` is the set's worktree, `<plan>` is `~/projects/atw-cache/set-plans/<CODE>`;
+write both as absolute paths in the prompts (`/home/<user>/...`, not `~`).
 
 ## Audit (one agent per batch; model from the calibration)
 ```

@@ -81,8 +81,8 @@ catalog wins. Where neither says, ask rather than pick.
 - The parser grows one wording group at a time, decided together with the owner,
   except in set work, which adds the wordings its set's cards need.
 - Adding a set ("set work"): follow `arcanum-tools/set-work/README.md`; its worker
-  brief and prompts are beside it (an owner-approved exception to the no-process-
-  documentation rule). Engine code must be right for 3+ players, and anything
+  brief, prompts and techniques are beside it (an owner-approved exception to the
+  no-process-documentation rule). Engine code must be right for 3+ players, and anything
   found that isn't according to the rules is fixed, whichever set it's in.
 
 ## Rules
@@ -100,7 +100,7 @@ catalog wins. Where neither says, ask rather than pick.
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
   `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:arcanum-tools:test`, `:e2e:test` (slow, Docker;
   see End-to-end coverage).
-  `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in every set worker's checklist, and reads the pinned MTGJSON file (`catalog/pin.properties`; `scripts/catalog-pin.sh verify`), never committed: without it, it stops and says how to get it.
+  `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in set work's fix and close steps, and reads the pinned MTGJSON file (`catalog/pin.properties`; `scripts/catalog-pin.sh verify`), never committed: without it, it stops and says how to get it.
   `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
   While implementing, run the tasks relevant to what you changed. After a batch
   of implementations is merged, all the tasks above run together on the merged
@@ -127,8 +127,9 @@ catalog wins. Where neither says, ask rather than pick.
   owner's permission first.
 - Every user-visible change gets a release note: one file per change,
   `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
-  `mod: <text>` or `fix: <text>`. Plain words a player understands, no
-  technical terms. Internal-only work needs no note.
+  `mod: <text>` or `fix: <text>`, or `set: <full set name>` for a set
+  Automatum newly supports (listed first, under New sets). Plain words a
+  player understands, no technical terms. Internal-only work needs no note.
 - Commit your work on your current branch with a descriptive message when done.
   Do not push, merge, rebase other branches or touch other worktrees.
 - Finish with a short plain-text summary: what you built, what you tested, what

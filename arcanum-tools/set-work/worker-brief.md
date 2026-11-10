@@ -4,9 +4,9 @@ You do one chunk of a set in the set's worktree, then stop. A fresh worker does 
 Paths: `<plan>` is `~/projects/atw-cache/set-plans/<CODE>`, `bin/` is `arcanum-tools/set-work/bin/` in the worktree; run
 everything from the worktree root.
 
-**Read only:** this brief, `<plan>/digest.md`, `<plan>/notes.md`, `<plan>/helpers.md` (test helper signatures) and your
-`<plan>/chunks/NN.md`. Don't read READMEs, specs or whole source files. The rules: `~/projects/atw-cache/MagicCompRules-*.txt`,
-by grep for the rule you need.
+**Read only:** this brief, `arcanum-tools/set-work/techniques.md` (know-how of earlier sets), `<plan>/digest.md`,
+`<plan>/notes.md` (this set's), `<plan>/helpers.md` (test helper signatures) and your `<plan>/chunks/NN.md`. Don't read
+READMEs, specs or whole source files. The rules: `~/projects/atw-cache/MagicCompRules-*.txt`, by grep for the rule you need.
 
 ## Find things with tools, not by browsing
 - Each card in your chunk file lists `Nearest tests:` (the most alike existing parser test and engine scenario, `file:line`)

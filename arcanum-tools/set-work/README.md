@@ -30,42 +30,48 @@ folder `~/projects/atw-cache` (outside the repository; the Arcanum tools, `scrip
 - the MTGJSON `AllPrintings.json.gz` named by `catalog/pin.properties`. MTGJSON only serves its current build, so setup
   downloads it only when its checksum matches the pin. Otherwise moving the pin (`scripts/catalog-pin.sh move`, then
   `setSupport` and `parserDiff` against the new file) is a task of its own, done before any set work;
-- `all-card-names.txt` (every real card name, so tests' invented names can be checked against it);
+- `all-card-names.txt` (every real card name, so tests' invented names can be checked against it), rebuilt when it is older
+  than AllPrintings;
 - the lock folder for the build slots.
 
 ## Choosing the set
-`python3 -I arcanum-tools/set-work/bin/next-set.py` lists sets newest first with the supported ones marked. Take the
-newest released paper set that isn't supported (expansion, core, masters or draft-innovation sets; online-only sets are
-left out by the tools). A set not released yet waits for its release date.
+`python3 -I arcanum-tools/set-work/bin/next-set.py` lists the candidate sets newest first, marks the supported ones and
+marks `NEXT` on the set to take. Candidates are released paper sets of type expansion, core, masters or draft innovation
+with at least 150 cards in their base set (MTGJSON's `baseSetSize`), so Modern Horizons counts and small supplements and
+bonus sheets don't; sets not released yet, sets without cards and online-only sets are left out.
 
 ## Steps
 Below, `<code>` is the set code in lower case, `<CODE>` in upper case, `<plan>` is `~/projects/atw-cache/set-plans/<CODE>`,
 `bin/` is `arcanum-tools/set-work/bin/`, and `<wt>` the set's worktree. Prompts are in [prompts.md](prompts.md); fill in
-the brackets and send them exactly.
+the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
 
 1. **Worktree.** `git worktree add ~/projects/atw-wt/set-<code> -b set/<code> master`. All workers work there, one at a time.
 2. **Plan.** In `<wt>`: `bin/gradle-slot.sh :arcanum-tools:coveredShapes`, then
    `bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`. It writes `<plan>`: `plan.tsv` (each card `UNREAD`, `TEST`
    or `REPEAT`), `chunks/NN.md`, `digest.md`, `difficult.md` (over-inclusive warnings), `notes.md` and `audit/`.
+   `coveredShapes` writes one machine-wide file (`~/projects/atw-cache/set-plans/covered-shapes.tsv`), so run one set at a
+   time per machine.
 3. **Starting point.** In `<wt>`: `bin/base-snapshot.sh <CODE>` (the parser's model of every local card, to
    `<plan>/parser-base.snapshot`; `bin/set-tests.sh <code> --full` compares against it).
 4. **Worker aids.** `python3 -I bin/chunk-pointers.py <wt> <plan>` adds, per card, the most alike existing parser test and
-   engine scenario as `file:line`. `python3 -I bin/helper-index.py <wt> <plan> <newest supported set code>` writes
-   `<plan>/helpers.md`, the test helpers' signatures. If the previous set's `notes.md` has general techniques
-   (scenario setup, modelling tips), copy them into `<plan>/notes.md` under a heading saying where they came from.
+   engine scenario as `file:line`. `python3 -I bin/helper-index.py <wt> <plan>` writes `<plan>/helpers.md`, the test
+   helpers' signatures, including the newest set's helper file (the `sets/*/*Cards.kt` most recently changed in git; give
+   a set code as a third argument to choose another). General techniques of earlier sets are in
+   [techniques.md](techniques.md), which every worker reads; `<plan>/notes.md` starts empty and collects this set's.
 5. **Audit.** A cheap model rereads every card that already reads, so misreads in cards no test would look at come to light.
    `audit/seeded.tsv` names entries made deliberately wrong; auditors never see it.
    - Calibrate on `audit/batch-01.md`: run the audit prompt twice, with `model: haiku` and `model: sonnet`, renaming
      `audit/results-01.tsv` after each run to `audit/calibration-01-haiku.tsv` or `audit/calibration-01-sonnet.tsv`, then
-     `python3 -I bin/audit-score.py <plan>`; copy the chosen model's file back to `audit/results-01.tsv`. Keep Haiku if it calls at least 90% of the seeded entries `incorrect` and at most
-     10% of its other `incorrect` calls are false alarms (check those against the oracle text and the CR); otherwise Sonnet.
+     `python3 -I bin/audit-score.py <plan>`; copy the chosen model's file back to `audit/results-01.tsv`. Keep Haiku if it
+     calls at least 90% of the seeded entries `incorrect` and at most 10% of its other `incorrect` calls are false alarms
+     (check those against the oracle text and the CR); otherwise Sonnet.
    - Run the remaining batches with the chosen model, one fresh agent each.
    - `python3 -I bin/audit-apply.py <plan>` writes each real `incorrect` or `unsure` finding into its card's chunk entry as an
      `Audit (...)` line; flagged `REPEAT` cards become `TEST` in a new chunk.
 6. **Chunks**, one worker at a time, in chunk order, with the chunk prompt. Model:
-   - default model for a chunk with any card in `difficult.md`, or with more than about 5 unread cards, or whose theme is
-     rules-heavy (conditions, effects, copies, replacements, layers);
-   - `model: sonnet` for the rest: test-only chunks (marked "mechanical") and ordinary parser chunks.
+   - default model for a chunk with more than 5 unread cards, or more than 2 of its cards listed in `difficult.md`'s
+     "## Cards" section, or a rules-heavy theme (conditions, effects, copies, replacements, layers);
+   - otherwise `model: sonnet` (test-only chunks, marked "mechanical", and ordinary parser chunks).
    After each reply:
    - `git -C <wt> status --short` must be empty and the reply must name a commit; otherwise send the worker back to finish.
    - If the reply says it skipped or didn't repeat the final `bin/set-tests.sh <code> --full`, run it yourself in `<wt>`.
@@ -75,7 +81,8 @@ the brackets and send them exactly.
    - Note the chunk's result in `<plan>/coordinator-log.md`: cards done/left, commit, and from the reply: engine or parser
      bugs found and fixed, misreads, uncertain rulings, API changes, changed test expectations.
    - Cards left because the worker ran out of room go to `<plan>/chunks/NNr.md` (copy their sections) and run next.
-   - A rules question a worker couldn't settle, or a gap it noticed but didn't fix, goes to `<plan>/fixes.md`.
+   - A card a worker left unread and named with what it would take, a rules question it couldn't settle, or a gap it
+     noticed but didn't fix, goes to `<plan>/fixes.md`.
 7. **Review of Sonnet's parser work** (when Sonnet did parser chunks, not only test-only ones): one default-model agent with
    the Sonnet review prompt checks about 20 models from those chunks, all their newly read cards first. Findings go to
    `fixes.md`. A Sonnet-made misread means the next set gives Sonnet fewer parser chunks.
@@ -96,6 +103,9 @@ the brackets and send them exactly.
     - Quality sample: one default-model agent with the quality-sample prompt reads 15-30 random `REPEAT` cards (they got no
       test of their own) and plays 4-5. A real defect means `REPEAT` was too loose for that kind of card: fix it, and test
       the set's remaining `REPEAT` cards of that kind.
+    - Fold the set's new general techniques from `<plan>/notes.md` into [techniques.md](techniques.md): at most about 10
+      new lines, rewriting a line rather than appending when it is superseded, no set history and no real card names;
+      in the closing commit.
     - Accept: every check green, every changed supported card named with a reason, nothing left in `fixes.md`. Then merge
       `set/<code>` to master by the project's merge rule (here: sets merge as soon as they are accepted) and remove the
       worktree.

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One-time setup for Arcanum set work (arcanum-tools/set-work/README.md). Fills the local data folder ~/projects/atw-cache,
 # outside the repository: the lock and plan folders, the pinned Comprehensive Rules text, the pinned MTGJSON AllPrintings
-# and all-card-names.txt. What is already there is only checked, never replaced. One status line per item.
+# and all-card-names.txt. What is already there is only checked, never replaced, except all-card-names.txt, which is
+# rebuilt when it is older than AllPrintings (AllPrintings itself is never replaced). One status line per item.
 # Run from the repository root:   arcanum-tools/set-work/bin/setup.sh
 set -u
 if [ ! -x ./scripts/gradle.sh ] || [ ! -f catalog/pin.properties ]; then
@@ -59,10 +60,11 @@ fi
 
 # Every real card name and face name, one per line, so tests' invented names can be checked against it.
 names=$C/all-card-names.txt
-if [ -s "$names" ]; then
+if [ ! -e "$ap" ]; then
+  if [ -s "$names" ]; then echo "card names: $names present (no $ap to compare it with)"
+  else failed=1; echo "card names: needs $ap first"; fi
+elif [ -s "$names" ] && [ ! "$names" -ot "$ap" ]; then
   echo "card names: $names present"
-elif [ ! -e "$ap" ]; then
-  failed=1; echo "card names: needs $ap first"
 else
   python3 -I - "$ap" "$names" <<'EOF'
 import gzip, json, os, sys

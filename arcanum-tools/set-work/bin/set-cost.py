@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Weighted token cost of one set's work, by API price ratios (input 1, output 5, cache read 0.1, cache creation 1.25), from
-the local Claude Code transcripts: every subagent whose prompt starts 'SET-WORK <code>' (or the older 'SET-TRIAL <code>'),
-one row per agent and the total. Transcripts are read from ~/.claude/projects/<folder>/*/subagents/, for every folder
-named after this repository's root or one of its worktrees (Claude Code names a folder after its path, each character
-other than a letter or digit replaced by '-'). Usage: set-cost.py <code>"""
+the local Claude Code transcripts: every subagent whose prompt starts 'SET-WORK <code>', one row per agent and the total.
+Transcripts are read from ~/.claude/projects/<folder>/*/subagents/, for every folder named after this repository's root or
+one of its worktrees (Claude Code names a folder after its path, each character other than a letter or digit replaced by
+'-'). Usage: set-cost.py <code>"""
 import glob, json, os, re, subprocess, sys
 
 if len(sys.argv) != 2: sys.exit('Usage: set-cost.py <code>')
@@ -19,7 +19,7 @@ prefixes = {re.sub(r'[^A-Za-z0-9]', '-', r) for r in roots}
 base = os.path.expanduser('~/.claude/projects')
 folders = [d for d in glob.glob(base + '/*/') if any(os.path.basename(d.rstrip('/')).startswith(p) for p in prefixes)]
 files = sorted({f for d in folders for f in glob.glob(d + '*/subagents/**/*.jsonl', recursive=True)})
-start = re.compile(r'SET-(?:WORK|TRIAL) ' + re.escape(code) + r'(?:[ \t]+([^\n]*))?(?:\n|$)', re.I)
+start = re.compile(r'SET-WORK ' + re.escape(code) + r'(?:[ \t]+([^\n]*))?(?:\n|$)', re.I)
 
 def first_prompt(lines):
     for l in lines[:5]:

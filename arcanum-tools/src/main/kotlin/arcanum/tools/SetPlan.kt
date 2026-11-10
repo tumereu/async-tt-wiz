@@ -5,18 +5,23 @@ import arcanum.api.KeywordKind
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import java.io.File
+import kotlin.system.exitProcess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
  * Plans the work on one set so a fresh worker per chunk can start from a small digest: every card's verdict, chunks of the cards
- * that need work, the difficult ones for the owner and the audit packets. Writes outside the repository
- * (`set-plans/CODE/`); notes and audit results already there are kept. Args: the set's code.
+ * that need work, warnings about difficult ones and the audit packets. Writes outside the repository
+ * (`set-plans/CODE/`); notes and audit results already there are kept. Args: the set's code. Stops when the set has no
+ * cards to plan, saying why.
  */
 fun main(args: Array<String>) {
     val code = args.firstOrNull()?.uppercase() ?: error("Usage: setPlan CODE")
-    val setCards = pinnedSetCards(code)
+    var records: List<com.google.gson.JsonObject> = emptyList()
+    forEachPinnedSet(listOf(code)) { _, r -> records = r }
+    noCardsReason(code, records)?.let { System.err.println(it); exitProcess(2) }
+    val setCards = setCards(records)
     val covered = CoveredShapes.read(coveredShapesFile())
     val index = RuleIndex.at(ParserToolPaths.parserSources)
     val cards = setCards.map { card ->
@@ -30,6 +35,16 @@ fun main(args: Array<String>) {
     println(Verdicts.all.joinToString(", ") { v -> "${cards.count { it.verdict.verdict == v }} ${v.code}" } +
         "; ${plan.chunks.size} chunks (${plan.chunks.count { it.mechanical }} mechanical); ${plan.difficult.size} difficult candidates; digest ${plan.digest().size} lines")
     println("Plan in $dir")
+}
+
+/** Why set [code] (its card records [records]) has no cards to plan, or null when it has some. */
+internal fun noCardsReason(code: String, records: List<com.google.gson.JsonObject>): String? {
+    if (setCards(records).isNotEmpty()) return null
+    if (records.isEmpty()) return "$code has no cards in the pinned MTGJSON file (a set not printed yet, or one of tokens or other objects only): nothing to plan."
+    val skipped = listOf("isOnlineOnly" to "online-only", "isFunny" to "Un-cards", "isRebalanced" to "rebalanced (Alchemy)")
+        .mapNotNull { (flag, what) -> records.count { it.get(flag)?.asBoolean == true }.takeIf { it > 0 }?.let { "$it $what" } }
+    return "$code has no cards to plan: all ${records.size} of its card records are skipped (${skipped.joinToString()}). " +
+        "Set work covers paper cards only; online-only sets, Un-sets and Alchemy printings aren't supported sets."
 }
 
 private object Verdicts {
@@ -150,12 +165,12 @@ internal fun setMechanics(cards: List<PlannedCard>): Map<String, Int> =
 internal fun knownMechanic(word: String, shapes: String): Boolean = KeywordKind.all.any { it.text.equals(word, ignoreCase = true) } ||
     word.endsWith("cycling") || "\"${word.lowercase().replace(' ', '-')}\"" in shapes
 
-/** One card for the owner, and why. */
+/** One difficult candidate, and why. */
 internal class DifficultCard(val name: String, val why: String)
 
 /**
  * Candidates: several unread clauses, or a clause no rule comes near. A clause that only names a mechanic in [lacking] isn't listed
- * card by card: the mechanic is the owner's one question. Over-inclusive on purpose.
+ * card by card: the mechanic is listed once, as a concept the API seems to lack. Over-inclusive on purpose: a warning, not a verdict.
  */
 internal fun difficultCards(cards: List<PlannedCard>, index: RuleIndex, lacking: Set<String>): List<DifficultCard> = cards.filter { it.unread }.mapNotNull { card ->
     val why = ArrayList<String>()
@@ -215,11 +230,13 @@ internal class SetPlanOutput(val code: String, val cards: List<PlannedCard>, val
         chunks.take(CHUNKS_SHOWN).forEach { c -> add("- ${c.file}: ${c.cards.size} cards, ${c.cards.count { it.unread }} unread${if (c.mechanical) ", mechanical" else ""}: ${c.theme.take(90)}") }
         if (chunks.size > CHUNKS_SHOWN) add("- and ${chunks.size - CHUNKS_SHOWN} more in chunks/")
         add("")
-        add("Difficult candidates for the owner: ${difficult.size}, in difficult.md.")
+        add("Difficult candidates: ${difficult.size}, in difficult.md (over-inclusive warnings). A card that needs a concept the API lacks, and not a small one,")
+        add("stays unread: name it in your reply with what it would take; the orchestrator hands it to a fix worker.")
         addAll(digestFacts(code))
     }
 
-    fun difficultFile(): String = "# $code: difficult candidates for the owner\n\nHeuristic and over-inclusive.\n\n" +
+    fun difficultFile(): String = "# $code: difficult candidates\n\nHeuristic and over-inclusive: warnings, not verdicts. A worker leaves a card it can't read " +
+        "unread and names it with what it would take; the orchestrator hands it to a fix worker.\n\n" +
         "## Concepts the API seems to lack\n" +
         newMechanics.entries.sortedBy { -it.value }.joinToString("") { (word, n) -> "- $word: named by $n cards, ${cards.count { word in it.keywords && it.unread }} unread\n" } +
         "\n## Cards\n" + difficult.joinToString("") { "- ${it.name}: ${it.why}\n" }
@@ -267,7 +284,7 @@ internal fun printedCard(card: PlannedCard): String = card.faces.joinToString("\
     if (face.text.isEmpty()) heading else "$heading\n${face.text}"
 }
 
-/** The short facts a chunk worker needs instead of the READMEs. */
+/** The short facts a chunk worker needs instead of the READMEs; consistent with `arcanum-tools/set-work/worker-brief.md`. */
 private fun digestFacts(code: String): List<String> {
     val lower = code.lowercase()
     return """
@@ -276,14 +293,16 @@ private fun digestFacts(code: String): List<String> {
 - Parser sources: `arcanum-parser/src/commonMain/kotlin/arcanum/parser/`, wordings of past sets in `<Set>Wordings.kt`, the sentence rules in `Sentences.kt`, the
   phrases in `Phrases.kt`, keywords in `KeywordSyntax.kt` and `OracleParser.keyword`. Model: `arcanum-api/src/commonMain/kotlin/arcanum/api/` (`Definitions.kt`,
   `Effects.kt`, `Mechanics.kt`, `Selectors.kt`, `Values.kt`, `Keywords.kt`).
-- `./scripts/gradle.sh :arcanum-tools:parserExplain --args='"<text>"'` names the first unread clause and the nearest rules.
+- `arcanum-tools/set-work/bin/parser-explain.sh '"<text>"' ['"<more text>"' ...]` names the first unread clause and the nearest rules.
 - Bump `OracleParser.VERSION` when output changes.
+- Helper signatures: `helpers.md` beside this digest (the shared card DSL, the newest set's helper file, the engine's Scenario API).
+- Every Gradle task goes through `arcanum-tools/set-work/bin/gradle-slot.sh <tasks>`, one at a time; never `./gradlew` or `./scripts/gradle.sh` directly.
 
 ## Parser tests
 `arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/$lower/<Code>ChunkNN<Theme>Test.kt`, one test a card; imports `arcanum.api.*` and from `arcanum.parser.cube`:
 `card(name, cost, type, text, pt, loyalty, colorIndicator)`, `parsesTo`, `abilities(...)`, `none`, `cardFaces(layout, card(...) to abilities(...), ...)`, `manaCost("{1}")`,
-`thisEnters`, `whenThisEnters(steps...)`, `drawCards(n)`, `objectSlot(name, filter)`, `allOf(...)`. Each set keeps its own helpers beside its tests in `<Code>Cards.kt`; start from the filters at the top
-of `sets/tdm/TdmCards.kt` (`creature`, `land`, `artifact`, `you`, `opponents`, `isSelf`).
+`thisEnters`, `whenThisEnters(steps...)`, `drawCards(n)`, `objectSlot(name, filter)`, `allOf(...)`. Each set keeps its own helpers beside its tests in `<Code>Cards.kt`: the set's
+first chunk copies the newest set's helper file (named in `helpers.md`, filters such as `creature`, `land`, `you`, `opponents` at its top) and later chunks add to it.
 Multi-line text is one rules line per source line, named arguments always, the expected value from the oracle text and the CR.
 ```kotlin
 class ${code.lowercase().replaceFirstChar { it.uppercase() }}Chunk01ExampleTest {
@@ -323,5 +342,6 @@ class ${code.lowercase().replaceFirstChar { it.uppercase() }}ExampleScenariosTes
     }
 }
 ```
-Run only yours: `./scripts/gradle.sh :arcanum-parser:jvmTest --tests 'arcanum.parser.sets.$lower.*'` and `:arcanum-engine:jvmTest --tests 'arcanum.engine.sets.$lower.*'`.""".split('\n')
+Run your set's tests with `arcanum-tools/set-work/bin/set-tests.sh $lower` (parser and engine in one Gradle call, counts and failures only); last,
+`arcanum-tools/set-work/bin/set-tests.sh $lower --full` (whole suites and the comparison with the set's starting point).""".split('\n')
 }

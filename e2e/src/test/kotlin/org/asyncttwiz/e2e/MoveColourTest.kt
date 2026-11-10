@@ -19,10 +19,9 @@ import kotlin.test.assertTrue
  * held back so they arrive in a burst mid-animation); a move that goes A → B → A with nobody pressing anything in
  * between is a flip.
  *
- * Not covered, as it still flips (owner to decide, 2026-11-10): the caster's "When they have no mana" or "Always"
- * assuming the other player's pass where the other player's own mode stops (Control, Normal, or Quick able to respond).
- * The other phone learns only the caster's response mode (TRN-059, STK-036), not that setting, so between the cast and
- * the assumption, which arrive as two events, it shows its own player's move.
+ * The caster's "When they have no mana" or "Always" assuming the other player's pass where the other player's own mode
+ * stops has a test of its own: the other phone knows that setting (TRN-059, owner 2026-11-10), so between the cast and the
+ * assumption, which arrive as two events, it doesn't show its own player's move.
  */
 class MoveColourTest : E2e() {
     @After fun noProbe() { EngineShownProbe.listener = null }
@@ -261,6 +260,38 @@ class MoveColourTest : E2e() {
             }
             answerUntil("Bob's Glimmer resolved (Alice ${aliceMode::class.simpleName}, Bob Assume ${bobAssume::class.simpleName})") {
                 bob.state.stack.isEmpty() && graveGlimmers(bob) > resolved && inMain(bob, turn = 2)
+            }
+        }
+        repeat(5) { run(skip = java.time.Duration.ofMillis(300)) }
+        assertNoFlips()
+    }
+
+    // TRN-006, TRN-013, TRN-058, TRN-059, HIS-096 (owner 2026-11-10: the Assume setting is shared): Alice casts Idle
+    // Glimmers with her "Assume resolves" on When they have no mana (Bob has no mana source) and Always against Bob in
+    // Normal, Control and Quick (his Glimmers let him respond, so each of his modes stops at her spell): her phone assumes
+    // his pass at once, and his phone, knowing her setting, never shows his move between her cast and that assumption
+    @Test fun theMoveNeverFlipsAtAnAssumptionByTheCastersSetting() {
+        startGame(TestDeck("Glimmers only", listOf(TestCards.glimmer to 40)), TestDeck.glimmers(), deal = { _, b ->
+            hand(b).count { it == "Idle Glimmer" } >= 1
+        })
+        bothOpen()
+        recordMoves()
+        alice.press("Keep")
+        bob.press("Keep")
+        answerUntil("Alice's Main 1") { inMain(alice) }
+        val rounds = listOf(
+            ResponseMode.Normal to AssumeResolves.WhenNoMana,
+            ResponseMode.Normal to AssumeResolves.Always,
+            ResponseMode.FullControl to AssumeResolves.WhenNoMana,
+            ResponseMode.FullControl to AssumeResolves.Always,
+            ResponseMode.AutoSkip to AssumeResolves.Always)
+        for ((bobMode, aliceAssume) in rounds) {
+            mode(bob, bobMode)
+            assume(alice, aliceAssume)
+            val resolved = graveGlimmers(alice)
+            alice.cast("Idle Glimmer")
+            answerUntil("Alice's Glimmer resolved (Bob ${bobMode::class.simpleName}, Alice Assume ${aliceAssume::class.simpleName})") {
+                alice.state.stack.isEmpty() && graveGlimmers(alice) > resolved && inMain(alice)
             }
         }
         repeat(5) { run(skip = java.time.Duration.ofMillis(300)) }

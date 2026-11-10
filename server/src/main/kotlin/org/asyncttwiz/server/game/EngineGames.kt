@@ -193,6 +193,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val rewoundBy: String? = null,
         /** Each player's current response mode (owner 2026-11-06: the other player's device learns it at once). */
         val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
+        /** Each player's current "Assume resolves" setting (owner 2026-11-10: the other player's device learns it at once). */
+        val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap(),
         /** When [ended]: what the match's record takes from the play. */
         val facts: MatchFacts? = null,
         /** A submission dropped as the duplicate of a main-line event: its id and the event's ([Acceptance.Confirmed.alias]). */
@@ -200,7 +202,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
-        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy, modes)
+        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy, modes, assumes)
     }
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
@@ -442,7 +444,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.associate { it.account.toString() to it.head }, seat?.settings, row.request, row.lines,
             start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.ifEmpty { undone },
             seats.associate { it.account.toString() to it.settings.mode },
-            undoneBy = seat?.undoneBy?.takeIf { takenBack.isEmpty() && undone.isNotEmpty() }) to
+            undoneBy = seat?.undoneBy?.takeIf { takenBack.isEmpty() && undone.isNotEmpty() },
+            assumes = seats.associate { it.account.toString() to it.settings.assume }) to
             attention(seats, viewer)
     }
 
@@ -605,6 +608,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
             seats.associate { it.account.toString() to it.settings.mode },
+            seats.associate { it.account.toString() to it.settings.assume },
             if (ended) MatchFacts.of(engine, result!!, conceded, agreement, mulligans) else null, alias)
     }
 

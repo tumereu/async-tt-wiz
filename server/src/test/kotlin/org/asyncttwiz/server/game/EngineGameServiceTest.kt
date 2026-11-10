@@ -507,14 +507,20 @@ class EngineGameServiceTest {
         assertNotNull(f.snapshot(f.b).rewindRequest)
     }
 
-    // I-D56 §13: a player's play settings are their own, kept on the server, never shown to the other player
-    @Test fun `play settings are private`() = withService { runtime ->
+    // I-D56 §13, TRN-059 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
+    // the server; the other player's phone learns only their response mode (STK-036) and "Assume resolves" (both snapshots
+    // and every revision name each player's), never the rest (Autotap) or the settings as a whole
+    @Test fun `play settings are private but the assume setting is shared`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")
-        val mine = PlaySettings(ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
+        val a = f.a.account.accountId; val b = f.b.account.accountId
+        val always = org.asyncttwiz.protocol.game.AssumeResolves.Always
+        val mine = PlaySettings(ResponseMode.FullControl, assume = always, autotap = false)
         assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(mine)).outcome)
         assertEquals(mine, f.snapshot(f.b).settings)
         assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
-        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("\"assume\":{") })
+        assertEquals(mapOf(a to PlaySettings.NEW_GAMES.assume, b to always), f.snapshot(f.a).assumes)
+        assertEquals(mapOf(a to PlaySettings.NEW_GAMES.assume, b to always), f.revisions(f.a, "0").last().engine?.assumes)
+        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).let { text -> text.contains("\"assume\":{") || text.contains("autotap") } })
     }
 
     // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside

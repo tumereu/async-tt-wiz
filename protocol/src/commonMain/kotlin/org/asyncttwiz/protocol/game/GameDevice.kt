@@ -88,6 +88,16 @@ class GameDevice(
      * the other player's is [opponentMode]. */
     fun modes(modes: Map<String, ResponseMode>) { modes[opponent.value]?.let { opponentMode = it } }
 
+    /** The other player's current "Assume resolves" setting (owner 2026-11-10), as the server last said ([assumes]): at a
+     * point they began, where their device assumes this player's pass, the game doesn't wait for this player ([move]).
+     * Null until known: no such point is judged by it. */
+    var opponentAssume: AssumeResolves? = null
+        private set
+
+    /** Each player's current "Assume resolves" setting by account, as the server says it ([EngineSnapshot.assumes],
+     * [EngineUpdate.assumes]): the other player's is [opponentAssume]. */
+    fun assumes(assumes: Map<String, AssumeResolves>) { assumes[opponent.value]?.let { opponentAssume = it } }
+
     /** The game's assume reveal settings (LOB-135), as the caller last said ([assumeReveals]): the cards the information
      * rule lets through, in this player's assumptions and own actions alike. Until told, nothing ([AssumeReveals.NONE]). */
     var assumeReveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE
@@ -484,15 +494,16 @@ class GameDevice(
     /** [settledAtHead] worked out last: at the shown point ([PointKey]) or, while playback is behind, at the head. */
     private var settledShown: Pair<PointKey, Boolean>? = null
     private data class HeadKey(val head: String, val settings: PlaySettings, val opponentMode: ResponseMode, val endTurn: Int?,
-        val chain: Boolean, val holdAt: String?)
+        val chain: Boolean, val holdAt: String?, val opponentAssume: AssumeResolves?)
     private var settledHead: Pair<HeadKey, Boolean>? = null
 
     /**
      * Owner playtest 2026-11-10: whether the game really waits at the main line's head as this device knows it (its own
      * pending events included): nothing there is made by itself next, neither the player's own pass or answer by their
      * response mode (or an End turn, a Resolve chain) nor an automatic answer or an assumption of the other player's
-     * (their mode passes, this player's Assume setting, a forced pass). Whether this device could make that step now
-     * (playback behind, a play shown) doesn't matter. Worked out once per point.
+     * (their mode passes, this player's Assume setting, a forced pass), nor, while playback is behind, the other player's
+     * device's assumption of this player's pass by its own Assume setting ([assumedByThem]). Whether this device could make
+     * that step now (playback behind, a play shown) doesn't matter. Worked out once per point.
      */
     private fun settledAtHead(): Boolean {
         if (!session.behind) {
@@ -501,11 +512,26 @@ class GameDevice(
             settledShown?.takeIf { key.same(it.first) }?.let { return it.second }
             return !makesItself(model, session.tip).also { settledShown = key to !it }
         }
-        val key = HeadKey(session.head, settings, opponentMode, endTurn, chain, holdAt)
+        val key = HeadKey(session.head, settings, opponentMode, endTurn, chain, holdAt, opponentAssume)
         settledHead?.takeIf { it.first == key }?.let { return it.second }
         val settled = runCatching { !makesItself(session.headModel(), session.head) }.getOrDefault(true)
         settledHead = key to settled
         return settled
+    }
+
+    /**
+     * Owner playtest 2026-11-10: whether this player's priority on [s] (state [m], the main line's head while playback is
+     * behind it), where their own mode stops, is a point the other player began at which the other player's device
+     * assumes their pass by its own "Assume resolves" setting ([opponentAssume], HIS-096: there their setting counts, never
+     * at this player's own main phase). That device sends its events one at a time, so its assumption is on its way: the
+     * game doesn't wait for this player there. Only while playback is behind the head: at the head this player's device
+     * stops there for them, and the move follows it (the other device may still wait, its Assume greyed, TRN-071).
+     */
+    private fun assumedByThem(s: GameState, m: GameModel): Boolean {
+        val setting = opponentAssume ?: return false
+        if (s.pending != null || s.priority.holder != me || Stops.stop(s, me)) return false
+        if (pointOwner(session.events + session.pending, s) != opponent) return false
+        return settingAssumes(setting, s, me, opponent) { noMana(s, me, m) }
     }
 
     /** Whether the device's own step at [at] (state [m]) would be made by itself ([decideStep] without making it). */
@@ -515,7 +541,7 @@ class GameDevice(
         val who = Attention.of(s) ?: return false
         if (who == me || NextStop.declares(s, me)) {
             if (at == session.tip && held()) return false
-            val input = own(s, m, at) ?: return false
+            val input = own(s, m, at) ?: return m !== model && assumedByThem(s, m)
             return reveals["$at:$input"] != true
         }
         return when (val point = point(s, m)) {
@@ -2084,6 +2110,7 @@ class GameDevice(
         // The other player's mode as their latest own event recorded it, then as the server says it now (owner 2026-11-06)
         for (event in events) if (event.author == opponent.value && event.assumed == null) event.mode?.let { opponentMode = it }
         update?.modes?.let(::modes)
+        update?.assumes?.let(::assumes)
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             reportAgain()
@@ -2798,7 +2825,7 @@ class GameDevice(
             val local = heads[me]?.takeIf { it == baseId || events.any { e -> e.id == it } } ?: snapshot.headId
             fun device(session: GameSession) =
                 GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids)
-                    .also { it.modes(snapshot.modes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
+                    .also { it.modes(snapshot.modes); it.assumes(snapshot.assumes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
             val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
             if (gone.isNotEmpty() && gone.first().parentId == local) {
                 val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1

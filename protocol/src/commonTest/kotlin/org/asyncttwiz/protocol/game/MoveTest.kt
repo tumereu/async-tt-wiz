@@ -107,13 +107,13 @@ class MoveTest {
 
     /** [p]'s device's move after each of its deliveries, one revision at a time, its playback and own steps going on
      * between them as on a phone (nothing it makes is sent): the moves in order, changes only. */
-    private fun DeviceSim.movesOneByOne(p: PlayerId): List<PlayerId?> {
+    private fun DeviceSim.movesOneByOne(p: PlayerId, playback: Boolean = true): List<PlayerId?> {
         val moves = mutableListOf(device(p).move)
         fun note() = device(p).move.let { if (it != moves.last()) moves += it }
         while (pendingDeliveries(p) > 0) {
             deliver(p, 1)
             note()
-            device(p).playToStop()
+            if (playback) device(p).playToStop()
             note()
             automatically { device(p).advance(now) }
             note()
@@ -145,6 +145,30 @@ class MoveTest {
         assertEquals(listOf(bob, alice), sim.movesOneByOne(alice), "Alice's device's move, event by event")
         sim.settle()
         sim.assertMoves(mapOf(alice to alice, bob to alice), "Alice's main phase")
+    }
+
+    // TRN-058, TRN-013, TRN-059, HIS-096 (owner 2026-11-10): Bob casts Storm Spark at Alice, who is live and could respond
+    // (her Quick stops there); his device assumes her pass by his "Assume resolves" (Always), and his events reach her
+    // device one by one while her playback is still behind them. Her device knows his setting (shared as his response mode
+    // is): her priority after his cast is no move of hers, his assumption of her pass being on its way: Bob's move throughout
+    @Test
+    fun theirAssumptionOfYourPassOnItsWayIsNoMoveOfYours() {
+        val sim = glimmers()
+        val alice = sim.alice; val bob = sim.bob
+        sim.start(bob)
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
+        sim.flush(bob)
+        sim.deliver(alice)
+        sim.device(alice).playToStop()
+        assertIs<GameDevice.Acted.Sent>(sim.device(alice).act(sim.keep(alice)))
+        sim.flush(alice)
+        sim.settle()
+        sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob's main phase")
+        assertEquals(AssumeResolves.Always, sim.device(alice).opponentAssume, "his setting, as the server says it")
+        sim.bobSparksAlice()
+        assertEquals(listOf(bob), sim.movesOneByOne(alice, playback = false), "Alice's device's move, event by event")
+        sim.settle()
+        sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob's main phase again")
     }
 
     // TRN-058, LOB-073 (I-D57): the information rule leaves Bob really waiting for Alice's pass: her move for both, also

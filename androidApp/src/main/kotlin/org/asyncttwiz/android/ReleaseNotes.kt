@@ -17,7 +17,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 internal enum class ReleaseNoteKind(val prefix: String, val title: String) {
-    ADD("add", "New"), MOD("mod", "Changed"), FIX("fix", "Fixed")
+    // LOB-087 (owner 2026-11-10): sets Automatum newly supports come first, under their own heading
+    SET("set", "New sets"), ADD("add", "New"), MOD("mod", "Changed"), FIX("fix", "Fixed")
 }
 
 /** One packaged `release/notes/<id>.txt` line; [id] starts with its `YYYY-MM-DD` date. */
@@ -35,7 +36,7 @@ internal object ReleaseNotes {
             ReleaseNoteKind.entries.first { it.prefix == kind }, note.getValue("text").jsonPrimitive.content)
     }
 
-    /** New, Changed, Fixed (empty groups omitted); newest date first, then by id. */
+    /** New sets, New, Changed, Fixed (empty groups omitted); newest date first, then by id. */
     fun grouped(notes: List<ReleaseNote>): List<Pair<ReleaseNoteKind, List<ReleaseNote>>> =
         ReleaseNoteKind.entries.mapNotNull { kind ->
             notes.filter { it.kind == kind }

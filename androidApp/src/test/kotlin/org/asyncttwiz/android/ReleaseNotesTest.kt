@@ -46,6 +46,16 @@ class ReleaseNotesTest {
         assertEquals(listOf(ReleaseNoteKind.FIX), ReleaseNotes.grouped(notes.filter { it.kind == ReleaseNoteKind.FIX }).map { it.first })
     }
 
+    // LOB-087 (owner 2026-11-10): newly supported sets come first under New sets; no set notes, no such heading
+    @Test fun newSetsComeFirstAndOnlyWhenThereAreAny() {
+        val withSets = notes + ReleaseNote("2026-10-28-set-foundations", ReleaseNoteKind.SET, "Foundations")
+        assertEquals(listOf(ReleaseNoteKind.SET, ReleaseNoteKind.ADD, ReleaseNoteKind.MOD, ReleaseNoteKind.FIX),
+            ReleaseNotes.grouped(withSets).map { it.first })
+        assertEquals("New sets", ReleaseNotes.grouped(withSets).first().first.title)
+        assertEquals(ReleaseNoteKind.SET, ReleaseNotes.parse("""[{"id":"2026-10-28-set-x","kind":"set","text":"X"}]""").single().kind)
+        assertFalse(ReleaseNoteKind.SET in ReleaseNotes.grouped(notes).map { it.first })
+    }
+
     // LOB-087
     @Test fun freshInstallSeesNothingUpdateSeesAllButInitialStoredRecordSeesOnlyNewer() {
         val fresh = ReleaseNotes.seenRecord(null, notes, freshInstall = true)

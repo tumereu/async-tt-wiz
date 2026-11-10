@@ -164,7 +164,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### What's new
 
-- **LOB-087** After an update, "What's new" opens on the app's first frame with that update's notes grouped as New, Changed and Fixed, newest first; a fresh install shows nothing. (r22)
+- **LOB-087** After an update, "What's new" opens on the app's first frame with that update's notes grouped as New sets (the sets Automatum newly supports, by name; left out when there are none), New, Changed and Fixed, newest first; a fresh install shows nothing. (r22, r62)
 - **LOB-088** What's new never pops up over an open game or pod or when a notification is opening one; it can be reread any time from Settings. (r21)
 
 ### Problem and crash reports

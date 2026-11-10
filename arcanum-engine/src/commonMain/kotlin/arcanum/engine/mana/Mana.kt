@@ -611,15 +611,18 @@ internal object Mana {
      * 702.51, 702.66, 702.126) are used only when mana alone isn't found, or alone when mana can't be spent on it ([canSpendMana]
      * false); a creature tapped for mana isn't also tapped for convoke. [reserved]: what the rest of the cost uses. [pinned]: uses
      * the payment must hold (a player's picks), [removed]: uses it must not. This is a convenience: it never decides whether
-     * something can be paid ([verdict] does).
+     * something can be paid ([verdict] does). A pinned mana ability keeps its source, its colour free; one in [exact] is kept
+     * exactly as given (its ability, colour and answers), as is any other use there.
      */
     fun suggest(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: Boolean = false,
         reserved: Reserved = Reserved.NONE, pinned: List<ManaUse> = emptyList(), removed: List<ManaUse> = emptyList(),
+        exact: List<ManaUse> = emptyList(),
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
-        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned, removed)
+        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned + exact, removed,
+            exact.filterIsInstance<ManaUse.Ability>().toSet())
         if (payment.impossible()) return emptyList()
         // Without other ways, then with them; each from the fewest side effects up, never a lethal source; then lethal ones
         val wayRounds = if (!canSpendMana) listOf(true) else if (ways.isEmpty()) listOf(false) else listOf(false, true)
@@ -695,12 +698,14 @@ internal object Mana {
     private class PaymentSearch(
         val snap: Snapshot, val player: PlayerId, val cost: ManaCost, val paysFor: ObjectId?, val ways: List<ManaPaymentWay>, val canSpendMana: Boolean,
         anyColor: Boolean, val reserved: Reserved, val pinned: List<ManaUse>, removed: List<ManaUse>,
+        /** Pinned mana abilities held exactly as given (their colour and answers), not only by their source. */
+        val exact: Set<ManaUse.Ability> = emptySet(),
     ) {
         val life = snap.state.player(player).life
         val any = anyColor || spendsAsAnyColor(snap, player, paysFor)
         private val removedPool = removed.filterIsInstance<ManaUse.Pool>().map { it.index }.toSet()
         val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any).filter { (it.use as ManaUse.Pool).index !in removedPool }
-        private val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()
+        val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()
         private val removedSources = removed.filterIsInstance<ManaUse.Ability>()
         private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).filter { s -> removedSources.none { sameSource(it, s) } }
         private val searched = all.filter { !it.unknown }
@@ -800,9 +805,12 @@ internal object Mana {
 
         private fun pinned(i: Int): List<ManaUse>? {
             if (i == required.size) return go(0, chosen.sumOf { it.source.life }, chosen.sumOf { it.source.damage })
+            val want = p.pinnedSources.getOrNull(i)?.takeIf { it in p.exact }
             for (s in required[i]) {
                 if (!fits(s, chosen.sumOf { it.source.life }, chosen.sumOf { it.source.damage })) continue
                 for (pick in picks(s)) {
+                    // A use kept exactly: only its own colour and answers
+                    if (want != null && use(pick) != want) continue
                     chosen += pick
                     pinned(i + 1)?.let { return it }
                     chosen.removeAt(chosen.lastIndex)

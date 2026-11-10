@@ -347,13 +347,14 @@ internal object Options {
     }
 
     /** [Engine.fillPayment]: see there. */
-    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> {
+    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
+        exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> {
         val pending = state.pending ?: return emptyList()
         val d = pending.decision as? Decision.ManaPayment ?: return emptyList()
         val c = pending.continuation as? Continuation.Announcing
-        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed)
+        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed, exact = exact)
         val plan = Plan(state, c)
-        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed)
+        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed, exact)
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {

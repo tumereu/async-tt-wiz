@@ -40,9 +40,10 @@ class PodHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             a = account("pod-a"); b = account("pod-b"); c = account("pod-c")
-            // 90 different cards of the test cards' catalog, one each
+            // 90 different cards of the test cards' catalog, one each; never the Librarian stand-in, whose cube copies count as
+            // Librarians (the Librarian tests below assume the packs hold none)
             cube = json.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(id(), "Snapshot cube",
-                org.asyncttwiz.server.TestPrintings.names("E2E").take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
+                org.asyncttwiz.server.TestPrintings.names("E2E").filter { it != "Cogwork Librarian" }.take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)

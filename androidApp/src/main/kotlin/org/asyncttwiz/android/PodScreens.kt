@@ -28,8 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
 
@@ -48,15 +46,10 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             if (result == SnackbarResult.ActionPerformed) controller.retry()
         }
     }
-    val owner = LocalLifecycleOwner.current
     DisposableEffect(controller) { onDispose { controller.flushSetup(leaving = true) } }
-    LaunchedEffect(controller, state.selected) {
-        controller.shown()
-        while (true) {
-            delay(10_000)
-            if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) controller.refresh()
-        }
-    }
+    LaunchedEffect(controller, state.selected) { controller.shown() }
+    // The pod list and the open pod are read again every 10 s while shown with the app in front, on the main thread's clock
+    WhileInFront(controller, state.selected) { controller.watch(state.selected?.let { "pod $it" } ?: "pod list") }
     // DRF-170: an open pod's chat is read again every few seconds
     state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen, "pod screen") }
     LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {

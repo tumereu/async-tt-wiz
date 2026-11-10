@@ -522,10 +522,14 @@ class PodControllerTest {
         var now = 0L
         /** Pending marks timers by delay; cancelling removes them. */
         val timers = mutableListOf<Pair<Long, () -> Unit>>()
+        /** Pending main-thread clock timers ([PodController.watch]) by delay; cancelling removes them. */
+        val mainTimers = mutableListOf<Pair<Long, () -> Unit>>()
         val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
             clock = { now }, marksScheduler = { delay, task ->
                 val timer = delay to task; timers += timer; { timers.remove(timer); Unit }
-            })
+            }, delayed = { delay, task -> val timer = delay to task; mainTimers += timer; { mainTimers.remove(timer); Unit } })
+        /** The main thread's clock reaches the next pending timer. */
+        fun tickMain() = mainTimers.removeAt(0).second()
         fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second() }
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
@@ -544,6 +548,25 @@ class PodControllerTest {
             return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, true), DraftableSet("BAD", "Broken set", "2026-09-01", 2, false, listOf("Odd Cub")),
                 DraftableSet("TWO", "Second set", "2026-08-01", 1, true, keyrune = "two"))
         }
+    }
+
+    // The pod screen's re-reads (backlog 2026-11-10): every 10 s on the main thread's clock, not a composition's frame
+    // clock, the first one interval from now, until stopped
+    @Test fun watchReadsAgainEveryTenSecondsOnTheMainClockUntilStopped() = Fixture().use { f ->
+        f.open()
+        val reads = f.api.reads
+        val stop = f.controller.watch("pod $id")
+        f.deliver()
+        assertEquals(listOf(10_000L), f.mainTimers.map { it.first })
+        assertEquals(reads, f.api.reads, "nothing read at once")
+        f.tickMain(); f.deliver()
+        assertEquals(reads + 1, f.api.reads)
+        f.api.saved = f.api.saved.copy(updatedAt = "2026-10-26T00:01:00Z")
+        f.tickMain(); f.deliver()
+        assertEquals(reads + 2, f.api.reads)
+        assertEquals("2026-10-26T00:01:00Z", f.controller.state.detail!!.updatedAt)
+        stop()
+        assertTrue(f.mainTimers.isEmpty(), "stopped")
     }
 
     // DRF-161, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card

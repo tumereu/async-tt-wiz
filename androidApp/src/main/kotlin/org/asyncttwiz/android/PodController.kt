@@ -69,7 +69,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** Saves head-pack marks on the server, outside the serialized queue so a pick never waits for them. */
     private val marksScheduler: PodMarksScheduler? = null,
     /** Where pod chat requests run, beside the serialized pod requests. */
-    chatWorker: ExecutorService = worker) : AutoCloseable {
+    chatWorker: ExecutorService = worker,
+    /** The main thread's clock [watch]'s re-reads run on: by default the main looper's handler. */
+    private val delayed: MainDelayed = mainLooperDelayed) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -80,6 +82,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** The pending refresh was asked for by the player (Retry), so its failure is reported at once. */
     private var refreshRequested = false
     private val quietFailures = QuietRefreshFailures(clock)
+    /** Why the pending refresh is [watch]'s re-read, if it is: its result is logged when it changes something. */
+    private var watchReason: String? = null
+    /** [watch]'s re-reads since one was last logged, and why they last failed (logged once per stretch of failures). */
+    private var quietReads = 0
+    private var watchFailing: String? = null
     private var cubesPending = false
     private var accepted: PodDetail? = null
     /** The tab [open] asked for, shown when the pod first loads. */
@@ -163,6 +170,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
 
     fun clear() {
         epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
+        watchReason = null; quietReads = 0; watchFailing = null
         quietFailures.succeeded()
         cubePreparation.reset()
         setPicker.clear()
@@ -216,6 +224,26 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun refresh(requested: Boolean = false) {
         if (!closed) { refreshPending = true; refreshRequested = refreshRequested || requested; pump() }
+    }
+    /**
+     * The pod list and the open pod read again every [everyMillis] on the main thread's clock, for [where] (the pod list, an
+     * open pod), until the returned closer is called; the first one interval from now. On the main thread's clock, not a
+     * composition's frame clock, which stands still in the e2e harness while nothing on the screen animates. A re-read that
+     * changes something is logged, with the quiet ones counted; failures stay quiet on the screen ([QuietRefreshFailures]).
+     */
+    fun watch(where: String, everyMillis: Long = 10_000): () -> Unit {
+        var active = true
+        AppLog.info("pods", "Re-read every ${everyMillis / 1000} s ($where)")
+        val cancel = repeatEvery(everyMillis, delayed) {
+            if (!closed) { watchReason = "every ${everyMillis / 1000} s, $where"; refresh() }
+        }
+        return {
+            if (active) {
+                active = false; cancel()
+                AppLog.info("pods", "Re-reads stopped ($where) after $quietReads quiet ones")
+                quietReads = 0
+            }
+        }
     }
     fun hint(hint: ActivityHint) {
         if (!hint.kind.isPodActivity()) return
@@ -751,6 +779,22 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         }
         return token
     }
+    /** [watch]'s re-read ([why]) logged when its [list] or [detail] differs from what is shown, else counted as quiet. */
+    private fun logWatched(why: String, list: PodList?, detail: PodDetail?) {
+        watchFailing = null
+        val listChanged = list != null && (list.pods != state.pods || list.invitations != state.invitations)
+        val shown = state.detail
+        val detailChanged = detail != null && (shown == null || detail.updatedAt != shown.updatedAt || detail.phase != shown.phase)
+        if (!listChanged && !detailChanged) { quietReads++; return }
+        val parts = listOfNotNull(
+            list?.takeIf { listChanged }?.let { "list changed: ${it.pods.size} pods (" +
+                it.pods.joinToString { pod -> "${pod.id} ${pod.phase} ${pod.attention} ${pod.packsWaiting} waiting" } +
+                "), ${it.invitations.size} invitations" },
+            detail?.takeIf { detailChanged }?.let { "pod ${it.id} changed: ${shown?.phase ?: "none"} → ${it.phase}, " +
+                "updated ${shown?.updatedAt ?: "–"} → ${it.updatedAt}, ${it.members.size} members" })
+        AppLog.info("pods", "Re-read ($why, after $quietReads quiet ones): ${parts.joinToString("; ")}")
+        quietReads = 0
+    }
     private fun pump() {
         val token = syncCredential()
         if (closed || active || state.uncertain || token == null) return
@@ -760,7 +804,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (write == null && !read && !readCubes) return
         active = true
         val requested = read && refreshRequested
-        if (read) { refreshPending = false; refreshRequested = false }
+        val watched = watchReason.takeIf { read }
+        if (read) { refreshPending = false; refreshRequested = false; watchReason = null }
         cubesPending = false
         val generation = epoch; val selected = state.selected
         // Nothing shown yet: ride out a short outage on the loading indicator instead of failing fast.
@@ -827,6 +872,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                             })
                         }
                     }
+                    if (watched != null) logWatched(watched, result.second, result.first)
                     result.second?.let { state = state.copy(pods = it.pods, invitations = it.invitations, loaded = true) }
                     result.third?.let { state = state.copy(cubes = it, cubesLoaded = true) }
                     result.first?.let(::applyDetail)
@@ -837,6 +883,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 } }
             } catch (failure: Exception) {
                 post { if (complete()) {
+                    if (watched != null) {
+                        val cause = (failure as? PodFailure)?.code ?: failure.javaClass.simpleName
+                        if (watchFailing != cause) AppLog.info("pods", "Re-read failed ($watched): $cause")
+                        watchFailing = cause
+                    }
                     if (write == null && !requested && !firstLoad && transientServiceFailure(failure)) {
                         // An automatic refresh of shown data: keep it and let the next poll retry.
                         state = state.copy(unreachable = quietFailures.failed())

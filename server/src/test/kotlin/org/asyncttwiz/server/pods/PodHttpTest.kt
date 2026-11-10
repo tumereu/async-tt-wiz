@@ -1498,6 +1498,41 @@ class PodHttpTest {
         assertEquals("Bonus Sheet Set", f.get(f.a, pod).source.setName)
     }
 
+    // DRF-161, DRF-162: a source chosen in setup replaces the support kept with the pod, the one Start draft reads (found
+    // building multiset drafting, 2026-11-10: setup's source change didn't write it): cube → set → cube → set
+    @Test fun `a source change in setup refreshes the support kept with the pod`() = fixture { f ->
+        fun stored(pod: String): CardListSupport? = f.db.connection().use { connection ->
+            connection.prepareStatement("select automatum_support from pod where id = ?").use { statement ->
+                statement.setObject(1, UUID.fromString(pod))
+                statement.executeQuery().use { rows -> assertTrue(rows.next()); rows.getString(1)?.let { json.decodeFromString<CardListSupport>(it) } }
+            }
+        }
+        // The support an earlier source left with the pod: one card Automatum can't play
+        fun keepUnsupported(pod: String) = f.db.connection().use { connection ->
+            connection.prepareStatement("update pod set automatum_support = ? where id = ?").use { statement ->
+                statement.setString(1, json.encodeToString(CardListSupport(1, listOf("Later Bear"))))
+                statement.setObject(2, UUID.fromString(pod)); statement.executeUpdate()
+            }
+        }
+        val pod = f.create().id
+        f.join(pod)
+        val cube = stored(pod)
+        assertEquals(true, cube?.supported, "the cube's support kept at creation")
+        fun choose(source: UpdatePod) {
+            keepUnsupported(pod)
+            f.send(f.a, "PUT", "/v1/pods/$pod", source)
+            assertEquals(true, stored(pod)?.supported, "$source replaces the kept support")
+        }
+        choose(UpdatePod(id(), setCode = "TST"))
+        assertEquals(PodSourceKind.SET, f.get(f.a, pod).source.kind)
+        choose(UpdatePod(id(), cubeId = f.cube.cube.id))
+        assertEquals(PodSourceKind.CUBE, f.get(f.a, pod).source.kind)
+        assertEquals(cube, stored(pod), "back to the cube: its support again")
+        choose(UpdatePod(id(), setCode = "TST"))
+        // Start draft reads the refreshed support: the draft starts
+        assertEquals(PodPhase.DRAFTING, f.start(pod).phase)
+    }
+
     private fun Fixture.chat(who: SessionCreated, pod: String, query: String = ""): PodChatPage {
         val response = request(who, "GET", "/v1/pods/$pod/chat$query")
         assertEquals(200, response.statusCode(), response.body())

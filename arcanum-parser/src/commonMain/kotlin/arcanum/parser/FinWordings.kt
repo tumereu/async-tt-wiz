@@ -22,6 +22,8 @@ internal object FinPhrases {
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
     private val ABILITIES_OR_SPELL = Regex("""activated ability, triggered ability, or (.+ spell)""")
+    // inr chunk 07: Overcharged Amalgam "spell, activated ability, or triggered ability"
+    private val SPELL_OR_ABILITIES = Regex("""(.*spell), activated ability, or triggered ability""")
     private val SUBTYPE_LIST_YOU_CONTROL = Regex("""([A-Z][a-z]+), ([A-Z][a-z]+), and(?:/or)? ([A-Z][a-z]+) you control""")
     /** A subtype written singular or plural ("Scouts", "Scout"); null when neither is a subtype. */
     private fun singular(word: String): String? = listOf(word, word.removeSuffix("s"), word.removeSuffix("es")).firstOrNull { it in RulesWords.subtypes }
@@ -46,6 +48,11 @@ internal object FinPhrases {
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
             val spell = Filters.noun(m.groupValues[1]) ?: return null
             return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
+        }
+        SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
+            fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
+            val spell = Filters.noun(m.groupValues[1]) ?: return null
+            return ObjectFilter.Or(listOf(spell, ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
         }
         // fin chunk 12: "attacking equipped creature" (CR 301.5c)
         if (phrase == "attacking equipped creature")
@@ -219,7 +226,7 @@ internal object Fin {
     val SHUFFLE_MILL_PUT_CREATURES_HASTE_RETURN = Regex("""Shuffle your library, then mill (\w+) cards\. Put each creature card milled this way onto the battlefield\. They gain haste\. At the beginning of the next end step, return those creatures to their owner's hand\.""")
     val ADD_ONLY_EQUIPMENT = Regex("""Add ((?:\{[WUBRGC]\})+)\. Spend this mana only to cast an Equipment spell or activate an equip ability\.""")
     val DEALS_DAMAGE_EQUAL_TO_DEFENDING = Regex("""(.+?) deals damage equal to (the number of .+?) to defending player\.""")
-    val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and X damage to that creature's controller\.""")
+    val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and (X|\d+) damage to (?:that creature's|its) controller\.""") // inr chunk 08: N, its
     val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
     val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
     val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
@@ -268,7 +275,10 @@ internal object Fin {
     val MAY_ATTACH_IF_YOU_DO_FIRST_STRIKE_LURE = Regex("""When (.+?) enters, you may attach it to target creature you control\. If you do, that creature gains first strike until end of turn and must be blocked this turn if able\.""")
     val PLAY_HIDEAWAY_IF_LEGENDS = Regex("""(.+?): You may play the exiled card without paying its mana cost if you control (\w+) or more legendary creatures\.""")
     val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
-    val MELD_AT_FIRST_MAIN = Regex("""At the beginning of your first main phase, if you both own and control (.+?) and a creature named (.+?), you may pay ((?:\{[^}]+\})+)\. If you do, exile them, then meld them into (.+)\.""")
+    /** A meld trigger: "At the beginning of <step>, if you both own and control X and a creature named Y, [you may pay {cost}. If you do, ]exile them, then meld them into Z." */
+    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if you both own and control (.+?) and a creature named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
+    /** A meld activated ability: "<cost>: If you both own and control X and a creature named Y, exile them, then meld them into Z." */
+    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and a creature named (.+?), exile them, then meld them into (.+)\.""")
     val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
     val COUNTER_ON_IT_FOR_EACH = Regex("""Put an? (\S+) counter on it for each (.+)\.""")
 }

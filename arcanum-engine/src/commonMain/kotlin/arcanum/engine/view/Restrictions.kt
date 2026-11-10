@@ -110,6 +110,7 @@ internal object Restrictions {
         Mechanic.CantBeRegenerated -> "Can't be regenerated"
         Mechanic.CantBeSacrificed -> "Can't be sacrificed"
         Mechanic.CantBeTurnedFaceUp -> "Can't be turned face up"
+        Mechanic.CantTransform -> "Can't transform"
         is Mechanic.CantBeTargeted -> "Can't be targeted by some spells or abilities"
         else -> null
     }

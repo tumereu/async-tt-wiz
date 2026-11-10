@@ -11,6 +11,7 @@ FIN Final Fantasy
 FRA Reality Fracture
 GTC Gatecrash
 HOB The Hobbit
+INR Innistrad Remastered
 LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
 MSH Marvel Super Heroes

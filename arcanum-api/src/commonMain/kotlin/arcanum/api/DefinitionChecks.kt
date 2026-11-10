@@ -61,6 +61,8 @@ object DefinitionChecks {
         "becomes-target" to setOf("object", "source"),
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
+        // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
+        "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
@@ -71,7 +73,7 @@ object DefinitionChecks {
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
-    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
+    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind") // inr chunk 08: payerBind
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
      * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */

@@ -25,12 +25,12 @@ internal object Gtc {
     val REVEAL_UNTIL_INTO_GRAVEYARD = Regex("""(Target player|target player|Each opponent|each opponent|That player|that player) reveals cards from the top of their library until they reveal (a|an|X|two|three|four|five) (.+?) cards?, then puts (?:those cards|all cards revealed this way) into their graveyard\.""")
     val ITS_CONTROLLER_LOSES = Regex("""Its controller loses (\d+) life\.""")
     val ADD_ADDITIONAL = Regex("""Add an additional (\{.\})\.""")
-    val TARGET_PLAYER_SACRIFICES = Regex("""Target player sacrifices (.+?) of their choice(?:, then gains life equal to that creature's (toughness))?\.""")
+    val TARGET_PLAYER_SACRIFICES = Regex("""Target player sacrifices (?!all )(.+?)(?: of their choice)?(?:, then gains life equal to that creature's (toughness))?\.""") // inr chunk 09: the player chooses either way, CR 701.21a
     val ITS_CONTROLLER_MILLS_EQUAL = Regex("""Its controller mills cards equal to that creature's (power|toughness)\.""")
     val EXILE_TOP_THEN_PUT_ONTO_BATTLEFIELD = Regex("""Exile the top (\w+) cards of (that player's|your) library, then put an? (.+?) card from among them onto the battlefield under your control\.""")
     val REMOVE_A_COUNTER_FROM = Regex("""Remove a counter from (target .+)\.""")
     val PLAYER_ACTIONS = Regex("""(Target player) ((?:[^,]+, )+)then (.+)\.""")
-    val UNTAP_THAT = Regex("""Untap (that creature|those creatures)\.""")
+    val UNTAP_THAT = Regex("""Untap (that creature|that permanent|those creatures)\.""") // inr chunk 09: that permanent
     val DEALS_N_DAMAGE = Regex("""(.+?) deals (\d+|X) damage to (.+)\.""")
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")
@@ -147,7 +147,7 @@ internal object Gtc {
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")
-    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has scavenge\. The scavenge cost is equal to its mana cost\.""")
+    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")
@@ -163,7 +163,7 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
-    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""Create an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with "(.+)"\.?""")
+    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""Create an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
     val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")
@@ -179,7 +179,7 @@ internal object Gtc {
     val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't) .+)\.""")
     val STATIC_PREDICATE_AND = Regex(""",? and (?=(?:has|have|gets?|can't|attacks?|its) )""")
     val HAVE_KEYWORDS = Regex("""(?:has|have) (.+)""")
-    val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets -X/-X, where X is the number of (.+?) cards? in its controller's graveyard\.""")
+    val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets -X/-(X|0), where X is the number of (?:(.+?) )?cards? in (its controller's|your) graveyard\.""")
     val GETS_FOR_EACH = Regex("""(.+) gets \+(\d+)/\+(\d+) for each (.+)\.""")
     val PREVENT_DAMAGE_TO_SELF_BY_BLOCKERS = Regex("""Prevent all combat damage that would be dealt to (.+) by creatures blocking it\.""")
     val BLOCKING_OR_BLOCKED_BY_HAVE = Regex("""Creatures blocking or blocked by (.+) have (.+)\.""")

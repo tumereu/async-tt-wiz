@@ -44,7 +44,7 @@ internal object Mh2 {
     val RETURN_N_TARGETS_TO_OWNERS_HANDS = Regex("""[Rr]eturn (two|three) target (.+?) to their (?:owners' hands|owner's hand)\.""")
     val EXILE_TARGET_PUT_TIME_COUNTERS_GAINS_SUSPEND = Regex("""Exile target (.+?) and put (\w+) time counters on it\. If it doesn't have suspend, it gains suspend\.""")
     val CREATE_FOR_EACH_COLOR_SPENT = Regex("""Create (an? .+? token(?: with .+?)?) for each color of mana spent to cast this spell\.""")
-    val THOSE_DONT_UNTAP_DURING_NEXT = Regex("""Those (\w+) don't untap during their controller's next untap step\.""")
+    val THOSE_DONT_UNTAP_DURING_NEXT = Regex("""(?:Those [\w ]+?|They) don't untap during their controller's next untap step\.""")
     val TARGET_BECOMES_LAND_TYPE_AS_LONG_AS_REMAINS = Regex("""[Tt]arget (\w+) becomes an? (\w+) for as long as (.+?) remains on the battlefield\.""")
     val AN_OPPONENT_CONTROLS_A = Regex("""an opponent controls an? (.+)""")
     // mh2 chunk 05

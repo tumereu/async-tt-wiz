@@ -115,7 +115,7 @@ data class TurnState(
  * they could see (723.4, 723.5), during [player]'s next turn, or only its combat phase when [combatOnly] (723.2).
  */
 @Serializable
-data class PlayerControl(val player: PlayerId, val controller: PlayerId, val combatOnly: Boolean = false)
+data class PlayerControl(val player: PlayerId, val controller: PlayerId, val combatOnly: Boolean = false, val thenExtraTurn: Boolean = false)
 
 /** Who has priority and how many players in a row have passed (CR 117, D57). Null holder: nobody (untap, cleanup). */
 @Serializable

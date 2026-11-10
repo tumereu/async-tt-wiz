@@ -390,6 +390,8 @@ sealed interface Mechanic {
     /** The affected face-down permanents can't be turned face up: neither by a special action (CR 116.2b, 701.40b) nor by an
      * effect. */
     @Serializable @SerialName("cant-be-turned-face-up") data object CantBeTurnedFaceUp : Mechanic
+    /** The affected permanents can't transform (and so can't convert) by any effect or by day and night (CR 701.27, 701.28f, 101.2). */
+    @Serializable @SerialName("cant-transform") data object CantTransform : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
      * are [CantCast]. */
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
@@ -398,6 +400,12 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-cast") data class CantCast(val spells: ObjectFilter) : Mechanic
     /** The affected permanents can't be sacrificed. */
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
+    // inr chunk 09
+    /** The affected permanents can't be sacrificed because of a spell or ability whose controller matches [controllers], seen
+     * from this ability's controller (Sigarda, Host of Herons: "Spells and abilities your opponents control can't cause you to
+     * sacrifice permanents" is [PlayerFilter.Opponent] on the permanents you control). A permanent that can't be sacrificed
+     * isn't (CR 701.21a); costs of its controller's own spells and abilities aren't caused by an opponent. */
+    @Serializable @SerialName("cant-be-sacrificed-by") data class CantBeSacrificedBy(val controllers: PlayerFilter) : Mechanic
     /** The affected players can't draw more than [count] cards each turn. */
     @Serializable @SerialName("max-draws") data class MaxDrawsPerTurn(val count: Int) : Mechanic
     /** [count] additional land plays each turn; null: any number (CR 305.2). */

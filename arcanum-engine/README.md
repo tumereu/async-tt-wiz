@@ -485,7 +485,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   tapped for a crew or saddle cost recorded with the permanent they paid for (`Meaning.PaidFor.source`, the event's source role: "that Mount
   or Vehicle"), attacking while saddled, activations recorded with their ability's label ("whenever you activate an exhaust ability") and
   exhaust abilities activated again while `Mechanic.AsThoughNotActivated` applies, speed read (`Value.Speed`) and reduced, the X of a
-  cycling {X} kept on the discard (`Meaning.CostX`) for "when you cycle this card" (`Value.EventX`), planeswalkers that can't be attacked,
+  cycling {X} kept on the discard (`Meaning.CostX`) for "when you cycle this card" (`Value.EventX`; the X of a morph or disguise cost
+  likewise on turning face up, CR 702.37f, 702.168e), planeswalkers that can't be attacked,
   and creature cards with no abilities.
 - Done, Edge of Eternities (scenarios in `commonTest/…/sets/eoe/`): all 261 cards play. Warp (from the hand only, unless a permission
   says so: cast from the graveyard, or a warp another permanent gives the spell, which the spell keeps once cast), the warped card's

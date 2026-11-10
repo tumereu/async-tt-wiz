@@ -2207,6 +2207,9 @@ internal class Sentences(
         // X in "when this creature becomes monstrous" is the X as it became monstrous (CR 701.37c)
         if ((trigger.events.singleOrNull() as? EventPattern.GotMark)?.mark == arcanum.api.ObjectMark.Monstrous && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.EventX)
+        // X in "when this creature is turned face up" is the X of the morph or disguise cost it was turned up for (CR 702.37f, 702.168e)
+        if (trigger.events == listOf(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))) && !rest.contains("where X is"))
+            instructions = instructions?.withX(Value.EventX)
         if (instructions == null) return null
         // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
         // zone the ability works in (CR 113.6b)

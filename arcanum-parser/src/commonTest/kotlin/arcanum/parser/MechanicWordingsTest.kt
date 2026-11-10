@@ -390,6 +390,23 @@ class MechanicWordingsTest {
     ) parsesTo abilities(Ability.Triggered(Trigger.On(EventPattern.RingTempts(PlayerFilter.You, chosen = true)), Instructions(steps = listOf(
         Step.Do(Effect.PutCounters(Objects.EventObject(EventRole.Object), arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))))
 
+    // CR 702.37f, 702.168e: X in "When this creature is turned face up" is the X of the morph or disguise cost it was turned up for
+    @Test
+    fun xWhenTurnedFaceUpIsTheCostsX() = card(
+        name = "Veiled Tally Witness",
+        cost = "{3}{W}",
+        type = "Creature — Human Detective",
+        pt = "3/4",
+        text = """
+            Disguise {X}{3}{W}
+            When this creature is turned face up, you gain X life.
+        """.trimIndent(),
+    ) parsesTo abilities(
+        arcanum.api.Keyword.Disguise(arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{X}{3}{W}")!!)),
+        Ability.Triggered(Trigger.On(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
+            Step.Do(Effect.GainLife(arcanum.api.Players.You, Value.EventX))))),
+    )
+
     // CR 701.54e: "your Ring-bearer" as the affected object of a static ability, a trigger's subject and an effect's object
     @Test
     fun yourRingBearerAsAnObject() = card(

@@ -32,7 +32,6 @@ Needs discussion, owner thinking (2026-11-09):
 
 Arcanum by-hand leftovers and face-down gaps, found building special actions (2026-11-09):
 
-- X of a morph or disguise cost isn't kept for that permanent's later abilities (CR 702.37f, 702.168e; Bane of the Living's shape: `Payment.finishSpecialAction`'s names end with the action, so a turned-up trigger reads X as 0). Found by reading, not run; the parser doesn't read that trigger's wording yet, so no supported card plays it wrong. Write a test first.
 - A manifested or cloaked instant or sorcery card that an effect would turn face up is revealed and stays face down, with no turned-face-up trigger (CR 701.40g, 701.58g): `Effect.TurnFaceUp` turns it up.
 - A permanent cast disguised, turned face up and later turned face down again keeps ward {2} (CR 708.2a: a plain 2/2): `Copiable.faceDown` reads the cast's `facts.alternative`, which stays. Found by reading; write a test first.
 

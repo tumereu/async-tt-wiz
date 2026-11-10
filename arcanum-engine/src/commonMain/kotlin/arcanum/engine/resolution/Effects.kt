@@ -204,7 +204,9 @@ internal object Effects {
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
                 // CR 708.8: turned face up, everyone sees it (D60)
                 act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
-                act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
+                // CR 702.37f, 702.168e: the X of the cost it was turned up for, read by its turned-face-up abilities
+                val x = effect.x?.let { Meaning.CostX(scope.value(it)) }
+                act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOfNotNull(Meaning.TurnedFaceUp, x)))
                 // CR 701.40a, 701.58a: what lasts only while it is face down ends
                 o.marks.filter { arcanum.api.MarkClear.TurnedFaceUp in arcanum.api.MarkRules.of(it).clears }.forEach { Actions.tapStatus(act, id, StatusFlag.Marked(it), false) }
                 // CR 613.7f: it gets a new timestamp

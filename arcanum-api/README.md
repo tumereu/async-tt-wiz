@@ -202,7 +202,8 @@ The definition model (overview in `Definitions.kt`):
   `Mechanic.UsesToughnessFor`, plus `Mechanic.PowerGreaterFor` for "as though its power were 2 greater"); `EventPattern.Tap` with
   `forCost` of crew or saddle has the source role (the Vehicle or Mount, "whenever this creature saddles a Mount or crews a Vehicle");
   `EventPattern.Activate.label` ("whenever you activate an exhaust ability"); `Mechanic.AsThoughNotActivated` (CR 702.177b);
-  `Value.Speed` and `Effect.ReduceSpeed` (CR 702.179); `Value.EventX` (the X of a cycling {X} in "when you cycle this card", CR 107.3a);
+  `Value.Speed` and `Effect.ReduceSpeed` (CR 702.179); `Value.EventX` (the X of a cycling {X} in "when you cycle this card", CR 107.3a; also the X a morph or disguise cost was paid with
+  in "when this creature is turned face up", `Effect.TurnFaceUp.x`, CR 702.37f, 702.168e);
   `Mechanic.CantBeAttacked` (CR 508.1b) and `ObjectFilter.NoAbilities` (CR 113.1).
 - Engine lane 4 (2026-11-03): `Mechanic.BlockCost` ("creatures can't block unless their controller pays …", CR 509.1d), beside
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`

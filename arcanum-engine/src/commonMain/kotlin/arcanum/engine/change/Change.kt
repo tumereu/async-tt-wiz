@@ -527,7 +527,8 @@ sealed interface Meaning {
     @Serializable @SerialName("cycled") data object Cycled : Meaning
     // dft
     /** Done to pay the cost of an ability whose X was announced as [x] ("Cycling {X}{2}{W}", read by "When you cycle this card, create X tokens"),
-     * or becoming monstrous by "monstrosity [x]" (read by "When this creature becomes monstrous, create X tokens", CR 701.37c). */
+     * becoming monstrous by "monstrosity [x]" (read by "When this creature becomes monstrous, create X tokens", CR 701.37c), or turned
+     * face up for a morph or disguise cost with X = [x] ("When this creature is turned face up, create X tokens", CR 702.37f, 702.168e). */
     @Serializable @SerialName("cost-x") data class CostX(val x: Int) : Meaning
     @Serializable @SerialName("drew") data object Drew : Meaning
     @Serializable @SerialName("milled") data object Milled : Meaning

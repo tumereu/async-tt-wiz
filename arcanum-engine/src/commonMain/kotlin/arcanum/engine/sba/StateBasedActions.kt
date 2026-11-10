@@ -24,6 +24,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.query.Context
+import arcanum.engine.state.PlayerId
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.TargetRef
 
@@ -223,24 +224,33 @@ internal object StateBasedActions {
         val o = act.state.objOrThrow(id)
         val host = o.attachedTo ?: return false
         val view = act.view()
-        val enchant = view[id]?.mechanics.orEmpty().mapNotNull { a -> (a.mechanic as? Mechanic.CanEnchant)?.let { it to a } }
-        val e = act.evaluator(Context(view[id]?.controller ?: o.owner, id))
+        val enchant = view[id]?.mechanics.orEmpty().mapNotNull { a -> (a.mechanic as? Mechanic.CanEnchant)?.what }
+        return canEnchant(act, id, view[id]?.controller ?: o.owner, enchant, host)
+    }
+
+    /**
+     * CR 303.4d, 303.4f, 704.5m: whether Aura [aura], controlled by [controller] and with enchant abilities allowing
+     * [enchant], can be attached to [host]: a permanent other than itself or a player still in the game, each of [enchant]
+     * allowing it, without protection from the Aura (CR 702.16c). Also asked of an Aura about to enter (CR 303.4f, i).
+     */
+    internal fun canEnchant(act: Act, aura: ObjectId, controller: PlayerId, enchant: List<TargetKind>, host: TargetRef): Boolean {
+        val e = act.evaluator(Context(controller, aura))
         return when (host) {
-            is TargetRef.Object -> act.state.obj(host.id)?.zone == Zone.Battlefield && host.id != id && enchant.all { (m, _) ->
-                when (val what = m.what) {
+            is TargetRef.Object -> act.state.obj(host.id)?.zone == Zone.Battlefield && host.id != aura && enchant.all { what ->
+                when (what) {
                     is TargetKind.Objects -> e.matches(what.filter, host.id)
                     is TargetKind.Either -> e.matches(what.objects, host.id)
                     is TargetKind.Players -> false
                 }
             }
-            is TargetRef.Player -> !act.state.player(host.id).lost && enchant.all { (m, _) ->
-                when (val what = m.what) {
+            is TargetRef.Player -> !act.state.player(host.id).lost && enchant.all { what ->
+                when (what) {
                     is TargetKind.Players -> e.matches(what.filter, host.id)
                     is TargetKind.Either -> e.matches(what.players, host.id)
                     is TargetKind.Objects -> false
                 }
             }
-        } && !protectedFrom(act, host, id)
+        } && !protectedFrom(act, host, aura)
     }
 
     /** CR 702.16c, d: a permanent or player with protection can't be enchanted by an Aura, or equipped or fortified by

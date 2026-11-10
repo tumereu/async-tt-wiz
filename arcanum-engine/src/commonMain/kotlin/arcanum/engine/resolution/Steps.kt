@@ -373,7 +373,31 @@ internal object Steps {
             }
         } else {
             if (!step.mandatory && !act.yesNo(payer, scope.self, mayText(scope, step))) PayOutcome.Declined
-            else { withActor(scope, payer) { run(scope, step.steps) }; PayOutcome.Paid }
+            else {
+                val mark = act.recorder.changes.size
+                val chosenBefore = step.steps.filterIsInstance<Step.Choose>().associate { it.bind to scope.names[it.bind] }
+                withActor(scope, payer) { run(scope, step.steps) }
+                // CR 608.2c: "if you do" asks whether the action was performed, not whether it was chosen: steps that made no
+                // event (what they move or sacrifice is gone, an empty library to draw from) and chose nothing weren't done
+                if (didSomething(act, mark) || choseSomething(scope, chosenBefore)) PayOutcome.Paid else PayOutcome.CouldNotPay
+            }
+        }
+    }
+
+    /** Whether the changes recorded since [mark] include an event (D33: an object moved, created, tapped or given
+     * counters, damage, life, an effect, a reveal, a search, …), not only bookkeeping: an action was performed (CR 608.2c). */
+    private fun didSomething(act: Act, mark: Int): Boolean =
+        act.recorder.changes.subList(mark.coerceAtMost(act.recorder.changes.size), act.recorder.changes.size).any { it.isEvent }
+
+    /** Whether a choice whose names had the values [before] chose something ("You may choose a nonland card from it. If you do, …": the
+     * choosing is the action, CR 608.2c). */
+    private fun choseSomething(scope: Scope, before: Map<String, NamedValue?>): Boolean = before.any { (bind, was) ->
+        when (val v = scope.names[bind]) {
+            null, was -> false
+            is NamedValue.Objects -> v.ids.isNotEmpty()
+            is NamedValue.Players -> v.ids.isNotEmpty()
+            is NamedValue.Targets -> v.refs.isNotEmpty()
+            else -> true
         }
     }
 

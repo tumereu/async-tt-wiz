@@ -49,12 +49,11 @@ class B2DeckIntegrationTest {
     private class DeckServer(var saved: SavedDeck, val definitions: List<SubmittedDefinition>) : Decks {
         var creates = 0
         override suspend fun create(token: String, value: CreateDeck): SavedDeck {
-            creates++; saved = SavedDeck(saved.deck.copy(name = value.name), value.entries.map { SavedDeckEntry(it.section, definitions.single().digest, it.quantity) })
+            creates++; saved = SavedDeck(saved.deck.copy(name = value.name), value.entries.map { SavedDeckEntry(it.section, it.printingId, "Retained text", it.quantity) })
             return saved
         }
         override suspend fun list(token: String, after: String?) = DeckList(listOf(saved.deck))
         override suspend fun read(token: String, id: String) = saved
-        override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { digest -> definitions.single { it.digest == digest } }
         override suspend fun update(token: String, id: String, value: UpdateDeck) = saved
         override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
         override fun close() = Unit
@@ -64,16 +63,18 @@ class B2DeckIntegrationTest {
     @Test fun acceptedImportOpensRetainedDefinitionAndSyncKeepsTheDraftName() {
         val worker = Worker()
         val plan = DeckSave.from(resolved, summary.name)
-        val entries = plan.entries.map { SavedDeckEntry(it.section, plan.cards.single().digest, it.quantity) }
+        val entries = plan.entries.map { SavedDeckEntry(it.section, it.printingId, "Retained text", it.quantity) }
         val server = DeckServer(SavedDeck(summary, entries), plan.cards)
         val library = DeckLibraryController(server, { "token" }, worker) { it() }
+        // The saved deck's card comes from the card records by printing (owner 2026-11-10)
+        library.cardRecords = SavedCardRecords { ids -> SavedCardFaces(mapOf(printing.id to listOf(printing)).filterKeys { it in ids }, resolved.catalog) }
         val importer = DeckImportController({ resolved }, worker) { it() }
         importer.connectSave({ { input -> runBlocking { server.create("token", input.create()) } } }, { library.open(it.deck.id) })
         importer.open(); importer.edit(resolved.text); importer.lookup(); worker.drain()
         importer.review(); importer.name(summary.name); importer.save(); worker.drain()
         assertFalse(importer.state.active)
         assertEquals(1, server.creates)
-        val digest = entries.single().definition
+        val digest = entries.single().card
         assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
         val captured = InspectedCard.retained(library.state.detail!!.definitions.getValue(digest))
         assertEquals("Exact  text 🧙", captured.definition.faces.single().rulesText)
@@ -92,7 +93,7 @@ class B2DeckIntegrationTest {
     @Test fun explicitLogoutFencesCompletedImportAndLibraryCallbacksTogether() {
         val authWorker = Worker(); val deckWorker = Worker(); val posts = ArrayDeque<() -> Unit>()
         val plan = DeckSave.from(resolved, summary.name)
-        val server = DeckServer(SavedDeck(summary, plan.entries.map { SavedDeckEntry(it.section, plan.cards.single().digest, it.quantity) }), plan.cards)
+        val server = DeckServer(SavedDeck(summary, plan.entries.map { SavedDeckEntry(it.section, it.printingId, "Retained text", it.quantity) }), plan.cards)
         val importer = DeckImportController({ resolved }, deckWorker) { posts.add(it) }
         lateinit var library: DeckLibraryController
         val store = Store()

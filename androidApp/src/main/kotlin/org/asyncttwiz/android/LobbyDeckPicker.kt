@@ -13,7 +13,10 @@ data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> =
  * ready. Main thread; reads run on [worker]. */
 internal class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?, private val credential: () -> String?,
     private val accountId: () -> String?, private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
-    private val session: GameSession?, private val queue: LobbyActionQueue) {
+    private val session: GameSession?, private val queue: LobbyActionQueue,
+    /** The phone's card records, which a chosen deck's cards are built from (owner 2026-11-10). */
+    private val records: () -> SavedCardRecords = { SavedCardRecords.NONE }) {
+    private val cardRecords get() = records()
     private var state: LobbyState
         get() = scope.state
         set(value) { scope.state = value }
@@ -85,11 +88,9 @@ internal class LobbyDeckPicker(private val scope: LobbyScope, private val deckAp
                 val saved = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.read(token, source.id) }
                 if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
                 if (generation != epoch || version != pickerVersion) return@runBlocking null
-                // Owner playtest 2026-11-06: the cards' data in one request, not one per card (the deck service's limit)
-                val definitions = serviceRetry(current = { generation == epoch && version == pickerVersion }) {
-                    api.definitions(token, source.id, saved.entries.map { it.definition })
-                }
-                saved to definitions
+                // Its cards built from the card records by printing, as the server builds them (owner 2026-11-10)
+                val cards = saved.cards()
+                saved to cardRecords.read(cards.mapNotNull { it.printingId }).submitted(cards)
             } }
             fun current() = !closed && generation == epoch && version == pickerVersion && state.picker != null
             fun failed(failure: Throwable?) = state.picker?.let { current ->

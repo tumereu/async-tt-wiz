@@ -30,9 +30,7 @@ class DeckEditorUiTest {
             ScreenTheme { Surface(Modifier.fillMaxSize()) {
                 if (fixture.importer.state.active) DeckImportScreen(fixture.importer, false, null, null)
                 else SavedDeckScreen(fixture.library, null) {
-                    fixture.importer.openEditor(it)
-                    fixture.importer.seed(fixture.importer.state.copy(busy = false,
-                        result = DeckEditorSource(it).resolve(fixture.importer.state.text) { error("No new cards") }))
+                    fixture.editDeck(it)
                 }
             } }
         }

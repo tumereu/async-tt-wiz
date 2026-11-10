@@ -45,12 +45,12 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                 // LOB-058 (owner playtest 2026-11-09): listed alphabetically
                 controller.coverCards.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.definition.name }).forEach { card ->
                     val face = card.definition.faces.first()
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { controller.cover(card.digest) }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { card.printing?.let(controller::cover) }
                         .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), card.definition.name, 28.dp, 40.dp)
                         Text(card.definition.name, Modifier.weight(1f))
-                        if (controller.currentCover?.definition == card.digest) EntryIcon("Selected cover", "ready")
+                        if (controller.currentCover?.definition == card.printing) EntryIcon("Selected cover", "ready")
                     }
                     HorizontalDivider()
                 }

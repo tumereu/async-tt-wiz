@@ -37,6 +37,31 @@ class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: 
     /** What a pod from [set] keeps as its source's Automatum support (I-D52), from the catalog's marks. */
     fun support(set: CatalogSetRecord) = CardListSupport(catalog.header.parserVersion, set.unsupported, catalog.header.engineVersion)
 
+    /** LOB-124 (I-D51): whether Automatum plays the card of printing [printingId] fully, by the catalog's mark of its card
+     * (SYS-082), the mark the app reads: a token, a printing the catalog doesn't have, or none (null) isn't. */
+    fun supported(printingId: String?): Boolean =
+        printingId?.let { catalog.printing[it] }?.let { !it.token && catalog.faces[it.face].automatum } == true
+
+    /** LOB-124: the support of a deck's or cube's [cards] (each its printing id, or null for a card without one, and its
+     * name): the names of those not [supported], each once, sorted. */
+    fun support(cards: Collection<Pair<String?, String>>): CardListSupport = CardListSupport(catalog.header.parserVersion,
+        cards.filterNot { supported(it.first) }.map { it.second }.distinct().sorted(), catalog.header.engineVersion)
+
+    /** Owner 2026-11-10 (card data from the server's catalog, step 4): the printing a saved card named [name] (case
+     * ignored) is found again by when its own printing is missing: the front face of a card of that name, not a token,
+     * preferring a paper, not promo printing, then the newest set, the lowest collector number, the id; null when the
+     * catalog has no card of that name. */
+    fun printingNamed(name: String): String? = byName[name.lowercase()]
+
+    private val byName: Map<String, String> by lazy {
+        val order = compareBy<CatalogPrintingRecord>({ it.promo }, { it.onlineOnly || "paper" !in it.availability })
+            .thenByDescending { catalog.set[it.set]?.released.orEmpty() }
+            .thenBy { it.number.toIntOrNull() ?: Int.MAX_VALUE }.thenBy { it.number }.thenBy { it.id }
+        catalog.printings.filter { !it.token && catalog.faces[it.face].side.let { side -> side == "" || side == "a" } }
+            .groupBy { CatalogCards.cardName(catalog.faces[it.face]).lowercase() }
+            .mapValues { (_, printings) -> printings.minWith(order).id }
+    }
+
     /** The gzip file of catalog [checksum] in this directory (the current one or the one kept before it), or null. */
     fun file(checksum: String): File? = ServerCatalogs.file(directory, checksum)
 
@@ -102,9 +127,11 @@ object ServerCatalogs {
         return loaded
     }
 
-    /** Reads the catalog in the background at start, so the first request doesn't wait for it. */
-    @JvmStatic fun preload() {
-        Thread({ current() }, "card-catalog-load").apply { isDaemon = true }.start()
+    /** Reads the catalog in the background at start, so the first request doesn't wait for it; then finds the saved
+     * cards whose printing it lacks again by name ([org.asyncttwiz.server.decks.SavedPrintings]). */
+    @JvmStatic fun preload(runtime: org.asyncttwiz.server.ServiceRuntime) {
+        Thread({ current()?.let { org.asyncttwiz.server.decks.SavedPrintings.afterLoad(runtime, it) } }, "card-catalog-load")
+            .apply { isDaemon = true }.start()
     }
 
     private fun load(): ServerCatalog? {

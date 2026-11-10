@@ -41,9 +41,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/decks" || path == "/v1/cubes" -> "GET, POST"
                 parts.size == 2 -> "GET, PUT, DELETE"
-                parts.size == 3 && parts[2] == "definitions" -> "POST"
                 !cube && parts.size == 3 && parts[2] == "copy" -> "POST"
-                parts.size == 3 && parts[2] == "automatum" -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
@@ -52,20 +50,13 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val result = when {
                 request.method in listOf("POST", "PUT", "DELETE") -> {
                     val text = body(request, response) ?: return true
-                    if (parts.size == 3 && parts[2] == "automatum") {
-                        val input = json.decodeFromString<SetCardListSupport>(text)
-                        if (cube) cubes.setSupport(principal, parts[1], input) else decks.setSupport(principal, parts[1], input)
-                    }
-                    else if (cube) when (request.method) {
+                    if (cube) when (request.method) {
                         "PUT" -> cubes.update(principal, parts[1], json.decodeFromString<UpdateCube>(text))
                         "DELETE" -> cubes.delete(principal, parts[1], json.decodeFromString<DeleteCube>(text))
-                        else -> if (parts.size == 3) cubes.definitions(principal, parts[1], json.decodeFromString<ReadCubeDefinitions>(text))
-                            else cubes.create(principal, json.decodeFromString<CreateCube>(text))
+                        else -> cubes.create(principal, json.decodeFromString<CreateCube>(text))
                     }
                     else if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
                     else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))
-                    else if (parts.size == 3 && parts[2] == "definitions")
-                        decks.definitions(principal, parts[1], json.decodeFromString<ReadCubeDefinitions>(text))
                     else if (parts.size == 3) decks.copy(principal, parts[1], json.decodeFromString<CopyDeck>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))
                 }

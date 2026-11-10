@@ -100,15 +100,12 @@ class CardListEditsTest {
         assertTrue(shown.spanStyles.all { it.item.color == red && it.item.textDecoration == androidx.compose.ui.text.style.TextDecoration.Underline })
     }
 
-    // LOB-059: the Text tab shows a Cards tab edit in the same shape an existing list opens with.
+    // LOB-059: the Text tab shows a Cards tab edit in the same shape an existing list opens with (the same rewrite); a card
+    // without a printing is its name alone (SYS-084)
     @Test fun textRewriteMatchesTheEditorSourceShape() {
-        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune", "Rune Bear", sourceData = "{\"setCode\":\"TST\",\"number\":\"7\"}")))
-        val digest = DeckJson.digest(card)
-        val detail = DeckDetail(SavedDeck(DeckSummary("d", "Deck", "1", "now", 2, 0),
-            listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, digest, 2))), mapOf(digest to card))
-        val source = DeckEditorSource(detail)
-        val resolved = source.resolve(source.text) { error("No lookup") }
-        assertEquals(source.text, CardListEdits.text(CardListKind.DECK, resolved.entries))
+        val faces = SavedCardFaces(emptyMap(), null)
+        assertEquals("Deck\n2 Lost Bear\nSideboard", CardListEdits.text(CardListKind.DECK,
+            faces.entries(listOf(SavedCard(SavedDeckSection.MAINBOARD, null, "Lost Bear", 2)))))
         assertEquals("Deck\n2 Rune Bear (TST) 1\nSideboard\nMaybeboard\n1 Rune Bolt (TST) 1",
             CardListEdits.text(CardListKind.DECK, listOf(entry("Rune Bear", 2), entry("Rune Bolt", 1, DeckSection.MAYBEBOARD))))
         assertEquals("Deck\n2 Rune Bear (TST) 1", CardListEdits.text(CardListKind.CUBE, listOf(entry("Rune Bear", 2))))
@@ -151,12 +148,14 @@ class CardListEditsTest {
 
     // DRF-141
     @Test fun preparedCubeMovesJoinTheOtherSection() {
-        val cube = PodCube("Runes", listOf(SavedCubeEntry("a", 2), SavedCubeEntry("b", 1, SavedDeckSection.MAYBEBOARD)))
+        fun entry(digest: String, quantity: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD) =
+            PodCubeEntry(digest, "printing-$digest", "Card $digest", quantity, section)
+        val cube = PodCube("Runes", listOf(entry("a", 2), entry("b", 1, SavedDeckSection.MAYBEBOARD)))
         val moved = cube.moved(PodCubeMove("a", SavedDeckSection.MAINBOARD, 1))!!
-        assertEquals(listOf(SavedCubeEntry("a", 1), SavedCubeEntry("b", 1, SavedDeckSection.MAYBEBOARD),
-            SavedCubeEntry("a", 1, SavedDeckSection.MAYBEBOARD)), moved.entries)
+        assertEquals(listOf(entry("a", 1), entry("b", 1, SavedDeckSection.MAYBEBOARD),
+            entry("a", 1, SavedDeckSection.MAYBEBOARD)), moved.entries)
         val back = moved.moved(PodCubeMove("a", SavedDeckSection.MAINBOARD, 1).inverse())!!
-        assertEquals(listOf(SavedCubeEntry("a", 2), SavedCubeEntry("b", 1, SavedDeckSection.MAYBEBOARD)), back.entries)
+        assertEquals(listOf(entry("a", 2), entry("b", 1, SavedDeckSection.MAYBEBOARD)), back.entries)
         assertNull(cube.moved(PodCubeMove("b", SavedDeckSection.MAYBEBOARD, 2)))
     }
 

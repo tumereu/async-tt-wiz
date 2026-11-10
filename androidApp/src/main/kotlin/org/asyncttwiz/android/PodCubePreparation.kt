@@ -15,6 +15,7 @@ data class PodCubeMove(val definition: String, val from: SavedDeckSection, val q
     fun inverse() = PodCubeMove(definition, to, quantity)
 }
 
+/** [definitions]: the prepared cube's cards by digest, built from the card records by printing (owner 2026-11-10). */
 data class PodCubePreparationState(val pod: String? = null, val cube: PodCube? = null,
     val definitions: Map<String, CardDefinition> = emptyMap(), val loading: Boolean = false, val error: String? = null,
     val feedback: TransferFeedback? = null, val undo: List<PodCubeMove> = emptyList(),
@@ -32,7 +33,7 @@ internal fun PodCube.moved(move: PodCubeMove): PodCube? {
         if (it !== source) it else it.copy(quantity = it.quantity - move.quantity).takeIf { left -> left.quantity > 0 }
     }.toMutableList()
     val target = result.indexOfFirst { it.definition == move.definition && it.section == move.to }
-    if (target < 0) result += SavedCubeEntry(move.definition, move.quantity, move.to)
+    if (target < 0) result += source.copy(quantity = move.quantity, section = move.to)
     else result[target] = result[target].copy(quantity = result[target].quantity + move.quantity)
     return copy(entries = result)
 }
@@ -50,6 +51,8 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     companion object { const val RECONNECT_MILLIS = 5_000L }
     var state by mutableStateOf(PodCubePreparationState())
         private set
+    /** The phone's card records, which the prepared cube's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords = SavedCardRecords.NONE
     @Volatile private var epoch = 0L
     private var inFlight = 0
     private var serial = 0L
@@ -64,10 +67,9 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
             if (generation != epoch) return@execute
             val outcome = runCatching { runBlocking {
                 val cube = serviceRetry(current = { generation == epoch }) { api.cube(token, pod) }
-                val definitions = cube.entries.map { it.definition }.distinct().chunked(CubeValidation.MAX_DEFINITIONS_PER_READ)
-                    .flatMap { batch -> serviceRetry(current = { generation == epoch }) {
-                        api.cubeDefinitions(token, pod, ReadCubeDefinitions(batch)) }.definitions }
-                cube to definitions.associate { it.digest to it.definition }
+                val faces = cardRecords.read(cube.entries.mapNotNull { it.printingId })
+                cube to cube.entries.distinctBy { it.definition }.associate { entry ->
+                    entry.definition to faces.definition(SavedCard(entry.section, entry.printingId, entry.name, entry.quantity)) }
             } }
             post {
                 if (generation != epoch) return@post

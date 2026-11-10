@@ -190,9 +190,9 @@ class RequestCostTest {
                         "game open: subscribe" to 28, "game open: head refresh" to 9, "GET /v1/games/{id}/head" to 7, "GET /v1/pods/{id}" to 10,
                         // The games list reads its change token first (switch-review #11), and its summaries in two queries
                         // whatever the number of games (one per game before, and each play's row decoded)
-                        "GET /v1/games" to 8, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15,
-                        // Its card data in one statement, its rows in another (one per row before)
-                        "PUT /v1/decks/{id}" to 13)
+                        "GET /v1/games" to 8, "GET /v1/pods" to 8, "GET /v1/decks" to 6, "GET /activity" to 15,
+                        // Its rows in one statement (one per row before); no card data is stored (owner 2026-11-10)
+                        "PUT /v1/decks/{id}" to 11)
                     for ((name, trips) in expected) assertEquals(List(10) { trips }, samples.getValue(name).map { it.work }, name)
                     // Requests never touch the ownership session: only its own 500 ms check does, far fewer times.
                     val requests = samples.values.sumOf { it.size }

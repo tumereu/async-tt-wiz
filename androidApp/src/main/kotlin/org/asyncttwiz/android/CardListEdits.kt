@@ -101,8 +101,8 @@ internal object CardListEdits {
         return result
     }
 
-    /** The list as text in the editor's syntax, shaped like the text an existing list opens with
-     * (DeckEditorSource, CubeEditorSource): "Deck", a deck's "Sideboard", then "Maybeboard" only when it has cards. */
+    /** The list as text in the editor's syntax, also the text an existing list opens with: "Deck", a deck's "Sideboard",
+     * then "Maybeboard" only when it has cards; a card without a printing is its name alone. */
     fun text(kind: CardListKind, entries: List<ResolvedDeckEntry>): String = kind.sections.mapNotNull { section ->
         val lines = entries.filter { it.section == section }.map { entry ->
             val printing = entry.printing

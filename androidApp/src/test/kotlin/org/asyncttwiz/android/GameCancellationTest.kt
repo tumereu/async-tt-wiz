@@ -53,10 +53,10 @@ class GameCancellationTest {
     }
     @Test fun remoteCancellationClearsPreparationAndUnsentTransferTailButKeepsAdmittedOriginals() {
         val f = Fixture(); f.connect()
-        val definition = CardDefinition("Card", listOf(DefinitionFace(id(), "Face")))
+        val definition = CardDefinition("Card", listOf(DefinitionFace(id(), "Face")), printingId = id())
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val source = SavedDeck(DeckSummary(id(), "Source", "1", game.createdAt, 600, 0), listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 600)))
+            savedEntry(SavedDeckSection.MAINBOARD, definition, 600)))
         val base = PreparationRules.select(game, PreparationRules.empty(game), owner.accountId, id(), GameScope(game.id, game.preparationRound),
             GameAction.SelectDeck(source.deck.id, source.deck.revision), source, listOf(submitted)).state!!
         f.message(GameHead(game.id, "0", game, preparation = base))

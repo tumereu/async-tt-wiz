@@ -53,7 +53,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val refresher: LobbyRefresh = LobbyRefresh(scope, api, credential, worker, post, session, clock)
     private val contactBook: LobbyContacts = LobbyContacts(scope, api, credential, worker, post, refresher::fence, ::begin)
     private val invitations: LobbyInvitations = LobbyInvitations(scope, api, credential, accountId, worker, post, session, queue, suggest)
-    private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
+    /** The phone's card records, which a chosen deck's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords = SavedCardRecords.NONE
+    private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue) { cardRecords }
     private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     /** Game history: records of the account, a game and a pod (read on demand). */

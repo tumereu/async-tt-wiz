@@ -1,0 +1,1 @@
+mod: Saved decks and cubes show each card's current wording and picture from the card records; a card that can no longer be found shows by its name alone.

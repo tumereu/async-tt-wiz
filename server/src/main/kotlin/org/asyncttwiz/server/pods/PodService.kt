@@ -910,6 +910,63 @@ class PodService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /**
+     * Pod chat (owner, 2026-11-08): only the pod's members read it, write in it and move their read cursor in it; anyone
+     * else, a member who left included, gets not_found as for the pod itself. [lock]: the pod row's lock, exclusive for a
+     * send (ordinals follow commits).
+     */
+    private fun chatMember(principal: AccountService.Principal, id: String, exclusive: Boolean = false,
+        action: (DSLContext, UUID, UUID) -> Result): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val select = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id)))
+            val row = (if (exclusive) select.forUpdate() else select.forShare()).fetchOne() ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            if (members(sql, row.id!!).none { it.accountId == owner }) error(404, "not_found") else action(sql, row.id!!, owner)
+        }
+    }
+
+    /** A page of the pod's chat: the newest, older than [before] or newer than [after] (ordinals), with the caller's read state. */
+    fun chat(principal: AccountService.Principal, id: String, before: String?, after: String?): Result {
+        val older = before?.let { it.toLongOrNull()?.takeIf { n -> n > 0 } ?: return error(400, "invalid_request") }
+        val newer = after?.let { it.toLongOrNull()?.takeIf { n -> n >= 0 } ?: return error(400, "invalid_request") }
+        if (older != null && newer != null) return error(400, "invalid_request")
+        return chatMember(principal, id) { sql, pod, owner ->
+            Result(200, json.encodeToString(PodChatStore.page(sql, pod, owner, older, newer)))
+        }
+    }
+
+    /** Sends a message to the pod's chat; the reply is the stored message. Never logs its text (as a game's chat). */
+    fun sendChat(principal: AccountService.Principal, id: String, input: SendPodChat): Result {
+        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request")
+        return chatMember(principal, id, exclusive = true) { sql, pod, owner ->
+            val sent = PodChatStore.send(sql, pod, owner, UUID.fromString(input.requestId), input.text)
+            val message = sent.message
+            if (message == null) {
+                log("chat $pod: message ${input.requestId} by $owner refused: ${sent.refusal} (${input.text.length} chars)")
+                error(if (sent.refusal == "request_conflict") 409 else 400, sent.refusal!!)
+            } else {
+                log("chat $pod: message ${message.id} #${message.ordinal} by $owner, ${message.text.length} chars" +
+                    if (sent.repeated) " (retried, already stored)" else "")
+                Result(200, json.encodeToString(message))
+            }
+        }
+    }
+
+    /** The caller's read state of the pod's chat; with [input], their cursor moved forward to that message first. */
+    fun chatRead(principal: AccountService.Principal, id: String, input: ReadChat?): Result {
+        if (input != null && !DeckValidation.uuid(input.messageId)) return error(400, "invalid_request")
+        return chatMember(principal, id) { sql, pod, owner ->
+            if (input == null) Result(200, json.encodeToString(PodChatStore.readState(sql, pod, owner)))
+            else {
+                val state = PodChatStore.read(sql, pod, owner, UUID.fromString(input.messageId)) ?: return@chatMember error(404, "message_not_found")
+                log("chat $pod: $owner read through #${state.readThrough} (message ${input.messageId}), ${state.unread} unread")
+                Result(200, json.encodeToString(state))
+            }
+        }
+    }
+
     /** The caller's Booster or Glimpse draft history (DRF-165) with its cards' definitions; only what their packs showed. */
     fun history(principal: AccountService.Principal, id: String): Result {
         if (!DeckValidation.uuid(id)) return error(404, "not_found")
@@ -940,8 +997,13 @@ class PodService(private val runtime: ServiceRuntime) {
     fun list(principal: AccountService.Principal): Result = runtime.transaction { connection ->
         val sql = DSL.using(connection, SQLDialect.POSTGRES)
         val owner = UUID.fromString(principal.account.accountId)
-        val rows = sql.selectFrom(POD).where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
-            .orderBy(POD.ID).forShare().fetch()
+        // DRF-012: each pod's unread chat messages, read with its row
+        val unread = PodChatStore.unreadField(POD.ID, owner)
+        val found = sql.select(POD.asterisk(), unread).from(POD)
+            .where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
+            .orderBy(POD.ID).forShare().of(POD).fetch()
+        val rows = found.map { it.into(POD) }
+        val chatUnread = found.associate { it[POD.ID]!! to it[unread] }
         // Membership is rechecked after the pod locks: a concurrent leave may have removed the caller.
         // A pod whose stored draft can't be read is left out; opening it fails on its own (SYS-052).
         val memberships = if (rows.isEmpty()) emptyMap() else sql.selectFrom(MEMBER).where(MEMBER.POD_ID.`in`(rows.map { it.id }))
@@ -964,7 +1026,7 @@ class PodService(private val runtime: ServiceRuntime) {
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
                 members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
-                settings(row).mode)
+                settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
         val invitations = invited.map {
             PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())

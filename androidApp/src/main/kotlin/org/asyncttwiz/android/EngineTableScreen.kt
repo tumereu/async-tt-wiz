@@ -201,6 +201,13 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // the playing board
     var watchTappedAt by remember(game.id) { mutableStateOf<Long?>(null) }
     val back = remember(game.id) { TableBackStateMachine() }
+    // LOB-145: a pod game's chat has the pod's beside it; its unread messages light the chat button (no bubbles)
+    val podChat = LocalPodChat.current
+    val podId = game.podId
+    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, state.chatOpen)
+    val podView = podId?.let { podChat?.views?.get(it) }?.takeIf { !it.unavailable }
+    val podUnread = podView?.unread(accountId) ?: 0
+    val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
         // HIS-097: a branch's take-back can't be skipped or left
@@ -229,7 +236,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = controller::openChat, navigation = hamburger.takeIf { !takingBack }, chatUnread = state.chatUnread,
+                    runtime = TableRuntimeHooks(chat = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread)) },
+                        navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,

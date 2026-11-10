@@ -20,7 +20,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Pods list and navigation
 
 - **DRF-011** The Pods screen (main menu: LOB-015) has a New pod button at the top right. (r21)
-- **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with the compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone), the name and status, and pod invitations with Accept and Decline. (r35)
+- **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with the compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone), the name and status (a small dot after it while the pod's chat holds messages of other members you haven't read, DRF-170), and pod invitations with Accept and Decline. (r62)
 - **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston and Winchester), "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
 
 ### Pod setup
@@ -193,6 +193,12 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-123** A challenge is a normal game invitation; incoming ones are answered in place in the Games tab. Any two members may play any number of games. (r30)
 - **DRF-124** In a pod game's lobby each deck is fixed to its pod deck (no saved-deck choice); its basics move between Main and Side like other cards (LOB-052); Ready checks 40 Main cards and the sideboard limit. (r55)
 - **DRF-125** A pod deck's name is shown only to its owner unless they switch on "Show deck name & art" for that game. (r31)
+
+### Pod chat
+
+- **DRF-170** Each pod has one chat for its members, kept as long as the pod. A chat button (a speech bubble) opens "Pod chat" as a side panel: in setup at the header's end before the ⋮, in a started pod's header before the view settings cogwheel. A small dot on the button shows messages of other members you haven't read; seeing them in the chat reads them. The panel is the game chat's (LOB-067, LOB-068: author and text, your own tinted, newest at the bottom; Send or the keyboard's Send; "Checking delivery…", "Not delivered"); a typed message is kept per pod while the app runs. No "Read" marks. While a pod screen is open its chat is read again every few seconds (every 3 s while the chat is open). (r62)
+- **DRF-171** Only the pod's members read and write its chat: not an invited player before accepting, and not a member who left (their messages stay, with their name). The server keeps the messages and each member's read cursor, so what is unread matches on every device; the limits are a game chat's (no empty message, at most 64 KB of text). (r62)
+- **DRF-172** A message notifies the other members on the Draft activity channel: "New message — <pod name>" with the set or cube below, one per pod, apart from the pod's other notification; it isn't posted once read, nor while that pod is open (DRF-138). Tapping it opens the pod with its chat open. (r62)
 
 ### Notifications
 

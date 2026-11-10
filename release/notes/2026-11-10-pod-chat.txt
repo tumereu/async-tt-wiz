@@ -1,0 +1,1 @@
+add: Each pod has its own chat for its members: a chat button on the pod screens, a dot when there's something new, and a notification when someone writes. In a pod game the chat has Game and Pod tabs.

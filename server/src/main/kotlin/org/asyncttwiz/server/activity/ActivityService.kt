@@ -382,8 +382,15 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .and(POD.PHASE.eq("SETUP")).and(POD.AUTO_START.isFalse))
             // Game history §4.5: the cleanup's warning to every member of a stalled pod
             val anyMember = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
+            // Pod chat: a member's notice of another member's message, while they haven't read it
+            val podChat = org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
+            val podChatCursor = org.asyncttwiz.server.generated.tables.PodChatReadCursor.POD_CHAT_READ_CURSOR
+            val unreadMessage = DSL.exists(DSL.selectOne().from(podChat).where(podChat.ID.eq(identity)).and(podChat.POD_ID.eq(resource))
+                .and(podChat.ORDINAL.gt(DSL.coalesce(DSL.field(DSL.select(podChatCursor.ORDINAL).from(podChatCursor)
+                    .where(podChatCursor.POD_ID.eq(resource)).and(podChatCursor.ACCOUNT_ID.eq(owner))), DSL.inline(0L)))))
             return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
                 .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff)).or(kind.eq("POD_REMOVAL").and(anyMember))
+                .or(kind.eq("POD_MESSAGE").and(anyMember).and(unreadMessage))
         }
 
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.

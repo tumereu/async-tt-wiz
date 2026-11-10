@@ -1,0 +1,1 @@
+Tapping Pod in a pod game's chat shows the pod's messages with each member's name; Game has a dot because a game message is still unread.

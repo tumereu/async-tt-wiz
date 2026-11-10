@@ -313,6 +313,21 @@ object ServerSetup {
         }
     }
 
+    /** [account] writes [text] in [pod]'s chat (DRF-170), as their phone would. */
+    fun podChat(account: TestAccount, pod: String, text: String): PodChatMessage = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { it.sendChat(account.token, pod, SendPodChat(UUID.randomUUID().toString(), text)) }
+    }
+
+    /** [account] writes [text] in [game]'s own chat (LOB-136), from a socket of their own. */
+    fun gameChat(account: TestAccount, game: GameSummary, text: String) = Socket(account).use { socket ->
+        val stream = socket.open(game)
+        val command = GameCommand(UUID.randomUUID().toString(), GameScope(game.id, playId = game.playId),
+            GameAction.SendChat(text), stream.streamId, stream.generation)
+        socket.send(command)
+        val result = socket.next { it is GameResult && it.requestId == command.requestId } as GameResult
+        check(result.outcome == "accepted") { "game chat: ${result.outcome} ${result.reason}" }
+    }
+
     /** [a] challenges [b] to a game [name] of [pod] ([a]'s deck submitted). */
     fun challenge(a: TestAccount, b: TestAccount, pod: String, name: String): GameSummary =
         lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }

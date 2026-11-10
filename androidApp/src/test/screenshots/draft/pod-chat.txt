@@ -1,0 +1,1 @@
+Tapping the chat button of a drafted pod opens "Pod chat" as a side panel: Bob's, Alice's (tinted) and Carol's messages with their names, newest at the bottom, and the message field with Send.

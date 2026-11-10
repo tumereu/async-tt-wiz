@@ -890,6 +890,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun save(sql: DSLContext, row: PodRecord) {
         row.updatedAt = sql.update(POD).set(POD.NAME, row.name).set(POD.PHASE, row.phase).set(POD.SETTINGS, row.settings)
             .set(POD.SOURCE_NAME, row.sourceName).set(POD.SOURCE_SNAPSHOT, row.sourceSnapshot).set(POD.SOURCE_MAYBE, row.sourceMaybe)
+            .set(POD.AUTOMATUM_SUPPORT, row.automatumSupport)
             .set(POD.DRAFT_ATTEMPT_ID, row.draftAttemptId).set(POD.DRAFT_STATE, row.draftState)
             .set(POD.AUTO_START, row.autoStart).set(POD.AUTO_START_OFF_REASON, row.autoStartOffReason)
             .set(POD.AUTO_START_OFF_ACCOUNT, row.autoStartOffAccount)

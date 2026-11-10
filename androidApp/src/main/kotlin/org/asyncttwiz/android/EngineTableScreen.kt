@@ -79,7 +79,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // LOB-135: Table actions → Game settings changes the game's assume reveal settings (the host's)
     SideEffect { toolkit.assumeReveals = controller::assumeReveals }
     // The device's own steps (its passes, assumptions, a live wait turning async) and its local-head reports
-    LaunchedEffect(controller, game.id) { while (true) { controller.engineTick(); delay(1_000) } }
+    // On the main thread's clock while the table is shown, in the background too, as before (LobbyController.engineTicks)
+    DisposableEffect(controller, game.id) { controller.engineTick(); val stop = controller.engineTicks(game.id); onDispose { stop() } }
     val locked = shown.locked
     LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.peek(null) } }
     val names = remember(game) { mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username) }

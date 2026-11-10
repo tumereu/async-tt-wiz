@@ -55,8 +55,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Intermittent (2 full runs, passes alone 3/3): e2e `PodReopenTest.aDraftingPodOpensAfterConnectionFailures` timed out "waiting for the pick unconfirmed" with Alice on the pod showing "Can't reach the server · retrying" and "All your picks are done" while Bob still had 3 packs. Investigate when it recurs: whether the unconfirmed pick is shown before the retry finishes, or the test's network hold releases too early.
-- Found building multiset drafting (2026-11-10): `PodService.save` never writes `automatum_support`, so changing a pod's source in setup doesn't update its stored support (existed before). Fix with a server test: a source change in setup refreshes the support DRF-161/162 read.
-- Refresh loops on the composition clock (found 2026-11-10 fixing PodChatTest): the app's periodic re-reads that run as delay loops inside composition (e.g. the pod screen's list refresh) advance only while something animates in the e2e harness, so on a still screen they stall there (on a phone they run in real time). Pod chat's re-reads moved to a main-thread timer started/stopped with the screen and the app in front (5de2bbec1). Move the other periodic loops the same way; likely behind the intermittent PodReopenTest and pod-tab waits.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

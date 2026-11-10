@@ -15,10 +15,15 @@ internal fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
     else -> PodTab.BUILD
 }
 enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT, START }
+/** [packSets]: the pack grid read row by row (DRF-173), normalized; empty while every pack is [set]'s. */
 data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
-    val set: PodSetChoice? = null, val settings: DraftSettings = DraftSettings())
+    val set: PodSetChoice? = null, val settings: DraftSettings = DraftSettings(), val packSets: List<String> = emptyList()) {
+    /** Each pack's set, the grid read row by row (normalized); empty without a set. */
+    val packs: List<String> get() = packSets.ifEmpty { listOfNotNull(set?.code) }
+}
+/** [packSets]: a pack grid edited in setup (DRF-174), sent as it is; null while unchanged (or a whole [set] is chosen). */
 data class PodSetupEdit(val name: String, val settings: DraftSettings, val cubeId: String? = null, val revision: Long = 0,
-    val set: PodSetChoice? = null)
+    val set: PodSetChoice? = null, val packSets: List<String>? = null)
 data class PodState(
     val pods: List<PodSummary> = emptyList(), val invitations: List<PodInvitation> = emptyList(),
     val loaded: Boolean = false, val selected: String? = null, val detail: PodDetail? = null,
@@ -107,10 +112,43 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** Build undo for the open pod's current attempt; survives tab switches, not restarts. */
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     // DRF-169: a set goes to the pod by its code; the server builds its packs from its card catalog
-    internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post) { set ->
+    internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post) { set, target ->
         state = state.copy(sourcePreview = null, sourceHint = null)
-        if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set))
+        if (target != null) choosePackSet(target, set)
+        else if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set, packSets = emptyList()))
         else editSetup(set = set)
+    }
+    /** The open form's settings and pack grid (DRF-173), read row by row and normalized; null when its source isn't a set. */
+    private fun formPacks(): Pair<DraftSettings, List<String>>? {
+        state.creating?.let { draft -> return draft.packs.takeIf { it.isNotEmpty() }?.let { draft.settings to it } }
+        val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return null
+        val edit = state.setup
+        val settings = edit?.settings ?: detail.settings
+        val packs = edit?.packSets ?: edit?.set?.let { listOf(it.code) } ?: if (edit?.cubeId != null) null
+            else detail.source.takeIf { it.kind == PodSourceKind.SET }?.let { it.packSets.ifEmpty { listOfNotNull(it.setCode) } }
+        return packs?.takeIf { it.isNotEmpty() }?.let { settings to PodPackGrid.normalize(it, settings) }
+    }
+    /** A set's name from the card records, else the one the pod or form already shows, else its code. */
+    private fun setName(code: String): String = setPicker.state.set(code)?.name
+        ?: state.creating?.set?.takeIf { it.code == code }?.name ?: state.setup?.set?.takeIf { it.code == code }?.name
+        ?: state.detail?.source?.takeIf { it.setCode == code }?.setName ?: code
+    /** Opens the set list for [target]'s packs of the open form's pack grid (DRF-174). */
+    fun choosePacks(target: PodPackTarget) {
+        if (formPacks() == null || state.uncertain) return
+        if (state.creating == null && state.detail?.phase != PodPhase.SETUP) return
+        setPicker.open(target)
+    }
+    /** DRF-174: [target]'s packs of the pack grid take [set]; every pack of one set again is a pod of that set. */
+    private fun choosePackSet(target: PodPackTarget, set: PodSetChoice) {
+        val (settings, packs) = formPacks() ?: return
+        val next = target.apply(packs, settings, set.code)
+        AppLog.info("pods", "Pack grid: ${target.label(settings)} -> ${set.code}: $packs -> $next")
+        state.creating?.let { draft ->
+            state = state.copy(creating = draft.copy(cubeId = null, set = PodSetChoice(next.first(), setName(next.first())),
+                packSets = next.takeIf { PodPackGrid.mixed(it) }.orEmpty()))
+            return
+        }
+        editSetup(packSets = next)
     }
     /** Pod chats (owner, 2026-11-08), also read by a pod game's table. */
     val chat = PodChatController(api, credential, chatWorker, post)
@@ -202,7 +240,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun reroll() = newName(suggest())
     fun newCube(id: String) {
         setPicker.dismiss()
-        state = state.copy(sourcePreview = null, sourceHint = null, creating = state.creating?.copy(cubeId = id, set = null))
+        state = state.copy(sourcePreview = null, sourceHint = null, creating = state.creating?.copy(cubeId = id, set = null, packSets = emptyList()))
     }
     fun chooseSet() {
         if (state.creating != null || state.detail?.phase == PodPhase.SETUP) {
@@ -213,18 +251,21 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** The open form's preset contents: the New pod form, or the setup form of a pod still in setup. */
     private fun presetForm(): PodPresetForm? {
         fun cubeName(id: String?) = state.cubes.firstOrNull { it.id == id }?.name
+        // DRF-032, DRF-173: a set preset keeps the pack grid
+        formPacks()?.let { (settings, packs) ->
+            val first = packs.first()
+            return PodPresetForm(settings, setCode = first, setName = setName(first),
+                sourceName = if (PodPackGrid.mixed(packs)) podMixedSetsName(packs) else setName(first),
+                packSets = packs.takeIf { PodPackGrid.mixed(it) }.orEmpty())
+        }
         state.creating?.let { draft ->
-            val set = draft.set
-            return PodPresetForm(draft.settings, draft.cubeId, set?.code, set?.name, set?.name ?: cubeName(draft.cubeId))
+            return PodPresetForm(draft.settings, draft.cubeId, sourceName = cubeName(draft.cubeId))
         }
         val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return null
         val edit = state.setup
         val settings = edit?.settings ?: detail.settings
-        edit?.set?.let { return PodPresetForm(settings, setCode = it.code, setName = it.name, sourceName = it.name) }
         edit?.cubeId?.let { return PodPresetForm(settings, cubeId = it, sourceName = cubeName(it)) }
         val source = detail.source
-        if (source.kind == PodSourceKind.SET) return PodPresetForm(settings, setCode = source.setCode,
-            setName = source.setName ?: source.setCode, sourceName = source.setName ?: source.setCode)
         // A pod keeps a copy of its cube, not a link: find the player's cube by its name, if exactly one matches.
         val cube = state.cubes.singleOrNull { it.name == source.cubeName }
         return PodPresetForm(settings, cubeId = cube?.id, sourceName = cube?.name)
@@ -244,7 +285,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val keep = preset.cubeId == null && preset.setCode == null
             state = state.copy(sourcePreview = null, sourceHint = null, error = null, notice = null,
                 creating = draft.copy(settings = settings, mode = settings.mode, cubeId = if (keep) draft.cubeId else cube,
-                    set = if (keep) draft.set else null))
+                    set = if (keep) draft.set else null, packSets = if (keep) draft.packSets.let {
+                        if (it.isEmpty()) it else PodPackGrid.normalize(it, settings) } else emptyList()))
         } else {
             if (state.detail?.phase != PodPhase.SETUP || state.uncertain) return
             setPicker.dismiss()
@@ -252,7 +294,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             editSetup(settings = settings, cubeId = cube)
         }
         when {
-            preset.setCode != null -> setPicker.load(preset.setCode!!, preset.setName ?: preset.setCode!!)
+            preset.setCode != null -> {
+                setPicker.load(preset.setCode!!, preset.setName ?: preset.setCode!!)
+                // DRF-032, DRF-173: the preset's pack grid
+                if (PodPackGrid.mixed(preset.packSets)) {
+                    AppLog.info("pods", "Preset ${preset.name}: pack grid ${preset.packSets}")
+                    state.creating?.let { state = state.copy(creating = it.copy(packSets = PodPackGrid.normalize(preset.packSets, settings))) }
+                        ?: editSetup(packSets = PodPackGrid.normalize(preset.packSets, settings))
+                }
+            }
             preset.cubeMissing -> {
                 chooseSet()
                 state = state.copy(sourceHint = "The cube of “${preset.name}” no longer exists. Choose a set or cube.")
@@ -262,7 +312,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun newMode(mode: DraftMode) = newSettings { podModeSettings(mode, it) }
     fun newSettings(change: (DraftSettings) -> DraftSettings) {
         state.creating?.let { draft -> val settings = change(draft.settings)
-            state = state.copy(creating = draft.copy(settings = settings, mode = settings.mode)) }
+            // DRF-175: the pack grid follows the settings
+            val packs = draft.packSets.takeIf { it.isNotEmpty() }?.let { PodPackGrid.normalize(it, settings) }
+            state = state.copy(creating = draft.copy(settings = settings, mode = settings.mode,
+                packSets = packs?.takeIf { PodPackGrid.mixed(it) }.orEmpty())) }
     }
     fun chooseCube(id: String) {
         if (state.creating != null) newCube(id) else {
@@ -284,7 +337,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             state = state.copy(error = "Enter a name and select a cube or MTG set."); return
         }
         if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
-        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.settings, setCode = draft.set?.code)
+        val mixed = draft.packSets.takeIf { draft.cubeId == null && PodPackGrid.mixed(it) }
+        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.settings,
+            setCode = draft.set?.code?.takeIf { mixed == null }, packSets = mixed)
         enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, input) }))
     }
     fun respond(id: String, accept: Boolean) {
@@ -294,13 +349,22 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             if (accept) api.accept(it, id, input) else { api.decline(it, id, input); null }
         }))
     }
-    fun editSetup(name: String? = null, settings: DraftSettings? = null, cubeId: String? = null, set: PodSetChoice? = null) {
+    fun editSetup(name: String? = null, settings: DraftSettings? = null, cubeId: String? = null, set: PodSetChoice? = null,
+        packSets: List<String>? = null) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
         val base = accepted ?: detail
         val old = state.setup ?: PodSetupEdit(base.name, base.settings)
-        state = state.copy(setup = old.copy(name = name ?: old.name, settings = settings ?: old.settings,
-            cubeId = if (set != null) null else cubeId ?: old.cubeId,
-            set = if (cubeId != null) null else set ?: old.set, revision = ++editRevision), error = null)
+        val nextSettings = settings ?: old.settings
+        // A new source replaces an edited pack grid; new settings resize it (DRF-175)
+        val packs = when {
+            packSets != null -> packSets
+            set != null || cubeId != null -> null
+            else -> old.packSets
+        }?.let { PodPackGrid.normalize(it, nextSettings) }
+        state = state.copy(setup = old.copy(name = name ?: old.name, settings = nextSettings,
+            cubeId = if (set != null || packSets != null) null else cubeId ?: old.cubeId,
+            set = if (cubeId != null || packSets != null) null else set ?: old.set, packSets = packs,
+            revision = ++editRevision), error = null)
         render()
     }
     /** Apply field edits to the latest pending settings, not a UI snapshot awaiting recomposition. */
@@ -319,7 +383,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.uncertain || writes.any { it.setupRevision == edit.revision }) return
         val named = validPodName(edit.name)
         if (!named && !leaving) return
-        val input = UpdatePod(requestId(), edit.name.takeIf { named }, edit.cubeId, edit.settings, setCode = edit.set?.code)
+        val input = UpdatePod(requestId(), edit.name.takeIf { named }, edit.cubeId, edit.settings, setCode = edit.set?.code,
+            packSets = edit.packSets)
         enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, input) }))
     }
     fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }
@@ -635,7 +700,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         }
         val edit = state.setup
         if (detail?.phase == PodPhase.SETUP && edit != null) {
-            val source = edit.set?.podSource() ?: state.cubes.find { it.id == edit.cubeId }
+            // DRF-173: an edited pack grid shows at once, named by its first pack's set
+            val source = edit.packSets?.let { packs -> PodSource(kind = PodSourceKind.SET, setCode = packs.first(),
+                setName = setName(packs.first()), boosterKind = detail.source.boosterKind.takeIf { detail.source.kind == PodSourceKind.SET },
+                packSets = packs) } ?: edit.set?.podSource() ?: state.cubes.find { it.id == edit.cubeId }
                 ?.let { PodSource(it.name, it.totalCopies) } ?: detail.source
             val needed = edit.settings.supply(detail.members.size, emptyList()).needed
             detail = detail.copy(name = edit.name, settings = edit.settings, source = source,

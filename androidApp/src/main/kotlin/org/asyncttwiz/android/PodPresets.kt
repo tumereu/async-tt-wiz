@@ -9,7 +9,12 @@ import java.util.concurrent.ExecutorService
 internal data class PodPresetForm(val settings: DraftSettings, val cubeId: String? = null,
     val setCode: String? = null, val setName: String? = null,
     /** Display only: the chosen cube's or set's name. */
-    val sourceName: String? = null)
+    val sourceName: String? = null,
+    /** DRF-173: the pack grid read row by row, starting with [setCode]; empty when every pack is [setCode]'s. */
+    val packSets: List<String> = emptyList())
+
+/** A mixed pack grid's name (DRF-032): its sets' codes in the order its packs first name them, "RTR, GTC, DGM". */
+internal fun podMixedSetsName(packSets: List<String>) = packSets.distinct().joinToString(", ")
 
 /** The preset list's open sub-dialog. */
 internal sealed interface PodPresetPrompt {
@@ -58,6 +63,7 @@ internal fun podPresetSummary(preset: PodPreset): String {
     val source = when {
         preset.cubeMissing -> "Cube missing"
         preset.cubeName != null -> preset.cubeName!!
+        PodPackGrid.mixed(preset.packSets) -> podMixedSetsName(preset.packSets)
         preset.setCode != null -> preset.setName ?: preset.setCode!!
         else -> "No source"
     }
@@ -138,7 +144,8 @@ internal class PodPresetController(private val api: Pods, private val credential
     private fun save(name: String, overwrite: Boolean) {
         val current = form() ?: return
         val input = SavePodPreset(name, current.settings, current.cubeId,
-            current.setCode, current.setName?.takeIf { current.setCode != null }, overwrite)
+            current.setCode, current.setName?.takeIf { current.setCode != null }, overwrite, current.packSets)
+        if (current.packSets.isNotEmpty()) AppLog.info("pods", "Saving preset $name with pack grid ${current.packSets}")
         perform("Saving…", saving = name) { api.savePreset(it, input) }
     }
 

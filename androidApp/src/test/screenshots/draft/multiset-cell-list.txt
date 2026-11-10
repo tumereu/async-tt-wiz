@@ -1,0 +1,1 @@
+Then tapping the cell of round 3's second pack opens the set list titled Set for Round 3 · Pack 2, each set with its symbol and Duskmourn greyed.

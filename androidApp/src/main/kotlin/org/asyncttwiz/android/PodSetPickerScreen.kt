@@ -50,6 +50,21 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
     }
 }
 
+/** DRF-174: the set list for some packs of the pack grid, titled by them ("Set for Round 2"); only draftable sets can be
+ * chosen, as in the Source dialog. */
+@Composable
+internal fun PodPackSetDialog(controller: PodController, target: PodPackTarget, settings: DraftSettings) {
+    val picker = controller.setPicker
+    ScreenDialog(picker::dismiss) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Set for ${target.label(settings)}", Modifier.weight(1f).testTag("pack-set-title"), style = MaterialTheme.typography.titleMedium)
+            ScreenIconButton("Close sets", "close", picker::dismiss)
+        }
+        if (!cardRecordsReady()) CardRecordsPlaceholder(Modifier.fillMaxWidth().height(320.dp))
+        else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::retry)
+    }
+}
+
 @Composable
 internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
     retry: () -> Unit) {
@@ -66,7 +81,10 @@ internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Un
             // sign names those cards (DRF-161)
             Row(Modifier.fillMaxWidth().testTag("set-${set.code}"), verticalAlignment = Alignment.CenterVertically) {
                 ScreenOutlinedButton({ choose(set.code) }, Modifier.weight(1f), enabled = set.automatum) {
-                    Text(set.name)
+                    // DRF-172: the set's symbol, or its code when the font has none
+                    SetSymbol(set.keyrune, set.code, Modifier.width(40.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(set.name, Modifier.weight(1f))
                 }
                 AutomatumSupportIcon(set.support())
             }

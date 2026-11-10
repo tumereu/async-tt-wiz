@@ -176,6 +176,29 @@ object ServerSetup {
         org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
     }
 
+    /** Pod [id] as [a] sees it on the server. */
+    fun pod(a: TestAccount, id: String): PodDetail = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id) } }
+
+    /** [a]'s pod presets on the server. */
+    fun presets(a: TestAccount): List<PodPreset> = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.presets(a.token).presets } }
+
+    /** Booster picks made for [players] over the API: in turn each takes the first cards of their head pack, until [done]. */
+    fun pickUntil(players: List<TestAccount>, pod: String, done: () -> Boolean) = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            while (!done()) {
+                var picked = false
+                for (player in players) {
+                    val detail = api.detail(player.token, pod)
+                    val head = detail.draft?.head ?: continue
+                    api.pick(player.token, pod, PickPod(UUID.randomUUID().toString(), detail.draftAttemptId!!, head.id,
+                        head.cards.take(detail.settings.keep).map { it.id }))
+                    picked = true
+                }
+                check(picked) { "nobody had a pack to pick from" }
+            }
+        }
+    }
+
     /** The name the server holds for pod [id]. */
     fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id).name } }
 

@@ -65,7 +65,7 @@ class PodControllerTest {
             calls += "create" to input
             if (failSourceWrites) throw PodFailure("network")
             saved = detail(PodPhase.SETUP).copy(name = input.name, settings = input.settings ?: podModeSettings(input.mode, DraftSettings()),
-                source = input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: PodSource("Cube", 540))
+                source = input.packSets?.let(::gridSource) ?: input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: PodSource("Cube", 540))
             return saved
         }
         override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail {
@@ -73,7 +73,7 @@ class PodControllerTest {
             updateFailure?.let { throw PodFailure(it) }
             if (failSourceWrites) throw PodFailure("network")
             saved = saved.copy(name = input.name ?: saved.name, settings = input.settings ?: saved.settings,
-                source = input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: saved.source)
+                source = input.packSets?.let(::gridSource) ?: input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: saved.source)
             return saved
         }
         override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail { calls += "invite" to input; return saved }
@@ -146,7 +146,7 @@ class PodControllerTest {
             if (existing != null && !input.overwrite) throw PodFailure("preset_exists")
             val preset = PodPreset(existing?.id ?: UUID.randomUUID().toString(), input.name, input.settings, input.cubeId,
                 if (input.cubeId == cube.id) cube.name else null, input.cubeId != null && input.cubeId != cube.id,
-                input.setCode, input.setName, "2026-10-30T00:00:00Z")
+                input.setCode, input.setName, "2026-10-30T00:00:00Z", input.packSets)
             presets.removeAll { it.id == preset.id }; presets += preset
             return preset
         }
@@ -541,7 +541,8 @@ class PodControllerTest {
         var fail = false
         override fun sets(): List<DraftableSet> {
             calls += "sets"; if (fail) error("offline")
-            return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, true), DraftableSet("BAD", "Broken set", "2026-09-01", 2, false, listOf("Odd Cub")))
+            return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, true), DraftableSet("BAD", "Broken set", "2026-09-01", 2, false, listOf("Odd Cub")),
+                DraftableSet("TWO", "Second set", "2026-08-01", 1, true, keyrune = "two"))
         }
     }
 
@@ -558,6 +559,70 @@ class PodControllerTest {
         assertFalse(f.controller.setPicker.state.open)
         assertEquals(PodSetChoice("TST", "Test set"), f.controller.state.creating!!.set)
         assertNull(f.controller.state.creating!!.cubeId)
+    }
+
+    /** A set pod as the server answers it: the pack grid as sent, named by its first pack's set. */
+    private fun gridSource(packs: List<String>) = PodSource(kind = PodSourceKind.SET, setCode = packs.first(), setName = "Test set",
+        packSets = packs)
+
+    // DRF-173, DRF-174: New pod's pack grid: a row label, a column label and a cell each choose a set for their packs; the
+    // grid goes to the server as the list of set codes, read row by row
+    @Test fun newPodsPackGridShortcutsSetTheirPacksAndCreateSendsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
+        f.controller.setPicker.choose("TST"); f.deliver()
+        f.controller.newSettings { it.copy(packsPerPlayer = 4, packsOpenAtOnce = 2) } // rows: [0 1] [2 3]
+        assertEquals(listOf("TST"), f.controller.state.creating!!.packs)
+        f.controller.choosePacks(PodPackTarget.Row(1)); f.deliver()
+        assertEquals(PodPackTarget.Row(1), f.controller.setPicker.state.target)
+        f.controller.setPicker.choose("BAD"); f.deliver()
+        assertTrue(f.controller.setPicker.state.open, "an undraftable set can't be chosen for a pack either")
+        f.controller.setPicker.choose("TWO"); f.deliver()
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals(listOf("TST", "TST", "TWO"), f.controller.state.creating!!.packs)
+        f.controller.choosePacks(PodPackTarget.Column(0)); f.deliver(); f.controller.setPicker.choose("TWO"); f.deliver()
+        assertEquals(listOf("TWO", "TST", "TWO"), f.controller.state.creating!!.packs)
+        f.controller.choosePacks(PodPackTarget.Cell(1, 0, 1)); f.deliver(); f.controller.setPicker.choose("TWO"); f.deliver()
+        assertEquals(listOf("TWO"), f.controller.state.creating!!.packs, "every pack of one set again")
+        assertEquals(PodSetChoice("TWO", "Second set"), f.controller.state.creating!!.set)
+        f.controller.choosePacks(PodPackTarget.Cell(3, 1, 1)); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
+        assertEquals(listOf("TWO", "TWO", "TWO", "TST"), f.controller.state.creating!!.packs)
+        // Fewer packs drop the last ones (DRF-175)
+        f.controller.newSettings { it.copy(packsPerPlayer = 3) }
+        assertEquals(listOf("TWO"), f.controller.state.creating!!.packs)
+        f.controller.newSettings { it.copy(packsPerPlayer = 4) }
+        f.controller.choosePacks(PodPackTarget.Row(0)); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
+        f.controller.create(); f.deliver()
+        val created = f.api.calls.single { it.first == "create" }.second as CreatePod
+        assertEquals(listOf("TST", "TST", "TWO"), created.packSets)
+        assertNull(created.setCode)
+        // Choosing a set in the Source dialog makes the whole pod that set again
+        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
+        f.controller.choosePacks(PodPackTarget.Row(1)); f.deliver(); f.controller.setPicker.choose("TWO"); f.deliver()
+        f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TWO"); f.deliver()
+        assertEquals(listOf("TWO"), f.controller.state.creating!!.packs)
+    }
+
+    // DRF-174, DRF-173: in setup the creator's grid edits show at once and are sent as the grid; a preset saves it and
+    // brings it back (DRF-032)
+    @Test fun setupPackGridEditsSaveAndAPresetKeepsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
+        f.api.saved = f.api.saved.copy(source = gridSource(listOf("TST")))
+        f.open()
+        f.controller.choosePacks(PodPackTarget.Row(2)); f.deliver(); f.controller.setPicker.choose("TWO"); f.deliver()
+        assertEquals(listOf("TST", "TST", "TWO"), f.controller.state.detail!!.source.packSets, "predicted at once")
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(listOf("TST", "TST", "TWO"), (f.api.calls.single().second as UpdatePod).packSets)
+        assertEquals(listOf("TST", "TST", "TWO"), f.controller.state.detail!!.source.packSets)
+        f.controller.presets.open(); f.deliver()
+        f.controller.presets.startSave(); f.controller.presets.submitName("Two-set night"); f.deliver()
+        val saved = f.api.calls.single { it.first == "savePreset" }.second as SavePodPreset
+        assertEquals(listOf("TST", "TST", "TWO"), saved.packSets)
+        assertEquals("TST", saved.setCode)
+        val preset = f.api.presets.single { it.name == "Two-set night" }
+        assertEquals("Booster · TST, TWO · 3 packs", podPresetSummary(preset))
+        // A pod of one set takes the preset's grid back
+        f.controller.newPod(); f.deliver()
+        f.controller.applyPreset(preset); f.deliver()
+        assertEquals(listOf("TST", "TST", "TWO"), f.controller.state.creating!!.packs)
     }
 
     @Test fun setupFieldTransformsMergeIntoLatestPendingSettingsAndSaveTogether() = Fixture(PodPhase.SETUP).use { f ->

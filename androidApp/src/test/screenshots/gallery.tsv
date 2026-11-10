@@ -195,3 +195,12 @@ number	item	screenshot	catalog	decisions
 194	Pod chat panel on a pod screen	draft/pod-chat.png	DRF-170	
 195	Draft history: Returning packs only	pod-draft-history-returning.png	DRF-165	
 196	Main button: an assumption in violet beside your own actions	main-button/assume-or-own.png	TRN-063 TRN-070 TRN-004	
+197	Multiset drafting: the Sets tab with set symbols	draft/source-sets-symbols.png	DRF-088 DRF-172	
+198	Multiset drafting: one set for every pack, with Mix sets	draft/multiset-one-set.png	DRF-173	
+199	Multiset drafting: the open pack grid	draft/multiset-grid-open.png	DRF-173 DRF-172	
+200	Multiset drafting: a row label chosen (Round 2)	draft/multiset-row.png	DRF-174	
+201	Multiset drafting: a column label chosen (Pack 1)	draft/multiset-column.png	DRF-174	
+202	Multiset drafting: the set list for one cell	draft/multiset-cell-list.png	DRF-174 DRF-172	
+203	Multiset drafting: a single cell chosen	draft/multiset-cell.png	DRF-174	
+204	Multiset drafting: Sealed's one row	draft/multiset-sealed.png	DRF-173	
+205	Multiset drafting: a preset saved with a pack grid	draft/multiset-preset.png	DRF-032 DRF-173	

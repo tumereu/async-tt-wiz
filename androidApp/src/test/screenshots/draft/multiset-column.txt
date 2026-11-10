@@ -1,0 +1,1 @@
+Then tapping the column label Pack 1 and choosing Dragon's Maze makes the first pack of every round Dragon's Maze, leaving the second packs as they were.

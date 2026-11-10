@@ -75,6 +75,36 @@ object SetBoosters {
         }
     }
 
+    /**
+     * Multiset drafting (DRF-173): one pack per entry of [packSets], each from its own set in [sources]. Each set's packs
+     * are generated together from its own seed ([setSeed]): the first set's is [seed] itself, so packs of one set are
+     * the same as [generate]'s. Copies of a later set get its index in their ids so no two sets' copies share one.
+     */
+    fun generate(sources: SetPackSources, packSets: List<String>, seed: String, cardsPerPack: Int = 15): List<SetBoosterPack> {
+        val queues = packSets.distinct().mapIndexed { index, code ->
+            code to ArrayDeque(generate(sources.set(code), packSets.count { it == code }, setSeed(seed, index), cardsPerPack)
+                .map { inSet(it, index) })
+        }.toMap()
+        return packSets.map { queues.getValue(it).removeFirst() }
+    }
+
+    /** [pack]'s copies with ids of the pod's [index]th set; the first set's keep theirs. */
+    fun inSet(pack: SetBoosterPack, index: Int): SetBoosterPack =
+        if (index == 0) pack else pack.copy(cards = pack.cards.map { it.copy(id = "set-$index:${it.id}") })
+
+    /** The seed a pod's [index]th set's packs are drawn with: [seed] for the first, so a pod of one set draws as before. */
+    fun setSeed(seed: String, index: Int): String {
+        if (index == 0) return seed
+        val words = RandomV1.Words(seed, "set-grid-v1")
+        repeat((index - 1) * 8) { words.next() }
+        val bytes = ByteArray(32)
+        for (word in 0 until 8) {
+            val value = words.next()
+            repeat(4) { bytes[word * 4 + it] = (value shr ((3 - it) * 8)).toByte() }
+        }
+        return RandomV1.encodeSeed(bytes)
+    }
+
     private fun <T> weighted(values: List<T>, weight: (T) -> Long, words: RandomV1.Words): T {
         var ticket = RandomV1.sample(values.sumOf(weight), words::next)
         for (value in values) {

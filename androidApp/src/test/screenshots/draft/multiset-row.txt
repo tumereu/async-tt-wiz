@@ -1,0 +1,1 @@
+After Mix sets, tapping the row label Round 2 and choosing Gatecrash in the set list makes both packs of round 2 Gatecrash; the source now reads Mixed sets.

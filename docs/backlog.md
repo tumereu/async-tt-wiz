@@ -36,8 +36,6 @@ Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74),
 Old forms only read now, found at the wipe (2026-11-09; read, not run; can be done any time after the wipe release):
 
 - `EngineEventText.hidden`'s line-only branch (a rewind's own line start): no game holds such an event after V74 and no caller found makes one. `GameDevice.finish` and `Authority.make` don't refuse one, though: a draft sent empty while a line is due would make it, so refuse that first. Its test `anOldRewindLineStartIsShownNowhere` names HIS-086, whose entry stays as it is; agree with the owner how that test goes.
-- The "card" kind in `CombatStackRules.identities`: `EngineProjection` puts only effects in the Stack, so a board from a game never has a card there; only that branch reads it, for states from before rules v35.
-- `GameWire`'s `RETIRED` fields: no stored type has them, and rows written since R4d (2026-11-05) don't. Rows of games that never started survive V74 and may still hold them (`game_revision`, `game_inbox`), so first see that none are left, or wipe them with the owner's permission. Checked 2026-11-10: only two cancelled games that never started hold them (69c8fbf7: 11 revision + 11 inbox rows; 95b06786: 1 + 1; their outbox rows already published), no play row does; the owner allowed deleting those rows (2026-11-10), so a migration removes them and the filter goes.
 
 Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 
@@ -49,7 +47,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Intermittent (found 2026-11-10, full run on d057aef13's catalog branch, 1 of 4 runs): `MatchHistoryTest.aPodMatchShowsInThePodGamesTabWithoutDecks` waited 60 s with the pod's Games tab showing the match "In play · Turn 0" and standings 0–0–0, although Alice's phone had the server's result notice (revision 4) of her concession at the mulligan; the server writes the match record in the same transaction that ends the game. Passed 3 of 3 alone in 2 s. Investigate when it recurs: whether the pod matches request ran before the end committed or the screen kept an older list.
-- E2E harness crash (found 2026-11-09/10, 4 tests so far: CombatHoldTest twice, ChatBubblesTest, RevealStopTest; 0 of 161 prod crash reports): `IllegalArgumentException: performMeasureAndLayout called during measure layout`, thrown from `AndroidComposeView.measureAndLayoutForTest` inside a `TestMonotonicFrameClock.performFrame` that runs on a `Dispatchers.Default` worker: a `withContext` resuming there sends the global snapshot's apply notifications through the test's `ApplyingContinuationInterceptor`, which runs a frame on that thread while another thread measures. Likely the two players' compose test environments in one JVM sharing the global snapshot. Find the cause and make the harness run frames only on their own thread (no test weakened); if an app coroutine is at fault, fix it.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

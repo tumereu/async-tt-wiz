@@ -223,7 +223,8 @@ class BattlefieldLayoutTest {
     }
 
     // TBL-117, TBL-122: a collapsed group glows as a whole: cyan (or the target frame) when its tap acts at once, the
-    // expand colour when it opens; cards alone glow as themselves
+    // expand colour when it opens; one holding a legal target framed whole even when its tap opens it (owner gallery review
+    // 2026-11-10, gallery 145); cards alone glow as themselves
     @Test fun aGroupsGlowSaysWhatItsTapDoes() {
         val equipped = BattlefieldGroup("host:bear", "a", BattlefieldRow.Creatures, listOf("bear", "blade"), BattlefieldGroup.Kind.Attached)
         val stack = BattlefieldGroup("stack:t1", "a", BattlefieldRow.Creatures, listOf("t1", "t2"), BattlefieldGroup.Kind.Stack)
@@ -235,8 +236,9 @@ class BattlefieldLayoutTest {
         assertEquals(setOf("life/b"), expand.targets)
         val targets = TableGlows.of(groups, mapOf(equipped.key to GroupTap.Act("blade"), stack.key to GroupTap.Expand),
             emptyMap(), setOf("blade", "t1", "t2"))
-        assertEquals(setOf("bear", "blade"), targets.targets, "the whole group framed: its tap picks the one target")
-        assertEquals(mapOf("t1" to 1f, "t2" to 1f), targets.expand)
+        assertEquals(setOf("bear", "blade", "t1", "t2"), targets.targets,
+            "the whole group framed: its tap picks the one target; the stack a tap opens framed whole too")
+        assertTrue(targets.expand.isEmpty(), "no expand colour on a group holding a legal target")
         val none = TableGlows.of(groups, mapOf(equipped.key to GroupTap.Top), emptyMap(), emptySet())
         assertTrue(none.expand.isEmpty() && none.playable.isEmpty())
     }
@@ -255,7 +257,8 @@ class BattlefieldLayoutTest {
         for (member in hounds.members) assertTrue(member in glows.targets, "$member framed as a target")
         assertEquals(setOf("h2"), hounds.members.filter { it in glows.picked }.toSet(), "only the picked member drawn picked")
         assertTrue("lone" in glows.targets && "lone" in glows.picked, "a card alone: the same two marks")
-        assertTrue(equipped.members.none { it in glows.picked || it in glows.targets }, "a closed group a tap opens: its own glow")
+        assertTrue(equipped.members.all { it in glows.targets } && equipped.members.none { it in glows.picked },
+            "a closed group a tap opens holding a target: framed whole, nothing picked")
         assertEquals(setOf("c1", "c2"), cubs.members.filter { it in glows.picked }.toSet(), "a closed group holding a pick")
         val noTaps = TableGlows.of(listOf(hounds), emptyMap(), emptyMap(), targets, picked = setOf("h3"))
         assertEquals(setOf("h3"), noTaps.picked)

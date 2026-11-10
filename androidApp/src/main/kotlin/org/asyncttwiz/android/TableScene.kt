@@ -367,7 +367,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
-                { preview }, layoutState)
+                { preview }, layoutState, groupTaps)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,

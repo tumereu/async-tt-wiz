@@ -156,7 +156,7 @@ class PickOnTableTest : E2e() {
     }
 
     // STK-047, STK-030 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
-    // both Pups glowing; a tap on one sacrifices it, Autotap pays and it resolves
+    // both Pups glowing (their closed stack framed whole, TBL-117); a tap on one sacrifices it, Autotap pays and it resolves
     @Test fun aSacrificeIsPickedOnTheTable() {
         start(deck(TestCards.shard to 14, TestCards.offering to 13, TestCards.pup to 13),
             mapOf("Ember Shard" to 1, "Altar Offering" to 1, "Ash Pup" to 2))
@@ -166,6 +166,11 @@ class PickOnTableTest : E2e() {
         waitUntil("the sacrifice asked on the table: ${alice.screen()}") { alice.shows(bar) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")), "no panel: ${alice.screen()}")
         waitUntil("a Pup glows") { "target" in alice.marks("Ash Pup") }
+        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"): the Pups' closed stack shows as
+        // pickable as a whole, both members framed in violet as a card alone is, not only in the colour of a group a tap opens
+        waitUntil("both Pups of the closed stack framed as pickable: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
+            "target" in alice.marks("Ash Pup") && "target" in alice.marks("Ash Pup", 1)
+        }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.shows(bar) && alice.field("Ash Pup").size == 2) {
             // TBL-130: a tap on a stack of identical Pups opens it first; a tap on a member picks it

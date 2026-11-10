@@ -59,11 +59,11 @@ class ExtraTurnScenarioTest {
         val sim = EngineAppSim(f).apply { settings[f.a] = PLAYS_ON }
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
-        alice.keep(emptyList())
+        alice.keep()
         sim.flush(f.a)
         sim.deliver(f.b)
         bob.playToStop()
-        bob.keep(emptyList())
+        bob.keep()
         sim.flush(f.b)
         repeat(5) { alone(sim, alice) }
         assertEquals(GameDevice.Status.YourMove, alice.device.status)

@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -148,7 +149,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
-    // TRN-065: the other player's concession or accepted suggestion leaves you at the table until your own OK
+    // TRN-065 (owner, 2026-11-09): a concession or an accepted suggestion leaves both players at the table until both OKs stand
     val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
     if (atTable != null) {
         val reconnecting = atTable.id in state.reconnectingGames
@@ -184,7 +185,12 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             details?.let { MatchDetailsDialog(it, accountId, null) { details = null } }
         } else
         InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
-        Column(Modifier.fillMaxSize()) {
+        // TRN-065, LOB-046 (owner, 2026-11-09): while an OK on the last result is owed the lobby takes no touch (the dialog
+        // stands over it; its eye shows what is behind)
+        val resultOpen = state.detail?.let(controller::resultOpen) == true
+        Column(Modifier.fillMaxSize().then(if (resultOpen) Modifier.testTag("lobby-blocked").pointerInput(Unit) {
+            awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
+        } else Modifier)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.detail?.let { game ->
@@ -249,13 +255,14 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val ownCards = remember(own?.deck, state.preparation?.definitions) {
             own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
         }
-        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes)
+        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes); the card catalog's
+        // marks tell at once (section 3.8), so the wait says nothing
         val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
         val support = rememberCardListSupport(ownCards)
         val reason = readyReason(state.preparation, accountId)
             ?: RESULT_FIRST.takeIf { state.detail?.let(controller::resultUnseen) == true }
             ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
-            ?: AUTOMATUM_CHECKING.takeIf { checking && support == null }
+            ?: "".takeIf { checking && support == null }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                 if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
@@ -272,11 +279,17 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         }
         }
     }
-    // TRN-065 (owner 2026-11-07): a result you haven't tapped OK on shows over the lobby, on every device, until you do
-    state.detail?.takeIf { it.lifecycle == GameLifecycle.LOBBY && controller.resultUnseen(it) }?.let { game ->
+    // TRN-065 (owner 2026-11-07, 2026-11-09): a result an OK is still owed on shows over the lobby, on every device, until
+    // both stand: with OK while it is yours, else "Waiting for <name> to acknowledge"; the lobby behind takes nothing
+    state.detail?.takeIf { controller.resultOpen(it) }?.let { game ->
         val notice = game.resultNotice!!
         val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
-        key(resultKey(game)) { GameEndDialog(GameEndText.of(notice, accountId, names), ok = controller::acknowledgeResult) }
+        val owes = controller.resultUnseen(game)
+        key(resultKey(game)) {
+            GameEndDialog(GameEndText.of(notice, accountId, names),
+                waiting = if (owes) null else "Waiting for ${game.opponent(accountId).username} to acknowledge",
+                ok = if (owes) controller::acknowledgeResult else null)
+        }
     }
     }
     }
@@ -314,10 +327,12 @@ internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, e
 
 /** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
 @OptIn(ExperimentalFoundationApi::class)
-internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, open: () -> Unit): Modifier {
+internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
     val cancel = controller.offersSetupCancellation(game)
     val delete = controller.offersGameDeletion(game)
-    return combinedClickable(onClick = open, role = Role.Button, onLongClickLabel = if (cancel || delete) "Game actions" else null,
+    // Section 3.6: opening a game reads card records; greyed while they install
+    return alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
+        onLongClickLabel = if (cancel || delete) "Game actions" else null,
         onLongClick = when {
             cancel -> ({ controller.showGameContext(game) })
             delete -> ({ controller.gameContext(game) })

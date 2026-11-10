@@ -112,7 +112,7 @@ class EngineChoiceWaitTest {
         kit.settle(bobActs = false)
         assertTrue(card in kit.hand("Mountain").map(kit::atw), "nothing was played")
 
-        kit.bob.keep(emptyList())
+        kit.bob.keep()
         kit.settle()
         assertNull(kit.routes.choosingText(kit.alice.play()), "the choice is made")
         redraw()

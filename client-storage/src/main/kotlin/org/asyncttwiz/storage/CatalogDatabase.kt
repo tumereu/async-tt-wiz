@@ -11,18 +11,16 @@ import java.util.Locale
 import java.util.UUID
 import java.util.logging.Logger
 
-// The card records' format, kept as the file's user_version. A change to it reaches phones through a client database
-// migration that has them download their card records again (ClientStorage.redownloadCatalog).
-internal const val CATALOG_INDEX_VERSION = 4
-data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0)
+// The card records' format, kept as the file's user_version. Card records are always the app's built-in card catalog
+// (docs/specs/web-client.md section 3.5): a new app with a new format comes with a new catalog checksum, so the records
+// are downloaded and indexed again anyway.
+internal const val CATALOG_INDEX_VERSION = 5
+// CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
-data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "",
-    val name: String? = null, val type: String? = null)
-
-/** Minimal provider snapshot retains exact display strings, defaults and explicit face identities. */
-data class CatalogPrinting(val id: String, val name: String, val set: String, val number: String,
-    val language: String, val side: String, val scryfallId: String?, val token: Boolean,
-    val otherFaces: List<String>, val json: String, val releaseDate: String = "")
+/** A draft set of the card records (DRF-088): [automatum] whether Automatum can play every card its packs can hold, and
+ * the names of those it can't ([unsupported], DRF-161), as the card catalog marks them (section 3.8). */
+data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
+    val automatum: Boolean = false, val unsupported: List<String> = emptyList())
 
 class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
 class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
@@ -53,23 +51,16 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.metadata() } }
     }
 
-    fun installedSets(): List<CatalogSet> = synchronized(lock) {
-        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.installedSets() } }.orEmpty()
-    }
-
-    /** Worker-only, from installed records, including optional provider metadata. */
+    /** Worker-only: the draft sets (DRF-088) with their support marks, newest first. */
     fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
 
-    /** Small SetList metadata backfill; card records and the installed generation stay intact. */
-    fun enrichSets(sets: List<CatalogSet>) = synchronized(lock) {
-        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { index -> index.transaction {
-            val namesNeeded = index.draftableSets().filter { it.name == it.code }.map { it.code }.toSet()
-            sets.forEach { set ->
-                set.type?.let { index.setType(set.code, it) }
-                if (set.code in namesNeeded) set.name?.let { index.setName(set.code, it) }
-            }
-        } } }
-    }
+    /** Worker-only (LOB-115): which of [printingIds] the card catalog doesn't mark as supported (section 3.8); null
+     * without card records. A printing the records don't have is unsupported. */
+    fun unsupported(printingIds: Collection<String>): Set<String>? = snapshot { it?.unsupported(printingIds) }
+
+    /** Worker-only (section 3.9): which of the pictures [scryfallIds] are of no printing the card catalog marks as
+     * supported; null without card records. */
+    fun unsupportedPictures(scryfallIds: Collection<String>): Set<String>? = snapshot { it?.unsupportedPictures(scryfallIds) }
 
     /** Exact normalized name, optionally exact set/collector number. Ambiguity is returned, not guessed. */
     fun find(name: String, set: String? = null, number: String? = null, limit: Int = 100): List<CatalogPrinting> = synchronized(lock) {
@@ -141,38 +132,20 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
     }
 
-    /**
-     * Removes the installed card records (the pointer first, then every generation), leaving the device as before its
-     * first download ([ClientStorage.redownloadCatalog]). Other files in the directory, such as the update cadence, stay.
-     */
-    fun clear() = synchronized(lock) {
-        val pointer = File(directory, "current")
-        check(!pointer.exists() || pointer.delete())
-        tokenCache.list = null
-        directory.listFiles()?.filter { it.name.matches(Regex("[a-f0-9-]{36}\\.db(-journal|-wal|-shm)?")) }?.forEach { it.delete() }
-        Unit
-    }
-
     /** Unpublished generations may survive process death; only the atomic pointer is readable. */
-    fun stage(copyInstalled: Boolean = false, finishing: () -> Unit = {},
-        block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
+    fun stage(finishing: () -> Unit = {}, block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
         val file = File(directory, "${UUID.randomUUID()}.db")
         var published = false
         var tokenChoices: List<CatalogTokenChoice> = emptyList()
         try {
-            if (copyInstalled) {
-                val active = checkNotNull(activeFile())
-                active.copyTo(file)
-            }
             val metadata = CatalogIndex(openDriver(file)).use { index ->
-                if (!copyInstalled) index.create()
+                index.create()
                 val result = block(index)
                 finishing()
                 val start = System.nanoTime()
                 var completed = result
                 index.transaction {
                     val records = index.validate()
-                    index.dropTokenSearch()
                     index.createAvatarChoices()
                     index.rebuildCardSearch(onPrinting = index::offerAvatarChoice)
                     completed = result.copy(records = records)
@@ -199,7 +172,8 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 }
 
 /** One disk-backed generation. Caller confines it to its catalog worker. Uses SQLDelight drivers. */
-class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable {
+class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable,
+    MtgJsonCatalogSink {
     private var duplicateRecords = 0L
     internal fun create() {
         sql("PRAGMA synchronous=FULL")
@@ -213,65 +187,67 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE INDEX face_target ON face(target, source)")
         sql("CREATE INDEX set_lookup ON printing(set_code)")
-        sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, installed_at INTEGER NOT NULL, checksum TEXT NOT NULL)")
+        sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', " +
+            "type TEXT NOT NULL DEFAULT '', draftable INTEGER NOT NULL DEFAULT 0, automatum INTEGER NOT NULL DEFAULT 0, " +
+            "unsupported TEXT NOT NULL DEFAULT '[]')")
+        // The printings of the cards the card catalog marks as supported (section 3.8)
+        sql("CREATE TABLE automatum_printing (id TEXT NOT NULL PRIMARY KEY) WITHOUT ROWID")
         createImportNames()
         createTokenRelations()
         sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
 
-    internal fun addSet(code: String, releaseDate: String, checksum: String = "") =
-        sql("INSERT INTO catalog_set VALUES (?, ?, ?, ?)", listOf(code, releaseDate, System.currentTimeMillis().toString(), checksum))
+    override fun addSet(code: String, releaseDate: String, checksum: String) =
+        sql("INSERT INTO catalog_set (code, release_date, name) VALUES (?, ?, ?)", listOf(code, releaseDate, code))
 
-    // Optional enrichment, not an index-version change. Older installations remain readable.
-    internal fun setName(code: String, name: String) {
-        sql("CREATE TABLE IF NOT EXISTS catalog_set_name (code TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
-        sql("INSERT OR REPLACE INTO catalog_set_name VALUES (?, ?)", listOf(code, name))
+    override fun setName(code: String, name: String) = sql("UPDATE catalog_set SET name=? WHERE code=?", listOf(name, code))
+
+    override fun setType(code: String, type: String) = sql("UPDATE catalog_set SET type=? WHERE code=?", listOf(type, code))
+
+    /** Set [code]'s marks (section 3.8): a kind of set that is drafted ([draftable], DRF-088), whether Automatum can play
+     * every card its packs can hold, and the names of those it can't. */
+    internal fun markSet(code: String, draftable: Boolean, automatum: Boolean, unsupported: List<String>) =
+        sql("UPDATE catalog_set SET draftable=?, automatum=?, unsupported=? WHERE code=?", listOf(if (draftable) "1" else "0",
+            if (automatum) "1" else "0", DeckJson.format.encodeToString(unsupported), code))
+
+    /** Marks [printingIds] as printings of cards Automatum supports (section 3.8). */
+    internal fun markSupported(printingIds: Collection<String>) = transaction {
+        printingIds.forEach { sql("INSERT OR IGNORE INTO automatum_printing VALUES (?)", listOf(it)) }
     }
 
-    internal fun setType(code: String, type: String) {
-        sql("CREATE TABLE IF NOT EXISTS catalog_set_type (code TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL)")
-        sql("INSERT OR REPLACE INTO catalog_set_type VALUES (?, ?)", listOf(code, type))
+    internal fun unsupported(printingIds: Collection<String>): Set<String> {
+        val ids = printingIds.toSet()
+        // API29's SQLite allows 999 bound values per statement.
+        val supported = ids.chunked(500).flatMap { chunk ->
+            texts("SELECT id FROM automatum_printing WHERE id IN (${chunk.joinToString(",") { "?" }})", chunk)
+        }.toSet()
+        return ids - supported
     }
 
-    internal fun draftableSets(): List<DraftableSet> {
-        val names = if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='catalog_set_name')") == 0L)
-            "p.set_code" else "coalesce((SELECT name FROM catalog_set_name n WHERE n.code=p.set_code), p.set_code)"
-        val dates = if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='catalog_set')") == 0L)
-            "''" else "coalesce((SELECT release_date FROM catalog_set s WHERE s.code=p.set_code), '')"
-        val types = if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='catalog_set_type')") == 0L)
-            "NULL" else "(SELECT type FROM catalog_set_type t WHERE t.code=p.set_code)"
-        return driver.executeQuery(null, """SELECT p.set_code, $names AS name, $dates AS release_date, count(*), $types
-            FROM printing p WHERE p.token=0 GROUP BY p.set_code ORDER BY release_date DESC, p.set_code""", { cursor ->
+    internal fun unsupportedPictures(scryfallIds: Collection<String>): Set<String> {
+        val ids = scryfallIds.map { it.lowercase(Locale.ROOT) }.toSet()
+        sql("CREATE INDEX IF NOT EXISTS printing_scryfall_lookup ON printing(scryfall)")
+        val supported = ids.chunked(500).flatMap { chunk ->
+            texts("SELECT DISTINCT p.scryfall FROM printing p JOIN automatum_printing a ON a.id=p.id WHERE p.scryfall IN " +
+                chunk.joinToString(",", "(", ")") { "?" }, chunk)
+        }.toSet()
+        return ids - supported
+    }
+
+    internal fun draftableSets(): List<DraftableSet> = driver.executeQuery(null,
+        """SELECT s.code, s.name, s.release_date, (SELECT count(*) FROM printing p WHERE p.set_code=s.code AND p.token=0),
+            s.automatum, s.unsupported FROM catalog_set s WHERE s.draftable=1 ORDER BY s.release_date DESC, s.code""", { cursor ->
             val sets = mutableListOf<DraftableSet>()
-            while (cursor.next().value) sets += DraftableSet(cursor.getString(0)!!, cursor.getString(1)!!,
-                cursor.getString(2)!!, cursor.getLong(3)!!, cursor.getString(4))
+            while (cursor.next().value) sets += DraftableSet(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!,
+                cursor.getLong(3)!!, cursor.getLong(4) == 1L,
+                runCatching { DeckJson.format.decodeFromString<List<String>>(cursor.getString(5)!!) }.getOrDefault(emptyList()))
             QueryResult.Value(sets)
         }, 0).value
-    }
-
-    internal fun installedSets(): List<CatalogSet> {
-        return driver.executeQuery(null, "SELECT code, release_date, installed_at, checksum FROM catalog_set", { cursor ->
-            val sets = mutableListOf<CatalogSet>()
-            while (cursor.next().value) sets += CatalogSet(cursor.getString(0)!!, cursor.getString(1)!!,
-                cursor.getLong(2)!!, cursor.getString(3)!!)
-            QueryResult.Value(sets)
-        }, 0).value
-    }
-
-    /** Only used on an unpublished copy. Other sets, including cross-set broken links, survive until validation. */
-    internal fun removeSet(code: String) = transaction {
-        val ids = "SELECT id FROM printing WHERE set_code=?"
-        sql("DELETE FROM import_name WHERE printing_id IN ($ids)", listOf(code))
-        sql("DELETE FROM face WHERE source IN ($ids)", listOf(code))
-        if (hasTokenRelations()) sql("DELETE FROM token_relation WHERE token IN ($ids) OR source IN ($ids)", listOf(code, code))
-        sql("DELETE FROM printing WHERE set_code=?", listOf(code))
-        sql("DELETE FROM catalog_set WHERE code=?", listOf(code))
-    }
 
     fun addBatch(records: List<CatalogPrinting>) = addBatch(records, emptyList())
 
     /** [traits] parallels [records]; missing entries leave the search traits unknown. */
-    internal fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
+    override fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
         records.forEachIndexed { position, record ->
             val json = JsonParser.parseString(record.json).asJsonObject
             val trait = traits.getOrNull(position)
@@ -522,18 +498,11 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     }
 
     internal val releaseDates: Map<String, String> by lazy {
-        if (long("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='catalog_set'") == 0L) emptyMap()
-        else driver.executeQuery(null, "SELECT code, release_date FROM catalog_set", { cursor ->
+        driver.executeQuery(null, "SELECT code, release_date FROM catalog_set", { cursor ->
             val dates = mutableMapOf<String, String>()
             while (cursor.next().value) dates[cursor.getString(0)!!] = cursor.getString(1)!!
             QueryResult.Value(dates)
         }, 0).value
-    }
-
-    /** The token name search went with hand-made tokens; a generation copied for an update may still hold its tables. */
-    internal fun dropTokenSearch() {
-        sql("DROP TABLE IF EXISTS token_search")
-        sql("DROP TABLE IF EXISTS token_search_ready")
     }
 
     internal fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->

@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
 }
 
 private fun allMetrics() {
-    val corpus = readCorpus(ParserToolPaths.mtgjson, ParserToolPaths.cube, supportedSets().keys)
+    val corpus = readCorpus(PinnedMtgJson.file(), ParserToolPaths.cube, supportedSets().keys)
     val outputs = ParserToolPaths.outputs.apply { mkdirs() }
     println("Parser version ${OracleParser.VERSION}, MTGJSON ${corpus.version}")
 
@@ -85,8 +85,7 @@ private fun allMetrics() {
 
 /** `--set`: a set read by the parser as it is now, whole cards and each ability on its own. */
 private fun coldRead(code: String) {
-    val cache = SetCache(ParserToolPaths.setCache.apply { mkdirs() })
-    val cards = setCards(cache.file(code))
+    val cards = pinnedSetCards(code)
     val read = cards.count { cardModel(it.layout, it.faces.map(::oracleCard)).read }
     val unread = ArrayList<String>()
     var abilities = 0

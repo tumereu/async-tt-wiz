@@ -267,22 +267,6 @@ class DeckImportTest {
         assertEquals(spell.map { it.get("uuid").asString }, exactBack.entries.single().faces.map { it.id })
     }
 
-    @Test fun oldPublicIndexStaysReadableWithoutReleaseDates() {
-        val repository = repository("prism")
-        val directory = temporary.resolve("prism").toFile()
-        val file = File(directory, File(directory, "current").readText())
-        DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { connection ->
-            connection.createStatement().use {
-                it.execute("DROP TABLE catalog_set"); it.execute("DROP TABLE import_name"); it.execute("PRAGMA user_version=0")
-            }
-        }
-        val metadata = repository.metadata()!!
-        val result = DeckImportResolver(repository).resolve("20 Coppercloud Surveyor\n1 Dayglass Loom")
-        assertTrue(result.resolved, result.issues.toString())
-        assertEquals(2, result.entries.last().faces.size)
-        assertEquals("", result.entries.first().printing.releaseDate)
-        assertEquals(metadata, repository.metadata())
-    }
 
     /** Small catalog of real card records (see cubecobra-synergy test resources). */
     private fun realSample(): DeckImportResolver {

@@ -182,7 +182,7 @@ class LobbyDeckScreensTest {
         val models = ViewModelStore()
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { models.put("catalog", it) }
         val metadata = CatalogMetadata("2026-10-26", "test")
-        catalog.seed(CatalogUiState(loaded = true, available = metadata))
+        catalog.seed(CatalogUiState())
         val worker = Worker()
         var resolved = false
         val printing = CatalogPrinting(id(), "Unknown", "TST", "1", "English", "", null, false, emptyList(), "{}")
@@ -203,7 +203,7 @@ class LobbyDeckScreensTest {
             assertEquals("1 Unknown", importer.state.text)
             compose.runOnIdle {
                 resolved = true
-                catalog.seed(CatalogUiState(loaded = true, installed = metadata))
+                catalog.seed(CatalogUiState(installed = metadata, ready = true))
             }
             compose.runOnIdle { worker.drain() }
             compose.onNodeWithTag("save-deck").assertIsEnabled()

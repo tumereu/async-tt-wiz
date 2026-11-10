@@ -27,6 +27,8 @@ class GameCleanupTest {
         val a = w.account("FinAlice"); val b = w.account("FinBob")
         val m = w.Match(a, b)
         m.start(); m.concede()
+        // TRN-065 (owner, 2026-11-09): the lobby takes nothing before both OKs
+        m.alice.accepted(GameAction.AcknowledgeResult)
         val token = GameWire.json.decodeFromString<GameList>(w.lobby.list(a, null, false).body).token!!
         w.clock.advance(Duration.ofDays(7).minus(minute))
         assertEquals(0, w.cleanup.run().deletedGames)
@@ -46,6 +48,8 @@ class GameCleanupTest {
         val a = w.account("LaterAlice"); val b = w.account("LaterBob")
         val m = w.Match(a, b)
         m.start(); m.concede()
+        // TRN-065 (owner, 2026-11-09): the lobby takes nothing before both OKs
+        m.alice.accepted(GameAction.AcknowledgeResult)
         w.clock.advance(day)
         m.alice.accepted(GameAction.SetStarter(StarterChoice(b.account.accountId)))
         w.clock.advance(Duration.ofDays(7))

@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
-    cubes: CubeController? = null, pods: PodController? = null, catalogPrompts: Boolean = true) {
+    cubes: CubeController? = null, pods: PodController? = null) {
     val state = controller.state
     var collectionCubes by remember { mutableStateOf(false) }
     if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
@@ -51,13 +51,20 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     LaunchedEffect(state.drawerOpen) {
         if (state.drawerOpen) pods?.refresh()
     }
-    val catalogBusy = !tabletop && state.destination != ShellDestination.MENU && state.destination != ShellDestination.SETTINGS &&
-        catalog?.state?.background == false && catalog.state.progress != null
+    // Section 3.6: while the card records install, controls that read them are greyed and content needing them waits
+    val records = catalog?.state?.records ?: CardRecords.Ready
     val content: @Composable () -> Unit = {
-        CatalogProgressDock(if (catalogBusy) catalog.state.status else null, catalog?.state?.progress) {
-            CompositionLocalProvider(LocalBusySuppressed provides catalogBusy) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalCardRecords provides records, LocalCardRecordsRetry provides catalog?.let { it::retry }) {
                 if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+                } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null && records != CardRecords.Ready) {
+                    // A game's table needs card records: a game opened from elsewhere (a notification) waits for them
+                    Column(Modifier.fillMaxSize()) {
+                        ScreenHeader(lobby.state.games.firstOrNull { it.id == lobby.state.selected }?.gameName ?: "Game",
+                            if (!landscape) ({ controller.drawer(true) }) else null)
+                        CardRecordsPlaceholder(Modifier.weight(1f).fillMaxWidth().padding(16.dp))
+                    }
                 } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null) {
                     LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
                         if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
@@ -134,11 +141,6 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     if (lobby != null) {
         SetupCancellationDialogs(lobby)
         GameDeletionDialogs(lobby)
-    }
-    if (catalogPrompts && !tabletop && catalog != null && catalog.promptPolicy.shouldPrompt(catalog.state)) {
-        CatalogStartupDialog(catalog.state,
-            download = { catalog.promptPolicy.dismiss(catalog.state); catalog.consent() },
-            dismiss = { catalog.promptPolicy.dismiss(catalog.state) })
     }
 }
 
@@ -280,10 +282,13 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
         } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
             if (hamburger) open else null, Modifier.testTag("destination-title")) {
             if (destination == ShellDestination.GAMES)
-                ScreenCreateAction("New game", "add", { lobby?.contacts(true); push(ShellDestination.CONTACTS) })
+                ScreenCreateAction("New game", "add", { lobby?.contacts(true); push(ShellDestination.CONTACTS) },
+                    Modifier.testTag("new-game"), enabled = cardRecordsReady())
             if (destination == ShellDestination.DECKS && deckImport != null)
-                ScreenCreateAction("Import deck", "import", deckImport::open, Modifier.testTag("import-deck"))
+                ScreenCreateAction("Import deck", "import", deckImport::open, Modifier.testTag("import-deck"), enabled = cardRecordsReady())
         }
+        if (destination == ShellDestination.GAMES || destination == ShellDestination.DECKS)
+            CardRecordsNote(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
@@ -321,13 +326,14 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                                  games.forEachIndexed { index, game ->
                                      if (index > 0) HorizontalDivider(color = ScreenBorder)
                                      val incoming = incomingInvitation(game, accountId)
+                                     val ready = cardRecordsReady()
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                                         .gameRowActions(lobby, game) {
+                                         .gameRowActions(lobby, game, enabled = ready || incoming) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
                                          }, trailing = if (incoming) ({
                                              MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
-                                                 acceptEnabled = !game.invitationHeld) {
+                                                 acceptEnabled = !game.invitationHeld && ready) {
                                                  lobby.respond(game, it)
                                              }
                                          }) else null)

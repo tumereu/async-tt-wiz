@@ -163,7 +163,12 @@ android {
             buildConfigField("String", field, "\"$value\"")
         }
     }
-    // Explicit isolated source configuration exists only in debug; release always uses provider HTTPS.
+    // The card catalog's checksum (docs/specs/web-client.md section 3.5), worked out by the release when it builds the
+    // catalog (scripts/prod-release.sh). Without it (local and test builds) the app takes the server's current catalog.
+    val catalogChecksum = providers.gradleProperty("atwCatalogChecksum").orElse("").get()
+    require(catalogChecksum.isEmpty() || Regex("[0-9a-f]{64}").matches(catalogChecksum)) { "atwCatalogChecksum must be a SHA-256" }
+    defaultConfig { buildConfigField("String", "CATALOG_CHECKSUM", "\"$catalogChecksum\"") }
+    // Explicit isolated picture source configuration exists only in debug; release always uses provider HTTPS.
     val catalogOrigin = providers.gradleProperty("atwCatalogTestOrigin").orElse("").get()
     require(catalogOrigin.isEmpty() || runCatching {
         val uri = URI(catalogOrigin)
@@ -173,8 +178,6 @@ android {
     val catalogPath = providers.gradleProperty("atwCatalogPath").orElse("/api/v5/").get()
     require(Regex("/(?:[A-Za-z0-9_-]+/)+").matches(catalogPath))
     defaultConfig {
-        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"\"")
-        buildConfigField("String", "CATALOG_BASE", "\"https://mtgjson.com/api/v5/\"")
         buildConfigField("String", "ART_TEST_ORIGIN", "\"\"")
         buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
         val contact = providers.gradleProperty("atwArtContact").orElse("").get()
@@ -190,8 +193,6 @@ android {
             providers.gradleProperty("atwAccountSwitcher").orElse("true").get().toBooleanStrict().toString())
         // Without an override, preserve AGP's existing persistent local debug signer.
         if (externalTestSigning != null) signingConfig = externalTestSigning
-        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"$catalogOrigin\"")
-        buildConfigField("String", "CATALOG_BASE", "\"${if (catalogOrigin.isEmpty()) "https://mtgjson.com/api/v5/" else catalogOrigin + catalogPath}\"")
         buildConfigField("String", "ART_TEST_ORIGIN", "\"$catalogOrigin\"")
         buildConfigField("String", "ART_BASE", "\"${if (catalogOrigin.isEmpty()) "https://api.scryfall.com/cards/" else catalogOrigin + catalogPath + "scryfall/cards/"}\"")
     }
@@ -232,8 +233,6 @@ android {
         buildConfigField("String", "ACCOUNT_ORIGIN", "\"$testOrigin\"")
         buildConfigField("String", "RESET_ORIGIN", "\"$testOrigin\"")
         buildConfigField("boolean", "ACCOUNT_SWITCHER", "true")
-        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"\"")
-        buildConfigField("String", "CATALOG_BASE", "\"https://mtgjson.com/api/v5/\"")
         buildConfigField("String", "ART_TEST_ORIGIN", "\"\"")
         buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
         manifestPlaceholders["resetHost"] = "desktop-b2kalvm.tail27cccc.ts.net"
@@ -269,6 +268,9 @@ android {
     // End-to-end tests (e2e/) compile with these JVM tests (they drive this app's Compose UI and internal classes) but
     // run only in :e2e:test, against a real server; the ordinary test tasks leave them out (below).
     sourceSets.getByName("test").kotlin.directories.add("../e2e/src/test/kotlin")
+    // The MTGJSON import (:catalog's src/mtgjson) indexes the tests' invented MTGJSON fixtures; the app reads only the
+    // server's card catalog (docs/specs/web-client.md section 3.5).
+    sourceSets.getByName("test").kotlin.directories.add("../catalog/src/mtgjson/kotlin")
     // One retained fixture shared with host migration verification; never packaged in the app.
     sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
 }

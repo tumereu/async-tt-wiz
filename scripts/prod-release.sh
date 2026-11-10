@@ -319,6 +319,15 @@ PY
 *) die "Production update check returned HTTP $status; release refused." ;;
 esac
 (( code > published )) || die "VersionCode $code must be greater than published $published. Allocate a new code in release/version.json and approve that commit."
+# The card catalog (docs/specs/web-client.md section 3.4): the pinned MTGJSON file verified (a different file stops the
+# release here, before anything is published) and the catalog built from it with the code the server and clients read
+# it with. Its checksum is built into the app; the catalog is deployed with the server (the playbook's atw_catalog_artifact).
+artifact=$STATE/releases/$commit
+mkdir -p "$artifact"
+rm -rf -- "$artifact/catalog"
+"$worktree/scripts/catalog-pin.sh" build "$artifact/catalog" || die "The card catalog couldn't be built from the pinned MTGJSON file; release refused."
+catalog_checksum=$(tr -d '[:space:]' < "$artifact/catalog/current")
+[[ $catalog_checksum =~ ^[0-9a-f]{64}$ ]] || die "The card catalog build left no checksum; release refused."
 export ATW_RELEASE_STORE_FILE=$KEYS/release.p12
 export ATW_RELEASE_STORE_PASSWORD_FILE=$KEYS/store-password
 export ATW_RELEASE_KEY_ALIAS=atw-release
@@ -329,9 +338,8 @@ atw_fcm_args "$ATW_FIREBASE/google-services-prod.json" org.asyncttwiz.android
 variant=release apk_dir=release
 if (( ${#fcm_args[@]} )); then variant=fcmRelease apk_dir=fcm/release; fi
 "$worktree/scripts/gradle.sh" ":androidApp:assemble${variant^}" -PatwSelfHosted=true \
-    "-PatwApiOrigin=$ORIGIN" "-PatwResetOrigin=$ORIGIN" -PatwAccountSwitcher=false -PatwCatalogTestOrigin= "${fcm_args[@]}"
-artifact=$STATE/releases/$commit
-mkdir -p "$artifact"
+    "-PatwApiOrigin=$ORIGIN" "-PatwResetOrigin=$ORIGIN" -PatwAccountSwitcher=false -PatwCatalogTestOrigin= \
+    "-PatwCatalogChecksum=$catalog_checksum" "${fcm_args[@]}"
 cp "$worktree/androidApp/build/outputs/apk/$apk_dir/"*.apk "$artifact/app.apk"
 python3 - "$artifact/app.apk" "$worktree/androidApp/build/outputs/apk/$apk_dir/output-metadata.json" "$code" "$artifact/latest.json" <<'PY'
 import hashlib, json, pathlib, sys
@@ -361,7 +369,7 @@ PY
 (
     cd "$PI_SETUP"
     ATW_VERSION=$commit direnv exec . ansible-playbook async-tt-wiz.yml \
-        -e "atw_controller_source=$worktree" -e "atw_app_release_artifact=$artifact"
+        -e "atw_controller_source=$worktree" -e "atw_app_release_artifact=$artifact" -e "atw_catalog_artifact=$artifact/catalog"
 )
 echo "Published production $commit (versionCode $code)."
 install_phone "$artifact/app.apk"

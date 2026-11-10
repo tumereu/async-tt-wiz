@@ -2340,12 +2340,14 @@ class GameDevice(
     /** Whether the shown state is a final result. */
     private fun isFinal(): Boolean = Engine.result(model.engine) != null && final()
 
-    /** The concession on the line, if any. */
-    private fun concession(): PlayerId? =
-        session.events.firstNotNullOfOrNull { e -> e.engine?.steps.orEmpty().firstNotNullOfOrNull { (it.input as? Input.Concede)?.player } }
+    /** The concession on the line, if any; the player's own still on its way counts (TRN-065, owner 2026-11-09: their table
+     * shows them waiting for the other player's OK at once, never an OK of their own to press). */
+    private fun concession(): PlayerId? = (session.events + session.pending)
+        .firstNotNullOfOrNull { e -> e.engine?.steps.orEmpty().firstNotNullOfOrNull { (it.input as? Input.Concede)?.player } }
 
-    /** The event accepting the other player's suggestion (TRN-047), if any. */
-    private fun agreement(): GameEvent? = session.events.lastOrNull { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
+    /** The event accepting the other player's suggestion (TRN-047), if any; the player's own still on its way counts. */
+    private fun agreement(): GameEvent? =
+        (session.events + session.pending).lastOrNull { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
 
     /** TRN-065 (owner 2026-11-07): who made the result final by their own action: the conceder, or the player who accepted a
      * suggestion (it ends the game at once, as a concession does). */

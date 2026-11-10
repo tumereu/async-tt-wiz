@@ -163,6 +163,8 @@ class GameResultLifecycleTest {
                 assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
                 assertEquals("accepted", f.other.execute(f.concession()).outcome)
                 assertTrue(shown().getValue(bId))
+                // TRN-065 (owner, 2026-11-09): the lobby takes nothing before both OKs
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                 // It can be switched off again.
                 assertEquals("accepted", f.other.execute(GameAction.ShowDeck(false)).outcome)
                 assertFalse(shown().getValue(bId))

@@ -53,9 +53,11 @@ tasks.register("verifyModuleBoundaries") {
             ":core" to emptySet(),
             // I-D54: a game's state is the Arcanum engine's state, so protocol and the server use the engine.
             ":protocol" to setOf(":core", ":arcanum-engine", ":arcanum-parser"),
-            ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser"),
+            ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser", ":catalog"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum"),
-            ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine"),
+            ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine", ":catalog"),
+            // The card catalog: its format and reader, the MTGJSON import, and the build with Automatum's support marks.
+            ":catalog" to setOf(":protocol", ":automatum"),
             // Arcanum libraries are generic MTG code: they never depend on ATW modules.
             ":arcanum-api" to emptySet(),
             ":arcanum-parser" to setOf(":arcanum-api"),

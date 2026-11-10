@@ -71,7 +71,8 @@ import java.util.concurrent.Executors
  */
 internal class E2ePlayer(val account: TestAccount, private val compose: ComposeTestRule,
     val engineWorker: EngineWorker = EngineWorker.Background,
-    setRepository: org.asyncttwiz.android.PodSetRepository? = null) : AutoCloseable {
+    setRepository: org.asyncttwiz.android.PodSetRepository? = null, withCatalog: Boolean = false,
+    holdCatalog: Boolean = false) : AutoCloseable {
     val name: String get() = account.identity.username
     val id: String get() = account.id
     /** This phone's network: [NetworkLink.cut] it to drop the connection. */
@@ -97,9 +98,28 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         accountId = { auth.state.account?.accountId }, authenticationRequired = ::authenticationRequired,
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker)
+    /** Holds the card catalog's download until the test lets it through ([holdCatalog]). */
+    val catalogGate = java.util.concurrent.CountDownLatch(if (holdCatalog) 1 else 0)
+    private val catalogDirectory = if (withCatalog) kotlin.io.path.createTempDirectory("e2e-catalog-${account.name}").toFile() else null
+    /** The phone's card records, only when a test asks for them ([withCatalog]): the test server's card catalog (the test
+     * cards'), checked against the checksum it is built with and installed as the app does (docs/specs/web-client.md 3.5). */
+    val catalog: org.asyncttwiz.android.CatalogViewModel? = catalogDirectory?.let { directory ->
+        val repository = org.asyncttwiz.storage.CatalogRepository(directory) { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
+        val source = object : org.asyncttwiz.storage.CatalogSource {
+            val real = org.asyncttwiz.storage.HttpCatalogSource(link.origin)
+            override fun current() = real.current()
+            override fun download(checksum: String, output: java.io.OutputStream, progress: (Long) -> Unit) {
+                check(catalogGate.await(2, java.util.concurrent.TimeUnit.MINUTES)) { "The test never let the card catalog through" }
+                real.download(checksum, output, progress)
+            }
+        }
+        org.asyncttwiz.android.CatalogViewModel(androidx.test.core.app.ApplicationProvider.getApplicationContext(),
+            org.asyncttwiz.android.CatalogController(directory, repository, { source }, E2eStack.catalogChecksum, worker("catalog"), post,
+                retryPause = 0))
+    }
     val pods = PodController(PodApi(link.origin, authenticationRequired = ::authenticationRequired),
         DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post,
-        setRepository = setRepository)
+        setRepository = setRepository ?: catalog?.let { records -> org.asyncttwiz.android.StoredPodSets { records.repository } })
     private val reset = ResetController(AccountApi(link.origin), "", worker("reset"), succeeded = {}, post = post)
     /** The deck screens, on the phone once a test asks for them ([decksShown]): these phones have no card records, so the
      * editor works on a saved deck's own cards. */
@@ -172,16 +192,19 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** The board version [playAlong] last acted on. */
     internal var alongAt = -1L
 
-    /** The app's card list check (MainActivity provides it): cards parsed from their rules text as the device does,
-     * without its storage cache. */
+    /** The app's card list check (MainActivity provides it): the test cards' definitions parsed as the device does (for
+     * Stats' mana sources), every test card supported as the card catalog would mark them. */
     private val cardListSupport = CardListSupportCheck({ cards -> cards.associate { card ->
         val parsed = org.asyncttwiz.protocol.game.GameCards.parse(card.definition)
         card.digest to (parsed.definition?.let { org.asyncttwiz.storage.ParsedCard.Read(it, parsed.manualAbilities) }
             ?: org.asyncttwiz.storage.ParsedCard.Unreadable(parsed.problem.orEmpty()))
-    } })
+    } }, { emptySet() })
 
     /** Starts the app's screen: signed in (the saved session), on the main menu. */
     fun launch() {
+        // With card records the app offers the avatar chooser at a first sign-in (LOB-011): these accounts had theirs
+        if (catalog != null) org.asyncttwiz.android.AvatarPromptMemory(androidx.test.core.app.ApplicationProvider.getApplicationContext()).shown(account.id)
+        catalog?.foreground()
         controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         activity.setContent {
             MaterialTheme {
@@ -192,7 +215,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 SideEffect { heartbeat.display(game?.takeIf { shown }, token) }
                 CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text },
                     LocalCardListSupport provides cardListSupport) {
-                    Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods,
+                    Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, catalog = catalog, lobby = lobby, pods = pods,
                         deckImport = deckImport.takeIf { decksShown }, decks = decks.takeIf { decksShown }) }
                 }
             }
@@ -310,8 +333,10 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         runCatching { controller.pause().stop().destroy() }
         runCatching { lobby.close() }
         runCatching { pods.close() }
+        runCatching { catalog?.controller?.close() }
         workers.forEach { it.shutdownNow() }
         link.close()
+        catalogDirectory?.deleteRecursively()
     }
 
     companion object {

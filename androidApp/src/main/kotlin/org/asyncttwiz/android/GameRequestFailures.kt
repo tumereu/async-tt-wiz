@@ -12,6 +12,8 @@ internal fun refusalText(reason: String?): String = when (reason) {
     "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
     "automatumUnsupported" -> "Automatum can't play every card of this deck yet. Choose another deck."
     "starterRequired" -> "Choose the starting player to get ready."
+    // TRN-065, LOB-046
+    "resultNotSeen" -> "Both players tap OK on the last game's result first."
     // LOB-135
     "notHost" -> "Only the player who created this game can change its settings."
     "branched" ->"Your opponent went back to an earlier point — your last action wasn't applied."

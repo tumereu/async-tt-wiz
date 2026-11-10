@@ -1,0 +1,1 @@
+fix: After a second mulligan you choose the card to put on the bottom once, on the Keep / Bottom screen that opens right away; Keep then simply keeps your hand.

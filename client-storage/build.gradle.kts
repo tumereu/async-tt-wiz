@@ -13,6 +13,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // The MTGJSON import (:catalog's src/mtgjson, JVM only in the catalog module) indexes the tests' invented MTGJSON
+    // fixtures; the app itself reads only the server's card catalog (docs/specs/web-client.md section 3.5).
+    sourceSets { named("test") { kotlin.directories += rootProject.file("catalog/src/mtgjson/kotlin").path } }
     testOptions.unitTests.all {
         it.useJUnitPlatform()
         it.systemProperty("storage.fixture", file("src/main/sqldelight/databases/1.db").absolutePath)
@@ -48,6 +51,8 @@ sqldelight {
 dependencies {
     implementation(project(":core"))
     implementation(project(":protocol"))
+    // The card catalog's format and files, and the card records it is indexed into (docs/specs/web-client.md section 3).
+    api(project(":catalog"))
     // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
     implementation(project(":arcanum-parser"))
     implementation(libs.serialization.json)

@@ -55,7 +55,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
             SettingsSection("Automatum") { AutomatumPauseSettings(accountId, account) }
             HorizontalDivider()
             if (catalog != null) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) { CatalogControls(catalog) }
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) { CatalogControls(catalog.state, catalog::retry) }
                 HorizontalDivider()
             }
             SettingsSection("About & account") {
@@ -70,8 +70,6 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
     }
     val accountError = account?.error
     if (accountError != null) FloatingTransientError(accountError, account::dismissError, Modifier.align(Alignment.BottomCenter))
-    else if (catalog != null) FloatingTransientError(catalog.state.status?.takeIf { catalog.state.error },
-        catalog::dismissError, Modifier.align(Alignment.BottomCenter))
     }
 }
 

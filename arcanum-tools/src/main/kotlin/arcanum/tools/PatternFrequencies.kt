@@ -17,11 +17,11 @@ import java.util.zip.GZIPInputStream
  * them, most frequent first, as TSV. Reads AllPrintings (data → set → cards) or AtomicCards (data → name → faces).
  * Skips Un-cards (isFunny), online-only printings and rebalanced Alchemy cards. Also runs [OracleParser] over every
  * face and reports how much it reads, with the keyword-like lines it still leaves unparsed in a second file next to
- * the first (unparsed-keywords.tsv). Args: <mtgjson file> <output tsv>.
+ * the first (unparsed-keywords.tsv). Reads the pinned AllPrintings file ([PinnedMtgJson]). Args: <output tsv>.
  */
 fun main(args: Array<String>) {
-    require(args.size == 2) { "Usage: PatternFrequencies <MTGJSON .json or .json.gz> <output .tsv>" }
-    val faces = readFaces(File(args[0]))
+    require(args.size == 1) { "Usage: PatternFrequencies <output .tsv>" }
+    val faces = readFaces(PinnedMtgJson.file())
     val creatureTypes = faces.values.filter { it.creature }.flatMap { it.subtypes }.toSet()
     val counts = HashMap<Pattern, Int>()
     val examples = HashMap<Pattern, String>()
@@ -49,7 +49,7 @@ fun main(args: Array<String>) {
                 .filter { it.kind == PatternKind.KEYWORD }.forEach { unparsedKeywords.merge(it.text, 1, Int::plus) }
         }
     }
-    val out = File(args[1]).apply { parentFile.mkdirs() }
+    val out = File(args[0]).apply { parentFile.mkdirs() }
     File(out.parentFile, "unparsed-keywords.tsv").bufferedWriter().use { w ->
         w.appendLine("count\tkeyword pattern")
         unparsedKeywords.entries.sortedByDescending { it.value }.forEach { (text, count) -> w.appendLine("$count\t$text") }

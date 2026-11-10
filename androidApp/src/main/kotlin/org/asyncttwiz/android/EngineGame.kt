@@ -726,18 +726,42 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun unstage() = worker.call { if (staging != null) { staging = null; publish() } }
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
-    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
-
-    /** The player keeps, putting [bottom] (card ids) on the bottom of their library when cards are owed. */
-    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false) {
-        val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")) ?: return@acting null
-        if (bottom.isEmpty()) return@acting act(keep)
-        val objects = bottom.mapNotNull { id -> device.model.engine.player(PlayerId(me)).hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
-        send(listOf(keep)).let { first ->
-            if (first !is GameDevice.Acted.Sent) first
-            else setupInput(arcanum.engine.decision.Answer.Objects(objects))?.let { act(it) } ?: first
-        }
+    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false) {
+        val hand = openingHand()
+        val input = setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))
+        // TRN-062 (problem report 5DDSKK): the opening logged fully, with the cards
+        AppLog.info("opening", "Mulligan pressed (${mulligansTaken()} taken before) on $hand: ${if (input == null) "not open" else "sending"}")
+        input?.let(::act)?.also { AppLog.info("opening", "Mulligan: $it") }
     }
+
+    /** TRN-062 (owner problem report 5DDSKK): the player keeps the hand as it is; the cards a mulligan puts on the bottom
+     * were asked right after it ([bottom]), so keeping owes nothing. */
+    fun keep(): GameDevice.Acted? = acting(STALE, after = false) {
+        val hand = openingHand()
+        val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
+        val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")).takeIf { owed == 0 }
+        AppLog.info("opening", "Keep pressed (${mulligansTaken()} mulligans) on $hand: " +
+            if (owed > 0) "refused, $owed still to put on the bottom" else if (keep == null) "not open" else "sending")
+        keep?.let(::act)?.also { AppLog.info("opening", "Keep: $it") }
+    }
+
+    /** TRN-062, CR 103.5: the player puts [bottom] (card ids) on the bottom of their library, right after a mulligan (the
+     * Keep / Bottom screen, STK-043); null when no bottom is open for them. */
+    fun bottom(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false) {
+        val hand = device.model.engine.player(PlayerId(me)).hand
+        val objects = bottom.mapNotNull { id -> hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
+        val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
+        val input = setupInput(arcanum.engine.decision.Answer.Objects(objects)).takeIf { owed > 0 && objects.size == owed }
+        AppLog.info("opening", "Bottom OK on ${openingHand()}: ${objects.map(::cardName)} of $owed owed: ${if (input == null) "not open" else "sending"}")
+        input?.let(::act)?.also { AppLog.info("opening", "Bottom: $it") }
+    }
+
+    /** The player's hand by card name, for the opening's log lines (hidden information may be logged). Engine thread. */
+    private fun openingHand(): List<String> = device.model.engine.player(PlayerId(me)).hand.map(::cardName)
+    private fun cardName(id: arcanum.engine.state.ObjectId): String =
+        device.model.engine.obj(id)?.definition?.faces?.firstOrNull()?.name ?: id.toString()
+    private fun mulligansTaken(): Int = device.model.engine.log.count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
+        it is arcanum.engine.change.GameEvent.Mulliganed && it.player.value == me } }
 
     /** The input answering the player's own setup decision with [answer]: the open decision when it is theirs, else their
      * declaration ahead of it ([Input.SetupAnswer]); null when the engine lists neither. Engine thread. */
@@ -1296,8 +1320,19 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * shown is taken back or replaced: [reason] (with the ids involved), the shown tip and local head before ([tip],
      * [local]) and after ([after]). Engine thread.
      */
-    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) =
+    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) {
+        lastTakeBack = "$reason; tip $tip → ${after.tip}"
+        takeBacks++
         AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}")
+    }
+
+    /** STK-025, HIS-099 (owner problem report RC3J4K): how many times a board already shown was taken back ([takenBack]):
+     * an open cast begun before the latest is dropped (the table went back behind it). Any thread reads. */
+    @Volatile var takeBacks = 0L
+        private set
+    /** The latest take-back's words, from where to where, for the log of what it dropped. */
+    @Volatile var lastTakeBack = ""
+        private set
 
     /** An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011),
      * the newer board shows. Engine thread. */

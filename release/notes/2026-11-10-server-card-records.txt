@@ -1,0 +1,1 @@
+mod: Card records now come from the ATW server: a much smaller download, and both players always have the same ones.

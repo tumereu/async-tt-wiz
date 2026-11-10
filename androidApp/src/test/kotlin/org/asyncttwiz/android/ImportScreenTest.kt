@@ -189,8 +189,7 @@ class ImportScreenTest {
     @Test fun importScreenHasNoCatalogSectionAndOnlyTheLinkTopBarAction() {
         val models = ViewModelStore()
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { models.put("catalog", it) }
-        catalog.seed(CatalogUiState(loaded = true, installed = CatalogMetadata("2026-10-20", "test"),
-            available = CatalogMetadata("2026-10-26", "test")))
+        catalog.seed(CatalogUiState(installed = CatalogMetadata("2026-10-20", "test"), ready = true))
         val controller = DeckImportController({ error("No lookup expected") }, Worker()) { it() }
         controller.open()
         try {

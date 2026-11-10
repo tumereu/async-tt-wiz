@@ -27,6 +27,13 @@ class MatchHistoryTest : E2e() {
         player.text("Concede").performClick()
     }
 
+    /** TRN-065 (owner, 2026-11-09): nobody goes to the lobby until both have pressed OK: Bob presses his once it isn't greyed. */
+    private fun bobOk() {
+        val ok = hasTestTag(org.asyncttwiz.android.GAME_END_OK_TAG) and androidx.compose.ui.test.isEnabled()
+        waitUntil("Bob's OK no longer greyed") { bob.shows(ok) }
+        bob.node(ok).performClick()
+    }
+
     /** [player]'s game lobby History tab shows one match with [result] and "T<turns> · Conceded". */
     private fun lobbyHistory(player: E2ePlayer, result: String, turns: Int) {
         waitUntil("${player.name}'s lobby after the match") { player.shows(hasTestTag("lobby-history-tab")) }
@@ -53,11 +60,9 @@ class MatchHistoryTest : E2e() {
         bothOpen()
         bothKeep(bobAway = false)
         concede(alice)
+        // TRN-065 (owner, 2026-11-09): both stay at the table until Bob's OK
+        bobOk()
         lobbyHistory(alice, "Loss", 1)
-        // TRN-065 (owner, 2026-11-09): Bob stays at the table until his own OK
-        val ok = hasTestTag(org.asyncttwiz.android.GAME_END_OK_TAG) and androidx.compose.ui.test.isEnabled()
-        waitUntil("Bob's OK no longer greyed") { bob.shows(ok) }
-        bob.node(ok).performClick()
         lobbyHistory(bob, "Win", 1)
         stats(alice, "Loss", 1)
         stats(bob, "Win", 1)
@@ -69,6 +74,7 @@ class MatchHistoryTest : E2e() {
         bothOpen()
         bothKeep(bobAway = false)
         concede(alice)
+        bobOk()
         lobbyHistory(alice, "Loss", 1)
         stats(alice, "Loss", 1)
         alice.tagged("stats-graphs-tab").performClick()
@@ -87,7 +93,8 @@ class MatchHistoryTest : E2e() {
         val game = ServerSetup.readyBoth(alice.account, bob.account, ServerSetup.podGame(alice.account, bob.account, name))
         alice.openGame(game, this)
         concede(alice)
-        waitUntil("Alice's lobby after the match") { alice.shows(hasTestTag("lobby-history-tab")) }
+        // TRN-065 (owner, 2026-11-09): she waits at the table for Bob's OK, and leaves for other screens as usual
+        waitUntil("Alice's result, waiting for Bob") { alice.showsText("Waiting for ${bob.name} to acknowledge") }
         alice.auth.navigate(ShellDestination.MENU)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
         alice.tagged("menu-PODS").performClick()

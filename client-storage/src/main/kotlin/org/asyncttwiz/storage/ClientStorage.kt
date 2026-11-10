@@ -174,20 +174,6 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         Unit
     }
 
-    /**
-     * Single version (owner 2026-11-08): once after the migration to version 6, [clear] removes the device's card records
-     * so that they are downloaded again as on a first install; true when it ran. The marker goes only once [clear]
-     * returned, so a failure tries again at the next open.
-     */
-    fun redownloadCatalog(clear: () -> Unit): Boolean = access {
-        database.transactionWithResult {
-            if (database.catalogRedownloadQueries.pending().executeAsOne() == 0L) return@transactionWithResult false
-            clear()
-            database.catalogRedownloadQueries.done()
-            true
-        }
-    }
-
     /** One installation profile; switching accounts never makes the former replica readable. */
     fun activateAccount(accountId: String) = access {
         require(accountId.isNotEmpty())
@@ -286,7 +272,8 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
                 tables["card_definition_cache"] = listOf("definition_digest:TEXT:1:1", "parser_version:INTEGER:1:2",
                     "definition_json:TEXT:0:0", "manual_abilities:INTEGER:1:0", "problem:TEXT:0:0")
             }
-            if (version >= 6L) tables["catalog_redownload"] = listOf("id:INTEGER:1:1")
+            // Version 6's catalog_redownload is dropped by the migration to 7.
+            if (version == 6L) tables["catalog_redownload"] = listOf("id:INTEGER:1:1")
             tables.forEach { (table, expected) ->
                 val actual = driver.executeQuery(null, "PRAGMA table_info($table)", { cursor ->
                     val columns = mutableListOf<String>()

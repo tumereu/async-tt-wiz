@@ -80,6 +80,14 @@ connected. Replace 8080 in the command if you change `API_PORT`.
 
 ## 3. Start the stack
 
+Draft pods from sets need the server's card catalog, built from the pinned MTGJSON file
+(`catalog/pin.properties`; put that `AllPrintings.json.gz` at `ATW_ALLPRINTINGS` first). The
+server reads it from `deploy/catalog` (or `CATALOG_HOST_DIR`):
+
+```sh
+scripts/catalog-pin.sh build deploy/catalog
+```
+
 ```sh
 docker compose -f deploy/compose.yml --env-file deploy/.env config --quiet
 docker compose -f deploy/compose.yml --env-file deploy/.env up -d --wait
@@ -143,11 +151,10 @@ Verified password-reset app links additionally need an `assetlinks.json` associa
 for the actual package and signing certificate. Without it, use the HTTPS browser
 reset form; reset emails are not needed to create accounts or start a game.
 
-Each player registers and signs in. Download card records in Manage decks, import
-and save a decklist, then add the other player's username in Contacts. Create a
-named invitation, accept it on the other phone, select decks, choose a starter and
-press Ready on both devices. Initial catalog acquisition is large and needs consent;
-missing artwork falls back to text. The app records manual actions and history.
+Each player registers and signs in; the app installs the server's card catalog on
+start. Import and save a decklist, then add the other player's username in Contacts.
+Create a named invitation, accept it on the other phone, select decks, choose a
+starter and press Ready on both devices. Missing artwork falls back to text. The app records manual actions and history.
 
 ## Stop, upgrade and preserve data
 

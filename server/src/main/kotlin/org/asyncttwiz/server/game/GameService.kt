@@ -276,7 +276,12 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val before = game.revision!!
         var insertedChat: ChatMessage? = null
         var engineAccepted: EngineGames.Outcome? = null
-        val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded" else when (command.action) {
+        val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded"
+            else if (lobbyWaitsForResult(game, command.action)) "resultNotSeen".also {
+                org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Lobby action refused before both OKs game={} account={} action={}",
+                    game.id, inbox.accountId, command.action.latencyType())
+            }
+            else when (command.action) {
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
             is GameAction.Submit, is GameAction.EngineSeen, is GameAction.EngineRewind, is GameAction.EngineRequestRewind,
             is GameAction.EngineAnswerRewind, GameAction.EngineCancelRewind, is GameAction.EngineSettings ->
@@ -457,7 +462,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             org.asyncttwiz.server.history.MatchRecords.finished(sql, summary, play, outcome.facts!!, now)
             PlayStore.endEngine(sql, summary, command.requestId, outcome.result) { lobby.summary(sql, it) }
             // TRN-065 (owner 2026-11-09): after a concession or an accepted suggestion the other player sees the result until
-            // their OK; the player whose own action ended it has seen it. A result the rules gave ended on both OKs: nobody owes one
+            // their OK, and both stay at the table until it comes (the lobby takes nothing meanwhile, [lobbyWaitsForResult]);
+            // the player whose own action ended it has given theirs. A result the rules gave ended on both OKs: nobody owes one
             val facts = outcome.facts!!
             val endedByAction = facts.ending is org.asyncttwiz.protocol.MatchEnding.Conceded || facts.ending is org.asyncttwiz.protocol.MatchEnding.Agreed
             val notice = org.asyncttwiz.protocol.ResultNotice(
@@ -484,17 +490,31 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         return null
     }
 
-    /** TRN-065: the actor tapped OK on the last match's result: they no longer see it, and once neither does the next
-     * game may start ([StartRules.canStart]). Tapping it again (another device) changes nothing. */
+    /** TRN-065: the actor tapped OK on the last match's result: they no longer see it, and once neither does both players go
+     * to the lobby and the next game may start ([StartRules.canStart]). Tapping it again (another device) changes nothing. */
     private fun applyAcknowledgement(sql: DSLContext, game: GameRecord, account: UUID): String? {
         if (game.lifecycle != "LOBBY") return "inapplicable"
-        val notice = game.resultNotice?.let { json.decodeFromString<org.asyncttwiz.protocol.ResultNotice>(it) } ?: return null
+        val notice = game.resultNotice?.let { json.decodeFromString<org.asyncttwiz.protocol.ResultNotice>(it) } ?: return null.also {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Result OK again game={} account={}: nobody owes one", game.id, account)
+        }
         val unseen = notice.unseen - account.toString()
         val stored = if (unseen.isEmpty()) null else json.encodeToString(notice.copy(unseen = unseen))
         sql.update(GAME).set(GAME.RESULT_NOTICE, stored).where(GAME.ID.eq(game.id)).execute()
         game.resultNotice = stored
+        org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Result OK game={} account={} owed={} stillOwed={}{}",
+            game.id, account, account.toString() in notice.unseen, unseen.size, if (unseen.isEmpty()) ": both to the lobby" else "")
         return null
     }
+
+    /** TRN-065, LOB-046 (owner 2026-11-09): while a player still has to tap OK on the last match's result nobody acts in the
+     * game's lobby (decks, readiness, settings, cancelling it): both players are still at its table. */
+    private fun lobbyWaitsForResult(game: GameRecord, action: GameAction): Boolean = game.lifecycle == "LOBBY" &&
+        game.resultNotice != null && when (action) {
+            is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetPodGameBasics, is GameAction.SetStarter,
+            is GameAction.SetAlternateStarter, is GameAction.ShowDeck, is GameAction.SetAssumeReveals,
+            GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> true
+            else -> false
+        }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {
         if (game.lifecycle != "ACTIVE") return "lifecycleEnded"

@@ -3,155 +3,82 @@ package org.asyncttwiz.storage
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URI
-import java.security.MessageDigest
-import java.util.Properties
-import java.util.zip.GZIPInputStream
-import java.time.LocalDate
+import java.util.logging.Logger
+import kotlinx.serialization.json.Json
+import org.asyncttwiz.catalog.CardCatalogFiles
+import org.asyncttwiz.catalog.CardCatalogFormat
+import org.asyncttwiz.catalog.CatalogCards
+import org.asyncttwiz.catalog.CatalogFaceRecord
+import org.asyncttwiz.catalog.CatalogHeader
+import org.asyncttwiz.catalog.CatalogPrintingRecord
+import org.asyncttwiz.catalog.CatalogRecipeRecord
+import org.asyncttwiz.catalog.CatalogRecord
+import org.asyncttwiz.catalog.CatalogSetRecord
+import org.asyncttwiz.catalog.CatalogVersion
+import org.asyncttwiz.protocol.CardColors
+import org.asyncttwiz.protocol.CardSearchRules
 
+/** The ATW server's card catalog (docs/specs/web-client.md section 3.4): which one is current, and its file by checksum. */
 interface CatalogSource {
-    fun metadata(): CatalogMetadata
-    fun size(): Long?
-    fun checksum(): String
-    fun download(output: OutputStream, progress: (Long) -> Unit)
-    fun setList(): CatalogSetList = error("Set list unavailable")
-    fun setSource(code: String): CatalogSource = error("Set source unavailable")
+    /** The server's current catalog (`GET /v1/catalog`). */
+    fun current(): CatalogVersion
+    /** Streams catalog [checksum]'s file (`GET /v1/catalog/{checksum}`) into [output], with the bytes so far. */
+    fun download(checksum: String, output: OutputStream, progress: (Long) -> Unit)
 }
 
-data class CatalogSetList(val metadata: CatalogMetadata, val sets: List<CatalogSet>)
-data class CatalogUpdatePlan(val metadata: CatalogMetadata, val sets: List<CatalogSet> = emptyList(), val full: Boolean = false)
-
-/** MTGJSON escapes Windows reserved filenames (CON is the Conflux set). Never accept a path. */
-internal fun catalogSetFilename(code: String): String {
-    require(Regex("[A-Z0-9]{1,16}").matches(code))
-    return if (code in setOf("CON", "PRN", "AUX", "NUL") || Regex("(?:COM|LPT)[1-9]").matches(code)) "${code}_" else code
-}
-
-object CatalogUpdatePolicy {
-    /** Nothing installed yet (a first install, or card records cleared for downloading again). */
-    fun changed(installed: CatalogMetadata?, available: CatalogMetadata?): Boolean = available != null && installed == null
-    fun download(installed: CatalogMetadata?, available: CatalogMetadata?, metered: Boolean, consent: Boolean): Boolean =
-        changed(installed, available) && (consent || (installed != null && !metered))
-    fun plan(installed: CatalogMetadata?, installedSets: List<CatalogSet>, available: CatalogSetList,
-        today: LocalDate = LocalDate.now()): CatalogUpdatePlan? {
-        if (changed(installed, available.metadata)) return CatalogUpdatePlan(available.metadata, full = true)
-        val codes = installedSets.map { it.code }.toSet()
-        // Future releases are previews too; keep refreshing them until sixty days after release.
-        val sets = available.sets.filter { it.code !in codes || !LocalDate.parse(it.releaseDate).isBefore(today.minusDays(60)) }
-        return sets.takeIf { it.isNotEmpty() }?.let { CatalogUpdatePlan(available.metadata, it) }
-    }
-    fun canDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean, consent: Boolean): Boolean =
-        plan != null && (consent || (installed != null && !metered))
-    fun fullRefresh(available: CatalogMetadata) = CatalogUpdatePlan(available, full = true)
-}
-
-/** Dedicated public provider connection: no service client, bearer, cookies or user-controlled URL. */
-class HttpCatalogSource(
-    private val base: String = "https://mtgjson.com/api/v5/",
-    private val syntheticOrigin: String? = null,
-    private val userAgent: String = "AsyncTabletopWizards/0.1.0 (catalog client)",
-    private val filename: String = "AllPrintings",
-) : CatalogSource {
+/** The catalog endpoints of the ATW server at [origin] (open without sign-in, LOB-091): HTTPS, or the debug loopback. */
+class HttpCatalogSource(private val origin: String, private val userAgent: String = "AsyncTabletopWizards (card catalog)") : CatalogSource {
     init {
-        val uri = URI(base)
-        require(filename == "AllPrintings" || Regex("[A-Z0-9]{1,16}_?").matches(filename))
-        require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null && base.endsWith('/'))
-        if (syntheticOrigin == null) require(uri.scheme == "https" && uri.host == "mtgjson.com" && uri.port == -1)
-        else {
-            val test = URI(syntheticOrigin)
-            require(test.scheme == "http" && test.host == "127.0.0.1" && test.port in 1..65535 &&
-                test.rawUserInfo == null && test.rawPath.isNullOrEmpty() && test.rawQuery == null && test.rawFragment == null)
-            require(origin(uri) == syntheticOrigin)
-        }
+        val uri = URI(origin)
+        require(uri.rawUserInfo == null && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null &&
+            (uri.scheme == "https" || (uri.scheme == "http" && uri.host == "127.0.0.1"))) { "Not a catalog origin" }
     }
 
-    override fun metadata(): CatalogMetadata = request("Meta.json", 10_000) { connection ->
-        connection.inputStream.use { MtgJsonCatalog().metadata(LimitedInput(it, 1024 * 1024)) }
-    }
-    override fun setList(): CatalogSetList = request("SetList.json", 10_000) { connection ->
-        connection.inputStream.use { MtgJsonCatalog().setList(LimitedInput(it, 16 * 1024 * 1024)) }
-    }
-    override fun setSource(code: String): CatalogSource = HttpCatalogSource(base, syntheticOrigin, userAgent, catalogSetFilename(code))
-    private val maximum get() = if (filename == "AllPrintings") MAX_BYTES else MAX_SET_BYTES
-    override fun size(): Long? = request("$filename.json.gz", 10_000, "HEAD") { connection ->
-        connection.contentLengthLong.takeIf { it > 0 && it <= maximum }
-    }
-    override fun checksum(): String = request("$filename.json.gz.sha256", 10_000) { connection ->
-        connection.inputStream.use { LimitedInput(it, 1024).readBytes().toString(Charsets.US_ASCII).trim() }
-            .also { check(Regex("[a-fA-F0-9]{64}").matches(it)) }.lowercase()
-    }
-    override fun download(output: OutputStream, progress: (Long) -> Unit) = request("$filename.json.gz", 30 * 60_000) { connection ->
-        check(connection.contentLengthLong <= maximum)
-        connection.inputStream.use { input ->
-            var count = 0L
-            val bytes = ByteArray(64 * 1024)
-            while (true) {
-                check(!Thread.currentThread().isInterrupted)
-                val read = input.read(bytes)
-                if (read == -1) break
-                count += read
-                check(count <= maximum)
-                output.write(bytes, 0, read)
-                progress(count)
-            }
-            check(connection.contentLengthLong < 0 || count == connection.contentLengthLong)
-        }
+    override fun current(): CatalogVersion = request("/v1/catalog", 15_000) { connection ->
+        val text = connection.inputStream.use { LimitedInput(it, 64 * 1024).readBytes() }.toString(Charsets.UTF_8)
+        json.decodeFromString(CatalogVersion.serializer(), text).also { check(CardCatalogFiles.valid(it.checksum)) }
     }
 
-    private fun <T> request(path: String, timeout: Int, method: String = "GET", block: (HttpURLConnection) -> T): T {
-        val deadline = System.nanoTime() + timeout * 1_000_000L
-        var uri = URI(base).resolve(path)
-        repeat(4) { redirect ->
-            // Validate every redirect; cross-origin redirects and HTTPS downgrades never carry any request.
-            require(uri.rawUserInfo == null && uri.rawFragment == null && origin(uri) == origin(URI(base)))
-            val connection = uri.toURL().openConnection() as HttpURLConnection
-            try {
-                val remaining = ((deadline - System.nanoTime()) / 1_000_000).toInt().coerceAtLeast(1)
-                check(System.nanoTime() < deadline)
-                connection.instanceFollowRedirects = false
-                connection.connectTimeout = minOf(remaining, 10_000)
-                connection.readTimeout = minOf(remaining, 30_000)
-                connection.requestMethod = method
-                connection.useCaches = false
-                connection.setRequestProperty("User-Agent", userAgent)
-                connection.setRequestProperty("Accept", if (path.endsWith(".json")) "application/json" else "application/octet-stream")
-                connection.setRequestProperty("Accept-Encoding", "identity")
-                when (connection.responseCode) {
-                    200 -> {
-                        check(System.nanoTime() < deadline)
-                        val bounded = object : HttpURLConnection(connection.url) {
-                            override fun disconnect() = connection.disconnect()
-                            override fun usingProxy() = connection.usingProxy()
-                            override fun connect() = connection.connect()
-                            override fun getContentLengthLong() = connection.contentLengthLong
-                            override fun getInputStream(): InputStream = object : FilterInputStream(connection.inputStream) {
-                                private fun remaining() {
-                                    check(System.nanoTime() < deadline) { "Catalog request timed out" }
-                                    connection.readTimeout = minOf(30_000, ((deadline - System.nanoTime()) / 1_000_000).toInt().coerceAtLeast(1))
-                                }
-                                override fun read(): Int { remaining(); return `in`.read().also { check(System.nanoTime() < deadline) } }
-                                override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
-                                    remaining(); return `in`.read(bytes, offset, length).also { check(System.nanoTime() < deadline) }
-                                }
-                            }
-                        }
-                        return block(bounded)
-                    }
-                    301, 302, 303, 307, 308 -> {
-                        check(redirect < 3)
-                        uri = uri.resolve(requireNotNull(connection.getHeaderField("Location")))
-                    }
-                    else -> error("Catalog source unavailable")
+    override fun download(checksum: String, output: OutputStream, progress: (Long) -> Unit) {
+        require(CardCatalogFiles.valid(checksum))
+        request("/v1/catalog/$checksum", 30 * 60_000) { connection ->
+            check(connection.contentLengthLong <= MAX_BYTES) { "Card catalog too large" }
+            connection.inputStream.use { input ->
+                var count = 0L
+                val bytes = ByteArray(64 * 1024)
+                while (true) {
+                    check(!Thread.currentThread().isInterrupted)
+                    val read = input.read(bytes)
+                    if (read == -1) break
+                    count += read
+                    check(count <= MAX_BYTES) { "Card catalog too large" }
+                    output.write(bytes, 0, read)
+                    progress(count)
                 }
-            } finally { connection.disconnect() }
+                check(connection.contentLengthLong < 0 || count == connection.contentLengthLong) { "Card catalog download cut short" }
+            }
         }
-        error("Too many redirects")
+    }
+
+    private fun <T> request(path: String, timeout: Int, block: (HttpURLConnection) -> T): T {
+        val connection = URI(origin + path).toURL().openConnection() as HttpURLConnection
+        try {
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = minOf(timeout, 15_000)
+            connection.readTimeout = minOf(timeout, 30_000)
+            connection.useCaches = false
+            connection.setRequestProperty("User-Agent", userAgent)
+            connection.setRequestProperty("Accept-Encoding", "identity")
+            val status = connection.responseCode
+            check(status == 200) { "Card catalog unavailable: HTTP $status for $path" }
+            return block(connection)
+        } finally { connection.disconnect() }
     }
 
     companion object {
-        const val MAX_BYTES = 4L * 1024 * 1024 * 1024
-        const val MAX_SET_BYTES = 256L * 1024 * 1024
-        const val MAX_DECODED_SET_BYTES = 1024L * 1024 * 1024
-        private fun origin(uri: URI): String = "${uri.scheme}://${uri.rawAuthority}"
+        /** Far above the catalog's ~13 MB (section 3.3). */
+        const val MAX_BYTES = 512L * 1024 * 1024
+        private val json = Json { ignoreUnknownKeys = true }
     }
 }
 
@@ -164,8 +91,21 @@ internal class LimitedInput(input: InputStream, private val maximum: Long) : Fil
 
 enum class CatalogPhase { DOWNLOADING, INDEXING, FINISHING }
 
-/** Byte counts always refer to the compressed download, including during gzip decoding. */
-data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?, val records: Long = 0)
+/** Byte counts always refer to the compressed file, while indexing too. */
+data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?) {
+    /** How much of the whole installation is done, 0 to 99 ("Card records updating · 43%", section 3.6): the download is
+     * the first [DOWNLOAD_SHARE] percent, indexing the rest; finishing (the card search) is 99. */
+    val percent: Int get() {
+        val fraction = total?.takeIf { it > 0 }?.let { (done.toDouble() / it).coerceIn(0.0, 1.0) } ?: 0.0
+        return when (phase) {
+            CatalogPhase.DOWNLOADING -> (fraction * DOWNLOAD_SHARE).toInt()
+            CatalogPhase.INDEXING -> (DOWNLOAD_SHARE + fraction * (99 - DOWNLOAD_SHARE)).toInt()
+            CatalogPhase.FINISHING -> 99
+        }
+    }
+
+    private companion object { const val DOWNLOAD_SHARE = 20 }
+}
 
 internal class CountingInput(input: InputStream) : FilterInputStream(input) {
     var count: Long = 0
@@ -176,136 +116,119 @@ internal class CountingInput(input: InputStream) : FilterInputStream(input) {
     override fun skip(bytes: Long): Long = `in`.skip(bytes).also { count += it }
 }
 
+/**
+ * Installs the server's card catalog (docs/specs/web-client.md section 3.5) as the device's card records: downloads the
+ * file, indexes it record by record into a new generation of [repository] (search, imports, support marks), and
+ * publishes it only when the file's checksum is the one asked for. Always the whole file. Blocking: a worker only.
+ */
 class CatalogInstaller(private val directory: File, private val repository: CatalogRepository,
     private val source: CatalogSource, private val freeBytes: () -> Long = { directory.usableSpace },
-    private val decodedLimit: Long = HttpCatalogSource.MAX_BYTES) {
-    fun install(expected: CatalogMetadata, size: Long?, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
+    private val log: (String) -> Unit = { Logger.getLogger(CatalogInstaller::class.java.name).info(it) }) {
+    /** Installs catalog [expected] (the app's built-in checksum; null: the server's current one) and returns its metadata. */
+    fun install(expected: String?, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
         check(directory.isDirectory || directory.mkdirs())
+        val current = try { source.current() } catch (failure: Exception) {
+            if (expected == null) throw failure
+            log("Card catalog: the server's current version couldn't be read (${failure.message}); downloading $expected")
+            null
+        }
+        val checksum = expected ?: current!!.checksum
+        require(CardCatalogFiles.valid(checksum)) { "Not a catalog checksum" }
+        val size = current?.takeIf { it.checksum == checksum }?.size
+        if (current != null && current.checksum != checksum) log("Card catalog: the server's current is ${current.checksum}, this app needs $checksum")
         val reserve = 64L * 1024 * 1024
-        val compressed = size ?: HttpCatalogSource.MAX_BYTES
-        check(freeBytes() >= compressed + minOf(decodedLimit, compressed * 12) + reserve) { "Not enough free space" }
-        val download = File(directory, "download.gz.part")
+        check(freeBytes() >= (size ?: (16L * 1024 * 1024)) * 24 + reserve) { "Not enough free space" }
+        val download = File(directory, "catalog.jsonl.gz.part")
         try {
-            val checksum = source.checksum()
-            val digest = MessageDigest.getInstance("SHA-256")
+            log("Card catalog: downloading $checksum (${size ?: "unknown"} bytes)")
             progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, size))
             FileOutputStream(download).use { file ->
-                java.security.DigestOutputStream(file, digest).use { output ->
-                    source.download(output) { bytes ->
-                        check(freeBytes() >= reserve)
-                        progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, size))
-                    }
-                    output.flush(); file.fd.sync()
+                source.download(checksum, file) { bytes ->
+                    check(freeBytes() >= reserve) { "Not enough free space" }
+                    progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, size))
                 }
+                file.flush(); file.fd.sync()
             }
-            check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
-            val indexingTotal = size ?: download.length()
-            return repository.stage(finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, 0, null)) }) { index ->
-                progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
-                CountingInput(FileInputStream(download)).use { compressedInput ->
-                    GZIPInputStream(compressedInput, 64 * 1024).use { gzip ->
-                        MtgJsonCatalog().import(LimitedInput(gzip, decodedLimit), index, expected.copy(checksum = checksum)) { count ->
-                            check(freeBytes() >= reserve)
-                            progress(CatalogProgress(CatalogPhase.INDEXING, compressedInput.count, indexingTotal, count))
+            val total = download.length()
+            log("Card catalog: downloaded $total bytes; indexing")
+            return repository.stage(finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, total, total)) }) { index ->
+                progress(CatalogProgress(CatalogPhase.INDEXING, 0, total))
+                val indexer = CatalogRecordIndexer(index)
+                CountingInput(FileInputStream(download)).use { counted ->
+                    var last = 0L
+                    val read = CardCatalogFiles.stream(counted) { record ->
+                        indexer.add(record)
+                        if (counted.count - last >= 64 * 1024) {
+                            last = counted.count
+                            check(freeBytes() >= reserve) { "Not enough free space" }
+                            progress(CatalogProgress(CatalogPhase.INDEXING, counted.count, total))
                         }
                     }
+                    check(read == checksum) { "Card catalog checksum mismatch: asked for $checksum, read $read" }
                 }
+                indexer.finish(checksum).also { log("Card catalog $checksum indexed: ${it.records} printings") }
             }
         } finally { download.delete() }
     }
-
-    fun install(plan: CatalogUpdatePlan, size: Long? = null, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
-        if (plan.full) return install(plan.metadata, size, progress)
-        require(plan.sets.isNotEmpty() && plan.sets.map { it.code }.distinct().size == plan.sets.size)
-        checkNotNull(repository.metadata())
-        check(directory.isDirectory || directory.mkdirs())
-        val downloads = mutableListOf<Triple<CatalogSet, File, String>>()
-        val reserve = 64L * 1024 * 1024
-        // Progress covers the whole update, not each set: per-set restarts made a small update flicker empty/full.
-        val sources = plan.sets.map { set -> source.setSource(set.code).let { it to it.size() } }
-        val overall = sources.map { it.second }.takeIf { sizes -> sizes.all { it != null } }?.sumOf { it!! }
-        var completed = 0L
-        try {
-            plan.sets.zip(sources).forEach { (set, sized) ->
-                val (setSource, total) = sized
-                val compressed = total ?: HttpCatalogSource.MAX_SET_BYTES
-                val installedSize = directory.listFiles()?.filter { it.extension == "db" }?.sumOf { it.length() } ?: 0
-                check(freeBytes() >= installedSize + compressed + minOf(HttpCatalogSource.MAX_DECODED_SET_BYTES, compressed * 12) + reserve) {
-                    "Not enough free space"
-                }
-                val file = File(directory, "${catalogSetFilename(set.code)}.gz.part")
-                val checksum = setSource.checksum()
-                downloads += Triple(set, file, checksum)
-                val digest = MessageDigest.getInstance("SHA-256")
-                if (completed == 0L) progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, overall))
-                FileOutputStream(file).use { output ->
-                    java.security.DigestOutputStream(output, digest).use { checked ->
-                        setSource.download(checked) { bytes ->
-                            check(bytes <= HttpCatalogSource.MAX_SET_BYTES && freeBytes() >= reserve)
-                            progress(CatalogProgress(CatalogPhase.DOWNLOADING, completed + bytes, overall))
-                        }
-                        checked.flush(); output.fd.sync()
-                    }
-                }
-                check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
-                completed += file.length()
-            }
-            val indexingTotal = downloads.sumOf { it.second.length() }
-            var indexed = 0L
-            var records = 0L
-            return repository.stage(copyInstalled = true,
-                finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, 0, null)) }) { index ->
-                progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
-                downloads.forEach { (set, file, checksum) ->
-                    index.removeSet(set.code)
-                    var setRecords = 0L
-                    CountingInput(FileInputStream(file)).use { compressed ->
-                        GZIPInputStream(compressed, 64 * 1024).use { gzip ->
-                            MtgJsonCatalog().import(LimitedInput(gzip, minOf(decodedLimit, HttpCatalogSource.MAX_DECODED_SET_BYTES)),
-                                index, plan.metadata.copy(checksum = checksum), set.code) { count ->
-                                check(freeBytes() >= reserve)
-                                setRecords = count
-                                progress(CatalogProgress(CatalogPhase.INDEXING, indexed + compressed.count, indexingTotal, records + count))
-                            }
-                        }
-                    }
-                    indexed += file.length(); records += setRecords
-                }
-                plan.metadata.copy(checksum = "") // A mixed catalog has no AllPrintings checksum.
-            }
-        } finally { downloads.forEach { it.second.delete() } }
-    }
 }
 
-/** Public acquisition scheduling survives process death independently of account/session data. */
-class CatalogCadence(private val file: File) {
-    data class State(val success: Long = -1, val attempt: Long = -1, val failures: Int = 0)
-    fun state(): State {
-        if (!file.exists()) return State()
-        return runCatching {
-            val properties = Properties().apply { file.inputStream().use(::load) }
-            State(properties.getProperty("success").toLong(), properties.getProperty("attempt").toLong(),
-                properties.getProperty("failures").toInt().coerceIn(0, 3))
-        }.getOrDefault(State())
-    }
-    fun due(now: Long): Boolean {
-        val state = state()
-        if (state.attempt > now || state.success > now) return true // clock correction, not a permanent lockout
-        return if (state.failures > 0) now - state.attempt >= listOf(15 * 60_000L, 60 * 60_000L, 6 * 60 * 60_000L)[state.failures - 1]
-        else state.success < 0 || now - state.success >= 24 * 60 * 60_000L
-    }
-    fun checked(now: Long, successful: Boolean) {
-        val previous = state()
-        val next = if (successful) State(now, now, 0) else State(previous.success, now, (previous.failures + 1).coerceAtMost(3))
-        file.parentFile?.mkdirs()
-        val temporary = File(file.parentFile, "${file.name}.new")
-        FileOutputStream(temporary).use { output ->
-            Properties().apply {
-                setProperty("success", next.success.toString()); setProperty("attempt", next.attempt.toString())
-                setProperty("failures", next.failures.toString())
-            }.store(output, null)
-            output.fd.sync()
+/** Puts a catalog's records, in file order, into a card records generation: each printing as the record the app keeps
+ * (CatalogCards.sourceRecord) with its search traits, the sets with their marks, and the supported printings. */
+internal class CatalogRecordIndexer(private val index: CatalogIndex) {
+    private var header: CatalogHeader? = null
+    private val faces = ArrayList<CatalogFaceRecord>()
+    private val batch = ArrayList<CatalogPrinting>(BATCH)
+    private val traits = ArrayList<CatalogPrintingTraits?>(BATCH)
+    private val supported = ArrayList<String>(BATCH)
+    private var sets = 0
+    private var printings = 0L
+
+    fun add(record: CatalogRecord) {
+        when (record) {
+            is CatalogHeader -> {
+                check(header == null) { "Two catalog headers" }
+                check(record.format == CardCatalogFormat.FORMAT) { "Catalog format ${record.format}, expected ${CardCatalogFormat.FORMAT}" }
+                check(record.formats == CardSearchRules.FORMATS) { "The catalog's formats aren't this app's" }
+                header = record
+            }
+            is CatalogSetRecord -> {
+                checkNotNull(header) { "No catalog header" }
+                index.addSet(record.code, record.released)
+                index.setName(record.code, record.name)
+                if (record.type.isNotEmpty()) index.setType(record.code, record.type)
+                index.markSet(record.code, record.draftable, record.automatum, record.unsupported)
+                sets++
+            }
+            is CatalogFaceRecord -> { check(record.i == faces.size) { "Face ${record.i} out of order" }; faces += record }
+            is CatalogPrintingRecord -> {
+                val face = faces.getOrNull(record.face) ?: error("Printing ${record.id} names a face the catalog doesn't have")
+                batch += CatalogPrinting(record.id, face.name, record.set, record.number, "English", face.side, record.scryfall,
+                    record.token, record.others, CatalogCards.sourceRecord(record, face).toString())
+                traits += CatalogPrintingTraits(record.rarity, CardColors.mask(face.identity), face.legal,
+                    if (record.token) record.makers else record.tokens)
+                if (face.automatum && !record.token) supported += record.id
+                printings++
+                if (batch.size == BATCH) flush()
+            }
+            is CatalogRecipeRecord -> Unit // Packs are the server's (section 3.7)
         }
-        check(temporary.renameTo(file))
     }
+
+    fun finish(checksum: String): CatalogMetadata {
+        flush()
+        val read = checkNotNull(header) { "No catalog header" }
+        check(read.sets == sets && read.faces == faces.size && read.printings.toLong() == printings) {
+            "Catalog incomplete: header says ${read.sets}/${read.faces}/${read.printings}, read $sets/${faces.size}/$printings"
+        }
+        return CatalogMetadata(read.mtgjsonDate, read.mtgjsonVersion, checksum, printings)
+    }
+
+    private fun flush() {
+        if (batch.isEmpty()) return
+        index.addBatch(batch, traits)
+        index.markSupported(supported)
+        batch.clear(); traits.clear(); supported.clear()
+    }
+
+    private companion object { const val BATCH = 500 }
 }

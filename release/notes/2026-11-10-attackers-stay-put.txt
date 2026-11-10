@@ -1,0 +1,1 @@
+fix: Your attacking creatures no longer shift a little to the side when you declare the attack.

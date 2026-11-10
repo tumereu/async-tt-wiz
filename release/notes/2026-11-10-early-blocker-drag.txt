@@ -1,0 +1,1 @@
+fix: When you are attacked, your creatures can no longer be dragged in as blockers before your declare blockers step (that could cause an error); a drag on one moves the table instead.

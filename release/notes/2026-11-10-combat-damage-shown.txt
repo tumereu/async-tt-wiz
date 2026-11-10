@@ -1,0 +1,1 @@
+add: After combat damage, the combat area shows until the combat ends how much damage each attacked player, planeswalker and battle took and how much each unblocked or trampling attacker dealt; life the attacker gained from lifelink shows by their life total.

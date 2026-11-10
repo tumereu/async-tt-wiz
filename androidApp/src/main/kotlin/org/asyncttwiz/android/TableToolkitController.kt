@@ -163,6 +163,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      */
     internal fun tapPermanent(cardId: String): Boolean {
         val play = current() ?: return false
+        // TBL-124 (owner playtest 2026-11-10): never while targets are picked, whose ever the permanent is
+        if (cast.targeting || flows.targeting) {
+            AppLog.info("table", "Tap on $cardId while targets are picked: no ability chips")
+            return false
+        }
         val offered = activatable(play, cardId)
         if (offered.isNullOrEmpty()) return false
         dismiss()
@@ -654,6 +659,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             val card = item.cardId?.let { CombatStackRules.liveSource(play.board, it)?.id }
             if (card != null && card == chips) return
             if (card != null && tapPermanent(card)) return
+            // TBL-124, TBL-123 (owner playtest 2026-11-10): another player's permanent shows no abilities unless Automatum lets
+            // the viewer activate one of them (then its chips open, above): its abilities are read in Inspect
+            if (card != null && controllerOf(play, card) != viewer) {
+                AppLog.info("table", "Tap on $card, not the viewer's, none of its abilities theirs to activate: nothing opens")
+                dismiss()
+                return
+            }
         }
         // A card in a Graveyard or Exile panel: its engine menu (TBL-116)
         if (item.viewport.startsWith("cardPanel/")) {
@@ -706,6 +718,29 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     fun handle(intent: TableIntent): Boolean {
+        // CMB-034 (owner playtest 2026-11-10): every drag says what was dragged where and what came of it
+        if (intent is TableIntent.Move && intent.drag) {
+            gestureMessage = null
+            val result = try { handleGesture(intent) } catch (problem: RuntimeException) {
+                AppLog.warn("combat", "Drag of ${intent.scope.cardIds.ifEmpty { listOf(intent.scope.contextId) }} to ${dragWhere(intent)} failed", problem)
+                throw problem
+            }
+            AppLog.info(if (intent.destination is TableDestination.Combat) "combat" else "table",
+                "Drag of ${intent.scope.cardIds.ifEmpty { listOf(intent.scope.contextId) }} to ${dragWhere(intent)}: " +
+                    (if (result) "taken" else "not taken${(gestureMessage ?: error)?.let { ": $it" }.orEmpty()}"))
+            return result
+        }
+        return handleGesture(intent)
+    }
+
+    /** Where a drag went, for the log: the combat lane's role, pair and target, else the destination. */
+    private fun dragWhere(intent: TableIntent.Move): String = when (val d = intent.destination) {
+        is TableDestination.Combat -> "combat ${d.destination.role.name.lowercase()} pair ${d.destination.pairId ?: "new"} " +
+            "attacking ${d.destination.attackTarget ?: "the player"}"
+        else -> d.toString().take(120)
+    }
+
+    private fun handleGesture(intent: TableIntent): Boolean {
         // I-D46: with Automatum on, a gesture Automatum doesn't allow shakes the card, pile or life square it was made on
         // instead of saying why; genuine failures (offline, still working out) keep their message
         val target = gestureTarget(intent)
@@ -721,9 +756,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         error = null
         val result = try { handleIntent(intent) } finally { if (!cast.open) castGesture = null }
         val message = error
+        gestureMessage = message
         if (!result && message != null && refusal(message)) shake(target)
         return result
     }
+
+    /** The message the last gesture left (shaken or shown), for the log. */
+    private var gestureMessage: String? = null
 
     /** Whether [intent] is a drag that leaves the card where it was ([AutomatumDrags.Route.Stay]). */
     private fun stays(intent: TableIntent.Move): Boolean =
@@ -797,6 +836,17 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
                 val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
+                // CMB-034 (owner playtest 2026-11-10): only the player declaring now drafts that declaration, with their own
+                // creatures (the defender's before their declare blockers step was checked against the attack as an attacker
+                // of the active player's): nothing else reaches Automatum, and the card just goes back
+                val declaring = choices.declaring
+                val foreign = bound.sourceIds.filter { controllerOf(play, it) != declaring }
+                if (declaring != viewer || foreign.isNotEmpty()) {
+                    AppLog.info("combat", "Drag into combat not taken: " + (if (declaring == null) "nothing is declared now"
+                        else "${if (choices.attackers) "attackers" else "blockers"} of $declaring are declared") +
+                        "; ${bound.sourceIds} by $viewer${if (foreign.isEmpty()) "" else ", not the declaring player's: $foreign"}")
+                    return false
+                }
                 val pair = destination.pairId?.let { id -> play.board.combat?.pairs?.singleOrNull { it.id == id } }
                 val target = pair?.attackTarget ?: destination.attackTarget
                 if (choices.declaring != null && choices.attackers) {
@@ -854,6 +904,23 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val face = play.definitions.firstOrNull { it.digest == c.definition }?.definition?.faces?.firstOrNull { it.faceId == c.faceId }
         return AutomatumBoards.cached(play, viewer)?.cards?.get(card)?.typeLine?.contains("Creature", ignoreCase = true)
             ?: face?.typeLine?.contains("Creature", ignoreCase = true) ?: false
+    }
+
+    /**
+     * CMB-028, CMB-034, CMB-040 (owner playtest 2026-11-10): whether the battlefield card [item] may be dragged into the
+     * combat band now: the viewer's own creature while they declare attackers or blockers, or the defender's while the
+     * viewer places blocks to assume. Before their declare blockers step the defender's creatures can't be dragged as
+     * blockers: a drag on one pans the table. True while what combat allows isn't worked out yet (the drop then says so).
+     */
+    internal fun combatDraggable(item: TableItem): Boolean {
+        val card = item.sourceId ?: item.cardId ?: return false
+        val live = current() ?: return false
+        val placed = engine?.assuming()
+        val play = placed?.board(live) ?: live
+        if (placed == null && !enabled()) return false
+        val choices = combat.readyOrLast(play)?.choices ?: return true
+        val declaring = choices.declaring ?: return false
+        return controllerOf(play, card) == declaring && (if (placed != null) !choices.attackers else declaring == viewer)
     }
 
     private fun controllerOf(play: TableBoard, card: String): String? =

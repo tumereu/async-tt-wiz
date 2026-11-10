@@ -1,0 +1,1 @@
+Alice's phone, 3 of 5, no hold (blocks don't hold the view) and no wait (her own move): Bob's Cub blocks her first Cub, the damage preview shows Bob going from 20 to 16 and both blocked Cubs dying, and the main button reads Next.

@@ -607,6 +607,34 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() }
     }
 
+    // TBL-124, TBL-123 (owner playtest 2026-11-10): a tap on the other player's permanent whose abilities you may not activate
+    // shows none of them (no chips, no menu), and no chips while targets are picked, on your own permanents or theirs
+    @Test fun noAbilityChipsWhileTargetingOrOnTheOtherPlayersPermanents() {
+        start(deck(TestCards.cairn to 20, TestCards.flick to 20), mapOf("Ember Cairn" to 1, "Ember Flick" to 1),
+            bobDeck = deck(TestCards.cairn to 40), bobHolds = mapOf("Ember Cairn" to 1), bobStarts = true)
+        plays(bob, "Ember Cairn")
+        endsTurn(bob)
+        waitUntil("Alice's Main 1", along = listOf(bob)) {
+            // Her phone stops where Bob's assumed her passes in his turn: she passes on
+            if (alice.status is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+            alice.inOwnMain()
+        }
+        plays(alice, "Ember Cairn")
+        val add = hasContentDescription("{T}: Add {R}.")
+        alice.battlefieldCard("Ember Cairn", owner = bob).performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertFalse(alice.shows(add), "no chips on Bob's Cairn")
+        alice.playFromHand("Ember Flick", this)
+        waitUntil("Ember Flick asking for its target") { alice.shows(hasContentDescription("Choose targets")) }
+        alice.battlefieldCard("Ember Cairn").performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertFalse(alice.shows(add), "no chips on her own Cairn while targets are picked")
+        alice.battlefieldCard("Ember Cairn", owner = bob).performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertFalse(alice.shows(add), "none on Bob's either")
+        assertEquals(0, alice.tappedCount("Ember Cairn"), "nothing activated")
+    }
+
     private fun E2ePlayer.shardStack(n: Int) = hasContentDescription("Ember Shard, owner $name,", substring = true) and hasContentDescription("stack of $n", substring = true)
 
     // STK-024, TBL-053 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only

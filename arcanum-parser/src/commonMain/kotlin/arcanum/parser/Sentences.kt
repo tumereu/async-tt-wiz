@@ -4959,8 +4959,17 @@ internal class Sentences(
             }
             val parts = them ?: exileIt ?: costPart(action) ?: exileThatCard(action, context) ?: action.split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) }
                 .takeIf { it.size > 1 && it.all { p -> p != null } }?.flatMap { it!! }
-            val pay = if (parts != null) Step.Pay(Cost(parts), bind = "paid", payer = Players.You)
-                else Step.Pay(steps = effect("$action.", context) ?: return null, bind = "paid", payer = Players.You)
+            // fix1: "you may exile target historic permanent you control. If you do, return that card …", "you may exile Hikari. If
+            // you do, return it …": "it" and "that card" are the exiled card (CR 400.7, 603.7c), named as it is exiled
+            val refersBack = REFERS_BACK.containsMatchIn(m.groupValues[2])
+            val exiledPart = (parts?.singleOrNull() as? CostPart.Exile)?.takeIf { refersBack && it.postBind == null && it.what !is CostObjects.Choose }
+            val costParts = if (exiledPart == null) parts else { context.it = Objects.Bound("exiled"); listOf(exiledPart.copy(postBind = "exiled")) }
+            val steps = if (parts != null) null else (effect("$action.", context) ?: return null).let { st ->
+                val move = ((st.singleOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { refersBack && it.to.zone == Zone.Exile && it.postBind == null }
+                if (move == null) st else { context.it = Objects.Bound("exiled"); listOf(Step.Do(move.copy(postBind = "exiled"))) }
+            }
+            val pay = if (costParts != null) Step.Pay(Cost(costParts), bind = "paid", payer = Players.You)
+                else Step.Pay(steps = steps!!, bind = "paid", payer = Players.You)
             val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
             return listOf(pay, Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
@@ -5678,7 +5687,14 @@ internal class Sentences(
                 // fdn chunk 10b: "Each opponent discards a card and loses 2 life.": a half that is only a verb phrase keeps the subject
                 val rest = sentence.substring(at + 5)
                 val subject = Fdn.PLAYER_SUBJECT.find(sentence)?.value?.takeIf { Fdn.VERB_PHRASE.containsMatchIn(rest) }
+                // fix1: "put a +1/+1 counter on this creature and prevent all damage that would be dealt to it this turn": "it"
+                // in the second half is this creature, named last before it (CR 608.2c, the rules of English)
+                val outer = context.it
+                val selfLast = self.any { s -> sentence.substring(0, at).endsWith(" $s") }
+                if (selfLast) context.it = Objects.Self
                 val second = first?.let { effect(if (subject != null) "$subject $rest" else rest.replaceFirstChar { it.uppercase() }, context) }
+                // what the second half named itself ("exile the top card of your library": "that card" afterwards) stays
+                if (selfLast && context.it == Objects.Self) context.it = outer
                 if (first != null && second != null) return first + second
                 while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
                 at = sentence.indexOf(" and ", at + 5)
@@ -11261,6 +11277,8 @@ internal class Sentences(
         const val EVENT_OBJECT = "event object"
         val THEY_GAIN = Regex("""They gain (.+)\.""")
         val YOU_MAY_IF_YOU_DO = Regex("""You may (.+?)\. If you do, (.+)""")
+        /** fix1: what "If you do, …" says that refers back to the object of the action. */
+        val REFERS_BACK = Regex("""\b(?:it|that card|that permanent|that creature)\b""")
         val THAT_CREATURES_CONTROLLER_MAY_DRAW = Regex("""That creature's controller may draw (a|one|two) cards?\.""")
         val DEALS_THAT_MUCH = Regex("""(.+?) deals that much damage to (.+)\.""")
         val PUT_COUNTERS_ON_EACH = Regex("""Put (a|an|one|two|three) (\S+) counters? on each (.+)\.""")

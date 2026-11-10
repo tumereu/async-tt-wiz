@@ -208,7 +208,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // LOB-145: a pod game's chat has the pod's beside it; its unread messages light the chat button (no bubbles)
     val podChat = LocalPodChat.current
     val podId = game.podId
-    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, state.chatOpen)
+    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, state.chatOpen, "table")
     val podView = podId?.let { podChat?.views?.get(it) }?.takeIf { !it.unavailable }
     val podUnread = podView?.unread(accountId) ?: 0
     val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true

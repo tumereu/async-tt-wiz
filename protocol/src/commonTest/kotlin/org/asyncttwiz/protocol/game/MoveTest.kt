@@ -105,6 +105,48 @@ class MoveTest {
         sim.assertMoves(mapOf(alice to bob, bob to bob), "Alice caught up")
     }
 
+    /** [p]'s device's move after each of its deliveries, one revision at a time, its playback and own steps going on
+     * between them as on a phone (nothing it makes is sent): the moves in order, changes only. */
+    private fun DeviceSim.movesOneByOne(p: PlayerId): List<PlayerId?> {
+        val moves = mutableListOf(device(p).move)
+        fun note() = device(p).move.let { if (it != moves.last()) moves += it }
+        while (pendingDeliveries(p) > 0) {
+            deliver(p, 1)
+            note()
+            device(p).playToStop()
+            note()
+            automatically { device(p).advance(now) }
+            note()
+        }
+        return moves
+    }
+
+    // TRN-058, TRN-013, TRN-006, HIS-096 (owner playtest 2026-11-10: the move colour flipped back and forth): Bob ends his
+    // turn while Alice is live; his device sends its passes and its assumptions of hers one event at a time, and they reach
+    // her device one by one. Each head on the way is a point where the next step is made by itself (her mode passes, his
+    // device assumes it): her move goes from Bob to herself once, at her main phase, never back and forth
+    @Test
+    fun theMoveNeverFlipsWhileTheOtherPlayersEventsArriveOneByOne() {
+        val sim = spells("Storm Spark")
+        val alice = sim.alice; val bob = sim.bob
+        sim.start(bob)
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
+        sim.flush(bob)
+        sim.deliver(alice)
+        sim.device(alice).playToStop()
+        assertIs<GameDevice.Acted.Sent>(sim.device(alice).act(sim.keep(alice)))
+        sim.flush(alice)
+        sim.settle()
+        assertEquals(GameDevice.Status.YourMove, sim.device(bob).status)
+        sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob's main phase")
+        sim.device(bob).endTurn(sim.now)
+        sim.flush(bob)
+        assertTrue(sim.pendingDeliveries(alice) > 4, "his turn's end as many events")
+        assertEquals(listOf(bob, alice), sim.movesOneByOne(alice), "Alice's device's move, event by event")
+        sim.settle()
+        sim.assertMoves(mapOf(alice to alice, bob to alice), "Alice's main phase")
+    }
+
     // TRN-058, LOB-073 (I-D57): the information rule leaves Bob really waiting for Alice's pass: her move for both, also
     // while her playback is still behind the head
     @Test

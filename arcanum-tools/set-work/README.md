@@ -114,5 +114,5 @@ the brackets and send them exactly.
 `python3 -I bin/set-cost.py <code>` sums the weighted tokens (input 1, output 5, cache read 0.1, cache creation 1.25) of every
 agent whose prompt starts `SET-WORK <code>`, from the local Claude Code transcripts, per agent and in total. Two measured
 sets for reference: Foundations (517 cards, 111 unread at the start) about 33M; Innistrad Remastered (297 cards, 89 unread,
-many double-faced and meld cards) about 41M including its sweep. Rules-heavy unread cards cost about 200-250k each;
+many double-faced and meld cards) about 38M for its agents, sweep included, plus about 3M of the orchestrator's own turns. Rules-heavy unread cards cost about 200-250k each;
 test-only cards on Sonnet about 30k.

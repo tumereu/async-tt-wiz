@@ -78,20 +78,13 @@ class CubeService(private val runtime: ServiceRuntime) {
         }
     }
 
-    fun read(principal: AccountService.Principal, id: String, digest: String? = null): Result {
-        if (!DeckValidation.uuid(id) || (digest != null && !DeckValidation.digest(digest))) return error(404, "not_found")
+    fun read(principal: AccountService.Principal, id: String): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val row = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
                 .and(SAVED_CUBE.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
-            if (digest != null) {
-                val payload = sql.select(DEFINITION.PAYLOAD).from(CUBE_ENTRY).join(DEFINITION)
-                    .on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
-                    .where(CUBE_ENTRY.CUBE_ID.eq(row.id)).and(DEFINITION.DIGEST.eq(digest))
-                    .fetchOne(DEFINITION.PAYLOAD) ?: return@transaction error(404, "not_found")
-                return@transaction Result(200, json.encodeToString(SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(payload))))
-            }
             val entries = entries(sql, row.id!!)
             Result(200, json.encodeToString(SavedCube(summary(row, entries), entries)))
         }

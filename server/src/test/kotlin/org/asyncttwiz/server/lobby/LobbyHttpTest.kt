@@ -145,8 +145,8 @@ class LobbyHttpTest {
                 for (session in listOf(phone, tablet)) {
                     assertEquals(listOf(deck.deck), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = session.token).body()).decks)
                     assertEquals(deck, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${deck.deck.id}", token = session.token).body()))
-                    assertEquals(definition, json.decodeFromString<SubmittedDefinition>(request(settings, "GET",
-                        "/v1/decks/${deck.deck.id}/definitions/${definition.digest}", token = session.token).body()))
+                    assertEquals(listOf(definition), json.decodeFromString<SubmittedDefinitions>(post(settings,
+                        "/v1/decks/${deck.deck.id}/definitions", ReadCubeDefinitions(listOf(definition.digest)), session.token).body()).definitions)
                     assertEquals(listOf(friend.account), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = session.token).body()).contacts)
                     assertEquals(listOf(game), json.decodeFromString<GameList>(request(settings, "GET", "/v1/games", token = session.token).body()).games)
                 }

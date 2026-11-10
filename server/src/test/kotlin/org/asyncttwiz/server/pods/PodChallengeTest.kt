@@ -162,12 +162,6 @@ class PodChallengeTest {
             assertEquals(expected, PodGamePreparation.basics(deck, SavedDeckSection.SIDEBOARD))
             assertEquals(1 + expected.total, deck.count(SavedDeckSection.SIDEBOARD))
         }
-        val deck = decks.getValue(f.a.account.accountId)
-        val stream = f.stream(f.a, game)
-        assertEquals("accepted", stream.execute(GameAction.SetPodGameBasics(deck.id, PodDeckBasics(forest = 3), basics, SavedDeckSection.SIDEBOARD)).outcome)
-        val edited = f.preparation(game).players.single { it.accountId == f.a.account.accountId }.deck!!
-        assertEquals(PodDeckBasics(forest = 3), PodGamePreparation.basics(edited, SavedDeckSection.SIDEBOARD))
-        assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(edited))
     }
 
     // DRF-123, DRF-140
@@ -219,10 +213,6 @@ class PodChallengeTest {
         assertNotEquals(accepted.players[0].deck!!.id, accepted.players[1].deck!!.id)
         val stream = f.stream(f.a, game)
         assertEquals("podDeckFixed", stream.execute(GameAction.SelectDeck(id(), "1")).reason)
-        val own = preparation.players.first { it.accountId == f.a.account.accountId }.deck!!
-        val other = accepted.players.first { it.accountId == f.b.account.accountId }.deck!!
-        assertEquals("preparedDeckChanged", stream.execute(GameAction.SetPodGameBasics(other.id, PodDeckBasics(plains = 40), basics)).reason)
-        assertEquals(own, f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck)
     }
 
     // DRF-137
@@ -423,10 +413,14 @@ class PodChallengeTest {
         recipient.execute(GameAction.AcceptInvitation)
         val deck = f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck!!
         owner.execute(GameAction.Ready)
-        assertEquals("accepted", owner.execute(GameAction.SetPodGameBasics(deck.id, PodDeckBasics(plains = 38), basics)).outcome)
+        // LOB-052: basics move to Side like any card; Main under 40 blocks Ready
+        val plains = deck.entries.first { it.suppliedBasic == BasicLand.PLAINS && it.section == SavedDeckSection.MAINBOARD }
+        for (copy in 0..1) assertEquals("accepted", owner.execute(GameAction.TransferPreparedCard(deck.id, deck.card(plains, copy).id,
+            (GameWire.ordinal(plains.firstIndex) + copy).toString(), plains.section)).outcome)
         assertFalse(f.preparation(game).players.first { it.accountId == f.a.account.accountId }.ready)
         assertEquals("mainTooSmall", owner.execute(GameAction.Ready).reason)
-        owner.execute(GameAction.SetPodGameBasics(deck.id, PodDeckBasics(plains = 40), basics))
+        for (copy in 0..1) assertEquals("accepted", owner.execute(GameAction.TransferPreparedCard(deck.id, deck.card(plains, copy).id,
+            (GameWire.ordinal(plains.firstIndex) + copy).toString(), SavedDeckSection.SIDEBOARD)).outcome)
         val card = deck.entries.first { it.section == SavedDeckSection.MAINBOARD && it.suppliedBasic == null }
         assertEquals("accepted", owner.execute(GameAction.TransferPreparedCard(deck.id, deck.card(card, 0).id, card.firstIndex, card.section)).outcome)
         assertEquals("sideboardLimit", owner.execute(GameAction.Ready).reason)

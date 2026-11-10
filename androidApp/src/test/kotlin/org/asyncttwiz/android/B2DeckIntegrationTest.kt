@@ -54,7 +54,7 @@ class B2DeckIntegrationTest {
         }
         override suspend fun list(token: String, after: String?) = DeckList(listOf(saved.deck))
         override suspend fun read(token: String, id: String) = saved
-        override suspend fun definition(token: String, id: String, digest: String) = definitions.single { it.digest == digest }
+        override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { digest -> definitions.single { it.digest == digest } }
         override suspend fun update(token: String, id: String, value: UpdateDeck) = saved
         override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
         override fun close() = Unit

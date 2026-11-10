@@ -1,14 +1,8 @@
 package org.asyncttwiz.protocol
 
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
-/** Null means the account has never customized its favorites; empty means explicitly none. */
-@Serializable data class TokenFavorites(val keys: List<String>? = null)
-
 object TokenIdentity {
-    val defaultNames = setOf("Treasure", "Food", "Clue", "Blood", "Map", "Gold")
-
     private fun metadata(face: DefinitionFace, field: String): List<String> = runCatching {
         (face.sourceData?.let { DeckJson.format.parseToJsonElement(it).jsonObject[field] } as? JsonArray)
             ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.sorted().orEmpty()
@@ -21,9 +15,6 @@ object TokenIdentity {
             listOf(face.name, pt, face.typeLine, face.rulesText,
                 DeckJson.canonical(metadata(face, "colors")), DeckJson.canonical(metadata(face, "keywords")))
         }))
-
-    fun favorite(definition: CardDefinition, favorites: TokenFavorites): Boolean =
-        favorites.keys?.contains(key(definition)) ?: (definition.name in defaultNames)
 
     fun validKey(key: String) = Regex("token-v1:[0-9a-f]{64}").matches(key)
 

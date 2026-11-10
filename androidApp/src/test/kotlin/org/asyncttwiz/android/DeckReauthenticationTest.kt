@@ -63,7 +63,7 @@ class DeckReauthenticationTest {
         try {
             val calls: List<suspend () -> Unit> = listOf(
                 { api.list(token) }, { api.read(token, summary.id) },
-                { api.definition(token, summary.id, plan.deck.entries.single().definition) },
+                { api.definitions(token, summary.id, listOf(plan.deck.entries.single().definition)) },
                 { api.submit(token, plan.definitions) }, { api.create(token, plan.deck) },
                 { api.update(token, summary.id, UpdateDeck(UUID.randomUUID().toString(), name = "Rename")) },
                 { api.delete(token, summary.id, DeleteDeck(UUID.randomUUID().toString())) })
@@ -109,7 +109,6 @@ class DeckReauthenticationTest {
                             }
                             DeckJson.format.encodeToString(current)
                         }
-                        path.contains("/definitions/") -> DeckJson.format.encodeToString(plan.definitions.definitions.single())
                         else -> DeckJson.format.encodeToString(current)
                     }
                     respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -195,8 +194,8 @@ class DeckReauthenticationTest {
             clearPrivateWork = { clears++; importer.exit(); library.clear() }, post = { it() })
         authWorker.drain(); auth.navigate(ShellDestination.DECKS); authWorker.drain()
         val api = DeckApi("https://review.example", HttpClient(MockEngine { request ->
-            respond(if (request.url.encodedPath.contains("/definitions/"))
-                DeckJson.format.encodeToString(plan.definitions.definitions.single()) else DeckJson.format.encodeToString(saved),
+            respond(if (request.url.encodedPath.endsWith("/definitions"))
+                DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions)) else DeckJson.format.encodeToString(saved),
                 HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }), auth::authenticationRequired)
         library = DeckLibraryController(api, auth::sessionToken, worker) { posts.add(it) }

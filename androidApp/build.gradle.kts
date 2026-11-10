@@ -348,6 +348,13 @@ tasks.withType<Test>().configureEach {
     inputs.property("screenshotMode", recordScreenshots)
     inputs.dir("src/test/screenshots").withPathSensitivity(PathSensitivity.RELATIVE).optional()
     systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    // The test cards' catalog file (TestCardsFixtureTest); -PtestCards=record writes the e2e test cards into it.
+    val testCardsFixture = rootProject.file("tests/fixtures/card-catalog/AllPrintings.json")
+    systemProperty("atw.testCardsFixture", testCardsFixture.absolutePath)
+    inputs.file(testCardsFixture).withPathSensitivity(PathSensitivity.RELATIVE)
+    val recordTestCards = providers.gradleProperty("testCards").orNull == "record"
+    systemProperty("atw.recordTestCards", recordTestCards.toString())
+    inputs.property("testCardsMode", recordTestCards)
     // -Patw.bench=true runs the engine speed benchmark (EndTurnBenchmark; prints numbers, never asserts on time).
     listOf("atw.bench", "atw.bench.runs", "atw.bench.profile").forEach { key ->
         providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }

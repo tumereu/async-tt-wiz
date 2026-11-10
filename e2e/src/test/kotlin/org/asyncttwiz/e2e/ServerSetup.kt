@@ -127,7 +127,7 @@ object ServerSetup {
             val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
                 SavedDeckSection.MAYBEBOARD to deck.maybe)
             api.submit(account.token, SubmitDefinitions(UUID.randomUUID().toString(),
-                sections.flatMap { (_, cards) -> cards.map { it.first } }.distinctBy { it.digest }))
+                sections.flatMap { (_, cards) -> cards.map { it.first.submitted() } }.distinctBy { it.digest }))
             api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
                 sections.flatMap { (section, cards) -> cards.map { (card, n) -> SavedDeckEntry(section, card.digest, n) } }))
         }
@@ -139,12 +139,12 @@ object ServerSetup {
      * Returns the pod's id.
      */
     fun draftingPod(a: TestAccount, b: TestAccount, name: String,
-        cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
+        cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
         val cube = DeckApi(origin).use { api ->
-            api.submit(a.token, SubmitDefinitions(id(), cards))
+            api.submit(a.token, SubmitDefinitions(id(), cards.map { it.submitted() }))
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 2 * settings.packsPerPlayer * settings.cardsPerPack / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { api ->
@@ -168,10 +168,10 @@ object ServerSetup {
     }
 
     /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards]. Returns the pod's id. */
-    fun setupPod(a: TestAccount, name: String, cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
+    fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val cube = DeckApi(origin).use { api ->
-            api.submit(a.token, SubmitDefinitions(id(), cards))
+            api.submit(a.token, SubmitDefinitions(id(), cards.map { it.submitted() }))
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
@@ -239,12 +239,8 @@ object ServerSetup {
         return Prepared(a, b, invitation, mapOf(a to aDeck, b to bDeck), starter, deal)
     }
 
-    /** The five basic lands a device supplies with a pod deck (LOB-052, DRF-104): invented cards of the basic land types. */
-    val basics: List<SubmittedDefinition> = BasicLand.entries.map { land ->
-        val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/basic/${land.cardName}".encodeToByteArray()).toString(), land.cardName,
-            typeLine = "Basic Land — ${land.cardName}")
-        CardDefinition(land.cardName, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
-    }
+    /** The five basic lands a device supplies with a pod deck (LOB-052, DRF-104): the test cards' M21 basics. */
+    val basics: List<SubmittedDefinition> get() = with(TestCards) { listOf(plains, island, swamp, mountain, forest) }.map { it.submitted() }
 
     /**
      * A pod game of [a] (the pod's creator, who challenges) and [b] from a finished draft of [draftingPod]: each picks the
@@ -264,7 +260,7 @@ object ServerSetup {
      * Main (no basics there; an unlimited sideboard's Side basics, DRF-104), and [a] moves one copy to Side and one to Maybe.
      * Returns the game, in its lobby.
      */
-    fun podGameOfOneCard(a: TestAccount, b: TestAccount, name: String, card: SubmittedDefinition): GameSummary = runBlocking {
+    fun podGameOfOneCard(a: TestAccount, b: TestAccount, name: String, card: TestCard): GameSummary = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val pod = draftedPod(a, b, "$name pod", mainPlains = 0, cards = listOf(card), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 15))
         org.asyncttwiz.android.PodApi(origin).use { api ->
@@ -282,7 +278,7 @@ object ServerSetup {
     /** A pod [name] of [a] and [b] whose draft has finished (each picked the first card of every pack and has [mainPlains]
      * Plains in Main), neither deck submitted yet ([submitPodDeck]). [cards], [settings]: as [draftingPod]. */
     fun draftedPod(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40,
-        cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
+        cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val pod = draftingPod(a, b, name, cards, settings)
@@ -426,3 +422,6 @@ object ServerSetup {
         override fun close() { socket.abort() }
     }
 }
+
+/** [this] card's card data as a device uploads it. */
+fun TestCard.submitted() = SubmittedDefinition(digest, definition)

@@ -64,9 +64,6 @@ const val GAME_PROTOCOL_MINOR = 12
     @Serializable @SerialName("transferPreparedCard") data class TransferPreparedCard(val deckId: String,
         val cardId: String, val cardIndex: String, val source: SavedDeckSection) : GameAction
     @Serializable @SerialName("sendChat") data class SendChat(val text: String) : GameAction
-    @Serializable @SerialName("setPodGameBasics") data class SetPodGameBasics(val deckId: String,
-        val basics: PodDeckBasics, val basicDefinitions: List<SubmittedDefinition>,
-        val section: SavedDeckSection = SavedDeckSection.MAINBOARD) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
@@ -249,11 +246,6 @@ object GameWire {
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {
-                is GameAction.SetPodGameBasics -> {
-                    require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
-                    require(action.basics.valid && action.basics.total <= DeckValidation.MAX_CARDS)
-                    require(PodGamePreparation.basicDefinitions(action.basicDefinitions) != null)
-                }
                 is GameAction.SelectDeck -> {
                     require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
                     require(ordinal(action.sourceRevision) > 0)

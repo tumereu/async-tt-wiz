@@ -27,7 +27,7 @@ class Deal private constructor(private val hands: Map<String, List<String>>, pri
     companion object {
         fun of(players: List<Pair<TestAccount, TestDeck>>, starter: TestAccount, secret: String): Deal {
             val seats = players.sortedBy { it.first.id }.map { (account, deck) ->
-                fun cards(prefix: String, list: List<Pair<org.asyncttwiz.protocol.SubmittedDefinition, Int>>) = list.flatMap { (card, n) ->
+                fun cards(prefix: String, list: List<Pair<TestCard, Int>>) = list.flatMap { (card, n) ->
                     List(n) { i -> DeckCard(CardId("${account.id}/$prefix${card.digest}/$i"), GameCards.parse(card.definition).definition) }
                 }
                 Seat(PlayerId(account.id), cards("", deck.entries), cards("side/", deck.side) + cards("maybe/", deck.maybe))

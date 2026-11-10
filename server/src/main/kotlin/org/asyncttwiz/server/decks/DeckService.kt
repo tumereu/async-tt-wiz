@@ -305,21 +305,14 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
     }
 
-    fun read(principal: AccountService.Principal, id: String, digest: String? = null): Result {
-        // Unknown and foreign selectors have the same safe response, including definition attachment reads.
-        if (!DeckValidation.uuid(id) || (digest != null && !DeckValidation.digest(digest))) return error(404, "not_found")
+    fun read(principal: AccountService.Principal, id: String): Result {
+        // Unknown and foreign selectors have the same safe response.
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
                 .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
-            if (digest != null) {
-                val payload = sql.select(DEFINITION.PAYLOAD).from(DECK_ENTRY).join(DEFINITION)
-                    .on(DEFINITION.DIGEST.eq(DECK_ENTRY.DEFINITION_DIGEST))
-                    .where(DECK_ENTRY.DECK_ID.eq(row.id)).and(DEFINITION.DIGEST.eq(digest))
-                    .limit(1).fetchOne(DEFINITION.PAYLOAD) ?: return@transaction error(404, "not_found")
-                return@transaction Result(200, json.encodeToString(SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(payload))))
-            }
             val entries = entries(sql, row.id!!)
             Result(200, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
         }

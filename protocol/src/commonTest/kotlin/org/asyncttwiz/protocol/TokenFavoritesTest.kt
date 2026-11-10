@@ -18,10 +18,4 @@ class TokenFavoritesTest {
             token.faces.first().copy(typeLine = "Token Creature — Bird"), token.faces.first().copy(sourceData = """{"colors":["B"]}""")))
             assertNotEquals(key, TokenIdentity.key(token.copy(faces = listOf(face))))
     }
-
-    // I-D52
-    @Test fun neverSetAndExplicitlyEmptyAreDifferent() {
-        assertTrue(TokenIdentity.favorite(token.copy(name = "Treasure"), TokenFavorites()))
-        assertFalse(TokenIdentity.favorite(token.copy(name = "Treasure"), TokenFavorites(emptyList())))
-    }
 }

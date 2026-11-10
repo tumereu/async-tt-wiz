@@ -107,11 +107,12 @@ class CubeHttpTest {
                 assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", path, token = owner.token).body()))
                 assertEquals(listOf(saved.cube), json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = owner.token).body()).cubes)
                 assertTrue(json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = foreign.token).body()).cubes.isEmpty())
-                for (privatePath in listOf(path, "$path/definitions/${definition.digest}")) {
-                    val denied = request(settings, "GET", privatePath, token = foreign.token)
+                val read = json.encodeToString(ReadCubeDefinitions(listOf(definition.digest)))
+                for (denied in listOf(request(settings, "GET", path, token = foreign.token),
+                    request(settings, "POST", "$path/definitions", read, foreign.token))) {
                     assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(card.name))
                 }
-                assertEquals(definition, json.decodeFromString<SubmittedDefinition>(request(settings, "GET", "$path/definitions/${definition.digest}", token = owner.token).body()))
+                assertEquals(listOf(definition), json.decodeFromString<SubmittedDefinitions>(request(settings, "POST", "$path/definitions", read, owner.token).body()).definitions)
                 assertEquals(404, request(settings, "PUT", path, json.encodeToString(UpdateCube(id(), name = "Stolen")), foreign.token).statusCode())
                 assertEquals(404, request(settings, "DELETE", path, json.encodeToString(DeleteCube(id())), foreign.token).statusCode())
                 assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(create.copy(requestId = id())), foreign.token).statusCode())

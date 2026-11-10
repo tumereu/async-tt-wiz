@@ -25,19 +25,12 @@ import kotlin.test.fail
  * pod.
  */
 class UnsupportedPodSourceTest : E2e() {
-    private val relic: SubmittedDefinition = run {
-        val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/Odd Relic".encodeToByteArray()).toString(), "Odd Relic",
-            typeLine = "Artifact", manaCost = "{1}", rulesText = "Whenever the moon is full, this artifact hums a slow tune.")
-        val definition = CardDefinition("Odd Relic", listOf(face))
-        SubmittedDefinition(DeckJson.digest(definition), definition)
-    }
-
     // DRF-161, DRF-162, LOB-115: the cube's warning names the card; New pod's Create is greyed; the server refuses the pod
     @Test fun aCubeWithACardAutomatumCantPlayCantBeDrafted() {
         val (a, _) = ServerSetup.accounts()
-        val cards = listOf(TestCards.mountain, TestCards.spark, relic)
+        val cards = listOf(TestCards.mountain, TestCards.spark, TestCards.relic)
         val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
-            api.submit(a.token, SubmitDefinitions(UUID.randomUUID().toString(), cards))
+            api.submit(a.token, SubmitDefinitions(UUID.randomUUID().toString(), cards.map { it.submitted() }))
             val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube", cards.map { SavedCubeEntry(it.digest, 4) }))
             // As Alice's phone keeps the result when she saves the cube (LOB-124)
             val support = CardListSupport(org.asyncttwiz.storage.CardDefinitions.parserVersion, listOf("Odd Relic"), arcanum.engine.Engine.SUPPORT_VERSION)

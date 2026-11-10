@@ -233,7 +233,7 @@ class DeckSaveTest {
         override suspend fun list(token: String, after: String?): DeckList { pages++
             return DeckList(listOf(if (after == null) summary else summary.copy(id = second)), if (after == null) summary.id else null) }
         override suspend fun read(token: String, id: String) = SavedDeck(summary, plan.deck.entries)
-        override suspend fun definition(token: String, id: String, digest: String) = plan.definitions.definitions.single()
+        override suspend fun definitions(token: String, id: String, digests: List<String>) = plan.definitions.definitions
         override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
         override suspend fun create(token: String, value: CreateDeck) = SavedDeck(summary, value.entries)
         override suspend fun update(token: String, id: String, value: UpdateDeck) = SavedDeck(summary, plan.deck.entries)
@@ -260,15 +260,15 @@ class DeckSaveTest {
                     assertEquals(plan.copy(target = summary.id).update(),
                         DeckJson.format.decodeFromString<UpdateDeck>(body!!))
                     DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
-                } else if ("/definitions/" in request.url.encodedPath)
-                    DeckJson.format.encodeToString(plan.definitions.definitions.single())
+                } else if (request.url.encodedPath.endsWith("/definitions"))
+                    DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions))
                     else DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
             }
             respond(json, headers = headersOf("Content-Type", "application/json"))
         }) { followRedirects = false })
         api.use { val token = "A".repeat(43)
             it.submit(token, plan.definitions); it.create(token, plan.deck); it.list(token)
-            it.read(token, summary.id); it.definition(token, summary.id, plan.deck.entries.first().definition)
+            it.read(token, summary.id); it.definitions(token, summary.id, listOf(plan.deck.entries.first().definition))
             it.update(token, summary.id, plan.copy(target = summary.id).update())
         }
         assertEquals(6, paths.size)

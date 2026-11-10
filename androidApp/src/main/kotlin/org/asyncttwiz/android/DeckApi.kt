@@ -18,11 +18,9 @@ interface Decks : Closeable {
     suspend fun create(token: String, value: CreateDeck): SavedDeck
     suspend fun list(token: String, after: String? = null): DeckList
     suspend fun read(token: String, id: String): SavedDeck
-    suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition
     /** The card data of [digests] in deck [id], in one request per [CubeValidation.MAX_DEFINITIONS_PER_READ] cards, never
      * one per card (owner playtest 2026-11-06: that ran into the deck service's per-account limit). */
-    suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> =
-        digests.distinct().map { definition(token, id, it) }
+    suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition>
     suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck
     suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted
     /** Draft decks, newest first. */
@@ -63,13 +61,6 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/cubes/$id")
     }
-    override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition {
-        if (!DeckValidation.uuid(id) || !DeckValidation.digest(digest)) throw DeckFailure("invalid_response")
-        return call<SubmittedDefinition>(token, HttpMethod.Get, "/v1/cubes/$id/definitions/$digest").also {
-            if (it.digest != digest || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != digest)
-                throw DeckFailure("invalid_response")
-        }
-    }
     override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
         if (!DeckValidation.uuid(id) || !CubeValidation.definitionRead(value.digests)) throw DeckFailure("invalid_response")
         return call<SubmittedDefinitions>(token, HttpMethod.Post, "/v1/cubes/$id/definitions", DeckJson.format.encodeToString(value)).also {
@@ -108,13 +99,6 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
     override suspend fun read(token: String, id: String): SavedDeck {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/decks/$id")
-    }
-    override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
-        if (!DeckValidation.uuid(id) || !DeckValidation.digest(digest)) throw DeckFailure("invalid_response")
-        return call<SubmittedDefinition>(token, HttpMethod.Get, "/v1/decks/$id/definitions/$digest").also {
-            if (it.digest != digest || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != digest)
-                throw DeckFailure("invalid_response")
-        }
     }
     override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")

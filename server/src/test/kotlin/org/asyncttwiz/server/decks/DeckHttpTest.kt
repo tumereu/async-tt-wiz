@@ -110,15 +110,16 @@ class DeckHttpTest {
                 assertEquals(409, post(settings, "/v1/decks", create.copy(requestId = definitions.requestId), owner.token).statusCode())
                 val unavailable = post(settings, "/v1/decks", create.copy(requestId = id()), foreign.token)
                 assertEquals(400, unavailable.statusCode()); assertEquals("definitions_unavailable", json.decodeFromString<DeckError>(unavailable.body()).code)
-                for (path in listOf("/v1/decks/${saved.deck.id}", "/v1/decks/${saved.deck.id}/definitions/${first.digest}")) {
-                    assertEquals(401, request(settings, "GET", path).statusCode())
-                    val denied = request(settings, "GET", path, token = foreign.token)
-                    val missing = request(settings, "GET", path.replace(saved.deck.id, id()), token = foreign.token)
-                    assertEquals(404, denied.statusCode()); assertEquals(missing.body(), denied.body())
-                    assertFalse(denied.body().contains(first.definition.name))
-                }
+                val deckPath = "/v1/decks/${saved.deck.id}"
+                assertEquals(401, request(settings, "GET", deckPath).statusCode())
+                val denied = request(settings, "GET", deckPath, token = foreign.token)
+                val missingDeck = request(settings, "GET", deckPath.replace(saved.deck.id, id()), token = foreign.token)
+                assertEquals(404, denied.statusCode()); assertEquals(missingDeck.body(), denied.body())
+                assertFalse(denied.body().contains(first.definition.name))
+                val deniedCards = post(settings, "$deckPath/definitions", ReadCubeDefinitions(listOf(first.digest)), foreign.token)
+                assertEquals(404, deniedCards.statusCode()); assertFalse(deniedCards.body().contains(first.definition.name))
                 assertEquals(emptyList<DeckSummary>(), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = foreign.token).body()).decks)
-                val missing = request(settings, "GET", "/v1/decks/${saved.deck.id}/definitions/sha256:${"0".repeat(64)}", token = owner.token)
+                val missing = post(settings, "/v1/decks/${saved.deck.id}/definitions", ReadCubeDefinitions(listOf("sha256:${"0".repeat(64)}")), owner.token)
                 assertEquals(404, missing.statusCode())
             }
             // New normal service instance, retained actual PostgreSQL. No public catalog/art service exists.
@@ -128,10 +129,9 @@ class DeckHttpTest {
                 val list = json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body())
                 assertEquals(listOf(saved.deck), list.decks); assertNull(list.next)
                 assertEquals(saved, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${saved.deck.id}", token = owner.token).body()))
-                for (definition in listOf(first, changed, multi)) {
-                    val response = request(settings, "GET", "/v1/decks/${saved.deck.id}/definitions/${definition.digest}", token = owner.token)
-                    assertEquals(200, response.statusCode()); assertEquals(definition, json.decodeFromString<SubmittedDefinition>(response.body()))
-                }
+                val cards = post(settings, "/v1/decks/${saved.deck.id}/definitions", ReadCubeDefinitions(listOf(first, changed, multi).map { it.digest }), owner.token)
+                assertEquals(200, cards.statusCode())
+                assertEquals(listOf(first, changed, multi), json.decodeFromString<SubmittedDefinitions>(cards.body()).definitions)
                 // Content deduplicates, access never deduplicates across accounts without submission.
                 assertEquals(200, post(settings, "/v1/definitions", definitions.copy(requestId = id()), foreign.token).statusCode())
                 assertEquals(3, count(db, "definition")); assertEquals(6, count(db, "account_definition"))
@@ -370,7 +370,7 @@ class DeckHttpTest {
                 assertEquals(deleted.body(), request(settings, "DELETE", path, json.encodeToString(deletion), owner.token).body())
                 assertEquals(404, update(UpdateDeck(id(), name = "Do not recreate")).statusCode())
                 assertEquals(404, request(settings, "GET", path, token = owner.token).statusCode())
-                assertEquals(404, request(settings, "GET", "$path/definitions/${first.digest}", token = owner.token).statusCode())
+                assertEquals(404, request(settings, "POST", "$path/definitions", json.encodeToString(ReadCubeDefinitions(listOf(first.digest))), owner.token).statusCode())
                 assertTrue(json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body()).decks.isEmpty())
                 assertEquals(0, count(db, "saved_deck")); assertEquals(0, count(db, "deck_entry"))
                 assertEquals(3, count(db, "definition")); assertEquals(3, count(db, "account_definition"))
@@ -466,9 +466,8 @@ class DeckHttpTest {
                 val both = put(UpdateDeck(id(), contents = DeckContentsImport(add.entries + initial.first().copy(definition = changed.digest))))
                 assertEquals(200, both.statusCode()); assertEquals(3, read().entries.size)
                 assertEquals(listOf(2, 1, 4), read().entries.map { it.quantity })
-                val firstRead = request(settings, "GET", "$path/definitions/${first.digest}", token = owner.token)
-                assertEquals(first, json.decodeFromString<SubmittedDefinition>(firstRead.body()))
-                assertEquals(changed, json.decodeFromString<SubmittedDefinition>(request(settings, "GET", "$path/definitions/${changed.digest}", token = owner.token).body()))
+                val cards = request(settings, "POST", "$path/definitions", json.encodeToString(ReadCubeDefinitions(listOf(first.digest, changed.digest))), owner.token)
+                assertEquals(listOf(first, changed), json.decodeFromString<SubmittedDefinitions>(cards.body()).definitions)
                 put(UpdateDeck(id(), cover = first.digest))
                 val overwrite = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest, quantity = 7)))))
                 assertEquals(200, overwrite.statusCode(), overwrite.body())

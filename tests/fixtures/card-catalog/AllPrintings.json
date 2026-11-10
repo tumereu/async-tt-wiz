@@ -396,6 +396,3359 @@
     }
    }
   },
+  "E2E": {
+   "code": "E2E",
+   "name": "End-to-End Test Cards",
+   "type": "box",
+   "releaseDate": "2020-02-01",
+   "cards": [
+    {
+     "uuid": "cffcb8c8-e03c-31fb-95d8-24da4fbdbb69",
+     "name": "Altar Offering",
+     "setCode": "E2E",
+     "number": "1",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9b3c5680-0dbe-3d38-a103-663359f4071c"
+     },
+     "manaCost": "{R}",
+     "text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw a card."
+    },
+    {
+     "uuid": "d67fd609-e69c-379b-9866-4e2a978cc71a",
+     "name": "Ash Hound",
+     "setCode": "E2E",
+     "number": "2",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Dog",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "47083b21-fcc8-38d0-94f3-364ec1023bc0"
+     },
+     "manaCost": "{0}",
+     "text": "{R}: This creature gets +1/+0 until end of turn.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "0bcd26ec-3fc7-35fe-b937-68f2c3916a72",
+     "name": "Ash Pup",
+     "setCode": "E2E",
+     "number": "3",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Dog",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "68f2a8a2-b33f-3d78-82b3-77d7b318cbf2"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "e459d2d6-70a1-396d-bd33-004032925c41",
+     "name": "Bear Elf",
+     "setCode": "E2E",
+     "number": "4",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elf Bear",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "7c035b34-8bfd-3198-8fb6-5c7b2ebe38d3"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "5fe509d3-fd5b-3161-9ec1-439e2d0934ba",
+     "name": "Blood Altar",
+     "setCode": "E2E",
+     "number": "5",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "c255c97e-1bfe-3497-affe-6c0b564d7c00"
+     },
+     "manaCost": "{0}",
+     "text": "Sacrifice a creature: Add {R}."
+    },
+    {
+     "uuid": "57d248f6-8cff-3a0c-a6b3-ea5ac2ee8813",
+     "name": "Blood Pact",
+     "setCode": "E2E",
+     "number": "6",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "38496b0a-c245-3440-9ea7-66983df6f082"
+     },
+     "manaCost": "{R}",
+     "text": "As an additional cost to cast this spell, pay 2 life.\nDraw a card."
+    },
+    {
+     "uuid": "395608a9-55b9-3ef6-98e3-0a8f7e4071ab",
+     "name": "Blue Note",
+     "setCode": "E2E",
+     "number": "7",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "U"
+     ],
+     "colorIdentity": [
+      "U"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "0462db7e-98b1-3f20-b37f-d8ccfb779286"
+     },
+     "manaCost": "{U}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "af8265ba-4526-36e0-a94d-c4f85656a79f",
+     "name": "Charge Stone",
+     "setCode": "E2E",
+     "number": "8",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "989efccd-5cca-3075-b431-6eb174417960"
+     },
+     "manaCost": "{0}",
+     "text": "This artifact enters with a charge counter on it.\n{T}, Remove a charge counter from this artifact: Add {R}."
+    },
+    {
+     "uuid": "d8367c50-fb72-32cf-a675-d3c9a29ca94c",
+     "name": "Cinder Brute",
+     "setCode": "E2E",
+     "number": "9",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Ox",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "b171cb10-40c5-3183-a6f7-831bfb5c77c4"
+     },
+     "manaCost": "{0}",
+     "text": "Trample",
+     "power": "2",
+     "toughness": "2"
+    },
+    {
+     "uuid": "ce5f0ff9-b79d-33fb-acf4-37b79d7809c4",
+     "name": "Cinder Hound",
+     "setCode": "E2E",
+     "number": "10",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Dog",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "dab99565-4d23-3713-8078-fa569a9df42a"
+     },
+     "manaCost": "{R}",
+     "text": "{R}: This creature gets +1/+0 until end of turn.",
+     "power": "2",
+     "toughness": "1"
+    },
+    {
+     "uuid": "3c02ca16-220a-34c7-b1c6-5d8f12750f36",
+     "name": "Cinder Lark",
+     "setCode": "E2E",
+     "number": "11",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment Creature — Elemental Bird",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "45e92dd5-f6b2-31f5-afa1-403e20e5455e"
+     },
+     "manaCost": "{R}",
+     "text": "Bestow—{R}, Collect evidence 6. (To pay this bestow cost, pay {R} and exile cards with total mana value 6 or greater from your graveyard.)\nFlying, haste\nEnchanted creature gets +1/+1 and has flying and haste.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "7cf03f71-784d-37e3-bcf7-c6df5d7e70e7",
+     "name": "Cinder Trail",
+     "setCode": "E2E",
+     "number": "12",
+     "language": "English",
+     "layout": "normal",
+     "type": "Land",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "baa5e3ec-2c9b-33eb-a14e-01623b147bcf"
+     },
+     "text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
+    },
+    {
+     "uuid": "bfc6aeca-8bed-319c-ba23-23c95e486b8c",
+     "name": "Doom Stone",
+     "setCode": "E2E",
+     "number": "13",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "27928993-066c-3d3f-892a-6f033ccb9b38"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {R}. This artifact deals 40 damage to you."
+    },
+    {
+     "uuid": "e21ce549-9484-358d-b459-81edbff16176",
+     "name": "Drowsy Pup",
+     "setCode": "E2E",
+     "number": "14",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Dog",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "07cdfcaf-fd75-340c-bdb9-43f163932cc3"
+     },
+     "manaCost": "{0}",
+     "text": "This creature enters tapped.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "2c5feef5-439f-396b-bbe9-b7bb0d3e9886",
+     "name": "Dungeon Torch Map",
+     "setCode": "E2E",
+     "number": "15",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "2f3fed1f-ea14-341f-9cbf-8d5cd075f174"
+     },
+     "manaCost": "{0}",
+     "text": "Venture into the dungeon."
+    },
+    {
+     "uuid": "6e2499d4-4483-3551-9f62-88925571bd23",
+     "name": "Elf Bear",
+     "setCode": "E2E",
+     "number": "16",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elf Bear",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "3d3640c1-caef-392a-af92-00bbf3416127"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "8f9e5481-4b7c-302f-ab98-da2ac5625a57",
+     "name": "Ember Altar",
+     "setCode": "E2E",
+     "number": "17",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9f9f4122-9a31-3593-a420-cf2b544c5184"
+     },
+     "manaCost": "{0}",
+     "text": "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."
+    },
+    {
+     "uuid": "3c61e1b6-81fe-3bc3-bc91-7ab20099af63",
+     "name": "Ember Amplifier",
+     "setCode": "E2E",
+     "number": "18",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "22c1ba67-11d5-36a9-834d-6aa732548de8"
+     },
+     "manaCost": "{0}",
+     "text": "If a source you control would deal damage to a permanent or player, it deals double that damage instead."
+    },
+    {
+     "uuid": "2f72ba89-0bc4-362d-b5d6-9a9d0b6b5176",
+     "name": "Ember Augury",
+     "setCode": "E2E",
+     "number": "19",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "b099935f-3cd2-3abf-982d-78e971770dcc"
+     },
+     "manaCost": "{0}",
+     "text": "Target player reveals the top two cards of their library."
+    },
+    {
+     "uuid": "9cac1a55-5daf-3d1d-bd7e-c63b0ac021b8",
+     "name": "Ember Banishing",
+     "setCode": "E2E",
+     "number": "20",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "fd5dd775-0866-35e0-98db-cd103398ea1f"
+     },
+     "manaCost": "{3}{R}",
+     "text": "This spell costs {3} less to cast if it targets a tapped creature.\nExile target creature."
+    },
+    {
+     "uuid": "256dea0b-91b2-3e85-aad1-dae198680cfe",
+     "name": "Ember Beckoning",
+     "setCode": "E2E",
+     "number": "21",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9b469a4c-516c-3781-bf83-cdffedf7d3d7"
+     },
+     "manaCost": "{0}",
+     "text": "The Ring tempts you."
+    },
+    {
+     "uuid": "6b421229-e3e9-3ce1-a911-a7a34a1293ae",
+     "name": "Ember Blade",
+     "setCode": "E2E",
+     "number": "22",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact — Equipment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "8a3e711f-752e-33ce-ad5c-75ff3c5b611b"
+     },
+     "manaCost": "{0}",
+     "text": "Equipped creature gets +1/+0.\nEquip {0}"
+    },
+    {
+     "uuid": "f6fc82c3-5fa1-3197-84b7-28b39d705e2b",
+     "name": "Ember Bounty",
+     "setCode": "E2E",
+     "number": "23",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment — Aura",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "e0fb7245-1c90-37ab-a8d4-4b8e494bbe16"
+     },
+     "manaCost": "{0}",
+     "text": "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color."
+    },
+    {
+     "uuid": "7248ee03-a4a6-3903-97c7-3ea783667087",
+     "name": "Ember Brood",
+     "setCode": "E2E",
+     "number": "24",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5e8ec141-cf43-30ea-b41d-ef0f0a46599d"
+     },
+     "manaCost": "{0}",
+     "text": "Offspring {2}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "4ef21879-c5d0-3da9-bab1-e9cb3945650f",
+     "name": "Ember Burst",
+     "setCode": "E2E",
+     "number": "25",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "d354d71a-ab45-34cd-ae77-ed00a0ebfdca"
+     },
+     "manaCost": "{X}",
+     "text": "Ember Burst deals X damage to any target."
+    },
+    {
+     "uuid": "73fcd13f-ffd7-31e9-b961-06d0fbd52a2f",
+     "name": "Ember Cairn",
+     "setCode": "E2E",
+     "number": "26",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "0f9cddc5-d7d6-32f3-ab53-29906ed0e481"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {R}.\n{5}: You gain 1 life."
+    },
+    {
+     "uuid": "4cac4656-c948-3ee3-8720-b8393da5acdc",
+     "name": "Ember Cart",
+     "setCode": "E2E",
+     "number": "27",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact — Vehicle",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "7f79fb64-8c31-37bf-b339-8b798ab23c1d"
+     },
+     "manaCost": "{0}",
+     "text": "Crew 2",
+     "power": "3",
+     "toughness": "3"
+    },
+    {
+     "uuid": "9c25bc8f-ea90-37ce-bd0c-b2d6676003f9",
+     "name": "Ember Cascade",
+     "setCode": "E2E",
+     "number": "28",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "6404d2fb-b452-38d4-a3bb-24e7a77d5d44"
+     },
+     "manaCost": "{R}",
+     "text": "Ember Cascade deals 3 damage to any target. (on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, on and on, as the longest printed reminders do, it goes.)"
+    },
+    {
+     "uuid": "a38f7938-3f8d-3b38-98b5-470cfaca6822",
+     "name": "Ember Chime",
+     "setCode": "E2E",
+     "number": "29",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "88794cfa-5b2d-3eb5-a157-1dc575fb5eb1"
+     },
+     "manaCost": "{0}",
+     "text": "At the beginning of your upkeep, you gain 1 life."
+    },
+    {
+     "uuid": "4c1c7b49-ecfd-31fb-be28-413b6a1f2223",
+     "name": "Ember Clan",
+     "setCode": "E2E",
+     "number": "30",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "c686aa88-4e26-3cbb-8028-622747a5a72e"
+     },
+     "manaCost": "{1}",
+     "text": "Kicker {1}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "77eda3cb-d631-3126-b02f-12e91d51488d",
+     "name": "Ember Cleave",
+     "setCode": "E2E",
+     "number": "31",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "c780e0cd-9e6f-39a2-89a1-1f731e0c36ee"
+     },
+     "manaCost": "{X}{3}{R}",
+     "text": "This spell costs {3} less to cast if it targets a tapped creature.\nThis spell deals X damage to target creature."
+    },
+    {
+     "uuid": "324050bb-1d10-36a6-98ab-097cc6fa4014",
+     "name": "Ember Cub",
+     "setCode": "E2E",
+     "number": "32",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Cat",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "7b7db8f2-e5f5-36e5-8be4-6d3526656693"
+     },
+     "manaCost": "{R}",
+     "power": "2",
+     "toughness": "1"
+    },
+    {
+     "uuid": "5d529426-f17f-39e2-8ab6-b837e11ce9a2",
+     "name": "Ember Dasher",
+     "setCode": "E2E",
+     "number": "33",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "f98a617b-7ade-3155-aad4-db571410792e"
+     },
+     "manaCost": "{0}",
+     "text": "Haste",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "65134598-fb78-3504-a8f1-3afc8db13792",
+     "name": "Ember Dread",
+     "setCode": "E2E",
+     "number": "34",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5f510a19-ad75-36d3-b6cf-3bdeb024cce9"
+     },
+     "manaCost": "{0}",
+     "text": "Manifest dread."
+    },
+    {
+     "uuid": "d56bf9a2-6eab-3d92-bc82-e55deee8044f",
+     "name": "Ember Edict",
+     "setCode": "E2E",
+     "number": "35",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "7a02da0a-4b1a-3600-8881-ce66266c327d"
+     },
+     "manaCost": "{0}",
+     "text": "Each opponent sacrifices a creature of their choice."
+    },
+    {
+     "uuid": "8ac472eb-d70a-3200-8f02-b5855ec8d350",
+     "name": "Ember Engine",
+     "setCode": "E2E",
+     "number": "36",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "ebc890f3-0e10-3ecc-a4f6-98c2336fdff3"
+     },
+     "manaCost": "{0}",
+     "text": "{1}: You gain 1 life."
+    },
+    {
+     "uuid": "18b8c9b4-9e73-301f-ba00-06d33e124f6c",
+     "name": "Ember Exposure",
+     "setCode": "E2E",
+     "number": "37",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "279fa289-eecd-31ba-a1bf-69862813fc57"
+     },
+     "manaCost": "{0}",
+     "text": "Target player reveals their hand."
+    },
+    {
+     "uuid": "91980fce-19b4-37d9-ab48-ede944c5ba89",
+     "name": "Ember Flick",
+     "setCode": "E2E",
+     "number": "38",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "da1da4cd-c1e1-353c-94c5-29a5a48374fe"
+     },
+     "manaCost": "{0}",
+     "text": "Ember Flick deals 1 damage to any target."
+    },
+    {
+     "uuid": "231e02b6-4752-34b9-962e-aafb85fcbf7d",
+     "name": "Ember Fork",
+     "setCode": "E2E",
+     "number": "39",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "b68f4560-2cd0-3a8d-a220-dc9672395bc4"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {R} or {U}."
+    },
+    {
+     "uuid": "af05a88a-e3ca-39f3-b892-42d40f342e6c",
+     "name": "Ember Geode",
+     "setCode": "E2E",
+     "number": "40",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "20b8747e-c75c-3395-ad83-d96f4594db8b"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {R}{R}."
+    },
+    {
+     "uuid": "717ebc81-fe92-3659-9a28-024bc8f5f2e9",
+     "name": "Ember Glance",
+     "setCode": "E2E",
+     "number": "41",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9cc095cb-1bfd-32b3-b693-d5773c9a95da"
+     },
+     "manaCost": "{0}",
+     "text": "Look at target player's hand."
+    },
+    {
+     "uuid": "58f0c1c9-1500-3d68-870e-97c2dec4deeb",
+     "name": "Ember Glint",
+     "setCode": "E2E",
+     "number": "42",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "348b4631-6c57-3451-8f55-bfe56211a748"
+     },
+     "manaCost": "{0}",
+     "text": "You gain 2 life."
+    },
+    {
+     "uuid": "d22f5c42-3d51-3cff-84cf-7b9a707147b3",
+     "name": "Ember Herald",
+     "setCode": "E2E",
+     "number": "43",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "67e042e3-f92d-30ea-a750-d08df366b0f9"
+     },
+     "manaCost": "{R}",
+     "text": "When this creature enters, create a 1/1 red Elemental creature token.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "fb8505af-1224-3822-9e04-d65bcb7be631",
+     "name": "Ember Hush",
+     "setCode": "E2E",
+     "number": "44",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "317239fc-4a4c-39dd-b24e-cabfe8b27a6a"
+     },
+     "manaCost": "{5}",
+     "text": "This spell costs {1} less to cast for each target creature.\nTap up to five target creatures."
+    },
+    {
+     "uuid": "b343b4d3-925e-300e-8187-66bc57ec77ba",
+     "name": "Ember Insight",
+     "setCode": "E2E",
+     "number": "45",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "124002a6-d4b0-3ba9-8fb0-f8e8fd2e9cb8"
+     },
+     "manaCost": "{0}",
+     "text": "Reveal the top card of your library and put that card into your hand."
+    },
+    {
+     "uuid": "a74e8876-9723-380d-bdcf-fe3c56afd06c",
+     "name": "Ember Kit",
+     "setCode": "E2E",
+     "number": "46",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental Fox",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "adb538e1-1cad-348f-81f2-bcf75cf5a9b5"
+     },
+     "manaCost": "{0}",
+     "text": "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "adc00493-c792-3bf7-aa65-5bdcc9791001",
+     "name": "Ember Lecture",
+     "setCode": "E2E",
+     "number": "47",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery — Lesson",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "f0e81bc0-46ce-3f4e-8aa1-02139aca14a0"
+     },
+     "manaCost": "{0}",
+     "text": "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
+    },
+    {
+     "uuid": "aa5fafd7-c280-3460-b485-d3480a6dcabe",
+     "name": "Ember Mantle",
+     "setCode": "E2E",
+     "number": "48",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment — Aura",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9d797315-7cd6-3d8a-ac7d-42ca3be2a37a"
+     },
+     "manaCost": "{0}",
+     "text": "Enchant creature\nEnchanted creature gets +1/+1."
+    },
+    {
+     "uuid": "26555af4-9bcc-34a6-91f6-7e16eeacd89e",
+     "name": "Ember Martyr",
+     "setCode": "E2E",
+     "number": "49",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "af3f0148-db75-32f5-86f9-b86526c15ec7"
+     },
+     "manaCost": "{0}",
+     "text": "When this creature dies, you gain 2 life.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "5dfa0745-aace-3142-86cc-01f0343a19fb",
+     "name": "Ember Mindtrap",
+     "setCode": "E2E",
+     "number": "50",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "7167b4cc-6355-334d-9125-19a8b66b6e17"
+     },
+     "manaCost": "{0}",
+     "text": "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards."
+    },
+    {
+     "uuid": "8a323fb5-e9f3-3c73-943a-da4022e998db",
+     "name": "Ember Musing",
+     "setCode": "E2E",
+     "number": "51",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "e00a6e33-b93f-37e8-9216-c01ee11177ee"
+     },
+     "manaCost": "{3}{R}",
+     "text": "Draw two cards.\nCycling {R} ({R}, Discard this card: Draw a card.)"
+    },
+    {
+     "uuid": "71d5f3f2-3595-3c25-b000-eb0e0a472cb6",
+     "name": "Ember Muzzle",
+     "setCode": "E2E",
+     "number": "52",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact Creature — Construct",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "86dad1a7-8009-3916-8a53-b0d6cef2403d"
+     },
+     "manaCost": "{0}",
+     "text": "As this creature enters, choose a nonland card name.\nActivated abilities of sources with the chosen name can't be activated.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "08ac1a12-cf02-38d8-9ad5-fcb6a9dabf1d",
+     "name": "Ember Path // Ember Crag",
+     "setCode": "E2E",
+     "number": "53",
+     "language": "English",
+     "layout": "modal_dfc",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "96e63b51-aa6e-322c-a75e-3207f2c3e05b"
+     },
+     "manaCost": "{1}{R}",
+     "text": "Draw a card.",
+     "faceName": "Ember Path",
+     "side": "a",
+     "otherFaceIds": [
+      "b1768e8f-1bfd-3dc9-abda-74e0b49e0006"
+     ]
+    },
+    {
+     "uuid": "b1768e8f-1bfd-3dc9-abda-74e0b49e0006",
+     "name": "Ember Path // Ember Crag",
+     "setCode": "E2E",
+     "number": "53",
+     "language": "English",
+     "layout": "modal_dfc",
+     "type": "Land",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "42996b92-e85e-3e49-8c12-fea8cd0f1dd8"
+     },
+     "text": "{T}: Add {R}.",
+     "faceName": "Ember Crag",
+     "side": "b",
+     "otherFaceIds": [
+      "08ac1a12-cf02-38d8-9ad5-fcb6a9dabf1d"
+     ]
+    },
+    {
+     "uuid": "6b06d3a2-63ee-3c06-a2dc-3d4ec5c27417",
+     "name": "Ember Primer",
+     "setCode": "E2E",
+     "number": "54",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery — Lesson",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "22695acf-718f-3aed-971f-b64f41c5b66a"
+     },
+     "manaCost": "{R}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "a40e37ee-da1e-32ed-a1bc-fc54442b267a",
+     "name": "Ember Prism",
+     "setCode": "E2E",
+     "number": "55",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "777de819-2e02-3778-88e2-9fc6e6213c8c"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add one mana of any color."
+    },
+    {
+     "uuid": "c373e11d-2157-3c6d-9bed-5f0cbcc9559a",
+     "name": "Ember Rally",
+     "setCode": "E2E",
+     "number": "56",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "137ced6b-60d3-3090-a47b-762220cfcb7b"
+     },
+     "manaCost": "{2}{R}",
+     "text": "Convoke\nDraw a card."
+    },
+    {
+     "uuid": "df2f69f9-197b-3a64-8d90-92d8be996d1b",
+     "name": "Ember Reading",
+     "setCode": "E2E",
+     "number": "57",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5624c8e7-e5b1-3311-9f03-38d7b80076fe"
+     },
+     "manaCost": "{0}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "e3874d0e-4c55-3919-98c3-8dbf1e2a0626",
+     "name": "Ember Rebuke",
+     "setCode": "E2E",
+     "number": "58",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "d3d26c7f-9ca6-34c5-984b-c1966ab45939"
+     },
+     "manaCost": "{3}{R}",
+     "text": "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
+    },
+    {
+     "uuid": "af4eb878-fe49-34d6-9cf9-1b0dba81c60f",
+     "name": "Ember Recall",
+     "setCode": "E2E",
+     "number": "59",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "a1a16717-e021-38fa-a77e-4de62f9dcb14"
+     },
+     "manaCost": "{0}",
+     "text": "Return target card from your graveyard to your hand."
+    },
+    {
+     "uuid": "f7629f90-75ca-38c6-8729-7365a6ea8d92",
+     "name": "Ember Revival",
+     "setCode": "E2E",
+     "number": "60",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "e4e7ede9-7a10-3ecb-aaa8-854000bf57fe"
+     },
+     "manaCost": "{0}",
+     "text": "Return target artifact card from your graveyard to the battlefield."
+    },
+    {
+     "uuid": "1b67672e-2a60-3d45-a94b-6109ae840789",
+     "name": "Ember Ruin",
+     "setCode": "E2E",
+     "number": "61",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "412d7fe3-8560-3fcc-9525-86f570ec46fb"
+     },
+     "manaCost": "{0}",
+     "text": "Each opponent loses 20 life."
+    },
+    {
+     "uuid": "cb4ca095-6d84-3650-a960-48b7428a9550",
+     "name": "Ember Scouting",
+     "setCode": "E2E",
+     "number": "62",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "c54e24f4-6281-3291-9ad6-1f45b9e59348"
+     },
+     "manaCost": "{0}",
+     "text": "Reveal cards from the top of your library until you reveal a land card. Put that card into your hand and the rest on the bottom of your library in a random order."
+    },
+    {
+     "uuid": "60f259b4-454c-3c78-8cac-9d14207a36dc",
+     "name": "Ember Shard",
+     "setCode": "E2E",
+     "number": "63",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "816ce725-f3ca-3495-9a93-859a51320715"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {R}."
+    },
+    {
+     "uuid": "a83860ca-7370-37b0-87f0-f7aea18bd5cf",
+     "name": "Ember Sifter",
+     "setCode": "E2E",
+     "number": "64",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "32301da5-a1c2-3d9f-be97-f9d363b851cb"
+     },
+     "manaCost": "{0}",
+     "text": "When this artifact enters, mill two cards."
+    },
+    {
+     "uuid": "d0c25f19-b8b0-3823-a2fd-9cb8af4ac1d0",
+     "name": "Ember Sigil",
+     "setCode": "E2E",
+     "number": "65",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "bf938dfe-96f4-3b54-99dd-5844eae2342f"
+     },
+     "manaCost": "{0}",
+     "text": "You get an emblem with \"Creatures you control get +1/+1.\""
+    },
+    {
+     "uuid": "2a400c17-68fa-3b08-a543-4494f1ed0487",
+     "name": "Ember Signet",
+     "setCode": "E2E",
+     "number": "66",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9ea762ab-a4fc-3628-8a16-32543cb8c774"
+     },
+     "manaCost": "{0}",
+     "text": "{1}, {T}: Add {R}{U}."
+    },
+    {
+     "uuid": "9458b0b2-d83f-3a8d-a29f-6fc230cafe95",
+     "name": "Ember Sovereign",
+     "setCode": "E2E",
+     "number": "67",
+     "language": "English",
+     "layout": "normal",
+     "type": "Legendary Creature — Elemental Noble",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "743728c1-a4a4-3050-afd0-9acba2253e04"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "650523e5-88bb-337c-b421-7f5fb60da7b5",
+     "name": "Ember Sprite",
+     "setCode": "E2E",
+     "number": "68",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "a5c99694-c8fe-3237-8fe8-7d34fbfe3f85"
+     },
+     "manaCost": "{0}",
+     "text": "Haste\n{T}: Add {R}.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "0956d7e2-9cfc-3be0-b931-356d8a79b59b",
+     "name": "Ember Stone",
+     "setCode": "E2E",
+     "number": "69",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9a3c975c-c6ee-343b-aff5-89f429e123cb"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {C}."
+    },
+    {
+     "uuid": "641e0b8a-c47b-3d1a-abe1-4bc026e39919",
+     "name": "Ember Stride",
+     "setCode": "E2E",
+     "number": "70",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9e8212e8-034f-3559-874e-afd012a2b889"
+     },
+     "manaCost": "{R}",
+     "text": "Take an extra turn after this one."
+    },
+    {
+     "uuid": "ba10077d-86e1-3395-bb7c-2322de86be0a",
+     "name": "Ember Striving",
+     "setCode": "E2E",
+     "number": "71",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "3ec4fc98-7e05-3c14-8161-f4d1d7ebc3b8"
+     },
+     "manaCost": "{R}",
+     "text": "This spell costs {1}{R} more to cast for each target creature beyond the first.\nTap up to five target creatures."
+    },
+    {
+     "uuid": "11ea8b14-7560-3e18-a01e-ed4fecd9d39f",
+     "name": "Ember Study",
+     "setCode": "E2E",
+     "number": "72",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5067dd4c-4530-3d33-a179-4c5b1ebaab4d"
+     },
+     "manaCost": "{0}",
+     "text": "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
+    },
+    {
+     "uuid": "f3238bb3-e7ce-3d06-9fff-8674b1a1e7f0",
+     "name": "Ember Toll",
+     "setCode": "E2E",
+     "number": "73",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "90478521-c3e6-394a-9aba-3dd6f53e76f3"
+     },
+     "manaCost": "{0}",
+     "text": "This spell costs {R}{R} more to cast for each creature type among target creatures.\nTap up to five target creatures."
+    },
+    {
+     "uuid": "8652b230-276e-3589-8d67-22488007b47a",
+     "name": "Ember Tollkeeper",
+     "setCode": "E2E",
+     "number": "74",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "6024d29d-f7ae-3d0e-abbd-98cd30608e6d"
+     },
+     "manaCost": "{0}",
+     "text": "When this creature enters, you may pay {1}. If you do, draw a card.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "09ae62d4-2936-37bb-915d-fc2087203da1",
+     "name": "Ember Treatise",
+     "setCode": "E2E",
+     "number": "75",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery — Lesson",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "cfc55028-408e-3b09-b85f-f68d7d18bfae"
+     },
+     "manaCost": "{1}{R}",
+     "text": "Draw two cards."
+    },
+    {
+     "uuid": "674901db-277a-3d77-99f6-371dab08cbda",
+     "name": "Ember Trinket",
+     "setCode": "E2E",
+     "number": "76",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5fda1ab2-b24b-34c0-8669-b8b5ab90f7fc"
+     },
+     "manaCost": "{0}",
+     "text": "Sacrifice this artifact: Draw a card."
+    },
+    {
+     "uuid": "510ac8c0-96bc-3610-9600-86a485a70db1",
+     "name": "Ember Twin",
+     "setCode": "E2E",
+     "number": "77",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "f87f3337-b0e6-3e34-af5a-f93b3b175537",
+      "scryfallOracleId": "9f7d659c-40dc-357c-9270-10c87a4bedb1"
+     },
+     "manaCost": "{R}",
+     "text": "When this creature enters, if you cast it, create a token that's a copy of it.",
+     "power": "2",
+     "toughness": "1"
+    },
+    {
+     "uuid": "57f11c5f-66c6-36b0-a3e5-3b0b9c553d60",
+     "name": "Ember Twinherald",
+     "setCode": "E2E",
+     "number": "78",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "4c6f062e-521d-3fcb-b096-c31004bb9b4a"
+     },
+     "manaCost": "{R}",
+     "text": "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "93f04b88-2d57-3320-9c13-f53670c456fc",
+     "name": "Ember Warden",
+     "setCode": "E2E",
+     "number": "79",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "d37932ad-37a5-304f-987e-340a3194a769"
+     },
+     "manaCost": "{0}",
+     "text": "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life."
+    },
+    {
+     "uuid": "0e6c6394-8ccc-3a67-8439-f722592fa2ff",
+     "name": "Ember Whisp",
+     "setCode": "E2E",
+     "number": "80",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elemental",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "55c2f064-3acc-3166-ab72-d65c621be453"
+     },
+     "manaCost": "{0}",
+     "text": "Haste\n{T}: Add {R}.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "0cab5c94-8d08-3df2-bf48-f44394c95993",
+     "name": "Ember Wish",
+     "setCode": "E2E",
+     "number": "81",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "e511521f-62db-3c4b-9e80-d27a4f81e07e"
+     },
+     "manaCost": "{0}",
+     "text": "You may put a card you own from outside the game into your hand."
+    },
+    {
+     "uuid": "1d175bd5-7125-3b3e-894b-723a43ef5937",
+     "name": "Ember Witness",
+     "setCode": "E2E",
+     "number": "82",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Human Detective",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "d82597d9-9853-3b85-817a-dc02df494f89"
+     },
+     "manaCost": "{0}",
+     "text": "When this creature enters, you may collect evidence 2. If you do, draw a card.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "eedb2429-bf12-34eb-afbc-8ac4cbcedfee",
+     "name": "Empty Thoughts",
+     "setCode": "E2E",
+     "number": "83",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "985e962a-6398-386f-8bd1-69adcf827f3e"
+     },
+     "manaCost": "{0}",
+     "text": "Discard your hand."
+    },
+    {
+     "uuid": "1b509018-3e5c-3458-a7db-dbe9bbe28259",
+     "name": "Filter Stone",
+     "setCode": "E2E",
+     "number": "84",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "cfa21942-1c38-34c6-9f66-c5265a3c08df"
+     },
+     "manaCost": "{0}",
+     "text": "{R/U}, {T}: Add two mana in any combination of {R} and/or {U}."
+    },
+    {
+     "uuid": "267c0757-46be-3186-9d91-e5f790826130",
+     "name": "Free Tax",
+     "setCode": "E2E",
+     "number": "85",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "38413c04-0e3e-31e2-ba9e-f8102f455494"
+     },
+     "manaCost": "{0}",
+     "text": "Counter target spell unless its controller pays {1}."
+    },
+    {
+     "uuid": "2e1f1f2b-f65c-346b-b377-681a4133cfcd",
+     "name": "Frost Snare",
+     "setCode": "E2E",
+     "number": "86",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "89beb566-0430-3adf-b63a-c689e7774c30"
+     },
+     "manaCost": "{0}",
+     "text": "Tap up to two target creatures."
+    },
+    {
+     "uuid": "3673ff1f-b8fd-3802-ad27-0eda62b406fc",
+     "name": "Idle Glimmer",
+     "setCode": "E2E",
+     "number": "87",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "f846fa76-975e-342a-b709-60a7f55ff140"
+     },
+     "manaCost": "{0}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "dbe503c0-ae59-3b0a-9022-f90cd319b004",
+     "name": "Land Eater",
+     "setCode": "E2E",
+     "number": "88",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "4cae2001-8347-38cd-8607-74042148e416"
+     },
+     "manaCost": "{R}",
+     "text": "As an additional cost to cast this spell, sacrifice a land.\nDraw a card."
+    },
+    {
+     "uuid": "5b45bb6b-7705-369e-868d-40878edbacb0",
+     "name": "Lone Goat",
+     "setCode": "E2E",
+     "number": "89",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Goat",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "86bbc2cc-1151-3091-9880-dee74fa0de21"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "201deed6-596a-3b79-9102-5046402dd15d",
+     "name": "Measure Stone",
+     "setCode": "E2E",
+     "number": "90",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "5b4f2fad-65cc-3819-bac1-95d4792b9dc4"
+     },
+     "manaCost": "{0}",
+     "text": "{X}, {T}: Add X mana of any one color."
+    },
+    {
+     "uuid": "4dd87b20-1e91-39d0-8a35-6e97918b741a",
+     "name": "Mountain Hymn",
+     "setCode": "E2E",
+     "number": "91",
+     "language": "English",
+     "layout": "normal",
+     "type": "Enchantment",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "d613fb81-0921-3b62-a068-3028ae77309e"
+     },
+     "manaCost": "{0}",
+     "text": "Whenever you tap a Mountain for mana, add an additional {R}."
+    },
+    {
+     "uuid": "f86e9ba0-8feb-3a6c-a92d-a472cf81e341",
+     "name": "Odd Relic",
+     "setCode": "E2E",
+     "number": "92",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "a4e09596-98d4-3dfe-9790-6c8203842f86"
+     },
+     "manaCost": "{1}",
+     "text": "Whenever the moon is full, this artifact hums a slow tune."
+    },
+    {
+     "uuid": "057c88af-ab53-3506-8f03-f8be0f959a4a",
+     "name": "One Tap",
+     "setCode": "E2E",
+     "number": "93",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "cbb46970-39e8-3ae1-9987-98897df85301"
+     },
+     "manaCost": "{1}",
+     "text": "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card."
+    },
+    {
+     "uuid": "9a789442-2f4b-359e-aa04-8f8c74b003ec",
+     "name": "Ox Human",
+     "setCode": "E2E",
+     "number": "94",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Ox Human",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "bdb3290d-f17d-32af-acd9-f3d517644663"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "f4d70d6d-496d-398e-b9a2-412e4d5bd658",
+     "name": "Pain Stone",
+     "setCode": "E2E",
+     "number": "95",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "8a27b405-7eee-358d-ab6e-2a0438678109"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {C}.\n{T}: Add {R}. This artifact deals 1 damage to you."
+    },
+    {
+     "uuid": "d7dd2bf0-fe9f-3a8f-b371-9449d35449c7",
+     "name": "Quad Beast",
+     "setCode": "E2E",
+     "number": "96",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elf Bear Ox Human",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "54362990-f8db-396f-a962-be89717437f9"
+     },
+     "manaCost": "{0}",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "8374277f-6098-36c5-a8d0-9774c2ed406a",
+     "name": "Quench Spark",
+     "setCode": "E2E",
+     "number": "97",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "68324d7d-de92-3b8b-a900-9d34ebc65961"
+     },
+     "manaCost": "{0}",
+     "text": "Counter target spell."
+    },
+    {
+     "uuid": "dff1d540-816a-311d-bba3-90dc3ef2da97",
+     "name": "Red Blue",
+     "setCode": "E2E",
+     "number": "98",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "U",
+      "R"
+     ],
+     "colorIdentity": [
+      "U",
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "198dbd8c-8fe6-3ebd-a7d1-0773830e5261"
+     },
+     "manaCost": "{R}{U}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "128f054b-25a4-35e0-b83e-288ac7b2ab26",
+     "name": "Red Flash",
+     "setCode": "E2E",
+     "number": "99",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "13b74ad1-1396-34eb-9333-894491608de0"
+     },
+     "manaCost": "{R}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "7eb6aa2b-f41a-3ab2-89ac-a10dc34a14dd",
+     "name": "Restless Wisp",
+     "setCode": "E2E",
+     "number": "100",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Spirit",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "90f37227-db66-3b6a-9082-ce01b3efa29b"
+     },
+     "manaCost": "{0}",
+     "text": "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
+     "power": "1",
+     "toughness": "1"
+    },
+    {
+     "uuid": "aaf366d8-4b0f-3af0-9463-f8f6cd5adc86",
+     "name": "Shattered Reason",
+     "setCode": "E2E",
+     "number": "101",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [
+      "U"
+     ],
+     "colorIdentity": [
+      "U"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "e741c39c-6bea-3f70-b8ab-c7d01723cd86"
+     },
+     "manaCost": "{1}{U}{U}",
+     "text": "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\nWhen you cycle this card, each opponent mills four cards."
+    },
+    {
+     "uuid": "6c4a6568-fa57-396a-a463-418eb10dfb7a",
+     "name": "Storm Spark",
+     "setCode": "E2E",
+     "number": "102",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "1ff9c545-c51b-3476-a37c-df896ddae4a5"
+     },
+     "manaCost": "{R}",
+     "text": "Storm Spark deals 3 damage to any target."
+    },
+    {
+     "uuid": "818e85c2-4daa-31c0-8935-2f97385979e4",
+     "name": "Tap Pact",
+     "setCode": "E2E",
+     "number": "103",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "3175bba4-2962-3943-acaf-82f2137a18fa"
+     },
+     "manaCost": "{R}",
+     "text": "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card."
+    },
+    {
+     "uuid": "f925a3ab-1963-3738-a4ce-df3f25082908",
+     "name": "Tapped Flash",
+     "setCode": "E2E",
+     "number": "104",
+     "language": "English",
+     "layout": "normal",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "acf8ab39-13e0-3a67-88cf-63c0fce550cf"
+     },
+     "manaCost": "{1}{R}",
+     "text": "This spell costs {1} less to cast if it targets a tapped creature.\nTap target creature."
+    },
+    {
+     "uuid": "f350d238-e645-36bd-9ca3-021b1dd28d07",
+     "name": "Tomb Stone",
+     "setCode": "E2E",
+     "number": "105",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "96a23668-5a66-32e2-81d5-ad1dba113e2d"
+     },
+     "manaCost": "{0}",
+     "text": "{T}: Add {C}{C}. This artifact deals 2 damage to you."
+    },
+    {
+     "uuid": "dc2ad794-2a63-3c59-a676-56907aa146a0",
+     "name": "Trail // Blaze",
+     "setCode": "E2E",
+     "number": "106",
+     "language": "English",
+     "layout": "split",
+     "type": "Instant",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "2bf208d8-64a4-3442-8fd0-99495b86e62d"
+     },
+     "manaCost": "{2}{G}",
+     "text": "Draw a card.",
+     "faceName": "Trail",
+     "side": "a",
+     "otherFaceIds": [
+      "54dfe4a1-4a2c-3855-a543-ef4a3852aec5"
+     ]
+    },
+    {
+     "uuid": "54dfe4a1-4a2c-3855-a543-ef4a3852aec5",
+     "name": "Trail // Blaze",
+     "setCode": "E2E",
+     "number": "106",
+     "language": "English",
+     "layout": "split",
+     "type": "Instant",
+     "colors": [
+      "R"
+     ],
+     "colorIdentity": [
+      "R"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "41cbfcf6-f541-3c87-ab13-c448153bcc29"
+     },
+     "manaCost": "{1}{R}{R}",
+     "text": "Blaze deals 3 damage to any target.",
+     "faceName": "Blaze",
+     "side": "b",
+     "otherFaceIds": [
+      "dc2ad794-2a63-3c59-a676-56907aa146a0"
+     ]
+    },
+    {
+     "uuid": "8de23455-2807-3622-94c5-73038bc520b5",
+     "name": "Two Pence",
+     "setCode": "E2E",
+     "number": "107",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "bbff4329-78da-36c5-a540-5d1042b23c5c"
+     },
+     "manaCost": "{2}",
+     "text": "Draw a card."
+    },
+    {
+     "uuid": "330dca21-be75-3d62-bbc4-e38f7c65177a",
+     "name": "Warded Pup",
+     "setCode": "E2E",
+     "number": "108",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Dog",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "1432f9e3-a21f-32eb-83e9-e423e9f457ef"
+     },
+     "manaCost": "{0}",
+     "text": "Spells your opponents cast that target this creature cost {2} more to cast.",
+     "power": "1",
+     "toughness": "1"
+    }
+   ],
+   "tokens": [
+    {
+     "uuid": "fb1c1c12-29b9-32f3-9383-23006701d681",
+     "name": "Dungeon Test Crypt",
+     "setCode": "E2E",
+     "number": "T1",
+     "language": "English",
+     "layout": "token",
+     "type": "Dungeon",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "ad4d8259-2dd5-3851-8308-6996546ffb42"
+     },
+     "text": "Crypt Door — You gain 1 life. (Leads to: Bone Hall, Dark Well)\nBone Hall — Each opponent loses 1 life. (Leads to: Final Vault)\nDark Well — You gain 2 life. (Leads to: Final Vault)\nFinal Vault — You gain 3 life."
+    },
+    {
+     "uuid": "410ec2b0-6598-3fde-9a16-2544024eccc0",
+     "name": "Dungeon Test Sunken City",
+     "setCode": "E2E",
+     "number": "T2",
+     "language": "English",
+     "layout": "token",
+     "type": "Dungeon — Undercity",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "b5923178-c7a0-3469-b5c6-520f4a86e4f0"
+     },
+     "text": "You can't enter this dungeon unless you \"venture into Undercity.\"\nFlooded Stair — You gain 4 life. (Leads to: Abyss Throne)\nAbyss Throne — You gain 5 life."
+    }
+   ]
+  },
+  "M21": {
+   "code": "M21",
+   "name": "Test Basic Lands",
+   "type": "box",
+   "releaseDate": "2020-02-01",
+   "cards": [
+    {
+     "uuid": "e9c1ea35-f90a-3846-8935-39e735bf75a5",
+     "name": "Forest",
+     "setCode": "M21",
+     "number": "1",
+     "language": "English",
+     "layout": "normal",
+     "type": "Basic Land — Forest",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "0c6091d7-37c1-33f6-8bf1-3c8e52cd33f9"
+     }
+    },
+    {
+     "uuid": "e8114026-f996-3809-ac55-478d05a4b2d4",
+     "name": "Island",
+     "setCode": "M21",
+     "number": "2",
+     "language": "English",
+     "layout": "normal",
+     "type": "Basic Land — Island",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "05728c8e-6eb6-3f5f-9533-3d7f2add6d1a"
+     }
+    },
+    {
+     "uuid": "7944d50c-dcc6-3425-ae6f-8c7b037c3dc0",
+     "name": "Mountain",
+     "setCode": "M21",
+     "number": "3",
+     "language": "English",
+     "layout": "normal",
+     "type": "Basic Land — Mountain",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "152747cf-5d27-3eb0-8431-d4fbfe5f837e"
+     }
+    },
+    {
+     "uuid": "d2117ed1-3234-35ae-8401-5ef13ab3071d",
+     "name": "Plains",
+     "setCode": "M21",
+     "number": "4",
+     "language": "English",
+     "layout": "normal",
+     "type": "Basic Land — Plains",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "81950da1-0e5a-34d5-980f-cf3409f7f097"
+     }
+    },
+    {
+     "uuid": "dcc9d948-60a8-3add-8a83-ba82d522560a",
+     "name": "Swamp",
+     "setCode": "M21",
+     "number": "5",
+     "language": "English",
+     "layout": "normal",
+     "type": "Basic Land — Swamp",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "851bd8fd-704a-3453-8a77-9c0a1b356e35"
+     }
+    }
+   ],
+   "tokens": []
+  },
   "OFF": {
    "code": "OFF",
    "name": "Unlisted Set",

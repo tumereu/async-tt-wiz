@@ -252,7 +252,7 @@ class LobbyDeckScreensTest {
         val api = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(listOfNotNull(saved?.deck))
             override suspend fun read(token: String, id: String) = checkNotNull(saved)
-            override suspend fun definition(token: String, id: String, digest: String) = SubmittedDefinition(digest, definitions.getValue(digest))
+            override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { SubmittedDefinition(it, definitions.getValue(it)) }
             override suspend fun submit(token: String, input: SubmitDefinitions): DefinitionsAccepted = error("Use captured save action")
             override suspend fun create(token: String, input: CreateDeck): SavedDeck = error("Use captured save action")
             override suspend fun update(token: String, id: String, input: UpdateDeck): SavedDeck = error("No update")

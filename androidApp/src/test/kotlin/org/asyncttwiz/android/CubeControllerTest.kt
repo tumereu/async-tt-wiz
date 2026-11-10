@@ -91,7 +91,6 @@ class CubeControllerTest {
         var fail = false
         var afterRead: () -> Unit = {}
         var cubeReads = 0
-        var definitionReads = 0
         val definitionBatches = mutableListOf<List<String>>()
         var failBatch: Int? = null
         override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted {
@@ -106,9 +105,6 @@ class CubeControllerTest {
         }
         override suspend fun listCubes(token: String, after: String?) = CubeList(listOfNotNull(saved?.cube))
         override suspend fun readCube(token: String, id: String): SavedCube { cubeReads++; afterRead(); return saved ?: throw DeckFailure("not_found") }
-        override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition {
-            definitionReads++; return SubmittedDefinition(digest, definitions.getValue(digest))
-        }
         override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
             definitionBatches += value.digests
             if (definitionBatches.size == failBatch) throw DeckFailure("try_later")
@@ -214,7 +210,6 @@ class CubeControllerTest {
         val api = Api(); val worker = Worker(); val controller = controller(api, worker)
         api.afterRead = controller::clear
         controller.open(summary.id); worker.drain()
-        assertEquals(0, api.definitionReads)
         assertTrue(api.definitionBatches.isEmpty())
         assertNull(controller.state.detail)
         controller.close(); worker.drain()
@@ -261,9 +256,8 @@ class CubeControllerTest {
         controller.open(summary.id); worker.drain()
         assertNull(controller.state.error)
         assertEquals(api.definitions, controller.state.detail!!.definitions)
-        assertEquals(4, api.cubeReads + api.definitionBatches.size + api.definitionReads)
+        assertEquals(4, api.cubeReads + api.definitionBatches.size)
         assertEquals(listOf(250, 250, 220), api.definitionBatches.map { it.size })
-        assertEquals(0, api.definitionReads)
         controller.back(); worker.drain(); controller.open(summary.id); worker.drain()
         controller.dialog(CubeDialog.RENAME); controller.name("Renamed"); controller.confirm(); worker.drain()
         assertEquals("Renamed", controller.state.detail!!.saved.cube.name)
@@ -284,7 +278,6 @@ class CubeControllerTest {
         assertEquals(3000, controller.state.detail!!.definitions.size)
         assertEquals(12, api.definitionBatches.size)
         assertTrue(api.definitionBatches.all { it.size == 250 })
-        assertEquals(0, api.definitionReads)
         controller.close(); worker.drain()
     }
     @Test fun retryAfterPartialFailureOnlyFetchesMissingDefinitions() {

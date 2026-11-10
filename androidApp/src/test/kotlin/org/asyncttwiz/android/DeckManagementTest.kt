@@ -54,8 +54,8 @@ class DeckManagementTest {
             return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
         }
         override suspend fun read(token: String, id: String): SavedDeck { reads++; draft?.takeIf { it.deck.id == id }?.let { return it }; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
-        override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
-            definitionReads++; return SubmittedDefinition(digest, card)
+        override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> {
+            definitionReads++; return digests.distinct().map { SubmittedDefinition(it, card) }
         }
         override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
             updates += value

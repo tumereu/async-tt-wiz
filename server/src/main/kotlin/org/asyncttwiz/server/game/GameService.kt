@@ -292,7 +292,6 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
-            is GameAction.SetPodGameBasics -> applyPodBasics(sql, game, inbox.accountId!!, command)
             is GameAction.SetStarter, is GameAction.SetAlternateStarter, is GameAction.ShowDeck, GameAction.Ready, GameAction.WithdrawReady ->
                 applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
@@ -510,7 +509,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
      * game's lobby (decks, readiness, settings, cancelling it): both players are still at its table. */
     private fun lobbyWaitsForResult(game: GameRecord, action: GameAction): Boolean = game.lifecycle == "LOBBY" &&
         game.resultNotice != null && when (action) {
-            is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetPodGameBasics, is GameAction.SetStarter,
+            is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetStarter,
             is GameAction.SetAlternateStarter, is GameAction.ShowDeck, is GameAction.SetAssumeReveals,
             GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> true
             else -> false
@@ -556,14 +555,6 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             val previous = current.players.single { it.accountId == account.toString() }.deck?.sourceId
             if (previous != action.deckId) DeckVisibilityStore.apply(sql, summary, account, action.deckId)
         }
-        return change.reason
-    }
-
-    private fun applyPodBasics(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
-        val summary = lobby.summary(sql, game.id!!)
-        val change = PodGamePreparation.setBasics(summary, PreparationStore.read(sql, summary), account.toString(),
-            command.scope, command.action as GameAction.SetPodGameBasics)
-        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
         return change.reason
     }
 

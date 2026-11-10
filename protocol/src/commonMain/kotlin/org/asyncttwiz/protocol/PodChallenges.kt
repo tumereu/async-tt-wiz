@@ -52,34 +52,4 @@ object PodGamePreparation {
             else -> null
         }
     }
-
-    fun setBasics(game: GameSummary, current: LobbyPreparation, actor: String, scope: GameScope,
-        action: GameAction.SetPodGameBasics): PreparationChange {
-        fun reject(reason: String) = PreparationChange(reason = reason)
-        if (game.lifecycle != GameLifecycle.LOBBY) return reject("lifecycleEnded")
-        if (scope.gameId != game.id || scope.preparationId != game.preparationRound || scope.playId != null ||
-            current.gameId != game.id || current.roundId != game.preparationRound) return reject("inapplicable")
-        if (actor != game.inviter.accountId && (actor != game.recipient.accountId || game.invitationState != InvitationState.ACCEPTED))
-            return reject("accessDenied")
-        if (current.podRules == null) return reject("notPodGame")
-        val deck = current.players.find { it.accountId == actor }?.deck ?: return reject("preparedDeckChanged")
-        if (deck.id != action.deckId) return reject("preparedDeckChanged")
-        if (action.section !in SavedDeckSection.PREPARED) return reject("invalidBasics")
-        if (basicDefinitions(action.basicDefinitions) != deck.basicDefinitions) return reject("invalidBasicDefinitions")
-        val fixed = deck.entries.filter { it.suppliedBasic == null || it.section != action.section }
-        if (!action.basics.valid || fixed.sumOf { it.quantity.toLong() } + action.basics.total > DeckValidation.MAX_CARDS)
-            return reject("invalidBasics")
-        if (basics(deck, action.section) == action.basics) return PreparationChange(current)
-        var index = maxOf(GameWire.ordinal(deck.nextCardIndex), deck.entries.maxOfOrNull {
-            GameWire.ordinal(it.firstIndex) + it.quantity } ?: 0)
-        val entries = fixed + BasicLand.entries.mapNotNull { land ->
-            land.count(action.basics).takeIf { it > 0 }?.let { count ->
-                PreparedEntry(deck.basicDefinitions.getValue(land), action.section, index.toString(), count, land)
-                    .also { index += count }
-            }
-        }
-        return PreparationChange(current.copy(players = current.players.map {
-            if (it.accountId == actor) it.copy(ready = false, deck = deck.copy(entries = entries, nextCardIndex = index.toString())) else it
-        }))
-    }
 }

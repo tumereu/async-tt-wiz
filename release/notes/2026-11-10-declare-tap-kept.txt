@@ -1,0 +1,1 @@
+fix: A tap on No attack, Attack or Block is no longer lost with "The table changed: try again." when the other player's move arrives at the same moment without changing anything for you.

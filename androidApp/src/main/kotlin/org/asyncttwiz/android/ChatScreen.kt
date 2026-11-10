@@ -63,15 +63,20 @@ internal object ChatTabs {
 /** The pod chat of the open pod screens and pod games (null in previews and tests without one). */
 internal val LocalPodChat = staticCompositionLocalOf<PodChatController?> { null }
 
-/** Reads [podId]'s chat again every few seconds while composed and the app is in front: every 3 s while it is [open]. */
+/** Reads [podId]'s chat again every few seconds while composed and the app is in front, for [where] (the pod screen, a pod
+ * game's table): every 3 s while it is [open], else every 10 s ([PodChatController.watch]: on the main thread's clock). */
 @Composable
-internal fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean) {
+internal fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean, where: String) {
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    LaunchedEffect(chat, podId, open) {
-        while (true) {
-            if (owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) chat.refresh(podId)
-            kotlinx.coroutines.delay(if (open) 3_000 else 10_000)
+    DisposableEffect(chat, podId, open, owner) {
+        var stop: (() -> Unit)? = null
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            val front = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+            if (front && stop == null) stop = chat.watch(podId, if (open) 3_000 else 10_000, if (open) "$where, chat open" else where)
+            else if (!front) { stop?.invoke(); stop = null }
         }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer); stop?.invoke() }
     }
 }
 

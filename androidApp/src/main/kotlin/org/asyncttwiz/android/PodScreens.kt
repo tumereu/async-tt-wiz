@@ -58,7 +58,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         }
     }
     // DRF-170: an open pod's chat is read again every few seconds
-    state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen) }
+    state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen, "pod screen") }
     LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {
         if (state.setup != null) { delay(600); controller.flushSetup() }
     }

@@ -36,9 +36,10 @@ folder `~/projects/atw-cache` (outside the repository; the Arcanum tools, `scrip
 
 ## Choosing the set
 `python3 -I arcanum-tools/set-work/bin/next-set.py` lists the candidate sets newest first, marks the supported ones and
-marks `NEXT` on the set to take. Candidates are released paper sets of type expansion, core, masters or draft innovation
-with at least 150 cards in their base set (MTGJSON's `baseSetSize`), so Modern Horizons counts and small supplements and
-bonus sheets don't; sets not released yet, sets without cards and online-only sets are left out.
+marks `NEXT` on the set to take. Candidates are released paper sets that players draft: expansion and core sets, plus other
+sets sold in draft or play boosters (masters, Modern Horizons), with at least 150 cards in their base set (MTGJSON's
+`baseSetSize`), so Jumpstart, small supplements and bonus sheets don't count; sets not released yet, sets without cards and
+online-only sets are left out. The order only keeps progress easy to follow; it needn't be exact.
 
 ## Steps
 Below, `<code>` is the set code in lower case, `<CODE>` in upper case, `<plan>` is `~/projects/atw-cache/set-plans/<CODE>`,

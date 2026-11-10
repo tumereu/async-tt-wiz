@@ -20,7 +20,7 @@ class CubeApiTest {
     private val submitted = SubmittedDefinition(DeckJson.digest(card), card)
     private val batch = ReadCubeDefinitions(listOf(submitted.digest))
 
-    @Test fun batchUsesAuthenticatedPostAndValidatesTheResponse() = runBlocking {
+    @Test fun batchUsesAuthenticatedPostAndReturnsTheServersCardData() = runBlocking {
         val response = SubmittedDefinitions(listOf(submitted))
         DeckApi("https://cubes.example", HttpClient(MockEngine { request ->
             assertEquals(HttpMethod.Post, request.method)
@@ -31,19 +31,6 @@ class CubeApiTest {
             respond(DeckJson.format.encodeToString(response), headers = headersOf("Content-Type", "application/json"))
         })).use { api ->
             assertEquals(response, api.cubeDefinitions(token, id, batch))
-        }
-    }
-
-    @Test fun missingExtraDuplicateOrMismatchedDefinitionsAreRejected() = runBlocking {
-        val foreignCard = card.copy(name = "Other")
-        val foreign = SubmittedDefinition(DeckJson.digest(foreignCard), foreignCard)
-        for (definitions in listOf(emptyList(), listOf(submitted, foreign), listOf(submitted, submitted),
-            listOf(foreign), listOf(submitted.copy(definition = foreignCard)))) {
-            DeckApi("https://cubes.example", HttpClient(MockEngine {
-                respond(DeckJson.format.encodeToString(SubmittedDefinitions(definitions)))
-            })).use { api ->
-                assertEquals("invalid_response", assertFailsWith<DeckFailure> { api.cubeDefinitions(token, id, batch) }.code)
-            }
         }
     }
 }

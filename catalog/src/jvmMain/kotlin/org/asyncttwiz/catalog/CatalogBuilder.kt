@@ -100,7 +100,7 @@ class CatalogBuilder(
 
     /** The support marks (section 3.8) on the cards and the draftable sets. */
     private fun mark(catalog: CardCatalog): Built {
-        val dungeons = dungeons(catalog)
+        val dungeons = CatalogDungeons.provided(CatalogDungeons.definitions(catalog))
         log("Dungeons Automatum plays fully: $dungeons")
         // A reversible printing counts as the card it shows (CatalogCards.cardName).
         val cards = catalog.printings.filter { !it.token }.groupBy { CatalogCards.cardName(catalog.faces[it.face]) }
@@ -170,18 +170,6 @@ class CatalogBuilder(
         } catch (e: RuntimeException) {
             listOf("unreadable: ${e.message ?: e::class.simpleName}") // The parser throws on printed values it can't read.
         }
-    }
-
-    /** The dungeons the catalog's dungeon cards provide that Automatum plays fully (a device's CatalogDungeonCards). */
-    private fun dungeons(catalog: CardCatalog): Set<OutsideCards.Need> {
-        val parsed = catalog.printings.asSequence()
-            .filter { it.token && catalog.faces[it.face].type.removePrefix("Token ").startsWith("Dungeon") }
-            .distinctBy { catalog.faces[it.face].name }
-            .mapNotNull { runCatching { OutsideCards.dungeon(CatalogCards.definition(catalog, it)) }.getOrNull() }
-            .mapNotNull { GameCards.parse(it.definition).definition }
-            .filter { AutomatumSupport.handParts(it, emptySet()).isEmpty() }
-            .toList()
-        return OutsideCards.provided(parsed)
     }
 
     private fun face(printing: CatalogPrinting, json: JsonObject, traits: CatalogPrintingTraits?): CatalogFaceRecord {

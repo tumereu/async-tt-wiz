@@ -15,16 +15,16 @@ import org.asyncttwiz.protocol.CardDefinition as GameCard
 
 /**
  * Cards a player owns outside the game that aren't part of their deck or sideboard: dungeon cards (CR 309.2), brought in only by
- * venturing into the dungeon (CR 701.49) or taking the initiative (CR 726). A player's device sends the dungeon cards of its card
- * catalog with its Ready when its deck holds a card that ventures or takes the initiative ([mayVenture]); the server keeps them with
+ * venturing into the dungeon (CR 701.49) or taking the initiative (CR 726). The server brings the dungeons of its card catalog with
+ * a player's Ready when their deck holds a card that ventures or takes the initiative ([mayVenture], LOB-117); it keeps them with
  * the prepared deck ([PreparedDeck.outside]) and the engine game starts with them among the player's cards outside the game.
  */
 object OutsideCards {
     /** The most outside cards one player brings. */
     const val MAX = 8
 
-    /** Card data whose rules text mentions venturing or the initiative (a quick look at the text, no parse): its player's device
-     * sends its dungeon cards. */
+    /** Card data whose rules text mentions venturing or the initiative (a quick look at the text, no parse): its player's Ready
+     * brings the dungeon cards. */
     fun mayVenture(card: GameCard): Boolean = card.faces.any { face ->
         (listOf(face.rulesText) + face.parts.map { it.rulesText }).any { text ->
             text.contains("venture into", ignoreCase = true) || text.contains("the initiative", ignoreCase = true)
@@ -46,8 +46,8 @@ object OutsideCards {
 
     /** Whether [definition] is a dungeon the engine plays fully (I-D52: nothing left to the players): a dungeon card whose rooms lead
      * down to one bottommost room (CR 309.4, the rooms in order, each but the last with an arrow onward) and whose every room and
-     * line the parser read (no `Manual` step, no unread text). A device also leaves out a dungeon its fuller support check
-     * (Automatum's) finds any part of by hand. */
+     * line the parser read (no `Manual` step, no unread text). The catalog's dungeons also leave out one Automatum's fuller
+     * support check finds any part of by hand. */
     fun isDungeon(definition: EngineCard?): Boolean {
         val face = definition?.faces?.singleOrNull() ?: return false
         if (CardType.Dungeon !in face.types || face.rooms.isEmpty()) return false
@@ -82,12 +82,6 @@ object OutsideCards {
         if (!DeckValidation.definition(single) || !isDungeon(GameCards.parse(single).definition)) return null
         return SubmittedDefinition(DeckJson.digest(single), single)
     }
-
-    /** The server's check of a player's outside cards: at most [MAX], each its digest's card data and a dungeon ([isDungeon]). */
-    fun valid(definitions: List<SubmittedDefinition>): Boolean = definitions.size <= MAX &&
-        definitions.map { it.digest }.distinct().size == definitions.size && definitions.all { d ->
-            DeckValidation.definition(d.definition) && DeckJson.digest(d.definition) == d.digest && isDungeon(GameCards.parse(d.definition).definition)
-        }
 
     /** Whether [outside] (parsed) has the dungeons a deck that [needs] them asks for. */
     fun provides(needs: Set<Need>, outside: List<EngineCard>): Boolean = provided(outside).containsAll(needs)

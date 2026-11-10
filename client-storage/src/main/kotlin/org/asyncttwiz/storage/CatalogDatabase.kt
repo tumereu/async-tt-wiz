@@ -28,15 +28,12 @@ class CatalogGenerationChangedException : IllegalStateException("Card records ch
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
 class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
     init { check(directory.isDirectory || directory.mkdirs()) }
-    // Workers (deck import, card search, dungeons) may use separate repository objects for the same public DB.
+    // Workers (deck import, card search) may use separate repository objects for the same public DB.
     // Publication/reclamation must share their read lock, not just this object's monitor.
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
-    private val tokenCache = tokenCaches.computeIfAbsent(directory.canonicalPath) { TokenCache() }
 
     private companion object {
         val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
-        class TokenCache { @Volatile var list: CatalogTokenList? = null }
-        val tokenCaches = java.util.concurrent.ConcurrentHashMap<String, TokenCache>()
     }
 
     private fun activeFile(): File? {
@@ -91,27 +88,6 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
     fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
 
-    /** Startup/import worker only. Compatibility preparation must never be called by a dialog. */
-    fun prepareTokens() = synchronized(lock) {
-        val file = activeFile() ?: return@synchronized
-        CatalogIndex(openDriver(file)).use { index ->
-            if (!index.hasTokenChoices()) {
-                index.transaction { index.rebuildTokenChoices(index.metadata()) }
-                tokenCache.list = null
-            }
-        }
-    }
-
-    /** Loads a prepared table once per generation; never builds provider data on demand. Holds the dungeons only
-     * (their one use left, [dungeonDefinitions]); a generation installed before that may hold every token. */
-    fun loadTokens(): CatalogTokenList = synchronized(lock) {
-        val file = activeFile() ?: throw CatalogNotInstalledException()
-        tokenCache.list?.takeIf { it.generation == file.name } ?: CatalogIndex(openDriver(file)).use { index ->
-            if (!index.hasTokenChoices()) throw CatalogTokensNotReadyException()
-            CatalogTokenList(file.name, index.tokenChoices()).also { tokenCache.list = it }
-        }
-    }
-
     /**
      * Worker-only Scryfall-style card search (CardSearchQuery syntax) over the installed generation: distinct cards
      * sorted by name, each shown with its preferred matching printing. At most [budget] cards are evaluated per
@@ -136,7 +112,6 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     fun stage(finishing: () -> Unit = {}, block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
         val file = File(directory, "${UUID.randomUUID()}.db")
         var published = false
-        var tokenChoices: List<CatalogTokenChoice> = emptyList()
         try {
             val metadata = CatalogIndex(openDriver(file)).use { index ->
                 index.create()
@@ -149,7 +124,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
                     index.createAvatarChoices()
                     index.rebuildCardSearch(onPrinting = index::offerAvatarChoice)
                     completed = result.copy(records = records)
-                    tokenChoices = index.rebuildTokenChoices(completed)
+                    index.createTokenLookup()
                     index.finish(completed)
                 }
                 Logger.getLogger(CatalogRepository::class.java.name).info("Catalog finishing: ${(System.nanoTime() - start) / 1_000_000} ms")
@@ -160,7 +135,6 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
             FileOutputStream(pointer).use { it.write(file.name.toByteArray(Charsets.UTF_8)); it.fd.sync() }
             check(pointer.renameTo(File(directory, "current")))
             published = true
-            tokenCache.list = CatalogTokenList(file.name, tokenChoices)
             // Readers and writers share this lock. Reclaim only our old, no-longer-referenced generations.
             directory.listFiles()?.filter { it.name.matches(Regex("[a-f0-9-]{36}\\.db")) && it != file }
                 ?.forEach { it.delete() }
@@ -344,64 +318,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("INSERT INTO metadata VALUES (?, ?, ?, ?)", listOf(meta.date, meta.version, meta.checksum, meta.records.toString()))
     }
 
-    internal fun hasTokenChoices(): Boolean =
-        long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice')") != 0L &&
-            long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice_ready')") != 0L &&
-            long("SELECT count(*) FROM token_choice_ready WHERE version=2") == 1L
-
-    /** Rebuilt on the unpublished generation, in the transaction that commits its metadata: the dungeons only (CR 309;
-     * token records in card data), the one use left of the token choices. */
-    internal fun rebuildTokenChoices(meta: CatalogMetadata): List<CatalogTokenChoice> {
-        sql("DROP TABLE IF EXISTS token_choice")
-        sql("CREATE TABLE token_choice (gameplay_key TEXT NOT NULL PRIMARY KEY, identity TEXT NOT NULL, name TEXT NOT NULL, detail TEXT NOT NULL, search_names TEXT NOT NULL, definition_json TEXT NOT NULL, digest TEXT NOT NULL)")
-        sql("CREATE INDEX IF NOT EXISTS token_name_lookup ON printing(token, normalized, id)")
-        data class Candidate(val choice: CatalogTokenChoice, val artwork: Boolean, val release: String, val id: String)
-        val distinct = mutableMapOf<String, Candidate>()
-        var afterName = ""
-        var afterId = ""
-        while (true) {
-            check(!Thread.currentThread().isInterrupted)
-            // A coarse prefilter on the retained record; the faces' type lines decide.
-            val batch = rows("SELECT * FROM printing WHERE token=1 AND (normalized,id) > (?,?) AND json LIKE '%Dungeon%' ORDER BY normalized,id LIMIT 256", listOf(afterName, afterId))
-            if (batch.isEmpty()) break
-            for (printing in batch) {
-                val faces = (printing.otherFaces + printing.id).distinct().map { checkNotNull(printing(it)) }
-                    .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
-                // A dungeon on a back face is reached from that face; the card is still read from its front.
-                val front = faces.first()
-                val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, faces, emptyList()).definition(meta)
-                if (definition.faces.none { it.typeLine.removePrefix("Token ").startsWith("Dungeon") }) continue
-                val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-                if (!TokenLinkRules.validDefinition(submitted)) continue
-                val candidate = Candidate(CatalogTokenChoice.from(submitted), definition.faces.any {
-                    !it.scryfallId.isNullOrBlank() || !it.imageUri.isNullOrBlank()
-                }, front.releaseDate, front.id)
-                val key = tokenGameplayIdentity(definition)
-                val previous = distinct[key]
-                if (previous == null || compareValuesBy(candidate, previous, { it.artwork }, { it.release }, { it.id }) > 0) distinct[key] = candidate
-            }
-            afterName = batch.last().name.lowercase(Locale.ROOT); afterId = batch.last().id
-        }
-        for ((key, candidate) in distinct) {
-            val choice = candidate.choice
-            sql("INSERT INTO token_choice VALUES (?,?,?,?,?,?,?)", listOf(key, choice.identity, choice.name, choice.detail,
-                DeckJson.format.encodeToString(choice.searchNames), DeckJson.format.encodeToString(choice.submitted.definition), choice.submitted.digest))
-        }
-        sql("CREATE TABLE IF NOT EXISTS token_choice_ready (version INTEGER NOT NULL)")
-        sql("DELETE FROM token_choice_ready")
-        sql("INSERT INTO token_choice_ready VALUES (2)")
-        return distinct.values.map { it.choice }.sortedWith(compareBy({ it.name.lowercase(Locale.ROOT) }, { it.identity }))
-    }
-
-    internal fun tokenChoices(): List<CatalogTokenChoice> = driver.executeQuery(null,
-        "SELECT identity,name,detail,search_names,definition_json,digest FROM token_choice ORDER BY lower(name),identity", { cursor ->
-            val choices = mutableListOf<CatalogTokenChoice>()
-            while (cursor.next().value) choices += CatalogTokenChoice(
-                SubmittedDefinition(cursor.getString(5)!!, DeckJson.format.decodeFromString<CardDefinition>(cursor.getString(4)!!)),
-                cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!,
-                DeckJson.format.decodeFromString<List<String>>(cursor.getString(3)!!))
-            QueryResult.Value(choices)
-        }, 0).value
+    /** The token art lookup's index ([tokenArt]), on the unpublished generation. */
+    internal fun createTokenLookup() = sql("CREATE INDEX IF NOT EXISTS token_name_lookup ON printing(token, normalized, id)")
 
     fun count(): Long = long("SELECT count(*) FROM printing")
     fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->

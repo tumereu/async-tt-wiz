@@ -21,12 +21,8 @@ import org.junit.jupiter.api.Test
 class DraftDeckTest {
     private val json = DeckJson.format
     private fun id() = UUID.randomUUID().toString()
-    private val basics = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).map { (land, mana) ->
-        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName,
-            typeLine = "Basic Land — ${land.cardName}", rulesText = "({T}: Add {$mana}.)")), provider = "mtgjson")
-        SubmittedDefinition(DeckJson.digest(card), card)
-    }
-    private val lands = basics.associate { submitted -> BasicLand.entries.single { it.cardName == submitted.definition.name } to submitted.digest }
+    /** LOB-052: the basic lands the server supplies from its catalog (the test cards' M21). */
+    private val lands get() = org.asyncttwiz.server.TestPrintings.catalog.basics!!.mapValues { it.value.digest }
 
     private inner class Fixture(val db: TestPostgres, val runtime: ServiceRuntime) {
         private val accounts = AccountService(runtime)
@@ -36,12 +32,13 @@ class DraftDeckTest {
         }
         val a = account("DraftA"); val b = account("DraftB")
         val pods = PodService(runtime); val decks = DeckService(runtime); val games = GameService(runtime)
-        val cards = (1..9).map { CardDefinition("Drafted card $it", listOf(DefinitionFace(id(), "Drafted card $it"))) }
-            .map { SubmittedDefinition(DeckJson.digest(it), it) }
+        // Nine different test cards with nothing to do
+        val cards = listOf("Ash Pup", "Ember Cub", "Cinder Hound", "Lone Goat", "Drowsy Pup", "Warded Pup", "Ember Sprite", "Cinder Brute",
+            "Ember Dasher").map(org.asyncttwiz.server.TestPrintings::submitted)
         val cube: SavedCube
         init {
-            assertEquals(200, decks.submit(a, SubmitDefinitions(id(), cards)).status)
-            cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube", cards.map { SavedCubeEntry(it.digest, 1) })).body)
+            cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube",
+                cards.map { org.asyncttwiz.server.TestPrintings.entry(it.definition.name, 1) })).body)
         }
         /** Two members, three automatic one-card packs each. */
         fun pod(name: String = "Friday pod", sideboardLimit: Int? = null): String {
@@ -61,8 +58,8 @@ class DraftDeckTest {
             assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, PodDeckBasics(8, 8, 8, 8, 8))).status)
             return detail(who, pod)
         }
-        fun submit(who: AccountService.Principal, pod: String, definitions: List<SubmittedDefinition> = basics): Int =
-            pods.submit(who, pod, SubmitPodDeck(id(), detail(who, pod).draftAttemptId!!, definitions)).status
+        fun submit(who: AccountService.Principal, pod: String): Int =
+            pods.submit(who, pod, SubmitPodDeck(id(), detail(who, pod).draftAttemptId!!)).status
         fun drafts(who: AccountService.Principal) = json.decodeFromString<DeckList>(decks.list(who, null, drafts = true).body).decks
         fun ordinary(who: AccountService.Principal) = json.decodeFromString<DeckList>(decks.list(who, null).body).decks
         fun read(who: AccountService.Principal, deck: String) = decks.read(who, deck).let {
@@ -125,7 +122,6 @@ class DraftDeckTest {
         val built = f.build(f.a, pod)
         val definition = built.draft!!.pool.associate { it.id to it.definition }
         val copies = built.build!!.copies.map { definition.getValue(it.copyId) }
-        assertEquals(400, f.submit(f.a, pod, basics.drop(1)))
         assertEquals(200, f.submit(f.a, pod))
         val summary = f.drafts(f.a).single()
         assertEquals("Friday pod draft", summary.name)
@@ -164,12 +160,6 @@ class DraftDeckTest {
         assertEquals(200, f.decks.delete(f.a, summary.id, DeleteDeck(id())).status)
         assertTrue(f.drafts(f.a).isEmpty())
         assertEquals(deck.entries, f.read(f.a, copy.deck.id).entries)
-
-        // Without basic definitions (an app without the card catalog) the draft deck has no basics.
-        f.build(f.b, pod)
-        assertEquals(200, f.submit(f.b, pod, emptyList()))
-        val other = f.read(f.b, f.drafts(f.b).single().id)
-        assertEquals(1L, other.deck.mainboard); assertEquals(1L, other.deck.sideboard); assertEquals(1L, other.deck.maybeboard)
     }
 
     @Test fun `a resubmission replaces the same draft deck`() = fixture { f ->
@@ -240,7 +230,7 @@ class DraftDeckTest {
         val name = f.detail(f.a, pod).draftAttemptId!!
         assertEquals(200, f.pods.deckName(f.b, pod, SetPodDeckName(id(), name, "B's pile")).status)
         // A pod game records the basic printings the backfill reuses.
-        assertEquals(201, f.pods.challenge(f.a, pod, ChallengeFromPod(id(), f.b.account.accountId, "Pod game", basics)).status)
+        assertEquals(201, f.pods.challenge(f.a, pod, ChallengeFromPod(id(), f.b.account.accountId, "Pod game")).status)
         fun snapshot() = listOf(f.a, f.b).map { who -> f.drafts(who).map { summary ->
             val deck = f.read(who, summary.id)
             Triple(summary.name, summary.draft, deck.entries)
@@ -252,6 +242,8 @@ class DraftDeckTest {
         val backfill = migration.substring(migration.indexOf("-- Backfill"))
         f.db.connection().use { connection ->
             connection.autoCommit = false
+            // V78 dropped the grants the backfill also wrote: a table of this session's own takes them
+            connection.createStatement().execute("CREATE TEMP TABLE account_definition (account_id uuid, digest text, PRIMARY KEY (account_id, digest))")
             connection.createStatement().execute(backfill)
             connection.commit()
         }

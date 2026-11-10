@@ -23,7 +23,7 @@ class CardInspectionTest {
         val result = result()
         val entry = result.entries.single()
         val preview = InspectedCard.preview(entry, result.catalog)
-        val submitted = DeckSavePlan.from(result, "Name").definitions.definitions.single()
+        val submitted = DeckSave.from(result, "Name").cards.single()
         val saved = InspectedCard.retained(submitted.definition)
         assertEquals(submitted.definition, preview.definition)
         assertEquals(listOf("Front", "Back"), saved.definition.faces.map { it.name })

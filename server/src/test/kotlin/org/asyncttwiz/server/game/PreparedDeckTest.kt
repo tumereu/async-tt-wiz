@@ -43,12 +43,9 @@ class PreparedDeckTest {
         return cards.map { SubmittedDefinition(DeckJson.digest(it), it) }
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, defs: List<SubmittedDefinition>): SavedDeck {
-        val decks = DeckService(runtime)
-        assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), defs)).status)
-        val input = CreateDeck(id(), "Original deck 😀", listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, defs[0].digest, 3),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, defs[1].digest, 2)))
-        val result = decks.create(actor, input); assertEquals(201, result.status)
-        return json.decodeFromString(result.body)
+        // Invented card data a deck holds from before: the test checks a game keeps its exact texts
+        return org.asyncttwiz.server.StoredDecks.save(runtime, actor, "Original deck 😀",
+            listOf(Triple(SavedDeckSection.MAINBOARD, defs[0].definition, 3), Triple(SavedDeckSection.SIDEBOARD, defs[1].definition, 2)))
     }
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString())
@@ -274,7 +271,7 @@ class PreparedDeckTest {
                 val revision = games.head(a, summary.id).revision
                 val decks = DeckService(runtime)
                 val change = UpdateDeck(id(), "New name", defs[1].digest, DeckContentsImport(
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, defs[1].digest, 7))))
+                    listOf(CardListEntry(SavedDeckSection.MAINBOARD, defs[1].digest, 7))))
                 assertEquals(200, decks.update(a, source.deck.id, change).status)
                 assertEquals(original, games.head(a, summary.id).preparation)
                 val rejected = stream.execute(stream.selection(source)); assertEquals("sourceChanged", rejected.reason)

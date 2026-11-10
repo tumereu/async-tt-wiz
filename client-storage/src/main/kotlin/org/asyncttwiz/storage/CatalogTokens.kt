@@ -2,26 +2,6 @@ package org.asyncttwiz.storage
 
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
-import java.util.Locale
-
-/** Ready-to-render and ready-to-submit; no provider parsing or identity hashing on the dialog path. */
-data class CatalogTokenChoice(val submitted: SubmittedDefinition, val identity: String, val name: String,
-    val detail: String, val searchNames: List<String>) {
-    companion object {
-        fun from(submitted: SubmittedDefinition): CatalogTokenChoice {
-            val definition = submitted.definition
-            val face = definition.faces.first()
-            val detail = listOf(face.corner.ifEmpty {
-                if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) "${face.power}/${face.toughness}" else ""
-            }, face.rulesText.ifBlank { TokenIdentity.attributes(face) }).filter(String::isNotBlank).joinToString(" · ")
-            return CatalogTokenChoice(submitted, TokenIdentity.key(definition), definition.name, detail,
-                (listOf(definition.name) + definition.faces.map { it.name }).distinct().map { it.lowercase(Locale.ROOT) })
-        }
-    }
-}
-
-data class CatalogTokenList(val generation: String, val choices: List<CatalogTokenChoice>)
-class CatalogTokensNotReadyException : IllegalStateException("Token catalog is being prepared. Retry shortly.")
 
 /** Shared by catalog precomputation, deck snapshots and inspection. */
 fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
@@ -68,11 +48,3 @@ private const val FRONT_SIDE = "a"
  * a coloured face without a mana cost has its colour from an indicator (CR 202.2), as a double-faced card's back face.
  */
 internal fun catalogColorIndicator(record: JsonObject): String? = org.asyncttwiz.protocol.game.GameCards.colorIndicator(record)
-
-/** Owner's gameplay identity, deliberately excluding printing metadata and redundant keyword tags. */
-internal fun tokenGameplayIdentity(definition: CardDefinition): String = DeckJson.intent("catalog-token", DeckJson.canonical(
-    listOf(listOf(definition.name)) + definition.faces.map { face ->
-        val colors = (face.sourceData?.let { DeckJson.format.parseToJsonElement(it).jsonObject["colors"] } as? JsonArray)
-            ?.map { it.jsonPrimitive.content }?.sorted().orEmpty()
-        listOf(face.typeLine, face.rulesText, face.power, face.toughness, DeckJson.canonical(colors))
-    }))

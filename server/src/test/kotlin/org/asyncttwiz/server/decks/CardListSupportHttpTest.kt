@@ -33,10 +33,6 @@ class CardListSupportHttpTest {
         assertEquals(201, request(settings, "POST", "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password😀"))).statusCode())
         return json.decodeFromString(request(settings, "POST", "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password😀"))).body())
     }
-    private fun card(name: String): SubmittedDefinition {
-        val card = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = "Creature — Bear", rulesText = "Some odd wording.")))
-        return SubmittedDefinition(DeckJson.digest(card), card)
-    }
 
     // LOB-124, DRF-161
     @Test fun `support is stored per revision, kept by renames and copies and dropped when the cards change`() {
@@ -50,13 +46,13 @@ class CardListSupportHttpTest {
                     check(System.nanoTime() < deadline); Thread.sleep(20)
                 }
                 val owner = account(settings, "support-owner"); val foreign = account(settings, "support-foreign")
-                val bear = card("Odd Bear"); val wolf = card("Odd Wolf")
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), listOf(bear, wolf))), owner.token).statusCode())
+                // Test cards; the support names are as a device works them out (any names do here)
+                val bear = org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 1); val wolf = org.asyncttwiz.server.TestPrintings.entry("Ember Cub", 1)
                 val support = CardListSupport(21, listOf("Odd Bear"))
 
                 // Decks
                 val created = json.decodeFromString<SavedDeck>(request(settings, "POST", "/v1/decks", json.encodeToString(
-                    CreateDeck(id(), "Bears", listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 4)))), owner.token).body())
+                    CreateDeck(id(), "Bears", listOf(bear.copy(quantity = 4)))), owner.token).body())
                 assertNull(created.deck.automatum, "an old or new list has none until a device works it out")
                 val deckPath = "/v1/decks/${created.deck.id}"
                 val stale = request(settings, "PUT", "$deckPath/automatum", json.encodeToString(SetCardListSupport("99", support)), owner.token)
@@ -76,12 +72,12 @@ class CardListSupportHttpTest {
                 val copy = json.decodeFromString<SavedDeck>(request(settings, "POST", "$deckPath/copy", json.encodeToString(CopyDeck(id())), owner.token).body())
                 assertEquals(support, copy.deck.automatum)
                 val changed = json.decodeFromString<SavedDeck>(request(settings, "PUT", deckPath, json.encodeToString(UpdateDeck(id(),
-                    contents = DeckContentsImport(listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, wolf.digest, 4))))), owner.token).body())
+                    contents = DeckContentsImport(listOf(wolf.copy(quantity = 4))))), owner.token).body())
                 assertNull(changed.deck.automatum)
 
                 // Cubes
                 val cube = json.decodeFromString<SavedCube>(request(settings, "POST", "/v1/cubes", json.encodeToString(
-                    CreateCube(id(), "Odd cube", listOf(SavedCubeEntry(bear.digest, 1)))), owner.token).body())
+                    CreateCube(id(), "Odd cube", listOf(bear))), owner.token).body())
                 val cubePath = "/v1/cubes/${cube.cube.id}"
                 assertNull(cube.cube.automatum)
                 assertEquals(CardListSupportStored(true), json.decodeFromString<CardListSupportStored>(request(settings, "PUT", "$cubePath/automatum",
@@ -89,7 +85,7 @@ class CardListSupportHttpTest {
                 assertEquals(support, json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = owner.token).body()).cubes.single().automatum)
                 assertEquals(support, json.decodeFromString<SavedCube>(request(settings, "PUT", cubePath, json.encodeToString(UpdateCube(id(), name = "Odder")), owner.token).body()).cube.automatum)
                 val recubed = json.decodeFromString<SavedCube>(request(settings, "PUT", cubePath, json.encodeToString(UpdateCube(id(),
-                    entries = listOf(SavedCubeEntry(wolf.digest, 1)))), owner.token).body())
+                    entries = listOf(wolf))), owner.token).body())
                 assertNull(recubed.cube.automatum)
                 assertEquals(CardListSupportStored(false), json.decodeFromString<CardListSupportStored>(request(settings, "PUT", "$cubePath/automatum",
                     json.encodeToString(SetCardListSupport(cube.cube.revision, support)), owner.token).body()))

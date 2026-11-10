@@ -34,23 +34,12 @@ class DungeonStartTest {
             test(runtime)
         }
     }
-    private fun card(name: String, type: String, text: String = "", cost: String = "", layout: String = "normal") =
-        CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type, manaCost = cost, rulesText = text)), layout = layout)
-    private fun submitted(card: CardDefinition) = SubmittedDefinition(DeckJson.digest(card), card)
-
-    private val map = card("Dungeon Torch Map", "Sorcery", "Venture into the dungeon.", "{0}")
-    private val forest = card("Forest", "Basic Land — Forest")
-    private val crypt = requireNotNull(OutsideCards.dungeon(card("Dungeon Test Crypt", "Dungeon", """
-        Crypt Door — You gain 1 life. (Leads to: Bone Hall, Dark Well)
-        Bone Hall — Each opponent loses 1 life. (Leads to: Final Vault)
-        Dark Well — You gain 2 life. (Leads to: Final Vault)
-        Final Vault — You gain 3 life.
-    """.trimIndent())))
-    private val sunken = requireNotNull(OutsideCards.dungeon(card("Dungeon Test Sunken City", "Dungeon — Undercity", """
-        You can't enter this dungeon unless you "venture into Undercity."
-        Flooded Stair — You gain 4 life. (Leads to: Abyss Throne)
-        Abyss Throne — You gain 5 life.
-    """.trimIndent())))
+    // The test cards' catalog: a venture card, a Forest, and its two dungeons (a plain one and an Undercity)
+    private val map = "Dungeon Torch Map"
+    private val forest = "Forest"
+    private val dungeons get() = org.asyncttwiz.server.TestPrintings.catalog.dungeons
+    private val crypt get() = dungeons.single { it.definition.name == "Dungeon Test Crypt" }
+    private val sunken get() = dungeons.single { it.definition.name == "Dungeon Test Sunken City" }
 
     private inner class Fixture(runtime: ServiceRuntime, tag: String) {
         val a = account(runtime, "DungeonA$tag"); val b = account(runtime, "DungeonB$tag")
@@ -65,37 +54,42 @@ class DungeonStartTest {
             execute(b, GameAction.AcceptInvitation)
             for ((actor, deck) in listOf(a to listOf(map to 40), b to listOf(forest to 40))) {
                 val service = DeckService(runtime)
-                assertEquals(200, service.submit(actor, SubmitDefinitions(id(), deck.map { submitted(it.first) })).status)
                 val saved = GameWire.json.decodeFromString<SavedDeck>(service.create(actor, CreateDeck(id(), "Dungeon deck",
-                    deck.map { (c, n) -> SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted(c).digest, n) })).body)
+                    deck.map { (c, n) -> org.asyncttwiz.server.TestPrintings.entry(c, n) })).body)
                 assertEquals("accepted", execute(actor, GameAction.SelectDeck(saved.deck.id, saved.deck.revision)).outcome)
             }
             assertEquals("accepted", execute(a, GameAction.SetStarter(StarterChoice(a.account.accountId))).outcome)
         }
-        fun execute(actor: AccountService.Principal, action: GameAction, inline: List<SubmittedDefinition> = emptyList()): GameResult {
+        fun execute(actor: AccountService.Principal, action: GameAction): GameResult {
             val stream = streams.getOrPut(actor) { games.open(actor, hello, connection, game.id, id()) }
             val current = games.head(actor, game.id).summary
             val scope = GameScope(game.id, current.preparationRound, if (action == GameAction.AcceptInvitation) current.invitationId else null)
-            val command = GameCommand(id(), scope, action, stream.streamId, stream.generation, inlineDefinitions = inline)
+            val command = GameCommand(id(), scope, action, stream.streamId, stream.generation)
             games.admit(actor, hello, connection, command)
             assertTrue(games.executeOne())
             return games.results(actor, game.id, listOf(command.requestId)).statuses.single().result!!
         }
     }
 
-    @Test fun `a deck that ventures needs its dungeons, and a Ready brings only dungeons`() = withService { runtime ->
+    // LOB-117 (owner 2026-11-10: card data from the server's catalog): the server brings its catalog's dungeons with the Ready
+    // of a deck that ventures; a deck needs the ones its cards ask for (a plain venture can't enter the Undercity)
+    @Test fun `a deck that ventures needs its dungeons, and its Ready brings the catalog's`() = withService { runtime ->
         val f = Fixture(runtime, "n")
-        val refused = f.execute(f.a, GameAction.Ready)
-        assertEquals("rejected", refused.outcome); assertEquals("automatumUnsupported", refused.reason)
-        // Only the Undercity: a plain venture can't enter it
-        assertEquals("automatumUnsupported", f.execute(f.a, GameAction.Ready, listOf(sunken)).reason)
-        assertEquals("invalidOutsideCards", f.execute(f.a, GameAction.Ready, listOf(crypt, submitted(forest))).reason)
-        assertFalse(f.games.head(f.a, f.game.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.ready)
+        assertEquals(listOf("Dungeon Test Crypt", "Dungeon Test Sunken City"), dungeons.map { it.definition.name })
+        val preparation = f.games.head(f.a, f.game.id).preparation!!
+        assertTrue(EngineDecks.ventures(preparation, f.a.account.accountId))
+        assertFalse(EngineDecks.ventures(preparation, f.b.account.accountId))
+        assertFalse(EngineDecks.outsideProvided(preparation, f.a.account.accountId, emptyList()))
+        assertFalse(EngineDecks.outsideProvided(preparation, f.a.account.accountId, listOf(sunken)), "only the Undercity")
+        assertTrue(EngineDecks.outsideProvided(preparation, f.a.account.accountId, listOf(crypt)))
+        assertEquals("accepted", f.execute(f.a, GameAction.Ready).outcome)
+        val prepared = f.games.head(f.a, f.game.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
+        assertEquals(dungeons.map { it.digest }, prepared.outside)
     }
 
     @Test fun `the game starts with the dungeons outside it`() = withService { runtime ->
         val f = Fixture(runtime, "s")
-        assertEquals("accepted", f.execute(f.a, GameAction.Ready, listOf(crypt, sunken)).outcome)
+        assertEquals("accepted", f.execute(f.a, GameAction.Ready).outcome)
         val prepared = f.games.head(f.a, f.game.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
         assertEquals(listOf(crypt.digest, sunken.digest), prepared.outside)
         // Bob's deck doesn't venture: his Ready brings nothing and needs nothing

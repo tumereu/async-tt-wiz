@@ -1,0 +1,1 @@
+fix: Opening a game again right after leaving it opens it, instead of sometimes saying "This game is no longer available" and showing the Games list.

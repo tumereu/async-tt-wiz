@@ -184,6 +184,42 @@ class GameEndDialogTest : E2e() {
         assertFalse(alice.shows(hasTestTag("result-unseen")) || bob.shows(hasTestTag("result-unseen")), "nobody owes one")
     }
 
+    // TRN-065, LOB-046 (the race behind aConcederWaitsAtTheTableForTheOtherPlayersOk's failures, 2026-11-10): the lobby's
+    // background sync read the lists while Alice was at the table, and its answer came only after she had left the game and
+    // opened it again: the game is still there, and she sees the dialog over its lobby (it said "no longer available" and
+    // left her on the Games list)
+    @Test fun aListReadFromTheTableDoesNotCloseTheGameOpenedAgain() {
+        startGame()
+        bothOpen()
+        bothKeep(bobAway = false)
+        concede(alice)
+        waitUntil("both results", along = listOf(bob)) {
+            bob.showsDialog("You won", "${alice.name} conceded") && alice.showsDialog("You lost", "You conceded", waitingForBob)
+        }
+        waitUntil("the game over on the server") { alice.lobby.state.detail?.lifecycle == GameLifecycle.LOBBY }
+        run(skip = java.time.Duration.ofSeconds(3))
+        waitUntil("Alice's lists read") { !alice.lobby.state.busy }
+        // The sync's read of the lists' changes goes out with the table open; its answer waits in the network, as do the
+        // game socket's messages (a slow downlink)
+        val lists = arrayOf("/v1/games?", "/v1/invitations?")
+        alice.link.holdAnswers(*lists, "/v1/socket")
+        alice.lobby.sync()
+        assertTrue(alice.lobby.state.busy, "the sync's read on its way")
+        alice.lobby.back()
+        waitUntil("Alice off the table") { !alice.shows(dialog) }
+        waitUntil("the game in Alice's Games list") { alice.showsText(game.gameName) }
+        alice.nodes(hasText(game.gameName))[0].performScrollTo().performClick()
+        waitUntil("Alice opening the game again") { alice.lobby.state.selected == game.id }
+        // The read's answer comes first
+        alice.link.releaseAnswers(*lists)
+        waitUntil("Alice's lists read") { !alice.lobby.state.busy }
+        alice.link.releaseAnswers()
+        waitUntil("Alice's dialog over the lobby") { alice.inLobby() && alice.showsDialog("You lost", waitingForBob) }
+        assertEquals(game.id, alice.lobby.state.selected)
+        bob.pressOk(alice)
+        waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
+    }
+
     // TRN-047, TRN-065, LOB-046: Alice suggests her win ("Infinite combo"); Bob's Accept, greyed at first, ends the game: he
     // stays at the table with "Waiting for Alice to acknowledge", and Alice sees "You won" with "Agreed: Infinite combo"; on
     // another device (her app started again) the same dialog shows over the lobby, with OK: it takes them both to the lobby

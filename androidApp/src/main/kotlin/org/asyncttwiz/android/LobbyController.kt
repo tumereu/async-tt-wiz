@@ -13,9 +13,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
-    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
-    /** The catalog's dungeon cards (blocking, on [worker]): sent with Ready when the deck ventures (OutsideCards). */
-    private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis,
     /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
     engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
@@ -55,11 +52,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val queue: LobbyActionQueue = LobbyActionQueue(scope, session)
     private val refresher: LobbyRefresh = LobbyRefresh(scope, api, credential, worker, post, session, clock)
     private val contactBook: LobbyContacts = LobbyContacts(scope, api, credential, worker, post, refresher::fence, ::begin)
-    private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
-        suggest, basicLandDefinitions)
+    private val invitations: LobbyInvitations = LobbyInvitations(scope, api, credential, accountId, worker, post, session, queue, suggest)
     private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
-    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue,
-        dungeonDefinitions, worker, post)
+    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     /** Game history: records of the account, a game and a pod (read on demand). */
     val history = HistoryController(api, credential, worker, post)
@@ -152,6 +147,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (!listed && state.selected == game.id) leaveUnavailable()
     }
     private fun leaveUnavailable() {
+        state.selected?.let { AppLog.info("lobby", "Game ${it.take(8)} no longer available: back to the list") }
         routes.fence()
         closePicker(); setupCancellation.clear()
         state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,
@@ -216,6 +212,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         game.resultNotice?.unseen?.any { it != accountId() } == true
     /** TRN-065: whether an OK on [game]'s last result is still owed by anyone: the lobby can't be used until both stand. */
     fun resultOpen(game: GameSummary): Boolean = game.lifecycle == GameLifecycle.LOBBY && (resultUnseen(game) || resultWaiting(game))
+    /** For the log: who owes an OK, as this player sees it. */
+    private fun owedBy(unseen: Collection<String>): String =
+        unseen.joinToString { if (it == accountId()) "this player" else "the other player" }.ifEmpty { "nobody" }
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
     internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo
@@ -269,11 +268,17 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
      * that reached it in the background still plays on the return (HIS-106, HIS-108) instead of the table opening anew
      * at the board after it. */
     fun openNotified(id: String) { if (state.selected == id && state.detail?.id == id) openGame() else open(id) }
-    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); session?.openedChanged(); openGame(); refresh() } }
+    fun open(id: String) {
+        // TRN-065 (e2e GameEndDialogTest, 2026-11-10): which game opens, and what of its last result stands
+        AppLog.info("lobby", "Game ${id.take(8)} opened" + (if (state.mutating) ": ignored, a change is being saved" else
+            latest[id]?.let { game -> " (${game.lifecycle}${game.resultNotice?.let { ", result OK owed by ${owedBy(it.unseen)}" }.orEmpty()})" }.orEmpty()))
+        if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); session?.openedChanged(); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); session?.openedChanged(); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else {
+            state.selected?.let { AppLog.info("lobby", "Game ${it.take(8)} left for the list") }
+            queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); session?.openedChanged(); refresh() } }
     /** The background maintenance's tick: the socket's background attempts back off after failures ([GameSession.poll]). */
     fun tick() { session?.poll() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true

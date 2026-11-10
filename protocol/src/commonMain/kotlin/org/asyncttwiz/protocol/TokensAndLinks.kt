@@ -20,9 +20,3 @@ object TokenStacks {
     fun row(face: DefinitionFace?): Int =
         if (face != null && "Land" in AttackTargets.types(face.typeLine)) 0 else 1
 }
-
-/** A token's card data, checked as the catalog keeps it. */
-object TokenLinkRules {
-    fun validDefinition(value: SubmittedDefinition) = DeckValidation.definition(value.definition) &&
-        value.definition.token && value.digest == DeckJson.digest(value.definition)
-}

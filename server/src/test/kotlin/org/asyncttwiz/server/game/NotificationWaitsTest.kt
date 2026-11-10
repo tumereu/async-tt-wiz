@@ -77,12 +77,9 @@ class NotificationWaitsTest {
             game = GameWire.json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Waiting game")).body)
             owner = Stream(games, a, game); recipient = Stream(games, b, game)
             recipient.execute(GameAction.AcceptInvitation)
-            val card = CardDefinition("Forest", listOf(DefinitionFace(UUID.randomUUID().toString(), "Forest", typeLine = "Basic Land — Forest")))
             for ((actor, stream, deckName) in listOf(Triple(a, owner, "Alice's elves"), Triple(b, recipient, "Bob's sparks"))) {
                 val service = DeckService(runtime)
-                val submitted = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, service.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
-                val saved = service.create(actor, CreateDeck(id(), deckName, listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 40))))
+                val saved = service.create(actor, CreateDeck(id(), deckName, listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 40))))
                 val deck = GameWire.json.decodeFromString<SavedDeck>(saved.body)
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }

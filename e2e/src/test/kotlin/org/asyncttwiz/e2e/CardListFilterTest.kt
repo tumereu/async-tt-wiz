@@ -88,7 +88,7 @@ class CardListFilterTest : E2e() {
         alice.tagged("save-deck").performClick()
         waitUntil("the saved deck") { alice.showsText("Edit") }
         val entries = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }.entries
-        fun copies(card: org.asyncttwiz.protocol.SubmittedDefinition, section: SavedDeckSection) =
+        fun copies(card: TestCard, section: SavedDeckSection) =
             entries.filter { it.definition == card.digest && it.section == section }.sumOf { it.quantity }
         assertEquals(20, copies(TestCards.mountain, SavedDeckSection.MAINBOARD))
         assertEquals(10, copies(TestCards.cub, SavedDeckSection.MAINBOARD))

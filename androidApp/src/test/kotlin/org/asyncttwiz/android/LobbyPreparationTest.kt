@@ -67,8 +67,7 @@ class LobbyPreparationTest {
                 readFailure?.let { if (it == "authentication_required") auth.authenticationRequired(token); throw DeckFailure(it) }
                 return (decks + draftDecks).find { it.deck.id == id } ?: throw DeckFailure("not_found")
             }
-            override suspend fun definition(token: String, id: String, digest: String) = submitted
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("Not a selection endpoint")
+            override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { submitted }
             override suspend fun create(token: String, value: CreateDeck): SavedDeck = error("Not a selection endpoint")
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck = error("No source mutation")
             override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted = error("No source mutation")

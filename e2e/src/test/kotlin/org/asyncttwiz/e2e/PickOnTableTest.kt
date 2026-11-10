@@ -13,7 +13,6 @@ import arcanum.api.CardType
 import arcanum.engine.Engine
 import arcanum.engine.decision.Decision
 import org.asyncttwiz.android.TableMarks
-import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -27,7 +26,7 @@ import kotlin.test.assertTrue
  * (STK-049), a sacrifice, crew (STK-047, STK-030).
  */
 class PickOnTableTest : E2e() {
-    private fun deck(vararg cards: Pair<SubmittedDefinition, Int>) = TestDeck("Picks", cards.toList())
+    private fun deck(vararg cards: Pair<TestCard, Int>) = TestDeck("Picks", cards.toList())
 
     /** A game with Alice holding at least these cards (by name, how many); both have kept. */
     private fun start(aliceDeck: TestDeck, aliceHolds: Map<String, Int>, aliceSettings: PlaySettings? = null) {

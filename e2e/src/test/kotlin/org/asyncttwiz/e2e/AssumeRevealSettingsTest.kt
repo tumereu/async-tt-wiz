@@ -20,7 +20,7 @@ import kotlin.test.assertEquals
  * Table actions → Game settings: then her phone goes on, and the server takes it.
  */
 class AssumeRevealSettingsTest : E2e() {
-    private fun deck(spell: org.asyncttwiz.protocol.SubmittedDefinition) = TestDeck("Reveals", listOf(TestCards.mountain to 20, spell to 20))
+    private fun deck(spell: TestCard) = TestDeck("Reveals", listOf(TestCards.mountain to 20, spell to 20))
 
     /** Alice casts [name] at Bob, who is away. */
     private fun castAtBob(name: String) {

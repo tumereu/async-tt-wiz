@@ -7,7 +7,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
-import org.asyncttwiz.server.generated.tables.AccountDefinition.ACCOUNT_DEFINITION
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.DeckEntry.DECK_ENTRY
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
@@ -30,85 +29,59 @@ class DeckService(private val runtime: ServiceRuntime) {
     private fun error(status: Int, code: String, field: String? = null) =
         Result(status, json.encodeToString(DeckError(code, field)))
 
-    fun submit(principal: AccountService.Principal, input: SubmitDefinitions): Result {
-        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
-        // Definition set order is not semantic. Normalize link sets before hashing/comparing intent.
-        val normalized = input.copy(definitions = input.definitions.map {
-            it.copy(definition = DeckJson.normalized(it.definition))
-        }.sortedBy { it.digest })
-        val valid = normalized.definitions.isNotEmpty() &&
-            normalized.definitions.map { it.digest }.distinct().size == normalized.definitions.size &&
-            normalized.definitions.all { DeckValidation.digest(it.digest) && DeckValidation.definition(it.definition) &&
-                DeckJson.digest(it.definition) == it.digest }
-        return business(principal, input.requestId, "definitions", DeckJson.canonical(normalized)) { sql, owner ->
-            if (!valid) return@business error(400, "invalid_definition")
-            for (submitted in normalized.definitions) {
-                sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
-                    .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
-                    .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
-                sql.insertInto(ACCOUNT_DEFINITION).set(ACCOUNT_DEFINITION.ACCOUNT_ID, owner)
-                    .set(ACCOUNT_DEFINITION.DIGEST, submitted.digest).onConflictDoNothing().execute()
-            }
-            Result(200, json.encodeToString(DefinitionsAccepted(normalized.definitions.map { it.digest })))
-        }
-    }
-
+    /** A new deck of [CreateDeck.entries], its cards' card data built from the server's catalog ([CardListInput]), in one
+     * request with its [CreateDeck.cover] (a card of the deck by digest). */
     fun create(principal: AccountService.Principal, input: CreateDeck): Result {
         if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
         val valid = DeckValidation.create(input)
+        val (built, refused) = if (valid) CardListInput.build(input.entries) else null to null
+        if (refused != null) return error(refused.status, refused.code)
         return business(principal, input.requestId, "createDeck", DeckJson.canonical(input)) { sql, owner ->
-            if (!valid) return@business error(400, "invalid_deck")
-            val needed = input.entries.map { it.definition }.toSet()
-            val owned = sql.select(ACCOUNT_DEFINITION.DIGEST).from(ACCOUNT_DEFINITION)
-                .where(ACCOUNT_DEFINITION.ACCOUNT_ID.eq(owner)).and(ACCOUNT_DEFINITION.DIGEST.`in`(needed))
-                .fetchSet(ACCOUNT_DEFINITION.DIGEST)
-            if (owned != needed) return@business error(400, "definitions_unavailable")
+            if (built == null) return@business error(400, "invalid_deck")
+            // A new deck holds no card from before: every card comes from the catalog.
+            if (built.kept.isNotEmpty()) return@business error(400, "definitions_unavailable")
+            val entries = built.entries.map { SavedDeckEntry(it.section, it.digest, it.quantity) }
+            if (input.cover != null && entries.none { it.definition == input.cover }) return@business error(400, "invalid_cover", "cover")
+            built.store(sql)
             val id = UUID.randomUUID()
             val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, id).set(SAVED_DECK.ACCOUNT_ID, owner)
-                .set(SAVED_DECK.NAME, input.name).returning().fetchSingle()
-            input.entries.forEachIndexed { index, entry ->
-                sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, id).set(DECK_ENTRY.ACCOUNT_ID, owner)
-                    .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
-                    .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
-            }
-            Result(201, json.encodeToString(SavedDeck(summary(sql, row, input.entries), input.entries)))
+                .set(SAVED_DECK.NAME, input.name).set(SAVED_DECK.COVER_DIGEST, input.cover).returning().fetchSingle()
+            insertEntries(sql, id, owner, entries)
+            Result(201, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
         }
     }
 
     fun update(principal: AccountService.Principal, id: String, input: UpdateDeck): Result {
         if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
+        val contents = input.contents
+        val validContents = contents == null || DeckValidation.input(contents.entries)
+        val (built, refused) = if (contents != null && validContents) CardListInput.build(contents.entries) else null to null
+        if (refused != null) return error(refused.status, refused.code)
         return business(principal, input.requestId, "updateDeck", intent(id, json.encodeToJsonElement(UpdateDeck.serializer(), input))) { sql, owner ->
             val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
             // Draft decks follow their pod submission; "Save as deck" makes an editable copy.
             if (row.draftPodId != null) return@business error(409, "draft_deck")
             val requestedName = input.name
             val requestedCover = input.cover
-            val contents = input.contents
             if ((requestedName == null && requestedCover == null && contents == null) ||
                 (requestedName != null && (!DeckValidation.text(requestedName) || requestedName.isBlank())))
                 return@business error(400, "invalid_deck", "name")
             val previous = entries(sql, row.id!!)
             val next = if (contents == null) previous else {
-                if (!DeckValidation.entries(contents.entries)) return@business error(400, "invalid_deck")
-                val needed = contents.entries.map { it.definition }.toSet()
-                val owned = sql.select(ACCOUNT_DEFINITION.DIGEST).from(ACCOUNT_DEFINITION)
-                    .where(ACCOUNT_DEFINITION.ACCOUNT_ID.eq(owner)).and(ACCOUNT_DEFINITION.DIGEST.`in`(needed))
-                    .fetchSet(ACCOUNT_DEFINITION.DIGEST)
-                if (owned != needed) return@business error(400, "definitions_unavailable")
+                if (built == null) return@business error(400, "invalid_deck")
+                // A card from before is kept only while the deck holds it.
+                if (!previous.map { it.definition }.containsAll(built.kept)) return@business error(400, "definitions_unavailable")
                 // An import replaces the whole list (no merging).
-                contents.entries
+                built.entries.map { SavedDeckEntry(it.section, it.digest, it.quantity) }
             }
             if (requestedCover != null && (!DeckValidation.digest(requestedCover) || next.none { it.definition == requestedCover }))
                 return@business error(400, "invalid_cover", "cover")
             val name = input.name ?: row.name!!
             val cover = (input.cover ?: row.coverDigest)?.takeIf { digest -> next.any { it.definition == digest } }
             if (next != previous) {
+                built?.store(sql)
                 sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(row.id)).execute()
-                next.forEachIndexed { index, entry ->
-                    sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, row.id).set(DECK_ENTRY.ACCOUNT_ID, owner)
-                        .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
-                        .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
-                }
+                insertEntries(sql, row.id!!, owner, next)
             }
             if (name != row.name || cover != row.coverDigest || next != previous) {
                 // I-D51: changed cards need their Automatum support worked out again.
@@ -141,13 +114,18 @@ class DeckService(private val runtime: ServiceRuntime) {
             val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, copy).set(SAVED_DECK.ACCOUNT_ID, owner)
                 .set(SAVED_DECK.NAME, source.name).set(SAVED_DECK.COVER_DIGEST, source.coverDigest)
                 .set(SAVED_DECK.AUTOMATUM_SUPPORT, source.automatumSupport).returning().fetchSingle()
-            entries.forEachIndexed { index, entry ->
-                sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, copy).set(DECK_ENTRY.ACCOUNT_ID, owner)
-                    .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
-                    .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
-            }
+            insertEntries(sql, copy, owner, entries)
             Result(201, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
         }
+    }
+
+    /** [entries] as deck [deck]'s rows, in order, in one statement (SYS-025). */
+    private fun insertEntries(sql: DSLContext, deck: UUID, owner: UUID, entries: List<SavedDeckEntry>) {
+        if (entries.isEmpty()) return
+        var insert = sql.insertInto(DECK_ENTRY, DECK_ENTRY.DECK_ID, DECK_ENTRY.ACCOUNT_ID, DECK_ENTRY.POSITION, DECK_ENTRY.SECTION,
+            DECK_ENTRY.DEFINITION_DIGEST, DECK_ENTRY.QUANTITY)
+        entries.forEachIndexed { index, entry -> insert = insert.values(deck, owner, index, entry.section.name, entry.definition, entry.quantity) }
+        insert.execute()
     }
 
     private fun intent(id: String, input: kotlinx.serialization.json.JsonElement) = DeckJson.canonicalElement(
@@ -305,21 +283,14 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
     }
 
-    fun read(principal: AccountService.Principal, id: String, digest: String? = null): Result {
-        // Unknown and foreign selectors have the same safe response, including definition attachment reads.
-        if (!DeckValidation.uuid(id) || (digest != null && !DeckValidation.digest(digest))) return error(404, "not_found")
+    fun read(principal: AccountService.Principal, id: String): Result {
+        // Unknown and foreign selectors have the same safe response.
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
                 .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
-            if (digest != null) {
-                val payload = sql.select(DEFINITION.PAYLOAD).from(DECK_ENTRY).join(DEFINITION)
-                    .on(DEFINITION.DIGEST.eq(DECK_ENTRY.DEFINITION_DIGEST))
-                    .where(DECK_ENTRY.DECK_ID.eq(row.id)).and(DEFINITION.DIGEST.eq(digest))
-                    .limit(1).fetchOne(DEFINITION.PAYLOAD) ?: return@transaction error(404, "not_found")
-                return@transaction Result(200, json.encodeToString(SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(payload))))
-            }
             val entries = entries(sql, row.id!!)
             Result(200, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
         }

@@ -22,6 +22,8 @@ class DeckEditorTest {
         SavedDeckEntry(SavedDeckSection.MAINBOARD, cover, 4),
         SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(second), 2),
         SavedDeckEntry(SavedDeckSection.SIDEBOARD, cover, 3))), definitions)
+    /** [this] save's entries as the server stores them: every card here is one the deck holds from before, named by its digest. */
+    private fun DeckSave.saved() = entries.map { SavedDeckEntry(it.section, it.printingId, it.quantity) }
     private class Worker : AbstractExecutorService() {
         val queue = mutableListOf<Runnable>()
         override fun execute(command: Runnable) { queue += command }
@@ -36,8 +38,8 @@ class DeckEditorTest {
     @Test fun prefillUsesImporterSyntaxAndRoundTripsExactPrintingsSnapshotsSectionsQuantitiesAndCover() {
         val worker = Worker()
         val editor = DeckImportController({ error("Retained cards must not require another catalog lookup") }, worker) { it() }
-        var plan: DeckSavePlan? = null
-        editor.connectSave({ { input -> plan = input; SavedDeck(detail.saved.deck, input.deck.entries) } }, {})
+        var plan: DeckSave? = null
+        editor.connectSave({ { input -> plan = input; SavedDeck(detail.saved.deck, input.saved()) } }, {})
         editor.openEditor(detail)
         assertTrue(editor.state.editing)
         assertEquals("Deck\n4 Front // Back (TST) 007\n2 Front // Back (TST) 8\nSideboard\n3 Front // Back (TST) 007", editor.state.text)
@@ -46,26 +48,26 @@ class DeckEditorTest {
         assertEquals(listOf("007", "8", "007"), parsed.lines.map { it.number })
         worker.drain()
         editor.save(); worker.drain()
-        assertEquals(detail.saved.entries, plan!!.deck.entries)
-        assertEquals(definitions, plan!!.definitions.definitions.associate { it.digest to it.definition })
+        // Card data from the server's catalog (owner 2026-11-10): a card the deck holds from before is named by its digest
+        assertEquals(detail.saved.entries, plan!!.saved())
+        assertEquals(definitions, plan!!.cards.associate { it.digest to it.definition })
         assertEquals(detail.saved.deck.id, plan!!.target)
         assertEquals(cover, plan!!.update().cover)
         assertEquals("Saved title", plan!!.update().name)
     }
-    @Test fun savingRenamedListAndChosenCoverUpdatesExistingDeckNotCreateAndReadsAcceptedState() {
+    @Test fun savingRenamedListAndChosenCoverUpdatesExistingDeckNotCreateInOneRequest() {
         val worker = Worker(); var creates = 0; var reads = 0
         val updates = mutableListOf<Pair<String, UpdateDeck>>()
         var accepted = detail.saved
         val api = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck { reads++; return accepted }
-            override suspend fun definition(token: String, id: String, digest: String) = SubmittedDefinition(digest, definitions.getValue(digest))
-            override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
+            override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { SubmittedDefinition(it, definitions.getValue(it)) }
             override suspend fun create(token: String, value: CreateDeck): SavedDeck { creates++; error("Must update") }
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
                 updates += id to value
                 accepted = accepted.copy(deck = accepted.deck.copy(name = value.name!!,
-                    cover = DeckCover(value.cover!!, second.name)), entries = value.contents!!.entries)
+                    cover = DeckCover(value.cover!!, second.name)), entries = value.contents!!.entries.map { SavedDeckEntry(it.section, it.printingId, it.quantity) })
                 return accepted
             }
             override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
@@ -81,7 +83,7 @@ class DeckEditorTest {
         editor.edit(editor.state.text.replace("4 Front", "6 Front"))
         editor.save() // Save performs lookup/validation even without opening an import preview.
         worker.drain()
-        assertEquals(0, creates); assertEquals(1, updates.size); assertEquals(1, reads)
+        assertEquals(0, creates); assertEquals(1, updates.size); assertEquals(0, reads)
         assertEquals(detail.saved.deck.id, updates.single().first)
         assertEquals(6, saved!!.entries.first().quantity)
         assertEquals("New title", saved!!.deck.name)
@@ -95,7 +97,7 @@ class DeckEditorTest {
         assertEquals("Deck\n4 Front // Back (TST) 007\n2 Front // Back (TST) 8\nSideboard\n3 Front // Back (TST) 007\nMaybeboard\n1 Front // Back (TST) 8",
             source.text)
         val resolved = source.resolve(source.text) { error("Existing snapshots require no new lookup") }
-        assertEquals(maybe.saved.entries, DeckSavePlan.from(resolved, "Unchanged", retained = source.definitions).deck.entries)
+        assertEquals(maybe.saved.entries, DeckSave.from(resolved, "Unchanged", retained = source.definitions).saved())
     }
     @Test fun retainedVersionsOfTheSamePrintingAreNotCollapsedDuringRoundTrip() {
         val newer = first.copy(sourceVersion = "newer-catalog")
@@ -104,11 +106,13 @@ class DeckEditorTest {
             SavedDeckEntry(SavedDeckSection.MAINBOARD, newerDigest, 5)), definitions = definitions + (newerDigest to newer))
         val source = DeckEditorSource(mixed)
         val resolved = source.resolve(source.text) { error("Existing snapshots require no new lookup") }
-        val plan = DeckSavePlan.from(resolved, "Unchanged", retained = source.definitions)
-        assertEquals(mixed.saved.entries.toSet(), plan.deck.entries.toSet())
-        assertEquals(mixed.definitions, plan.definitions.definitions.associate { it.digest to it.definition })
+        val plan = DeckSave.from(resolved, "Unchanged", retained = source.definitions)
+        assertEquals(mixed.saved.entries.toSet(), plan.saved().toSet())
+        assertEquals(mixed.definitions, plan.cards.associate { it.digest to it.definition })
     }
-    @Test fun editingMultipartSavedDeckRemapsCoverEntriesAndReselectionToNormalizedDigests() {
+    // Card data from the server's catalog (owner 2026-11-10): a card the deck holds from before is kept as stored, its
+    // digest, cover and entries unchanged (no device uploads card data, so none is made anew)
+    @Test fun editingMultipartSavedDeckKeepsItsCardsAsStored() {
         for (layout in listOf("adventure", "split")) {
             val old = first.copy(layout = layout, faces = first.faces + DefinitionFace(id(), "Back", rulesText = "Other half"))
             val oldDigest = DeckJson.digest(old)
@@ -120,19 +124,17 @@ class DeckEditorTest {
             val multipart = DeckDetail(saved, mapOf(oldDigest to old))
             val source = DeckEditorSource(multipart)
             val result = source.resolve(source.text) { error("Retained cards must not require lookup") }
-            // The save boundary also accepts a caller still holding the original digest.
-            assertEquals(normalizedDigest, DeckSavePlan.from(result, saved.deck.name, cover = oldDigest,
-                retained = source.definitions).cover)
+            assertEquals(oldDigest, DeckSave.from(result, saved.deck.name, cover = oldDigest, retained = source.definitions).cover)
             for (reselect in listOf(false, true)) {
                 val worker = Worker()
-                var plan: DeckSavePlan? = null
+                var plan: DeckSave? = null
                 val editor = DeckImportController({ error("Retained cards must not require lookup") }, worker) { it() }
-                editor.connectSave({ { input -> plan = input; SavedDeck(saved.deck, input.deck.entries) } }, {})
+                editor.connectSave({ { input -> plan = input; SavedDeck(saved.deck, input.saved()) } }, {})
                 editor.openEditor(multipart); worker.drain()
-                assertEquals(normalizedDigest, editor.state.cover)
-                assertEquals(normalizedDigest, editor.currentCover?.definition)
-                assertEquals(listOf(normalizedDigest), editor.coverCards.map { it.digest })
-                assertEquals(normalized, editor.coverCards.single().definition)
+                assertEquals(oldDigest, editor.state.cover)
+                assertEquals(oldDigest, editor.currentCover?.definition)
+                assertEquals(listOf(oldDigest), editor.coverCards.map { it.digest })
+                assertEquals(old, editor.coverCards.single().definition)
                 if (reselect) {
                     editor.chooseCover(); editor.cover(editor.coverCards.single().digest)
                     assertFalse(editor.state.choosingCover)
@@ -141,10 +143,9 @@ class DeckEditorTest {
                 editor.save(); worker.drain()
                 assertFalse(editor.state.active, editor.state.error)
                 assertEquals(saved.deck.id, plan!!.target)
-                assertEquals(normalizedDigest, plan!!.update().cover)
-                assertEquals(saved.entries.map { it.copy(definition = normalizedDigest,
-                    quantity = if (it.section == SavedDeckSection.MAINBOARD) 5 else it.quantity) }, plan!!.deck.entries)
-                assertEquals(listOf(SubmittedDefinition(normalizedDigest, normalized)), plan!!.definitions.definitions)
+                assertEquals(oldDigest, plan!!.update().cover)
+                assertEquals(saved.entries.map { it.copy(quantity = if (it.section == SavedDeckSection.MAINBOARD) 5 else it.quantity) }, plan!!.saved())
+                assertEquals(listOf(SubmittedDefinition(oldDigest, old)), plan!!.cards)
             }
         }
     }
@@ -166,7 +167,7 @@ class DeckEditorTest {
         editor.back(); assertTrue(editor.state.discard)
         editor.exit(); assertFalse(editor.state.active)
     }
-    @Test fun newImportCoverUsesCreatedDeckAndUncertainRetryKeepsBothRequestIdentities() {
+    @Test fun newImportCoverGoesWithItsCreateAndUncertainRetryKeepsItsRequestIdentity() {
         val worker = Worker()
         val printing = CatalogPrinting(id(), "New card", "TST", "1", "English", "", null, false, emptyList(), "{}")
         val editor = DeckImportController({ text -> DeckImportResult(text,
@@ -177,19 +178,15 @@ class DeckEditorTest {
         val api = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String) = accepted
-            override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
-            override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
+            override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> = error("unused")
             override suspend fun create(token: String, value: CreateDeck): SavedDeck {
                 creates += value
-                return accepted.copy(entries = value.entries, deck = accepted.deck.copy(name = value.name, cover = null))
-            }
-            override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
-                assertEquals(accepted.deck.id, id); updates += value
                 // Fail the original attempt and both silent service retries.
-                if (updates.size <= 3) throw DeckFailure("network")
-                accepted = accepted.copy(deck = accepted.deck.copy(cover = DeckCover(value.cover!!, "New card")))
-                return accepted
+                if (creates.size <= 3) throw DeckFailure("network")
+                return accepted.copy(entries = value.entries.map { SavedDeckEntry(it.section, value.cover!!, it.quantity) },
+                    deck = accepted.deck.copy(name = value.name, cover = DeckCover(value.cover!!, "New card")))
             }
+            override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck { updates += value; error("Must create") }
             override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
             override fun close() = Unit
         }
@@ -200,8 +197,9 @@ class DeckEditorTest {
         editor.cover(digest); editor.review(); editor.save(); worker.drain()
         assertTrue(editor.state.active); assertEquals(digest, editor.state.cover)
         editor.save(); worker.drain()
-        // Each attempt replays the whole plan (create, then cover update) with the same request identities.
-        assertEquals(4, creates.size); assertEquals(1, creates.distinct().size); assertEquals(1, updates.distinct().size)
+        // One request, its cover with it; each attempt replays it with the same request identity.
+        assertEquals(4, creates.size); assertEquals(1, creates.distinct().size); assertTrue(updates.isEmpty())
+        assertEquals(digest, creates.last().cover)
         assertEquals(digest, saved!!.deck.cover!!.definition)
     }
 }

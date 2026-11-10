@@ -54,17 +54,18 @@ class CardListSupportTest {
         val drafts = linkedMapOf<String, SavedDeck>()
         val cubes = linkedMapOf<String, SavedCube>()
         val stored = mutableListOf<Pair<String, SetCardListSupport>>()
-        override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
         override suspend fun create(token: String, value: CreateDeck): SavedDeck =
-            SavedDeck(DeckSummary(id(), value.name, "1", "2026-11-03T00:00:00Z"), value.entries).also { decks[it.deck.id] = it }
+            SavedDeck(DeckSummary(id(), value.name, "1", "2026-11-03T00:00:00Z"), savedEntries(value.entries)).also { decks[it.deck.id] = it }
+        /** Saved entries as the server stores them; this test's cards are all ones the deck holds from before (by digest). */
+        private fun savedEntries(entries: List<CardListEntry>) = entries.map { SavedDeckEntry(it.section, it.printingId, it.quantity) }
         override suspend fun list(token: String, after: String?) = DeckList(decks.values.map { it.deck })
         override suspend fun drafts(token: String) = DeckList(drafts.values.map { it.deck })
         override suspend fun read(token: String, id: String) = decks[id] ?: drafts.getValue(id)
-        override suspend fun definition(token: String, id: String, digest: String) = SubmittedDefinition(digest, cards.getValue(digest))
+        override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { SubmittedDefinition(it, cards.getValue(it)) }
         override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
             val old = decks.getValue(id)
             return SavedDeck(old.deck.copy(name = value.name ?: old.deck.name, revision = "${old.deck.revision.toInt() + 1}", automatum = null),
-                value.contents?.entries ?: old.entries).also { decks[id] = it }
+                value.contents?.entries?.let(::savedEntries) ?: old.entries).also { decks[id] = it }
         }
         override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
         override suspend fun setSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored {
@@ -75,7 +76,6 @@ class CardListSupportTest {
         override suspend fun create(token: String, value: CreateCube) = error("not used")
         override suspend fun listCubes(token: String, after: String?) = CubeList(cubes.values.map { it.cube })
         override suspend fun readCube(token: String, id: String) = cubes.getValue(id)
-        override suspend fun cubeDefinition(token: String, id: String, digest: String) = SubmittedDefinition(digest, cards.getValue(digest))
         override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
             SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, cards.getValue(it)) })
         override suspend fun update(token: String, id: String, value: UpdateCube) = error("not used")

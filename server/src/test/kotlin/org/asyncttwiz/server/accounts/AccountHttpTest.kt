@@ -73,52 +73,6 @@ class AccountHttpTest {
             }
         }
     }
-    // I-D52
-    @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            val config = settings(db)
-            lateinit var settings: ServiceSettings
-            val path = "/account/token-favorites"
-            lateinit var token: String
-            lateinit var secondDevice: String
-            fun get(session: String) = request(settings, "GET", path, token = session)
-            fun put(session: String?, favorites: TokenFavorites) = request(settings, "PUT", path,
-                json.encodeToString(favorites).toByteArray(), token = session)
-            val key = TokenIdentity.key(TokenCatalog.blank.definition)
-            SpringService(config).use { service ->
-                settings = service.startBound(config); ready(settings)
-                for (method in listOf("GET", "PUT")) assertEquals(401, request(settings, method, path, "{}".toByteArray()).statusCode())
-                assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("Favorites", "favorites@example.invalid", "password"))).statusCode())
-                fun login(email: String) = json.decodeFromString<SessionCreated>(post(settings, "/sessions",
-                    json.encodeToString(CreateSession(email, "password"))).body()).token
-                token = login("favorites@example.invalid")
-                secondDevice = login("favorites@example.invalid")
-                val initial = get(token)
-                assertEquals(200, initial.statusCode())
-                assertNull(json.decodeFromString<TokenFavorites>(initial.body()).keys)
-                assertEquals(200, put(token, TokenFavorites(listOf(key, key))).statusCode())
-                assertEquals(TokenFavorites(listOf(key)), json.decodeFromString<TokenFavorites>(get(secondDevice).body()))
-                assertEquals(400, put(token, TokenFavorites(listOf("printing-digest"))).statusCode())
-                assertEquals(400, put(token, TokenFavorites(List(101) { key })).statusCode())
-                assertEquals(400, put(token, TokenFavorites()).statusCode())
-                assertEquals(TokenFavorites(listOf(key)), json.decodeFromString<TokenFavorites>(get(token).body()))
-                assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("OtherFavorites", "other-favorites@example.invalid", "password"))).statusCode())
-                val other = login("other-favorites@example.invalid")
-                assertNull(json.decodeFromString<TokenFavorites>(get(other).body()).keys)
-                assertEquals(200, put(token, TokenFavorites(emptyList())).statusCode())
-                assertNull(json.decodeFromString<TokenFavorites>(get(other).body()).keys)
-                assertEquals(405, request(settings, "POST", path, token = token).statusCode())
-            }
-            SpringService(config).use { service ->
-                settings = service.startBound(config); ready(settings)
-                assertEquals(TokenFavorites(emptyList()), json.decodeFromString<TokenFavorites>(get(secondDevice).body()))
-                assertEquals(204, request(settings, "DELETE", "/session", token = token).statusCode())
-                assertEquals(401, get(token).statusCode())
-                assertEquals(401, put(token, TokenFavorites(listOf(key))).statusCode())
-            }
-        }
-    }
     // LOB-080
     @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
         FreshDatabase().start().use { db ->

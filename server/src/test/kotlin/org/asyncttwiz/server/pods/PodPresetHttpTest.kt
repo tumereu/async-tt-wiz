@@ -56,11 +56,9 @@ class PodPresetHttpTest {
                 }
                 fun code(response: HttpResponse<String>) = json.decodeFromString<PodError>(response.body()).code
                 val a = account("preset-a"); val b = account("preset-b")
-                val card = CardDefinition("Preset card", listOf(DefinitionFace(id(), "Preset card")))
-                val definition = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, request(a, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), listOf(definition)))).statusCode())
+                val definition = org.asyncttwiz.server.TestPrintings.submitted("Ash Pup")
                 val cube = json.decodeFromString<SavedCube>(request(a, "POST", "/v1/cubes",
-                    json.encodeToString(CreateCube(id(), "Preset cube", listOf(SavedCubeEntry(definition.digest, 40))))).body()).cube
+                    json.encodeToString(CreateCube(id(), "Preset cube", listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 40))))).body()).cube
 
                 assertEquals(401, request(null, "GET", "/v1/pod-presets").statusCode())
                 assertEquals(emptyList<PodPreset>(), list(a))

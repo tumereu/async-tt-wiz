@@ -78,8 +78,10 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private var closed = false
     private var source: CubeEditorSource? = null
     private var cobraSource: ParsedDeck? = null
-    private data class SavePlan(val definitions: SubmitDefinitions, val cube: CreateCube, val target: String?)
-    private var pendingSave: SavePlan? = null
+    /** One cube save, a single request (owner 2026-11-10: card data from the server's catalog), kept while uncertain so
+     * a retry sends the same request; [cards]: its cards as the phone makes them (the server builds the same). */
+    private data class CubeSave(val cube: CreateCube, val target: String?, val cards: List<SubmittedDefinition>)
+    private var pendingSave: CubeSave? = null
     private var pendingUpdate: UpdateCube? = null
     private var pendingDelete: DeleteCube? = null
     // Replace on logout so an in-flight old request cannot populate the new session's cache.
@@ -222,29 +224,31 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         state = state.copy(saving = true)
         work(onFailure = { pendingSave = attempted.takeIf { state.text == input.text && state.name == input.name } }) { current ->
             val plan = attempted ?: run {
-                val definitions = linkedMapOf<String, SubmittedDefinition>()
-                val entries = input.result!!.entries.map { entry ->
-                    val definition = PhysicalCardFaces.normalize(retained[entry.printing.id] ?: entry.definition(input.result.catalog))
-                    if (!DeckValidation.definition(definition)) throw DeckFailure("invalid_definition")
-                    val digest = DeckJson.digest(definition)
-                    definitions[digest] = SubmittedDefinition(digest, definition)
-                    SavedCubeEntry(digest, entry.quantity, entry.cubeSection())
-                }.groupBy { it.section to it.definition }.map { (_, rows) -> rows.first().copy(quantity = rows.sumOf { it.quantity }) }
-                if (!CubeValidation.entries(entries)) throw DeckFailure("invalid_cube")
-                SavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
-                    CreateCube(UUID.randomUUID().toString(), input.name, entries, input.provenance), input.target)
+                val cards = linkedMapOf<String, SubmittedDefinition>()
+                val copies = linkedMapOf<Pair<SavedDeckSection, String>, Int>()
+                for (entry in input.result!!.entries) {
+                    // A card the cube holds from before is named by its digest (its printing id here) and kept as stored
+                    val kept = retained[entry.printing.id]
+                    val definition = kept ?: PhysicalCardFaces.normalize(entry.definition(input.result.catalog))
+                    val digest = if (kept != null) entry.printing.id else DeckJson.digest(definition)
+                    cards[digest] = SubmittedDefinition(digest, definition)
+                    copies.merge(entry.cubeSection() to entry.printing.id, entry.quantity, Int::plus)
+                }
+                val entries = copies.map { (key, quantity) -> CardListEntry(key.first, key.second, quantity) }
+                if (!CubeValidation.input(entries)) throw DeckFailure("invalid_cube")
+                CubeSave(CreateCube(UUID.randomUUID().toString(), input.name, entries, input.provenance), input.target, cards.values.toList())
             }
             attempted = plan
-            val accepted = serviceRetry(current = current) { api.submit(token, plan.definitions) }
-            if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet()) throw DeckFailure("invalid_response")
-            plan.definitions.definitions.forEach { cache[it.digest] = it.definition }
+            AppLog.info("cubes", "save ${if (plan.target == null) "new cube" else "cube ${plan.target}"}: ${plan.cube.entries.size} entries, " +
+                "${plan.cube.entries.count { DeckValidation.digest(it.printingId) }} kept from before, request ${plan.cube.requestId}")
+            plan.cards.forEach { cache[it.digest] = it.definition }
             val saved = serviceRetry(current = current) {
                 if (plan.target == null) api.create(token, plan.cube) else api.update(token, plan.target,
                     UpdateCube(plan.cube.requestId, plan.cube.name, plan.cube.entries, plan.cube.cubeCobraId))
             }
             // I-D51 (DRF-161): its support goes with it at once; a failure leaves it to the background run.
             supportCheck?.let { check -> runCatching {
-                val support = check.support(plan.definitions.definitions)
+                val support = check.support(plan.cards)
                 api.setCubeSupport(token, saved.cube.id, SetCardListSupport(saved.cube.revision, support))
             } }
             return@work {

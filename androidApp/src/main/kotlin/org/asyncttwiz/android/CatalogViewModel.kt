@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.storage.dungeonDefinitions
 
 import android.app.Application
 import android.os.Handler
@@ -115,8 +114,6 @@ class CatalogViewModel internal constructor(application: Application, custom: Ca
     internal val controller = custom ?: CatalogController(AndroidCatalogStorage.directory(application), repository,
         { HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN) }, BuildConfig.CATALOG_CHECKSUM.ifEmpty { null },
         Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }, { action -> main.post { action() } })
-    /** LOB-117: the catalog's dungeons Automatum plays fully, which the device brings to games whose decks venture. */
-    internal val dungeons = CatalogDungeonCards({ repository.dungeonDefinitions() }, { repository.tokenGeneration() })
     val state: CatalogUiState get() = controller.state
 
     fun foreground() = controller.start()

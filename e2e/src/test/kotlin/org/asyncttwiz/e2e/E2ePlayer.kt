@@ -121,11 +121,13 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post,
         setRepository = setRepository ?: catalog?.let { records -> org.asyncttwiz.android.StoredPodSets { records.repository } })
     private val reset = ResetController(AccountApi(link.origin), "", worker("reset"), succeeded = {}, post = post)
-    /** The deck screens, on the phone once a test asks for them ([decksShown]): these phones have no card records, so the
-     * editor works on a saved deck's own cards. */
+    /** The deck screens, on the phone once a test asks for them ([decksShown]): without card records ([withCatalog]) the
+     * editor works on a saved deck's own cards; with them it looks a list up in them, as the app does. */
     val decks = org.asyncttwiz.android.DeckLibraryController(DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         auth::sessionToken, worker("decks"), post)
-    val deckImport = org.asyncttwiz.android.DeckImportController({ error("No card records on this phone") }, worker("deck-import"), post).apply {
+    val deckImport = org.asyncttwiz.android.DeckImportController({ text ->
+        org.asyncttwiz.storage.DeckImportResolver(checkNotNull(catalog) { "No card records on this phone" }.repository).resolve(text)
+    }, worker("deck-import"), post).apply {
         connectSave(DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, saved = {
             auth.push(ShellDestination.DECKS); decks.open(it.deck.id)
         })

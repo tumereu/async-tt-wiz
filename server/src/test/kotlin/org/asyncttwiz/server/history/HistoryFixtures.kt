@@ -65,10 +65,9 @@ internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, v
         val land = card("$name Land", "", "Basic Land — Mountain")
         val side = card("$name Side", "{U}", "Instant")
         val decks = DeckService(runtime)
-        assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), listOf(spell, land, side))).status)
-        val created = GameWire.json.decodeFromString<SavedDeck>(decks.create(actor, CreateDeck(id(), name, listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, spell.digest, 20), SavedDeckEntry(SavedDeckSection.MAINBOARD, land.digest, 20),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, side.digest, 2)))).body)
+        // Invented card data of the deck's own name, stored as a deck from before holds it
+        val created = org.asyncttwiz.server.StoredDecks.save(runtime, actor, name, listOf(Triple(SavedDeckSection.MAINBOARD, spell.definition, 20),
+            Triple(SavedDeckSection.MAINBOARD, land.definition, 20), Triple(SavedDeckSection.SIDEBOARD, side.definition, 2)))
         // Its cover is the red card
         val covered = decks.update(actor, created.deck.id, UpdateDeck(id(), cover = spell.digest))
         assertEquals(200, covered.status, covered.body)

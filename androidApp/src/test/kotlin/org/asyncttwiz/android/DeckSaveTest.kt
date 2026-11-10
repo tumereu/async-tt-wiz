@@ -30,10 +30,14 @@ class DeckSaveTest {
             ResolvedDeckEntry(DeckSection.MAINBOARD, 4, faces, listOf(2)),
             ResolvedDeckEntry(DeckSection.SIDEBOARD, 2, faces, listOf(4))), emptyList(), CatalogMetadata("2026-10-11", "5.2.2"))
     }
+    /** [this] save's entries as the server stores them (one card in these tests). */
+    private fun DeckSave.saved() = entries.map { SavedDeckEntry(it.section, cards.single().digest, it.quantity) }
+
+    // Card data from the server's catalog (owner 2026-11-10): a save names printings; the phone keeps its own card data
+    // of them (the server's) for the pictures and the support check
     @Test fun mapsCompleteFacesDefaultsProvenanceAndExactSectionsWithoutArtwork() {
-        val plan = DeckSavePlan.from(result(), " Exact name ")
-        assertNotEquals(plan.definitions.requestId, plan.deck.requestId)
-        val submitted = plan.definitions.definitions.single()
+        val plan = DeckSave.from(result(), " Exact name ")
+        val submitted = plan.cards.single()
         assertEquals(DeckJson.digest(submitted.definition), submitted.digest)
         assertTrue(DeckValidation.definition(submitted.definition))
         assertEquals(listOf("Front", "Back"), submitted.definition.faces.map { it.name })
@@ -42,13 +46,18 @@ class DeckSaveTest {
         assertEquals("", submitted.definition.faces.last().defense)
         assertTrue(submitted.definition.faces.first().sourceData!!.contains("transform"))
         assertNull(submitted.definition.faces.first().imageUri)
-        assertEquals(" Exact name ", plan.deck.name)
-        assertEquals(listOf(4, 2), plan.deck.entries.map { it.quantity })
-        assertEquals(SavedDeckSection.PREPARED, plan.deck.entries.map { it.section })
+        assertEquals(" Exact name ", plan.name)
+        assertEquals(listOf(4, 2), plan.entries.map { it.quantity })
+        assertEquals(listOf(first, first), plan.entries.map { it.printingId })
+        assertEquals(SavedDeckSection.PREPARED, plan.entries.map { it.section })
+        assertEquals(CreateDeck(plan.requestId, " Exact name ", plan.entries), plan.create())
+        // The same printing twice in a section is one entry
+        val twice = result().let { it.copy(entries = it.entries + it.entries.first()) }
+        assertEquals(listOf(8, 2), DeckSave.from(twice, "Twice").entries.map { it.quantity })
         val maybe = result().let { it.copy(entries = it.entries + it.entries.first().copy(section = DeckSection.MAYBEBOARD, quantity = 3)) }
         assertEquals(SavedDeckSection.entries to listOf(4, 2, 3),
-            DeckSavePlan.from(maybe, "Maybe").deck.entries.let { entries -> entries.map { it.section } to entries.map { it.quantity } })
-        assertFailsWith<DeckFailure> { DeckSavePlan.from(result(), " \n") }
+            DeckSave.from(maybe, "Maybe").entries.let { entries -> entries.map { it.section } to entries.map { it.quantity } })
+        assertFailsWith<DeckFailure> { DeckSave.from(result(), " \n") }
     }
 
     @Test fun multipartCatalogCardsAndTokensUseOneArtworkAndRetainBothHalvesText() {
@@ -70,7 +79,7 @@ class DeckSaveTest {
                     assertContains(face.rulesText, "Back\nCreature")
                     assertEquals(definition, PhysicalCardFaces.normalize(definition))
                 }
-                assertEquals(definition, DeckSavePlan.from(imported, "Deck").definitions.definitions.single().definition)
+                assertEquals(definition, DeckSave.from(imported, "Deck").cards.single().definition)
             }
         }
     }
@@ -90,9 +99,9 @@ class DeckSaveTest {
         }
         val result = DeckImportResolver(repository).resolve("2 Trimmed fixture (TST) 1")
         assertTrue(result.resolved, result.issues.toString())
-        val plan = DeckSavePlan.from(result, "Trimmed deck")
-        val definition = plan.definitions.definitions.single().definition
-        // This is the same shared validation used by the server definitions endpoint.
+        val plan = DeckSave.from(result, "Trimmed deck")
+        val definition = plan.cards.single().definition
+        // The same check the server makes of the card data it builds.
         assertTrue(DeckValidation.definition(definition))
         assertEquals("Exact rules text 🧙", definition.faces.first().rulesText)
         assertEquals("Exact back", definition.faces.last().rulesText)
@@ -107,15 +116,15 @@ class DeckSaveTest {
         assertEquals(definition, DeckJson.format.decodeFromString<CardDefinition>(DeckJson.format.encodeToString(definition)))
     }
     @Test fun editingDuringSaveKeepsNewDraftAndDoesNotMutateTheCapturedRequest() {
-        val worker = Worker(); val attempts = mutableListOf<DeckSavePlan>(); var successes = 0
+        val worker = Worker(); val attempts = mutableListOf<DeckSave>(); var successes = 0
         val controller = DeckImportController({ result() }, worker) { it() }
-        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.deck.entries) } }, { successes++ })
+        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.saved()) } }, { successes++ })
         controller.open(); controller.edit(result().text); controller.lookup(); worker.drain()
         controller.name("First"); controller.save()
         controller.name("Second"); controller.edit("3 New input")
         assertTrue(controller.state.saving); assertEquals("3 New input", controller.state.text)
         worker.drain()
-        assertEquals("First", attempts.single().deck.name)
+        assertEquals("First", attempts.single().name)
         assertEquals("Second", controller.state.name); assertEquals("3 New input", controller.state.text)
         assertTrue(controller.state.active); assertFalse(controller.state.saving)
         assertEquals(summary.id, controller.state.target); assertEquals(0, successes)
@@ -125,28 +134,29 @@ class DeckSaveTest {
     // LOB-097
     @Test fun savedDeckHandsItsCardsToTheArtworkDownloads() {
         val worker = Worker(); val handed = mutableListOf<Pair<String, List<SubmittedDefinition>>>()
-        val attempts = mutableListOf<DeckSavePlan>()
+        val attempts = mutableListOf<DeckSave>()
         val controller = DeckImportController({ result() }, worker) { it() }
         controller.acceptedDefinitions = { deck, definitions -> handed += deck to definitions }
-        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.deck.entries) } }, {})
+        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.saved()) } }, {})
         controller.open(); controller.edit(result().text); controller.lookup(); worker.drain()
         controller.name("Deck"); controller.save()
         assertTrue(handed.isEmpty(), "Nothing is downloaded before the server accepts the deck")
         worker.drain()
-        assertEquals(listOf(summary.id to attempts.single().definitions.definitions), handed)
+        assertEquals(listOf(summary.id to attempts.single().cards), handed)
         controller.close()
     }
 
     // An import into an existing deck replaces its list and closes the editor once accepted.
     @Test fun successfulImportIntoAnExistingDeckReplacesItsListAndClosesTheEditor() {
-        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); val attempts = mutableListOf<DeckSave>()
         val imported = result().let { it.copy(text = "Deck\n2 Front // Back", entries = listOf(it.entries.first().copy(quantity = 2))) }
-        var accepted = SavedDeck(summary, listOf(DeckSavePlan.from(result(), summary.name).deck.entries.first()))
+        var accepted = SavedDeck(summary, listOf(DeckSave.from(result(), summary.name).saved().first()))
         var successes = 0
         val controller = DeckImportController({ imported }, worker) { posts += it }
         controller.connectSave({ { plan ->
             attempts += plan
-            accepted = SavedDeck(summary, checkNotNull(plan.update().contents).entries)
+            assertEquals(plan.entries, checkNotNull(plan.update().contents).entries)
+            accepted = SavedDeck(summary, plan.saved())
             accepted
         } }, { successes++; assertEquals(2, it.entries.single().quantity) })
         controller.openExisting(summary); controller.edit(imported.text); controller.lookup()
@@ -160,29 +170,28 @@ class DeckSaveTest {
     }
 
     @Test fun uncertainRetryKeepsIdentitiesAndInputButChangedIntentGetsNewIds() {
-        val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
+        val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSave>()
         var successes = 0
         val controller = DeckImportController({ result() }, worker) { posts += it }
         controller.connectSave({ { plan -> attempts += plan
             if (attempts.size != 3) throw DeckFailure("network")
-            SavedDeck(summary, plan.deck.entries) } }, { successes++ })
+            SavedDeck(summary, plan.saved()) } }, { successes++ })
         controller.open(); controller.edit(result().text); controller.lookup(); worker.drain(); posts.removeAt(0)()
         controller.review(); controller.name(" Exact name "); controller.save(); controller.save()
         worker.drain(); posts.removeAt(0)()
         assertTrue(controller.state.preview); assertEquals(result().text, controller.state.text)
         assertEquals(" Exact name ", controller.state.name); assertNotNull(controller.state.error)
-        // Recreation's lookup is harmless and retry must reuse both complete immutable payloads.
+        // Recreation's lookup is harmless and retry must reuse the complete immutable request.
         controller.lookup(); controller.save(); worker.drain(); posts.removeAt(0)()
         assertEquals(attempts[0], attempts[1]); assertEquals(0, successes)
         controller.name("Changed name"); controller.save(); worker.drain(); posts.removeAt(0)()
-        assertNotEquals(attempts[1].deck.requestId, attempts[2].deck.requestId)
-        assertNotEquals(attempts[1].definitions.requestId, attempts[2].definitions.requestId)
+        assertNotEquals(attempts[1].requestId, attempts[2].requestId)
         assertEquals(1, successes); assertFalse(controller.state.active)
     }
     @Test fun logoutFencesSaveAndReadCallbacksAndQueuedOldAccountRequests() {
         val worker = Worker(); val posts = mutableListOf<() -> Unit>(); var success = false; var calls = 0
         val controller = DeckImportController({ result() }, worker) { posts += it }
-        controller.connectSave({ { plan -> calls++; SavedDeck(summary, plan.deck.entries) } }, { success = true })
+        controller.connectSave({ { plan -> calls++; SavedDeck(summary, plan.saved()) } }, { success = true })
         controller.open(); controller.edit(result().text); controller.lookup(); worker.drain(); posts.removeAt(0)()
         controller.review(); controller.name(summary.name); controller.save(); worker.drain()
         controller.exit(); controller.open(); posts.removeAt(0)(); assertFalse(success); assertEquals("", controller.state.name)
@@ -195,7 +204,7 @@ class DeckSaveTest {
         library.refresh(); library.clear(); worker.drain(); assertEquals(2, api.pages)
     }
     @Test fun contextualImportCapturesTargetAndRetriesTheReplacementWithoutChangingIdentity() {
-        val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
+        val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSave>()
         val controller = DeckImportController({ result() }, worker) { posts += it }
         controller.connectSave({ { plan -> attempts += plan; throw DeckFailure("network") } }, { error("not accepted") })
         controller.openExisting(summary)
@@ -205,11 +214,11 @@ class DeckSaveTest {
         controller.save(); worker.drain(); posts.removeAt(0)()
         assertEquals(attempts[0], attempts[1]); assertEquals(summary.id, attempts[0].target)
         assertNull(attempts[0].update().name)
-        assertEquals(attempts[0].deck.entries.first().definition, attempts[0].update().cover)
+        assertEquals(attempts[0].cards.first().digest, attempts[0].update().cover)
         assertEquals(listOf(4, 2), attempts[0].update().contents!!.entries.map { it.quantity })
         controller.editList(); controller.name("Renamed"); controller.review()
         controller.save(); worker.drain(); posts.removeAt(0)()
-        assertNotEquals(attempts[1].deck.requestId, attempts[2].deck.requestId)
+        assertNotEquals(attempts[1].requestId, attempts[2].requestId)
         controller.back(); assertEquals(summary.id, controller.state.target); controller.back()
         controller.openExisting(summary.copy(id = second))
         assertEquals(second, controller.state.target)
@@ -229,49 +238,44 @@ class DeckSaveTest {
     }
     private inner class FakeDecks : Decks {
         var pages = 0
-        private val plan = DeckSavePlan.from(result(), summary.name)
+        private val plan = DeckSave.from(result(), summary.name)
         override suspend fun list(token: String, after: String?): DeckList { pages++
             return DeckList(listOf(if (after == null) summary else summary.copy(id = second)), if (after == null) summary.id else null) }
-        override suspend fun read(token: String, id: String) = SavedDeck(summary, plan.deck.entries)
-        override suspend fun definition(token: String, id: String, digest: String) = plan.definitions.definitions.single()
-        override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
-        override suspend fun create(token: String, value: CreateDeck) = SavedDeck(summary, value.entries)
-        override suspend fun update(token: String, id: String, value: UpdateDeck) = SavedDeck(summary, plan.deck.entries)
+        override suspend fun read(token: String, id: String) = SavedDeck(summary, plan.saved())
+        override suspend fun definitions(token: String, id: String, digests: List<String>) = plan.cards
+        override suspend fun create(token: String, value: CreateDeck) = SavedDeck(summary, plan.saved())
+        override suspend fun update(token: String, id: String, value: UpdateDeck) = SavedDeck(summary, plan.saved())
         override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
         override fun close() = Unit
     }
     @Test fun httpUsesNormalCompletePostsPrivateReadsBoundedErrorsAndNoCredentialRedirect() = runBlocking {
-        val plan = DeckSavePlan.from(result(), summary.name); val paths = mutableListOf<String>()
+        val plan = DeckSave.from(result(), summary.name); val paths = mutableListOf<String>()
         val api = DeckApi("https://decks.example", HttpClient(MockEngine { request ->
             paths += request.url.encodedPath
             assertEquals("Bearer ${"A".repeat(43)}", request.headers["Authorization"])
             assertNull(request.headers["Cookie"])
             val body = (request.body as? OutgoingContent.ByteArrayContent)?.bytes()?.decodeToString()
             val json = when (request.url.encodedPath) {
-                "/v1/definitions" -> {
-                    assertEquals(plan.definitions, DeckJson.format.decodeFromString<SubmitDefinitions>(body!!))
-                    DeckJson.format.encodeToString(DefinitionsAccepted(plan.definitions.definitions.map { it.digest }))
-                }
                 "/v1/decks" -> if (body != null) {
-                    assertEquals(plan.deck, DeckJson.format.decodeFromString<CreateDeck>(body))
-                    DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
+                    assertEquals(plan.create(), DeckJson.format.decodeFromString<CreateDeck>(body))
+                    DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
                 } else DeckJson.format.encodeToString(DeckList(listOf(summary)))
                 else -> if (request.method == HttpMethod.Put) {
                     assertEquals(plan.copy(target = summary.id).update(),
                         DeckJson.format.decodeFromString<UpdateDeck>(body!!))
-                    DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
-                } else if ("/definitions/" in request.url.encodedPath)
-                    DeckJson.format.encodeToString(plan.definitions.definitions.single())
-                    else DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
+                    DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
+                } else if (request.url.encodedPath.endsWith("/definitions"))
+                    DeckJson.format.encodeToString(SubmittedDefinitions(plan.cards))
+                    else DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
             }
             respond(json, headers = headersOf("Content-Type", "application/json"))
         }) { followRedirects = false })
         api.use { val token = "A".repeat(43)
-            it.submit(token, plan.definitions); it.create(token, plan.deck); it.list(token)
-            it.read(token, summary.id); it.definition(token, summary.id, plan.deck.entries.first().definition)
+            it.create(token, plan.create()); it.list(token)
+            it.read(token, summary.id); it.definitions(token, summary.id, listOf(plan.cards.first().digest))
             it.update(token, summary.id, plan.copy(target = summary.id).update())
         }
-        assertEquals(6, paths.size)
+        assertEquals(5, paths.size)
         for (status in listOf(401, 409, 503, 307)) {
             var calls = 0
             DeckApi("https://decks.example", HttpClient(MockEngine { calls++

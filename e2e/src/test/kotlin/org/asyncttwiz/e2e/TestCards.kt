@@ -1,28 +1,76 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.catalog.CardCatalog
+import org.asyncttwiz.catalog.CardCatalogFiles
+import org.asyncttwiz.catalog.CatalogCards
 import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.DeckJson
-import org.asyncttwiz.protocol.DefinitionFace
-import org.asyncttwiz.protocol.SubmittedDefinition
+import java.io.File
 import java.util.UUID
 
+/** One printed face of a [TestCard], as its record in the test cards' catalog holds it. */
+data class TestFace(val name: String, val typeLine: String, val manaCost: String = "", val rulesText: String = "",
+    val power: String = "", val toughness: String = "", val loyalty: String = "") {
+    /** Its printing id: made from its name, so it stays the same however the cards are ordered. */
+    val id: String get() = UUID.nameUUIDFromBytes("e2e/$name".encodeToByteArray()).toString()
+}
+
 /**
- * Invented cards for the e2e games (AGENTS.md: our own names and costs, wording from real oracle templates), as a
- * device submits them in a deck: the card data the server and both devices parse. The interim app tests' cards
- * (EngineGameFixture) have the same names and texts.
+ * An invented card (AGENTS.md: our own names and costs, wording from real oracle templates) of the test cards' catalog
+ * (tests/fixtures/card-catalog), in set [set]: the catalog's records of these cards are generated from them
+ * ([TestCardsFixture], kept the same by TestCardsFixtureTest), so the server and the phones read them from their catalog
+ * like any card. [name] the card's name ("A // B" for a card of two faces), [faces] its printed faces in order, [layout]
+ * MTGJSON's, [scryfallId] a picture id of its own (invented) or none, [token] a token record (as dungeons are, CR 309).
+ */
+class TestCard(val name: String, val faces: List<TestFace>, val layout: String = "normal", val set: String = TestCards.SET,
+    val scryfallId: String? = null, val token: Boolean = false) {
+    /** The printing a deck or cube names it by (its first face's). */
+    val printingId: String get() = faces.first().id
+    /** Its card data, exactly as the server builds it from the catalog (CatalogCards.definition). */
+    val definition: CardDefinition get() = TestCatalog.definition(printingId)
+    val digest: String get() = DeckJson.digest(definition)
+    override fun toString() = name
+}
+
+/** The test cards' catalog the e2e server serves (:catalog:testCardsCatalog), read once. */
+object TestCatalog {
+    private val catalog: CardCatalog by lazy {
+        val directory = File(requireNotNull(System.getProperty("atw.e2e.catalogDir")) { "Run the e2e tests with ./scripts/gradle.sh :e2e:test" })
+        CardCatalogFiles.read(File(directory, File(directory, "current").readText().trim() + CardCatalogFiles.SUFFIX))
+    }
+    private val definitions = java.util.concurrent.ConcurrentHashMap<String, CardDefinition>()
+
+    /** The card data of the physical card printing [printingId] is a face of. */
+    fun definition(printingId: String): CardDefinition = definitions.getOrPut(printingId) {
+        // As a deck or cube holds it (the server's ServerCatalog.card)
+        org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
+            CatalogCards.definition(catalog, requireNotNull(catalog.printing[printingId]) { "No printing $printingId in the test cards' catalog" }))
+    }
+}
+
+/**
+ * Invented cards for the e2e games (AGENTS.md: our own names and costs, wording from real oracle templates), in the test
+ * cards' catalog: the card data the server and both devices parse. The interim app tests' cards (EngineGameFixture) have
+ * the same names and texts. Every card has a name of its own (the catalog knows a card by its name).
  */
 object TestCards {
+    /** The set of the e2e cards in the test cards' catalog. */
+    const val SET = "E2E"
+    /** The set of the basic lands the server supplies with pod decks (M21, as in the real catalog; LOB-052). */
+    const val BASICS = "M21"
+
     private fun card(name: String, typeLine: String, manaCost: String = "", rulesText: String = "", power: String = "",
-        toughness: String = "", loyalty: String = "", scryfallId: String? = null): SubmittedDefinition {
-        val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/$name".encodeToByteArray()).toString(), name, typeLine = typeLine,
-            manaCost = manaCost, rulesText = rulesText, power = power, toughness = toughness, loyalty = loyalty, scryfallId = scryfallId)
-        val definition = CardDefinition(name, listOf(face))
-        return SubmittedDefinition(DeckJson.digest(definition), definition)
-    }
+        toughness: String = "", loyalty: String = "", scryfallId: String? = null, set: String = SET) =
+        TestCard(name, listOf(TestFace(name, typeLine, manaCost, rulesText, power, toughness, loyalty)), set = set, scryfallId = scryfallId)
 
     private const val LEARN = "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
 
-    val mountain = card("Mountain", "Basic Land — Mountain")
+    // The basic lands (M21): pod decks get them from the server (LOB-052), decks use the Mountain
+    val plains = card("Plains", "Basic Land — Plains", set = BASICS)
+    val island = card("Island", "Basic Land — Island", set = BASICS)
+    val swamp = card("Swamp", "Basic Land — Swamp", set = BASICS)
+    val mountain = card("Mountain", "Basic Land — Mountain", set = BASICS)
+    val forest = card("Forest", "Basic Land — Forest", set = BASICS)
     val spark = card("Storm Spark", "Instant", "{R}", "Storm Spark deals 3 damage to any target.")
     val cub = card("Ember Cub", "Creature — Elemental Cat", "{R}", power = "2", toughness = "1")
     val herald = card("Ember Herald", "Creature — Elemental", "{R}", "When this creature enters, create a 1/1 red Elemental creature token.",
@@ -116,7 +164,7 @@ object TestCards {
     /** A spell with convoke and something to do (STK-024: its panel always opens). */
     val rally = card("Ember Rally", "Sorcery", "{2}{R}", "Convoke\nDraw a card.")
     val cairn = card("Ember Cairn", "Artifact", "{0}", "{T}: Add {R}.\n{5}: You gain 1 life.")
-    val study = card("Ember Study", "Sorcery", "{0}", "Draw a card.")
+    val study = card("Ember Reading", "Sorcery", "{0}", "Draw a card.")
     /** A triggered mana ability of a colour chosen as it resolves (CR 605.1b, 605.4a). */
     val bounty = card("Ember Bounty", "Enchantment — Aura", "{0}", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
     val redBlue = card("Red Blue", "Sorcery", "{R}{U}", "Draw a card.")
@@ -229,36 +277,53 @@ object TestCards {
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
 
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
-    val pathCrag: SubmittedDefinition = run {
-        val ids = listOf("Ember Path", "Ember Crag").map { UUID.nameUUIDFromBytes("e2e/$it".encodeToByteArray()).toString() }
-        val definition = CardDefinition("Ember Path // Ember Crag", listOf(
-            DefinitionFace(ids[0], "Ember Path", listOf(ids[1]), typeLine = "Instant", manaCost = "{1}{R}", rulesText = "Draw a card."),
-            DefinitionFace(ids[1], "Ember Crag", listOf(ids[0]), typeLine = "Land", rulesText = "{T}: Add {R}.")), provider = "mtgjson", layout = "modal_dfc")
-        SubmittedDefinition(DeckJson.digest(definition), definition)
-    }
+    val pathCrag = TestCard("Ember Path // Ember Crag", listOf(
+        TestFace("Ember Path", "Instant", "{1}{R}", "Draw a card."),
+        TestFace("Ember Crag", "Land", rulesText = "{T}: Add {R}.")), layout = "modal_dfc")
 
-    /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
-     * the front half's catalog record (its cost only) as the face's source data. */
-    val trailBlaze: SubmittedDefinition = run {
-        val halves = listOf(
-            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Trail".encodeToByteArray()).toString(), "Trail", typeLine = "Instant", manaCost = "{2}{G}", rulesText = "Draw a card.",
-                sourceData = """{"manaCost":"{2}{G}"}"""),
-            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Blaze".encodeToByteArray()).toString(), "Blaze", typeLine = "Instant", manaCost = "{1}{R}{R}", rulesText = "Blaze deals 3 damage to any target."))
-        val definition = org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
-            CardDefinition("Trail // Blaze", halves, provider = "mtgjson", layout = "split"))
-        SubmittedDefinition(DeckJson.digest(definition), definition)
+    /** A split card ({2}{G} // {1}{R}{R}): the catalog keeps it as one face holding both halves (PhysicalCardFaces). */
+    val trailBlaze = TestCard("Trail // Blaze", listOf(
+        TestFace("Trail", "Instant", "{2}{G}", "Draw a card."),
+        TestFace("Blaze", "Instant", "{1}{R}{R}", "Blaze deals 3 damage to any target.")), layout = "split")
+
+    /** Owner gallery review, 2026-11-06: rules text Automatum can't do (UnsupportedPodSourceTest). */
+    val relic = card("Odd Relic", "Artifact", "{1}", "Whenever the moon is full, this artifact hums a slow tune.")
+
+    /** LOB-117: a free sorcery that ventures into the dungeon, and the dungeons the server brings with its player's Ready
+     * (CR 309.2): a plain one and an Undercity (CR 701.49d), token records as the catalog keeps dungeons. */
+    val torchMap = card("Dungeon Torch Map", "Sorcery", "{0}", "Venture into the dungeon.")
+    val crypt = TestCard("Dungeon Test Crypt", listOf(TestFace("Dungeon Test Crypt", "Dungeon", rulesText = """
+        Crypt Door — You gain 1 life. (Leads to: Bone Hall, Dark Well)
+        Bone Hall — Each opponent loses 1 life. (Leads to: Final Vault)
+        Dark Well — You gain 2 life. (Leads to: Final Vault)
+        Final Vault — You gain 3 life.
+    """.trimIndent())), layout = "token", token = true)
+    val sunkenCity = TestCard("Dungeon Test Sunken City", listOf(TestFace("Dungeon Test Sunken City", "Dungeon — Undercity", rulesText = """
+        You can't enter this dungeon unless you "venture into Undercity."
+        Flooded Stair — You gain 4 life. (Leads to: Abyss Throne)
+        Abyss Throne — You gain 5 life.
+    """.trimIndent())), layout = "token", token = true)
+
+    /** DRF-051: the card the server gives each player of a pod with Librarians (it looks it up by this name), a stand-in of
+     * our own: its printed values only, no draft text. */
+    val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
+
+    /** Every test card, by name (the catalog's collector numbers follow this order). */
+    val all: List<TestCard> by lazy {
+        TestCards::class.java.declaredFields.filter { TestCard::class.java.isAssignableFrom(it.type) }
+            .onEach { it.isAccessible = true }.map { it.get(this) as TestCard }.sortedBy { it.name }
     }
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle); [side] and [maybe] its Side
  * and Maybe, the cards outside the game (LOB-141). */
-data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition, Int>>,
-    val side: List<Pair<SubmittedDefinition, Int>> = emptyList(), val maybe: List<Pair<SubmittedDefinition, Int>> = emptyList()) {
+data class TestDeck(val name: String, val entries: List<Pair<TestCard, Int>>,
+    val side: List<Pair<TestCard, Int>> = emptyList(), val maybe: List<Pair<TestCard, Int>> = emptyList()) {
     val size get() = entries.sumOf { it.second }
 
     companion object {
         /** 40 cards, a third each of Mountains, [creature]s and Storm Sparks (as the interim fixture's decks). */
-        fun thirds(creature: SubmittedDefinition = TestCards.cub) =
+        fun thirds(creature: TestCard = TestCards.cub) =
             TestDeck("Thirds", listOf(TestCards.mountain to 14, creature to 13, TestCards.spark to 13))
 
         /** 40 cards, Mountains and Ember Wishes, with a Cinder Hound in Side and an Ember Herald in Maybe (LOB-141). */

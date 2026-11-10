@@ -6,12 +6,14 @@ import com.sun.net.httpserver.HttpServer
 import org.asyncttwiz.catalog.CardCatalog
 import org.asyncttwiz.catalog.CardCatalogFiles
 import org.asyncttwiz.catalog.CardCatalogFormat
+import org.asyncttwiz.catalog.CatalogCards
 import org.asyncttwiz.catalog.CatalogFaceRecord
 import org.asyncttwiz.catalog.CatalogHeader
 import org.asyncttwiz.catalog.CatalogPrintingRecord
 import org.asyncttwiz.catalog.CatalogSetRecord
 import org.asyncttwiz.catalog.CatalogVersion
 import org.asyncttwiz.protocol.CardSearchRules
+import org.asyncttwiz.protocol.PhysicalCardFaces
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -162,5 +164,28 @@ class CatalogTest {
         } finally { server.stop(0) }
         assertThrows(IllegalArgumentException::class.java) { HttpCatalogSource("http://example.com") }
         assertThrows(IllegalArgumentException::class.java) { HttpCatalogSource("https://example.com/path") }
+    }
+
+    // Card data from the server's catalog (owner 2026-11-10): the card data the phone makes of a deck's card is what the
+    // server builds from the same catalog for its printing (CatalogCards.definition, as a save holds it), so the digests
+    // the phone works with (a cover, its support check) are the server's
+    @Test fun thePhonesCardDataOfADeckCardIsTheServers() {
+        val base = catalog()
+        val faces = base.faces + listOf(
+            CatalogFaceRecord(3, "Dawn Hunter // Dusk Hunter", "Dawn Hunter", "transform", "a", "Creature — Human", "{2}{G}",
+                "At the beginning of each upkeep, transform this creature.", "2", "2", colors = listOf("G"), identity = listOf("G")),
+            CatalogFaceRecord(4, "Dawn Hunter // Dusk Hunter", "Dusk Hunter", "transform", "b", "Creature — Wolf", "",
+                "Trample", "4", "4", colors = listOf("G"), identity = listOf("G")))
+        val printings = base.printings + listOf(CatalogPrintingRecord(id(5), 3, "TST", "3", id(105), others = listOf(id(6))),
+            CatalogPrintingRecord(id(6), 4, "TST", "3", id(105), others = listOf(id(5))))
+        val catalog = CardCatalog(base.header.copy(faces = faces.size, printings = printings.size), base.sets, faces, printings, emptyList())
+        val (file, checksum) = bytes(catalog)
+        CatalogInstaller(directory, repo(), Source(file, checksum), { Long.MAX_VALUE }).install(checksum)
+        val result = DeckImportResolver(repo()).resolve("Deck\n1 Test Bear (TST) 1\n2 Glorp Wizard\n1 Dawn Hunter")
+        assertTrue(result.resolved, result.issues.toString())
+        assertEquals(3, result.entries.size)
+        for (entry in result.entries) assertEquals(
+            PhysicalCardFaces.normalize(CatalogCards.definition(catalog, catalog.printing.getValue(entry.printing.id))),
+            PhysicalCardFaces.normalize(entry.definition(result.catalog)), entry.printing.name)
     }
 }

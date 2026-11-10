@@ -2,7 +2,6 @@ package org.asyncttwiz.server.decks
 
 import java.util.UUID
 import org.asyncttwiz.protocol.*
-import org.asyncttwiz.server.generated.tables.AccountDefinition.ACCOUNT_DEFINITION
 import org.asyncttwiz.server.generated.tables.DeckEntry.DECK_ENTRY
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.SavedDeck.SAVED_DECK
@@ -46,8 +45,6 @@ internal object DraftDeckStore {
             .fetchSet(DEFINITION.DIGEST)
         val entries = entries.filter { it.definition in stored }
         if (entries.isEmpty()) return
-        for (digest in entries.map { it.definition }.toSet()) sql.insertInto(ACCOUNT_DEFINITION)
-            .set(ACCOUNT_DEFINITION.ACCOUNT_ID, owner).set(ACCOUNT_DEFINITION.DIGEST, digest).onConflictDoNothing().execute()
         val existing = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.eq(pod))
             .forUpdate().fetchOne()
         val id = existing?.id ?: UUID.randomUUID()

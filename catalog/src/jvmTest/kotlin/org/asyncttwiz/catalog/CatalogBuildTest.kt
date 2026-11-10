@@ -31,7 +31,8 @@ class CatalogBuildTest {
     // SYS-081
     @Test fun `the catalog holds every English printing, each face once, the set list and the draftable sets' recipes`() {
         assertEquals("5.3.0+20261031", catalog.header.mtgjsonVersion)
-        assertEquals(listOf("BAD", "BON", "DCK", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
+        // E2E and M21: the e2e and server tests' cards (TestCards)
+        assertEquals(listOf("BAD", "BON", "DCK", "E2E", "M21", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
         // Test Bear is printed in TST and OFF: one face, two printings; the Japanese printing is left out
         val bear = face("Test Bear")
         assertEquals(setOf("TST", "OFF"), catalog.printings.filter { catalog.faces[it.face] == bear }.map { it.set }.toSet())
@@ -44,7 +45,7 @@ class CatalogBuildTest {
         assertEquals("rare", knight.rarity)
         assertNotNull(knight.scryfall)
         // LOB-125: a card's tokens and a token's makers
-        val token = catalog.printings.single { it.token }
+        val token = catalog.printings.single { it.token && it.set == "TST" }
         assertEquals(listOf(token.id), catalog.printings.single { catalog.faces[it.face].name == "Test Caller" }.tokens)
         assertEquals(listOf("test caller"), token.makers)
         // DRF-088's kinds of set; only draftable sets keep a recipe
@@ -69,7 +70,8 @@ class CatalogBuildTest {
         assertEquals(listOf("Plain Bear"), sets.getValue("OFF").unsupported)
         assertFalse(sets.getValue("DCK").automatum, "not a kind of set that is drafted")
         val built = build()
-        assertEquals(listOf("Glorp Wizard"), built.listed.filter { it.parts.isNotEmpty() }.map { it.name })
+        // Odd Relic: the e2e tests' card Automatum can't play (UnsupportedPodSourceTest)
+        assertEquals(listOf("Glorp Wizard", "Odd Relic"), built.listed.filter { it.parts.isNotEmpty() }.map { it.name }.sorted())
         assertEquals(listOf("Nobody Here"), build(setOf("Listed Lone", "Nobody Here")).unknownNames)
     }
 

@@ -287,8 +287,10 @@ internal object Filters {
         // gtc chunk 03: "artifacts and creatures your opponents control": each object of either type
         GTC_TYPES_AND.matchEntire(phrase)?.let { m ->
             val a = CARD_TYPES[m.groupValues[1]]; val b = CARD_TYPES[m.groupValues[2]]
-            if (a != null && b != null) {
-                val either = ObjectFilter.Or(listOf(ObjectFilter.Type(a), ObjectFilter.Type(b)))
+            // inr chunk 09: "creatures and nonbasic lands your opponents control" (the second type with a supertype negated)
+            val bFilter = b?.let { ObjectFilter.Type(it) } ?: m.groupValues[2].takeIf { it.startsWith("non") && ' ' in it }?.let { noun(it) }
+            if (a != null && bFilter != null) {
+                val either = ObjectFilter.Or(listOf(ObjectFilter.Type(a), bFilter))
                 return if (m.groupValues[3].isEmpty()) either else all(either, noun("permanents" + m.groupValues[3])?.let { p ->
                     (p as? ObjectFilter.And)?.all?.firstOrNull { it is ObjectFilter.ControlledBy } } ?: return null)
             }
@@ -330,7 +332,7 @@ internal object Filters {
 
     // gtc
     private val GTC_TYPE_AND_TYPE = Regex("""([a-z]+) and ([a-z]+)""")
-    private val GTC_TYPES_AND = Regex("""([a-z]+)s and ([a-z]+)s(| you control| your opponents control| an opponent controls)""")
+    private val GTC_TYPES_AND = Regex("""([a-z]+)s and ((?:non[a-z]+ )?[a-z]+)s(| you control| your opponents control| an opponent controls)""")
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
@@ -654,6 +656,10 @@ internal object Events {
         YOU_CAST_OF_CHOSEN.matchEntire(text)?.let { m ->
             return EventPattern.Cast(spell = Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You)
         }
+        // inr chunk 09: "you cast another Vampire spell" (not this card itself, CR 109.1)
+        YOU_CAST_ANOTHER.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
+        }
         YOU_CAST.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
@@ -908,6 +914,7 @@ internal object Events {
     // chunk 12
     private val YOU_CAST_OF_CHOSEN = Regex("""you cast an? (spell of the chosen \w+)""")
     private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")
+    private val YOU_CAST_ANOTHER = Regex("""you cast another (.+) spell""")
     // chunk 25
     private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
     private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
@@ -1504,7 +1511,9 @@ internal object Values {
         if (text == "the power of the creature that died") return Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(arcanum.api.EventRole.Before), Combine.Single)
         // rtr chunk 06: "the sacrificed creature's toughness" (as it last existed, CR 608.2h)
         SACRIFICED_PROPERTY.matchEntire(text)?.let { m ->
-            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
+            // inr chunk 09: also "mana value" (Eldritch Evolution)
+            val property = when (m.groupValues[1]) { "power" -> arcanum.api.NumericProperty.Power; "toughness" -> arcanum.api.NumericProperty.Toughness
+                else -> arcanum.api.NumericProperty.ManaValue }
             return Value.Of(property, Objects.Bound(SACRIFICED), Combine.Single)
         }
         // rtr chunk 05: "the total life lost by your opponents this turn"
@@ -1529,7 +1538,7 @@ internal object Values {
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
     // rtr chunk 06
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness)""")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness|mana value)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

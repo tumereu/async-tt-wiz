@@ -73,6 +73,21 @@ internal object Inr {
     // inr chunk 08: Fiend Hunter: "you may exile another target creature." (CR 115.1)
     val EXILE_ANOTHER_TARGET = Regex("""Exile another target (.+)\.""")
     // inr chunk 08: Compelling Deterrence: "Return target … to its owner's hand. Then that player discards a card if you control a Zombie."
+    // inr chunk 09: Killing Wave
+    val FOR_EACH_CONTROLLER_SACRIFICES_UNLESS_PAYS_LIFE = Regex("""For each (.+?), its controller sacrifices it unless they pay (X|\d+) life\.""")
+    // inr chunk 09: Liliana of the Veil
+    val SEPARATE_PERMANENTS_INTO_PILES_SACRIFICE_CHOSEN =
+        Regex("""Separate all permanents target (player|opponent) controls into two piles\. That player sacrifices all permanents in the pile of their choice\.""")
+    // inr chunk 09: Grimgrin, Corpse-Born
+    val ENTERS_TAPPED_AND_DOESNT_UNTAP = Regex("""(.+?) enters tapped and doesn't untap during your untap step\.""")
+    // inr chunk 09: Eldritch Evolution "Search your library for …. Put that card onto the battlefield, then shuffle. Exile ~."
+    val SEARCH_THEN_PUT_THAT_CARD = Regex("""Search your library for (an? [^.]+?)\. Put that card (onto the battlefield|into your hand), then shuffle\.(?: (.+))?""")
+    // inr chunk 09: Sigarda, Host of Herons
+    val OPPONENTS_CANT_CAUSE_YOU_TO_SACRIFICE = Regex("""Spells and abilities your opponents control can't cause you to sacrifice permanents\.""")
+    // inr chunk 09: Mirrorwing Dragon
+    val PLAYER_CASTS_SPELL_THAT_TARGETS_ONLY = Regex("""a player casts an? (.+?) spell that targets only (.+)""")
+    val THAT_PLAYER_COPIES_FOR_EACH_COULD_TARGET =
+        Regex("""That player copies that spell for each (other )?(.+?) they control that the spell could target\. Each copy targets a different one of those \w+\.""")
     val RETURN_THEN_THAT_PLAYER_DISCARDS_IF = Regex("""Return target (.+?) to its owner's hand\. Then that player discards a card(?: if (.+))?\.""")
 }
 
@@ -91,7 +106,16 @@ internal object InrPhrases {
     // inr chunk 08: Boarded Window "Creatures attacking you": attacking you, not a planeswalker or battle (CR 506.3, 508.1b)
     private val ATTACKING_YOU = Regex("""(.+?) attacking you""")
 
+    // inr chunk 09: Falkenrath Gorger "Vampire creature card you own that isn't on the battlefield" (in any other zone, CR 400.1)
+    private val YOU_OWN_NOT_ON_BATTLEFIELD = Regex("""(.+?) you own that isn't on the battlefield""")
+    // inr chunk 09: Edgar Markov's eminence "if Edgar is in the command zone or on the battlefield"
+    private val IS_IN_COMMAND_ZONE_OR_ON_BATTLEFIELD = Regex("""(.+) is in the command zone or on the battlefield""")
+
     fun noun(phrase: String): ObjectFilter? {
+        YOU_OWN_NOT_ON_BATTLEFIELD.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You),
+                ObjectFilter.Not(ObjectFilter.InZone(arcanum.api.Zone.Battlefield)))
+        }
         ATTACKING_YOU.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null
             return Filters.all(noun, ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
@@ -102,6 +126,10 @@ internal object InrPhrases {
     }
 
     fun condition(text: String, self: Set<String>): Condition? {
+        IS_IN_COMMAND_ZONE_OR_ON_BATTLEFIELD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Or(listOf(ObjectFilter.InZone(arcanum.api.Zone.Command),
+                ObjectFilter.InZone(arcanum.api.Zone.Battlefield))))
+        }
         YOU_WERE_DEALT_DAMAGE_THIS_TURN.matchEntire(text)?.let { m ->
             val n = m.groupValues[1].takeIf { it.isNotEmpty() }?.toInt() ?: 1
             return Condition.HappenedThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.You)), atLeast = n,

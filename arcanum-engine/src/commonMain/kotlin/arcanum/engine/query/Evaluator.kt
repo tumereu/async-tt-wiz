@@ -958,8 +958,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.InZone -> setOf(filter.zone)
             is ObjectFilter.And -> filter.all.flatMap { zonesIn(it) }.toSet()
             is ObjectFilter.Or -> filter.any.flatMap { zonesIn(it) }.toSet()
+            // inr chunk 09: "that isn't on the battlefield": every other zone of the game (CR 400.1)
+            is ObjectFilter.Not -> (filter.filter as? ObjectFilter.InZone)?.let { n -> GAME_ZONES - n.zone } ?: emptySet()
             else -> emptySet()
         }
+
+        private val GAME_ZONES = setOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
 
         /** Where a filter naming no zone looks: the Stack for spells and abilities, the battlefield otherwise, and both for
          * "either" filters with one of each ("target spell or creature", CR 115.4). */

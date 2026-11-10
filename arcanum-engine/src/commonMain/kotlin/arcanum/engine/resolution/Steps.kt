@@ -180,7 +180,14 @@ internal object Steps {
      */
     private fun forEach(scope: Scope, step: Step.ForEach) {
         val values: List<NamedValue> = when (val each = step.each) {
-            is Each.Objects -> scope.objects(each.objects).map { NamedValue.Objects(listOf(it)) }
+            is Each.Objects -> scope.objects(each.objects).let { ids ->
+                // inr chunk 09: "For each creature, its controller sacrifices it unless …" together: the controllers choose in turn order (CR 101.4)
+                if (!step.together) ids else {
+                    val board = scope.act.board()
+                    val order = scope.act.state.playersFrom(scope.act.state.turn.active)
+                    ids.sortedBy { id -> board.controller(id)?.let { order.indexOf(it) } ?: order.size }
+                }
+            }.map { NamedValue.Objects(listOf(it)) }
             is Each.Players -> {
                 val players = scope.players(each.players)
                 val start = step.startingWith?.let { scope.players(it).firstOrNull() } ?: scope.act.state.turn.active

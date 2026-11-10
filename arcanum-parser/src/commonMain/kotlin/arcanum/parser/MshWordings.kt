@@ -76,7 +76,7 @@ internal object Msh {
     val COUNTERS_PLUS_ONE = Regex("""If you would put one or more counters on (.+), put that many plus one of each of those kinds of counters on that permanent instead\.""")
     val COPY_TARGET_ABILITY = Regex("""Copy target activated or triggered ability you control from an? (\w+) source\. You may choose new targets for the copy\.""")
     val CAST_WITH_MANA_SYMBOLS_CREATE_THAT_MANY = Regex("""Whenever you cast an? (\w+) spell with one or more (white|blue|black|red|green) mana symbols in its mana cost, create that many (.+) tokens\.""")
-    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of that creature, except it isn't legendary\.""")
+    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of that (creature|permanent)(, except it isn't legendary)?\.""") // inr chunk 09: permanent, no exception
     val TARGET_BECOMES_COPY_OF_SECOND = Regex("""Target (.+) becomes a copy of a second target (.+) until end of turn, except it isn't legendary\.""")
     val MAY_PUT_FROM_HAND_IF_EQUIPMENT_ATTACH = Regex("""[Yy]ou may put an? (.+) from your hand onto the battlefield\. If it's an? (\w+), attach it to (.+)\.""")
     val UNTIL_EOT_TARGET_BECOMES_ARTIFACT_CREATURE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains (.+)\.""")

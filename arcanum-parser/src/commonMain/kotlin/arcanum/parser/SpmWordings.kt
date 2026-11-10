@@ -63,7 +63,7 @@ internal object Spm {
     val TARGET_OPPONENT_LOSES_FOR_THEIR = Regex("""Target opponent loses life equal to the number of (.+?) they control\.""")
     val DEALS_TO_TARGET_AND_ITS_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target (.+?) and (\d+) damage to that (\w+)'s controller\.""")
     val TARGET_DEALS_DAMAGE_TO_ITSELF_IF_ATTACKING = Regex("""Target (.+?) deals damage equal to its power to itself\. If that creature is attacking, (.+?) deals (\d+) damage to that creature's controller\.""")
-    val MAY_SACRIFICE_DRAW_X_PUT_PERMANENT = Regex("""[Yy]ou may sacrifice another creature\. If you do, draw X cards, then you may put an? (.+?) with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature's mana value\.""")
+    val MAY_SACRIFICE_DRAW_X_PUT_PERMANENT = Regex("""[Yy]ou may sacrifice another creature\. If you do, draw X cards, then you may put an? (.+?) with mana value X or less from your hand onto the battlefield(?:, where X is the sacrificed creature's mana value)?\.""") // inr chunk 09: the "where X is" may be read off first
     val GWENOM = Regex("""[Uu]ntil end of turn, you may look at the top card of your library any time and you may play cards from the top of your library\. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\.""")
     val PARKER_LUCK = Regex("""(\w+) target players each reveal the top card of their library\. They each lose life equal to the mana value of the card revealed by the other player\. Then they each put the card they revealed into their hand\.""")
     val EACH_PLAYER_MAY_DISCARD_WHO_DOESNT_LOSES = Regex("""Each player may discard a card\. Each player who doesn't loses (\d+) life\.""")

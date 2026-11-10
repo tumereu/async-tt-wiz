@@ -386,9 +386,20 @@ internal object Actions {
 
     /** Sacrifices [ids] (CR 701.21): only permanents, and not those that can't be sacrificed. */
     fun sacrifice(act: Act, cause: Cause?, ids: List<ObjectId>): Map<ObjectId, ObjectId> {
-        val view = act.view()
-        val ok = ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && view[it]?.has { m -> m == Mechanic.CantBeSacrificed } != true }
+        val ok = ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && !cantBeSacrificed(act, it, cause?.controller) }
         return moveTo(act, cause, ok, Zone.Graveyard, listOf(Meaning.Sacrificed))
+    }
+
+    /** Whether [id] can't be sacrificed (CR 701.21a): [Mechanic.CantBeSacrificed], or (inr chunk 09) [Mechanic.CantBeSacrificedBy] whose
+     * players, seen from the controller of the ability giving it, include [by], the controller of the spell or ability sacrificing it. */
+    fun cantBeSacrificed(act: Act, id: ObjectId, by: PlayerId?): Boolean {
+        val view = act.view()[id] ?: return false
+        if (view.has { it == Mechanic.CantBeSacrificed }) return true
+        if (by == null) return false
+        return view.mechanics.any { applied ->
+            val m = applied.mechanic as? Mechanic.CantBeSacrificedBy ?: return@any false
+            act.evaluator(Context(you = applied.controller)).matches(m.controllers, by)
+        }
     }
 
     /** Moves [ids] to their owners' [to] (CR 400.3). */

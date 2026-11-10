@@ -62,6 +62,12 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        // inr chunk 09: "Grimgrin enters tapped and doesn't untap during your untap step." (two static abilities, CR 614.1c, 502.3)
+        Inr.ENTERS_TAPPED_AND_DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val tapped = line("${m.groupValues[1]} enters tapped.")?.takeIf { it !is Ability.Unparsed } ?: return@let
+            val untap = line("${m.groupValues[1]} doesn't untap during your untap step.")?.takeIf { it !is Ability.Unparsed } ?: return@let
+            return listOf(tapped, untap)
+        }
         // inr chunk 07: "This spell costs {1} less to cast if you control a Spirit. It also costs {1} less to cast if you control an enchantment."
         // (two reductions, each applying when its condition holds, CR 601.2f)
         Inr.COSTS_LESS_IF_IT_ALSO_COSTS_LESS_IF.matchEntire(line)?.let { m ->
@@ -897,7 +903,7 @@ internal class Sentences(
         Dft.PUT_ANY_NUMBER_FROM_HAND.matchEntire(sentence)?.let { m ->
             val filter = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = null), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))))
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))))
         }
         // dft chunk 07: "It deals 2 damage to each player who doesn't have max speed." (speed below 4, none counting as 0, CR 702.179e, f)
         Dft.DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED.matchEntire(sentence)?.let { m ->
@@ -1343,7 +1349,10 @@ internal class Sentences(
         // cast from a zone, CR 601.2a, not the card in that zone)
         ALTERNATIVE_COST_FOR_SPELLS.matchEntire(line)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
-            val cards = if (m.groupValues[3].isEmpty()) ObjectFilter.WasCast() else ObjectFilter.WasCast(Zone.Exile)
+            val cast = if (m.groupValues[4].isEmpty()) ObjectFilter.WasCast() else ObjectFilter.WasCast(Zone.Exile)
+            // inr chunk 09: "for Zombie creature spells you cast": only spells of that kind (the card as the spell it would be, CR 601.2a)
+            val kind = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null }
+            val cards = if (kind == null) cast else Filters.all(kind, cast)
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
@@ -2317,8 +2326,11 @@ internal class Sentences(
         // chunk 15: "return this card from your graveyard" works only there (CR 113.6m)
         val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
             ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") }
+        // inr chunk 09: eminence "if Edgar is in the command zone or on the battlefield": each of the zones (CR 113.6b)
+        val zones = zone?.let { listOf(it) } ?: (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.Or)?.any
+            ?.map { (it as? ObjectFilter.InZone)?.zone ?: return@map null }?.takeIf { z -> z.all { it != null } }?.filterNotNull()
         return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
-            functionsIn = zone?.let { listOf(it) }, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
+            functionsIn = zones, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
     }
 
     /** fdn chunk 01: "When there are four or more page counters on this artifact, [effect]": a state, not an event (CR 603.8). "It" is this
@@ -3050,7 +3062,8 @@ internal class Sentences(
         // revealing until a card is found, inside the same condition
         PUT_FOUND_IN_HAND_REST_ON_BOTTOM.matchEntire(sentence)?.let { m ->
             val moves = listOf(Step.Do(Effect.Move(Objects.Bound(FOUND), Destination(Zone.Hand))),
-                Step.Do(Effect.Move(Objects.Bound(REST), Destination(Zone.Library, libraryPosition = -1, randomOrder = m.groupValues[1] == "a random"))))
+                Step.Do(Effect.Move(Objects.Bound(REST), if (m.groupValues[2].isNotEmpty()) Destination(Zone.Graveyard)
+                    else Destination(Zone.Library, libraryPosition = -1, randomOrder = m.groupValues[1] == "a random"))))
             fun revealsUntil(step: Step?) = ((step as? Step.Do)?.effect as? Effect.RevealUntil)?.foundBind == FOUND
             val previous = steps.lastOrNull()
             return when {
@@ -3640,15 +3653,17 @@ internal class Sentences(
         // dsk chunk 11: "It deals 3 damage to up to one target creature." (this object)
         SELF_DEALS_TO_UP_TO_ONE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (it.groupValues[1] == "It" && context.targets.isEmpty()) }?.let { m ->
             val noun = m.groupValues[3]
+            // inr chunk 09: "It deals X damage to up to one target creature or planeswalker, where X is …" (X as "where X is" defines it)
+            val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // inr chunk 08: "up to one target player or planeswalker" (CR 115.4)
             Rtr.PLAYER_OR_PLANESWALKER.matchEntire(noun)?.let { p ->
                 val players = if (p.groupValues[1] == "opponent") PlayerFilter.Opponent else PlayerFilter.Any
                 context.targets += TargetSlot(noun, TargetKind.Either(ObjectFilter.Type(CardType.Planeswalker), players), min = Value.Fixed(0), max = Value.Fixed(1))
-                return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = noun), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
+                return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = noun), amount, source = Objects.Self)))
             }
             val name = Filters.slotName(noun)
             context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
-            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), amount, source = Objects.Self)))
         }
         // dsk chunk 11: "Target creature you control deals damage equal to its power to each other creature." (the target deals it)
         TARGET_DEALS_POWER_TO_EACH_OTHER.matchEntire(sentence)?.let { m ->
@@ -4811,6 +4826,8 @@ internal class Sentences(
             return listOf(Step.Pay(Cost.mana(cost), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
         UNTAP.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            // inr chunk 09: "Untap Grimgrin and put a +1/+1 counter on it.": then "it" is this object
+            if (context.it == null) context.it = Objects.Self
             return listOf(Step.Do(Effect.Untap(Objects.Self)))
         }
         YOU_MAY_EXILE_FROM_HAND.matchEntire(sentence)?.let { m ->
@@ -4909,7 +4926,8 @@ internal class Sentences(
         }
         DESTROY_TARGET.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
-            val filter = Filters.noun(noun) ?: return null
+            // inr chunk 09: an unread noun ("creature defending player controls, then put …") leaves the sentence to the rules after it
+            val filter = Filters.noun(noun) ?: return@let
             return listOf(Step.Do(Effect.Destroy(context.target(Filters.slotName(noun), filter))))
         }
         // chunk 26: "You may [cost or action]. If you do, [effect]." (CR 118.12)
@@ -5797,6 +5815,10 @@ internal class Sentences(
         // dgm: "Your opponents can't cast spells with the chosen name." / "Spells with the chosen name you cast cost {2} less to cast."
         if (line == "Your opponents can't cast spells with the chosen name.")
             return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.RememberedName(CHOSEN_NAME))), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
+        // inr chunk 09: "Spells and abilities your opponents control can't cause you to sacrifice permanents." (CR 701.21a)
+        if (Inr.OPPONENTS_CANT_CAUSE_YOU_TO_SACRIFICE.matches(line))
+            return Ability.Static(listOf(Mechanic.CantBeSacrificedBy(PlayerFilter.Opponent)),
+                affects = Affected.Objects(Objects.Each(Filters.noun("permanent you control") ?: return null)))
         // inr chunk 06: "Your opponents can't cast spells with mana value 3 or less." (CR 101.2)
         Inr.OPPONENTS_CANT_CAST_SPELLS_WITH.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.CantCast(Filters.noun(m.groupValues[1]) ?: return null)), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
@@ -5825,7 +5847,10 @@ internal class Sentences(
         // dgm: "Each creature card in your graveyard has scavenge. The scavenge cost is equal to its mana cost." (CR 702.97a)
         Gtc.CARDS_HAVE_SCAVENGE.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Scavenge(Cost(listOf(CostPart.ItsManaCost)))))),
+            // inr chunk 09: also madness, for cards in every zone but the battlefield (CR 702.35a)
+            val cost = Cost(listOf(CostPart.ItsManaCost))
+            val keyword = if (m.groupValues[2] == "madness") arcanum.api.Keyword.Madness(cost) else arcanum.api.Keyword.Scavenge(cost)
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))),
                 affects = Affected.Objects(Objects.Each(filter)))
         }
         return null
@@ -10664,7 +10689,7 @@ internal class Sentences(
         val STEP_OF_ENCHANTED_CONTROLLER = Regex("""the beginning of the (upkeep|draw step) of enchanted (?:creature|permanent|land)'s controller""")
         val ENCHANTED_BECOMES_TAPPED = Regex("""enchanted (?:land|creature|permanent) becomes tapped""")
         val EXILE_UP_TO_TARGETS_AND_OR_CARDS = Regex("""You may exile (up to \w+) (other )?target (.+?) from the battlefield and/or (.+?) from graveyards\.""")
-        val RETURN_THE_EXILED_CARDS = Regex("""Return the exiled cards? (to their owners' hands|to the battlefield under (?:their|its) owner's control)\.""") // inr chunk 08: card
+        val RETURN_THE_EXILED_CARDS = Regex("""Return (?:the exiled cards?|all cards exiled with it) (to their owners' hands|to the battlefield under (?:their|its) owner's control|to the battlefield under their owners' control)\.""") // inr chunk 08: card
         // rtr chunk 01
         val SACRIFICE_IT_UNLESS_YOU = Regex("""Sacrifice (it|this \w+) unless you (.+)\.""")
         val EXCHANGE_CONTROL_OF_SELF_AND_TARGET = Regex("""(You may )?[Ee]xchange control of (.+) and target (.+)\.""")
@@ -11062,7 +11087,7 @@ internal class Sentences(
         val GAIN_CONTROL_UNTIL_EOT = Regex("""Gain control of target (.+) until end of turn\.""")
         val SELF_DEALS_N_TO_THEM = Regex("""(.+) deals (\d+) damage to them\.""")
         val N_OR_M_TARGETS_CANT_BLOCK = Regex("""(One|Up to one|\w+) or (\w+) target (.+) can't block this turn\.""")
-        val SELF_DEALS_TO_UP_TO_ONE = Regex("""(.+?) deals (\d+) damage to up to one target (.+)\.""")
+        val SELF_DEALS_TO_UP_TO_ONE = Regex("""(.+?) deals (\d+|X) damage to up to one target (.+)\.""") // inr chunk 09: X
         val TARGET_DEALS_POWER_TO_EACH_OTHER = Regex("""Target (.+) deals damage equal to its power to each other (.+)\.""")
         val IF_THAT_WOULD_DIE_THIS_TURN = Regex("""If that (?:creature|creature or planeswalker) would die this turn, exile it instead\.""")
         val REMOVE_THOSE_COUNTERS_AND_DEALS = Regex("""If there are (\w+) or more (\S+) counters on it, remove those counters and it deals (\d+) damage to you\.""")
@@ -11162,7 +11187,7 @@ internal class Sentences(
         val PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM = Regex("""Put all (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
         // dsk chunk 02
         val NO_MAXIMUM_HAND_SIZE = Regex("""You have no maximum hand size( and don't lose the game for having 0 or less life)?\.""")
-        val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells) you cast( from exile)?\.""")
+        val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells|([A-Za-z ]+?) spells) you cast( from exile)?\.""") // inr chunk 09: "Zombie creature spells"
         val GETS_AND_GAINS_UNTIL_EOT = Regex("""(.+?) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) and (gains|loses) (.+) until (end of turn|your next turn)\.""")
         val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?) to (any target|target .+|each opponent)\.""")
         // dungeons: no duration ("You may play them."): for as long as they remain exiled
@@ -11446,7 +11471,7 @@ internal class Sentences(
         const val CHOSEN = "chosen"
         val CANT_BE_ACTIVATED = Regex("""Activated abilities of (.+) can't be activated\.""")
         val EVERY_ZONE = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
-        val PUT_FOUND_IN_HAND_REST_ON_BOTTOM = Regex("""Put that card into your hand and the rest on the bottom of your library in (a random|any) order\.""")
+        val PUT_FOUND_IN_HAND_REST_ON_BOTTOM = Regex("""Put that card into your hand and (?:the rest|all other cards revealed this way) (?:on the bottom of your library in (a random|any) order|(into your graveyard))\.""") // inr chunk 09: graveyard
         val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal (.+)\.""")
         const val FOUND = "found"
         const val REST = "rest"
@@ -12700,7 +12725,10 @@ internal class Sentences(
         }
         // tla chunk 03: "you cast a spell from exile" (tested as it becomes cast, CR 601.2a), "… and whenever a permanent you control enters
         // from exile" (one ability with two events)
-        if (Tla.YOU_CAST_FROM_EXILE.matches(events)) return arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You, from = Zone.Exile))
+        // inr chunk 09: also "from your graveyard" (flashback, CR 702.34a)
+        Tla.YOU_CAST_FROM_EXILE.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You, from = if (m.groupValues[1] == "exile") Zone.Exile else Zone.Graveyard))
+        }
         Tla.CAST_FROM_EXILE_AND_ENTERS_FROM_EXILE.matchEntire(events)?.let { m ->
             return arcanum.api.Trigger.On(listOf(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You, from = Zone.Exile),
                 EventPattern.ZoneChange(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, from = Zone.Exile, to = Zone.Battlefield)))
@@ -14701,6 +14729,11 @@ internal class Sentences(
             val spell = ObjectFilter.Targets(objects = Objects.Each(targeted))
             return arcanum.api.Trigger.On(EventPattern.Cast(if (kind == null) spell else Filters.all(kind, spell), PlayerFilter.You))
         }
+        // inr chunk 09: "a player casts an instant or sorcery spell that targets only this creature" (CR 115.7)
+        Inr.PLAYER_CASTS_SPELL_THAT_TARGETS_ONLY.matchEntire(events)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Cast(Filters.all(Filters.noun(m.groupValues[1] + " spell") ?: return null,
+                ObjectFilter.SingleTarget(ObjectFilter.Is(Objects.Self))), PlayerFilter.Any))
+        }
         // msh chunk 05: "a player casts a spell that targets Speedball"
         Msh.PLAYER_CASTS_SPELL_THAT_TARGETS.matchEntire(events)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Targets(objects = Objects.Self), PlayerFilter.Any))
@@ -15055,9 +15088,11 @@ internal class Sentences(
         // (CR 707.9b)
         Msh.FOR_EACH_CREATE_COPY_NOT_LEGENDARY.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(filter)), "creature", listOf(Step.Do(Effect.CreateToken(
-                arcanum.api.TokenSpec.CopyOf(Objects.Bound("creature"), except = listOf(arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)))),
-                Value.Fixed(1), Players.You)))))
+            // inr chunk 09: "For each token you control, create a token that's a copy of that permanent." (CR 707.2)
+            val bind = m.groupValues[2]
+            val except = if (m.groupValues[3].isEmpty()) emptyList() else listOf(arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)))
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(filter)), bind, listOf(Step.Do(Effect.CreateToken(
+                arcanum.api.TokenSpec.CopyOf(Objects.Bound(bind), except = except), Value.Fixed(1), Players.You)))))
         }
         // msh chunk 05: "Target artifact you control becomes a copy of a second target artifact you control until end of turn, except it
         // isn't legendary." (layer 1, CR 707.9b)
@@ -15431,6 +15466,16 @@ internal class Sentences(
 
     /** inr: single-sentence effects. */
     private fun inrEffect(sentence: String, context: Context): List<Step>? {
+        // inr chunk 09: "For each creature, its controller sacrifices it unless they pay X life." (each controller decides for each of their
+        // creatures in turn order, then those not paid for are sacrificed at once, CR 101.4, 118.12a, 119.4)
+        Inr.FOR_EACH_CONTROLLER_SACRIFICES_UNLESS_PAYS_LIFE.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val bind = Filters.slotName(noun)
+            val each = Objects.Bound(bind)
+            val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(Filters.noun(noun) ?: return null)), bind, together = true,
+                steps = unlessPays(Players.ControllerOf(each), Cost(listOf(CostPart.PayLife(amount))), listOf(Step.Do(Effect.Sacrifice(each))))))
+        }
         // inr chunk 08: "any opponent may have it deal 4 damage to them." (each opponent in turn order until one does, CR 101.4; "If a player
         // does, …" reads the outcome)
         Inr.ANY_OPPONENT_MAY_HAVE_DEAL_TO_THEM.matchEntire(sentence)?.takeIf { (it.groupValues[1] == "it" && context.event != null) || isSelf(it.groupValues[1]) }?.let { m ->
@@ -15565,6 +15610,30 @@ internal class Sentences(
 
     /** inr: whole multi-sentence effects. */
     private fun inrWhole(text: String, context: Context): List<Step>? {
+        // inr chunk 09: "that player copies that spell for each other creature they control that the spell could target. Each copy targets a
+        // different one of those creatures." (the caster, CR 707.10d)
+        Inr.THAT_PLAYER_COPIES_FOR_EACH_COULD_TARGET.matchEntire(text)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val theirs = Filters.all(*listOfNotNull(context.another().takeIf { m.groupValues[1].isNotEmpty() }, noun,
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.EventPlayer))).toTypedArray())
+            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.EventPlayer, newTargets = false,
+                forEachCouldTarget = Objects.Each(theirs))))
+        }
+        // inr chunk 09: "Separate all permanents target player controls into two piles. That player sacrifices all permanents in the pile of their
+        // choice." (you separate, that player chooses, CR 700.3)
+        Inr.SEPARATE_PERMANENTS_INTO_PILES_SACRIFICE_CHOSEN.matchEntire(text)?.let { m ->
+            val player = if (m.groupValues[1] == "opponent") context.targetOpponent() else context.targetPlayer()
+            return listOf(Step.Do(Effect.SeparatePiles(Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(player)))), separator = Players.You, chooser = player, chosenBind = "chosen pile")),
+                Step.Do(Effect.Sacrifice(Objects.Bound("chosen pile"))))
+        }
+        // inr chunk 09: "Search your library for a creature card with mana value X or less[, where X is …]. Put that card onto the battlefield, then
+        // shuffle." (one search, the card put where it says, CR 701.23a), then the sentences after it
+        Inr.SEARCH_THEN_PUT_THAT_CARD.matchEntire(text)?.let { m ->
+            val search = effect("Search your library for ${m.groupValues[1]}, put it ${m.groupValues[2]}, then shuffle.", context) ?: return null
+            val rest = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { r -> sentences(r).map { effect(it, context) ?: return null }.flatten() }.orEmpty()
+            return search + rest
+        }
         // inr chunk 08: "Return target nonland permanent to its owner's hand. Then that player discards a card if you control a Zombie." (that player
         // is the owner; the condition is checked as the spell resolves)
         Inr.RETURN_THEN_THAT_PLAYER_DISCARDS_IF.matchEntire(text)?.let { m ->

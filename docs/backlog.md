@@ -20,7 +20,6 @@ Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a;
 
 Card data from the server's catalog (owner, 2026-11-10: "we'll just implement it"; research report in the orchestrator's notes), after the 2026-11-10 release:
 
-- Step 2: inputs only, digests unchanged everywhere. Deck and cube saves send (section, printingId, quantity) and the server builds each card with `CatalogCards.definition`. `POST /v1/definitions`, `SubmitDefinitions`, `account_definition` and its checks, and the phone's save plan, retry and digest checks go. The server picks the basic lands (pod submit and challenges: no upload before a challenge), fills `DraftSettings.librarianDefinition`, and takes the playable dungeons from its catalog (LOB-117 changes: `GameCommand.inlineDefinitions`, `OutsideCards.valid`, the phone's `token_choice` table and token list go). Stored rows stay as they are.
 - Owner approved A and B (2026-11-10), as steps 3 (A) and 4 (B): (A) the server works out Automatum support from the catalog's marks on read (LOB-124): the phone's background run, `PUT …/automatum` and the stored support columns go; also closes a deck with no stored support passing Ready. (B) Saved decks and cubes store printing ids instead of digests (migration from `definition.payload->>'printingId'`; printings missing from the catalog found again by name, else a card without a printing). The batch definition reads and the old-data editor code go; old decks then show the current catalog's text.
 
 Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):

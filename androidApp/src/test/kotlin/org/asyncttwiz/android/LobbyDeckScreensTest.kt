@@ -253,7 +253,6 @@ class LobbyDeckScreensTest {
             override suspend fun list(token: String, after: String?) = DeckList(listOfNotNull(saved?.deck))
             override suspend fun read(token: String, id: String) = checkNotNull(saved)
             override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { SubmittedDefinition(it, definitions.getValue(it)) }
-            override suspend fun submit(token: String, input: SubmitDefinitions): DefinitionsAccepted = error("Use captured save action")
             override suspend fun create(token: String, input: CreateDeck): SavedDeck = error("Use captured save action")
             override suspend fun update(token: String, id: String, input: UpdateDeck): SavedDeck = error("No update")
             override suspend fun delete(token: String, id: String, input: DeleteDeck): DeckDeleted = error("No delete")
@@ -262,9 +261,12 @@ class LobbyDeckScreensTest {
         val library = DeckLibraryController(api, { "token" }, worker, { it() })
         val importer = DeckImportController({ imported }, worker, { it() })
         importer.connectSave({ { plan ->
-            definitions = plan.definitions.definitions.associate { it.digest to it.definition }
-            SavedDeck(DeckSummary(id(), plan.deck.name, "1", "date", 2, 0,
-                cover = DeckCover(checkNotNull(plan.cover), "Rune Bear")), plan.deck.entries).also { saved = it }
+            definitions = plan.cards.associate { it.digest to it.definition }
+            // As the server stores the save: each printing's card, as the phone makes it
+            val entries = plan.entries.map { entry -> SavedDeckEntry(entry.section,
+                plan.cards.single { it.definition.printingId == entry.printingId }.digest, entry.quantity) }
+            SavedDeck(DeckSummary(id(), plan.name, "1", "date", 2, 0,
+                cover = DeckCover(checkNotNull(plan.cover), "Rune Bear")), entries).also { saved = it }
         } }, { library.open(it.deck.id) })
         importer.open()
         try {

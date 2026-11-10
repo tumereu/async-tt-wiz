@@ -189,7 +189,7 @@ object StartRules {
             else -> error("Not a readiness action")
         }
     }
-    /** [actor]'s Ready with the cards they own outside the game ([outside], checked by [org.asyncttwiz.protocol.game.OutsideCards.valid]):
+    /** [actor]'s Ready with the cards they own outside the game ([outside], the server catalog's dungeons, LOB-117):
      * kept with their prepared deck, replacing the ones of an earlier Ready. */
     fun withOutside(preparation: LobbyPreparation, actor: String, outside: List<SubmittedDefinition>): LobbyPreparation {
         val players = preparation.players.map { p ->

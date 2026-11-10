@@ -80,14 +80,9 @@ class RequestCostTest {
                     }
 
                     // A drafting two-player pod from a 90-card cube.
-                    val cards = (0 until 90).map { n ->
-                        val card = CardDefinition("Cost fixture $n", listOf(DefinitionFace(id(), "Cost fixture $n", manaCost = "{W}",
-                            rulesText = "Some rules text that makes the definition a realistic size. ".repeat(3))))
-                        SubmittedDefinition(DeckJson.digest(card), card)
-                    }
-                    send(a, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), cards)))
+                    val cards = TestPrintings.names("E2E").take(90)
                     val cube = json.decodeFromString<SavedCube>(send(a, "POST", "/v1/cubes",
-                        json.encodeToString(CreateCube(id(), "Cost cube", cards.map { SavedCubeEntry(it.digest, 1) }))))
+                        json.encodeToString(CreateCube(id(), "Cost cube", cards.map { TestPrintings.entry(it, 1) }))))
                     val pod = json.decodeFromString<PodDetail>(send(a, "POST", "/v1/pods",
                         json.encodeToString(CreatePod(id(), "Cost pod", cube.cube.id)))).id
                     send(a, "POST", "/v1/pods/$pod/invitations", json.encodeToString(InviteToPod(id(), b.account.accountId)))
@@ -111,9 +106,7 @@ class RequestCostTest {
                     }
                     fun deck(who: AccountService.Principal): SavedDeck {
                         val decks = DeckService(runtime)
-                        assertEquals(200, decks.submit(who, SubmitDefinitions(id(), listOf(cards[0]))).status)
-                        return GameWire.json.decodeFromString(decks.create(who, CreateDeck(id(), "Cost deck", listOf(
-                            SavedDeckEntry(SavedDeckSection.MAINBOARD, cards[0].digest, 40)))).body)
+                        return GameWire.json.decodeFromString(decks.create(who, CreateDeck(id(), "Cost deck", listOf(TestPrintings.entry("Forest", 40)))).body)
                     }
                     val lobbyScope = GameScope(game.id, game.preparationRound)
                     val da = deck(pa); val dbk = deck(pb)
@@ -175,6 +168,11 @@ class RequestCostTest {
                         measure("GET /v1/pods") { get(a, "/v1/pods") }
                         measure("GET /v1/decks") { get(a, "/v1/decks") }
                         measure("GET /activity") { get(a, "/activity") }
+                        // A deck save: one request, its cards' card data built from the catalog (owner 2026-11-10); B's deck,
+                        // so A's deck list stays the same bytes
+                        measure("PUT /v1/decks/{id}") { send(b, "PUT", "/v1/decks/${dbk.deck.id}", json.encodeToString(UpdateDeck(id(),
+                            contents = DeckContentsImport(listOf(TestPrintings.entry("Forest", 30 + it), TestPrintings.entry(cards[1], 3),
+                                TestPrintings.entry(cards[2], 2, SavedDeckSection.SIDEBOARD)))))) }
                     }
                     for ((name, costs) in samples) {
                         val sorted = times.getValue(name).sorted()
@@ -192,7 +190,9 @@ class RequestCostTest {
                         "game open: subscribe" to 28, "game open: head refresh" to 9, "GET /v1/games/{id}/head" to 7, "GET /v1/pods/{id}" to 10,
                         // The games list reads its change token first (switch-review #11), and its summaries in two queries
                         // whatever the number of games (one per game before, and each play's row decoded)
-                        "GET /v1/games" to 8, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15)
+                        "GET /v1/games" to 8, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15,
+                        // Its card data in one statement, its rows in another (one per row before)
+                        "PUT /v1/decks/{id}" to 13)
                     for ((name, trips) in expected) assertEquals(List(10) { trips }, samples.getValue(name).map { it.work }, name)
                     // Requests never touch the ownership session: only its own 500 ms check does, far fewer times.
                     val requests = samples.values.sumOf { it.size }

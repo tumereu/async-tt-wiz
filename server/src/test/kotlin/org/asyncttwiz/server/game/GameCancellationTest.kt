@@ -33,11 +33,8 @@ class GameCancellationTest {
         return input to json.decodeFromString(lobby.create(a, input).body)
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal): SavedDeck {
-        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Face")))
-        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition); val decks = DeckService(runtime)
-        assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
-        return json.decodeFromString(decks.create(actor, CreateDeck(id(), "Source", listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 3)))).body)
+        val decks = DeckService(runtime)
+        return json.decodeFromString(decks.create(actor, CreateDeck(id(), "Source", listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 3)))).body)
     }
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString()); val connection = UUID.randomUUID()

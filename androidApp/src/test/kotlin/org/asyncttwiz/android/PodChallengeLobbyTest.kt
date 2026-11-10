@@ -22,6 +22,8 @@ class PodChallengeLobbyTest {
         val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
         SubmittedDefinition(DeckJson.digest(card), card)
     }
+    /** The prepared deck's basics, as the server supplies them (LOB-052). */
+    private val basicMap = BasicLand.entries.zip(definitions).associate { (land, card) -> land to card.digest }
     private class Worker : AbstractExecutorService() {
         val queue = ArrayDeque<Runnable>()
         override fun execute(command: Runnable) { queue.add(command) }
@@ -42,17 +44,11 @@ class PodChallengeLobbyTest {
     }
     private inner class Fixture : AutoCloseable {
         val worker = Worker(); val wire = Wire(); val calls = mutableListOf<String>()
-        val challenges = mutableListOf<ChallengeFromPod>(); val submissions = mutableListOf<SubmitDefinitions>()
+        val challenges = mutableListOf<ChallengeFromPod>()
         val challengedPods = mutableListOf<String>()
         var failure: Exception? = null
-        var submissionFailure: Exception? = null
-        var fail = false; var resolutions = 0; var opens = 0; var resolve: () -> List<SubmittedDefinition> = { resolutions++; definitions }
+        var fail = false; var opens = 0
         val decks = object : Decks {
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted {
-                calls.add("definitions"); submissions.add(value)
-                submissionFailure?.let { throw it }
-                return DefinitionsAccepted(value.definitions.map { it.digest })
-            }
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck = error("No saved decks")
             override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> = error("No saved decks")
@@ -77,7 +73,7 @@ class PodChallengeLobbyTest {
             override fun close() = Unit
         }
         val controller = LobbyController(api, { "token" }, worker, { it() }, openGame = { opens++ }, gameConnection = wire,
-            accountId = { a.accountId }, deckApi = decks, basicLandDefinitions = { resolve() })
+            accountId = { a.accountId }, deckApi = decks)
         fun challenge() { controller.challengeFromPod(pod, b.accountId, game.gameName); worker.drain() }
         fun head(preparation: LobbyPreparation) {
             wire.listener.opened(); wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
@@ -88,16 +84,17 @@ class PodChallengeLobbyTest {
         override fun close() { controller.close(); worker.drain() }
     }
 
-    @Test fun resolvesAndSubmitsBeforeChallengeThenOpensOrdinaryLobbyAndRetriesExactOriginal() = Fixture().use { f ->
+    // LOB-052: the server supplies the basics: a challenge is one request, no card data uploaded before it
+    @Test fun challengeIsOneRequestThenOpensOrdinaryLobbyAndRetriesExactOriginal() = Fixture().use { f ->
         f.fail = true; f.challenge()
-        assertEquals(listOf("definitions", "challenge"), f.calls)
+        assertEquals(listOf("challenge"), f.calls)
         assertNull(f.controller.state.selected); assertNotNull(f.controller.state.error)
         f.fail = false; f.challenge()
-        assertEquals(1, f.resolutions); assertEquals(f.challenges[0], f.challenges[1]); assertEquals(f.submissions[0], f.submissions[1])
-        assertEquals(definitions, f.challenges.last().basicDefinitions)
+        assertEquals(f.challenges[0], f.challenges[1])
+        assertEquals(ChallengeFromPod(f.challenges[0].requestId, b.accountId, game.gameName), f.challenges.last())
         assertEquals(game.id, f.controller.state.selected); assertEquals(1, f.opens)
         f.controller.clear(); f.challenge()
-        assertEquals(2, f.resolutions); assertNotEquals(f.challenges[0].requestId, f.challenges.last().requestId)
+        assertNotEquals(f.challenges[0].requestId, f.challenges.last().requestId)
     }
 
     @Test fun freshSuggestedNameRetriesRetainedPodChallengeAndBothRequestIds() = Fixture().use { f ->
@@ -107,8 +104,6 @@ class PodChallengeLobbyTest {
         f.controller.challengeFromPod(pod, b.accountId, "A fresh suggestion"); f.worker.drain()
         assertEquals(2, f.challenges.size)
         assertEquals(f.challenges.first(), f.challenges.last())
-        assertEquals(f.submissions.first(), f.submissions.last())
-        assertEquals(1, f.resolutions)
         assertNull(f.controller.state.retryPodChallengeName)
     }
 
@@ -130,19 +125,19 @@ class PodChallengeLobbyTest {
         assertEquals(game.id, f.controller.state.selected)
     }
 
-    @Test fun terminalDefinitionFailureDoesNotRetainChallenge() = Fixture().use { f ->
-        f.submissionFailure = DeckFailure("invalid_definition"); f.challenge()
+    @Test fun terminalFailureDoesNotRetainChallenge() = Fixture().use { f ->
+        f.failure = LobbyFailure("deck_not_submitted"); f.challenge()
         assertNull(f.controller.state.retryPodChallengeName)
-        f.submissionFailure = null
+        f.failure = null
         f.controller.challengeFromPod(id(), id(), "Another game"); f.worker.drain()
-        assertEquals(1, f.challenges.size)
-        assertNotEquals(f.submissions.first().requestId, f.submissions.last().requestId)
+        assertEquals(2, f.challenges.size)
+        assertNotEquals(f.challenges.first().requestId, f.challenges.last().requestId)
     }
 
-    @Test fun missingBasicsAndClearedAccountNeverCreateChallenges() = Fixture().use { f ->
-        f.resolve = { throw LobbyFailure("basic_definitions_unavailable") }
-        f.challenge(); assertTrue(f.calls.isEmpty()); assertTrue(f.controller.state.error!!.contains("M21"))
-        f.resolve = { definitions }
+    @Test fun missingServerBasicsKeepTheChallengeForARetryAndClearedAccountNeverCreatesOne() = Fixture().use { f ->
+        f.failure = LobbyFailure("basic_definitions_unavailable"); f.challenge()
+        assertTrue(f.controller.state.error!!.contains("M21")); assertNotNull(f.controller.state.retryPodChallengeName)
+        f.failure = null; f.calls.clear(); f.controller.clear()
         f.controller.challengeFromPod(pod, b.accountId, game.gameName)
         f.controller.clear(); f.worker.drain()
         assertTrue(f.calls.isEmpty()); assertNull(f.controller.state.selected)
@@ -154,7 +149,7 @@ class PodChallengeLobbyTest {
         val selection = id()
         val deck = PreparedDeck(id(), pod, "1", "Limited pod", null, selection,
             listOf(PreparedEntry(definitions[0].digest, SavedDeckSection.MAINBOARD, "0", 40, BasicLand.PLAINS)),
-            PodGamePreparation.basicDefinitions(definitions)!!, "40")
+            basicMap, "40")
         val preparation = LobbyPreparation(game.id, game.preparationRound, listOf(PlayerPreparation(a.accountId, true, deck),
             PlayerPreparation(b.accountId, true, deck.copy(id = id()))), definitions, podRules = PodGameRules(1))
         f.head(preparation)
@@ -179,7 +174,7 @@ class PodChallengeLobbyTest {
         val pool = SubmittedDefinition(DeckJson.digest(card), card)
         val deck = PreparedDeck(id(), pod, "1", "Limited pod", null, id(), listOf(
             PreparedEntry(definitions[0].digest, SavedDeckSection.MAINBOARD, "0", 40, BasicLand.PLAINS),
-            PreparedEntry(pool.digest, SavedDeckSection.MAINBOARD, "40", 2)), PodGamePreparation.basicDefinitions(definitions)!!, "42")
+            PreparedEntry(pool.digest, SavedDeckSection.MAINBOARD, "40", 2)), basicMap, "42")
         val preparation = LobbyPreparation(game.id, game.preparationRound, listOf(PlayerPreparation(a.accountId, deck = deck),
             PlayerPreparation(b.accountId, deck = deck.copy(id = id()))), definitions + pool, podRules = PodGameRules())
         f.head(preparation)
@@ -201,27 +196,6 @@ class PodChallengeLobbyTest {
         val back = f.wire.frames.filterIsInstance<GameCommand>().map { it.action }.filterIsInstance<GameAction.TransferPreparedCard>().takeLast(2)
         assertEquals(listOf(SavedDeckSection.MAINBOARD, SavedDeckSection.SIDEBOARD), back.map { it.source }.distinct())
         assertEquals(1, back.map { it.cardId }.distinct().size) // The same copy goes back.
-    }
-
-    @Test fun fixedM21EnglishLowestCollectorNumberIgnoresOtherSetsPromosAndCatalogBuildDate() {
-        val repository = CatalogRepository(temporary.newFolder("catalog")) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
-        val chosen = mutableListOf<String>()
-        val records = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).flatMap { (land, mana) ->
-            fun printing(set: String, number: String, language: String = "English", promo: Boolean = false): CatalogPrinting {
-                val uuid = id()
-                return CatalogPrinting(uuid, land.cardName, set, number, language, "", id(), false, emptyList(),
-                    """{"name":"${land.cardName}","type":"Basic Land — ${land.cardName}","text":"({T}: Add {$mana}.)","isPromo":$promo,"availability":["paper"]}""")
-            }
-            val regular = printing("M21", "309").also { chosen.add(it.id) }
-            listOf(printing("NEW", "1"), printing("M21", "1", promo = true), printing("M21", "2", language = "German"),
-                printing("M21", "310"), regular)
-        }
-        repository.stage { index -> index.addBatch(records); CatalogMetadata("2026-10-26", "5.3.0") }
-        val first = podBasicDefinitions(repository)
-        assertEquals(chosen, first.map { it.definition.printingId }); assertNotNull(PodGamePreparation.basicDefinitions(first))
-        assertEquals(listOf("W", "U", "B", "R", "G").map { "({T}: Add {$it}.)" }, first.map { it.definition.faces.single().rulesText })
-        repository.stage { index -> index.addBatch(records.reversed()); CatalogMetadata("2026-10-27", "5.3.0") }
-        assertEquals(first, podBasicDefinitions(repository))
     }
 
     // DRF-122

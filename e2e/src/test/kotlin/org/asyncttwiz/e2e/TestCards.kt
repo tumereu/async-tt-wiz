@@ -42,7 +42,9 @@ object TestCatalog {
 
     /** The card data of the physical card printing [printingId] is a face of. */
     fun definition(printingId: String): CardDefinition = definitions.getOrPut(printingId) {
-        CatalogCards.definition(catalog, requireNotNull(catalog.printing[printingId]) { "No printing $printingId in the test cards' catalog" })
+        // As a deck or cube holds it (the server's ServerCatalog.card)
+        org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
+            CatalogCards.definition(catalog, requireNotNull(catalog.printing[printingId]) { "No printing $printingId in the test cards' catalog" }))
     }
 }
 
@@ -301,6 +303,10 @@ object TestCards {
         Flooded Stair — You gain 4 life. (Leads to: Abyss Throne)
         Abyss Throne — You gain 5 life.
     """.trimIndent())), layout = "token", token = true)
+
+    /** DRF-051: the card the server gives each player of a pod with Librarians (it looks it up by this name), a stand-in of
+     * our own: its printed values only, no draft text. */
+    val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
 
     /** Every test card, by name (the catalog's collector numbers follow this order). */
     val all: List<TestCard> by lazy {

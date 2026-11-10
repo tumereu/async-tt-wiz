@@ -12,7 +12,12 @@ class CubesTest {
             listOf(SavedCubeEntry(digest, 0)), listOf(SavedCubeEntry("not-a-digest", 1)),
             listOf(SavedCubeEntry(digest, 2000), SavedCubeEntry("sha256:" + "b".repeat(64), 1001))))
             assertFalse(CubeValidation.entries(bad))
-        val input = CreateCube("00000000-0000-4000-8000-000000000001", "Cube", entries, "synergy")
+        val printing = "00000000-0000-4000-8000-000000000002"
+        val input = CreateCube("00000000-0000-4000-8000-000000000001", "Cube", listOf(CardListEntry(SavedDeckSection.MAINBOARD, printing, 3000)), "synergy")
+        assertTrue(CubeValidation.input(input.entries))
+        for (bad in listOf(emptyList(), input.entries + input.entries, listOf(CardListEntry(SavedDeckSection.MAINBOARD, printing, 3001)),
+            listOf(CardListEntry(SavedDeckSection.SIDEBOARD, printing, 1)), listOf(CardListEntry(SavedDeckSection.MAINBOARD, "not-a-printing", 1))))
+            assertFalse(CubeValidation.input(bad))
         assertEquals(input, DeckJson.format.decodeFromString<CreateCube>(DeckJson.canonical(input)))
         assertFalse(CubeValidation.name(" "))
         assertFalse(CubeValidation.provenance("../../elsewhere"))

@@ -26,13 +26,9 @@ class GameResultLifecycleTest {
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal): SavedDeck {
-        val definition = CardDefinition("Prepared original", listOf(DefinitionFace(id(), "Original", corner = "3/4")))
-        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val decks = DeckService(runtime)
-        assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
         return GameWire.json.decodeFromString(decks.create(actor, CreateDeck(id(), "Last selected", listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 5),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))).body)
+            org.asyncttwiz.server.TestPrintings.entry("Forest", 5), org.asyncttwiz.server.TestPrintings.entry("Forest", 2, SavedDeckSection.SIDEBOARD)))).body)
     }
     private inner class Stream(val games: GameService, val actor: AccountService.Principal, val gameId: String) {
         val hello = GameHello(id(), id()); val connection = UUID.randomUUID()

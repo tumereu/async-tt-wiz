@@ -125,11 +125,6 @@ class ProductionUpgradeTest {
         }
     }
 
-    private val basics = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).map { (land, mana) ->
-        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName,
-            typeLine = "Basic Land — ${land.cardName}", rulesText = "({T}: Add {$mana}.)")), provider = "mtgjson")
-        SubmittedDefinition(DeckJson.digest(card), card)
-    }
 
     /** Everything a pair of players builds up, through the real services. */
     private fun dataset(runtime: ServiceRuntime): JsonObject {
@@ -141,16 +136,14 @@ class ProductionUpgradeTest {
         val ann = account("Ann"); val ben = account("Ben")
         val decks = DeckService(runtime); val games = GameService(runtime); val lobby = LobbyService(runtime)
         val pods = PodService(runtime); val presets = PodPresetService(runtime)
-        fun card(name: String, type: String = "Creature — Bear") = CardDefinition(name, listOf(DefinitionFace(id(), name,
-            manaCost = "{1}{G}", typeLine = type, rulesText = "Fixture text.", corner = "2/2"))).let { SubmittedDefinition(DeckJson.digest(it), it) }
-        fun deck(owner: AccountService.Principal, name: String, cards: List<SubmittedDefinition>): SavedDeck {
-            assertEquals(200, decks.submit(owner, SubmitDefinitions(id(), cards)).status)
-            return json.decodeFromString(decks.create(owner, CreateDeck(id(), name, cards.mapIndexed { index, card ->
-                SavedDeckEntry(if (index == cards.lastIndex) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD, card.digest, 4) })).body)
-        }
-        val annDeck = deck(ann, "Ann's deck", (1..4).map { card("Ann card $it") })
-        deck(ann, "Ann's spare deck", listOf(card("Spare card", "Instant"), card("Spare land", "Land")))
-        val benDeck = deck(ben, "Ben's deck", (1..4).map { card("Ben card $it") })
+        // The test cards' catalog (card data from the server's catalog, owner 2026-11-10)
+        val names = TestPrintings.names("E2E")
+        fun deck(owner: AccountService.Principal, name: String, cards: List<String>): SavedDeck =
+            json.decodeFromString(decks.create(owner, CreateDeck(id(), name, cards.mapIndexed { index, card ->
+                TestPrintings.entry(card, 4, if (index == cards.lastIndex) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD) })).body)
+        val annDeck = deck(ann, "Ann's deck", names.take(4))
+        deck(ann, "Ann's spare deck", names.drop(4).take(2))
+        val benDeck = deck(ben, "Ben's deck", names.drop(6).take(4))
         lobby.add(ann, AddContact(id(), ben.account.accountId))
         fun game(name: String): Pair<Stream, Stream> {
             val game = json.decodeFromString<GameSummary>(lobby.create(ann, CreateInvitation(id(), ben.account.accountId, name)).body)
@@ -178,10 +171,8 @@ class ProductionUpgradeTest {
         w1.execute(GameAction.SelectDeck(annDeck.deck.id, annDeck.deck.revision))
         val (pending, _) = game("Pending invitation")
 
-        val cubeCards = (1..30).map { card("Cube card $it", if (it % 3 == 0) "Instant" else "Creature — Elf") }
-        assertEquals(200, decks.submit(ann, SubmitDefinitions(id(), cubeCards + basics)).status)
         val cube = json.decodeFromString<SavedCube>(CubeService(runtime).create(ann, CreateCube(id(), "Fixture cube",
-            cubeCards.map { SavedCubeEntry(it.digest, 1) })).body)
+            names.drop(10).take(30).map { TestPrintings.entry(it, 1) })).body)
         fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
         fun pod(name: String, settings: DraftSettings): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(ann, CreatePod(id(), name, cube.cube.id, settings.mode)).body).id
@@ -213,7 +204,7 @@ class ProductionUpgradeTest {
             assertEquals(200, pods.basics(who, finishedPod, SetPodBasics(id(), attempt, PodDeckBasics(8, 8, 8, 8, 8))).status)
             assertEquals(200, pods.submit(who, finishedPod, SubmitPodDeck(id(), attempt)).status)
         }
-        val challenge = pods.challenge(ann, finishedPod, ChallengeFromPod(id(), ben.account.accountId, "Pod game", basics))
+        val challenge = pods.challenge(ann, finishedPod, ChallengeFromPod(id(), ben.account.accountId, "Pod game"))
         assertEquals(201, challenge.status, challenge.body)
         val podGame = json.decodeFromString<GameSummary>(challenge.body).id
 
@@ -316,8 +307,12 @@ class ProductionUpgradeTest {
             // V62 dropped the old model's tables: V59 had already emptied them, so none of their rows was a game's still
             val dropped = setOf("game_play_mutation", "gameplay_endpoint_edge", "gameplay_endpoint_record", "gameplay_tree_control",
                 "gameplay_mutation", "gameplay_group")
+            // V77 and V78 (card data from the server's catalog, owner 2026-11-10) drop the token favourites and the grants of
+            // uploaded card data: their rows go with their tables
+            val droppedWithRows = setOf("account_token_favorites", "account_definition")
             for ((table, rows) in tables)
-                if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
+                if (table in droppedWithRows) continue
+                else if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
                 else assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
                     "$table rows after upgrade")
 

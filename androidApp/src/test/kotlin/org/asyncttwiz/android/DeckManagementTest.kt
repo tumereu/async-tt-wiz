@@ -66,7 +66,6 @@ class DeckManagementTest {
         override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted {
             deletes += value; if (fail) throw DeckFailure("network"); missing = true; return DeckDeleted(id)
         }
-        override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(emptyList())
         override suspend fun create(token: String, value: CreateDeck) = saved
         override fun close() = Unit
     }

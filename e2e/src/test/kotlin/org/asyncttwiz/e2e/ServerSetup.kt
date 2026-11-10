@@ -126,10 +126,9 @@ object ServerSetup {
         runBlocking {
             val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
                 SavedDeckSection.MAYBEBOARD to deck.maybe)
-            api.submit(account.token, SubmitDefinitions(UUID.randomUUID().toString(),
-                sections.flatMap { (_, cards) -> cards.map { it.first.submitted() } }.distinctBy { it.digest }))
+            // As a phone saves it: the cards by printing, in one request (the server builds their card data)
             api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
-                sections.flatMap { (section, cards) -> cards.map { (card, n) -> SavedDeckEntry(section, card.digest, n) } }))
+                sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } }))
         }
     }
 
@@ -144,8 +143,9 @@ object ServerSetup {
         fun id() = UUID.randomUUID().toString()
         lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
         val cube = DeckApi(origin).use { api ->
-            api.submit(a.token, SubmitDefinitions(id(), cards.map { it.submitted() }))
-            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 2 * settings.packsPerPlayer * settings.cardsPerPack / cards.size) }))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map {
+                CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 2 * settings.packsPerPlayer * settings.cardsPerPack / cards.size)
+            }))
         }
         org.asyncttwiz.android.PodApi(origin).use { api ->
             val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id
@@ -171,8 +171,7 @@ object ServerSetup {
     fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val cube = DeckApi(origin).use { api ->
-            api.submit(a.token, SubmitDefinitions(id(), cards.map { it.submitted() }))
-            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 12 / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
     }
@@ -239,9 +238,6 @@ object ServerSetup {
         return Prepared(a, b, invitation, mapOf(a to aDeck, b to bDeck), starter, deal)
     }
 
-    /** The five basic lands a device supplies with a pod deck (LOB-052, DRF-104): the test cards' M21 basics. */
-    val basics: List<SubmittedDefinition> get() = with(TestCards) { listOf(plains, island, swamp, mountain, forest) }.map { it.submitted() }
-
     /**
      * A pod game of [a] (the pod's creator, who challenges) and [b] from a finished draft of [draftingPod]: each picks the
      * first card of every pack, adds [mainPlains] Plains to Main (an unlimited sideboard: 17 of each basic in Side, DRF-104)
@@ -250,7 +246,7 @@ object ServerSetup {
     fun podGame(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): GameSummary = runBlocking {
         val pod = draftedPod(a, b, "$name pod", mainPlains)
         for (who in listOf(a, b)) submitPodDeck(who, pod)
-        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
+        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name)) }
         Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
         invitation
     }
@@ -270,7 +266,7 @@ object ServerSetup {
             api.move(a.token, pod, MovePodCopy(id(), detail.draftAttemptId!!, copies[1].copyId, PodDeckCategory.MAYBE))
         }
         for (who in listOf(a, b)) submitPodDeck(who, pod)
-        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(id(), b.id, name, basics)) }
+        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(id(), b.id, name)) }
         Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
         invitation
     }
@@ -282,8 +278,6 @@ object ServerSetup {
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val pod = draftingPod(a, b, name, cards, settings)
-        // As the app does, the basics' card data goes up before the pod deck and the challenge that name them
-        DeckApi(origin).use { api -> for (who in listOf(a, b)) api.submit(who.token, SubmitDefinitions(id(), basics)) }
         org.asyncttwiz.android.PodApi(origin).use { api ->
             var picks = 0
             while (api.detail(a.token, pod).phase != PodPhase.DRAFTED) {
@@ -305,7 +299,7 @@ object ServerSetup {
     /** [account] submits their deck of [pod] ([draftedPod]). */
     fun submitPodDeck(account: TestAccount, pod: String) = runBlocking {
         org.asyncttwiz.android.PodApi(origin).use { api ->
-            api.submit(account.token, pod, SubmitPodDeck(UUID.randomUUID().toString(), api.detail(account.token, pod).draftAttemptId!!, basics))
+            api.submit(account.token, pod, SubmitPodDeck(UUID.randomUUID().toString(), api.detail(account.token, pod).draftAttemptId!!))
         }
     }
 
@@ -326,7 +320,7 @@ object ServerSetup {
 
     /** [a] challenges [b] to a game [name] of [pod] ([a]'s deck submitted). */
     fun challenge(a: TestAccount, b: TestAccount, pod: String, name: String): GameSummary =
-        lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
+        lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name)) }
 
     /** [account]'s invitation notices of game [gameId] as the server recorded them (DRF-137): one per notification. Read
      * from the database (see [gameNotice]). */
@@ -422,6 +416,3 @@ object ServerSetup {
         override fun close() { socket.abort() }
     }
 }
-
-/** [this] card's card data as a device uploads it. */
-fun TestCard.submitted() = SubmittedDefinition(digest, definition)

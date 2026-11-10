@@ -13,9 +13,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
-    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
-    /** The catalog's dungeon cards (blocking, on [worker]): sent with Ready when the deck ventures (OutsideCards). */
-    private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis,
     /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
     engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
@@ -55,11 +52,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val queue: LobbyActionQueue = LobbyActionQueue(scope, session)
     private val refresher: LobbyRefresh = LobbyRefresh(scope, api, credential, worker, post, session, clock)
     private val contactBook: LobbyContacts = LobbyContacts(scope, api, credential, worker, post, refresher::fence, ::begin)
-    private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
-        suggest, basicLandDefinitions)
+    private val invitations: LobbyInvitations = LobbyInvitations(scope, api, credential, accountId, worker, post, session, queue, suggest)
     private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
-    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue,
-        dungeonDefinitions, worker, post)
+    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     /** Game history: records of the account, a game and a pod (read on demand). */
     val history = HistoryController(api, credential, worker, post)

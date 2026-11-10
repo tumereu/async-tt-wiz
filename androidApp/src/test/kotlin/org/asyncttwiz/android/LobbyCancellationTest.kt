@@ -128,7 +128,6 @@ class LobbyCancellationTest {
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck = error("unused")
             override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> = error("unused")
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
             override suspend fun create(token: String, value: CreateDeck): SavedDeck = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted = error("unused")

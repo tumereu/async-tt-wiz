@@ -13,11 +13,10 @@ internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFa
     "try_later" -> "Too many requests. Wait a moment and retry."
     "request_conflict" -> "This request could not be reused. Close the dialog and try again."
     "not_configured" -> "The game service is not configured in this build."
-    "basic_definitions_unavailable" -> "The five English M21 basic lands are missing. Update card records and retry."
+    "basic_definitions_unavailable" -> "The server's card records lack the M21 basic lands. Retry later."
     "deck_not_submitted" -> "Submit your pod deck before challenging."
     "opponent_not_member", "not_found" -> "This pod or player is no longer available."
     "invalid_opponent" -> "Choose another member of this pod."
-    "invalid_basic_definitions" -> "Basic land definitions were refused. Update card records and retry."
     "invalid_deck" -> "This deck exceeds the game's 1,000-card limit."
     else -> "Could not reach the game service. Your input is kept. Check your connection and retry."
 }

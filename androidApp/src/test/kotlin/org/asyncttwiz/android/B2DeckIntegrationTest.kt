@@ -48,9 +48,9 @@ class B2DeckIntegrationTest {
 
     private class DeckServer(var saved: SavedDeck, val definitions: List<SubmittedDefinition>) : Decks {
         var creates = 0
-        override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(value.definitions.map { it.digest })
         override suspend fun create(token: String, value: CreateDeck): SavedDeck {
-            creates++; saved = SavedDeck(saved.deck.copy(name = value.name), value.entries); return saved
+            creates++; saved = SavedDeck(saved.deck.copy(name = value.name), value.entries.map { SavedDeckEntry(it.section, definitions.single().digest, it.quantity) })
+            return saved
         }
         override suspend fun list(token: String, after: String?) = DeckList(listOf(saved.deck))
         override suspend fun read(token: String, id: String) = saved
@@ -63,25 +63,24 @@ class B2DeckIntegrationTest {
     // LOB-064
     @Test fun acceptedImportOpensRetainedDefinitionAndSyncKeepsTheDraftName() {
         val worker = Worker()
-        val plan = DeckSavePlan.from(resolved, summary.name)
-        val server = DeckServer(SavedDeck(summary, plan.deck.entries), plan.definitions.definitions)
+        val plan = DeckSave.from(resolved, summary.name)
+        val entries = plan.entries.map { SavedDeckEntry(it.section, plan.cards.single().digest, it.quantity) }
+        val server = DeckServer(SavedDeck(summary, entries), plan.cards)
         val library = DeckLibraryController(server, { "token" }, worker) { it() }
         val importer = DeckImportController({ resolved }, worker) { it() }
-        importer.connectSave({ { input -> runBlocking {
-            server.submit("token", input.definitions); server.create("token", input.deck)
-        } } }, { library.open(it.deck.id) })
+        importer.connectSave({ { input -> runBlocking { server.create("token", input.create()) } } }, { library.open(it.deck.id) })
         importer.open(); importer.edit(resolved.text); importer.lookup(); worker.drain()
         importer.review(); importer.name(summary.name); importer.save(); worker.drain()
         assertFalse(importer.state.active)
         assertEquals(1, server.creates)
-        val digest = plan.deck.entries.single().definition
+        val digest = entries.single().definition
         assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
         val captured = InspectedCard.retained(library.state.detail!!.definitions.getValue(digest))
         assertEquals("Exact  text 🧙", captured.definition.faces.single().rulesText)
         assertNull(captured.artwork.single()!!.printing) // Missing art leaves the placeholder card.
         library.edit(DeckDialog.RENAME); library.name("Unfinished name")
         server.saved = server.saved.copy(deck = summary.copy(name = "Newer server name", revision = "2"),
-            entries = plan.deck.entries.map { it.copy(quantity = 9) })
+            entries = entries.map { it.copy(quantity = 9) })
         library.retry(); worker.drain()
         assertEquals(9, library.state.detail!!.saved.entries.single().quantity)
         assertEquals("Newer server name", library.state.detail!!.saved.deck.name)
@@ -92,8 +91,8 @@ class B2DeckIntegrationTest {
 
     @Test fun explicitLogoutFencesCompletedImportAndLibraryCallbacksTogether() {
         val authWorker = Worker(); val deckWorker = Worker(); val posts = ArrayDeque<() -> Unit>()
-        val plan = DeckSavePlan.from(resolved, summary.name)
-        val server = DeckServer(SavedDeck(summary, plan.deck.entries), plan.definitions.definitions)
+        val plan = DeckSave.from(resolved, summary.name)
+        val server = DeckServer(SavedDeck(summary, plan.entries.map { SavedDeckEntry(it.section, plan.cards.single().digest, it.quantity) }), plan.cards)
         val importer = DeckImportController({ resolved }, deckWorker) { posts.add(it) }
         lateinit var library: DeckLibraryController
         val store = Store()
@@ -101,9 +100,8 @@ class B2DeckIntegrationTest {
             clearPrivateWork = { importer.exit(); library.clear() }, post = { it() })
         authWorker.drain()
         library = DeckLibraryController(server, auth::sessionToken, deckWorker) { posts.add(it) }
-        importer.connectSave({ auth.sessionToken()?.let { token -> { input -> runBlocking {
-            server.submit(token, input.definitions); server.create(token, input.deck)
-        } } } }, { library.open(it.deck.id) })
+        importer.connectSave({ auth.sessionToken()?.let { token -> { input -> runBlocking { server.create(token, input.create()) } } } },
+            { library.open(it.deck.id) })
         importer.open(); importer.edit(resolved.text); importer.lookup(); deckWorker.drain(); posts.removeFirst()()
         importer.review(); importer.name(summary.name); importer.save(); deckWorker.drain()
         library.open(summary.id); deckWorker.drain() // Both private UI callbacks are still queued.

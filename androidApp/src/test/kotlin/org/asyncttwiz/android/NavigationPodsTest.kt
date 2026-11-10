@@ -162,7 +162,6 @@ class NavigationPodsTest {
             override suspend fun readCube(token: String, id: String) = saved
             override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
                 SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, card) })
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")

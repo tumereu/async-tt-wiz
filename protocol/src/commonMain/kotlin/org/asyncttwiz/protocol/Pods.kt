@@ -96,10 +96,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class SetPodAutoStart(val requestId: String, val enabled: Boolean)
 /** POST /v1/pods/{id}/cancel (and submit, see [SubmitPodDeck]). The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
-/** POST /v1/pods/{id}/submit. [basicDefinitions] (all five basics, or none) give the submitter's draft deck its basics. */
+/** POST /v1/pods/{id}/submit. The server gives the submitter's draft deck its basics from its catalog (LOB-052). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-@Serializable data class SubmitPodDeck(val requestId: String, val draftAttemptId: String,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val basicDefinitions: List<SubmittedDefinition> = emptyList())
+@Serializable data class SubmitPodDeck(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */
 @Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList(), val librarians: List<String> = emptyList())
 /** PUT /v1/pods/{id}/draft/marks. Saves the caller's marks for their current head pack only (409 otherwise); latest wins.

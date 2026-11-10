@@ -46,9 +46,9 @@ class LimitedDraftHttpTest {
                 val card = CardDefinition("Limited fixture $n", listOf(DefinitionFace(UUID.randomUUID().toString(), "Limited fixture $n", manaCost = "{G}")))
                 SubmittedDefinition(DeckJson.digest(card), card)
             }
-            send(a, "POST", "/v1/definitions", SubmitDefinitions(UUID.randomUUID().toString(), cards))
-            cube = json.decodeFromString(send(a, "POST", "/v1/cubes",
-                CreateCube(UUID.randomUUID().toString(), "Limited cube", cards.map { SavedCubeEntry(it.digest, 1) }), 201))
+            // 120 different invented cards (more than the test cards' catalog has), stored as a cube from before holds them
+            val stored = db.connection().use { org.asyncttwiz.server.StoredDecks.cube(it, a.account.accountId, "Limited cube", cards.map { it.definition }) }
+            cube = json.decodeFromString(request(a, "GET", "/v1/cubes/$stored").also { assertEquals(200, it.statusCode(), it.body()) }.body())
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)

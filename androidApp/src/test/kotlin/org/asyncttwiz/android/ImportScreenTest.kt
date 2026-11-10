@@ -319,7 +319,6 @@ class ImportScreenTest {
                 renames += value; current = saved.copy(cube = saved.cube.copy(name = value.name!!, revision = "2")); return current
             }
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted { deletes += value; return CubeDeleted(id) }
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
             override fun close() = Unit
         }

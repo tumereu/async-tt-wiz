@@ -134,11 +134,9 @@ class LobbyHttpTest {
                     json.encodeToString(CreateSession("owner@example.invalid", "password😀"))).body())
                 assertNotEquals(phone.token, tablet.token); assertEquals(phone.account, tablet.account)
                 val friend = account(settings, "Friend", "friend@example.invalid")
-                val card = CardDefinition("Shared card", listOf(DefinitionFace(id(), "Shared card")))
-                val definition = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), phone.token).statusCode())
+                val definition = org.asyncttwiz.server.TestPrintings.submitted("Ash Pup")
                 val deck = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Everywhere",
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 40))), phone.token).body())
+                    listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 40))), phone.token).body())
                 assertEquals(200, post(settings, "/v1/contacts", AddContact(id(), friend.account.accountId), phone.token).statusCode())
                 val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations",
                     CreateInvitation(id(), friend.account.accountId, "Two devices"), phone.token).body())

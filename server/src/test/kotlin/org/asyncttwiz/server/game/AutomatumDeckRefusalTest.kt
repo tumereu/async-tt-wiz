@@ -49,11 +49,8 @@ class AutomatumDeckRefusalTest {
                     return games.results(a, game.id, listOf(command.requestId)).statuses.single().result!!
                 }
                 val card = CardDefinition("Odd Bear", listOf(DefinitionFace(id(), "Odd Bear", rulesText = "Some odd wording.")))
-                val submitted = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, decks.submit(a, SubmitDefinitions(id(), listOf(submitted))).status)
                 fun deck(support: CardListSupport?): SavedDeck {
-                    val saved = json.decodeFromString<SavedDeck>(decks.create(a, CreateDeck(id(), "Bears",
-                        listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 40)))).body)
+                    val saved = org.asyncttwiz.server.StoredDecks.save(runtime, a, "Bears", listOf(Triple(SavedDeckSection.MAINBOARD, card, 40)))
                     if (support != null) assertEquals(200, decks.setSupport(a, saved.deck.id, SetCardListSupport(saved.deck.revision, support)).status)
                     return saved
                 }
@@ -62,7 +59,7 @@ class AutomatumDeckRefusalTest {
                 assertEquals("accepted", select(deck(null)).outcome, "not worked out yet: the device decides")
 
                 val cubes = CubeService(runtime)
-                val cube = json.decodeFromString<SavedCube>(cubes.create(a, CreateCube(id(), "Odd cube", listOf(SavedCubeEntry(submitted.digest, 1)))).body)
+                val cube = json.decodeFromString<SavedCube>(cubes.create(a, CreateCube(id(), "Odd cube", listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 1)))).body)
                 assertEquals(200, cubes.setSupport(a, cube.cube.id, SetCardListSupport(cube.cube.revision, CardListSupport(21, listOf("Odd Bear")))).status)
                 val refused = PodService(runtime).create(a, CreatePod(id(), "Odd pod", cube.cube.id))
                 assertEquals(409, refused.status)
@@ -92,17 +89,14 @@ class AutomatumDeckRefusalTest {
                     return games.results(a, game.id, listOf(command.requestId)).statuses.single().result!!
                 }
                 val card = CardDefinition("Later Bear", listOf(DefinitionFace(id(), "Later Bear", rulesText = "Some odd wording.")))
-                val submitted = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, decks.submit(a, SubmitDefinitions(id(), listOf(submitted))).status)
-                val deck = json.decodeFromString<SavedDeck>(decks.create(a, CreateDeck(id(), "Bears",
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 40)))).body)
+                val deck = org.asyncttwiz.server.StoredDecks.save(runtime, a, "Bears", listOf(Triple(SavedDeckSection.MAINBOARD, card, 40)))
                 assertEquals("accepted", execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision)).outcome, "not worked out yet")
                 assertEquals(200, decks.setSupport(a, deck.deck.id, SetCardListSupport(deck.deck.revision, CardListSupport(21, listOf("Later Bear")))).status)
                 assertEquals("automatumUnsupported", execute(GameAction.Ready).reason)
                 assertFalse(games.head(a, game.id).preparation!!.players.single { it.accountId == a.account.accountId }.ready)
 
                 val cubes = CubeService(runtime); val pods = PodService(runtime)
-                val cube = json.decodeFromString<SavedCube>(cubes.create(a, CreateCube(id(), "Later cube", listOf(SavedCubeEntry(submitted.digest, 90)))).body)
+                val cube = json.decodeFromString<SavedCube>(cubes.create(a, CreateCube(id(), "Later cube", listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 90)))).body)
                 val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), "Later pod", cube.cube.id)).body).id
                 assertEquals(200, pods.invite(a, pod, InviteToPod(id(), b.account.accountId)).status)
                 assertEquals(200, pods.invitation(b, pod, PodRequest(id()), true).status)

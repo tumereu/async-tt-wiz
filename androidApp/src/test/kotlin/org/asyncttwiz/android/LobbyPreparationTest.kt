@@ -68,7 +68,6 @@ class LobbyPreparationTest {
                 return (decks + draftDecks).find { it.deck.id == id } ?: throw DeckFailure("not_found")
             }
             override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { submitted }
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("Not a selection endpoint")
             override suspend fun create(token: String, value: CreateDeck): SavedDeck = error("Not a selection endpoint")
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck = error("No source mutation")
             override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted = error("No source mutation")

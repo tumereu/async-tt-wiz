@@ -10,7 +10,7 @@ class PodChallengesTest {
         val definition = CardDefinition(land.cardName, listOf(DefinitionFace(id(10 + index), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
         SubmittedDefinition(DeckJson.digest(definition), definition)
     }
-    private val basicMap = PodGamePreparation.basicDefinitions(definitions)!!
+    private val basicMap = BasicLand.entries.zip(definitions).associate { (land, card) -> land to card.digest }
     private val deck = PreparedDeck(id(20), id(6), "1", "Pod", null, id(21),
         listOf(PreparedEntry(definitions.first().digest, SavedDeckSection.MAINBOARD, "0", 2)), basicMap)
     private val state = LobbyPreparation(game.id, game.preparationRound,
@@ -28,43 +28,6 @@ class PodChallengesTest {
         return current.copy(players = current.players.mapIndexed { i, player ->
             if (i == 0) player.copy(deck = prepared.copy(entries = prepared.entries + added, nextCardIndex = index.toString())) else player
         })
-    }
-
-    @Test fun definitionsRequireFiveExactNamedNonsnowBasicLandsAndMatchingDigests() {
-        assertEquals(5, basicMap.size)
-        assertNull(PodGamePreparation.basicDefinitions(definitions.drop(1)))
-        assertNull(PodGamePreparation.basicDefinitions(definitions.dropLast(1) + definitions.first()))
-        assertNull(PodGamePreparation.basicDefinitions(definitions.map { it.copy(digest = "sha256:" + "0".repeat(64)) }))
-        for (type in listOf("Land — Plains", "Basic Creature — Plains", "Snow Basic Land — Plains",
-            "Basic Land Creature — Swamp Horror", "Basic Land — Swamp", "Basic Land - Plains", "Basic Land — Plains ")) {
-            val invalid = definitions.first().definition.let { it.copy(faces = listOf(it.faces.single().copy(typeLine = type))) }
-            assertNull(PodGamePreparation.basicDefinitions(listOf(SubmittedDefinition(DeckJson.digest(invalid), invalid)) + definitions.drop(1)))
-        }
-    }
-
-    @Test fun suppliedBasicsRejectForgedFacesAndAbilitiesEvenWithCorrectDigests() {
-        val card = definitions.first().definition
-        val face = card.faces.single()
-        val invalid = listOf(
-            card.copy(name = "plains"), card.copy(faces = listOf(face.copy(name = "Island"))),
-            card.copy(faces = listOf(face, face.copy(faceId = id(99)))), card.copy(token = true),
-        ) + listOf(face.copy(power = "20"), face.copy(toughness = "20"), face.copy(loyalty = "1"),
-            face.copy(defense = "1"), face.copy(rulesText = "Draw twenty cards."),
-            face.copy(rulesText = "({T}: Add {B}.)"), face.copy(rulesText = "({T}: Add {W}.)\nDraw a card."),
-            face.copy(rulesText = " ")).map { card.copy(faces = listOf(it)) }
-        for (definition in invalid) {
-            assertNull(PodGamePreparation.basicDefinitions(
-                listOf(SubmittedDefinition(DeckJson.digest(definition), definition)) + definitions.drop(1)))
-        }
-    }
-
-    @Test fun catalogManaReminderTextIsAcceptedForEachBasic() {
-        val catalog = definitions.zip(listOf("W", "U", "B", "R", "G")).map { (submitted, mana) ->
-            val card = submitted.definition.copy(provider = "mtgjson", printingId = submitted.definition.faces.single().faceId,
-                faces = submitted.definition.faces.map { it.copy(rulesText = "({T}: Add {$mana}.)", sourceData = "{}") })
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
-        assertEquals(5, PodGamePreparation.basicDefinitions(catalog)!!.size)
     }
 
     // DRF-124, LOB-052: a supplied basic moves between Main and Side like any card.

@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class PreparedDeck(val id: String, val sourceId: String, val sourceRevision: String,
     val name: String, val cover: String?, val selectionRequestId: String, val entries: List<PreparedEntry>,
     val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0",
-    /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards their device
-     * sent with Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
+    /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards the server
+     * brought with their Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val outside: List<String> = emptyList()) {
     fun count(section: SavedDeckSection) = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     fun card(entry: PreparedEntry, offset: Int): PreparedCard {
@@ -136,7 +136,8 @@ object PreparationRules {
         if (game.podId != null || current.podRules != null) return reject("podDeckFixed")
         if (source == null || source.deck.id != action.deckId) return reject("sourceUnavailable")
         if (source.deck.revision != action.sourceRevision) return reject("sourceChanged")
-        if (!DeckValidation.create(CreateDeck(requestId, source.deck.name, source.entries))) return reject("invalidSource")
+        if (!DeckValidation.text(source.deck.name) || source.deck.name.isBlank() || !DeckValidation.entries(source.entries))
+            return reject("invalidSource")
         // LOB-141: Maybe comes along too (outside the game with Side), after Main and Side.
         val prepared = source.entries.filter { it.section in SavedDeckSection.PREPARED } +
             source.entries.filter { it.section !in SavedDeckSection.PREPARED }

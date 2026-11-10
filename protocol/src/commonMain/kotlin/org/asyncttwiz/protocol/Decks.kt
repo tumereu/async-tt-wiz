@@ -59,8 +59,6 @@ data class CardDefinition(
 )
 
 @Serializable data class SubmittedDefinition(val digest: String, val definition: CardDefinition)
-@Serializable data class SubmitDefinitions(val requestId: String, val definitions: List<SubmittedDefinition>)
-@Serializable data class DefinitionsAccepted(val digests: List<String>)
 /** A card list's sections. Decks have all three; cubes have Main and Maybe. Maybe holds cards being considered: never
  * dealt or drafted; a deck's Maybe comes along to its games outside the game with Side (LOB-141), never into the library. */
 @Serializable enum class SavedDeckSection { MAINBOARD, SIDEBOARD, MAYBEBOARD;
@@ -86,7 +84,15 @@ object SectionSwipe {
     }
 }
 @Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
-@Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<SavedDeckEntry>)
+/**
+ * One card of a deck or cube save (owner 2026-11-10: card data from the server's card catalog): [quantity] copies in
+ * [section] of the card [printingId] is a printing of (any face of a card of several faces names the whole card), its card
+ * data built by the server from its catalog; or, for a card the list already holds from before (an editor keeps it as
+ * stored), that card's digest. The same card named twice in a section is one entry, its copies added up.
+ */
+@Serializable data class CardListEntry(val section: SavedDeckSection, val printingId: String, val quantity: Int)
+/** A new deck, in one request: its [entries] and its [cover], the digest of one of its cards as the server builds them. */
+@Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<CardListEntry>, val cover: String? = null)
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
 /** Present only on a draft deck: saved automatically from a pod deck submission, read-only until copied. */
 @Serializable data class DraftDeckOrigin(val podId: String, val podName: String)
@@ -120,7 +126,7 @@ object SectionSwipe {
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
 /** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL.
  * New contents always replace the whole list. */
-@Serializable data class DeckContentsImport(val entries: List<SavedDeckEntry>)
+@Serializable data class DeckContentsImport(val entries: List<CardListEntry>)
 @Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
     val contents: DeckContentsImport? = null)
 @Serializable data class DeleteDeck(val requestId: String)
@@ -181,7 +187,6 @@ internal expect fun sha256(bytes: ByteArray): String
 
 object DeckValidation {
     const val MAX_CARDS = 1000
-    const val RECORD_BYTES = 256 * 1024
     const val FIELD_BYTES = 64 * 1024
     fun uuid(value: String): Boolean = runCatching { EntityId(value) }.isSuccess
     fun digest(value: String): Boolean = Regex("sha256:[0-9a-f]{64}").matches(value)
@@ -198,32 +203,24 @@ object DeckValidation {
         }
         return value.encodeToByteArray().size <= maxBytes
     }
+    /** Card data the server built from its catalog (or a test made) that it stores and games read: one physical card of
+     * consistently linked faces with ids, and text PostgreSQL keeps. Nothing a device sends is checked here any more: no
+     * device sends card data (owner 2026-11-10). */
     fun definition(value: CardDefinition): Boolean {
         if (value.schemaVersion != 1 || value.name.isBlank() || value.faces.size !in 1..64) return false
         val strings = listOfNotNull(value.name, value.provider, value.sourceVersion, value.printingId, value.layout) +
             value.faces.flatMap { listOfNotNull(it.faceId, it.name, it.typeLine, it.manaCost, it.rulesText,
-                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.imageUri, it.sourceData) +
+                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.sourceData) +
                 it.parts.flatMap { part -> listOf(part.name, part.typeLine, part.manaCost, part.rulesText, part.power,
                     part.toughness, part.loyalty, part.defense) } }
-        if (!strings.all(::text) || DeckJson.definitionBytes(value).size > RECORD_BYTES) return false
+        if (!strings.all(::text)) return false
         val indicators = value.faces.flatMap { face -> listOf(face.colorIndicator) + face.parts.map { it.colorIndicator } }
         if (!indicators.all { it == null || (it.isNotEmpty() && COLOR_INDICATOR.matches(it)) } || value.faces.any { it.parts.size > 64 }) return false
         val ids = value.faces.map { it.faceId }.toSet()
         if (ids.size != value.faces.size || !ids.all(::uuid)) return false
         return value.faces.all { face -> face.name.isNotBlank() &&
             face.otherFaceIds.size == ids.size - 1 && face.otherFaceIds.toSet() == ids - face.faceId &&
-            (face.scryfallId == null || uuid(face.scryfallId)) &&
-            (face.imageUri == null || safeImageReference(face.imageUri)) }
-    }
-    // No DNS/network access. Actual downloading must additionally validate DNS and every redirect.
-    private fun safeImageReference(value: String): Boolean {
-        if (!value.startsWith("https://") || value.any { it <= ' ' || it == '\\' } || '#' in value) return false
-        val authority = value.removePrefix("https://").takeWhile { it != '/' && it != '?' }
-        if (authority.isEmpty() || '@' in authority || ':' in authority || '[' in authority) return false
-        if (!authority.matches(Regex("[A-Za-z0-9.-]+")) || '.' !in authority || authority.endsWith('.')) return false
-        val host = authority.lowercase()
-        return !host.endsWith(".localhost") && !host.endsWith(".local") && !host.endsWith(".internal") &&
-            host.any { it in 'a'..'z' }
+            (face.scryfallId == null || uuid(face.scryfallId)) }
     }
     private val COLOR_INDICATOR = Regex("W?U?B?R?G?")
     fun quantity(value: Int): Boolean = value in 1..MAX_CARDS
@@ -232,5 +229,9 @@ object DeckValidation {
     fun entries(value: List<SavedDeckEntry>): Boolean = value.isNotEmpty() &&
         quantities(value.map { it.quantity }) && value.all { digest(it.definition) } &&
         value.map { it.section to it.definition }.distinct().size == value.size
-    fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() && entries(value.entries)
+    /** A save's cards ([CardListEntry]): some, each a printing id or a digest, at most [MAX_CARDS] copies in all. */
+    fun input(value: List<CardListEntry>): Boolean = value.isNotEmpty() && quantities(value.map { it.quantity }) &&
+        value.all { uuid(it.printingId) || digest(it.printingId) }
+    fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() && input(value.entries) &&
+        (value.cover == null || digest(value.cover))
 }

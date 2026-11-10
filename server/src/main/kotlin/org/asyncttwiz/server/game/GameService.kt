@@ -600,11 +600,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         val summary = lobby.summary(sql, game.id!!)
         val changed = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
-        // CR 309.2: a Ready brings the player's dungeon cards outside the game; a deck that ventures or takes the initiative needs them
-        val outside = command.inlineDefinitions
-        if (changed.state != null && command.action == GameAction.Ready) {
-            if (!org.asyncttwiz.protocol.game.OutsideCards.valid(outside)) return "invalidOutsideCards"
-            if (!EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) return "automatumUnsupported"
+        // CR 309.2, LOB-117: the Ready of a deck that ventures or takes the initiative brings the dungeons of the server's
+        // catalog outside the game; it needs the ones its cards ask for
+        val outside = changed.state?.takeIf { command.action == GameAction.Ready && EngineDecks.ventures(it, account.toString()) }
+            ?.let { org.asyncttwiz.server.catalog.ServerCatalogs.current()?.dungeons }.orEmpty()
+        if (changed.state != null && command.action == GameAction.Ready &&
+            !EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Ready refused game={} account={}: its deck ventures and the catalog's dungeons {} don't provide what it needs",
+                game.id, account, outside.map { it.definition.name })
+            return "automatumUnsupported"
         }
         // TRN-065: a player gets Ready only after tapping OK on the last match's result
         if (command.action == GameAction.Ready && summary.resultNotice?.unseen?.contains(account.toString()) == true) return "resultNotSeen"

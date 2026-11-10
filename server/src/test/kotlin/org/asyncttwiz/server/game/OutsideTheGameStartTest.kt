@@ -54,10 +54,9 @@ class OutsideTheGameStartTest {
             execute(b, GameAction.AcceptInvitation)
             val bobDeck = listOf(SavedDeckSection.MAINBOARD to (forest to 40))
             for ((actor, deck) in listOf(a to aliceDeck, b to bobDeck)) {
-                val service = DeckService(runtime)
-                assertEquals(200, service.submit(actor, SubmitDefinitions(id(), deck.map { submitted(it.second.first) }.distinct())).status)
-                val saved = GameWire.json.decodeFromString<SavedDeck>(service.create(actor, CreateDeck(id(), "Outside deck",
-                    deck.map { (section, entry) -> SavedDeckEntry(section, submitted(entry.first).digest, entry.second) })).body)
+                // Invented cards, stored as a deck from before holds them
+                val saved = org.asyncttwiz.server.StoredDecks.save(runtime, actor, "Outside deck",
+                    deck.map { (section, entry) -> Triple(section, entry.first, entry.second) })
                 assertEquals("accepted", execute(actor, GameAction.SelectDeck(saved.deck.id, saved.deck.revision)).outcome)
             }
             assertEquals("accepted", execute(a, GameAction.SetStarter(StarterChoice(a.account.accountId))).outcome)

@@ -321,13 +321,9 @@ class GameSocketTest {
                 val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "PickerOwner"); val b = account(settings, "PickerRecipient")
                 val stranger = account(settings, "PickerOther"); val (_, game) = create(settings, a, b)
-                val front = id(); val back = id()
-                val definition = CardDefinition("Prepared multiface", listOf(DefinitionFace(front, "Front", listOf(back), corner = "3/5"),
-                    DefinitionFace(back, "Back", listOf(front), rulesText = "Retained rules")), sourceVersion = "synthetic-old")
-                val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(submitted)), a.token).statusCode())
-                val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 4),
-                    SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 1))
+                // A double-faced test card of the catalog
+                val submitted = org.asyncttwiz.server.TestPrintings.submitted("Ember Path // Ember Crag"); val definition = submitted.definition
+                val entries = listOf(org.asyncttwiz.server.TestPrintings.entry(definition.name, 4), org.asyncttwiz.server.TestPrintings.entry(definition.name, 1, SavedDeckSection.SIDEBOARD))
                 val response = post(settings, "/v1/decks", CreateDeck(id(), "Chosen source", entries), a.token)
                 assertEquals(201, response.statusCode()); val source = json.decodeFromString<SavedDeck>(response.body())
                 Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
@@ -410,11 +406,8 @@ class GameSocketTest {
                 val settings = service.startBound(config); ready(settings)
                 a = account(settings, "InitialSocketA"); b = account(settings, "InitialSocketB"); game = create(settings, a, b).second
                 fun source(actor: SessionCreated): SavedDeck {
-                    val definition = CardDefinition("Start text fallback", listOf(DefinitionFace(id(), "Start face", corner = "4/6")), sourceVersion = "synthetic-start")
-                    val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-                    assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(submitted)), actor.token).statusCode())
                     val response = post(settings, "/v1/decks", CreateDeck(id(), "Start source", listOf(
-                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 7), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 1))), actor.token)
+                        org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 7), org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 1, SavedDeckSection.SIDEBOARD))), actor.token)
                     assertEquals(201, response.statusCode()); return json.decodeFromString(response.body())
                 }
                 val aSource = source(a); val bSource = source(b)

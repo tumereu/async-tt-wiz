@@ -80,9 +80,7 @@ const val GAME_PROTOCOL_MINOR = 12
     val readFormats: List<Int> = listOf(1), val engine: Boolean = true) : GameClientMessage
 @Serializable @SerialName("command") data class GameCommand(val requestId: String, val scope: GameScope,
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
-    val invocationId: String? = null,
-    /** Only with [GameAction.Ready]: the player's dungeon cards outside the game ([org.asyncttwiz.protocol.game.OutsideCards]). */
-    val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
+    val invocationId: String? = null) : GameClientMessage
 @Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
@@ -219,9 +217,7 @@ object GameWire {
     fun encode(message: GameServerMessage): String = json.encodeToString(message)
     fun ordinal(value: String): Long = ScalarCodecs.decodeRevision(JsonPrimitive(value).toString())
     fun valid(command: GameCommand): Boolean = runCatching {
-        // A Ready carries its player's dungeon cards outside the game (OutsideCards), nothing else carries definitions
-        require(command.commandVersion == 1 && (command.inlineDefinitions.isEmpty() || command.action == GameAction.Ready &&
-            command.inlineDefinitions.size <= org.asyncttwiz.protocol.game.OutsideCards.MAX))
+        require(command.commandVersion == 1)
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {

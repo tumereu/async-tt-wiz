@@ -30,8 +30,8 @@ class UnsupportedPodSourceTest : E2e() {
         val (a, _) = ServerSetup.accounts()
         val cards = listOf(TestCards.mountain, TestCards.spark, TestCards.relic)
         val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
-            api.submit(a.token, SubmitDefinitions(UUID.randomUUID().toString(), cards.map { it.submitted() }))
-            val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube", cards.map { SavedCubeEntry(it.digest, 4) }))
+            val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube",
+                cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 4) }))
             // As Alice's phone keeps the result when she saves the cube (LOB-124)
             val support = CardListSupport(org.asyncttwiz.storage.CardDefinitions.parserVersion, listOf("Odd Relic"), arcanum.engine.Engine.SUPPORT_VERSION)
             assertTrue(api.setCubeSupport(a.token, saved.cube.id, SetCardListSupport(saved.cube.revision, support)).stored)

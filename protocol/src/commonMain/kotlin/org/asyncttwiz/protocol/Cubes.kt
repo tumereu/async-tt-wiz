@@ -8,9 +8,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class SavedCubeEntry(val definition: String, val quantity: Int,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val section: SavedDeckSection = SavedDeckSection.MAINBOARD)
-@Serializable data class CreateCube(val requestId: String, val name: String, val entries: List<SavedCubeEntry>, val cubeCobraId: String? = null)
+/** A new cube of [entries] (as [CardListEntry]: their card data comes from the server's catalog). */
+@Serializable data class CreateCube(val requestId: String, val name: String, val entries: List<CardListEntry>, val cubeCobraId: String? = null)
 @Serializable data class UpdateCube(val requestId: String, val name: String? = null,
-    val entries: List<SavedCubeEntry>? = null, val cubeCobraId: String? = null)
+    val entries: List<CardListEntry>? = null, val cubeCobraId: String? = null)
 @Serializable data class DeleteCube(val requestId: String)
 @Serializable data class CubeDeleted(val id: String)
 /** [totalCopies] counts Main, the copies a draft uses; [maybeCopies] counts Maybe and is omitted when none. */
@@ -32,6 +33,11 @@ object CubeValidation {
         digests.all(DeckValidation::digest)
     fun name(value: String) = value.isNotBlank() && DeckValidation.text(value)
     fun provenance(value: String?) = value == null || Regex("[A-Za-z0-9_-]{1,256}").matches(value)
+    /** A save's cards: Main and Maybe only, each a printing id or a digest; the limit counts every section (DRF-007). */
+    fun input(value: List<CardListEntry>) = value.isNotEmpty() &&
+        value.all { (DeckValidation.uuid(it.printingId) || DeckValidation.digest(it.printingId)) && it.quantity in 1..MAX_CARDS &&
+            it.section in SavedDeckSection.CUBE } &&
+        value.sumOf { it.quantity.toLong() } in 1..MAX_CARDS.toLong()
     /** The limit counts every section (DRF-007); a card may be in both Main and Maybe. */
     fun entries(value: List<SavedCubeEntry>) = value.isNotEmpty() &&
         value.all { DeckValidation.digest(it.definition) && it.quantity in 1..MAX_CARDS && it.section in SavedDeckSection.CUBE } &&

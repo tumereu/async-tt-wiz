@@ -90,14 +90,11 @@ class PodService(private val runtime: ServiceRuntime) {
             .associate { it.id!! to AccountService.identity(it) }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 
-    private fun validateLibrarian(settings: DraftSettings): Result? {
-        val card = settings.librarianDefinition
-        if (settings.librarians > 0 && card == null) return error(400, "librarian_definition_unavailable")
-        if (card != null && (card.definition.name != "Cogwork Librarian" || !DeckValidation.digest(card.digest) ||
-                !DeckValidation.definition(card.definition) || DeckJson.digest(card.definition) != card.digest))
-            return error(400, "invalid_definition")
-        return null
-    }
+    /** DRF-051: [settings] with the server's Cogwork Librarian when the pod has Librarians (none otherwise; whatever a
+     * device sent is replaced), or null when the catalog has none to give. */
+    private fun withLibrarian(settings: DraftSettings): DraftSettings? =
+        if (settings.librarians == 0) settings.copy(librarianDefinition = null)
+        else ServerCatalogs.current()?.librarian?.let { settings.copy(librarianDefinition = it) }
 
     private fun storeLibrarian(sql: DSLContext, settings: DraftSettings) {
         settings.librarianDefinition?.let { card ->
@@ -152,10 +149,12 @@ class PodService(private val runtime: ServiceRuntime) {
         if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
     private fun storeSet(sql: DSLContext, input: org.asyncttwiz.catalog.CatalogSetSource) = storeDefinitions(sql, input.definitions)
+    /** Stores [definitions] the `definition` table doesn't have yet, in one statement (SYS-025). */
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
-        for (submitted in definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
-            .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
-            .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
+        if (definitions.isEmpty()) return
+        var insert = sql.insertInto(DEFINITION, DEFINITION.DIGEST, DEFINITION.SCHEMA_VERSION, DEFINITION.PAYLOAD)
+        for (submitted in definitions) insert = insert.values(submitted.digest, submitted.definition.schemaVersion, DeckJson.canonical(submitted.definition))
+        insert.onConflictDoNothing().execute()
     }
 
     private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
@@ -200,8 +199,8 @@ class PodService(private val runtime: ServiceRuntime) {
             // DRF-162: a set's source and support come from the card catalog, refused by its marks
             val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@business it } } }
             set?.source?.let { storeSet(sql, it) }
-            val settings = input.settings ?: DraftSettings.defaults(input.mode)
-            validateLibrarian(settings)?.let { return@business it }
+            val settings = withLibrarian(input.settings ?: DraftSettings.defaults(input.mode))
+                ?: return@business error(400, "librarian_definition_unavailable")
             storeLibrarian(sql, settings)
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
@@ -229,9 +228,11 @@ class PodService(private val runtime: ServiceRuntime) {
             if (snapshot?.unsupported == true) return@mutate error(409, "automatum_unsupported")
             val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@mutate it } } }
             input.name?.let { row.name = it }
-            input.settings?.let { row.settings = encoded(it) }
-            validateLibrarian(settings(row))?.let { return@mutate it }
-            storeLibrarian(sql, settings(row))
+            input.settings?.let { requested ->
+                val settings = withLibrarian(requested) ?: return@mutate error(400, "librarian_definition_unavailable")
+                storeLibrarian(sql, settings)
+                row.settings = encoded(settings)
+            }
             // A newly chosen source starts unprepared: the cube's own Main and Maybe.
             snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe)
                 row.automatumSupport = it.support }
@@ -376,7 +377,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val settings = settings(row); val cube = source(row)
         if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
-        validateLibrarian(settings)?.let { return it }
+        if (settings.librarians > 0 && settings.librarianDefinition == null) return error(400, "librarian_definition_unavailable")
         unsupported(row)?.let { return it }
         if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
         row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null
@@ -607,18 +608,18 @@ class PodService(private val runtime: ServiceRuntime) {
             if (row.phase != "DRAFTED") return@mutate error(409, "draft_not_complete")
             val member = members(sql, row.id!!).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
-            val basics = if (input.basicDefinitions.isEmpty()) null
-                else PodGamePreparation.basicDefinitions(input.basicDefinitions) ?: return@mutate error(400, "invalid_basic_definitions")
             val build = build(row, member.build!!.data())
             val pool = pools(row).getValue(owner.toString())
             val issues = PodDeckRules.validate(build, pool, settings(row).sideboardLimit)
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             // LOB-141: Maybe goes to the pod's games too, outside the game with Side
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(build)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
-            if (basics != null) storeDefinitions(sql, input.basicDefinitions)
-            DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft",
-                DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics),
-                member.deckCover?.takeIf { it in coverChoices(row, build) })
+            // LOB-052: the server's basics (none when its catalog lacks them: the draft deck is kept without them)
+            val basics = ServerCatalogs.current()?.basics?.also { storeDefinitions(sql, it.values.toList()) }
+            DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics?.mapValues { it.value.digest }).let { entries ->
+                DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft", entries,
+                    member.deckCover?.takeIf { it in coverChoices(row, build) })
+            }
             releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
@@ -638,8 +639,11 @@ class PodService(private val runtime: ServiceRuntime) {
             detail(sql, row, owner)
         }
 
-    fun challenge(principal: AccountService.Principal, id: String, input: ChallengeFromPod): Result =
-        mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
+    fun challenge(principal: AccountService.Principal, id: String, input: ChallengeFromPod): Result {
+        // LOB-052: the basic lands come from the server's catalog; without them no pod game starts (not kept as the
+        // request's outcome: a retry may find them)
+        val basics = ServerCatalogs.current()?.basics ?: return error(503, "basic_definitions_unavailable")
+        return mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (!LobbyValidation.name(input.gameName)) return@mutate error(400, "invalid_name")
             if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
@@ -652,8 +656,6 @@ class PodService(private val runtime: ServiceRuntime) {
             // I-D52 (pivot review #2): its decks come from the source; a source Automatum can't play fully starts no game
             unsupported(row)?.let { return@mutate it }
             val held = players.getValue(input.opponentId).submittedDeck == null
-            val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
-                ?: return@mutate error(400, "invalid_basic_definitions")
             val build = build(row, players.getValue(owner.toString()).submittedDeck!!.data())
             // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
             if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
@@ -667,11 +669,13 @@ class PodService(private val runtime: ServiceRuntime) {
             val lobby = LobbyService(runtime)
             val summary = lobby.summary(sql, game)
             // The recipient's locked deck remains pod-private until they accept the invitation.
-            saveChallengeDeck(sql, row, summary, owner.toString(), build, basics, input.basicDefinitions, input.requestId)
+            storeDefinitions(sql, basics.values.toList())
+            saveChallengeDeck(sql, row, summary, owner.toString(), build, basics.mapValues { it.value.digest }, basics.values.toList(), input.requestId)
             // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
+    }
 
     /** The players of [pod]'s queued challenges (I-D57): games of the pod still in their lobby, never played, whose
      * invitation is pending or accepted. */

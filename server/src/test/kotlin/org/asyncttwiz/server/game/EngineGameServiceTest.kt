@@ -90,10 +90,7 @@ class EngineGameServiceTest {
             recipient.execute(GameAction.AcceptInvitation)
             for ((actor, stream) in listOf(a to owner, b to recipient)) {
                 val service = DeckService(runtime)
-                val definition = CardDefinition("Forest", listOf(DefinitionFace(id(), "Forest", typeLine = "Basic Land — Forest")))
-                val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-                assertEquals(200, service.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
-                val saved = service.create(actor, CreateDeck(id(), "Engine deck", listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 40))))
+                val saved = service.create(actor, CreateDeck(id(), "Engine deck", listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 40))))
                 val deck = GameWire.json.decodeFromString<SavedDeck>(saved.body)
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }

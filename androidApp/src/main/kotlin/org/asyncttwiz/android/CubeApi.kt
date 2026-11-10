@@ -4,7 +4,6 @@ import java.io.Closeable
 import org.asyncttwiz.protocol.*
 
 interface Cubes : Closeable {
-    suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted
     suspend fun create(token: String, value: CreateCube): SavedCube
     suspend fun listCubes(token: String, after: String? = null): CubeList
     suspend fun readCube(token: String, id: String): SavedCube

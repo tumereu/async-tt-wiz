@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.TestPrintings
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.cubes.CubeService
 import org.asyncttwiz.server.database.FoundationMigrations
@@ -19,11 +20,8 @@ import org.junit.jupiter.api.Test
 class PodChallengeTest {
     private val json = DeckJson.format
     private fun id() = UUID.randomUUID().toString()
-    private val basics = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).map { (land, mana) ->
-        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName,
-            typeLine = "Basic Land — ${land.cardName}", rulesText = "({T}: Add {$mana}.)")), provider = "mtgjson")
-        SubmittedDefinition(DeckJson.digest(card), card)
-    }
+    /** LOB-052: the basic lands the server supplies, from its catalog (the test cards' M21). */
+    private val basics get() = TestPrintings.catalog.basics!!.mapValues { it.value.digest }
     private inner class Fixture(val runtime: ServiceRuntime, uniqueCards: Boolean) {
         private val accounts = AccountService(runtime)
         fun account(name: String): AccountService.Principal {
@@ -33,16 +31,13 @@ class PodChallengeTest {
         val a = account("ChallengeA"); val b = account("ChallengeB"); val c = account("ChallengeC")
         val pods = PodService(runtime); val games = GameService(runtime); val lobby = LobbyService(runtime)
         val decks = DeckService(runtime)
-        val card = CardDefinition("Pool card", listOf(DefinitionFace(id(), "Pool card")))
-        val digest = DeckJson.digest(card)
         val cube: SavedCube
         init {
-            val cards = if (uniqueCards) (1..9).map { CardDefinition("Unique pool card $it", listOf(DefinitionFace(id(), "Unique pool card $it"))) }
-                else listOf(card)
-            val definitions = cards.map { SubmittedDefinition(DeckJson.digest(it), it) }
-            assertEquals(200, decks.submit(a, SubmitDefinitions(id(), definitions)).status)
+            // Test cards with nothing to do; unique ones whose names appear in no other card's data
+            val cards = if (uniqueCards) listOf("Ash Pup", "Ember Cub", "Cinder Hound", "Lone Goat", "Drowsy Pup", "Warded Pup",
+                "Ember Sprite", "Cinder Brute", "Ember Dasher") else listOf("Ash Pup")
             cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube",
-                definitions.map { SavedCubeEntry(it.digest, if (uniqueCards) 1 else 90) })).body)
+                cards.map { TestPrintings.entry(it, if (uniqueCards) 1 else 90) })).body)
         }
         fun pod(three: Boolean = false, sideboardLimit: Int? = 1): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), "Surviving pod name", cube.cube.id)).body).id
@@ -65,7 +60,7 @@ class PodChallengeTest {
             assertEquals(200, pods.submit(who, pod, SubmitPodDeck(id(), attempt)).status)
         }
         fun challenge(pod: String, who: AccountService.Principal = a, opponent: AccountService.Principal = b): GameSummary {
-            val result = pods.challenge(who, pod, ChallengeFromPod(id(), opponent.account.accountId, "Parallel game", basics))
+            val result = pods.challenge(who, pod, ChallengeFromPod(id(), opponent.account.accountId, "Parallel game"))
             assertEquals(201, result.status, result.body)
             return json.decodeFromString(result.body)
         }
@@ -167,7 +162,7 @@ class PodChallengeTest {
     // DRF-123, DRF-140
     @Test fun `challenge authorization submitted decks name basics validation idempotency and parallel games`() = fixture { f ->
         val pod = f.pod()
-        fun input(opponent: String = f.b.account.accountId) = ChallengeFromPod(id(), opponent, "Game", basics)
+        fun input(opponent: String = f.b.account.accountId) = ChallengeFromPod(id(), opponent, "Game")
         assertEquals(404, f.pods.challenge(f.c, pod, input()).status)
         assertEquals(404, f.pods.challenge(f.a, pod, input(f.c.account.accountId)).status)
         assertEquals(400, f.pods.challenge(f.a, pod, input(f.a.account.accountId)).status)
@@ -177,15 +172,6 @@ class PodChallengeTest {
         assertEquals(409, f.pods.challenge(f.b, pod, input(f.a.account.accountId)).status)
         f.submit(f.b, pod)
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(gameName = " ")).status)
-        assertEquals(400, f.pods.challenge(f.a, pod, input().copy(basicDefinitions = basics.drop(1))).status)
-        assertEquals(400, f.pods.challenge(f.a, pod, input().copy(basicDefinitions = basics.map { it.copy(digest = "sha256:" + "0".repeat(64)) })).status)
-        val plains = basics.first().definition
-        val forged = plains.copy(faces = listOf(plains.faces.single().copy(typeLine = "Basic Land Creature — Swamp Horror",
-            power = "20", toughness = "20", rulesText = "Draw twenty cards.")))
-        val rejected = f.pods.challenge(f.a, pod, input().copy(basicDefinitions =
-            listOf(SubmittedDefinition(DeckJson.digest(forged), forged)) + basics.drop(1)))
-        assertEquals(400, rejected.status)
-        assertEquals("invalid_basic_definitions", json.decodeFromString<PodError>(rejected.body).code)
         val request = input(); val first = f.pods.challenge(f.a, pod, request)
         assertEquals(201, first.status, first.body); assertEquals(first, f.pods.challenge(f.a, pod, request))
         assertEquals(409, f.pods.challenge(f.a, pod, request.copy(gameName = "Changed")).status)
@@ -207,7 +193,8 @@ class PodChallengeTest {
             assertEquals(1L, deck.count(SavedDeckSection.MAYBEBOARD))
             assertEquals(3, deck.entries.count { it.suppliedBasic == null })
             assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(deck))
-            assertEquals(5, deck.basicDefinitions.size)
+            // LOB-052: the server's basics, no device's
+            assertEquals(basics, deck.basicDefinitions)
             assertTrue(deck.entries.all { entry -> accepted.definitions.any { it.digest == entry.definition } })
         }
         assertNotEquals(accepted.players[0].deck!!.id, accepted.players[1].deck!!.id)
@@ -447,7 +434,8 @@ class PodChallengeTest {
         val rematch = f.games.head(f.a, game.id)
         assertEquals(GameLifecycle.LOBBY, rematch.summary.lifecycle)
         assertEquals(PodGameRules(1), rematch.preparation!!.podRules)
-        assertEquals(PodDeckBasics(plains = 40), PodGamePreparation.basics(rematch.preparation!!.players.first { it.accountId == f.a.account.accountId }.deck!!))
+        // The game's own deck as last prepared (its basics moved back to Main above)
+        assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(rematch.preparation!!.players.first { it.accountId == f.a.account.accountId }.deck!!))
         assertTrue(rematch.preparation!!.players.all { !it.ready })
     }
 

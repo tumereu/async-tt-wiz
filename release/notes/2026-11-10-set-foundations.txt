@@ -1,0 +1,1 @@
+add: Automatum now plays every card of Foundations.

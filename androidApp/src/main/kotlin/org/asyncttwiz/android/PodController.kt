@@ -33,6 +33,8 @@ data class PodState(
     val sourceHint: String? = null,
     /** Automatic refreshes have kept failing for a while; the shown pod data may be stale. */
     val unreachable: Boolean = false,
+    /** DRF-170: the open pod's chat panel is showing (personal UI). */
+    val chatOpen: Boolean = false,
 )
 
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
@@ -63,7 +65,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val basicLandDefinitions: () -> List<SubmittedDefinition> = { emptyList() },
     clock: () -> Long = ::monotonicMillis,
     /** Saves head-pack marks on the server, outside the serialized queue so a pick never waits for them. */
-    private val marksScheduler: PodMarksScheduler? = null) : AutoCloseable {
+    private val marksScheduler: PodMarksScheduler? = null,
+    /** Where pod chat requests run, beside the serialized pod requests. */
+    chatWorker: ExecutorService = worker) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -111,6 +115,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set))
         else editSetup(set = set)
     }
+    /** Pod chats (owner, 2026-11-08), also read by a pod game's table. */
+    val chat = PodChatController(api, credential, chatWorker, post)
     /** Prepare cube for the open pod's setup (creator). */
     val cubePreparation = PodCubePreparation(api, credential, worker, post) { refresh() }
     /** Draft table presets for the New pod form and the creator's setup form. */
@@ -122,6 +128,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         cubePreparation.reset()
         setPicker.clear()
         presets.clear()
+        chat.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
         pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
@@ -142,9 +149,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null)
+            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false)
         refresh()
     }
+    /** DRF-170: opens the open pod's chat (also from its "New message" notification, DRF-172). */
+    fun openChat() {
+        val pod = state.selected ?: return
+        AppLog.info("pod-chat", "Pod $pod: chat opened"); state = state.copy(chatOpen = true); chat.refresh(pod)
+    }
+    fun closeChat() { if (state.chatOpen) { AppLog.info("pod-chat", "Pod ${state.selected}: chat closed"); state = state.copy(chatOpen = false) } }
     fun back() {
         if (setPicker.state.open) { setPicker.dismiss(); return }
         if (state.confirmation != null) { dismissConfirmation(); return }
@@ -159,7 +172,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, sourcePreview = null)
+            confirmation = null, choosingMember = false, error = null, sourcePreview = null, chatOpen = false)
         refresh()
     }
     fun refresh(requested: Boolean = false) {
@@ -171,6 +184,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val text = podActivityText(hint.kind)
             if (state.selected == hint.gameId) state = state.copy(notice = text) else notices[hint.gameId] = text
         }
+        // Pod chat: another member's message is read at once (the dots on the pod screens and a pod game's table)
+        if (hint.kind == ActivityKind.POD_MESSAGE) chat.refresh(hint.gameId)
         // Always refresh the list (Quick continue too); refresh the open detail in the same pass.
         refresh()
     }

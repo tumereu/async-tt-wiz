@@ -1,1 +1,1 @@
-The Pods screen lists Alice's pods in the shared order: two waiting for her pick ("Your pick · 2 packs" in Booster, just "Your pick" in Rotisserie) highlighted, a Sealed pod to build, Bob's invitation, then the rest.
+The Pods screen lists Alice's pods in the shared order: two waiting for her pick ("Your pick · 2 packs" in Booster, just "Your pick" in Rotisserie) highlighted, a Sealed pod to build, Bob's invitation, then the rest; the Grid pod's status has a dot for unread chat messages.

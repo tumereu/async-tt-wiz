@@ -26,6 +26,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val chatFocus: String? = null,
     /** LOB-139: the chat was opened to write (Write in the Life panel): its input takes the focus, with the soft keyboard. */
     val chatWrite: Boolean = false,
+    /** LOB-145: the tab the chat shows in a pod game (personal UI). */
+    val chatTab: ChatTab = ChatTab.GAME,
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,

@@ -45,6 +45,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
             if (route.kind == org.asyncttwiz.protocol.ActivityKind.POD_INVITATION) pods.showList() else pods.open(route.gameId)
+            // DRF-172: a chat message's notice opens the pod with its chat open
+            if (route.kind == org.asyncttwiz.protocol.ActivityKind.POD_MESSAGE) pods.openChat()
             return
         }
         controller.navigate(ShellDestination.GAMES)
@@ -93,7 +95,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val cancel: () -> Unit = { scheduled.cancel(false) }
                 cancel
             }
-        }, setRepository = StoredPodSets { catalog.repository })
+        }, setRepository = StoredPodSets { catalog.repository },
+        chatWorker = Executors.newSingleThreadExecutor { Thread(it, "pod-chat") })
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },

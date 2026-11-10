@@ -66,10 +66,16 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
     fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
-    /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136). */
-    fun openChat(focus: String? = null) {
-        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true, chatFocus = focus); connectionState() }
+    /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136); [tab]: on that tab in a pod
+     * game (LOB-145). */
+    fun openChat(focus: String? = null, tab: ChatTab = ChatTab.GAME) {
+        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
+            AppLog.info("chat", "Chat opened on ${tab.name.lowercase()}" + (focus?.let { " at message $it" } ?: ""))
+            state = state.copy(chatOpen = true, chatFocus = focus, chatTab = tab); connectionState()
+        }
     }
+    /** LOB-145: shows the Game or Pod tab of a pod game's chat. */
+    fun chatTab(tab: ChatTab) { if (state.chatOpen && tab != state.chatTab) { AppLog.info("chat", "Chat tab ${tab.name.lowercase()}"); state = state.copy(chatTab = tab, chatFocus = null) } }
     /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up. */
     fun writeChat() { openChat(); if (state.chatOpen) state = state.copy(chatWrite = true) }
     fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false) }
@@ -102,7 +108,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     val chatViewEpoch get() = epoch
     fun presentedChat(gameId: String, viewEpoch: Long, ids: Set<String>) {
         // Fence stale layout callbacks after navigation/Logout or a changed account's panel.
-        if (!closed && viewEpoch == epoch && state.chatOpen && state.selected == gameId) {
+        if (!closed && viewEpoch == epoch && state.chatOpen && state.chatTab == ChatTab.GAME && state.selected == gameId) {
             session?.presentedChat(gameId, ids); connectionState()
         }
     }

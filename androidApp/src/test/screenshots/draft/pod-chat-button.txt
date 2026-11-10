@@ -1,0 +1,1 @@
+A drafted pod opened on its Games tab: the header's chat button, before the view settings cogwheel, has a dot because Carol's message in the pod's chat is unread.

@@ -46,6 +46,11 @@ interface Pods : Closeable {
     suspend fun cube(token: String, id: String): PodCube = throw PodFailure("not_configured")
     suspend fun cubeDefinitions(token: String, id: String, input: ReadCubeDefinitions): SubmittedDefinitions = throw PodFailure("not_configured")
     suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube = throw PodFailure("not_configured")
+    /** A page of the pod's chat (owner, 2026-11-08): the newest, or what is newer than the ordinal [after], with the caller's read state. */
+    suspend fun chat(token: String, id: String, after: String? = null): PodChatPage = throw PodFailure("not_configured")
+    suspend fun sendChat(token: String, id: String, input: SendPodChat): PodChatMessage = throw PodFailure("not_configured")
+    /** Moves the caller's read cursor of the pod's chat forward to a message. */
+    suspend fun readChat(token: String, id: String, input: ReadChat): PodChatRead = throw PodFailure("not_configured")
     /** The caller's draft table presets (server-side, per account). */
     suspend fun presets(token: String): PodPresetList = throw PodFailure("not_configured")
     suspend fun savePreset(token: String, input: SavePodPreset): PodPreset = throw PodFailure("not_configured")
@@ -91,6 +96,12 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
         call(token, path(id, "/cube/definitions"), DeckJson.format.encodeToString(input))
     override suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube =
         call(token, path(id, "/cube/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun chat(token: String, id: String, after: String?): PodChatPage =
+        call(token, path(id, "/chat") + (after?.let { "?after=" + it.toLong() } ?: ""))
+    override suspend fun sendChat(token: String, id: String, input: SendPodChat): PodChatMessage =
+        call(token, path(id, "/chat"), DeckJson.format.encodeToString(input))
+    override suspend fun readChat(token: String, id: String, input: ReadChat): PodChatRead =
+        call(token, path(id, "/chat/read"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     private fun presetPath(id: String): String {
         if (!DeckValidation.uuid(id)) throw PodFailure("invalid_request")
         return "/v1/pod-presets/$id"

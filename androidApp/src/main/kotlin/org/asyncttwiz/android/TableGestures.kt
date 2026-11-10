@@ -65,6 +65,10 @@ class TableGestureCoordinator(
     var panelInset: () -> Float = { 0f }
     /** HIS-113: what a double tap on the table does while a combat holds the view (skips it); null when none holds. */
     var viewHoldSkip: () -> (() -> Unit)? = { null }
+    /** CMB-028, CMB-034, CMB-040 (owner playtest 2026-11-10): whether a battlefield card may be dragged into the combat band
+     * now (one the viewer stages as an attacker, places as a blocker or places to assume); a drag on any other pans the
+     * table, as without a combat. */
+    var combatDrag: (TableItem) -> Boolean = { true }
     private var fingerHeld = false
     private fun held(now: Boolean) { if (now != fingerHeld) { fingerHeld = now; onHeld(now) } }
     /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
@@ -231,7 +235,7 @@ class TableGestureCoordinator(
                     if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
                 // ZON-077 (Arena style): nothing is placed by hand on the battlefield: a drag that starts on a battlefield
                 // card pans the table, unless the combat area is there to take it (CMB-028, CMB-034)
-                c.item?.battlefieldCard == true && scene.combatDrops.isEmpty() ->
+                c.item?.battlefieldCard == true && (scene.combatDrops.isEmpty() || !combatDrag(c.item)) ->
                     if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
                 c.scope != null && scene.canDrag(c.item) -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click

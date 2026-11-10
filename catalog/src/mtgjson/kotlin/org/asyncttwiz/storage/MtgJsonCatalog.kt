@@ -50,10 +50,12 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 var releaseDate = ""
                 var setName = set
                 var setType: String? = null
+                var keyrune: String? = null
                 objectFields(reader) { field -> when (field) {
                     "code" -> check(reader.nextString() == set)
                     "name" -> setName = reader.nextString().also { check(it.length in 1..256) }
                     "type" -> setType = reader.nextString().also { check(it.length in 1..64) }
+                    "keyruneCode" -> keyrune = reader.nextString().also { check(it.length in 1..32) }
                     "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
                     "cards", "tokens" -> {
                         if (field == "cards") sawCards = true
@@ -101,6 +103,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 index.addSet(set, releaseDate, expected.checksum)
                 index.setName(set, setName)
                 setType?.let { index.setType(set, it) }
+                keyrune?.let { index.setKeyrune(set, it) }
             }
             objectFields(reader) { key -> when (key) {
                 "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)

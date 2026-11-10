@@ -1,0 +1,1 @@
+mod: A permanent's abilities no longer pop up while you choose targets, and a tap on the other player's permanent shows nothing unless you may use one of its abilities; hold it to read them.

@@ -218,7 +218,8 @@ class DeckVisibilityTest {
             ALTER TABLE cube_entry ADD CONSTRAINT cube_entry_cube_id_definition_digest_key UNIQUE (cube_id, definition_digest);
             ALTER TABLE deck_entry DROP CONSTRAINT deck_entry_section_check;
             ALTER TABLE deck_entry ADD CONSTRAINT deck_entry_section_check CHECK (section IN ('MAINBOARD', 'SIDEBOARD'));
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81')
+            ALTER TABLE pod_preset DROP COLUMN pack_sets;
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82')
         """.trimIndent())
         // Up to V53: V54 would remove the finished game this checks
         assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)

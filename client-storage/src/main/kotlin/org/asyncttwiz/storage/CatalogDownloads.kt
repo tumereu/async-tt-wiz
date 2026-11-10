@@ -303,7 +303,7 @@ internal class CatalogRecordIndexer(val index: CatalogIndex, private val readBac
     fun finish(checksum: String): CatalogMetadata = reader.finish(checksum).let { (rest, metadata) -> rest?.let(::write); metadata }
 
     fun write(writes: CatalogWrites) {
-        writes.sets.forEach { index.addSet(it.code, it.released, it.name, it.type, it.draftable, it.automatum, it.unsupported) }
+        writes.sets.forEach { index.addSet(it.code, it.released, it.name, it.type, it.draftable, it.automatum, it.unsupported, it.keyrune) }
         if (writes.printings.isEmpty()) return
         if (readBack) index.addBatch(writes.printings.map { it.record }, writes.printings.map { it.trait }) else index.addPrintings(writes.printings)
         index.markSupported(writes.supported)

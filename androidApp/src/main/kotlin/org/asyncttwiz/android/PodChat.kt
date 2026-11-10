@@ -66,9 +66,8 @@ data class PodChatView(val podId: String, val messages: List<PodChatMessage> = e
  */
 class PodChatController(private val api: Pods, private val credential: () -> String?, private val worker: ExecutorService,
     private val post: (() -> Unit) -> Unit,
-    /** Runs the work after the milliseconds on the main thread, by its clock; gives what cancels it ([watch]'s re-reads).
-     * By default the main looper's handler. */
-    private val delayed: ((Long, () -> Unit) -> () -> Unit)? = null) {
+    /** The main thread's clock [watch]'s re-reads run on: by default the main looper's handler. */
+    private val delayed: MainDelayed = mainLooperDelayed) {
     var views by mutableStateOf<Map<String, PodChatView>>(emptyMap())
         private set
     private var epoch = 0L
@@ -79,10 +78,6 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
     private val failing = mutableMapOf<String, String>()
     fun view(podId: String): PodChatView = views[podId] ?: PodChatView(podId)
     private fun update(podId: String, change: (PodChatView) -> PodChatView) { views = views + (podId to change(view(podId))) }
-
-    private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
-    private fun later(millis: Long, work: () -> Unit): () -> Unit = delayed?.invoke(millis, work)
-        ?: Runnable(work).let { r -> handler.postDelayed(r, millis); { handler.removeCallbacks(r) } }
 
     /** Per pod, the re-reads since one was last logged ([watch]: only one that brings something, or fails, is). */
     private val quiet = mutableMapOf<String, Int>()
@@ -96,11 +91,9 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
      */
     fun watch(podId: String, everyMillis: Long, where: String): () -> Unit {
         var active = true
-        var cancel: () -> Unit = {}
         AppLog.info("pod-chat", "Pod $podId: re-read every ${everyMillis / 1000} s ($where)")
-        fun next() { cancel = later(everyMillis) { if (active) { refresh(podId, "every ${everyMillis / 1000} s, $where"); next() } } }
         refresh(podId, "watching, $where")
-        next()
+        val cancel = repeatEvery(everyMillis, delayed) { refresh(podId, "every ${everyMillis / 1000} s, $where") }
         return {
             if (active) {
                 active = false; cancel()

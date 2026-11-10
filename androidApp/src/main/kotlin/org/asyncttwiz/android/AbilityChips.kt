@@ -35,6 +35,11 @@ import org.asyncttwiz.protocol.PlayZone
 @Composable
 internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String> = emptyMap()) {
     val cardId = toolkit.abilityCard ?: return
+    // TBL-124 (owner playtest 2026-11-10): never while targets are picked: picking them closes the chips
+    if (toolkit.cast.targeting || toolkit.flows.targeting) {
+        LaunchedEffect(cardId) { AppLog.info("table", "Ability chips of $cardId closed: targets are picked"); toolkit.closeAbilities() }
+        return
+    }
     val offered = toolkit.abilities(play, cardId)
     // The board changed under the chips: nothing left to activate, or a single ability, closes them
     if (offered != null && (offered.size < 2 || offered.none { it.legal })) { LaunchedEffect(cardId, offered) { toolkit.closeAbilities() }; return }

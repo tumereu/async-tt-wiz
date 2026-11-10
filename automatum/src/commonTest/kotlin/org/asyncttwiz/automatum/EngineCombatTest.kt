@@ -111,6 +111,27 @@ class EngineCombatTest {
             divided.working.objects[it]?.zone == Zone.Battlefield }, "the Bear took the Ogre's 3 damage")
     }
 
+    // CMB-050 (owner playtest 2026-11-10; CR 510.2, 702.15b): the combat damage dealt stays readable until the combat ends:
+    // the defending player's net total (life lost to it minus life gained at the same moment), what each attacker dealt to
+    // its own target (not to its blockers), and the life each player gained with it
+    @Test fun theCombatDamageDealtIsKeptUntilTheCombatEnds() {
+        Cards.invent("Dawn Lancer", "{1}{W}", "Creature — Human Knight", "Lifelink", "2/2")
+        Cards.invent("Vigil Bear", "{1}{W}", "Creature — Bear", "Lifelink", "2/2")
+        val (ogre, lancer, bear) = table.put(alice, Zone.Battlefield, "Hill Ogre", "Dawn Lancer", "Stout Bear")
+        val (vigil) = table.put(bob, Zone.Battlefield, "Vigil Bear")
+        val blocking = toBlockers(declaredAttackers(listOf(LaneAttack(ogre), LaneAttack(lancer), LaneAttack(bear))))
+        assertNull(CombatFlow.dealt(blocking), "nothing dealt yet")
+        val blocked = run(blocking).also { CombatFlow.declareBlockers(it, listOf(LaneBlock(vigil, ogre))) }.working
+        val damage = passUntil(blocked) { it.turn.step == TurnStep.CombatDamage }
+        val dealt = assertNotNull(CombatFlow.dealt(damage))
+        assertEquals(mapOf<String?, Int>(null to 2), dealt.targets, "Bob lost 4 and gained 2 (the Vigil Bear's lifelink)")
+        assertEquals(mapOf(lancer to 2, bear to 2), dealt.attackers, "the blocked Ogre dealt nothing to Bob")
+        assertEquals(mapOf(alice to 2, bob to 2), dealt.gained)
+        val end = passUntil(damage) { it.turn.step == TurnStep.EndOfCombat }
+        assertEquals(dealt, CombatFlow.dealt(end), "kept until the combat ends")
+        assertNull(CombatFlow.dealt(passUntil(end) { it.turn.step == TurnStep.PostcombatMain }), "gone with the combat")
+    }
+
     // CMB-044 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
     // by itself, otherwise the payment is the attacker's open choice
     @Test fun aManaCostToAttackIsShownAndAutotapped() {

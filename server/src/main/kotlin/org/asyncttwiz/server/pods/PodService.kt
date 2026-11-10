@@ -46,13 +46,14 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun <T> stored(row: PodRecord, read: () -> T) = StoredData.decode("pod", row.id, read)
     private fun build(row: PodRecord, data: String) = stored(row) { json.decodeFromString<PodDeckBuild>(data) }
     private fun settings(row: PodRecord) = stored(row) { json.decodeFromString<DraftSettings>(row.settings!!.data()) }
-    // Legacy cubes remain arrays. A set is stored as a JSON string inside JSONB: PostgreSQL's
-    // object-key reordering must not change the significant card-map order of fixed recipe sheets.
+    // Cubes are arrays. A set source (its pack grid and the snapshot of each of its sets, DRF-177) is stored as a JSON
+    // string inside JSONB: PostgreSQL's object-key reordering must not change the significant card-map order of fixed
+    // recipe sheets.
     private fun isSetSource(row: PodRecord) = row.sourceSnapshot!!.data().trimStart().startsWith("\"")
-    private fun setSource(row: PodRecord): SetSourceSnapshot? = row.sourceSnapshot!!.data().let {
-        if (isSetSource(row)) stored(row) { json.decodeFromString<SetSourceSnapshot>(json.decodeFromString<String>(it)) } else null
+    private fun setSource(row: PodRecord): SetPackSources? = row.sourceSnapshot!!.data().let {
+        if (isSetSource(row)) stored(row) { json.decodeFromString<SetPackSources>(json.decodeFromString<String>(it)) } else null
     }
-    private fun encodedSet(source: SetSourceSnapshot) = encoded(json.encodeToString(source))
+    private fun encodedSet(source: SetPackSources) = encoded(json.encodeToString(source))
     private fun source(row: PodRecord) = if (!isSetSource(row))
         stored(row) { json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data()) } else emptyList()
     /** The prepared cube's Maybe: cards of the cube not drafted in this pod. */
@@ -135,6 +136,42 @@ class PodService(private val runtime: ServiceRuntime) {
         return ChosenSet(source, support)
     }
 
+    /** The sets of a pod's pack grid, chosen as its source (DRF-177): what is stored, or why it can't be. */
+    private class ChosenSets(val sources: SetPackSources? = null, val definitions: List<SubmittedDefinition> = emptyList(),
+        val support: String? = null, val refusal: Result? = null)
+
+    /**
+     * The pod's set source from [packSets], the pack grid read row by row (or one set for every pack), for [settings]:
+     * every set must be one [chooseSet] takes (DRF-162: draftable, every card supported), or the whole grid is refused.
+     */
+    private fun chooseSets(packSets: List<String>, settings: DraftSettings): ChosenSets {
+        if (!PodPackGrid.valid(packSets)) return ChosenSets(refusal = error(400, "invalid_source"))
+        val packs = PodPackGrid.normalize(packSets, settings)
+        val chosen = packs.distinct().map { code ->
+            chooseSet(code).also { set -> set.refusal?.let { log("pack grid $packs refused at set $code"); return ChosenSets(refusal = it) } }
+        }
+        val support = chosen.map { support(it.support) }
+        val combined = CardListSupport(support.firstNotNullOfOrNull { it }?.parserVersion ?: 0,
+            support.flatMap { it?.byHand.orEmpty() }.distinct().sorted(), support.firstNotNullOfOrNull { it }?.engineVersion ?: 0)
+        log("pack grid for ${settings.mode}: $packs (asked ${packSets.size} cells)")
+        return ChosenSets(SetPackSources(packs, chosen.map { it.source!!.snapshot }),
+            chosen.flatMap { it.source!!.definitions }.distinctBy { it.digest }, json.encodeToString(combined))
+    }
+
+    /** [sources] resized to [settings] (DRF-179): the grid cut or carried on, sets no pack names any more dropped. */
+    private fun resized(sources: SetPackSources, settings: DraftSettings): SetPackSources {
+        val packs = PodPackGrid.normalize(sources.packs, settings)
+        return SetPackSources(packs, sources.sets.filter { it.setCode in packs })
+    }
+
+    /** The pod's set source [sources] stored on [row], with its name and Automatum [support] (null: unchanged). A pod
+     * of one set is named by it; a mixed grid by its sets' names in the order its packs first name them. */
+    private fun storeSetSource(row: PodRecord, sources: SetPackSources, support: String?) {
+        row.sourceName = sources.packs.distinct().joinToString(", ") { sources.set(it).setName }
+        row.sourceSnapshot = encodedSet(sources); row.sourceMaybe = null
+        support?.let { row.automatumSupport = it }
+    }
+
     private fun log(message: String) = println("${java.time.Instant.now()} Pods: $message")
 
     /** I-D52 (pivot review #2): the pod's Automatum support of its source, kept with it when the source was chosen (the
@@ -150,7 +187,6 @@ class PodService(private val runtime: ServiceRuntime) {
     internal fun unsupported(row: PodRecord): Result? =
         if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
-    private fun storeSet(sql: DSLContext, input: org.asyncttwiz.catalog.CatalogSetSource) = storeDefinitions(sql, input.definitions)
     /** Stores [definitions] the `definition` table doesn't have yet, in one statement (SYS-025). */
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
         if (definitions.isEmpty()) return
@@ -195,24 +231,27 @@ class PodService(private val runtime: ServiceRuntime) {
         business(principal, input.requestId, "createPod", DeckJson.canonicalElement(json.encodeToJsonElement(input))) { sql, owner, _ ->
             if (!validName(input.name)) return@business error(400, "invalid_name")
             if (input.settings?.validate(2)?.isNotEmpty() == true) return@business error(400, "invalid_settings")
-            if (listOfNotNull(input.cubeId, input.setCode).size != 1) return@business error(400, "invalid_source")
+            if (listOfNotNull(input.cubeId, input.setCode, input.packSets).size != 1) return@business error(400, "invalid_source")
             val snapshot = input.cubeId?.let { cube ->
                 val catalog = ServerCatalogs.current() ?: return@business error(503, "catalog_unavailable")
                 snapshot(sql, owner, cube, catalog) ?: return@business error(404, "cube_not_found") }
             // I-D51/I-D52: a cube Automatum can't play fully (as the owner's device worked it out) can't start a pod.
             if (snapshot?.unsupported == true) return@business error(409, "automatum_unsupported")
-            // DRF-162: a set's source and support come from the card catalog, refused by its marks
-            val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@business it } } }
-            set?.source?.let { storeSet(sql, it) }
-            val settings = withLibrarian(input.settings ?: DraftSettings.defaults(input.mode))
-                ?: return@business error(400, "librarian_definition_unavailable")
+            val requested = input.settings ?: DraftSettings.defaults(input.mode)
+            // DRF-162, DRF-177: every set of the pack grid comes from the card catalog, refused by its marks
+            val sets = (input.packSets ?: input.setCode?.let(::listOf))?.let { packs ->
+                chooseSets(packs, requested).also { chosen -> chosen.refusal?.let { return@business it } } }
+            sets?.let { storeDefinitions(sql, it.definitions) }
+            val settings = withLibrarian(requested) ?: return@business error(400, "librarian_definition_unavailable")
             storeLibrarian(sql, settings)
+            val record = sql.newRecord(POD)
+            sets?.let { storeSetSource(record, it.sources!!, it.support) }
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
-                .set(POD.SOURCE_NAME, snapshot?.name ?: set!!.source!!.snapshot.setName)
-                .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.main) } ?: encodedSet(set!!.source!!.snapshot))
+                .set(POD.SOURCE_NAME, snapshot?.name ?: record.sourceName)
+                .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.main) } ?: record.sourceSnapshot)
                 .set(POD.SOURCE_MAYBE, snapshot?.let { encodedMaybe(it.maybe) })
-                .set(POD.AUTOMATUM_SUPPORT, snapshot?.support ?: set?.support)
+                .set(POD.AUTOMATUM_SUPPORT, snapshot?.support ?: record.automatumSupport)
                 .returning().fetchSingle()
             sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
             detail(sql, row, owner, 201)
@@ -228,12 +267,14 @@ class PodService(private val runtime: ServiceRuntime) {
             val members = members(sql, row.id!!).size
             if (input.settings?.validate(members.coerceAtLeast(2))?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
-            if (listOfNotNull(input.cubeId, input.setCode).size > 1) return@mutate error(400, "invalid_source")
+            if (listOfNotNull(input.cubeId, input.setCode, input.packSets).size > 1) return@mutate error(400, "invalid_source")
             val snapshot = input.cubeId?.let { cube ->
                 val catalog = ServerCatalogs.current() ?: return@mutate error(503, "catalog_unavailable")
                 snapshot(sql, owner, cube, catalog) ?: return@mutate error(404, "cube_not_found") }
             if (snapshot?.unsupported == true) return@mutate error(409, "automatum_unsupported")
-            val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@mutate it } } }
+            val next = input.settings ?: settings(row)
+            val sets = (input.packSets ?: input.setCode?.let(::listOf))?.let { packs ->
+                chooseSets(packs, next).also { chosen -> chosen.refusal?.let { return@mutate it } } }
             input.name?.let { row.name = it }
             input.settings?.let { requested ->
                 val settings = withLibrarian(requested) ?: return@mutate error(400, "librarian_definition_unavailable")
@@ -243,8 +284,15 @@ class PodService(private val runtime: ServiceRuntime) {
             // A newly chosen source starts unprepared: the cube's own Main and Maybe.
             snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe)
                 row.automatumSupport = it.support }
-            set?.source?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot); row.sourceMaybe = null
-                row.automatumSupport = set.support }
+            sets?.let { storeDefinitions(sql, it.definitions); storeSetSource(row, it.sources!!, it.support) }
+            // DRF-179: new settings resize the pod's pack grid
+            if (snapshot == null && sets == null && input.settings != null) setSource(row)?.let { current ->
+                val resized = resized(current, next)
+                if (resized != current) {
+                    log("pod ${row.id} pack grid resized for ${next.mode}: ${current.packs} -> ${resized.packs}")
+                    storeSetSource(row, resized, null)
+                }
+            }
             overLimit(sql, row)
             save(sql, row)
             detail(sql, row, owner)
@@ -383,7 +431,9 @@ class PodService(private val runtime: ServiceRuntime) {
         row.draftAttemptId = UUID.randomUUID()
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
-        val set = setSource(row)
+        // DRF-179: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
+        val set = setSource(row)?.let { resized(it, settings) }
+        set?.let { log("pod ${row.id} starts ${settings.mode} for ${players.size} players from pack grid ${PodPackGrid.cells(it.packs, settings)}") }
         if (settings.mode.limited) {
             val next = if (set == null) LimitedEngine.startFromCube(players, cube, settings, seed)
                 else LimitedEngine.startFromSet(players, set, settings, seed)
@@ -395,17 +445,14 @@ class PodService(private val runtime: ServiceRuntime) {
                 GridEngine.startWithCards(players, GridEngine.freshBoosterCards(set, settings, players.size, seed), settings, seed)
             } else {
                 // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
-                val needed = settings.supply(players.size, emptyList()).needed.toInt()
-                val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
-                val cards = SetBoosters.generate(set, (needed + minPack - 1) / minPack, seed).flatMap { it.cards }.take(needed)
-                GridEngine.startWithCards(players, cards, settings, seed)
+                GridEngine.startWithCards(players, GridEngine.setCards(set, settings, players.size, seed), settings, seed)
             }
             advanceGrid(sql, row, null, next)
         } else {
-            val digests = librarianDigests(sql, (cube.map { it.definition } + set?.cards.orEmpty().map { it.definition }).toSet())
+            val digests = librarianDigests(sql, (cube.map { it.definition } + set?.sets.orEmpty().flatMap { it.cards }.map { it.definition }).toSet())
             val next = if (set == null) DraftEngine.start(players, cube.map { it.copy(librarian = it.definition in digests) }, settings, seed) else
-                DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack)
-                    .map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
+                DraftEngine.startWithPacks(players, SetBoosters.generate(set, PodPackGrid.packSets(set.packs, settings, players.size), seed,
+                    settings.cardsPerPack).map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
             advance(sql, row, null, next)
         }
         return null
@@ -890,6 +937,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun save(sql: DSLContext, row: PodRecord) {
         row.updatedAt = sql.update(POD).set(POD.NAME, row.name).set(POD.PHASE, row.phase).set(POD.SETTINGS, row.settings)
             .set(POD.SOURCE_NAME, row.sourceName).set(POD.SOURCE_SNAPSHOT, row.sourceSnapshot).set(POD.SOURCE_MAYBE, row.sourceMaybe)
+            .set(POD.AUTOMATUM_SUPPORT, row.automatumSupport)
             .set(POD.DRAFT_ATTEMPT_ID, row.draftAttemptId).set(POD.DRAFT_STATE, row.draftState)
             .set(POD.AUTO_START, row.autoStart).set(POD.AUTO_START_OFF_REASON, row.autoStartOffReason)
             .set(POD.AUTO_START_OFF_ACCOUNT, row.autoStartOffAccount)
@@ -1060,9 +1108,9 @@ class PodService(private val runtime: ServiceRuntime) {
         val cube = source(row)
         val sourceView = if (set == null) PodSource(row.sourceName!!, cube.sumOf { it.quantity.toLong() },
             maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
-            PodSource(kind = PodSourceKind.SET, setCode = set.setCode, setName = set.setName,
-                boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
-                boosterName = set.recipe?.name)
+            PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
+                boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
+                boosterName = set.first.recipe?.name, packSets = set.packs)
         val finite = settings.supply(members.size, cube)
         val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
         val pending = pending(sql, row.id!!)

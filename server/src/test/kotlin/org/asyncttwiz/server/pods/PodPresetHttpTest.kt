@@ -126,6 +126,21 @@ class PodPresetHttpTest {
                 assertEquals(404, request(a, "DELETE", "/v1/pod-presets/${second.id}").statusCode())
                 assertEquals(listOf("ALPHA grid", "CUBE NIGHT", "no source"), list(a).map { it.name })
 
+                // DRF-032, DRF-177: a set preset keeps its pack grid (so "Original RTR block" is made once), stored
+                // normalized to its settings; one set for every pack keeps none
+                val block = json.decodeFromString<PodPreset>(save(a, SavePodPreset("Original RTR block", DraftSettings.booster(),
+                    setCode = "RTR", setName = "Return to Ravnica", packSets = listOf("RTR", "GTC", "DGM", "DGM", "DGM")), 201))
+                assertEquals(listOf("RTR", "GTC", "DGM"), block.packSets)
+                assertEquals(block, list(a).single { it.id == block.id })
+                val plain = json.decodeFromString<PodPreset>(save(a, SavePodPreset("Plain RTR", DraftSettings.booster(),
+                    setCode = "RTR", setName = "Return to Ravnica", packSets = listOf("RTR", "RTR", "RTR")), 201))
+                assertEquals(emptyList<String>(), plain.packSets)
+                save(a, SavePodPreset("Grid without its set", DraftSettings(), packSets = listOf("RTR", "GTC")), 400)
+                save(a, SavePodPreset("Grid of another set", DraftSettings(), setCode = "RTR", setName = "Return to Ravnica",
+                    packSets = listOf("GTC", "RTR")), 400)
+                save(a, SavePodPreset("Bad codes", DraftSettings(), setCode = "RTR", setName = "Return to Ravnica",
+                    packSets = listOf("RTR", "G T C")), 400)
+
                 // Limit on the number of presets; overwriting an existing one stays possible at the limit.
                 repeat(PodPresetValidation.MAX_PRESETS - 1) { save(b, SavePodPreset("Filler $it", DraftSettings()), 201) }
                 assertEquals("too_many_presets", json.decodeFromString<PodError>(save(b, SavePodPreset("One more", DraftSettings()), 409)).code)

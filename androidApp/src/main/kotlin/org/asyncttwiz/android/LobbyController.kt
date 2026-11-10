@@ -15,7 +15,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
     clock: () -> Long = ::monotonicMillis,
     /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
-    engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
+    engineWorker: EngineWorker = EngineWorker.Background,
+    /** The main thread's clock [engineTicks] run on: by default the main looper's handler. */
+    private val delayed: MainDelayed = mainLooperDelayed) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -186,6 +188,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     internal fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
     /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
     internal fun engineTick() { state.selected?.let { session?.engineTick(it) } }
+    /** [engineTick] every second on the main thread's clock while [gameId]'s table is shown, until the returned closer is
+     * called: not on a composition's frame clock, which stands still in the e2e harness while nothing animates. */
+    internal fun engineTicks(gameId: String): () -> Unit {
+        var active = true
+        AppLog.info("game", "Game ${gameId.take(8)}: engine ticks every 1 s")
+        val cancel = repeatEvery(1_000, delayed) { if (!closed) engineTick() }
+        return { if (active) { active = false; cancel(); AppLog.info("game", "Game ${gameId.take(8)}: engine ticks stopped") } }
+    }
     /** After an action on the open engine game: what it sends goes out and the table shows its new board. */
     internal fun engineSent() { state.selected?.let { session?.pumpEngine(it) }; connectionState() }
     // Start settings, readiness and deck preparation: LobbyPreparationActions.

@@ -123,6 +123,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) },
             onHeld = { held -> currentViewPause?.finger = held })
         owner.viewHoldSkip = { currentRuntime.holdTap }
+        owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }

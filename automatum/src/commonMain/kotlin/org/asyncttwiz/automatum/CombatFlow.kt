@@ -134,6 +134,21 @@ data class DamagePreview(
 }
 
 /**
+ * CMB-050 (owner playtest 2026-11-10): the combat damage dealt so far in the combat going on (the first-strike and regular
+ * damage steps together), as the combat band shows it until the combat ends:
+ *
+ * - [targets]: each attack target that combat damage reached, by its lane (the planeswalker's or battle's card id, null for
+ *   the defending player), with its net total from all lanes: the damage dealt to a card; for a player the life it lost
+ *   to that damage minus the life it gained at the same moment (the damage's results, CR 510.2);
+ * - [attackers]: what each attacker (ATW card id) dealt to its own attack target (unblocked, or trample over its
+ *   blockers); its pair's lane shows it;
+ * - [gained]: the life each player gained at those moments (lifelink, CR 702.15b), by account id.
+ */
+data class CombatDamageDealt(val targets: Map<String?, Int>, val attackers: Map<String, Int>, val gained: Map<String, Int>) {
+    val empty: Boolean get() = targets.isEmpty() && gained.isEmpty()
+}
+
+/**
  * What the table shows of combat through the engine now (§3 I3 on today's lanes; the combat area redesign, I-D32, comes
  * later):
  *
@@ -182,6 +197,71 @@ object CombatFlow {
         if (TurnPosition.of(board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
         return try { shown(EngineRun.of(state, board, gameId) { error("No randomness while looking") }) }
         catch (_: RuntimeException) { CombatShown.NONE }
+    }
+
+    /**
+     * CMB-050 (owner playtest 2026-11-10): the combat damage dealt so far in [state]'s combat ([CombatDamageDealt]), read from
+     * its logged events since the attackers were declared (D33: the log keeps this turn's); null when no combat goes on or
+     * no combat damage has been dealt in it. Never throws.
+     */
+    fun dealt(state: GameState): CombatDamageDealt? = try { dealtIn(state) } catch (_: RuntimeException) { null }
+
+    private fun dealtIn(state: GameState): CombatDamageDealt? {
+        val combat = state.combat ?: return null
+        if (state.turn.step != TurnStep.CombatDamage && state.turn.step != TurnStep.EndOfCombat) return null
+        val log = state.log
+        val turn = state.turn.number
+        // Back to the declaration of this combat's attackers
+        var start = log.size
+        while (start > 0) {
+            val entry = log[start - 1]
+            if (entry.turn != turn) break
+            val change = entry.change
+            if (change is Change.Combat && change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) { start--; break }
+            start--
+        }
+        val attackedBy = combat.attackers.associate { it.id to it.target }
+        val defender = combat.attackers.firstNotNullOfOrNull { (it.target as? TargetRef.Player)?.id }
+        val toTargets = LinkedHashMap<String?, Int>()
+        val byAttacker = LinkedHashMap<String, Int>()
+        val lost = LinkedHashMap<String, Int>()
+        val gained = LinkedHashMap<String, Int>()
+        var moment = false
+        fun lane(target: TargetRef): String? = when (target) {
+            is TargetRef.Player -> null
+            is TargetRef.Object -> (target.id as? ObjectId.Card)?.card?.value
+        }
+        for (i in start until log.size) {
+            when (val change = log[i].change) {
+                is Change.Damage -> {
+                    val combatDamage = change.dealt.filter { it.combat }
+                    moment = combatDamage.isNotEmpty()
+                    for (dd in combatDamage) {
+                        val target = attackedBy[dd.source] ?: continue
+                        // Only what reached its own attack target (unblocked, or trample over its blockers)
+                        if (dd.recipient != target) continue
+                        val attacker = (dd.source as? ObjectId.Card)?.card?.value ?: continue
+                        byAttacker[attacker] = (byAttacker[attacker] ?: 0) + dd.amount
+                        // A player's total is worked out from its life below
+                        lane(target).let { toTargets[it] = (toTargets[it] ?: 0) + if (target is TargetRef.Object) dd.amount else 0 }
+                    }
+                }
+                // The damage's results: life lost and gained at the same moment (lifelink), damage marked, counters
+                is Change.Life -> if (moment) {
+                    val delta = change.after - change.before
+                    val player = change.player.value
+                    if (delta < 0) lost[player] = (lost[player] ?: 0) - delta else if (delta > 0) gained[player] = (gained[player] ?: 0) + delta
+                }
+                // What follows the damage ends its moment (as the damage's hold splits its step, HIS-113): state-based
+                // actions moving or removing objects, a player losing, triggers, the next step or priority
+                is Change.ZoneChange, is Change.Removed, is Change.Created, is Change.Lost, is Change.StackItemAdded,
+                is Change.Step, is Change.Priority, is Change.PendingSet, is Change.Combat -> moment = false
+                else -> Unit
+            }
+        }
+        // A player attacked: what it lost to the damage minus what it gained then
+        if (null in toTargets && defender != null) toTargets[null] = (lost[defender.value] ?: 0) - (gained[defender.value] ?: 0)
+        return CombatDamageDealt(toTargets, byAttacker, gained).takeUnless { it.empty && byAttacker.isEmpty() }
     }
 
     /** Whether [board]'s combat runs through the engine: attackers were declared through it (its combat record is

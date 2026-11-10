@@ -440,8 +440,10 @@ internal class SharedFlowController(
     private sealed interface Outcome {
         class Fail(val message: String?) : Outcome
         data object Empty : Outcome
-        /** I-D56 step C: the viewer's own [inputs] made on [board]. */
-        class Engine(val board: BoardState, val inputs: List<arcanum.engine.input.Input>) : Outcome
+        /** I-D56 step C: the viewer's own [inputs] made on [play]'s board. */
+        class Engine(val play: TableBoard, val inputs: List<arcanum.engine.input.Input>) : Outcome {
+            val board: BoardState get() = play.board
+        }
     }
 
     /**
@@ -467,7 +469,7 @@ internal class SharedFlowController(
         // points are assumed, automatic or waited for, never passed for them)
         val own = call.inputs.takeWhile { it !is arcanum.engine.input.Input.MandatoryLoop &&
             !(it is arcanum.engine.input.Input.PassPriority && it.player.value != viewer) }
-        if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play.board, own)
+        if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play, own)
     } catch (refused: Refused) {
         Outcome.Fail(refused.message).also { refused.message?.let { AutomatumLog.refusal(play.gameId, "shared flow", it) } }
     } catch (refused: CombatRefused) {
@@ -483,12 +485,27 @@ internal class SharedFlowController(
         Outcome.Fail("Automatum couldn't go on from here.")
     }
 
+    /**
+     * SYS-011 (CoreLoopTest race, 2026-11-10): whether the board shown now still holds the decision [worked] was worked out
+     * on ([GameDevice.sameDecision], the same lanes): the player's own press taken back and made again when the other
+     * player's event came first only republished it. The inputs then go out, and the device checks them again on its own
+     * board (SYS-057), as a tap made on an older board with the same decision is.
+     */
+    private fun sameDecision(worked: TableBoard): Boolean {
+        val now = current() ?: return false
+        val same = now.board.combat == worked.board.combat && now.engine != null && worked.engine != null &&
+            org.asyncttwiz.protocol.game.GameDevice.sameDecision(worked.engine.state, now.engine.state)
+        if (same) AppLog.info("decision", "Flow step worked out on an older board: the same decision on the board shown, sent")
+        return same
+    }
+
     /** [outcome] on the main thread: its inputs go out unless the board moved on meanwhile. True when it was taken. */
     private fun deliver(outcome: Outcome, route: (List<arcanum.engine.input.Input>) -> String?): Boolean = when (outcome) {
         is Outcome.Fail -> { AppLog.info("decision", "Flow step not sent: ${outcome.message}"); outcome.message?.let(fail); false }
         Outcome.Empty -> { AppLog.info("decision", "Flow step: nothing to send"); fail(null); picked = emptyList(); true }
         is Outcome.Engine -> when {
-            current()?.board !== outcome.board -> { AppLog.info("decision", "Flow step not sent: the board moved on"); fail("The table changed: try again."); false }
+            current()?.board !== outcome.board && !sameDecision(outcome.play) -> {
+                AppLog.info("decision", "Flow step not sent: the board moved on"); fail("The table changed: try again."); false }
             else -> {
                 val refusal = route(outcome.inputs)
                 AppLog.info("decision", "Flow step ${if (refusal == null) "sent" else "refused: ${refusal.take(300)}"}: ${outcome.inputs.toString().take(300)}")

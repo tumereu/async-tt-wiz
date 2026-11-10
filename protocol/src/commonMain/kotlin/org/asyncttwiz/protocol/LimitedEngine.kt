@@ -197,10 +197,18 @@ object LimitedEngine {
      * Set boosters, generated from the seed: one per player and pack (Sealed: per player and booster); Rotisserie
      * opens boosters until the pool holds every player's cards.
      */
-    fun startFromSet(players: List<String>, set: SetSourceSnapshot, settings: DraftSettings, seed: String): LimitedDraftState {
+    fun startFromSet(players: List<String>, set: SetSourceSnapshot, settings: DraftSettings, seed: String): LimitedDraftState =
+        startFromSet(players, SetPackSources.of(set), settings, seed)
+
+    /**
+     * Set boosters from the pack grid (DRF-177): each pack from its cell's set ([PodPackGrid.packSets]); Rotisserie
+     * opens boosters of the pod's one set.
+     */
+    fun startFromSet(players: List<String>, sources: SetPackSources, settings: DraftSettings, seed: String): LimitedDraftState {
         check(players, settings)
         val random = Random(seed)
         val seating = random.shuffled(players.sorted())
+        val set = sources.first
         val material = if (settings.mode == DraftMode.ROTISSERIE) {
             val needed = needed(settings, players.size)
             var count = 1
@@ -212,7 +220,8 @@ object LimitedEngine {
                 boosters = SetBoosters.generate(set, count, seed, settings.cardsPerPack)
             }
             listOf(boosters.flatMap { it.cards })
-        } else SetBoosters.generate(set, players.size * settings.packsPerPlayer, seed, settings.cardsPerPack).map { it.cards }
+        } else SetBoosters.generate(sources, PodPackGrid.packSets(sources.packs, settings, players.size), seed, settings.cardsPerPack)
+            .map { it.cards }
         return deal(seating, settings, material, random)
     }
 

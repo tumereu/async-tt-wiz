@@ -12,7 +12,8 @@ class SingleCardPopupTest {
         val play = f.initial.let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map { card ->
             if (card.containerId == f.id("b/BATTLEFIELD") && card.id == p.board.containers.single { it.id == f.id("b/BATTLEFIELD") }.cards.first())
                 card.copy(damage = "1") else card })) }
-        val toolkit = TableToolkitController(f.a, { engineTableBoard(play, f.a) }, { true }, { _, _ -> true })
+        // Bob's table: a tap on another player's permanent opens nothing (TBL-124), his own lands open their menus
+        val toolkit = TableToolkitController(f.b, { engineTableBoard(play, f.b) }, { true }, { _, _ -> true })
         lateinit var gestures: TableGestureCoordinator
         val opened = mutableListOf<String?>()
         // Wired like the table host: every Actions intent opens through the one toolkit.
@@ -23,9 +24,10 @@ class SingleCardPopupTest {
                 toolkit.open(g.capturedActions ?: intent, requireNotNull(g.actionItem))
             }
         })
-        val scene = TablePresentation.scene(f.game, engineTableBoard(play, f.a), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, engineTableBoard(play, f.b), f.b, 412f, 892f, false)
         gestures.update(scene, true)
-        // Bob's lands: their menus list their mana abilities, greyed (TBL-115, TBL-123); a card offering nothing opens no menu (TBL-116)
+        // Bob's own lands: their menus list their mana abilities, greyed while he can't act (TBL-115, TBL-123); a card offering
+        // nothing opens no menu (TBL-116)
         fun forest(id: String?) = play.board.cards.singleOrNull { it.id == id }?.let { card ->
             card.owner == f.b && play.definitions.single { it.digest == card.definition }.definition.name == "Forest" } == true
         val (a, b) = scene.items.filter { item -> item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD &&

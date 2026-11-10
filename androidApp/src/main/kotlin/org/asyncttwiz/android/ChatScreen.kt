@@ -67,17 +67,7 @@ internal val LocalPodChat = staticCompositionLocalOf<PodChatController?> { null 
  * game's table): every 3 s while it is [open], else every 10 s ([PodChatController.watch]: on the main thread's clock). */
 @Composable
 internal fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean, where: String) {
-    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(chat, podId, open, owner) {
-        var stop: (() -> Unit)? = null
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
-            val front = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
-            if (front && stop == null) stop = chat.watch(podId, if (open) 3_000 else 10_000, if (open) "$where, chat open" else where)
-            else if (!front) { stop?.invoke(); stop = null }
-        }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer); stop?.invoke() }
-    }
+    WhileInFront(chat, podId, open) { chat.watch(podId, if (open) 3_000 else 10_000, if (open) "$where, chat open" else where) }
 }
 
 @Composable

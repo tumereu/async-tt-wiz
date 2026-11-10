@@ -38,6 +38,7 @@ object RandomV1 {
             "branch-reseed-v2" -> "async-tt-wiz/branch-reseed/v2\u0000"
             "hand-pick-v1" -> "async-tt-wiz/hand-pick/v1\u0000"
             "grid-booster-v1" -> "async-tt-wiz/grid-booster/v1\u0000"
+            "set-grid-v1" -> "async-tt-wiz/set-grid/v1\u0000"
             else -> error("Unsupported random algorithm")
         }.encodeToByteArray()
         private var counter = 0uL

@@ -122,14 +122,25 @@ object ServerSetup {
         error("unreachable")
     }
 
-    fun deck(account: TestAccount, deck: TestDeck): SavedDeck = DeckApi(origin).use { api ->
-        runBlocking {
-            val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
-                SavedDeckSection.MAYBEBOARD to deck.maybe)
-            // As a phone saves it: the cards by printing, in one request (the server builds their card data)
-            api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
-                sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } }))
+    /**
+     * [account]'s saved [deck]: again after a connection failure, as [accountCall] and [lobbyCall] (a full run's
+     * DeckChoiceRequestsTest was seen failing once with a bare "Deck request failed" right after the database's reset, the
+     * server's log quiet: no refusal), the same request each time; a refusal fails at once, naming its code.
+     */
+    fun deck(account: TestAccount, deck: TestDeck): SavedDeck {
+        val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
+            SavedDeckSection.MAYBEBOARD to deck.maybe)
+        // As a phone saves it: the cards by printing, in one request (the server builds their card data)
+        val request = CreateDeck(UUID.randomUUID().toString(), deck.name,
+            sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } })
+        repeat(3) { attempt ->
+            try { return DeckApi(origin).use { api -> runBlocking { api.create(account.token, request) } } }
+            catch (failure: org.asyncttwiz.android.DeckFailure) {
+                if (failure.code != "network" || attempt == 2) error("Deck request of the setup (${deck.name}): ${failure.code}")
+                Thread.sleep(200)
+            }
         }
+        error("unreachable")
     }
 
     /**
@@ -174,6 +185,29 @@ object ServerSetup {
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 12 / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
+    }
+
+    /** Pod [id] as [a] sees it on the server. */
+    fun pod(a: TestAccount, id: String): PodDetail = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id) } }
+
+    /** [a]'s pod presets on the server. */
+    fun presets(a: TestAccount): List<PodPreset> = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.presets(a.token).presets } }
+
+    /** Booster picks made for [players] over the API: in turn each takes the first cards of their head pack, until [done]. */
+    fun pickUntil(players: List<TestAccount>, pod: String, done: () -> Boolean) = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            while (!done()) {
+                var picked = false
+                for (player in players) {
+                    val detail = api.detail(player.token, pod)
+                    val head = detail.draft?.head ?: continue
+                    api.pick(player.token, pod, PickPod(UUID.randomUUID().toString(), detail.draftAttemptId!!, head.id,
+                        head.cards.take(detail.settings.keep).map { it.id }))
+                    picked = true
+                }
+                check(picked) { "nobody had a pack to pick from" }
+            }
+        }
     }
 
     /** The name the server holds for pod [id]. */

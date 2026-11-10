@@ -77,13 +77,57 @@ class StackClarityTest {
         compose.onNodeWithTag("stack-target-arrows", useUnmergedTree = true)
             .assert(hasContentDescription("Targets of the top Stack entry: Ember Cub"))
         captureShot("$SCREENSHOTS/stack/opponent-spell-line.png",
-            "Bob cast Storm Spark at Alice's Ember Cub and she holds priority: a line over the battlefield says \"Bob cast Storm Spark · deals 3 damage to Ember Cub\" with the Cub's name in her green, and a red arrow runs from the Stack to the Cub, which has a soft red highlight.")
+            "Bob cast Storm Spark at Alice's Ember Cub and she holds priority: the band under his hand says \"Bob cast Storm Spark\" and, small under it, \"deals 3 damage to Ember Cub\" with the Cub's name in her green, and a red arrow runs from the Stack to the Cub, which has a soft red highlight.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Storm Spark deals 3 damage to Ember Cub.").assertExists()
         compose.onNodeWithText("Target: Ember Cub").assertDoesNotExist()
         captureShot("$SCREENSHOTS/stack/stack-list-choices.png",
             "Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, its text with Bob's target named in it, \"Storm Spark deals 3 damage to Ember Cub.\", the Cub's name in her green.")
+    }
+
+    // STK-057, STK-018 (test and screenshots only): Bob casts Cinder Charm choosing its second mode; at Alice's pause the line
+    // says the chosen mode, not the card's whole text, and the Stack list's row shows it
+    @Test fun anOpponentsModalSpellShowsItsChosenMode() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.CHARM, "Mountain"))))
+        kit.opening()
+        // A Mountain and a Storm Spark in hand: Alice can respond, so Bob's spell is a point where she acts
+        kit.playLand()
+        kit.bobCasts(Choices.CHARM, free = true) { d -> if (d is arcanum.engine.decision.Decision.Modes) arcanum.engine.decision.Answer.Modes(listOf(1)) else null }
+        toBobsEntry(kit) { s -> s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell }
+        render(kit)
+        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast ${Choices.CHARM} · you gain 2 life"))
+        captureShot("$SCREENSHOTS/stack/opponent-mode-line.png",
+            "Bob cast Cinder Charm choosing its second mode and Alice holds priority: the band under his hand says \"Bob cast Cinder Charm\" with \"you gain 2 life\" small under it, only the chosen mode (its own words: \"you\" is Bob).")
+        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Mode: You gain 2 life.", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/stack/opponent-mode-list.png",
+            "Alice tapped the Stack holding Bob's Cinder Charm: its row shows the card's text and under it the chosen mode, \"Mode: You gain 2 life.\"")
+    }
+
+    // STK-057, STK-018 (test and screenshots only): Bob casts Ember Burst with X = 1 at Alice; at her pause the line fills X in
+    // ("deals 1 damage to you") and the Stack list's row shows it with "X = 1"
+    @Test fun anOpponentsXSpellShowsItsX() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.BURST, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        kit.bobCasts(Choices.BURST) { d -> when (d) {
+            is arcanum.engine.decision.Decision.Announce -> arcanum.engine.decision.Answer.Number(1)
+            is arcanum.engine.decision.Decision.Targets -> arcanum.engine.decision.Answer.Targets(listOf(TargetRef.Player(kit.me)))
+            else -> null
+        } }
+        toBobsEntry(kit) { s -> s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell }
+        render(kit)
+        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast ${Choices.BURST} · deals 1 damage to you"))
+        captureShot("$SCREENSHOTS/stack/opponent-x-line.png",
+            "Bob cast Ember Burst with X = 1 at Alice and she holds priority: the band under his hand says \"Bob cast Ember Burst\" with \"deals 1 damage to you\" small under it, X filled in.")
+        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Ember Burst deals 1 damage to you.").assertExists()
+        compose.onNodeWithText("X = 1").assertExists()
+        captureShot("$SCREENSHOTS/stack/opponent-x-list.png",
+            "Alice tapped the Stack holding Bob's Ember Burst: its row shows \"Ember Burst deals 1 damage to you.\" with X filled in and \"X = 1\" under it.")
     }
 
     // STK-057, STK-050, HIS-091 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line
@@ -103,7 +147,7 @@ class StackClarityTest {
         // No targets: no arrows
         compose.onNodeWithTag("stack-target-arrows", useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/stack/cycling-trigger-line.png",
-            "Bob cycled Shattered Reason and Alice holds priority over its cycling trigger: the Stack shows the trigger's token and a line over the battlefield says \"Shattered Reason's cycling trigger · each opponent mills 4 cards\".")
+            "Bob cycled Shattered Reason and Alice holds priority over its cycling trigger: the Stack shows the trigger's token and the band under his hand says \"Shattered Reason's cycling trigger\" with \"each opponent mills 4 cards\" small under it.")
         compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Cycling trigger").assertExists()

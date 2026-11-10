@@ -1,0 +1,1 @@
+mod: Paying a cost while something resolves, sacrifices, crewing and other choices of cards on the battlefield are made by tapping the cards on the table, with how many you picked shown in the bar.

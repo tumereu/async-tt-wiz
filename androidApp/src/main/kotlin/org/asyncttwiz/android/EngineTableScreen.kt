@@ -61,7 +61,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             ending = { intent -> engineEnding(routes, intent) },
             waitingForConnection = { game.id !in controller.table.value.connectedGames },
             playBatch = { actions, requestId -> routes.local(actions, requestId) },
-            automatumWork = AutomatumWork.Background, tokenArt = tokenArt, engine = routes)
+            automatumWork = AutomatumWork.Background, tokenArt = tokenArt, engine = routes,
+            // TRN-064: Concede whenever the player is at the table, their move or not
+            atTable = { game.id !in controller.table.value.reconnectingGames && routes.review == null })
     }
     // I-D43: problem and crash reports carry this game's device bundle while it is the latest open
     DisposableEffect(controller, game.id) {

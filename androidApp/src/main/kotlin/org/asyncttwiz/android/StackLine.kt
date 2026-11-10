@@ -43,6 +43,17 @@ internal object StackLine {
         return entryPieces(play, top, viewer, names)
     }
 
+    /** STK-057 (owner, 2026-11-09): the line as the band shows it: its main part ("Bob cast Storm Spark") and the rest under
+     * it, smaller ("deals 3 damage to Ember Cub", with X and the targets that follow it), empty when there is none. */
+    fun split(pieces: List<StackTextPiece>): Pair<List<StackTextPiece>, List<StackTextPiece>> {
+        val rest = pieces.drop(1).toMutableList()
+        rest.firstOrNull()?.let { first ->
+            val text = first.text.removePrefix(" · ").trimStart()
+            if (text.isEmpty()) rest.removeAt(0) else rest[0] = first.copy(text = text)
+        }
+        return pieces.take(1) to rest
+    }
+
     /** The line's words for the Stack entry [top] as [viewer] sees it, whoever controls it and holds priority (HIS-112: a
      * play shown names it so), or null when it isn't an entry Automatum made. */
     fun entryPieces(play: TableBoard, top: String, viewer: String, names: Map<String, String>): List<StackTextPiece>? {

@@ -24,7 +24,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
                         revealOpen = !runtime.reviewing && LocalEngineRoutes.current?.revealing() == true,
                         assumedBlockers = LocalEngineRoutes.current?.assuming()?.blocks?.size,
-                        mainAction = toolkit.flows.divisionAction())
+                        mainAction = toolkit.mainSlot.action ?: toolkit.flows.divisionAction())
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },

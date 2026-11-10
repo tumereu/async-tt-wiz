@@ -42,7 +42,8 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         Column(Modifier.fillMaxSize()) {
             ScreenHeader("Choose cover", openNavigation)
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                controller.coverCards.forEach { card ->
+                // LOB-058 (owner playtest 2026-11-09): listed alphabetically
+                controller.coverCards.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.definition.name }).forEach { card ->
                     val face = card.definition.faces.first()
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { controller.cover(card.digest) }
                         .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,

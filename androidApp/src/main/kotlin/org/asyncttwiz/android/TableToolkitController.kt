@@ -21,7 +21,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
     tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** I-D56 step C: the routes of the game played on engine state (null: none, as in tests of the table alone). */
-    val engine: EngineRoutes? = null) : TableActionRoutes {
+    val engine: EngineRoutes? = null,
+    /** TRN-064: the player is at the table, whoever's move it is (Concede needs no more); [connected] by default. */
+    private val atTable: () -> Boolean = connected) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.playId) }
     /** R4a: the batch being drafted on the board of a game on engine state ([EngineStaging]). */
     private var engineDraft: EngineDraft? = null
@@ -39,6 +41,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send },
         takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
     private val automatumWork = automatumWork
+    /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
+    internal val mainSlot = MainSlot()
 
     /**
      * Runs [work] for the table's shown board as [automatumWork] says: off the main thread on [dispatcher] in the app
@@ -189,7 +193,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     internal fun tapUsable(play: TableBoard, cardId: String): Boolean {
         if (cast.targeting || flows.targeting) return cardId in cast.glow(play) + flows.glow(play)
         // STK-024 (owner 2026-11-07): while the cast panel is open a tap adds a mana source to its payment
-        if (cast.paying) return cardId in cast.payableSources()
+        if (paying) return cardId in payableSources()
         val shown = combat.choices(play)
         if (!combat.working(shown)) {
             val choices = shown.choices
@@ -247,17 +251,36 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 layoutState.value = layoutState.value.copy(expandedGroup = group.key)
             }
             // STK-024: in a stack of identical sources a tap adds the next one to the payment, else takes the last out
-            is GroupTap.Act -> member(if (cast.paying) payMember(group, tap.cardId) else tap.cardId)
+            is GroupTap.Act -> member(if (paying) payMember(group, tap.cardId) else tap.cardId)
             GroupTap.Top -> member(group.top)
         }
+    }
+
+    /** STK-024, STK-049 (owner playtest 2026-11-09): a payment is made on the table now: the open cast's, or one the viewer makes
+     * while something resolves; its sources are tapped there. */
+    internal val paying: Boolean get() = cast.paying || flows.paying
+    /** The table cards paying the open payment (outlined in amber, in a pile of their own). */
+    internal fun paySources(): Set<String> = cast.paySources() + flows.paySources()
+    /** The table cards a tap adds to the open payment (or takes out). */
+    internal fun payableSources(): Set<String> = cast.payableSources() + flows.payableSources()
+    /** A tap on the table card [cardId] while a payment is made there: added or taken out; false when it isn't a source of it. */
+    internal fun tapSource(cardId: String): Boolean = if (cast.paying) cast.tapSource(cardId) else flows.tapSource(cardId)
+    /** STK-024: the ways the table card [cardId] can pay the open payment ([CastController.waysOf]). */
+    internal fun waysOf(cardId: String): List<arcanum.engine.decision.ManaUse> = if (cast.paying) cast.waysOf(cardId) else flows.waysOf(cardId)
+    /** STK-024: the way the table card [cardId] pays the open payment now, null when it doesn't. */
+    internal fun paidWith(cardId: String): arcanum.engine.decision.ManaUse? = cast.paidWith(cardId) ?: flows.paidWith(cardId)
+    /** STK-024: a way chosen with the table card [cardId]'s corner chip. */
+    internal fun chooseWay(cardId: String, way: arcanum.engine.decision.ManaUse) {
+        AppLog.info("cast", "Corner chip of $cardId: way ${org.asyncttwiz.automatum.ManaWays.label(way)} chosen")
+        if (cast.paying) cast.chooseWay(cardId, way) else flows.chooseWay(cardId, way)
     }
 
     /** STK-024, TBL-130 (owner playtest 2026-11-07): which card of [card]'s stack in [group] a tap on it adds to the open
      * payment: the topmost one not paying yet, else (all paying) the lowest one, the one added last (taken out). */
     private fun payMember(group: BattlefieldGroup, card: String): String {
         val unit = group.units.firstOrNull { card in it } ?: return card
-        val payable = cast.payableSources()
-        val paying = cast.paySources()
+        val payable = payableSources()
+        val paying = paySources()
         return unit.lastOrNull { it in payable && it !in paying } ?: unit.firstOrNull { it in paying } ?: card
     }
 
@@ -269,7 +292,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
         panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
-    val table = TableActionController(::current, ::enabled, this)
+    val table = TableActionController(::current, ::enabled, this, atTable = { atTable() && current() != null })
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
     private var lastInvocation: String? = null
@@ -617,9 +640,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (item.kind == TableItemKind.DUNGEON) return
         // STK-024 (owner 2026-11-07): while the cast panel is open a tap on a mana source adds it to the payment or takes it
         // out
-        if (cast.paying && item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD && item.viewport != "combat" && !item.projection) {
+        if (paying && item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD && item.viewport != "combat" && !item.projection) {
             val card = item.cardId?.let { CombatStackRules.liveSource(play.board, it)?.id }
-            if (card != null && cast.tapSource(card)) return
+            if (card != null && tapSource(card)) return
         }
         // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks, taps place blocks to assume as they would
         engine?.assuming()?.let { placed -> if (assumeTap(placed, play, item)) { dismiss(); return } }

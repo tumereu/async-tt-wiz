@@ -101,6 +101,13 @@ object Engine {
     /** Whether a reduction may come to apply to the open cast or activation as its choices are made: then what it costs needn't rise with an X (CR 202.3e, 601.2f). */
     fun anyReduction(state: GameState): Boolean = Options.anyReduction(state)
 
+    /**
+     * Whether [value], announced for the open announcement of a cost (an X, CR 107.3, 601.2b), might still be paid: its mana
+     * found, or paid at the most every cost reduction could take (CR 601.2f). False is proof that neither it nor any larger
+     * value can be paid; true is no promise ([finishableWith] tells exactly).
+     */
+    fun announcedMayPay(state: GameState, value: Int): Boolean = Options.announcedMayPay(state, value)
+
     /** [finishable] once [answer] is given to the open decision: false when it is refused or leaves no way. */
     fun finishableWith(state: GameState, answer: arcanum.engine.decision.Answer): Boolean = Options.finishableWith(state, answer)
 
@@ -122,10 +129,13 @@ object Engine {
 
     /**
      * The open [arcanum.engine.decision.Decision.ManaPayment] paid around a player's own choices (STK-024): [pinned] uses stay,
-     * [removed] uses aren't used, Autotap's order fills in the rest; empty when the rest can't be filled.
+     * [removed] uses aren't used, Autotap's order fills in the rest; empty when the rest can't be filled. A pinned mana
+     * ability's source stays, its colour (and what else it chooses) free; each of [exact] stays exactly as given (a player who
+     * chose which way a source pays: its colour, its ability).
      */
-    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> =
-        Options.fillPayment(state, pinned, removed)
+    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
+        exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> =
+        Options.fillPayment(state, pinned, removed, exact)
 
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)

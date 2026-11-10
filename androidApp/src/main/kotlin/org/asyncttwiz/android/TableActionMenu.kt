@@ -31,13 +31,15 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     var setting by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = controller.enabled(scope) && !blocked
+    // TRN-064, CR 104.3a: also while it isn't the viewer's move
+    val concedable = controller.concedeEnabled(scope) && !blocked
     val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
         else MenuControl("Accept result", enabled && mayAccept) {
             if (perform(TableActionIntent.Ending(scope, EndingTool.ACCEPT, pendingSuggestionId))) onDismiss()
         }
     // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
-        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true } +
+        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", concedable) { conceding = true } +
         // The same report as Settings' "Report a problem", without leaving the game (N7FU6Y)
         MenuControl("Send problem report", !blocked) { reporting = true } +
         // LOB-135: both players see the game's settings; only its host changes them
@@ -52,7 +54,7 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     }
     if (conceding) ScreenDialog({ conceding = false }, title = "Concede?", actions = {
         DialogCancelButton("Cancel", { conceding = false })
-        DialogMainButton("Concede", { if (perform(TableActionIntent.Ending(scope, EndingTool.CONCEDE))) onDismiss() }, enabled = enabled,
+        DialogMainButton("Concede", { if (perform(TableActionIntent.Ending(scope, EndingTool.CONCEDE))) onDismiss() }, enabled = concedable,
             danger = true)
     }) { Text("You lose this game at once.") }
     if (ending && outcome == null) TableMenuPanel({ ending = false }, title = "Suggest game end") {

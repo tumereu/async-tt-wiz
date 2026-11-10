@@ -125,7 +125,7 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-no-pips", useUnmergedTree = true).assertTextEquals("3× ∅")
         val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
         compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics, the curve " +
-            "on its Type view: card type counts wrap between the curve legend and the mana table, each colour's pips and sources with their " +
+            "on its Type view, each bar's number reading creatures · noncreatures (\"5 · 3\"): card type counts wrap between the curve legend and the mana table, each colour's pips and sources with their " +
             "shares in percent beside a thin pip bar over a source bar, full width being 100% (lands solid, a mana rock lighter), then the sources' total " +
             "line and the pip counts as chips flowing in rows.")
     }
@@ -162,6 +162,13 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-curve-type").performClick()
         compose.onNodeWithTag("pod-stats-curve-legend").assertDoesNotExist()
         assertFalse(PodStatsCurveChoice(preferences).byColor)
+    }
+
+    // DRF-111 (owner playtest 2026-11-09): in Type view a bar's number reads "creatures · noncreatures"; in Color view its total
+    @Test fun aTypeBarReadsCreaturesAndNoncreaturesAColorBarItsTotal() {
+        assertEquals("5 · 3", podStatsCurveBarLabel(listOf(5, 3), byColor = false))
+        assertEquals("0 · 1", podStatsCurveBarLabel(listOf(0, 1), byColor = false))
+        assertEquals("8", podStatsCurveBarLabel(listOf(2, 0, 0, 0, 5, 0, 1), byColor = true))
     }
 
     // DRF-113

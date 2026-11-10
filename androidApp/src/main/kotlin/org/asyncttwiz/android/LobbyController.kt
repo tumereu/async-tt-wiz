@@ -263,11 +263,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
      * that reached it in the background still plays on the return (HIS-106, HIS-108) instead of the table opening anew
      * at the board after it. */
     fun openNotified(id: String) { if (state.selected == id && state.detail?.id == id) openGame() else open(id) }
-    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); session?.openedChanged(); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); session?.openedChanged(); refresh() } }
     /** The background maintenance's tick: the socket's background attempts back off after failures ([GameSession.poll]). */
     fun tick() { session?.poll() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true

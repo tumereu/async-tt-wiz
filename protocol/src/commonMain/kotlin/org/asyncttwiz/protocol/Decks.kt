@@ -72,6 +72,19 @@ data class CardDefinition(
         val CUBE = listOf(MAINBOARD, MAYBEBOARD)
     }
 }
+/**
+ * The one swipe rule wherever cards move between sections (owner, 2026-11-09: the card list editor LOB-105, deck
+ * preparation LOB-048, Build DRF-099 and its review, Prepare cube DRF-141): in the order of [sections] (Main, Side, Maybe,
+ * those present), a swipe right moves a card one section up and a swipe left one down, wrapping (right from the first goes
+ * to the last, left from the last to the first); with two sections either way goes to the other.
+ */
+object SectionSwipe {
+    fun <T> target(sections: List<T>, from: T, right: Boolean): T {
+        val at = sections.indexOf(from)
+        require(at >= 0) { "$from is none of $sections" }
+        return sections[(at + (if (right) -1 else 1) + sections.size) % sections.size]
+    }
+}
 @Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
 @Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)

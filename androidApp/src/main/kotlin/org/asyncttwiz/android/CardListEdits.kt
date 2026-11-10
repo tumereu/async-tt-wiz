@@ -16,8 +16,8 @@ import org.asyncttwiz.storage.ResolvedDeckEntry
 enum class CardListKind(val sections: List<DeckSection>, val maxCards: Int, val noun: String) {
     DECK(listOf(DeckSection.MAINBOARD, DeckSection.SIDEBOARD, DeckSection.MAYBEBOARD), DeckValidation.MAX_CARDS, "deck"),
     CUBE(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD), CubeValidation.MAX_CARDS, "cube");
-    /** A card swiped in [from] moves to the next section, the last one wrapping to Main. */
-    fun next(from: DeckSection): DeckSection = sections[(sections.indexOf(from) + 1) % sections.size]
+    /** Where a card swiped in [from] moves ([right] or left): the shared section rule ([SectionSwipe]). */
+    fun swipe(from: DeckSection, right: Boolean): DeckSection = SectionSwipe.target(sections, from, right)
 }
 
 internal fun DeckSection.saved() = SavedDeckSection.valueOf(name)

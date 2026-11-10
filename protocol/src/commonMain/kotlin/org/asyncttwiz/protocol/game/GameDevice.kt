@@ -484,6 +484,34 @@ class GameDevice(
         return Indicator(after.count { it.assumed?.assumedBy == me }, after.size - first - 1)
     }
 
+    /** Where the other player is ([OpponentAt.turn], [OpponentAt.step], whose turn it is) when they are behind this player. */
+    data class OpponentAt(val turn: Int, val step: arcanum.api.TurnStep, val active: PlayerId)
+
+    private var opponentAtKey: Pair<String, String>? = null
+    private var opponentAtCached: OpponentAt? = null
+
+    /**
+     * TRN-066 (owner, 2026-11-09): where the other player is when they are behind this player, who went ahead on assumptions
+     * about them not yet confirmed: the board at their local head as the server last said; null when they aren't behind
+     * (or their head isn't on this line, or too far back to reach exactly). Worked out once per pair of heads.
+     */
+    fun opponentAt(): OpponentAt? {
+        val head = heads[opponent] ?: return null
+        if (indicator() == null) return null
+        val at = session.indexOf(head) ?: return null
+        val local = session.indexOf(session.localHead) ?: return null
+        if (at >= local) return null
+        val key = head to session.localHead
+        if (key != opponentAtKey) {
+            opponentAtKey = key
+            // Still in the opening (before turn 1: "turn 0") says nothing of where they are
+            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn?.takeIf { it.number >= 1 }
+                ?.let { OpponentAt(it.number, it.step, it.active) }
+            remember("the other player behind, at ${head.take(8)}: $opponentAtCached")
+        }
+        return opponentAtCached
+    }
+
     /** Whether [event], an assumed input, is confirmed: the other player's local head is past it (§2). */
     fun confirmed(event: GameEvent): Boolean {
         val about = event.assumed?.let { Acceptance.assumedAbout(it, event, players) } ?: return true

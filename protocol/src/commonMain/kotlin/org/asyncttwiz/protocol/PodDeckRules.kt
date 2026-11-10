@@ -27,11 +27,9 @@ object PodDeckRules {
     fun initialBuild(sideboardLimit: Int?): PodDeckBuild =
         PodDeckBuild(sideBasics = if (sideboardLimit == null) PodDeckBasics(17, 17, 17, 17, 17) else PodDeckBasics())
 
-    fun swipe(category: PodDeckCategory, direction: PodDeckSwipe): PodDeckCategory = when (category) {
-        PodDeckCategory.MAIN -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.SIDE else PodDeckCategory.MAYBE
-        PodDeckCategory.SIDE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.MAYBE
-        PodDeckCategory.MAYBE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.SIDE
-    }
+    /** Where a swipe moves a copy in Build and its review (DRF-099): the shared section rule ([SectionSwipe]). */
+    fun swipe(category: PodDeckCategory, direction: PodDeckSwipe): PodDeckCategory =
+        SectionSwipe.target(PodDeckCategory.entries, category, direction == PodDeckSwipe.RIGHT)
 
     /** Merge the latest pool without changing existing assignments or basics. Awards always start in Main. */
     fun withAwards(build: PodDeckBuild, pool: List<String>): PodDeckBuild {

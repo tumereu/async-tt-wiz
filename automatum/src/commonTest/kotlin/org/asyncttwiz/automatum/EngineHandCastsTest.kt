@@ -98,6 +98,53 @@ class EngineHandCastsTest {
         assertEquals(3, HandCasts.mostAnnounced(flow))
     }
 
+    /** "Creature spells you cast with mana value [least] or greater cost {2} less to cast", as an invented card named [name]. */
+    private fun drover(name: String, least: Int): String =
+        drover(name, arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtLeast, arcanum.api.Value.Fixed(least)))
+
+    /** "Creature spells you cast cost {2} less to cast" for spells matching [filter], as an invented card named [name]. */
+    private fun drover(name: String, filter: arcanum.api.ObjectFilter): String {
+        val cards = arcanum.engine.cards.Cards
+        val face = cards.definition(cards.invent("$name Base", "{0}", "Enchantment", "Creature spells you cast cost {2} less to cast.")).faces.single()
+        val static = face.abilities.single() as arcanum.api.Ability.Static
+        val m = static.mechanics.single() as arcanum.api.Mechanic.CostChange
+        return cards.define(name, arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(face.copy(name = name,
+            abilities = listOf(static.copy(mechanics = listOf(m.copy(what = arcanum.api.ObjectFilter.And(listOf(m.what, filter))))))))))
+    }
+
+    private fun giantFlow(): CastFlow {
+        val giant = arcanum.engine.cards.Cards.invent("Hand X Giant", "{X}{4}", "Creature — Giant", "", "4/4")
+        val (card) = table.put(alice, Zone.Hand, giant)
+        val state = table.state()
+        return CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(card).first(), CastFlow.Seeds(table::seed))
+    }
+
+    // STK-052, STK-023, CR 601.2f (castability review): two reducers start to apply at mana value 6: with three Forests X = 0
+    // ({4}) and X = 1 ({5}) can't be paid, X = 2 and 3 can; the values the stepper offers that can't be paid are known, so Cast
+    // greys on them; X = 4 can't be paid even at the most both reductions take, which ends the look exactly: 3 is the most
+    @Test fun gapsInWhatAnXCanBePaidAreKnownAndTheMostStaysExact() {
+        val reducer = drover("Hand Drover", 6)
+        table.put(alice, Zone.Battlefield, reducer, reducer, "Forest", "Forest", "Forest")
+        val flow = giantFlow()
+        assertIs<Decision.Announce>(flow.pending)
+        val shown = assertNotNull(HandCasts.announceable(flow, cap = 30))
+        assertEquals(3, shown.most)
+        assertEquals(setOf(0, 1), shown.unpayable)
+    }
+
+    // STK-052 (castability review): twelve reducers for kicked spells, which never apply to the unkicked Giant, could take
+    // {24} as far as anything proves: with three Forests twenty values in a row can't be paid without proof that larger ones
+    // can't: that bound is no "no", so the stepper stays open up to the top, the values tried greying Cast
+    @Test fun aRunOfUnpayableValuesWithoutProofLeavesTheStepperOpen() {
+        val reducer = drover("Hand Kicked Drover", arcanum.api.ObjectFilter.WasPaid(arcanum.api.Keyword.Kicker.Kind, 1))
+        table.put(alice, Zone.Battlefield, *Array(12) { reducer }, "Forest", "Forest", "Forest")
+        val flow = giantFlow()
+        assertIs<Decision.Announce>(flow.pending)
+        val shown = assertNotNull(HandCasts.announceable(flow, cap = 30))
+        assertEquals(30, shown.most, "the look ran out of tries before the top")
+        assertEquals((0..19).toSet(), shown.unpayable)
+    }
+
     // STK-024: five any-colour sources tapped by hand for five colours: past the first combinations of colours the engine's search decides
     @Test fun aSetOfSourcesPaysPastTheFirstCombinations() {
         val sources = (1..5).map { arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("alice.$it"), 0) }

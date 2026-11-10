@@ -178,8 +178,21 @@ internal fun E2ePlayer.showsOnBattlefield(name: String, owner: E2ePlayer = this)
 internal fun E2ePlayer.control(label: String): SemanticsNodeInteraction = node(hasContentDescription(label) and hasClickAction())
 internal fun E2ePlayer.showsControl(label: String): Boolean = shows(hasContentDescription(label) and hasClickAction())
 
-/** Taps the control [label]. */
-internal fun E2ePlayer.tap(label: String) { control(label).performClick() }
+/** Taps the control [label]. A main button press within [org.asyncttwiz.android.MainButtonGuard.MILLIS] of this phone's last one is
+ * ignored as the second tap of a double tap (TRN-063): the phone's clock first moves past it, as a player's finger would be later. */
+internal fun E2ePlayer.tap(label: String) { pastMainGuard(); control(label).performClick() }
+
+/** HIS-110, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
+internal val REVEAL_OK = hasTestTag("main-button") and hasContentDescription("OK")
+internal fun E2ePlayer.showsRevealOk(): Boolean = game?.shown?.reveal != null && shows(REVEAL_OK)
+internal fun E2ePlayer.revealOk() { pastMainGuard(); node(REVEAL_OK).performClick() }
+
+/** Moves this phone's clock past the main button's guard against a quick second tap (TRN-063), when its last press was that recent. */
+internal fun E2ePlayer.pastMainGuard() {
+    val pressed = (game ?: last)?.lastPressAt ?: return
+    val wait = pressed + org.asyncttwiz.android.MainButtonGuard.MILLIS - android.os.SystemClock.uptimeMillis()
+    if (wait > 0) org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(wait))
+}
 
 /** Holds the control [label] (a long press: the step arrow's End turn, Undo's earlier points). */
 internal fun E2ePlayer.hold(label: String) { control(label).performTouchInput { longClick() } }
@@ -276,7 +289,7 @@ internal fun E2ePlayer.playAlong() {
     if (!foreground || shown.version == alongAt || !current()) return
     val acted = runCatching {
         // HIS-110: the other player's reveal panel: they look and tap OK
-        if (shown.reveal != null && shows(hasTestTag(org.asyncttwiz.android.REVEAL_OK_TAG))) { tagged(org.asyncttwiz.android.REVEAL_OK_TAG).performClick(); return@runCatching true }
+        if (showsRevealOk()) { revealOk(); return@runCatching true }
         when (val status = shown.status) {
             GameDevice.Status.CatchUp -> { tapToWatch(); true }
             is GameDevice.Status.Stopped ->

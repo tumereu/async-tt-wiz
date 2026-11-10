@@ -21,9 +21,8 @@ internal fun PodCubePreparationScreen(preparation: PodCubePreparation) {
     BackHandler { preparation.close() }
     val sections = state.cube?.let { cube ->
         SavedDeckSection.CUBE.map { section ->
-            val opposite = if (section == SavedDeckSection.MAINBOARD) SavedDeckSection.MAYBEBOARD else SavedDeckSection.MAINBOARD
             val cards = cube.entries.filter { it.section == section }
-            PreparationSection(section, opposite, cards.sumOf { it.quantity.toLong() },
+            PreparationSection.of(SavedDeckSection.CUBE, section, cards.sumOf { it.quantity.toLong() },
                 preparationGroups(cards.map { it.definition to it.quantity.toLong() }, state.definitions))
         }
     }

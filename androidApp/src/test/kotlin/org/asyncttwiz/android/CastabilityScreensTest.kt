@@ -152,7 +152,7 @@ class CastabilityScreensTest {
         assertTrue(toolkit.cast.pickDone, "two types pay")
         assertEquals(2, toolkit.cast.pick!!.options.size, "the pick and the one-type creature")
         captureShot("$SCREENSHOTS/castability/multi-target.png",
-            "Alice cast her Ember Toll ({R}{R} for each creature type among its targets) with three Ember Geodes out and picked her Elf Bear: it shows picked and Done is enabled; her Ox Human, with two more types, no longer glows, and her one-type Lone Goat does.")
+            "Alice cast her Ember Toll ({R}{R} for each creature type among its targets) with three Ember Geodes out and picked her Elf Bear: it shows picked, the bar says 1 of up to 5 and Done on the main button is enabled; her Ox Human, with two more types, no longer glows, and her one-type Lone Goat does.")
     }
 
     // STK-059, CR 605.3a: a Signet in the payment, fed by a Shard
@@ -190,6 +190,6 @@ class CastabilityScreensTest {
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         refresh()
         captureShot("$SCREENSHOTS/castability/partial-override.png",
-            "Alice opened her Ember Brood's cast panel, turned on its Offspring {2} and tapped her Ember Elf on the table, panned up: the Elf stays picked and Autotap fills in one rock for the rest, both outlined in amber, and Cast is enabled.")
+            "Alice opened her Ember Brood's cast panel, turned on its Offspring {2} and tapped her Ember Elf on the table, panned up: the Elf stays picked and Autotap fills in one rock for the rest, both outlined in amber with their corner chips, and Cast on the main button is enabled.")
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -37,7 +38,7 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     // so the board stays usable
     if (!runtime.reviewing && !showing) runtime.waitingLine?.let { line -> WaitBand(scene, accountId) {
         Text(line, Modifier.semantics { contentDescription = line }, color = Color.White,
-            style = WaitBandText, maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            style = WaitBandText, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     } }
     // STK-057 (owner playtest 2026-11-07, 2026-11-09): what the other player's top Stack entry is while you hold priority over it,
     // in the wait's place (they never show together) and look; purely visual. Live and in catch-up playback, not under the
@@ -47,8 +48,15 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
         val pieces = remember(IdentityKey(play.board), accountId, names) { StackLine.pieces(play, accountId, names) }
         if (pieces != null) WaitBand(scene, accountId) {
             val stackLine = pieces.plain()
-            CardText(pieces.tintedOnDark(accountId), Modifier.testTag("stack-line").semantics { contentDescription = stackLine }, color = Color.White,
-                style = WaitBandText, maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            val (main, detail) = remember(pieces) { StackLine.split(pieces) }
+            // STK-057 (owner, 2026-11-09): who did what a little bigger, what it does small under it, up to 8 lines
+            Column(Modifier.testTag("stack-line").clearAndSetSemantics { contentDescription = stackLine },
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                CardText(main.tintedOnDark(accountId), color = Color.White, style = WaitBandText, maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                if (detail.isNotEmpty()) CardText(detail.tintedOnDark(accountId), color = Color.White, style = WaitBandDetailText,
+                    maxLines = 8, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
         }
     }
     // HIS-094: the catch-up's centre text, a tap resumes playback
@@ -75,23 +83,29 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     }
 }
 
-/** TRN-066, STK-057: the band's words, smaller than the board's old centre text, at most 4 lines of them. */
-internal val WaitBandText = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium,
+/** TRN-066, STK-057 (owner, 2026-11-09): the band's main line, a little bigger than before. */
+internal val WaitBandText = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium,
     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 
-/** The narrowest the band goes, where the other player's hand is narrower (landscape). */
-private const val WAIT_BAND_MIN_WIDTH = 240f
+/** STK-057 (owner, 2026-11-09): the ability's or effect's text under the band's main line, small. */
+internal val WaitBandDetailText = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp,
+    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+
+/** How dark the band is in its middle, fading out toward both sides. */
+private val WaitBandShade = Color.Black.copy(alpha = .62f)
 
 /**
  * TRN-066, STK-057 (owner, 2026-11-09): the one place the wait and the other player's top Stack entry say what goes on: a
- * semi-transparent dark band right under the other player's hand, as wide as it. Purely visual: it has no pointer handlers,
- * so touches go through to the table under it.
+ * semi-transparent dark band right under the other player's hand, edge to edge, fading out toward both sides, its words kept
+ * in its dark middle. Purely visual: it has no pointer handlers, so touches go through to the table under it.
  */
 @Composable
 internal fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
     val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer }?.bounds ?: return
-    Box(Modifier.offset(hand.x.dp, hand.bottom.dp).width(hand.width.coerceAtLeast(WAIT_BAND_MIN_WIDTH).dp)
-        .background(Color.Black.copy(alpha = .62f)).padding(horizontal = 10.dp, vertical = 3.dp).testTag("wait-band"),
+    Box(Modifier.offset(0.dp, hand.bottom.dp).fillMaxWidth()
+        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Transparent, .2f to WaitBandShade,
+            .8f to WaitBandShade, 1f to Color.Transparent))
+        .testTag("wait-band").padding(horizontal = 48.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center) { content() }
 }
 

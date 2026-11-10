@@ -287,19 +287,16 @@ class GameSession(private val connection: GameConnection, private val credential
         headAsked.add(gameId)
         send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = true))
     }
+    /**
+     * The game open on the device changed ([engineLoad]): a game no longer open is let go at once, not at the next tick
+     * (TRN-065, e2e GameEndDialogTest: a table held at the game's end showed again when the game was opened right after
+     * leaving it, instead of the dialog over the lobby).
+     */
+    fun openedChanged() { if (!closed) letGoClosed() }
+
     /** Each game that should be loaded but isn't (an active engine play): loads it from its kept head, or asks for one. */
     private fun loadOpened() {
-        // Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go
-        // (what it still has to send goes first) and its subscription becomes a summary one
-        for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
-            endHeld.remove(gameId)
-            val game = engineGames.getValue(gameId)
-            if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
-            engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
-            val stream = streams[gameId]
-            if (ready && stream?.generation != null && available(gameId))
-                send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = false))
-        }
+        letGoClosed()
         for ((gameId, stream) in streams) {
             if (stream.generation == null || !engineLoad(gameId) || gameId in unopenable) continue
             val current = summaries[gameId] ?: continue
@@ -307,6 +304,20 @@ class GameSession(private val connection: GameConnection, private val credential
             if (engineGames[gameId]?.base?.id == current.playId) continue
             val kept = engineHeads[gameId]
             if (kept != null && kept.summary.playId == current.playId) engineHead(kept) else askHead(gameId)
+        }
+    }
+
+    /** Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go (what
+     * it still has to send goes first) and its subscription becomes a summary one. */
+    private fun letGoClosed() {
+        for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
+            if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
+            val game = engineGames.getValue(gameId)
+            if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
+            engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+            val stream = streams[gameId]
+            if (ready && stream?.generation != null && available(gameId))
+                send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = false))
         }
     }
     /** [gameId] can't be opened on this device: a clear error instead of reconnecting. */
@@ -609,7 +620,8 @@ class GameSession(private val connection: GameConnection, private val credential
                     "final" -> { val result = requireNotNull(status.result); require(result.requestId == status.requestId); result(result) }
                     "pending" -> sent.add(status.requestId)
                     "notAdmitted" -> if (available(message.gameId)) sent.remove(status.requestId) else {
-                        pending.remove(status.requestId); sent.remove(status.requestId)
+                        // A lobby action that will never be taken: what it showed is taken back
+                        pending.remove(status.requestId); sent.remove(status.requestId); preparations.forget(status.requestId, "game unavailable")
                     }
                     else -> error("Invalid recovery status")
                 }
@@ -693,7 +705,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
                     message.requestId?.let { id ->
                         chats.failed(id, "Not sent. This request could not be used.")
-                        pending.remove(id); preparations.forget(id); sent.remove(id)
+                        pending.remove(id); preparations.forget(id, "admission ${message.code}"); sent.remove(id)
                     }
                     if (original != null) error = "This game changed or the request could not be used. Refresh and try again."
                 }

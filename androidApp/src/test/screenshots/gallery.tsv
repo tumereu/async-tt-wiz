@@ -66,7 +66,7 @@ number	item	screenshot	catalog	decisions
 65	Question: divide a spell's damage	questions/divide.png	STK-030 STK-033	Divide
 66	Question: which replacements apply first (drag to reorder)	questions/replacement.png	STK-030	ChooseReplacement
 67	Question: legend rule	questions/legend-rule.png	STK-030	LegendRule
-68	Question: pay while resolving, or Don't pay	questions/mana-payment.png	STK-030 STK-049	ManaPayment
+68	Question: pay while resolving, or Don't pay, on the table with Pay on the main button	questions/pay-on-table.png	STK-049 TRN-063 STK-030	ManaPayment
 69	A step Automatum can't do yet	questions/skipped.png	STK-030 SYS-064	Manual
 70	A deck Automatum can't fully play	non-gameplay/choose-lobby-deck-automatum-portrait.png	LOB-115 LOB-118
 71	Automatum settings for new games	settings/settings-portrait-full-automatum-settings.png	LOB-113
@@ -187,3 +187,6 @@ number	item	screenshot	catalog	decisions
 186	Keep / Bottom screen right after a second mulligan	engine/opening-bottom.png	TRN-062 STK-043
 187	Game end dialog of the conceder, waiting for the other OK	engine/game-end-conceder.png	TRN-065 TRN-064
 188	Warning sign on cards Automatum can't play yet, in card search	non-gameplay/card-search-unsupported-portrait.png	LOB-144 SYS-082
+189	The other player's modal spell on the Stack, its chosen mode under the band's main line	stack/opponent-mode-line.png	STK-057 STK-018
+190	The other player's X spell on the Stack, X filled in under the band's main line	stack/opponent-x-line.png	STK-057 STK-018
+191	A source paying with its corner chip, its ways open, Cast on the main button	cast-panel/source-ways.png	STK-024 STK-052 TRN-063	ManaPayment

@@ -33,17 +33,26 @@ sealed interface TableActionIntent {
     data class Keep(override val scope: TableActionScope) : TableActionIntent
 }
 
+/** [canAct]: the viewer may act on the table now (their move); [atTable]: they are at the table at all, whoever's move it is
+ * (TRN-064, CR 104.3a: a concession needs nobody's agreement, any time). */
 class TableActionController(private val state: () -> TableBoard?, private val canAct: () -> Boolean,
-    private val routes: TableActionRoutes) {
+    private val routes: TableActionRoutes, private val atTable: () -> Boolean = canAct) {
 
-    private fun current(scope: TableActionScope): TableBoard? = state()?.takeIf {
-        canAct() && it.gameId == scope.gameId && it.playId == scope.playId
+    private fun current(scope: TableActionScope, allowed: () -> Boolean = canAct): TableBoard? = state()?.takeIf {
+        allowed() && it.gameId == scope.gameId && it.playId == scope.playId
     }
     fun scope(): TableActionScope? = state()?.let { TableActionScope(it.gameId, it.playId) }
     fun enabled(scope: TableActionScope) = current(scope) != null
+    /** TRN-064: Concede works whenever the viewer is at the table, also while it isn't their move. */
+    fun concedeEnabled(scope: TableActionScope) = current(scope, atTable) != null
 
     fun perform(intent: TableActionIntent): Boolean {
-        current(intent.scope) ?: return false
+        val concession = intent is TableActionIntent.Ending && intent.tool == EndingTool.CONCEDE
+        if (current(intent.scope, if (concession) atTable else canAct) == null) {
+            if (concession) AppLog.warn("game", "Concede not taken: not at the table")
+            return false
+        }
+        if (concession) AppLog.info("game", "Concede pressed" + if (canAct()) "" else " while it isn't the player's move")
         when (intent) {
             is TableActionIntent.Next, is TableActionIntent.End -> return routes.automatumStep(intent)
             is TableActionIntent.OpeningMulligan, is TableActionIntent.Keep -> return routes.opening(intent)

@@ -45,9 +45,14 @@ enum class ChatTab { GAME, POD }
 
 /** LOB-145: which tab the table's chat opens on, which tab is highlighted, and the chat button's count. */
 internal object ChatTabs {
-    /** Game, or Pod when only the pod's chat holds unread messages ([pod]: the game has a pod chat to show). */
-    fun opening(pod: Boolean, gameUnread: Int, podUnread: Int): ChatTab =
-        if (pod && gameUnread == 0 && podUnread > 0) ChatTab.POD else ChatTab.GAME
+    /** The tab last used in this game ([last], owner 2026-11-10); before any, Game, or Pod when only the pod's chat holds
+     * unread messages ([pod]: the game has a pod chat to show). */
+    fun opening(pod: Boolean, gameUnread: Int, podUnread: Int, last: ChatTab? = null): ChatTab = when {
+        !pod -> ChatTab.GAME
+        last != null -> last
+        gameUnread == 0 && podUnread > 0 -> ChatTab.POD
+        else -> ChatTab.GAME
+    }
     /** [tab] holds a message the viewer hasn't seen while [selected] is shown. */
     fun highlighted(tab: ChatTab, selected: ChatTab, gameUnread: Int, podUnread: Int): Boolean =
         tab != selected && (if (tab == ChatTab.GAME) gameUnread else podUnread) > 0

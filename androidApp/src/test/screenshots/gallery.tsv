@@ -193,3 +193,5 @@ number	item	screenshot	catalog	decisions
 192	The other player's card leaving their graveyard for their hand shows as a reveal	engine/reveal-panel-pile.png	HIS-114 HIS-110 STK-044
 193	A pod game's chat on its Game tab, the Pod tab marked for an unread pod message	chat/pod-game-chat-game-tab.png	LOB-145 LOB-066	
 194	Pod chat panel on a pod screen	draft/pod-chat.png	DRF-170	
+195	Draft history: Returning packs only	pod-draft-history-returning.png	DRF-165	
+196	Main button: an assumption in violet beside your own actions	main-button/assume-or-own.png	TRN-063 TRN-070 TRN-004	

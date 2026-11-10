@@ -305,13 +305,16 @@ class PodLimitedScreenshotTest {
     }
 
     // DRF-165: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a wheel's
-    // cards taken since greyed under their own line; a failure offers Retry
+    // cards taken since greyed under their own line, a header per round ("Round 2 · passed right") with a divider between
+    // rounds; "Returning packs only" leaves only the packs that came back; a failure offers Retry
     @Test fun draftHistoryShowsPacksWithKeepsBurnsAndCardsTakenSince() {
         fun c(vararg n: Int) = n.map { copies[it] }
         val picks = listOf(
             DraftHistoryPick(1, 1, c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9), kept = listOf("copy-6"), burned = listOf("copy-0", "copy-2")),
             DraftHistoryPick(1, 2, c(10, 11, 12, 13, 14, 15, 16), kept = listOf("copy-13"), burned = listOf("copy-10", "copy-16")),
-            DraftHistoryPick(1, 4, c(1, 3, 5, 8), kept = listOf("copy-8"), burned = listOf("copy-1"), takenSince = c(4, 7, 9)))
+            DraftHistoryPick(1, 4, c(1, 3, 5, 8), kept = listOf("copy-8"), burned = listOf("copy-1"), takenSince = c(4, 7, 9),
+                returning = true),
+            DraftHistoryPick(2, 1, c(11, 12, 14, 15, 17), kept = listOf("copy-14"), burned = listOf("copy-17"), round = 2))
         val history = PodDraftHistory(picks)
         val shown = picks.flatMap { it.cards + it.takenSince }.distinctBy { it.id }
         var failed by mutableStateOf(false)
@@ -322,10 +325,21 @@ class PodLimitedScreenshotTest {
         }
         compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
         compose.onNodeWithText("Taken since you last saw it").assertExists()
+        compose.onNodeWithText("Round 1 · passed left").assertExists()
+        compose.onNodeWithText("Round 2 · passed right").assertExists()
         File(SCREENSHOTS).mkdirs()
         captureShot(File(SCREENSHOTS, "pod-draft-history.png").path, "Draft history of a Glimpse draft with eight cards per " +
-            "row: three of Alice's picks in order, each pack as it came with her keep green and burns red; the pack that came " +
-            "round again lists the three cards taken since, greyed.")
+            "row: four of Alice's picks in order under Round 1 · passed left and, after a divider, Round 2 · passed right, each " +
+            "pack as it came with her keep green and burns red; the pack that came round again lists the three cards taken " +
+            "since, greyed.")
+        compose.onNodeWithTag("pod-history-returning").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Pack 1 · Pick 4").assertExists()
+        compose.onNodeWithText("Pack 1 · Pick 1").assertDoesNotExist()
+        compose.onNodeWithText("Round 2 · passed right").assertDoesNotExist()
+        captureShot(File(SCREENSHOTS, "pod-draft-history-returning.png").path, "The same draft history after tapping Returning " +
+            "packs only: only the pack that came back to Alice in round 1 is left, with the cards taken since it was passed.")
+        compose.onNodeWithTag("pod-history-returning").performClick()
         compose.runOnIdle { loaded = null; failed = true }
         compose.onNodeWithText("Couldn't load the draft history").assertExists()
         compose.onNodeWithTag("pod-history-retry").assertExists()

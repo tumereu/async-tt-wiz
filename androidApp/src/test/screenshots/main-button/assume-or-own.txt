@@ -1,0 +1,1 @@
+The main button's two sides drawn as in play: Resolve, Cast and Cancel request, your own actions, white with dark teal words; Assume resolves and Assume blockers filled violet with white words and the Assume icon; a greyed Assume (it would show hidden cards) stays greyed.

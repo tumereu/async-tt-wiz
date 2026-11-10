@@ -2,11 +2,11 @@
 # Builds the Automatum screenshot gallery: a static, phone-friendly page of the items listed in
 # androidApp/src/test/screenshots/gallery.tsv (one representative screenshot each, its caption, catalog IDs and
 # decision kinds), as committed at HEAD. The owner reviews only what's new, changed or commented since the last
-# gallery review (the gallery-reviewed tag; the screenshots-approved tag if missing): those items come first with a
+# gallery review (the gallery-reviewed tag): those items come first with a
 # badge and red boxes around the pixels that changed (toggle: H), the rest are folded away; a picture re-recorded with the
 # same pixels is no change. Items sharing a sequence (gallery.tsv's sixth column) show as one card, all their pictures in
 # order, to review whole when any is. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
-# Tap a picture to open it full size. Complements, never replaces, scripts/review.sh (the release gate).
+# Tap a picture to open it full size. This is the owner's screenshot review (scripts/review.sh gates only the catalog).
 #   scripts/aa-gallery.sh [output dir]     default ~/projects/atw-cache/aa-gallery (outside the repository)
 #   git tag -f gallery-reviewed HEAD      after a gallery review: what the owner has now seen
 # Serving the page is up to the caller.
@@ -16,7 +16,6 @@ cd "$(dirname "$0")/.."
 out=${1:-$HOME/projects/atw-cache/aa-gallery}
 shots=androidApp/src/test/screenshots
 tag=gallery-reviewed
-git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || tag=screenshots-approved
 git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || { echo "Missing tag $tag." >&2; exit 1; }
 comments=$HOME/projects/atw-cache/aa-gallery-comments.tsv
 
@@ -175,7 +174,7 @@ page = f'''<!DOCTYPE html>
 <header>
   <h1>Automatum screenshot gallery</h1>
   <button type="button" onclick="document.body.classList.toggle('nobox');this.textContent=document.body.classList.contains('nobox')?'Show changed areas (H)':'Hide changed areas (H)'">Hide changed areas (H)</button>
-  <p>{summary} since {html.escape(tag)} ({html.escape(reviewed)}) · {len(items)} items · commit {html.escape(head)} ({html.escape(date)}): {html.escape(subject)}</p>
+  <p>{count("new")} new · {count("changed") + count("caption")} changed · {len(items)} total</p>
 </header>
 <main>
 {chr(10).join(unit(u) for u in review) or '<p>Nothing new, changed or commented.</p>'}

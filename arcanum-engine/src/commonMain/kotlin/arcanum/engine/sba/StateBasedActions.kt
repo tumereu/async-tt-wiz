@@ -233,8 +233,11 @@ internal object StateBasedActions {
      * [enchant], can be attached to [host]: a permanent other than itself or a player still in the game, each of [enchant]
      * allowing it, without protection from the Aura (CR 702.16c). Also asked of an Aura about to enter (CR 303.4f, i).
      */
-    internal fun canEnchant(act: Act, aura: ObjectId, controller: PlayerId, enchant: List<TargetKind>, host: TargetRef): Boolean {
-        val e = act.evaluator(Context(controller, aura))
+    internal fun canEnchant(
+        act: Act, aura: ObjectId, controller: PlayerId, enchant: List<TargetKind>, host: TargetRef,
+        board: arcanum.engine.query.Board = act.board(),
+    ): Boolean {
+        val e = arcanum.engine.query.Evaluator(board, Context(controller, aura))
         return when (host) {
             is TargetRef.Object -> act.state.obj(host.id)?.zone == Zone.Battlefield && host.id != aura && enchant.all { what ->
                 when (what) {
@@ -250,19 +253,19 @@ internal object StateBasedActions {
                     is TargetKind.Objects -> false
                 }
             }
-        } && !protectedFrom(act, host, aura)
+        } && !protectedFrom(act, host, aura, board)
     }
 
     /** CR 702.16c, d: a permanent or player with protection can't be enchanted by an Aura, or equipped or fortified by
      * an Equipment or Fortification, with that quality. */
-    private fun protectedFrom(act: Act, host: TargetRef, attachment: ObjectId): Boolean {
+    internal fun protectedFrom(act: Act, host: TargetRef, attachment: ObjectId, board: arcanum.engine.query.Board = act.board()): Boolean {
         val mechanics = when (host) {
             is TargetRef.Object -> act.view()[host.id]?.mechanics.orEmpty()
             is TargetRef.Player -> act.view().players[host.id]?.mechanics.orEmpty()
         }
         return mechanics.any { a ->
             val p = a.mechanic as? Mechanic.Protection ?: return@any false
-            act.evaluator(Context(a.controller, a.source)).matches(p.from, attachment)
+            arcanum.engine.query.Evaluator(board, Context(a.controller, a.source)).matches(p.from, attachment)
         }
     }
 

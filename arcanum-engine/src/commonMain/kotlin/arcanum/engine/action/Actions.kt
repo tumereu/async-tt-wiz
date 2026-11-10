@@ -146,34 +146,63 @@ internal object Actions {
         return result
     }
 
+    /** What a permanent entering the battlefield ends up attached to ([host], null = unattached); [enters] false = it doesn't enter. */
+    internal class Entering(val enters: Boolean, val host: TargetRef?)
+
     /**
-     * CR 303.4f, g, i: an Aura entering the battlefield other than by resolving as an Aura spell. Attached to what the
-     * effect names when it can legally enchant that, else to the object or player its controller chooses as it enters,
-     * without targeting, among those it can legally enchant (CR 303.4f; its enchant abilities, protection, not what enters
-     * with it). With nothing legal it stays in its zone, null (CR 303.4g, i); from the Stack it goes to its owner's
-     * graveyard instead. A resolving Aura spell already names what it targeted (CR 608.3); other moves are kept as they are.
+     * CR 303.4f, g, h, i, 301.5e, 301.6: the attachment of a permanent about to enter the battlefield, [named] being what the
+     * effect putting it there attaches it to. An Aura (other than a resolving Aura spell) is attached to what the effect names when
+     * it can legally enchant that, else to the object or player its controller chooses as it enters, without targeting, among those
+     * it can legally enchant (its enchant abilities, protection, not what enters with it); with nothing legal it doesn't enter. An
+     * Equipment or Fortification that is not an Aura enters unattached unless it can legally be attached to what is named. Any other
+     * permanent enters unattached. [board] sees the entering permanent when it is a token not yet created.
      */
+    internal fun entering(
+        act: Act, id: ObjectId, controller: PlayerId, face: arcanum.api.FaceDefinition, named: TargetRef?,
+        board: arcanum.engine.query.Board = act.board(),
+    ): Entering {
+        val aura = CardType.Enchantment in face.types && face.subtypes.any { it.name == "Aura" }
+        if (!aura) {
+            val equipment = face.subtypes.any { it.name == "Equipment" }
+            val fortification = face.subtypes.any { it.name == "Fortification" }
+            if (named == null || !(equipment || fortification)) return Entering(true, null)
+            val host = (named as? TargetRef.Object)?.id
+            val hostChars = host?.let { act.view()[it]?.characteristics }
+            val legal = host != null && host != id && act.state.obj(host)?.zone == Zone.Battlefield && when {
+                equipment -> hostChars?.isType(CardType.Creature) == true || face.abilities.any { a ->
+                    (a as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { m ->
+                        m is Mechanic.CanAttachTo && Evaluator(board, Context(controller, id)).matches(m.what, host)
+                    }
+                }
+                else -> hostChars?.isType(CardType.Land) == true
+            } && !arcanum.engine.sba.StateBasedActions.protectedFrom(act, named, id, board)
+            return Entering(true, if (legal) named else null)
+        }
+        val enchant = face.abilities.filterIsInstance<Keyword.Enchant>().map { it.what }
+        fun legal(host: TargetRef) = arcanum.engine.sba.StateBasedActions.canEnchant(act, id, controller, enchant, host, board)
+        if (named != null) return if (legal(named)) Entering(true, named) else Entering(false, null)
+        val objects = act.state.battlefield.filter { legal(TargetRef.Object(it)) }
+        val players = act.state.players.map { it.id }.filter { legal(TargetRef.Player(it)) }
+        val chosen = when {
+            objects.isEmpty() && players.isEmpty() -> null
+            players.isEmpty() -> act.chooseObjects(controller, id, objects, 1, 1, "Enchant").firstOrNull()?.let { TargetRef.Object(it) }
+            objects.isEmpty() -> act.choosePlayer(controller, id, players)?.let { TargetRef.Player(it) }
+            else -> act.chooseTargets(controller, id, Keyword.Enchant.SLOT, objects.map { TargetRef.Object(it) } + players.map { TargetRef.Player(it) }, 1, 1)
+                .firstOrNull()
+        }
+        return Entering(chosen != null, chosen)
+    }
+
+    /** CR 303.4f–i, 303.4h, 301.5e, 301.6 for a planned move onto the battlefield: see [entering]. An Aura that doesn't enter stays in
+     * its zone (null), from the Stack it goes to its owner's graveyard instead; a resolving Aura spell already names what it targeted. */
     private fun auraEntering(act: Act, m: PlannedMove): PlannedMove? {
         if (m.to != Zone.Battlefield) return m
         val o = act.state.obj(m.id) ?: return m
         if (o.zone == Zone.Stack && m.attachTo != null) return m
         val face = enteringFace(act, o, m) ?: return m
-        if (CardType.Enchantment !in face.types || face.subtypes.none { it.name == "Aura" }) return m
-        val controller = m.controller ?: o.owner
-        val enchant = face.abilities.filterIsInstance<Keyword.Enchant>().map { it.what }
-        fun legal(host: TargetRef) = arcanum.engine.sba.StateBasedActions.canEnchant(act, m.id, controller, enchant, host)
-        val stays = if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
-        m.attachTo?.let { return if (legal(it)) m else stays }
-        val objects = act.state.battlefield.filter { legal(TargetRef.Object(it)) }
-        val players = act.state.players.map { it.id }.filter { legal(TargetRef.Player(it)) }
-        val chosen = when {
-            objects.isEmpty() && players.isEmpty() -> null
-            players.isEmpty() -> act.chooseObjects(controller, m.id, objects, 1, 1, "Enchant").firstOrNull()?.let { TargetRef.Object(it) }
-            objects.isEmpty() -> act.choosePlayer(controller, m.id, players)?.let { TargetRef.Player(it) }
-            else -> act.chooseTargets(controller, m.id, Keyword.Enchant.SLOT, objects.map { TargetRef.Object(it) } + players.map { TargetRef.Player(it) }, 1, 1)
-                .firstOrNull()
-        }
-        return chosen?.let { m.copy(attachTo = it) } ?: stays
+        val r = entering(act, m.id, m.controller ?: o.owner, face, m.attachTo)
+        if (r.enters) return if (r.host == m.attachTo) m else m.copy(attachTo = r.host)
+        return if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
     }
 
     /** Names a regeneration shield keeps its creature under (D26). */
@@ -887,6 +916,12 @@ internal object Actions {
             // CR 122.6: the counters it enters with are put on it (several of one kind add up)
             if (o.counters.isEmpty()) o else o.copy(counters = countersAsPut(act, cause, o.copy(counters = emptyList()),
                 o.counters.map { it.kind to it.count }, linked).map { (kind, n) -> CounterEntry(kind, n, o.timestamp) })
+        }
+        // CR 303.4f–i, 303.4h, 301.5e: what each token is attached to as it is created; an Aura with nothing to enchant isn't created
+        tokens = tokens.mapNotNull { t ->
+            val face = t.definition?.faces?.getOrNull(t.face) ?: return@mapNotNull t
+            val r = entering(act, t.id, t.controller ?: t.owner, face, t.attachedTo, proposedBoard())
+            if (!r.enters) null else if (r.host == t.attachedTo) t else t.copy(attachedTo = r.host)
         }
         if (tokens.isEmpty()) return emptyList()
         val start = act.state.battlefield.size

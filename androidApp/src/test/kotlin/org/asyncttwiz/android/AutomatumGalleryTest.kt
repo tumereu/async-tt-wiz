@@ -11,7 +11,8 @@ import kotlin.test.assertTrue
  * representative screenshot per Automatum UI item (scripts/aa-gallery.sh builds the page from it). Each listed
  * screenshot and its caption must be there, each catalog ID it names must be in docs/features, and every engine decision
  * kind the app shows must have an item. Items meant to be seen as a sequence (owner, 2026-11-10) share a name in the
- * optional sixth column and are numbered one after another; the gallery shows a sequence whole.
+ * optional sixth column and follow one another; the gallery shows a sequence whole. Numbers increase and are never
+ * reused, so they stay with their pictures.
  */
 class AutomatumGalleryTest {
     private class Item(val number: Int, val name: String, val screenshot: String, val ids: List<String>, val decisions: List<String>,
@@ -29,17 +30,17 @@ class AutomatumGalleryTest {
     }
 
     @Test fun aSequencesItemsFollowOneAnother() {
-        val broken = items.filter { it.sequence.isNotEmpty() }.groupBy { it.sequence }.filter { (_, members) ->
-            members.map { it.number } != (members.first().number until members.first().number + members.size).toList()
-        }.keys
-        assertTrue(broken.isEmpty(), "a sequence's items must be numbered one after another: $broken")
+        val positions = items.withIndex().filter { it.value.sequence.isNotEmpty() }.groupBy({ it.value.sequence }, { it.index })
+        val broken = positions.filter { (_, at) -> at != (at.first()..at.last()).toList() }.keys
+        assertTrue(broken.isEmpty(), "a sequence's items must follow one another in gallery.tsv: $broken")
     }
 
     /** The decision kinds the devices answer themselves, never shown to a player. */
     private val answeredByDevices = setOf("Random", "HostFill", "OtherView")
 
     @Test fun everyListedScreenshotIsThere() {
-        assertEquals((1..items.size).toList(), items.map { it.number }, "items numbered 1, 2, 3, ... in order")
+        // Numbers stay with their pictures (owner, 2026-11-10): increasing and never reused, so an item taken out leaves a gap
+        assertEquals(items.map { it.number }.sorted().distinct(), items.map { it.number }, "item numbers increase down the list, each once")
         assertEquals(items.size, items.map { it.name }.toSet().size, "item names are unique")
         val missing = items.filter { !File("$SCREENSHOTS/${it.screenshot}").isFile || !File("$SCREENSHOTS/${it.screenshot.removeSuffix(".png")}.txt").isFile }
         assertTrue(missing.isEmpty(), "gallery.tsv lists screenshots (or captions) that aren't there: ${missing.map { it.screenshot }}")

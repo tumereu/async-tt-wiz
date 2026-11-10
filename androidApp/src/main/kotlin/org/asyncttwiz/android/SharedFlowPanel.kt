@@ -108,6 +108,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
                 flows.targeting -> flows.pick?.let { pick ->
                     FlowTargetBar(flows, flow, play, pick, decisionSource(flows, flow, play, viewer, decision))
                 }
+                // STK-049 (owner playtest 2026-11-09): a payment while something resolves is made on the table, its bar slim
+                flows.paying -> flows.payment?.let { payment ->
+                    FlowPayBar(flows, flow, play, decision, payment, decisionSource(flows, flow, play, viewer, decision))
+                }
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
@@ -323,15 +327,15 @@ internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, tog
             when {
                 decision is Decision.ManaPayment -> {
                     ManaSection(questions, questions, play, decision)
-                    DockButtons {
-                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() }
-                    }
+                    val onMain = payOnMain(questions, decision, decision)
+                    if (!onMain) DockButtons { ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() } }
                 }
                 payment != null -> {
                     ManaSection(questions, questions, play, payment)
+                    val onMain = payOnMain(questions, decision, payment)
                     DockButtons {
                         ChoiceButton("Don't pay", Icons.Outlined.Close) { questions.answer(Answer.YesNo(false)) }
-                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() }
+                        if (!onMain) ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() }
                     }
                 }
                 else -> OpenSection(questions, questions, play, names, decision)
@@ -339,6 +343,52 @@ internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, tog
         }
         ChoiceInspection(inspector, play, viewer)
         }
+    }
+}
+
+/** STK-049, TRN-063 (owner playtest 2026-11-09): Pay on the main button (greyed with why while the sources chosen don't pay); false
+ * where there is no main button (the caller shows its own). */
+@Composable
+private fun payOnMain(questions: FlowQuestions, decision: Decision, payment: Decision.ManaPayment): Boolean =
+    MainButtonAction(MainAction("Pay", Icons.Outlined.Check, refusal = notPaying(payment).takeIf { !questions.paid },
+        tooltip = "Pay ${payment.cost}") {
+        AppLog.info("decision", "Pay on the main button for ${decision.id.value}: ${questions.mana.size} sources")
+        questions.payMana()
+    })
+
+/** TRN-063: why Pay on the main button is greyed. */
+internal fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: tap sources on the table to pay ${payment.cost}."
+
+/**
+ * STK-049 (owner playtest 2026-11-09): a mana payment while something resolves ("unless its controller pays {1}", "you may pay {1}",
+ * a cost to attack or block), made on the table as a cast's payment is (STK-024): the slim bar titled "Pay {1}" over the sentence it
+ * asks about, "Paid" or "Not paid yet" beside the title, pool mana and life as chips, "Don't pay" where it may be declined, the
+ * source at the right; the sources are tapped on the table (Autotap's already chosen when it is on), and Pay is the main button.
+ */
+@Composable
+private fun FlowPayBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision, payment: Decision.ManaPayment,
+    source: ChoiceCardData?) {
+    val inspector = remember(decision.id) { ChoiceInspector() }
+    val line = if (decision is Decision.May) decision.text else askedLine(flows, flow, play, decision, source)
+    AutomatumDockBar("Pay on the table", eye = true) {
+        TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet")
+        // Pool mana and life, which the table can't show, as chips
+        val others = org.asyncttwiz.automatum.ManaPicks.groups(payment).filter { group -> flows.tableSource(group.first()) == null }
+        for (group in others) {
+            val used = flows.mana.firstOrNull { it in group }
+            val label = org.asyncttwiz.automatum.ManaWays.label(used ?: group.first())
+            FilterChip(used != null, { flows.toggleMana(group) },
+                modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
+                label = { CardText(label, style = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+        }
+        if (decision is Decision.May) BarButton("Don't pay", Icons.Outlined.Close) {
+            AppLog.info("decision", "Don't pay tapped for ${decision.id.value}")
+            flows.answer(Answer.YesNo(false))
+        }
+        if (!payOnMain(flows, decision, payment)) BarButton("Pay", Icons.Outlined.Check, enabled = flows.paid) { flows.payMana() }
+        if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
+        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
     }
 }
 
@@ -352,10 +402,18 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: T
     // D1: a choice of battlefield permanents (an edict's sacrifice, "choose a creature") is picked as targets are
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source))
-        if (pick.max != 1 || pick.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
-            if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= pick.min,
-            onClick = flows::confirmTargets)
+        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source), pickCount(pick, flows.picked.size))
+        // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
+        if (pick.max != 1 || pick.min == 0) {
+            val none = flows.picked.isEmpty()
+            val onMain = MainButtonAction(MainAction(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
+                refusal = PICK_INCOMPLETE.takeIf { !flows.pickDone }, tooltip = pick.title) {
+                AppLog.info("decision", "${if (none) "None" else "Done"} on the main button: ${flows.picked.size} picked for ${decision.id.value}")
+                flows.confirmTargets()
+            })
+            if (!onMain) BarButton(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
+                enabled = flows.pickDone, onClick = flows::confirmTargets)
+        }
         if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
         ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
     }

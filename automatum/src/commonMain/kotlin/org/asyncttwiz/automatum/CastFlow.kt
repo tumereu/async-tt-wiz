@@ -134,9 +134,11 @@ class CastFlow private constructor(
     fun selection(picked: List<arcanum.engine.state.TargetRef>): arcanum.engine.Selection = Engine.selection(call.working, picked)
 
     /** STK-024: the open payment around the player's own picks: [pinned] stay, [removed] aren't used, Autotap fills in the rest
-     * ([Engine.fillPayment]); empty when the rest can't be filled. */
-    fun fill(pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> =
-        Engine.fillPayment(call.working, pinned, removed)
+     * ([Engine.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly as given (a way the player chose
+     * for a source, STK-024), a pinned source's colour is free. */
+    fun fill(pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
+        exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> =
+        Engine.fillPayment(call.working, pinned, removed, exact)
 
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
      * and creature types only of objects the player may see ([ShownAnswers], I-D27). */

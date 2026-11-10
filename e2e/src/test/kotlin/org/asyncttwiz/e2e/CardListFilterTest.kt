@@ -6,7 +6,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeLeft
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.DeckApi
 import org.asyncttwiz.protocol.SavedDeckSection
@@ -59,17 +59,17 @@ class CardListFilterTest : E2e() {
         alice.tagged("search-colour-R").performClick()
         waitUntil("no chip, every card") { alice.showsText("Mainboard · 40") }
 
-        // A swipe while filtered moves one copy on the whole list; the filter follows it to Side
+        // A swipe while filtered moves one copy on the whole list; the filter follows it to Side (a swipe left, SYS-083)
         field.performTextInput("t:instant")
         waitUntil("only the Spark again") { !shows("Ember Cub", "Mainboard") }
-        alice.described("Storm Spark, 10 copies, Mainboard").performTouchInput { swipeRight() }
+        alice.described("Storm Spark, 10 copies, Mainboard").performTouchInput { swipeLeft() }
         waitUntil("one Spark in Side") { alice.showsText("39 main · 1 side") && shows("Storm Spark", "Sideboard") }
         assertTrue(!shows("Ember Cub", "Mainboard"), "still filtered: $summary")
 
         // Undo takes it back, and the swipe again
         alice.tagged("card-list-undo").performClick()
         waitUntil("the Spark back in Main") { alice.showsText("40 main") && alice.shows(hasContentDescription("Storm Spark, 10 copies, Mainboard")) }
-        alice.described("Storm Spark, 10 copies, Mainboard").performTouchInput { swipeRight() }
+        alice.described("Storm Spark, 10 copies, Mainboard").performTouchInput { swipeLeft() }
         waitUntil("the swipe again") { alice.showsText("39 main · 1 side") }
 
         // The section's + opens search, and Done comes back to the same filter

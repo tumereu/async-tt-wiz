@@ -27,7 +27,7 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
     // TBL-117, STK-047, ZON-079: what the table draws on a card and doesn't say, for accessibility services and tests
     val targets = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
     val picks = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty()
-    val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.cast?.paySources().orEmpty()
+    val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
     val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined }) }
     for (item in semanticItems) {
         if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue

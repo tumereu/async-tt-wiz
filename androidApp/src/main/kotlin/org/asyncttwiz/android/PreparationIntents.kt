@@ -92,23 +92,33 @@ internal class PreparationIntents {
             selections.entries.removeAll { it.key in applied }
         }
     }
-    /** A final result settles the intent: accepted ones wait for their commit revision, others are dropped. */
+    /** A final result settles the intent: accepted ones wait for their commit revision, others are dropped (what they
+     * showed is taken back at once). */
     fun settle(result: GameResult, retire: () -> Unit) {
+        val accepted = result.outcome == "accepted"
+        if (!accepted) takenBack(result.requestId, "${result.outcome} (${result.reason})")
         selections[result.requestId]?.let { selection ->
-            if (result.outcome == "accepted") selection.commitRevision = requireNotNull(result.commitRevision)
+            if (accepted) selection.commitRevision = requireNotNull(result.commitRevision)
             else selections.remove(result.requestId)
             retire()
         }
         transfers[result.requestId]?.let { transfer ->
-            if (result.outcome == "accepted") transfer.commitRevision = requireNotNull(result.commitRevision)
+            if (accepted) transfer.commitRevision = requireNotNull(result.commitRevision)
             else transfers.remove(result.requestId)
             retire()
         }
         readiness[result.requestId]?.let { intent ->
-            if (result.outcome == "accepted") intent.commitRevision = requireNotNull(result.commitRevision)
+            if (accepted) intent.commitRevision = requireNotNull(result.commitRevision)
             else readiness.remove(result.requestId)
             retire()
         }
+    }
+
+    /** The report says which shown lobby action was taken back and why (found 2026-11-09: a refused Ready stayed shown). */
+    private fun takenBack(requestId: String, why: String) {
+        val action = readiness[requestId]?.command?.action ?: selections[requestId]?.command?.action ?: transfers[requestId]?.command?.action
+            ?: return
+        AppLog.info("lobby", "Shown lobby action taken back: ${action.latencyType()}, $why")
     }
     fun correlate(requestId: String, revision: String) {
         selections[requestId]?.commitRevision = revision
@@ -124,7 +134,11 @@ internal class PreparationIntents {
         transfers.entries.removeAll { (_, transfer) -> transfer.command.scope.gameId == gameId &&
             transfer.commitRevision?.let { GameSession.newerOrEqual(revision, it) } == true }
     }
-    fun forget(requestId: String) { selections.remove(requestId); transfers.remove(requestId); readiness.remove(requestId) }
+    /** A request that will never be settled (refused before it was admitted): what it showed is taken back. */
+    fun forget(requestId: String, why: String = "not admitted") {
+        takenBack(requestId, why)
+        selections.remove(requestId); transfers.remove(requestId); readiness.remove(requestId)
+    }
     fun remove(gameId: String) {
         preparations.remove(gameId)
         selections.entries.removeAll { it.value.command.scope.gameId == gameId }

@@ -63,8 +63,8 @@ class CardListEditorUiTest {
         }
     }
 
-    // LOB-105, LOB-107, LOB-059, LOB-064
-    @Test fun cardsTabSwipesToTheNextSectionAndTheMenuEditsAndMovesCopies() {
+    // LOB-105, LOB-107, LOB-059, LOB-064, SYS-083
+    @Test fun cardsTabSwipesBetweenSectionsAndTheMenuEditsAndMovesCopies() {
         val editor = editor()
         lateinit var back: () -> Unit
         compose.setContent {
@@ -78,7 +78,8 @@ class CardListEditorUiTest {
         compose.onNodeWithText("60 main · 15 side").assertIsDisplayed()
         compose.onNodeWithText("Add cards").assertDoesNotExist()
         val sentinel = "editor-card-MAINBOARD/${digest("Meadow Sentinel")}"
-        compose.onNodeWithTag(sentinel).performTouchInput { swipeRight() }
+        // Left one section down: Main to Side
+        compose.onNodeWithTag(sentinel).performTouchInput { swipeLeft() }
         compose.runOnIdle {
             assertEquals(3, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
             assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD))
@@ -86,13 +87,23 @@ class CardListEditorUiTest {
             assertTrue("Sideboard\n15 Quiet Grove\n1 Meadow Sentinel" in editor.state.text, editor.state.text)
         }
         compose.onNodeWithText("59 main · 16 side").assertIsDisplayed()
-        // Next of Side is Maybe; next of Maybe wraps to Main.
+        // Left from Side down to Maybe; left from Maybe wraps to Main.
         compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("editor-card-SIDEBOARD/${digest("Meadow Sentinel")}"))
         compose.onNodeWithTag("editor-card-SIDEBOARD/${digest("Meadow Sentinel")}").performTouchInput { swipeLeft() }
         compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.MAYBEBOARD)) }
         compose.onNodeWithText("59 main · 15 side · 1 maybe").assertIsDisplayed()
         compose.onNodeWithTag("card-list-cards").performScrollToNode(hasText("Maybeboard · 1"))
+        compose.onNodeWithTag("editor-card-MAYBEBOARD/${digest("Meadow Sentinel")}").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals(4, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
+        // Right one section up: Main wraps to Maybe, from Maybe up to Side, from Side up to Main
+        compose.onNodeWithTag("card-list-cards").performScrollToIndex(0)
+        compose.onNodeWithTag(sentinel).performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.MAYBEBOARD)) }
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasText("Maybeboard · 1"))
         compose.onNodeWithTag("editor-card-MAYBEBOARD/${digest("Meadow Sentinel")}").performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD)) }
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("editor-card-SIDEBOARD/${digest("Meadow Sentinel")}"))
+        compose.onNodeWithTag("editor-card-SIDEBOARD/${digest("Meadow Sentinel")}").performTouchInput { swipeRight() }
         compose.runOnIdle { assertEquals(4, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
 
         compose.onNodeWithTag("card-list-cards").performScrollToIndex(0)
@@ -200,7 +211,7 @@ class CardListEditorUiTest {
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
         compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
         val sentinel = "editor-card-MAINBOARD/${digest("Meadow Sentinel")}"
-        compose.onNodeWithTag(sentinel).performTouchInput { swipeRight() }
+        compose.onNodeWithTag(sentinel).performTouchInput { swipeLeft() }
         compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD)) }
         compose.onNodeWithTag("card-list-undo").assertIsDisplayed()
         compose.onNodeWithTag(sentinel).performTouchInput { click() }

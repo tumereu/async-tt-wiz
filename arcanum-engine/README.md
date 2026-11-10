@@ -21,7 +21,7 @@ Engine.finishableWith(state, answer): Boolean // finishable once answer is given
 Engine.anyReduction(state): Boolean // whether a reduction may come to apply to the open cast as its choices are made (what it costs needn't rise with X then)
 Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection, a total reached (CR 601.2c, 601.2f, 701.59a)
 Engine.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
-Engine.fillPayment(state, pinned, removed): List<ManaUse> // the open payment around a player's picks: pinned stay, removed aren't used, Autotap's order fills in the rest
+Engine.fillPayment(state, pinned, removed, exact): List<ManaUse> // the open payment around a player's picks: pinned sources stay (their colour free), exact uses stay as given, removed aren't used, Autotap's order fills in the rest
 Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
 Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)

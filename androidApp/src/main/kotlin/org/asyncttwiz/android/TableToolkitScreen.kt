@@ -69,7 +69,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll, peekSwipe) }
     // TBL-104: the panels' Inspect is drawn here, outside their layout
     val inspectHost = remember { InspectHost() }
-    CompositionLocalProvider(LocalInspectHost provides inspectHost) {
+    CompositionLocalProvider(LocalInspectHost provides inspectHost, LocalMainSlot provides toolkit.mainSlot) {
     // TBL-124: a battlefield card's ability chips when it has two or more abilities, one usable now
     PermanentAbilityChips(toolkit, play, scene, names)
     // Automatum (I2a): the open cast's panel by the Stack, over the table

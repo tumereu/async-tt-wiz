@@ -315,11 +315,8 @@ internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: T
     val ids = decision.among.associateBy { it.toString() }
     Section(choiceWhat(decision), choiceHint(decision)) {
         CardPicks(decision.among.map { choiceCardOf(flow, play, viewer, it) }, listOfNotNull(kept), inspector) { kept = it }
-        DockButtons {
-            ChoiceButton("Keep", Icons.Outlined.Check, enabled = kept != null, primary = true) {
-                kept?.let { cast.answer(Answer.Keep(ids.getValue(it))) }
-            }
-        }
+        // TRN-063 (owner playtest 2026-11-09): Keep is the main button
+        OkRow(decision, kept != null, label = "Keep") { kept?.let { cast.answer(Answer.Keep(ids.getValue(it))) } }
     }
     ChoiceInspection(inspector, play, viewer)
 }

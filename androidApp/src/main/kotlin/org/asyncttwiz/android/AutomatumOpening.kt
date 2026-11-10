@@ -74,10 +74,15 @@ internal fun OpeningKeepHost(toolkit: TableToolkitController, play: TableBoard, 
     var hidden by remember { mutableStateOf(false) }
     val cards = hand.associateWith { choiceCard(play, viewer, it, it, shown = true, fallback = "Card") }
     AboveHand(handRow(scene, viewer)) {
+        // TRN-063 (owner playtest 2026-11-09): its OK is the main button
+        val ready = state.second.size == owed && toolkit.enabled()
+        val onMain = MainButtonAction(MainAction("OK", Icons.Outlined.Check, refusal = AutomatumOpening.hint(owed).takeIf { !ready },
+            tooltip = AutomatumOpening.title(owed)) {
+            AppLog.info("game", "Keep or bottom: OK on the main button with ${state.second.size} of $owed in Bottom")
+            toolkit.confirmBottom(state.second)
+        })
         AutomatumDockPanel("Keep or bottom", hidden, { hidden = !hidden }, "mulligan panel", buttons = {
-            ChoiceButton("OK", Icons.Outlined.Check, enabled = state.second.size == owed && toolkit.enabled(), primary = true) {
-                toolkit.confirmBottom(state.second)
-            }
+            if (!onMain) ChoiceButton("OK", Icons.Outlined.Check, enabled = ready, primary = true) { toolkit.confirmBottom(state.second) }
         }) {
             Text(AutomatumOpening.title(owed), fontWeight = FontWeight.Bold, fontSize = 15.sp)
             ChoiceHintText(AutomatumOpening.hint(owed))

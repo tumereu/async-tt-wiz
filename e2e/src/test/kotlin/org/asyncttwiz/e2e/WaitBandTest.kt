@@ -31,6 +31,29 @@ class WaitBandTest : E2e() {
         waitUntil("the band gone with the wait", along = listOf(bob)) { !alice.bandSays(words) }
     }
 
+    // TRN-066 (owner, 2026-11-09): Bob is away; with "Assume resolves" at Always Alice ends her turn, going ahead of him on
+    // assumptions about his passes: in his turn the band doesn't just say "Waiting for Bob" but where he is, still in her
+    // first turn; the band runs edge to edge
+    @Test fun waitingForThePlayerBehindSaysWhereTheyAre() {
+        startGame(bobSettings = PlaySettings(mode = ResponseMode.Normal))
+        bothOpen()
+        bothKeep(bobAway = true)
+        alice.tap("Assume resolves setting")
+        waitUntil("the setting at When they have no mana") { alice.shown.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana }
+        alice.tap("Assume resolves setting")
+        waitUntil("the setting at Always") { alice.shown.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.Always }
+        alice.hold("To combat")
+        waitUntil("Bob's turn on Alice's table, waiting for him") {
+            alice.state.turn.active == bob.me && (alice.status as? GameDevice.Status.Waiting)?.reason == GameDevice.Wait.TheirTurn
+        }
+        val behind = "${bob.name} is at turn 1 · your "
+        waitUntil("the band says where Bob is: ${alice.screen()}") { alice.shows(hasText(behind, substring = true) and hasAnyAncestor(band)) }
+        assertFalse(alice.bandSays("Waiting for ${bob.name}"))
+        // The phones' screens are 412 dp wide at mdpi (E2e): a dp is a pixel
+        val width = alice.node(band).fetchSemanticsNode().boundsInRoot.width
+        assertTrue(width >= 411f, "edge to edge: $width px")
+    }
+
     // TRN-066, HIS-112: Bob away, Alice's spell waits for him: "may respond" in the band, nothing over the middle of the board
     @Test fun mayRespondIsInTheBand() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),

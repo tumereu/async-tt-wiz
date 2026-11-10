@@ -98,6 +98,43 @@ class EngineHandCastsTest {
         assertEquals(3, HandCasts.mostAnnounced(flow))
     }
 
+    /** "Creature spells you cast with mana value [least] or greater cost {2} less to cast", as an invented card named [name]. */
+    private fun drover(name: String, least: Int): String {
+        val cards = arcanum.engine.cards.Cards
+        val face = cards.definition(cards.invent("$name Base", "{0}", "Enchantment", "Creature spells you cast cost {2} less to cast.")).faces.single()
+        val static = face.abilities.single() as arcanum.api.Ability.Static
+        val m = static.mechanics.single() as arcanum.api.Mechanic.CostChange
+        val filter = arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtLeast, arcanum.api.Value.Fixed(least))
+        return cards.define(name, arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(face.copy(name = name,
+            abilities = listOf(static.copy(mechanics = listOf(m.copy(what = arcanum.api.ObjectFilter.And(listOf(m.what, filter))))))))))
+    }
+
+    private fun giantFlow(): CastFlow {
+        val giant = arcanum.engine.cards.Cards.invent("Hand X Giant", "{X}{4}", "Creature — Giant", "", "4/4")
+        val (card) = table.put(alice, Zone.Hand, giant)
+        val state = table.state()
+        return CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(card).first(), CastFlow.Seeds(table::seed))
+    }
+
+    // STK-052, CR 601.2f (castability review): two reducers start to apply at mana value 6: with three Forests X = 0 ({4}) and
+    // X = 1 ({5}) can't be paid, X = 2 and 3 can; the values the stepper offers that can't be paid are known, so Cast greys on
+    // them; past the last payable value a run of 20 that can't be paid isn't a "no": the stepper stays open up to the top
+    @Test fun gapsInWhatAnXCanBePaidAreKnownAndTheBoundLeavesTheStepperOpen() {
+        val reducer = drover("Hand Drover", 6)
+        table.put(alice, Zone.Battlefield, reducer, reducer, "Forest", "Forest", "Forest")
+        val flow = giantFlow()
+        assertIs<Decision.Announce>(flow.pending)
+        val shown = assertNotNull(HandCasts.announceable(flow, cap = 30))
+        assertEquals(30, shown.most, "the look ran out of tries before the top")
+        assertTrue(0 in shown.unpayable && 1 in shown.unpayable, "${shown.unpayable}")
+        assertFalse(2 in shown.unpayable || 3 in shown.unpayable, "${shown.unpayable}")
+        assertTrue((4..23).all { it in shown.unpayable }, "${shown.unpayable}")
+        // With a top within the tries, the most is the last value that pays and the gaps below it are known
+        val near = assertNotNull(HandCasts.announceable(flow, cap = 10))
+        assertEquals(3, near.most)
+        assertEquals(setOf(0, 1), near.unpayable)
+    }
+
     // STK-024: five any-colour sources tapped by hand for five colours: past the first combinations of colours the engine's search decides
     @Test fun aSetOfSourcesPaysPastTheFirstCombinations() {
         val sources = (1..5).map { arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("alice.$it"), 0) }

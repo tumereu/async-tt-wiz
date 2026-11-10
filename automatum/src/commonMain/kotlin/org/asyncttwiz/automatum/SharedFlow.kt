@@ -215,14 +215,15 @@ class SharedFlow private constructor(
     }
 
     /** STK-024: the open payment (or the open "you may pay"'s [payment]) around the player's own picks: [pinned] stay, [removed]
-     * aren't used, Autotap fills in the rest ([Engine.fillPayment]); empty when the rest can't be filled. */
-    fun fill(pinned: List<ManaUse>, removed: List<ManaUse>): List<ManaUse> {
-        if (decision is Decision.ManaPayment) return Engine.fillPayment(state, pinned, removed)
+     * aren't used, Autotap fills in the rest ([Engine.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly
+     * as given (a way the player chose for a source, STK-024). */
+    fun fill(pinned: List<ManaUse>, removed: List<ManaUse>, exact: List<ManaUse> = emptyList()): List<ManaUse> {
+        if (decision is Decision.ManaPayment) return Engine.fillPayment(state, pinned, removed, exact)
         val open = decision as? Decision.May ?: return emptyList()
         return try {
             call().run {
                 perform(Input.Answer(open.id, Answer.YesNo(true)))
-                Engine.fillPayment(working, pinned, removed)
+                Engine.fillPayment(working, pinned, removed, exact)
             }
         } catch (_: IllegalArgumentException) {
             emptyList()

@@ -108,7 +108,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
     // I-D46 (c): with Automatum on the row is the viewer's Automatum toggles, on either player's turn
     val toggles = AutomatumToggles.shown(play, context)
     val visible = QuickActions.visible(play, context.viewer)
-    if (!visible && !toggles) {
+    // TRN-063 (owner playtest 2026-11-09): an open panel's go-on action is the main button whenever it is open
+    val panelMain = context.mainAction
+    if (!visible && !toggles && panelMain == null) {
         Box(modifier, contentAlignment = Alignment.Center) {
             Text("Opponent's turn", color = Color.Black.copy(alpha = .38f), style = MaterialTheme.typography.bodySmall)
         }
@@ -136,38 +138,52 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // 2026-11-03 #2: in the other player's turn only while the viewer holds priority or must decide; its room stays,
             // so the toggles don't move. I-D56 §14: on engine state only the viewer's own actions: hidden while the other
             // player must act
-            val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
+            val arrow = panelMain == null && (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
                 (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
             // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
-            val wait = if (arrow) null else engine?.waitAction()?.let { w ->
+            val wait = if (arrow || panelMain != null) null else engine?.waitAction()?.let { w ->
                 if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, run = w.run) else w }
             val unconfirmed = engine?.engine?.shown?.indicator != null
-            val main = context.mainAction.takeIf { arrow }?.let { m ->
-                if (context.revealOpen) MainAction(m.label, m.icon, REVEAL_BUSY, m.tooltip, m.run) else m }
+            // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
+            val main = panelMain
             val control = engine?.control() == true
-            RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play, control).label else wait?.label, if (toggles) null else actions.map { it.name }))
+            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).label else wait?.label, if (toggles) null else actions.map { it.name }))
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
             // TRN-057 (reports P2XUER, 3WWPA8): every press goes into the app log, with what the button said and the step
             fun pressed(label: String, hold: Boolean = false) = engine?.engine?.logPress(play, label, hold)
+            // TRN-063 (owner playtest 2026-11-09): a second tap within a very short time of the first is ignored, whatever the button
+            // says by then (a double tap on Cast never also passes)
+            val fallbackPress = remember { longArrayOf(Long.MIN_VALUE / 2) }
+            fun taken(label: String): Boolean {
+                val now = android.os.SystemClock.uptimeMillis()
+                val game = engine?.engine
+                val ok = game?.pressTaken(now) ?: (now - fallbackPress[0] >= MainButtonGuard.MILLIS).also { if (it) fallbackPress[0] = now }
+                if (!ok) AppLog.info("game", "Main button: a quick second tap on \"$label\" ignored (within ${MainButtonGuard.MILLIS} ms of the last press)")
+                return ok
+            }
             val says = AutomatumStep.of(play, control).label
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             Box(Modifier.width(MainButtonWidth).shaken(mainShakes)) {
-                if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
+                if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
+                    pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
+                else if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { pressed(says, hold = true); own { perform(TableActionIntent.End(scope)) } },
                     // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
                     onResolveHold = engine?.let { routes -> { pressed(says, hold = true); own { routes.holdResolve() } } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
-                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { pressed(m.label); own { m.run(); true } } }, control = control) {
-                    pressed(says)
-                    own { perform(TableActionIntent.Next(scope)) }
+                    control = control) {
+                    if (taken(says)) {
+                        pressed(says)
+                        own { perform(TableActionIntent.Next(scope)) }
+                    }
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
                     wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName) {
-                    pressed(wait.label); own { wait.run(); true } }, Modifier.fillMaxWidth())
+                    if (taken(wait.label)) { pressed(wait.label); own { wait.run(); true } } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 // TRN-075: the move passed to you: one pulse in your colour
                 MoveCuePulse(engine?.moveCue ?: 0, Modifier.matchParentSize().clip(AdvanceArrowShape))
@@ -208,7 +224,9 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
     gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, compactContent: Boolean = false,
     /** What holding it shows when no hold command is assigned (its [name] otherwise). */
-    tooltip: String? = null, onClick: () -> Unit) {
+    tooltip: String? = null,
+    /** Greyed with a reason ([tooltip]): it reads as disabled to accessibility, while a tap still reaches [onClick] (which shakes it). */
+    refused: Boolean = false, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
     val haptic = LocalHapticFeedback.current
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
@@ -230,7 +248,7 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     }.focusable(enabled).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button
-        if (!enabled) disabled()
+        if (!enabled || refused) disabled()
         this.selected = selected
         onClick(name) { if (enabled) { AppLog.info("game", "An accessibility action pressed $name"); click(); true } else false }
         if (holdName != null) customActions = listOf(CustomAccessibilityAction(holdName) {

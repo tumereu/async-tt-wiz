@@ -435,7 +435,7 @@ internal fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Mod
             placeholder = { InspectFacePlaceholder(tile.reference, tile.name) },
             previewReference = tile.reference?.copy(size = "normal"), degrees = tile.degrees)
         // Section 3.9: a card Automatum can't play yet (a token is no card of a deck)
-        if (!tile.token) CardSupportMark(tile.reference?.printing, Modifier.align(Alignment.TopStart).padding(4.dp))
+        if (!tile.token) CardSupportMark(tile.reference?.printing, Modifier.matchParentSize())
         // The holder's own face-down card: the front stays readable but is plainly marked.
         if (tile.faceDown) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
             Text("Face down", color = Color.White, style = MaterialTheme.typography.headlineSmall)

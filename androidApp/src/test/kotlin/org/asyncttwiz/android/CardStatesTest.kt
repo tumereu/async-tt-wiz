@@ -38,6 +38,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.PlayerStates
+import org.asyncttwiz.automatum.StateGlyph
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.EngineRecord
 import org.asyncttwiz.protocol.EngineRecordKind
@@ -205,20 +206,31 @@ class CardStatesTest {
         command.add(crypt)
     }
 
-    // TRN-072: a player's states as chips, in their order, by the rules' words
+    // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows a glyph (owner gallery
+    // review 2026-11-10, gallery 157): its first letter with its number, those that would share a letter told apart
     @Test fun aPlayersStatesInOrder() {
         val state = board { playerStates() }.engine!!.state
         assertEquals(listOf("Monarch", "Speed 2", "Ring 2/4", "Poison 3"), PlayerStates.of(state, f.a).map { it.label })
         assertEquals(listOf("Initiative", "City's blessing", "Ring 4/4", "Energy 5"), PlayerStates.of(state, f.b).map { it.label })
         assertTrue(PlayerStates.of(state, f.a).all { it.explanation != null }, "each explains itself")
         assertEquals("Night", PlayerStates.dayOrNight(state)?.label)
+        fun glyphs(account: String) = PlayerStates.of(state, account).map { (it.glyph as StateGlyph.Letters).text }
+        assertEquals(listOf("M", "S2", "R2", "P3"), glyphs(f.a))
+        assertEquals(listOf("I", "C", "R4", "E5"), glyphs(f.b))
+        assertEquals(StateGlyph.Night, PlayerStates.dayOrNight(state)?.glyph)
+        val shared = board { player(f.a) { it.copy(designations = listOf(Designation.EnduringStory), ledger = mapOf("speed" to 1),
+            counters = listOf(CounterEntry(CounterKind.Energy, 2, 1), CounterEntry(CounterKind.Named("shield"), 1, 2))) } }.engine!!.state
+        assertEquals(listOf("St", "S1", "E2", "Sh1"), PlayerStates.of(shared, f.a).map { (it.glyph as StateGlyph.Letters).text },
+            "an enduring story beside energy, a shield counter beside speed")
     }
 
     private fun assertClear(scene: TableScene, width: Float, height: Float, hands: Boolean = true) {
         for (life in scene.items.filter { it.kind == TableItemKind.LIFE }) {
             val chips = life.stateChips
             assertTrue(chips.isNotEmpty(), "${life.id} has chips")
-            assertTrue(chips.zipWithNext().all { (a, b) -> a.bounds.intersection(b.bounds) == null }, "apart: $chips")
+            val round = chips.map { it.bounds } + life.emblemChips
+            for ((n, a) in round.withIndex()) for (b in round.drop(n + 1)) assertEquals(null, a.intersection(b), "${life.id}: apart: $a, $b")
+            assertTrue(round.all { it.width == it.height && it.width >= EmblemChips.MIN_SIZE }, "round, one size: $round")
             val others = scene.items.filter { hands && it.kind == TableItemKind.HAND || it.kind == TableItemKind.PILE || it.kind == TableItemKind.LIFE }
                 .flatMap { it.visible } + life.emblemChips
             for (chip in chips) {
@@ -228,7 +240,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072: in portrait the chips sit right of the piles, above the emblems, clear of the hands, on a narrow screen too
+    // TRN-072: in portrait the round chips sit right of the piles, before the emblems, clear of the hands, on a narrow screen too
     @Test fun portraitChipsKeepClear() {
         val play = withEmblems(f.initial)
         for (width in listOf(412f, 360f)) assertClear(scene(board(play) { playerStates() }, width = width), width, 892f)
@@ -247,23 +259,49 @@ class CardStatesTest {
             for (life in all.items.filter { it.kind == TableItemKind.LIFE }) {
                 val row = all.viewports.single { it.id == "dock/${life.owner}" }.bounds.let { TableBounds(0f, it.y, width, it.height) }
                 val where = "$width, dungeon $withDungeon, ${life.id}"
-                val parts = life.stateChips.map { it.bounds } + life.emblemChips + listOfNotNull(life.emblemArea)
+                val parts = life.stateChips.map { it.bounds } + life.emblemChips + listOfNotNull(life.chipsArea)
                 parts.forEach { assertEquals(it, it.intersection(row), "$where: $it in the row $row") }
-                assertEquals(PlayerStates.of(board { playerStates() }.engine!!.state, life.owner!!).size,
+                val room = if (withDungeon && life.owner == f.b) 1 else 0
+                assertEquals(PlayerStates.of(board { playerStates() }.engine!!.state, life.owner!!).size + room,
                     life.stateChips.count { it.chip != null } + life.stateChips.sumOf { it.hidden.size }, "$where: all of them, shown or under +N")
             }
         }
     }
 
-    // TRN-072, TRN-069: gallery 157's 320 dp phone: the opponent's fourth pile leaves the least room, and their chips fold there as yours do
-    @Test fun chipsFoldWhereTheDungeonLeavesTheLeastRoom() {
+    // TRN-072, TRN-069, TRN-053 (owner gallery review 2026-11-10, gallery 157): on the 320 dp phone, where the opponent's fourth
+    // pile leaves the least room, each player's room, states and emblems are round chips over two lines, all of them shown
+    @Test fun roundChipsFitTwoLinesWhereTheDungeonLeavesTheLeastRoom() {
         val all = scene(board(withEmblems(f.initial)) { playerStates(); dungeon() }, width = 320f)
         val opponent = all.items.single { it.id == "life/${f.b}" }
-        assertEquals(listOf("Initiative", "+3"), opponent.stateChips.map { it.label })
+        assertEquals(listOf("Room: Hall of Moths", "Initiative", "City's blessing", "Ring 4/4", "Energy 5"), opponent.stateChips.map { it.label })
         assertEquals(1, opponent.emblemChips.size)
-        assertEquals(listOf("Room: Hall of Moths"), opponent.emblems)
+        assertEquals(2, (opponent.stateChips.map { it.bounds } + opponent.emblemChips).map { it.y }.distinct().size, "two lines")
         val own = all.items.single { it.id == "life/${f.a}" }
-        assertEquals("+2", own.stateChips.last().label, "your side folds as before")
+        assertEquals(listOf("Monarch", "Speed 2", "Ring 2/4", "Poison 3"), own.stateChips.map { it.label })
+        assertEquals(2, own.emblemChips.size)
+    }
+
+    // TRN-072, TRN-053 (owner gallery review 2026-11-10, gallery 157): many states at once on a narrow phone: the round chips shrink,
+    // then the states' last chip reads "+N" for those left out, never overlapping; the emblems keep their chips
+    @Test fun manyStatesFoldIntoPlusN() {
+        val many = board(withEmblems(f.initial)) {
+            playerStates()
+            player(f.a) { it.copy(designations = listOf(Designation.Monarch, Designation.Initiative, Designation.CitysBlessing,
+                Designation.EnduringStory), counters = listOf(CounterEntry(CounterKind.Poison, 3, 1), CounterEntry(CounterKind.Energy, 5, 2),
+                CounterEntry(CounterKind.Named("shield"), 1, 3), CounterEntry(CounterKind.Named("rad"), 4, 4))) }
+        }
+        val states = PlayerStates.of(many.engine!!.state, f.a)
+        assertTrue(states.size >= 9, "$states")
+        for ((width, height, landscape) in listOf(Triple(320f, 640f, false), Triple(412f, 892f, false), Triple(892f, 412f, true))) {
+            val scene = scene(many, width = width, height = height, landscape = landscape)
+            assertClear(scene, width, height)
+            val own = scene.items.single { it.id == "life/${f.a}" }
+            assertEquals(states.size, own.stateChips.count { it.chip != null } + own.stateChips.sumOf { it.hidden.size }, "$width: all, shown or under +N")
+            if (width == 320f) {
+                assertTrue(own.stateChips.last().label.startsWith("+"), "folded: ${own.stateChips.map { it.label }}")
+                assertEquals(2, own.emblemChips.size, "both emblems keep their chips")
+            }
+        }
     }
 
     // TRN-072: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
@@ -312,16 +350,17 @@ class CardStatesTest {
     @Test fun playerChipsPortrait() {
         render(shotPlay, allStates())
         compose.onRoot().captureShot("$SCREENSHOTS/states/player-chips-portrait.png",
-            "Portrait table where each player has states: Monarch, Speed 2, Ring 2/4 and Poison 3 for you, going on beside your emblems; Initiative, " +
-                "City's blessing, Ring 4/4 and Energy 5 for the opponent, whose dungeon room keeps the second line so the rest is a +N chip. Night sits above the Stack.")
+            "Portrait table where each player has states, shown as round chips with a letter before their emblems: M, S2, R2 and P3 (Monarch, " +
+                "Speed 2, Ring 2/4, Poison 3) for you; a door for the dungeon room, then I, C, R4 and E5 (Initiative, City's blessing, Ring 4/4, " +
+                "Energy 5) for the opponent. A moon chip for Night sits above the Stack.")
     }
 
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun playerChipsLandscape() {
         render(shotPlay, allStates(), landscape = true)
         compose.onRoot().captureShot("$SCREENSHOTS/states/player-chips-landscape.png",
-            "Landscape table with the same states: each player's chips after their piles in their bar row, going on beside their emblems, the opponent's " +
-                "above their dungeon room with a +N chip for the rest; Night sits above the Stack.")
+            "Landscape table with the same states: each player's round chips in one line after their piles in their bar row, the opponent's " +
+                "starting with the door of their dungeon room, the emblems last; the moon chip for Night sits above the Stack.")
     }
 
     // LOB-136, TRN-072 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
@@ -337,8 +376,8 @@ class CardStatesTest {
         val at = bubble.fetchSemanticsNode().boundsInRoot
         assertTrue(compose.onAllNodes(hasTestTag(STATE_CHIP_TAG)).fetchSemanticsNodes().none { it.boundsInRoot.overlaps(at) }, "clear of the chips: $at")
         compose.onRoot().captureShot("$SCREENSHOTS/states/bubble-clear-of-chips.png",
-            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his hand, while his chips, room and " +
-                "emblem stay above it in his row right of the piles.")
+            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his hand, while his round chips " +
+                "(room, states and emblem) stay above it in his row right of the piles.")
         bubble.performTouchInput { longClick() }
         compose.waitForIdle()
         assertEquals("m1", opened, "holding it opens the chat, no chip's explanation")
@@ -350,8 +389,8 @@ class CardStatesTest {
     @Test fun playerChipsNarrowScreen() {
         render(shotPlay, allStates())
         compose.onRoot().captureShot("$SCREENSHOTS/states/player-chips-narrow.png",
-            "A narrow 320 dp phone with the same states, emblems and a dungeon: the opponent's chips stay in their row right of the piles, which scroll under " +
-                "them, Initiative and a +3 chip above their room chip and emblem, clear of their hand; yours right of your piles, over two lines.")
+            "A narrow 320 dp phone with the same states, emblems and a dungeon: each player's room, states and emblems are round chips of one size, " +
+                "over two lines right of their piles (which scroll under them), none overlapping and all shown, clear of the hands.")
     }
 
     // TRN-072, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
@@ -367,7 +406,7 @@ class CardStatesTest {
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithText(text).assertExists()
         captureShot("$SCREENSHOTS/states/player-chip-explained.png",
-            "Holding the Monarch chip: a dark popup above it says what being the monarch means, in plain words, until the finger lifts.")
+            "Holding the round M chip: a dark popup above it says what being the monarch means, in plain words, until the finger lifts.")
         chip.performTouchInput { up() }
         compose.mainClock.advanceTimeBy(100)
         compose.mainClock.autoAdvance = true

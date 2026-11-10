@@ -75,8 +75,8 @@ class CardListScreenshotTest {
             compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription(AUTOMATUM_CARD_UNSUPPORTED), useUnmergedTree = true)
                 .fetchSemanticsNodes().size == 2 }
             captureShot(path("card-search-unsupported", landscape), "Portrait Add cards search page of the Training deck editor " +
-                "searching rune, with the amber warning sign over the top-left corner of Rune Charm and Rune Golem, the cards Automatum " +
-                "can't play yet.")
+                "searching rune, with a see-through amber warning triangle stamped over the art box of Rune Charm and Rune Golem, the cards " +
+                "Automatum can't play yet.")
             return
         }
         compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("2")

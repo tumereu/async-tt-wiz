@@ -20,7 +20,8 @@ class CardStatesTest : E2e() {
     private val line = "Ring-bearer: legendary, can't be blocked by creatures with greater power"
 
     // TRN-072, TRN-053 (owner gallery review 2026-11-09, gallery 157): on a screen too narrow for the old room right of the piles, a
-    // player's chip stays in their row beside the life square, on both tables, and never goes over the hand row; a hold still explains it
+    // player's chip stays in their row beside the life square, on both tables, and never goes over the hand row; a hold still explains it.
+    // Owner gallery review 2026-11-10 (gallery 157: "display them like emblems"): the chip is a round one like an emblem's, not a text pill
     @Config(qualifiers = "w280dp-h892dp-port-mdpi")
     @Test fun onANarrowScreenAStateChipStaysInItsPlayersRow() {
         ringTemptsAlice()
@@ -32,6 +33,7 @@ class CardStatesTest : E2e() {
             assertTrue(chip.left >= square.right, "${player.name}: right of the life square: $chip, $square")
             assertTrue(chip.top >= square.top - 8f && chip.bottom <= square.bottom + 8f, "${player.name}: in the row, not over the hand: $chip, $square")
             assertTrue(chip.right <= 280f, "${player.name}: on the screen: $chip")
+            assertTrue(kotlin.math.abs(chip.width - chip.height) < 1f, "${player.name}: round, like an emblem's chip: $chip")
         }
         holding(alice.node(ring)) {
             assertTrue(alice.shows(explained), alice.screen())

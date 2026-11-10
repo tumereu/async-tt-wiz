@@ -63,7 +63,7 @@ class MultisetPodTest : E2e() {
 
         // Saved as a preset, with its grid
         val presetName = "Two sets ${UUID.randomUUID().toString().take(8)}"
-        alice.tagged("pod-presets").performScrollTo().performClick()
+        alice.tagged("pod-presets").performClick()
         waitUntil("the presets") { alice.shows(hasTestTag("pod-preset-save")) }
         alice.tagged("pod-preset-save").performClick()
         waitUntil("the preset name field") { alice.shows(hasTestTag("pod-preset-name")) }
@@ -105,7 +105,7 @@ class MultisetPodTest : E2e() {
         // The preset brings the grid back to a new pod
         alice.pods.newPod()
         waitUntil("a new pod form") { alice.pods.state.creating != null }
-        alice.tagged("pod-presets").performScrollTo().performClick()
+        alice.tagged("pod-presets").performClick()
         waitUntil("the saved preset listed") { alice.showsText(presetName) }
         alice.text(presetName).performClick()
         waitUntil("the preset's grid") { alice.pods.state.creating?.packs == listOf("TST", "TWL") }

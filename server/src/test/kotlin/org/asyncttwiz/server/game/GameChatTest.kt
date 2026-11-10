@@ -64,11 +64,7 @@ class GameChatTest {
             recipient.execute(GameAction.AcceptInvitation)
             for ((actor, stream) in listOf(a to owner, b to recipient)) {
                 val decks = DeckService(runtime)
-                val definition = CardDefinition("Chat fixture", listOf(DefinitionFace(id(), "Retained face")))
-                val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-                assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
-                val saved = decks.create(actor, CreateDeck(id(), "Selected deck", listOf(
-                    SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 1))))
+                val saved = decks.create(actor, CreateDeck(id(), "Selected deck", listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 1))))
                 assertEquals(201, saved.status)
                 val deck = GameWire.json.decodeFromString<SavedDeck>(saved.body)
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))

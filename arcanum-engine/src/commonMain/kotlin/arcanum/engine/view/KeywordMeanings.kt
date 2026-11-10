@@ -28,8 +28,9 @@ import arcanum.api.Zone
 
 /**
  * What a keyword ability means to the engine: its expansion from the shared table ([KeywordExpansions]), or, for a
- * keyword the engine doesn't automate yet, abilities that stop with a `Manual` step at its natural moment (as the spell is
- * cast, as the permanent enters, attacks, dies, …), so it is never silently left out (D61). Keywords whose meaning is engine
+ * keyword the engine doesn't automate yet (none today), abilities with a `Manual` step at its natural moment (as the spell is
+ * cast, as the permanent enters, attacks, dies, …), which `Engine.manualParts` names, so it is never silently taken as
+ * supported (D61). Keywords whose meaning is engine
  * code ([engineCode]: phasing, fuse, foretell) have no abilities.
  */
 object KeywordMeanings {

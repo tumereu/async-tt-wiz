@@ -241,7 +241,7 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                                     } else if (held?.first == key) held = null
                                 }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                                 // Section 3.9: a card Automatum can't play yet
-                                CardSupportMark(tile.definition?.faces?.firstOrNull()?.scryfallId, Modifier.align(Alignment.TopStart))
+                                CardSupportMark(tile.definition?.faces?.firstOrNull()?.scryfallId, Modifier.matchParentSize())
                             }
                         }
                     }
@@ -533,7 +533,7 @@ private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: Ca
                 placeholder = { PodCardPlaceholder(card.name) })
         }
         // Section 3.9: a card Automatum can't play yet
-        CardSupportMark(card.printing.scryfallId, Modifier.align(Alignment.TopStart))
+        CardSupportMark(card.printing.scryfallId, Modifier.matchParentSize())
         if (squares.isNotEmpty()) Row(Modifier.align(Alignment.BottomStart).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             squares.forEach { (section, copies) ->
                 val label = section.saved().sectionLabel()

@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
     val updatedAt: String,
     /** The pod's engine; turn-based engines read "Your pick" without a pack count. */
     val mode: DraftMode = DraftMode.BOOSTER,
+    /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
+    val chatUnread: Int = 0,
 )
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
@@ -94,10 +96,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class SetPodAutoStart(val requestId: String, val enabled: Boolean)
 /** POST /v1/pods/{id}/cancel (and submit, see [SubmitPodDeck]). The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
-/** POST /v1/pods/{id}/submit. [basicDefinitions] (all five basics, or none) give the submitter's draft deck its basics. */
+/** POST /v1/pods/{id}/submit. The server gives the submitter's draft deck its basics from its catalog (LOB-052). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-@Serializable data class SubmitPodDeck(val requestId: String, val draftAttemptId: String,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val basicDefinitions: List<SubmittedDefinition> = emptyList())
+@Serializable data class SubmitPodDeck(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */
 @Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList(), val librarians: List<String> = emptyList())
 /** PUT /v1/pods/{id}/draft/marks. Saves the caller's marks for their current head pack only (409 otherwise); latest wins.
@@ -128,9 +129,14 @@ import kotlinx.serialization.Serializable
  * [PodDeckRules.coverChoices] (DRF-166). */
 @Serializable data class SetPodDeckCover(val requestId: String, val draftAttemptId: String, val definition: String)
 /** GET /v1/pods/{id}/cube (creator): the pod's prepared cube, Main (drafted) and Maybe (not drafted). The saved cube
- * is never changed by preparing. Definitions are read in batches with POST /v1/pods/{id}/cube/definitions
- * ([ReadCubeDefinitions], answered with [SubmittedDefinitions]). */
-@Serializable data class PodCube(val cubeName: String, val entries: List<SavedCubeEntry>)
+ * is never changed by preparing. */
+@Serializable data class PodCube(val cubeName: String, val entries: List<PodCubeEntry>)
+/** One card of a pod's prepared cube: [definition] is the card data the pod keeps (its digest, what moves name); the phone
+ * shows it from its own card records by [printingId] (owner 2026-11-10), or by [name] alone without one. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class PodCubeEntry(val definition: String, val printingId: String?, val name: String, val quantity: Int,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val section: SavedDeckSection = SavedDeckSection.MAINBOARD)
 /** PUT /v1/pods/{id}/cube/move (creator, setup, cube source): moves [quantity] copies of [definition] from [from] to the
  * other section (Main ↔ Maybe) of this pod's prepared cube. Answers the updated [PodCube]. */
 @Serializable data class MovePodCubeCards(val requestId: String, val definition: String, val from: SavedDeckSection, val quantity: Int = 1)

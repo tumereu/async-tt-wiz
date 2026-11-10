@@ -12,10 +12,10 @@ class LobbyStartTest {
     private val owner = AccountIdentity(id(), "Inviter")
     private val other = AccountIdentity(id(), "Recipient")
     private val game = GameSummary(id(), "Initial Spark", "2026-10-23T00:00:00Z", owner, other, id(), id(), InvitationState.ACCEPTED)
-    private val definition = CardDefinition("Retained without catalog", listOf(DefinitionFace(id(), "Retained without catalog")))
+    private val definition = CardDefinition("Retained without catalog", listOf(DefinitionFace(id(), "Retained without catalog")), printingId = id())
     private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     private val source = SavedDeck(DeckSummary(id(), "Prepared source", "1", game.createdAt, 4, 2), listOf(
-        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 11), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))
+        savedEntry(SavedDeckSection.MAINBOARD, definition, 11), savedEntry(SavedDeckSection.SIDEBOARD, definition, 2)))
     private fun prepared(): LobbyPreparation {
         var state = PreparationRules.empty(game)
         for (player in listOf(owner, other)) state = PreparationRules.select(game, state, player.accountId, id(),
@@ -38,8 +38,7 @@ class LobbyStartTest {
         override fun disconnect() = Unit
         override fun close() = Unit
     }
-    private inner class Fixture(val base: LobbyPreparation = prepared(),
-        dungeons: (() -> List<SubmittedDefinition>)? = null) : AutoCloseable {
+    private inner class Fixture(val base: LobbyPreparation = prepared()) : AutoCloseable {
         val wire = Wire(); var token: String? = "original"; val rejected = mutableListOf<String>()
         var httpGame = game
         val lobby = LobbyController(object : Lobbies {
@@ -50,8 +49,7 @@ class LobbyStartTest {
             override suspend fun games(token: String, invitations: Boolean, after: String?) = GameList(if (invitations) emptyList() else listOf(httpGame))
             override suspend fun head(token: String, id: String) = httpGame // Stale HTTP must not reopen the lobby.
             override fun close() = Unit
-        }, { token }, Worker(), { it() }, gameConnection = wire, accountId = { owner.accountId }, authenticationRequired = { rejected.add(it); token = null },
-            dungeonDefinitions = dungeons)
+        }, { token }, Worker(), { it() }, gameConnection = wire, accountId = { owner.accountId }, authenticationRequired = { rejected.add(it); token = null })
         init { lobby.open(game.id); connect(); head(game, base) }
         fun message(value: GameServerMessage) = wire.listener.message(value)
         fun connect(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1") {
@@ -112,32 +110,22 @@ class LobbyStartTest {
         }
     }
 
-    // LOB-117: a deck that ventures into the dungeon (or takes the initiative) brings the catalog's dungeon cards with its Ready;
-    // any other deck's Ready brings nothing
-    @Test fun aVenturingDecksReadyBringsTheDungeons() {
-        val dungeon = CardDefinition("Lantern Crypt", listOf(DefinitionFace(id(), "Lantern Crypt", typeLine = "Dungeon",
-            rulesText = "Crypt Door — You gain 1 life. (Leads to: Final Vault)\nFinal Vault — You gain 3 life.")))
-            .let { requireNotNull(org.asyncttwiz.protocol.game.OutsideCards.dungeon(it)) }
-        var reads = 0
-        Fixture(dungeons = { reads++; listOf(dungeon) }).use { f ->
-            f.lobby.ready()
-            assertEquals(emptyList(), f.commands().single().inlineDefinitions, "this deck never ventures")
-            assertEquals(0, reads)
-        }
+    // LOB-117: the server brings the dungeons of a deck that ventures into the dungeon (or takes the initiative): its Ready,
+    // like any other deck's, is just the Ready
+    @Test fun aVenturingDecksReadyIsJustTheReady() {
         val map = CardDefinition("Torch Map", listOf(DefinitionFace(id(), "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
-            rulesText = "Venture into the dungeon.")))
+            rulesText = "Venture into the dungeon.")), printingId = id())
         val venturing = SubmittedDefinition(DeckJson.digest(map), map)
-        val deck = SavedDeck(DeckSummary(id(), "Venturing", "1", game.createdAt, 1, 0), listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, venturing.digest, 40)))
+        val deck = SavedDeck(DeckSummary(id(), "Venturing", "1", game.createdAt, 1, 0), listOf(savedEntry(SavedDeckSection.MAINBOARD, map, 40)))
         var base = PreparationRules.empty(game)
         for (player in listOf(owner, other)) base = PreparationRules.select(game, base, player.accountId, id(),
             GameScope(game.id, game.preparationRound), GameAction.SelectDeck(deck.deck.id, deck.deck.revision), deck, listOf(venturing)).state!!
-        Fixture(base.copy(starter = StarterChoice(other.accountId)), dungeons = { reads++; listOf(dungeon) }).use { f ->
+        Fixture(base.copy(starter = StarterChoice(other.accountId))).use { f ->
             f.lobby.ready()
             val ready = f.commands().single()
             assertEquals(GameAction.Ready, ready.action)
-            assertEquals(listOf(dungeon), ready.inlineDefinitions)
             assertTrue(GameWire.valid(ready))
-            assertEquals(1, reads)
+            assertTrue(f.lobby.state.preparation!!.players.single { it.accountId == owner.accountId }.ready)
         }
     }
 

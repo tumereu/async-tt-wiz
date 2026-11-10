@@ -27,7 +27,7 @@ class CatalogControlsTest {
         var state by androidx.compose.runtime.mutableStateOf(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)))
         var retries = 0
         compose.setContent { MaterialTheme { CatalogControls(state) { retries++ } } }
-        compose.onNodeWithText("Card records updating · 59%").assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 40%").assertIsDisplayed()
         compose.onNodeWithTag("catalog-status").assertIsDisplayed()
         compose.onNodeWithTag("catalog-retry").assertDoesNotExist()
         compose.runOnIdle { state = CatalogUiState(failed = true) }

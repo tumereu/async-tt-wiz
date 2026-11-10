@@ -305,26 +305,22 @@ class ImportScreenTest {
     // DRF-010, LOB-057: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
     @Test fun savedCubeShowsPicturesUnderEditAndDraftThisCubeAndItsEditorDeletesItConfirmed() {
         val worker = Worker()
-        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
-        val digest = DeckJson.digest(card)
-        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "2026-10-26T00:00:00Z", "2026-10-26T00:00:00Z", 3), listOf(SavedCubeEntry(digest, 3)))
+        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")), printingId = "00000000-0000-4000-8000-000000000201")
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "2026-10-26T00:00:00Z", "2026-10-26T00:00:00Z", 3), listOf(SavedCubeEntry(card.printingId, card.name, 3)))
         val renames = mutableListOf<UpdateCube>(); val deletes = mutableListOf<DeleteCube>()
         var current = saved
         val api = object : Cubes {
             override suspend fun listCubes(token: String, after: String?) = CubeList(if (deletes.isEmpty()) listOf(current.cube) else emptyList())
             override suspend fun readCube(token: String, id: String) = current
-            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
-                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, card) })
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube {
                 renames += value; current = saved.copy(cube = saved.cube.copy(name = value.name!!, revision = "2")); return current
             }
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted { deletes += value; return CubeDeleted(id) }
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
-            override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
             override fun close() = Unit
         }
         val controller = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, worker, { it() })
+            .also { it.cardRecords = testCardRecords(card) }
         val drafted = mutableListOf<String>()
         controller.open(saved.cube.id); worker.drain()
         try {

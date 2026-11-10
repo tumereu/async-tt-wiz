@@ -143,7 +143,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
             val wait = if (arrow || panelMain != null) null else engine?.waitAction()?.let { w ->
-                if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, run = w.run) else w }
+                if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, assumption = w.assumption, run = w.run) else w }
             val unconfirmed = engine?.engine?.shown?.indicator != null
             // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
             val main = panelMain
@@ -182,12 +182,14 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                     }
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
-                    wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName) {
+                    wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName, wait.assumption) {
                     if (taken(wait.label)) { pressed(wait.label); own { wait.run(); true } } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 // TRN-075: the move passed to you: one pulse in your colour
                 MoveCuePulse(engine?.moveCue ?: 0, Modifier.matchParentSize().clip(AdvanceArrowShape))
-                if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))
+                // TRN-063: over the Assume violet the working sign sweeps white
+                if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape),
+                    if (main == null && !arrow && wait != null && assumeLook(wait)) Color.White else AutomatumViolet)
                 if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }
         }

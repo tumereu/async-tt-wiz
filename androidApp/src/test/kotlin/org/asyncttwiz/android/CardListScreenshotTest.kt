@@ -36,7 +36,7 @@ class CardListScreenshotTest {
         "Quiet Grove" to "Land", "Rune Bolt" to "Instant", "Rune Wall" to "Creature — Wall", "Aegis Ward" to "Enchantment",
         "Training Land" to "Land", "Rune Charm" to "Instant", "Rune Golem" to "Artifact Creature — Golem")
     private fun definition(name: String) = CardDefinition(name, listOf(DefinitionFace("face-$name", name, typeLine = types.getValue(name),
-        scryfallId = placeholderPrinting(name))))
+        scryfallId = placeholderPrinting(name))), printingId = java.util.UUID.nameUUIDFromBytes(name.toByteArray()).toString())
     private fun printing(name: String) = CatalogPrinting("p-$name", name, "NEW", "9", "English", "", placeholderPrinting(name), false, emptyList(),
         "{\"type\":\"${types.getValue(name)}\"}")
 
@@ -75,8 +75,8 @@ class CardListScreenshotTest {
             compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription(AUTOMATUM_CARD_UNSUPPORTED), useUnmergedTree = true)
                 .fetchSemanticsNodes().size == 2 }
             captureShot(path("card-search-unsupported", landscape), "Portrait Add cards search page of the Training deck editor " +
-                "searching rune, with the amber warning sign over the top-left corner of Rune Charm and Rune Golem, the cards Automatum " +
-                "can't play yet.")
+                "searching rune, with a see-through amber warning triangle stamped over the art box of Rune Charm and Rune Golem, the cards " +
+                "Automatum can't play yet.")
             return
         }
         compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("2")
@@ -98,23 +98,20 @@ class CardListScreenshotTest {
     private fun cubeEdit(landscape: Boolean, editing: Boolean = true) {
         val main = listOf("Meadow Sentinel", "Rune Bear", "Ember Adept", "Rune Bolt", "Aegis Ward", "Rune Golem", "Quiet Grove")
         val maybe = listOf("Rune Wall", "Rune Charm")
-        val definitions = (main + maybe).associate { definition(it).let { card -> DeckJson.digest(card) to card } }
-        fun digest(name: String) = definitions.entries.first { it.value.name == name }.key
+        val definitions = (main + maybe).map(::definition)
+        fun printingOf(name: String) = definitions.first { it.name == name }.printingId
         val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", main.size.toLong(), maybeCopies = 2),
-            main.map { SavedCubeEntry(digest(it), 1) } + maybe.map { SavedCubeEntry(digest(it), 1, SavedDeckSection.MAYBEBOARD) })
+            main.map { SavedCubeEntry(printingOf(it), it, 1) } + maybe.map { SavedCubeEntry(printingOf(it), it, 1, SavedDeckSection.MAYBEBOARD) })
         val api = object : Cubes {
             override suspend fun listCubes(token: String, after: String?) = CubeList(listOf(saved.cube))
             override suspend fun readCube(token: String, id: String) = saved
-            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
-                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, definitions.getValue(it)) })
-            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
-            override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
             override fun close() = Unit
         }
         val cubes = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, Immediate, { it() })
+        cubes.cardRecords = testCardRecords(definitions)
         cubes.open("cube")
         if (!editing) {
             compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
@@ -157,18 +154,19 @@ class CardListScreenshotTest {
     private fun prepareCube(landscape: Boolean) {
         val main = listOf("Meadow Sentinel", "Rune Bear", "Ember Adept", "Rune Bolt", "Aegis Ward", "Rune Golem", "Quiet Grove", "Training Land")
         val maybe = listOf("Rune Wall", "Rune Charm")
-        val definitions = (main + maybe).associate { definition(it).let { card -> DeckJson.digest(card) to card } }
-        fun digest(name: String) = definitions.entries.first { it.value.name == name }.key
-        val cube = PodCube("Runes", main.map { SavedCubeEntry(digest(it), if (it == "Training Land") 2 else 1) } +
-            maybe.map { SavedCubeEntry(digest(it), 1, SavedDeckSection.MAYBEBOARD) })
+        val definitions = (main + maybe).map(::definition)
+        fun entry(name: String, quantity: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD) = definitions.first { it.name == name }
+            .let { PodCubeEntry(DeckJson.digest(it), it.printingId, name, quantity, section) }
+        val cube = PodCube("Runes", main.map { entry(it, if (it == "Training Land") 2 else 1) } +
+            maybe.map { entry(it, 1, SavedDeckSection.MAYBEBOARD) })
         val api = Proxy.newProxyInstance(Pods::class.java.classLoader, arrayOf(Pods::class.java)) { _, method, args ->
             when (method.name) {
                 "cube" -> cube
-                "cubeDefinitions" -> SubmittedDefinitions((args[2] as ReadCubeDefinitions).digests.map { SubmittedDefinition(it, definitions.getValue(it)) })
                 else -> error("unused ${method.name}")
             }
         } as Pods
         val preparation = PodCubePreparation(api, { "token" }, Immediate, { it() }) {}
+        preparation.cardRecords = testCardRecords(definitions)
         preparation.open("00000000-0000-4000-8000-000000000001")
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { PodCubePreparationScreen(preparation) } } }
         compose.onNodeWithText("Mainboard · 9").assertIsDisplayed()

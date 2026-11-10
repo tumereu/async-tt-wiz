@@ -49,12 +49,11 @@ class StoredDataContainmentTest {
         }
         val a = account("ContainA"); val b = account("ContainB")
         val decks = DeckService(runtime); val games = GameService(runtime); val lobby = LobbyService(runtime)
-        fun card(name: String) = CardDefinition(name, listOf(DefinitionFace(id(), name))).let { SubmittedDefinition(DeckJson.digest(it), it) }
-        fun deck(owner: AccountService.Principal, name: String, card: SubmittedDefinition): SavedDeck {
-            assertEquals(200, decks.submit(owner, SubmitDefinitions(id(), listOf(card))).status)
-            return json.decodeFromString(decks.create(owner, CreateDeck(id(), name, listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, card.digest, 7)))).body)
-        }
-        val shared = card("Readable card"); val lost = card("Card whose stored form changed")
+        fun card(name: String) = TestPrintings.submitted(name)
+        fun deck(owner: AccountService.Principal, name: String, card: SubmittedDefinition): SavedDeck =
+            json.decodeFromString(decks.create(owner, CreateDeck(id(), name, listOf(TestPrintings.entry(card.definition.name, 7)))).body)
+        // The test cards' catalog; the lost one's stored card data is made unreadable below
+        val shared = card("Ash Pup"); val lost = card("Lone Goat")
         val aDeck = deck(a, "Cover kept", shared); val bDeck = deck(b, "B deck", shared); val lostDeck = deck(a, "Cover lost", lost)
         lobby.add(a, AddContact(id(), b.account.accountId))
         class Stream(val actor: AccountService.Principal, val game: GameSummary) {
@@ -87,9 +86,8 @@ class StoredDataContainmentTest {
         val pending = goodOwner.command(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings()), games.head(a, good.id).play!!.id)
         goodOwner.admit(pending)
 
-        val cards = (0 until 90).map { card("Cube card $it") }
-        assertEquals(200, decks.submit(a, SubmitDefinitions(id(), cards)).status)
-        val cube = json.decodeFromString<SavedCube>(CubeService(runtime).create(a, CreateCube(id(), "Cube", cards.map { SavedCubeEntry(it.digest, 1) })).body)
+        val cards = TestPrintings.names("E2E").filter { it !in listOf("Ash Pup", "Lone Goat") }.take(90)
+        val cube = json.decodeFromString<SavedCube>(CubeService(runtime).create(a, CreateCube(id(), "Cube", cards.map { TestPrintings.entry(it, 1) })).body)
         val pods = PodService(runtime)
         fun pod(name: String): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), name, cube.cube.id)).body).id
@@ -122,7 +120,7 @@ class StoredDataContainmentTest {
     }
 
     // SYS-052
-    @Test fun `an unreadable game pod preset or deck cover stays out of lists while its own reads fail as unreadable`() {
+    @Test fun `an unreadable game pod or preset stays out of lists while its own reads fail as unreadable`() {
         FreshDatabase().start().use { db ->
             val s = seed(db)
             ServiceRuntime(db.settings).use { runtime ->
@@ -160,8 +158,9 @@ class StoredDataContainmentTest {
 
                 val decks = DeckService(runtime).list(a, null)
                 assertEquals(200, decks.status, "One unreadable card must not break the decks list")
+                // Saved decks hold printings (owner 2026-11-10): their covers come from the catalog, never from stored card data
                 val covers = json.decodeFromString<DeckList>(decks.body).decks.associate { it.id to it.cover?.name }
-                assertEquals(mapOf(s.coverKept to "Readable card", s.coverLost to null), covers)
+                assertEquals(mapOf(s.coverKept to "Ash Pup", s.coverLost to "Lone Goat"), covers)
             }
             // Nothing was deleted or rewritten.
             assertEquals("true", text(db, "SELECT (payload LIKE '{\"retiredField\":true,%')::text FROM game_play WHERE game_id = '${s.badGame}'"))

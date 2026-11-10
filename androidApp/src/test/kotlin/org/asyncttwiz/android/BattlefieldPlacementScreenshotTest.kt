@@ -434,7 +434,7 @@ class BattlefieldPlacementScreenshotTest {
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/target-picked-alone.png",
             "Alice casts Frost Snare (tap up to two target creatures) and taps her Cinder Hound standing alone: it is picked, " +
                 "framed in violet and filled violet with a white check at its top right; the groups holding other targets " +
-                "(her equipped Hound, her Elemental tokens, Bob's Cubs and Elementals) glow white, a tap opening them.")
+                "(her equipped Hound, her Elemental tokens, Bob's Cubs and Elementals) are each framed in violet as a whole, a tap opening them.")
     }
 
     // TBL-130: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on

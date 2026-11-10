@@ -20,28 +20,20 @@ import kotlin.test.fail
 
 /**
  * Owner gallery review, 2026-11-06: a cube or set with cards Automatum can't play can't be drafted. Alice has a cube
- * holding an Odd Relic (rules text Automatum can't do), its result kept as her phone works it out: the warning icon says
+ * holding an Odd Relic (rules text Automatum can't do), its result worked out by the server: the warning icon says
  * "Automatum can't play 1 card yet: Odd Relic", New pod from it greys Create with the reason, and the server refuses the
  * pod.
  */
 class UnsupportedPodSourceTest : E2e() {
-    private val relic: SubmittedDefinition = run {
-        val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/Odd Relic".encodeToByteArray()).toString(), "Odd Relic",
-            typeLine = "Artifact", manaCost = "{1}", rulesText = "Whenever the moon is full, this artifact hums a slow tune.")
-        val definition = CardDefinition("Odd Relic", listOf(face))
-        SubmittedDefinition(DeckJson.digest(definition), definition)
-    }
-
     // DRF-161, DRF-162, LOB-115: the cube's warning names the card; New pod's Create is greyed; the server refuses the pod
     @Test fun aCubeWithACardAutomatumCantPlayCantBeDrafted() {
         val (a, _) = ServerSetup.accounts()
-        val cards = listOf(TestCards.mountain, TestCards.spark, relic)
+        val cards = listOf(TestCards.mountain, TestCards.spark, TestCards.relic)
         val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
-            api.submit(a.token, SubmitDefinitions(UUID.randomUUID().toString(), cards))
-            val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube", cards.map { SavedCubeEntry(it.digest, 4) }))
-            // As Alice's phone keeps the result when she saves the cube (LOB-124)
-            val support = CardListSupport(org.asyncttwiz.storage.CardDefinitions.parserVersion, listOf("Odd Relic"), arcanum.engine.Engine.SUPPORT_VERSION)
-            assertTrue(api.setCubeSupport(a.token, saved.cube.id, SetCardListSupport(saved.cube.revision, support)).stored)
+            val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube",
+                cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 4) }))
+            // The server works the result out from its card catalog's marks (LOB-124)
+            assertEquals(listOf("Odd Relic"), saved.cube.automatum?.byHand)
             saved.cube
         } }
         launchPlayers()

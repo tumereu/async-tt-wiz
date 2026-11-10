@@ -12,6 +12,8 @@ import java.util.zip.GZIPOutputStream
  * uncompressed lines, kept as `<checksum>.jsonl.gz`. */
 object CardCatalogFiles {
     const val SUFFIX = ".jsonl.gz"
+    // How a recipe record's line starts: the class discriminator comes first ([CardCatalogFormat.encode])
+    private const val RECIPE_LINE = "{\"t\":\"recipe\""
     private val checksumPattern = Regex("[0-9a-f]{64}")
 
     fun valid(checksum: String): Boolean = checksumPattern.matches(checksum)
@@ -53,12 +55,14 @@ object CardCatalogFiles {
     }
 
     /** Reads the catalog in [input] (gzip) one record at a time into [visit], in file order (the app indexes it so, never
-     * holding it whole), and returns its checksum, worked out while reading. */
-    fun stream(input: InputStream, visit: (CatalogRecord) -> Unit): String {
+     * holding it whole), and returns its checksum, worked out while reading. [recipes]: false leaves out the booster
+     * recipes undecoded (the app has no use for them; the checksum still covers them). */
+    fun stream(input: InputStream, recipes: Boolean = true, visit: (CatalogRecord) -> Unit): String {
         val digest = MessageDigest.getInstance("SHA-256")
         GZIPInputStream(input, 1 shl 16).use { gzip ->
             java.security.DigestInputStream(gzip, digest).bufferedReader(Charsets.UTF_8).use { reader ->
-                reader.lineSequence().filter { it.isNotEmpty() }.forEach { visit(CardCatalogFormat.decode(it)) }
+                reader.lineSequence().filter { it.isNotEmpty() && (recipes || !it.startsWith(RECIPE_LINE)) }
+                    .forEach { visit(CardCatalogFormat.decode(it)) }
             }
         }
         return hex(digest.digest())

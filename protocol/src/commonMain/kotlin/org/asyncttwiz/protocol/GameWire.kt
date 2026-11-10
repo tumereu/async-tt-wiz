@@ -64,9 +64,6 @@ const val GAME_PROTOCOL_MINOR = 12
     @Serializable @SerialName("transferPreparedCard") data class TransferPreparedCard(val deckId: String,
         val cardId: String, val cardIndex: String, val source: SavedDeckSection) : GameAction
     @Serializable @SerialName("sendChat") data class SendChat(val text: String) : GameAction
-    @Serializable @SerialName("setPodGameBasics") data class SetPodGameBasics(val deckId: String,
-        val basics: PodDeckBasics, val basicDefinitions: List<SubmittedDefinition>,
-        val section: SavedDeckSection = SavedDeckSection.MAINBOARD) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
@@ -83,9 +80,7 @@ const val GAME_PROTOCOL_MINOR = 12
     val readFormats: List<Int> = listOf(1), val engine: Boolean = true) : GameClientMessage
 @Serializable @SerialName("command") data class GameCommand(val requestId: String, val scope: GameScope,
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
-    val invocationId: String? = null,
-    /** Only with [GameAction.Ready]: the player's dungeon cards outside the game ([org.asyncttwiz.protocol.game.OutsideCards]). */
-    val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
+    val invocationId: String? = null) : GameClientMessage
 @Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
@@ -210,16 +205,10 @@ object GameWire {
     /** The most engine inputs, and the most table changes, one [GameAction.Submit] may hold. */
     const val MAX_SUBMITTED = 1024
     val json = DeckJson.format
-    /** Reads what the server stored (a play, a revision, a request's result): a row written before the old model's fields
-     * went (engine-responsiveness R4d) reads without them; anything else unknown is still refused (SYS-052). */
+    /** Reads what the server stored (a play, a revision, a request's result) strictly: any unknown field makes the row
+     * unreadable (SYS-052). */
     fun <T> stored(deserializer: kotlinx.serialization.DeserializationStrategy<T>, text: String): T =
-        json.decodeFromJsonElement(deserializer, withoutRetired(json.parseToJsonElement(text)))
-
-    /** The old model's fields of stored plays (also a revision's [GameRevision.play]), revisions and results. */
-    private val RETIRED = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",
-        "mutation", "group", "treeDelta", "targetNodeId")
-    private fun withoutRetired(element: JsonElement): JsonElement = if (element !is JsonObject) element
-        else JsonObject(element.filterKeys { it !in RETIRED }.mapValues { (key, value) -> if (key == "play") withoutRetired(value) else value })
+        json.decodeFromString(deserializer, text)
     fun decodeClient(text: String): GameClientMessage {
         require(text.encodeToByteArray().size <= MAX_MESSAGE_BYTES)
         StrictGameJson.check(text)
@@ -228,9 +217,7 @@ object GameWire {
     fun encode(message: GameServerMessage): String = json.encodeToString(message)
     fun ordinal(value: String): Long = ScalarCodecs.decodeRevision(JsonPrimitive(value).toString())
     fun valid(command: GameCommand): Boolean = runCatching {
-        // A Ready carries its player's dungeon cards outside the game (OutsideCards), nothing else carries definitions
-        require(command.commandVersion == 1 && (command.inlineDefinitions.isEmpty() || command.action == GameAction.Ready &&
-            command.inlineDefinitions.size <= org.asyncttwiz.protocol.game.OutsideCards.MAX))
+        require(command.commandVersion == 1)
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
@@ -255,11 +242,6 @@ object GameWire {
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {
-                is GameAction.SetPodGameBasics -> {
-                    require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
-                    require(action.basics.valid && action.basics.total <= DeckValidation.MAX_CARDS)
-                    require(PodGamePreparation.basicDefinitions(action.basicDefinitions) != null)
-                }
                 is GameAction.SelectDeck -> {
                     require(command.scope.invitationId == null && DeckValidation.uuid(action.deckId))
                     require(ordinal(action.sourceRevision) > 0)

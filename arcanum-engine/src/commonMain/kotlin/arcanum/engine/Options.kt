@@ -115,7 +115,7 @@ internal object Options {
      */
     private fun goesOn(state: GameState, pending: Pending?, budget: Budget = Budget()): Boolean {
         val c = pending?.continuation as? Continuation.Announcing ?: return true
-        if (c.choices.names[Plan.MANUAL] != null || c.choices.paying != null) return true
+        if (c.choices.paying != null) return true
         if (!payableYet(Plan(state, c))) return false
         val d = pending.decision
         if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return true
@@ -248,7 +248,7 @@ internal object Options {
             if (d is Decision.Targets) Answer.Targets(chosen) else Answer.Objects(chosen.map { (it as arcanum.engine.state.TargetRef.Object).id })
         }
         val c = pending.continuation as? Continuation.Announcing
-        val plan = c?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }?.let { Plan(state, it) }
+        val plan = c?.takeIf { it.choices.paying == null }?.let { Plan(state, it) }
         val limits = plan != null && d is Decision.Targets && plan.targetsLimitEachOther(d.slot)
         // Not a cast or activation: as the decision says, a total too (CR 701.59a: any option can be part of a selection reaching it,
         // since more can always be added)
@@ -286,7 +286,7 @@ internal object Options {
     /** [Engine.castCosts]: see there. */
     fun castCosts(state: GameState): CastCosts {
         val pending = state.pending
-        val first = (pending?.continuation as? Continuation.Announcing)?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }
+        val first = (pending?.continuation as? Continuation.Announcing)?.takeIf { it.choices.paying == null }
             ?: return CastCosts(null, several = false, asks = false, castable = true, suggestion = emptyList(), answers = emptyList())
         val budget = Budget(COST_LEAVES)
         // Every way through while the cost may vary; else the first that goes on
@@ -296,7 +296,7 @@ internal object Options {
         var asks = false
         var xes = 0
         fun walk(s: GameState, p: Pending?, path: List<Answer>) {
-            val c = (p?.continuation as? Continuation.Announcing)?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }
+            val c = (p?.continuation as? Continuation.Announcing)?.takeIf { it.choices.paying == null }
             val x = path.filterIsInstance<Answer.Number>().firstOrNull()?.value ?: 0
             if (c == null) { leaves += Leaf(null, true, emptyList(), path, x); return }
             val d = p.decision
@@ -455,7 +455,6 @@ internal object Options {
             val e = snap.evaluator(d.player)
             largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
         }
-        if (c.choices.names[Plan.MANUAL] != null) return null
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null
         val total = q.choice.total ?: return null
@@ -478,7 +477,6 @@ internal object Options {
      * [Question.Objects]' options that share it, as many as needed. Null when the question asks no such thing. */
     private fun sharing(snap: Snapshot, pending: Pending): List<List<ObjectId>>? {
         val c = pending.continuation as? Continuation.Announcing ?: return null
-        if (c.choices.names[Plan.MANUAL] != null) return null
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null
         val quality = q.choice.shared ?: return null

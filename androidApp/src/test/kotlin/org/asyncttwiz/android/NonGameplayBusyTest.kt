@@ -57,7 +57,7 @@ class NonGameplayBusyTest {
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
         catalog.seed(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)))
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, lobby = fixtures.lobby) } }
-        compose.onNodeWithText("Card records updating · 59%").assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 40%").assertIsDisplayed()
         compose.onNodeWithTag("new-game").assertIsNotEnabled()
         compose.onNodeWithText("Azure Spark").assertIsDisplayed()
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)

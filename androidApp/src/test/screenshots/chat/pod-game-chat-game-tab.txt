@@ -1,0 +1,1 @@
+The chat of a pod game opened on its Game tab: the game's messages, and a dot after Pod because Carol's message in the pod's chat is unread.

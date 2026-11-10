@@ -275,7 +275,7 @@ internal object Actions {
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
                 // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
                 if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
-                    facts = m.marks.fold(after.facts) { facts, mark -> gained(act, m.id, mark)?.let(facts::gaining) ?: facts })
+                    facts = m.marks.fold(after.facts) { facts, mark -> gained(act, m.id, mark, emptyList())?.let(facts::gaining) ?: facts })
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
                 if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
@@ -977,7 +977,8 @@ internal object Actions {
         act.record(Change.Attached(id, o.attachedTo, to, o.timestamp, if (to == null) o.timestamp else act.state.nextTimestamp()))
     }
 
-    fun tapStatus(act: Act, id: ObjectId, flag: StatusFlag, on: Boolean, meanings: List<Meaning> = emptyList()) {
+    /** [given]: costs of the mark's keyword the effect gives as the mark is gained (CR 702.143d), kept with the others it has. */
+    fun tapStatus(act: Act, id: ObjectId, flag: StatusFlag, on: Boolean, meanings: List<Meaning> = emptyList(), given: List<arcanum.api.Cost> = emptyList()) {
         val o = act.obj(id) ?: return
         val now = when (flag) {
             StatusFlag.Tapped -> o.tapped
@@ -988,26 +989,26 @@ internal object Actions {
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
         // A mark whose turn is kept (CR 702.143d, 702.170d: a card that became foretold or plotted is castable on later turns)
-        if (on && now != on && flag is StatusFlag.Marked) gained(act, id, flag.mark)?.let { record ->
+        if (on && now != on && flag is StatusFlag.Marked) gained(act, id, flag.mark, given)?.let { record ->
             val marked = act.state.objOrThrow(id)
             act.record(Change.Facts(id, marked.facts, marked.facts.gaining(record)))
         }
     }
 
     /** [id] gets or loses [mark]: a mark that gives a copy to cast does that as it is gained and lost (prepared, CR 722.3a–c). */
-    fun setMark(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark, on: Boolean) {
+    fun setMark(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark, on: Boolean, given: List<arcanum.api.Cost> = emptyList()) {
         if (arcanum.api.MarkRules.of(mark).permission == arcanum.api.MarkPermission.CastCopy) {
             if (on) arcanum.engine.prepare.Prepare.becomePrepared(act, id) else arcanum.engine.prepare.Prepare.unprepare(act, id)
-        } else tapStatus(act, id, StatusFlag.Marked(mark), on)
+        } else tapStatus(act, id, StatusFlag.Marked(mark), on, given = given)
     }
 
     /** The record of [id] gaining [mark] now ([arcanum.api.MarkRule.recordsTurn]), with the costs it has now of the keyword the mark's
-     * permission names; null for a mark whose turn isn't kept. */
-    private fun gained(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark): arcanum.engine.state.MarkGained? {
+     * permission names and those the effect gives ([given], CR 702.143d); null for a mark whose turn isn't kept. */
+    private fun gained(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark, given: List<arcanum.api.Cost>): arcanum.engine.state.MarkGained? {
         val rule = arcanum.api.MarkRules.of(mark)
         if (!rule.recordsTurn) return null
         val keyword = ((rule.permission as? arcanum.api.MarkPermission.CastCard)?.cost as? arcanum.api.MarkCost.OfKeyword)?.keyword
         val costs = keyword?.let { kind -> act.view()[id]?.characteristics?.abilities.orEmpty().mapNotNull { (it.ability as? Keyword)?.takeIf { k -> k.kind == kind } as? arcanum.api.HasCost }.map { it.cost } }
-        return arcanum.engine.state.MarkGained(mark, act.state.turn.number, costs.orEmpty().distinct())
+        return arcanum.engine.state.MarkGained(mark, act.state.turn.number, (costs.orEmpty() + if (keyword != null) given else emptyList()).distinct())
     }
 }

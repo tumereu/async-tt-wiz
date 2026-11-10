@@ -16,12 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FastForward
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.RemoveModerator
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.*
@@ -395,9 +392,11 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** A wait's own control on the main button (TRN-066, TRN-070): an Assume button, or Cancel for the viewer's own
      * undo request; holding it does [hold] (named [holdName], TRN-017: a Stack wait's Assume is the Resolve chain, another
      * Assume its tap), else says [tooltip]. [refusal]: greyed (TRN-071: assuming would show hidden information), a tap
-     * shakes it and holding it says why. */
+     * shakes it and holding it says why. [assumption]: an Assume, drawn in the Assume violet (TRN-063, owner 2026-11-10);
+     * false for Cancel, the viewer's own action, drawn as the main button's own actions are. */
     class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tooltip: String? = null,
-        val refusal: String? = null, val hold: (() -> Unit)? = null, val holdName: String? = null, val run: () -> Unit)
+        val refusal: String? = null, val hold: (() -> Unit)? = null, val holdName: String? = null, val assumption: Boolean = true,
+        val run: () -> Unit)
 
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
      * something on the Stack (STK-028), else "Assume no response" (TRN-070, owner playtest 2026-11-05 evening); while their
@@ -410,29 +409,29 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         return when (status.offer) {
             // TRN-017 (owner 2026-11-07): holding a Stack wait's Assume is the Resolve chain; holding any other Assume, its tap
             GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
-                WaitAction("Assume resolves", Icons.Outlined.DoneAll,
+                WaitAction("Assume resolves", AssumeIcon,
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there",
                     hold = { g.holdAssume(); pump() }, holdName = RESOLVE_CHAIN) { g.assume(); pump() }
-                else WaitAction("Assume no response", Icons.Outlined.DoneAll,
+                else WaitAction("Assume no response", AssumeIcon,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there",
                     hold = { g.assume(); pump() }, holdName = "Assume no response") { g.assume(); pump() }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
-                if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", Icons.Outlined.RemoveModerator,
+                if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", AssumeIcon,
                     "Assume $name doesn't block and go on; if they block when they come back, the game goes back there. " +
                         "Tap or drag their creatures onto your attackers to assume blocks instead.",
                     hold = { assumeBlocks(g, placed) }, holdName = "Assume no blockers") { assumeBlocks(g, placed) }
-                else WaitAction("Assume blockers", Icons.Outlined.Shield,
+                else WaitAction("Assume blockers", AssumeIcon,
                     "Assume $name blocks as placed on the lanes and go on; if they block differently when they come back, the game goes back there",
                     hold = { assumeBlocks(g, placed) }, holdName = "Assume blockers") { assumeBlocks(g, placed) }
             }
             null -> when {
                 status.reason == GameDevice.Wait.Request && shown.request?.by == viewer ->
-                    WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() }
+                    WaitAction("Cancel request", Icons.Outlined.Close, assumption = false) { g.cancelRequest(); pump() }
                 // TRN-067, TRN-071 (owner gallery review, 2026-11-06): where assuming their answer would show hidden
                 // information or a random result, Assume shows greyed; holding it says why
                 status.reason == GameDevice.Wait.HiddenCards -> WaitAction(
-                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume no response", Icons.Outlined.DoneAll,
+                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume no response", AssumeIcon,
                     refusal = "Assuming this would show you hidden cards or a random result: wait for $name.") {}
                 else -> null
             }
@@ -459,20 +458,31 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     }
 }
 
+/** TRN-063 (owner, 2026-11-10): the icon of every Assume on the main button, the Assume setting's own (TRN-059). */
+internal val AssumeIcon = Icons.Outlined.FastForward
+
+/** TRN-063 (owner, 2026-11-10): whether the main button draws [action] in the Assume violet: an Assume that can act now (a
+ * greyed one stays greyed; Cancel is the viewer's own action, drawn as the others). */
+internal fun assumeLook(action: EngineTableRoutes.WaitAction): Boolean = action.assumption && action.refusal == null
+
 /**
- * The wait's control on the main button (TRN-066, TRN-070, MTG Arena-like): the same shape and size, violet ink;
- * holding it says what it does.
+ * The wait's control on the main button (TRN-066, TRN-070, MTG Arena-like): the same shape and size; an Assume filled with
+ * the Assume violet, white words and its own icon ([AssumeIcon]), so an assumption reads apart from your own actions at a
+ * glance (TRN-063, owner 2026-11-10); Cancel request in the own actions' look; holding it says what it does.
  */
 @Composable
 internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
     // TRN-071: a refused Assume is greyed; a tap shakes it, holding it says why
     var shakes by remember { mutableIntStateOf(0) }
     val refused = action.refusal != null
+    val assume = assumeLook(action)
+    val fill = if (assume) AutomatumViolet else Color.White
     ActionSquare(action.label, "", true, modifier.shaken(shakes).shadow(3.dp, AdvanceArrowShape)
-        .background(Color.White, AdvanceArrowShape)
-        .border(1.dp, if (refused) AutomatumStepOutline else AutomatumViolet, AdvanceArrowShape).clip(AdvanceArrowShape)
-        .testTag("engine-wait-action").semantics { if (refused) disabled() },
-        fill = Color.White, ink = if (refused) AutomatumStepInk.copy(alpha = .38f) else AutomatumViolet, compactContent = true,
+        .background(fill, AdvanceArrowShape)
+        .border(1.dp, if (assume) AutomatumViolet else AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape)
+        .testTag("engine-wait-action").semantics { if (refused) disabled(); stateDescription = if (assume) "Assumption" else "" },
+        fill = fill, ink = when { refused -> AutomatumStepInk.copy(alpha = .38f); assume -> Color.White; else -> AutomatumStepInk },
+        compactContent = true,
         gestureKey = action.label to action.refusal, tooltip = action.refusal ?: action.tooltip,
         // TRN-017: a greyed one only says why
         holdName = action.holdName.takeIf { !refused && action.hold != null }, onHold = action.hold.takeIf { !refused },

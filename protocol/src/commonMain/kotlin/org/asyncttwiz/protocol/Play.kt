@@ -144,7 +144,7 @@ object CardVisibility {
  * One play of a game as it started (the play row the server stores, [StartRules.initialize]): its ids, the players'
  * containers and cards as dealt, the card data of every card, the initial shuffles and the starter. A game on engine
  * state is played from it ([org.asyncttwiz.protocol.game]); the table draws the engine's state on its containers and
- * players. A play row stored with the old model's fields reads with [GameWire.stored].
+ * players. The server reads its row with [GameWire.stored].
  */
 @Serializable data class PlayState(val gameId: String, val id: String, val preparationRound: String,
     val startRequestId: String, val root: PlayRoot, val board: BoardState,
@@ -189,7 +189,7 @@ object StartRules {
             else -> error("Not a readiness action")
         }
     }
-    /** [actor]'s Ready with the cards they own outside the game ([outside], checked by [org.asyncttwiz.protocol.game.OutsideCards.valid]):
+    /** [actor]'s Ready with the cards they own outside the game ([outside], the server catalog's dungeons, LOB-117):
      * kept with their prepared deck, replacing the ones of an earlier Ready. */
     fun withOutside(preparation: LobbyPreparation, actor: String, outside: List<SubmittedDefinition>): LobbyPreparation {
         val players = preparation.players.map { p ->

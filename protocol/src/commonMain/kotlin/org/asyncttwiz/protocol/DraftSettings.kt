@@ -21,7 +21,7 @@ data class DraftSettings(
     val twoPicks: Boolean = false,
     val gridsOpenAtOnce: Int = 1,
     val librarians: Int = 0,
-    /** Catalog snapshot supplied by the creator; not part of pack supply. */
+    /** The Cogwork Librarian's card data, filled by the server from its catalog when [librarians] > 0; not part of pack supply. */
     val librarianDefinition: SubmittedDefinition? = null,
     /**
      * Grid mode with a set source only (ignored otherwise): each grid gets its own freshly generated booster and takes

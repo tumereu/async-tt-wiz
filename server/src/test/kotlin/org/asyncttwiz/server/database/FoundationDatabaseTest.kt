@@ -68,15 +68,15 @@ class FoundationDatabaseTest {
             db.connection().use { connection ->
                 val tables = DSL.using(connection, SQLDialect.POSTGRES).fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
                     .map { it.get(0, String::class.java) }.toSet()
-                assertEquals(setOf("service_writer", "flyway_schema_history", "account", "account_session", "account_token_favorites", "password_reset_token", "reset_mail",
-                    "request_identity", "account_request", "definition", "account_definition", "saved_deck", "deck_entry", "saved_cube", "cube_entry", "pod", "pod_member", "pod_invitation",
+                assertEquals(setOf("service_writer", "flyway_schema_history", "account", "account_session", "password_reset_token", "reset_mail",
+                    "request_identity", "account_request", "definition", "saved_deck", "deck_entry", "saved_cube", "cube_entry", "pod", "pod_member", "pod_invitation",
                     "contact", "game", "invitation", "game_stream", "game_inbox", "game_revision", "game_outbox",
                     "player_preparation", "game_definition", "game_play",
                     "game_chat", "game_chat_read_cursor", "activity_cursor", "account_activity", "activity_summary",
                     "activity_installation", "activity_push", "activity_presence", "debug_crash_report", "debug_crash_daily_count",
                     "problem_report", "pod_draft_marks", "pod_deck_notes", "finished_deck_matchup", "pod_preset",
                     "engine_play", "engine_event", "engine_checkpoint", "engine_seat", "engine_async_round", "game_change",
-                    "match_record", "deck_shown_to", "game_removed"), tables)
+                    "match_record", "deck_shown_to", "game_removed", "pod_chat", "pod_chat_read_cursor"), tables)
             }
             assertThrows(FlywayException::class.java) { flyway.clean() }
             assertEquals(91, epoch(db))

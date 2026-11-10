@@ -108,6 +108,72 @@ class ExileCastMarksTest {
         assertEquals(2, ways.distinct().size, "each cost is a way of its own: $ways")
     }
 
+    /** "Its mana cost reduced by {2}". */
+    private val lessTwo = Cost(listOf(arcanum.api.CostPart.ItsManaCostLess(ManaCost.parse("{2}")!!)))
+
+    /** The mana cost of the way [id] is cast now, read from its open payment (paid with what the scenario has). */
+    private fun Scenario.castsFor(id: arcanum.engine.state.ObjectId): ManaCost {
+        perform(castsOf(id).single())
+        return decision<arcanum.engine.decision.Decision.ManaPayment>().cost
+    }
+
+    // CR 702.143d: "It becomes foretold. Its foretell cost is its mana cost reduced by {2}": the effect gives the card that cost, which it
+    // is cast for on a later turn though it has no foretell
+    @Test
+    fun anEffectThatForetellsGivesAForetellCost() = scenario {
+        val word = spell("Valkyrie Word",
+            Step.Do(Effect.Move(Objects.Each(ObjectFilter.InZone(Zone.Graveyard)), Destination(Zone.Exile, faceDown = true), postBind = "them")),
+            Step.Do(Effect.Mark(Objects.Bound("them"), ObjectMark.Foretold, cost = lessTwo)))
+        alice.battlefield("Island", "Island", "Island")
+        alice.graveyard(tidings)
+        alice.hand(word)
+        libraries()
+        alice.castsWithoutCosts(word)
+        resolve()
+        val id = card(tidings)
+        assertTrue(ObjectMark.Foretold in state.objOrThrow(id).marks)
+        assertEquals(listOf(lessTwo), state.objOrThrow(id).facts.gained(ObjectMark.Foretold)?.costs)
+        advanceTo(TurnStep.Upkeep, turn = 3)
+        assertEquals("{1}{U}{U}", castsFor(id).toString())
+    }
+
+    // CR 702.143a, d: foretell another object gives with "its foretell cost is equal to its mana cost reduced by {2}": the cost is the
+    // card's own mana cost less {2}, kept as it is foretold
+    @Test
+    fun grantedForetellCanCostItsManaCostLessTwo() = scenario {
+        val devourer = Cards.define("Hungry Prophet", CardDefinition(Layout.Normal, listOf(FaceDefinition("Hungry Prophet", types = listOf(CardType.Enchantment),
+            abilities = listOf(Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Foretell(lessTwo)))),
+                affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.Type(CardType.Instant)))))))))))
+        alice.battlefield(devourer, "Island", "Island", "Island")
+        alice.hand(tidings)
+        libraries()
+        alice.takesSpecialAction(tidings, "foretell", paying = listOf("Island", "Island"))
+        val id = card(tidings)
+        change(arcanum.engine.change.Changes.move(state, listOf(card(devourer)), Zone.Graveyard))
+        advanceTo(TurnStep.Upkeep, turn = 3)
+        assertEquals("{1}{U}{U}", castsFor(id).toString())
+    }
+
+    // CR 702.143a: "any foretell cost it has": foretell given to a card already foretold in exile is a way to cast it too
+    @Test
+    fun foretellGivenLaterInExileIsAWay() = scenario {
+        val foretelling = exilingAndMarking("Late Foretelling Word", ObjectMark.Foretold)
+        val giver = Cards.define("Exile Prophet", CardDefinition(Layout.Normal, listOf(FaceDefinition("Exile Prophet", types = listOf(CardType.Enchantment),
+            abilities = listOf(Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Foretell(mana("{1}"))))),
+                affects = Affected.Objects(Objects.Each(ObjectFilter.InZone(Zone.Exile)))))))))
+        alice.battlefield("Island")
+        alice.graveyard(tidings)
+        alice.hand(foretelling, giver)
+        libraries()
+        alice.castsWithoutCosts(foretelling)
+        resolve()
+        val id = card(tidings)
+        advanceTo(TurnStep.Upkeep, turn = 3)
+        assertTrue(castsOf(id).isEmpty(), "no foretell cost: no way")
+        change(arcanum.engine.change.Changes.move(state, listOf(card(giver)), Zone.Battlefield))
+        assertEquals("{1}", castsFor(id).toString())
+    }
+
     // ---- Effect.Mark on a card where the mark can live
 
     // CR 702.170c, d: an effect makes a card in exile plotted; it is cast free on a later turn, as a sorcery

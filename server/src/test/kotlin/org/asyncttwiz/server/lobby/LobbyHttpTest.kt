@@ -134,19 +134,15 @@ class LobbyHttpTest {
                     json.encodeToString(CreateSession("owner@example.invalid", "password😀"))).body())
                 assertNotEquals(phone.token, tablet.token); assertEquals(phone.account, tablet.account)
                 val friend = account(settings, "Friend", "friend@example.invalid")
-                val card = CardDefinition("Shared card", listOf(DefinitionFace(id(), "Shared card")))
-                val definition = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), phone.token).statusCode())
+                val definition = org.asyncttwiz.server.TestPrintings.submitted("Ash Pup")
                 val deck = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Everywhere",
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 40))), phone.token).body())
+                    listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 40))), phone.token).body())
                 assertEquals(200, post(settings, "/v1/contacts", AddContact(id(), friend.account.accountId), phone.token).statusCode())
                 val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations",
                     CreateInvitation(id(), friend.account.accountId, "Two devices"), phone.token).body())
                 for (session in listOf(phone, tablet)) {
                     assertEquals(listOf(deck.deck), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = session.token).body()).decks)
                     assertEquals(deck, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${deck.deck.id}", token = session.token).body()))
-                    assertEquals(definition, json.decodeFromString<SubmittedDefinition>(request(settings, "GET",
-                        "/v1/decks/${deck.deck.id}/definitions/${definition.digest}", token = session.token).body()))
                     assertEquals(listOf(friend.account), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = session.token).body()).contacts)
                     assertEquals(listOf(game), json.decodeFromString<GameList>(request(settings, "GET", "/v1/games", token = session.token).body()).games)
                 }
@@ -259,7 +255,7 @@ class LobbyHttpTest {
             val account = id(); val deck = id(); val request = id()
             db.connection().use { it.createStatement().execute("""
                 INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES ('$account','Retained','retained','retained@example.invalid','retained@example.invalid','retained-phc');
-                INSERT INTO definition VALUES ('sha256:${"0".repeat(64)}',1,'retained-definition');
+                INSERT INTO definition VALUES ('sha256:${"0".repeat(64)}',1,'{"name":"Retained card","faces":[]}');
                 INSERT INTO account_definition VALUES ('$account','sha256:${"0".repeat(64)}');
                 INSERT INTO saved_deck(id,account_id,name,revision) VALUES ('$deck','$account','Retained deck',7);
                 INSERT INTO deck_entry VALUES ('$deck','$account',0,'MAINBOARD','sha256:${"0".repeat(64)}',3);

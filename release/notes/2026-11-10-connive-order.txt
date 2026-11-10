@@ -1,0 +1,1 @@
+fix: When several creatures connive at the same time, you choose the order your own creatures connive in.

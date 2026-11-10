@@ -61,12 +61,9 @@ class GameDeletionTest {
     private fun start(runtime: ServiceRuntime, a: Stream, b: Stream): GameHead {
         b.execute(GameAction.AcceptInvitation)
         val decks = DeckService(runtime)
-        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Retained face")))
-        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         for (stream in listOf(a, b)) {
-            assertEquals(200, decks.submit(stream.actor, SubmitDefinitions(id(), listOf(submitted))).status)
             val source = json.decodeFromString<SavedDeck>(decks.create(stream.actor, CreateDeck(id(), "Source",
-                listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 2)))).body)
+                listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 2)))).body)
             assertEquals("accepted", stream.execute(GameAction.SelectDeck(source.deck.id, source.deck.revision)).outcome)
         }
         a.execute(GameAction.SetStarter(StarterChoice(a.actor.account.accountId)))

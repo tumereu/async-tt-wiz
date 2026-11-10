@@ -13,6 +13,7 @@ import org.asyncttwiz.server.activity.ActivityService
 import org.asyncttwiz.server.database.OwnershipFailure
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.Pod.POD
+import org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
 import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.DSLContext
@@ -33,7 +34,7 @@ import org.jooq.impl.DSL
  *   (§4.5); any activity resets the clock and allows another warning later.
  *
  * Activity (§4.4) is a game's `activity_at` (each change by a player: [org.asyncttwiz.server.game.GameService]) and a pod's
- * `updated_at` (each change by a member saves the pod) or its games' activity, whichever is latest.
+ * `updated_at` (each change by a member saves the pod), its chat's newest message or its games' activity, whichever is latest.
  */
 class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock = Clock.systemUTC()) : AutoCloseable {
     private val scheduler = Executors.newSingleThreadScheduledExecutor { Thread(it, "game-cleanup").apply { isDaemon = true } }
@@ -94,9 +95,10 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
         return games.size
     }
 
-    /** A pod's activity: its own (every change by a member saves it) or its games', whichever is latest. */
+    /** A pod's activity: its own (every change by a member saves it), its chat's (LOB-133) or its games', whichever is latest. */
     private val podActivity: org.jooq.Field<OffsetDateTime?> = DSL.greatest(POD.UPDATED_AT,
-        DSL.field(DSL.select(DSL.max(GAME.ACTIVITY_AT)).from(GAME).where(GAME.POD_ID.eq(POD.ID))))
+        DSL.field(DSL.select(DSL.max(GAME.ACTIVITY_AT)).from(GAME).where(GAME.POD_ID.eq(POD.ID))),
+        DSL.field(DSL.select(DSL.max(POD_CHAT.CREATED_AT)).from(POD_CHAT).where(POD_CHAT.POD_ID.eq(POD.ID))))
 
     /** §4.5: pods at day 11 of 14, not warned since their latest activity. */
     private fun warnPods(sql: DSLContext, now: OffsetDateTime): Int {

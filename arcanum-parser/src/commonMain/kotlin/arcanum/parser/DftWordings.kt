@@ -25,7 +25,7 @@ internal object Dft {
     val CREATE_THAT_MANY = Regex("""[Cc]reate that many (tapped )?(.+)\.""")
     // dft chunk 02
     val BECOMES_AN_ARTIFACT_CREATURE = Regex("""(.+?) becomes an artifact creature( until end of turn)?\.""")
-    val ENTERS_WITH_ADDITIONAL_IF_MV_OTHERWISE = Regex("""Each other (.+?) you control enters with an additional (\S+) counter on it if its mana value is (\d+) or less\. Otherwise, it enters with (\w+) additional \S+ counters on it\.""")
+    val ENTERS_WITH_ADDITIONAL_IF_MV_OTHERWISE = Regex("""Each other (.+?) you control enters with an additional (\S+) counter on it if its mana value is (\d+) or less\. Otherwise, it enters with (\w+) additional (\S+) counters on it\.""")
     val DISTRIBUTE_AMONG_ONE_OR_TWO = Regex("""[Dd]istribute (\w+) (\S+) counters among one or (\w+) (other )?target (.+)\.""")
     val MAY_SEARCH_REVEAL_PUT_IF_MV_OTHERWISE = Regex("""You may search your library for an? (.+?) card and reveal it\. Put it onto the battlefield if its mana value is (\d+) or less\. Otherwise, put it into your hand\. If you search your library this way, shuffle\.""")
     val ARE_THE_CHOSEN_TYPE_IN_ADDITION = Regex("""(.+) are the chosen creature type in addition to their other types\.""")

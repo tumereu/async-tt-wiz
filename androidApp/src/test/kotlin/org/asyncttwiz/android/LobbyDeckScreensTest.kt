@@ -248,23 +248,23 @@ class LobbyDeckScreensTest {
         val imported = DeckImportResult("2 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 2, listOf(printing), listOf(1))),
             emptyList(), CatalogMetadata("2026-10-26", "test"))
         var saved: SavedDeck? = null
-        var definitions = emptyMap<String, CardDefinition>()
         val api = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(listOfNotNull(saved?.deck))
             override suspend fun read(token: String, id: String) = checkNotNull(saved)
-            override suspend fun definition(token: String, id: String, digest: String) = SubmittedDefinition(digest, definitions.getValue(digest))
-            override suspend fun submit(token: String, input: SubmitDefinitions): DefinitionsAccepted = error("Use captured save action")
             override suspend fun create(token: String, input: CreateDeck): SavedDeck = error("Use captured save action")
             override suspend fun update(token: String, id: String, input: UpdateDeck): SavedDeck = error("No update")
             override suspend fun delete(token: String, id: String, input: DeleteDeck): DeckDeleted = error("No delete")
             override fun close() = Unit
         }
         val library = DeckLibraryController(api, { "token" }, worker, { it() })
+        // The saved deck's cards come from the card records by printing (owner 2026-11-10)
+        library.cardRecords = SavedCardRecords { ids -> SavedCardFaces(mapOf(printing.id to listOf(printing)).filterKeys { it in ids }, null) }
         val importer = DeckImportController({ imported }, worker, { it() })
         importer.connectSave({ { plan ->
-            definitions = plan.definitions.definitions.associate { it.digest to it.definition }
-            SavedDeck(DeckSummary(id(), plan.deck.name, "1", "date", 2, 0,
-                cover = DeckCover(checkNotNull(plan.cover), "Rune Bear")), plan.deck.entries).also { saved = it }
+            // As the server stores the save: each card by printing and name
+            val entries = plan.entries.map { entry -> SavedDeckEntry(entry.section, entry.printingId, "Rune Bear", entry.quantity) }
+            SavedDeck(DeckSummary(id(), plan.name, "1", "date", 2, 0,
+                cover = DeckCover(checkNotNull(plan.cover), "Rune Bear")), entries).also { saved = it }
         } }, { library.open(it.deck.id) })
         importer.open()
         try {
@@ -283,7 +283,7 @@ class LobbyDeckScreensTest {
             compose.onNodeWithText("Review import").assertDoesNotExist()
             assertEquals(before, compose.onNodeWithTag("deck-list").fetchSemanticsNode().boundsInRoot)
             compose.onNodeWithContentDescription("Choose deck cover").assertExists()
-            assertEquals(importer.coverCards.first().digest, importer.currentCover?.definition)
+            assertEquals(importer.coverCards.first().definition.printingId, importer.currentCover?.definition)
             compose.onNodeWithTag("save-deck").performClick()
             compose.runOnIdle { worker.drain() }
             compose.onNodeWithText("Saved deck").assertIsDisplayed()

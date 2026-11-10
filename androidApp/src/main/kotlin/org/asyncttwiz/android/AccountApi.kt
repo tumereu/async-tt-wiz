@@ -76,12 +76,6 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity =
         decode(call(HttpMethod.Put, "/account/avatar", AccountJson.format.encodeToString(org.asyncttwiz.protocol.ChangeAvatar(avatar)), token))
 
-    internal suspend fun tokenFavorites(token: String): org.asyncttwiz.protocol.TokenFavorites =
-        decode(call(HttpMethod.Get, "/account/token-favorites", token = token))
-
-    internal suspend fun setTokenFavorites(token: String, favorites: org.asyncttwiz.protocol.TokenFavorites): org.asyncttwiz.protocol.TokenFavorites =
-        decode(call(HttpMethod.Put, "/account/token-favorites", AccountJson.format.encodeToString(favorites), token))
-
     internal suspend fun accountSettings(token: String): org.asyncttwiz.protocol.AccountSettings =
         decode(call(HttpMethod.Get, "/account/settings", token = token))
 

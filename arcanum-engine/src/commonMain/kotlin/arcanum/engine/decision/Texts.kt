@@ -144,6 +144,7 @@ internal object Texts {
     fun costName(part: CostPart): String = when (part) {
         is CostPart.Mana -> "Mana"
         CostPart.ItsManaCost -> "ItsManaCost"
+        is CostPart.ItsManaCostLess -> "ItsManaCostLess"
         CostPart.TapSelf -> "TapSelf"
         CostPart.UntapSelf -> "UntapSelf"
         is CostPart.TapObjects -> "TapObjects"

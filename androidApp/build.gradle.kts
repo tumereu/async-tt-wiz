@@ -61,14 +61,15 @@ abstract class NonFcmSources : Sync() {
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 }
 
-// Release notes: one `release/notes/<YYYY-MM-DD>-<slug>.txt` per note holding one `add:`/`mod:`/`fix:` line,
+// Release notes: one `release/notes/<YYYY-MM-DD>-<slug>.txt` per note holding one `set:`/`add:`/`mod:`/`fix:` line
+// (`set:` names a set Automatum newly supports, shown first under New sets),
 // packaged as one JSON asset. Any malformed note fails the build.
 abstract class ReleaseNotesAsset : DefaultTask() {
     @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE) abstract val notes: DirectoryProperty
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
     @TaskAction fun generate() {
         val name = Regex("([0-9]{4}-[0-9]{2}-[0-9]{2})-[a-z0-9]+(?:-[a-z0-9]+)*\\.txt")
-        val line = Regex("(add|mod|fix): (.*)")
+        val line = Regex("(set|add|mod|fix): (.*)")
         val entries = notes.get().asFile.listFiles().orEmpty().sortedBy { it.name }.map { file ->
             val match = name.matchEntire(file.name)
             require(file.isFile && match != null && runCatching { LocalDate.parse(match.groupValues[1]) }.isSuccess) {
@@ -77,7 +78,7 @@ abstract class ReleaseNotesAsset : DefaultTask() {
             val body = file.readText().removeSuffix("\n").removeSuffix("\r")
             require('\n' !in body && '\r' !in body) { "Release note ${file.name}: must be exactly one line" }
             val note = line.matchEntire(body)
-            requireNotNull(note) { "Release note ${file.name}: line must start with 'add: ', 'mod: ' or 'fix: '" }
+            requireNotNull(note) { "Release note ${file.name}: line must start with 'set: ', 'add: ', 'mod: ' or 'fix: '" }
             val text = note.groupValues[2].trim()
             require(text.isNotEmpty()) { "Release note ${file.name}: text is empty" }
             mapOf("id" to file.name.removeSuffix(".txt"), "kind" to note.groupValues[1], "text" to text)
@@ -347,6 +348,13 @@ tasks.withType<Test>().configureEach {
     inputs.property("screenshotMode", recordScreenshots)
     inputs.dir("src/test/screenshots").withPathSensitivity(PathSensitivity.RELATIVE).optional()
     systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    // The test cards' catalog file (TestCardsFixtureTest); -PtestCards=record writes the e2e test cards into it.
+    val testCardsFixture = rootProject.file("tests/fixtures/card-catalog/AllPrintings.json")
+    systemProperty("atw.testCardsFixture", testCardsFixture.absolutePath)
+    inputs.file(testCardsFixture).withPathSensitivity(PathSensitivity.RELATIVE)
+    val recordTestCards = providers.gradleProperty("testCards").orNull == "record"
+    systemProperty("atw.recordTestCards", recordTestCards.toString())
+    inputs.property("testCardsMode", recordTestCards)
     // -Patw.bench=true runs the engine speed benchmark (EndTurnBenchmark; prints numbers, never asserts on time).
     listOf("atw.bench", "atw.bench.runs", "atw.bench.profile").forEach { key ->
         providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }

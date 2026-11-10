@@ -52,4 +52,42 @@ class StaticCopyTest {
         assertEquals(ox, view()[oxId]?.characteristics?.name)
         assertEquals(3, view()[oxId]?.characteristics?.power)
     }
+
+    /** A sorcery: "Turn target creature face down." */
+    private val shrouding = Cards.define("Mirrorlink Shroud", CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition("Mirrorlink Shroud",
+        types = listOf(arcanum.api.CardType.Sorcery), abilities = listOf(Ability.Spell(arcanum.api.Instructions(
+            targets = listOf(arcanum.api.TargetSlot("creature", arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Creature)),
+                arcanum.api.Value.Fixed(1), arcanum.api.Value.Fixed(1))),
+            steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.TurnFaceDown(Objects.Target("creature")))))))))))
+
+    // CR 707.2c: a static copy effect's values are fixed as it first applies: the enchanted creature turned face down later, the Ox
+    // stays a copy of the Bear as it was
+    @Test
+    fun theCopiedValuesAreFixedAsItFirstApplies() = scenario {
+        alice.battlefield(bear, ox, charm)
+        alice.hand(shrouding)
+        attach(charm, bear)
+        settle()
+        val oxId = card(ox)
+        assertEquals(1, state.objOrThrow(oxId).fixedCopies.size)
+        alice.castsWithoutCosts(shrouding, target = bear)
+        resolve()
+        assertTrue(state.objOrThrow(card(bear)).faceDown)
+        val c = view()[oxId]?.characteristics
+        assertEquals(bear, c?.name)
+        assertTrue(c?.hasKeyword(arcanum.api.Keyword.Vigilance) == true)
+    }
+
+    // CR 707.2c, 611.3a: once the effect no longer applies, what it fixed goes; applying again fixes the values anew
+    @Test
+    fun theFixedValuesGoWithTheEffect() = scenario {
+        alice.battlefield(bear, ox, charm)
+        attach(charm, bear)
+        settle()
+        val oxId = card(ox)
+        move(charm, Zone.Graveyard)
+        settle()
+        assertTrue(state.objOrThrow(oxId).fixedCopies.isEmpty())
+        assertEquals(ox, view()[oxId]?.characteristics?.name)
+    }
 }

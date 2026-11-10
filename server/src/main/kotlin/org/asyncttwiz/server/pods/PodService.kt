@@ -90,14 +90,11 @@ class PodService(private val runtime: ServiceRuntime) {
             .associate { it.id!! to AccountService.identity(it) }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 
-    private fun validateLibrarian(settings: DraftSettings): Result? {
-        val card = settings.librarianDefinition
-        if (settings.librarians > 0 && card == null) return error(400, "librarian_definition_unavailable")
-        if (card != null && (card.definition.name != "Cogwork Librarian" || !DeckValidation.digest(card.digest) ||
-                !DeckValidation.definition(card.definition) || DeckJson.digest(card.definition) != card.digest))
-            return error(400, "invalid_definition")
-        return null
-    }
+    /** DRF-051: [settings] with the server's Cogwork Librarian when the pod has Librarians (none otherwise; whatever a
+     * device sent is replaced), or null when the catalog has none to give. */
+    private fun withLibrarian(settings: DraftSettings): DraftSettings? =
+        if (settings.librarians == 0) settings.copy(librarianDefinition = null)
+        else ServerCatalogs.current()?.librarian?.let { settings.copy(librarianDefinition = it) }
 
     private fun storeLibrarian(sql: DSLContext, settings: DraftSettings) {
         settings.librarianDefinition?.let { card ->
@@ -140,8 +137,10 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun log(message: String) = println("${java.time.Instant.now()} Pods: $message")
 
-    /** I-D52 (pivot review #2): the pod's stored Automatum support of its source, null when not known. */
-    private fun support(row: PodRecord): CardListSupport? = org.asyncttwiz.server.decks.automatumSupport(row.automatumSupport)
+    /** I-D52 (pivot review #2): the pod's Automatum support of its source, kept with it when the source was chosen (the
+     * catalog's marks then, LOB-124, DRF-161); null when not known or unreadable (another version's). */
+    private fun support(row: PodRecord): CardListSupport? = support(row.automatumSupport)
+    private fun support(value: String?): CardListSupport? = value?.let { runCatching { json.decodeFromString<CardListSupport>(it) }.getOrNull() }
 
     /** Whether pod [id]'s source has cards Automatum can't play fully, as stored with it (I-D52). */
     internal fun unsupported(sql: DSLContext, id: UUID): Boolean =
@@ -152,39 +151,42 @@ class PodService(private val runtime: ServiceRuntime) {
         if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
     private fun storeSet(sql: DSLContext, input: org.asyncttwiz.catalog.CatalogSetSource) = storeDefinitions(sql, input.definitions)
+    /** Stores [definitions] the `definition` table doesn't have yet, in one statement (SYS-025). */
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
-        for (submitted in definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
-            .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
-            .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
+        if (definitions.isEmpty()) return
+        var insert = sql.insertInto(DEFINITION, DEFINITION.DIGEST, DEFINITION.SCHEMA_VERSION, DEFINITION.PAYLOAD)
+        for (submitted in definitions) insert = insert.values(submitted.digest, submitted.definition.schemaVersion, DeckJson.canonical(submitted.definition))
+        insert.onConflictDoNothing().execute()
     }
 
-    private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
+    /** A saved cube as a pod's prepared cube, with its Automatum [support] (JSON [CardListSupport]): its cards, Maybe
+     * included, by the card catalog's marks when it was read (LOB-124, DRF-161); null without a catalog. */
+    private inner class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
         val support: String? = null) {
-        val unsupported: Boolean get() = org.asyncttwiz.server.decks.automatumSupport(support)?.supported == false
+        val unsupported: Boolean get() = support(support)?.supported == false
     }
 
-    /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. */
-    private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): CubeSnapshot? {
+    /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. Its cards
+     * are built from the server's card catalog by their printings (owner 2026-11-10) and kept with the pod by digest,
+     * their colours the catalog's; a card without one counts against its support (LOB-124) and isn't kept. */
+    private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String, catalog: org.asyncttwiz.server.catalog.ServerCatalog): CubeSnapshot? {
         if (!DeckValidation.uuid(cubeId)) return null
         val cube = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(cubeId)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
-        val entries = sql.select(CUBE_ENTRY.DEFINITION_DIGEST, CUBE_ENTRY.QUANTITY, CUBE_ENTRY.SECTION, DEFINITION.PAYLOAD)
-            .from(CUBE_ENTRY).join(DEFINITION).on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
-            .where(CUBE_ENTRY.CUBE_ID.eq(cube.id))
-            .orderBy(CUBE_ENTRY.POSITION).fetch().map {
-                val definition = json.decodeFromString<CardDefinition>(it[DEFINITION.PAYLOAD]!!)
-                val explicit = definition.faces.firstOrNull()?.sourceData?.let { data -> runCatching {
-                    json.parseToJsonElement(data).jsonObject["colors"]?.jsonArray?.mapNotNull { color ->
-                        DraftColor.entries.firstOrNull { it.name == color.jsonPrimitive.content }
-                    }?.toSet()
-                }.getOrNull() }
-                it[CUBE_ENTRY.SECTION] to DraftCubeEntry(it[CUBE_ENTRY.DEFINITION_DIGEST]!!, it[CUBE_ENTRY.QUANTITY]!!,
-                    explicit ?: PodDeckManaCost.front(definition).colors)
-            }
+        val rows = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(cube.id)).orderBy(CUBE_ENTRY.POSITION).fetch()
+        val support = catalog.support(rows.map { it.printingId to it.name!! })
+        log("cube $cubeId as a pod source: ${rows.size} entries, ${support.byHand.size} cards Automatum can't play by the catalog's " +
+            "marks${if (support.supported) "" else ": " + support.byHand.take(20)}")
+        val cards = rows.mapNotNull { row -> row.printingId?.let(catalog::card)?.let { row to SubmittedDefinition(DeckJson.digest(it), it) } }
+        storeDefinitions(sql, cards.map { it.second }.distinctBy { it.digest })
+        val entries = cards.map { (row, card) ->
+            val colors = card.definition.printingId?.let { catalog.catalog.printing[it] }?.let { catalog.catalog.faces[it.face].colors }.orEmpty()
+                .mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet()
+            row.section to DraftCubeEntry(card.digest, row.quantity!!, colors)
+        }
         // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
         return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
-            entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second },
-            cube.automatumSupport)
+            entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second }, json.encodeToString(support))
     }
 
     private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)
@@ -194,14 +196,16 @@ class PodService(private val runtime: ServiceRuntime) {
             if (!validName(input.name)) return@business error(400, "invalid_name")
             if (input.settings?.validate(2)?.isNotEmpty() == true) return@business error(400, "invalid_settings")
             if (listOfNotNull(input.cubeId, input.setCode).size != 1) return@business error(400, "invalid_source")
-            val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
+            val snapshot = input.cubeId?.let { cube ->
+                val catalog = ServerCatalogs.current() ?: return@business error(503, "catalog_unavailable")
+                snapshot(sql, owner, cube, catalog) ?: return@business error(404, "cube_not_found") }
             // I-D51/I-D52: a cube Automatum can't play fully (as the owner's device worked it out) can't start a pod.
             if (snapshot?.unsupported == true) return@business error(409, "automatum_unsupported")
             // DRF-162: a set's source and support come from the card catalog, refused by its marks
             val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@business it } } }
             set?.source?.let { storeSet(sql, it) }
-            val settings = input.settings ?: DraftSettings.defaults(input.mode)
-            validateLibrarian(settings)?.let { return@business it }
+            val settings = withLibrarian(input.settings ?: DraftSettings.defaults(input.mode))
+                ?: return@business error(400, "librarian_definition_unavailable")
             storeLibrarian(sql, settings)
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
@@ -225,13 +229,17 @@ class PodService(private val runtime: ServiceRuntime) {
             if (input.settings?.validate(members.coerceAtLeast(2))?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
             if (listOfNotNull(input.cubeId, input.setCode).size > 1) return@mutate error(400, "invalid_source")
-            val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@mutate error(404, "cube_not_found") }
+            val snapshot = input.cubeId?.let { cube ->
+                val catalog = ServerCatalogs.current() ?: return@mutate error(503, "catalog_unavailable")
+                snapshot(sql, owner, cube, catalog) ?: return@mutate error(404, "cube_not_found") }
             if (snapshot?.unsupported == true) return@mutate error(409, "automatum_unsupported")
             val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@mutate it } } }
             input.name?.let { row.name = it }
-            input.settings?.let { row.settings = encoded(it) }
-            validateLibrarian(settings(row))?.let { return@mutate it }
-            storeLibrarian(sql, settings(row))
+            input.settings?.let { requested ->
+                val settings = withLibrarian(requested) ?: return@mutate error(400, "librarian_definition_unavailable")
+                storeLibrarian(sql, settings)
+                row.settings = encoded(settings)
+            }
             // A newly chosen source starts unprepared: the cube's own Main and Maybe.
             snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe)
                 row.automatumSupport = it.support }
@@ -242,26 +250,17 @@ class PodService(private val runtime: ServiceRuntime) {
             detail(sql, row, owner)
         }
 
-    private fun cubeView(row: PodRecord) = PodCube(row.sourceName!!,
-        source(row).map { SavedCubeEntry(it.definition, it.quantity) } +
-            maybe(row).map { SavedCubeEntry(it.definition, it.quantity, SavedDeckSection.MAYBEBOARD) })
-
-    /** The creator's view of the pod's prepared cube (Prepare cube); a set source has none. */
-    fun cube(principal: AccountService.Principal, id: String): Result = creatorRead(principal, id) { _, row ->
-        if (isSetSource(row)) error(409, "not_cube") else Result(200, json.encodeToString(cubeView(row)))
+    /** The prepared cube's cards by digest, each with its printing and name for the phone to show it (owner 2026-11-10). */
+    private fun cubeView(sql: DSLContext, row: PodRecord): PodCube {
+        val entries = source(row).map { it to SavedDeckSection.MAINBOARD } + maybe(row).map { it to SavedDeckSection.MAYBEBOARD }
+        val cards = StoredDefinitions.read(sql, entries.map { it.first.definition }.toSet()).associate { it.digest to it.definition }
+        return PodCube(row.sourceName!!, entries.map { (entry, section) -> cards[entry.definition].let { card ->
+            PodCubeEntry(entry.definition, card?.printingId, card?.name ?: "Card", entry.quantity, section) } })
     }
 
-    /** Definitions of the prepared cube's cards, in batches like a saved cube's. */
-    fun cubeDefinitions(principal: AccountService.Principal, id: String, input: ReadCubeDefinitions): Result {
-        if (!CubeValidation.definitionRead(input.digests)) return error(400, "invalid_request")
-        return creatorRead(principal, id) { sql, row ->
-            if (isSetSource(row)) return@creatorRead error(409, "not_cube")
-            val known = (source(row) + maybe(row)).map { it.definition }.toSet()
-            if (!known.containsAll(input.digests)) return@creatorRead error(404, "not_found")
-            val definitions = StoredDefinitions.read(sql, input.digests.toSet()).associateBy { it.digest }
-            if (definitions.keys != input.digests.toSet()) return@creatorRead error(404, "not_found")
-            Result(200, json.encodeToString(SubmittedDefinitions(input.digests.distinct().map(definitions::getValue))))
-        }
+    /** The creator's view of the pod's prepared cube (Prepare cube); a set source has none. */
+    fun cube(principal: AccountService.Principal, id: String): Result = creatorRead(principal, id) { sql, row ->
+        if (isSetSource(row)) error(409, "not_cube") else Result(200, json.encodeToString(cubeView(sql, row)))
     }
 
     private fun creatorRead(principal: AccountService.Principal, id: String, read: (DSLContext, PodRecord) -> Result): Result {
@@ -295,7 +294,7 @@ class PodService(private val runtime: ServiceRuntime) {
             else to[existing] = to[existing].copy(quantity = to[existing].quantity + input.quantity)
             row.sourceSnapshot = encoded(main); row.sourceMaybe = encodedMaybe(maybe)
             save(sql, row)
-            Result(200, json.encodeToString(cubeView(row)))
+            Result(200, json.encodeToString(cubeView(sql, row)))
         }
 
     fun invite(principal: AccountService.Principal, id: String, input: InviteToPod): Result =
@@ -376,7 +375,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val settings = settings(row); val cube = source(row)
         if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
-        validateLibrarian(settings)?.let { return it }
+        if (settings.librarians > 0 && settings.librarianDefinition == null) return error(400, "librarian_definition_unavailable")
         unsupported(row)?.let { return it }
         if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
         row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null
@@ -607,18 +606,18 @@ class PodService(private val runtime: ServiceRuntime) {
             if (row.phase != "DRAFTED") return@mutate error(409, "draft_not_complete")
             val member = members(sql, row.id!!).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
-            val basics = if (input.basicDefinitions.isEmpty()) null
-                else PodGamePreparation.basicDefinitions(input.basicDefinitions) ?: return@mutate error(400, "invalid_basic_definitions")
             val build = build(row, member.build!!.data())
             val pool = pools(row).getValue(owner.toString())
             val issues = PodDeckRules.validate(build, pool, settings(row).sideboardLimit)
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             // LOB-141: Maybe goes to the pod's games too, outside the game with Side
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(build)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
-            if (basics != null) storeDefinitions(sql, input.basicDefinitions)
-            DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft",
-                DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics),
-                member.deckCover?.takeIf { it in coverChoices(row, build) })
+            // LOB-052: the server's basics (none when its catalog lacks them: the draft deck is kept without them)
+            val basics = ServerCatalogs.current()?.basics?.also { storeDefinitions(sql, it.values.toList()) }
+            DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics?.mapValues { it.value.digest }).let { entries ->
+                DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft", entries,
+                    member.deckCover?.takeIf { it in coverChoices(row, build) })
+            }
             releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
@@ -638,8 +637,11 @@ class PodService(private val runtime: ServiceRuntime) {
             detail(sql, row, owner)
         }
 
-    fun challenge(principal: AccountService.Principal, id: String, input: ChallengeFromPod): Result =
-        mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
+    fun challenge(principal: AccountService.Principal, id: String, input: ChallengeFromPod): Result {
+        // LOB-052: the basic lands come from the server's catalog; without them no pod game starts (not kept as the
+        // request's outcome: a retry may find them)
+        val basics = ServerCatalogs.current()?.basics ?: return error(503, "basic_definitions_unavailable")
+        return mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (!LobbyValidation.name(input.gameName)) return@mutate error(400, "invalid_name")
             if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
@@ -652,8 +654,6 @@ class PodService(private val runtime: ServiceRuntime) {
             // I-D52 (pivot review #2): its decks come from the source; a source Automatum can't play fully starts no game
             unsupported(row)?.let { return@mutate it }
             val held = players.getValue(input.opponentId).submittedDeck == null
-            val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
-                ?: return@mutate error(400, "invalid_basic_definitions")
             val build = build(row, players.getValue(owner.toString()).submittedDeck!!.data())
             // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
             if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
@@ -667,11 +667,13 @@ class PodService(private val runtime: ServiceRuntime) {
             val lobby = LobbyService(runtime)
             val summary = lobby.summary(sql, game)
             // The recipient's locked deck remains pod-private until they accept the invitation.
-            saveChallengeDeck(sql, row, summary, owner.toString(), build, basics, input.basicDefinitions, input.requestId)
+            storeDefinitions(sql, basics.values.toList())
+            saveChallengeDeck(sql, row, summary, owner.toString(), build, basics.mapValues { it.value.digest }, basics.values.toList(), input.requestId)
             // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
+    }
 
     /** The players of [pod]'s queued challenges (I-D57): games of the pod still in their lobby, never played, whose
      * invitation is pending or accepted. */
@@ -910,6 +912,63 @@ class PodService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /**
+     * Pod chat (owner, 2026-11-08): only the pod's members read it, write in it and move their read cursor in it; anyone
+     * else, a member who left included, gets not_found as for the pod itself. [lock]: the pod row's lock, exclusive for a
+     * send (ordinals follow commits).
+     */
+    private fun chatMember(principal: AccountService.Principal, id: String, exclusive: Boolean = false,
+        action: (DSLContext, UUID, UUID) -> Result): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val select = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id)))
+            val row = (if (exclusive) select.forUpdate() else select.forShare()).fetchOne() ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            if (members(sql, row.id!!).none { it.accountId == owner }) error(404, "not_found") else action(sql, row.id!!, owner)
+        }
+    }
+
+    /** A page of the pod's chat: the newest, older than [before] or newer than [after] (ordinals), with the caller's read state. */
+    fun chat(principal: AccountService.Principal, id: String, before: String?, after: String?): Result {
+        val older = before?.let { it.toLongOrNull()?.takeIf { n -> n > 0 } ?: return error(400, "invalid_request") }
+        val newer = after?.let { it.toLongOrNull()?.takeIf { n -> n >= 0 } ?: return error(400, "invalid_request") }
+        if (older != null && newer != null) return error(400, "invalid_request")
+        return chatMember(principal, id) { sql, pod, owner ->
+            Result(200, json.encodeToString(PodChatStore.page(sql, pod, owner, older, newer)))
+        }
+    }
+
+    /** Sends a message to the pod's chat; the reply is the stored message. Never logs its text (as a game's chat). */
+    fun sendChat(principal: AccountService.Principal, id: String, input: SendPodChat): Result {
+        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request")
+        return chatMember(principal, id, exclusive = true) { sql, pod, owner ->
+            val sent = PodChatStore.send(sql, pod, owner, UUID.fromString(input.requestId), input.text)
+            val message = sent.message
+            if (message == null) {
+                log("chat $pod: message ${input.requestId} by $owner refused: ${sent.refusal} (${input.text.length} chars)")
+                error(if (sent.refusal == "request_conflict") 409 else 400, sent.refusal!!)
+            } else {
+                log("chat $pod: message ${message.id} #${message.ordinal} by $owner, ${message.text.length} chars" +
+                    if (sent.repeated) " (retried, already stored)" else "")
+                Result(200, json.encodeToString(message))
+            }
+        }
+    }
+
+    /** The caller's read state of the pod's chat; with [input], their cursor moved forward to that message first. */
+    fun chatRead(principal: AccountService.Principal, id: String, input: ReadChat?): Result {
+        if (input != null && !DeckValidation.uuid(input.messageId)) return error(400, "invalid_request")
+        return chatMember(principal, id) { sql, pod, owner ->
+            if (input == null) Result(200, json.encodeToString(PodChatStore.readState(sql, pod, owner)))
+            else {
+                val state = PodChatStore.read(sql, pod, owner, UUID.fromString(input.messageId)) ?: return@chatMember error(404, "message_not_found")
+                log("chat $pod: $owner read through #${state.readThrough} (message ${input.messageId}), ${state.unread} unread")
+                Result(200, json.encodeToString(state))
+            }
+        }
+    }
+
     /** The caller's Booster or Glimpse draft history (DRF-165) with its cards' definitions; only what their packs showed. */
     fun history(principal: AccountService.Principal, id: String): Result {
         if (!DeckValidation.uuid(id)) return error(404, "not_found")
@@ -940,8 +999,13 @@ class PodService(private val runtime: ServiceRuntime) {
     fun list(principal: AccountService.Principal): Result = runtime.transaction { connection ->
         val sql = DSL.using(connection, SQLDialect.POSTGRES)
         val owner = UUID.fromString(principal.account.accountId)
-        val rows = sql.selectFrom(POD).where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
-            .orderBy(POD.ID).forShare().fetch()
+        // DRF-012: each pod's unread chat messages, read with its row
+        val unread = PodChatStore.unreadField(POD.ID, owner)
+        val found = sql.select(POD.asterisk(), unread).from(POD)
+            .where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
+            .orderBy(POD.ID).forShare().of(POD).fetch()
+        val rows = found.map { it.into(POD) }
+        val chatUnread = found.associate { it[POD.ID]!! to it[unread] }
         // Membership is rechecked after the pod locks: a concurrent leave may have removed the caller.
         // A pod whose stored draft can't be read is left out; opening it fails on its own (SYS-052).
         val memberships = if (rows.isEmpty()) emptyMap() else sql.selectFrom(MEMBER).where(MEMBER.POD_ID.`in`(rows.map { it.id }))
@@ -964,7 +1028,7 @@ class PodService(private val runtime: ServiceRuntime) {
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
                 members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
-                settings(row).mode)
+                settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
         val invitations = invited.map {
             PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())

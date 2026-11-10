@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -94,6 +95,13 @@ internal val WaitBandDetailText = androidx.compose.ui.text.TextStyle(fontSize = 
 /** How dark the band is in its middle, fading out toward both sides. */
 private val WaitBandShade = Color.Black.copy(alpha = .62f)
 
+/** TRN-066 (owner gallery review 2026-11-10, gallery 79): how wide each side's fade is, the same on every width. */
+internal const val WAIT_BAND_FADE = 28f
+
+/** TRN-066 (owner gallery review 2026-11-10, gallery 79): the words' inset from each side, past the fade, so every line sits
+ * on the band's solid middle. */
+internal const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
+
 /**
  * TRN-066, STK-057 (owner, 2026-11-09): the one place the wait and the other player's top Stack entry say what goes on: a
  * semi-transparent dark band right under the other player's hand, edge to edge, fading out toward both sides, its words kept
@@ -102,10 +110,23 @@ private val WaitBandShade = Color.Black.copy(alpha = .62f)
 @Composable
 internal fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
     val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer }?.bounds ?: return
-    Box(Modifier.offset(0.dp, hand.bottom.dp).fillMaxWidth()
-        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Transparent, .2f to WaitBandShade,
-            .8f to WaitBandShade, 1f to Color.Transparent))
-        .testTag("wait-band").padding(horizontal = 48.dp, vertical = 4.dp),
+    WaitBandStrip(Modifier.offset(0.dp, hand.bottom.dp), content)
+}
+
+/**
+ * TRN-066 (owner gallery review 2026-11-10, gallery 79): the band itself, edge to edge: solid in the middle, each side fading
+ * out over [WAIT_BAND_FADE] dp only, and its words inset past the fades ([WAIT_BAND_TEXT_INSET]), so white text never lies on
+ * a faded part, however wide the screen.
+ */
+@Composable
+internal fun WaitBandStrip(modifier: Modifier, content: @Composable () -> Unit) {
+    Box(modifier.fillMaxWidth()
+        .drawBehind {
+            val fade = (WAIT_BAND_FADE.dp.toPx() / size.width).coerceAtMost(.5f)
+            drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Transparent, fade to WaitBandShade,
+                1f - fade to WaitBandShade, 1f to Color.Transparent))
+        }
+        .testTag("wait-band").padding(horizontal = WAIT_BAND_TEXT_INSET.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center) { content() }
 }
 

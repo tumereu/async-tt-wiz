@@ -7,7 +7,7 @@ import kotlinx.serialization.encodeToString
 class DecksTest {
     // LOB-063
     @Test fun deckExpansionHasABoundedCombinedCardBudget() {
-        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 1000)
+        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, id, "Test 😀", 1000)
         assertTrue(DeckValidation.entries(listOf(entry)))
         for (quantity in listOf(0, -1, 1001, Int.MAX_VALUE))
             assertFalse(DeckValidation.entries(listOf(entry.copy(quantity = quantity))), "quantity=$quantity")
@@ -51,29 +51,43 @@ class DecksTest {
         for (invalid in listOf(card().copy(schemaVersion = 2), card().copy(faces = emptyList()), card().copy(name = " "),
             card().copy(faces = List(65) { face }), card().copy(name = "\ud800"), card().copy(name = "a\u0000b"),
             card().copy(faces = listOf(face.copy(rulesText = "é".repeat(32769)))),
-            card().copy(faces = listOf(face.copy(rulesText = "x".repeat(65536), typeLine = "x".repeat(65536),
-                manaCost = "x".repeat(65536), sourceData = "x".repeat(65536)))),
             card().copy(faces = listOf(face.copy(scryfallId = "wrong"))))) assertFalse(DeckValidation.definition(invalid))
-        for (uri in listOf("file:///private", "http://public.example/art", "https://user:pass@public.example/a",
-            "https://127.0.0.1/a", "https://metadata.internal/a", "https://public.example:8080/a", "https://public.example\\@local/a"))
-            assertFalse(DeckValidation.definition(card().copy(faces = listOf(face.copy(imageUri = uri)))))
-        assertTrue(DeckValidation.definition(card().copy(faces = listOf(face.copy(imageUri = "https://art.example.invalid/a.png",
-            rulesText = "<script>plain text only</script>\n", corner = "*/*")))))
-        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 1000)
+        assertTrue(DeckValidation.definition(card().copy(faces = listOf(face.copy(rulesText = "<script>plain text only</script>\n", corner = "*/*")))))
+    }
+
+    // Card data from the server's catalog (owner 2026-11-10): a save names printings, or a card without a printing by its name
+    @Test fun aSaveNamesPrintingsOrKeptCards() {
+        val entry = CardListEntry(SavedDeckSection.MAINBOARD, id, 1000)
         assertTrue(DeckValidation.create(CreateDeck(id, " exact name ", listOf(entry))))
+        assertTrue(DeckValidation.create(CreateDeck(id, "name", listOf(entry), other)))
+        assertTrue(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(printingId = null, name = "Lost card")))))
+        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(printingId = null)))))
+        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(printingId = DeckJson.digest(card()))))))
         assertFalse(DeckValidation.create(CreateDeck(id, "", listOf(entry))))
         assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(quantity = 0)))))
-        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry, entry))))
+        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry, entry.copy(quantity = 1)))))
+        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(printingId = "Test 😀")))))
+        assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry), cover = DeckJson.digest(card()))))
+        // The same card twice is allowed: the server adds up its copies
+        assertTrue(DeckValidation.input(listOf(entry.copy(quantity = 500), entry.copy(quantity = 500))))
+        assertFalse(DeckValidation.input(emptyList()))
     }
     @Test fun contextualImportWireDefaultsAndExactContentIdentities() {
-        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 2)
-        val input = """{"requestId":"$id","contents":{"entries":[{"section":"MAINBOARD","definition":"${entry.definition}","quantity":2}]}}"""
+        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, id, "Test 😀", 2)
+        val input = """{"requestId":"$id","contents":{"entries":[{"section":"MAINBOARD","printingId":"$other","quantity":2}]}}"""
         val decoded = DeckJson.format.decodeFromString<UpdateDeck>(input)
         assertNull(decoded.name); assertNull(decoded.cover)
-        assertEquals(listOf(entry), decoded.contents!!.entries)
+        assertEquals(listOf(CardListEntry(SavedDeckSection.MAINBOARD, other, 2)), decoded.contents!!.entries)
         val changed = card().copy(faces = listOf(card().faces.single().copy(corner = "3/4")))
         assertNotEquals(DeckJson.digest(card()), DeckJson.digest(changed))
         assertTrue(DeckValidation.entries(listOf(entry, entry.copy(section = SavedDeckSection.SIDEBOARD))))
+        // A card without a printing is its name; it may stand beside printings of a card of the same name
+        val unprinted = SavedDeckEntry(SavedDeckSection.MAINBOARD, null, "Test 😀", 1)
+        assertTrue(DeckValidation.entries(listOf(entry, unprinted)))
+        assertFalse(DeckValidation.entries(listOf(entry, unprinted, unprinted)))
+        assertFalse(DeckValidation.entries(listOf(unprinted.copy(name = " "))))
+        assertEquals("name:Test 😀", unprinted.card); assertEquals(id, entry.card)
+        assertEquals("Test 😀", SavedCards.unprinted(unprinted.card)); assertNull(SavedCards.unprinted(entry.card))
         // LOB-063: the 1000-card limit counts Maybe too.
         val maybe = entry.copy(section = SavedDeckSection.MAYBEBOARD)
         assertTrue(DeckValidation.entries(listOf(entry.copy(quantity = 999), maybe.copy(quantity = 1))))

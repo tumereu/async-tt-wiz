@@ -137,7 +137,7 @@ internal class PodPresetController(private val api: Pods, private val credential
 
     private fun save(name: String, overwrite: Boolean) {
         val current = form() ?: return
-        val input = SavePodPreset(name, current.settings.copy(librarianDefinition = null), current.cubeId,
+        val input = SavePodPreset(name, current.settings, current.cubeId,
             current.setCode, current.setName?.takeIf { current.setCode != null }, overwrite)
         perform("Saving…", saving = name) { api.savePreset(it, input) }
     }

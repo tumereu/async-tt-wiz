@@ -24,14 +24,14 @@ class GameStartTest {
                 runtime.start(); ready(runtime)
                 val a = account(runtime, "BudgetA"); val source = deck(runtime, a)
                 val decks = DeckService(runtime)
-                val input = CreateDeck(id(), "Oversized", listOf(source.entries.first().copy(quantity = Int.MAX_VALUE)))
+                val input = CreateDeck(id(), "Oversized", listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", Int.MAX_VALUE)))
                 val rejected = decks.create(a, input)
                 assertEquals(400, rejected.status); assertEquals("invalid_deck", json.decodeFromString<DeckError>(rejected.body).code)
                 assertEquals(rejected, decks.create(a, input))
                 // The limit counts Maybe too.
-                val first = source.entries.first()
-                val over = UpdateDeck(id(), contents = DeckContentsImport(listOf(first.copy(section = SavedDeckSection.MAINBOARD, quantity = 1000),
-                    first.copy(section = SavedDeckSection.MAYBEBOARD, quantity = 1))))
+                val first = source.entries.first().printingId
+                val over = UpdateDeck(id(), contents = DeckContentsImport(listOf(CardListEntry(SavedDeckSection.MAINBOARD, first, 1000),
+                    CardListEntry(SavedDeckSection.MAYBEBOARD, first, 1))))
                 assertEquals(400, decks.update(a, source.deck.id, over).status)
                 assertEquals(source, json.decodeFromString<SavedDeck>(decks.read(a, source.deck.id).body))
             }
@@ -157,14 +157,9 @@ class GameStartTest {
         return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark")).body)
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, sideOnly: Boolean = false): SavedDeck {
-        val defs = listOf(CardDefinition("Retained first", listOf(DefinitionFace(id(), "First", corner = "3/5")), sourceVersion = "synthetic-v1"),
-            CardDefinition("Side only", listOf(DefinitionFace(id(), "Side", rulesText = "Not playable"))))
-            .map { SubmittedDefinition(DeckJson.digest(it), it) }
-        val decks = DeckService(runtime); assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), defs)).status)
-        val entries = if (sideOnly) listOf(SavedDeckEntry(SavedDeckSection.SIDEBOARD, defs[1].digest, 1)) else
-            listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, defs[0].digest, 7), SavedDeckEntry(SavedDeckSection.SIDEBOARD, defs[1].digest, 2))
-        val result = decks.create(actor, CreateDeck(id(), "Saved source", entries)); assertEquals(201, result.status)
-        return json.decodeFromString(result.body)
+        val entries = if (sideOnly) listOf(org.asyncttwiz.server.TestPrintings.entry("Idle Glimmer", 1, SavedDeckSection.SIDEBOARD)) else
+            listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 7), org.asyncttwiz.server.TestPrintings.entry("Idle Glimmer", 2, SavedDeckSection.SIDEBOARD))
+        return json.decodeFromString(DeckService(runtime).create(actor, CreateDeck(id(), "Saved source", entries)).body)
     }
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString())
@@ -246,7 +241,7 @@ class GameStartTest {
                 val prepared = games.head(a, game.id).preparation!!
                 val decks = DeckService(runtime)
                 assertEquals(200, decks.update(a, source.deck.id, UpdateDeck(id(), "Renamed source", contents = DeckContentsImport(
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, source.entries[0].definition, 1))))).status)
+                    listOf(CardListEntry(SavedDeckSection.MAINBOARD, source.entries[0].printingId, 1))))).status)
                 assertEquals(200, decks.delete(a, source.deck.id, DeleteDeck(id())).status)
                 assertEquals(prepared, games.head(a, game.id).preparation)
                 val last = recipient.command(GameAction.Ready)

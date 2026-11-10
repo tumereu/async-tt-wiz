@@ -61,8 +61,7 @@ import arcanum.engine.trigger.Triggers
 /**
  * Every one-shot [Effect] of arcanum-api (CR 610), performed through the event pipeline ([Actions]). Objects that left
  * their zone can be read (last known information, CR 608.2h) but not acted on (CR 400.7). Effects that produce objects
- * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21). What the engine can't carry out stops with a
- * [arcanum.engine.decision.Decision.Manual] (D61): only on a card [arcanum.engine.Engine.manualParts] names as unsupported.
+ * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21).
  */
 internal object Effects {
     fun perform(scope: Scope, effect: Effect) {
@@ -207,7 +206,16 @@ internal object Effects {
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
                 // CR 708.8: turned face up, everyone sees it (D60)
                 act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
-                act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
+                // CR 701.40g, 701.58g: a manifested or cloaked instant or sorcery card is revealed and left face down; nothing triggers
+                if (spellCardFaceDown(act.state.objOrThrow(id))) {
+                    act.record(Change.Happened(GameEvent.Revealed(o.controller ?: o.owner, listOf(id))))
+                    return@forEach
+                }
+                // CR 702.37f, 702.168e: the X of the cost it was turned up for, read by its turned-face-up abilities
+                val x = effect.x?.let { Meaning.CostX(scope.value(it)) }
+                act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOfNotNull(Meaning.TurnedFaceUp, x)))
+                // CR 708.2a: face down again later, by an effect that lists no characteristics, it is a plain 2/2 (no disguise's ward)
+                act.state.objOrThrow(id).let { now -> if (!now.facts.turnedFaceUp) act.record(Change.Facts(id, now.facts, now.facts.copy(turnedFaceUp = true))) }
                 // CR 701.40a, 701.58a: what lasts only while it is face down ends
                 o.marks.filter { arcanum.api.MarkClear.TurnedFaceUp in arcanum.api.MarkRules.of(it).clears }.forEach { Actions.tapStatus(act, id, StatusFlag.Marked(it), false) }
                 // CR 613.7f: it gets a new timestamp
@@ -249,7 +257,7 @@ internal object Effects {
             is Effect.Mark -> {
                 val zones = arcanum.api.MarkRules.of(effect.mark).zones
                 scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
-                    .forEach { Actions.setMark(act, it, effect.mark, !effect.remove) }
+                    .forEach { Actions.setMark(act, it, effect.mark, !effect.remove, listOfNotNull(effect.cost)) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
             is Effect.CreateToken -> createToken(scope, effect)
@@ -533,6 +541,14 @@ internal object Effects {
     }
 
     // ---- Helpers
+
+    /** CR 701.40g, 701.58g: [o] is a manifested or cloaked permanent represented by an instant or sorcery card (a split card by either half). */
+    private fun spellCardFaceDown(o: arcanum.engine.state.GameObject): Boolean {
+        if (ObjectMark.Manifested !in o.marks && ObjectMark.Cloaked !in o.marks) return false
+        val definition = o.definition ?: return false
+        val faces = if (definition.layout == Layout.Split) definition.faces else definition.faces.take(1)
+        return faces.any { f -> f.types.any { it == CardType.Instant || it == CardType.Sorcery } }
+    }
 
     /** The current objects among [objects] on the battlefield (CR 400.7: stale ids can't be acted on). */
     private fun onBattlefield(scope: Scope, objects: Objects): List<ObjectId> =
@@ -1363,41 +1379,52 @@ internal object Effects {
 
     // ---- Keyword actions (CR 701)
 
-    /** fra: what [player] can behold (CR 701.4a): matching cards in their hand and permanents they control. */
     /**
-     * msh: conniving with its replacements (CR 614.1a, 701.50a): each conniving permanent a "If a creature you control would connive,
-     * instead …" applies to does the replacement's instructions instead, with it as the event's object; a replacement doesn't apply
-     * again to the connive it brings (CR 614.5). False when no replacement applies (the plain expansion runs).
+     * Conniving (CR 701.50): one permanent at a time. CR 701.50c: several at once: the first player in APNAP order who controls (or last
+     * controlled, CR 701.50b) one of them chooses which connives next, until each has. CR 701.50e: conniving 0 is no event, nothing happens.
      */
-    private fun connive(scope: Scope, action: KeywordAction.Connive): Boolean {
+    private fun connive(scope: Scope, action: KeywordAction.Connive) {
         val act = scope.act
-        val view = act.view()
-        val replacements = view.rules.filter { applied ->
-            val m = applied.mechanic as? arcanum.api.Mechanic.Replacement ?: return@filter false
-            m.event is arcanum.api.EventPattern.Connive && m.instead != null && scope.names[conniveGuard(applied)] == null
+        if (scope.value(action.count) <= 0) return
+        var left = scope.objects(action.objects).distinct()
+        while (true) {
+            val owned = left.mapNotNull(lastControlled(scope))
+            val chooser = act.state.apnap().firstOrNull { p -> owned.any { it.first == p } } ?: owned.firstOrNull()?.first ?: break
+            val theirs = owned.filter { it.first == chooser }.flatMap { it.second }
+            // Ones that left get no counter, and their controller draws and discards the same whichever goes first, so nothing is asked about them alone
+            val conniver = if (theirs.size == 1 || theirs.none { act.state.obj(it)?.zone == Zone.Battlefield }) theirs.first()
+                else act.chooseObjects(chooser, scope.self, theirs, 1, 1, "Which one connives next?").single()
+            conniveOne(scope, action, conniver)
+            left = left - conniver
         }
-        if (replacements.isEmpty()) return false
-        val conniving = scope.objects(action.objects)
-        conniving.forEach { id ->
-            val applied = replacements.firstOrNull { a ->
-                val m = a.mechanic as arcanum.api.Mechanic.Replacement
-                Evaluator(act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches((m.event as arcanum.api.EventPattern.Connive).objects, id)
-            }
-            if (applied == null) {
-                val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
-                val single = action.copy(objects = Objects.Bound(CONNIVER))
-                val inner = Scope(act, scope.cause, one, scope.event, scope.actor)
-                val done = doers(inner, single)
-                Steps.run(inner, KeywordExpansions.expand(single)!!)
-                done.forEach { (player, objects) -> act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Connive, player, objects))) }
-                return@forEach
-            }
-            val m = applied.mechanic as arcanum.api.Mechanic.Replacement
-            val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
-            val names = scope.names.with(applied.names).with(conniveGuard(applied), NamedValue.Number(1))
-            Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "connive:$id"), names, event), m.instead!!.steps)
+    }
+
+    /**
+     * One permanent connives, with its replacements (CR 614.1a, 701.50a; msh): the first "If a creature you control would connive, instead …"
+     * that applies to it does the replacement's instructions instead, with it as the event's object; a replacement doesn't apply again to the
+     * connive it brings (CR 614.5). Otherwise the plain expansion runs for it alone and it has connived (CR 701.50f).
+     */
+    private fun conniveOne(scope: Scope, action: KeywordAction.Connive, id: ObjectId) {
+        val act = scope.act
+        val applied = act.view().rules.firstOrNull { a ->
+            val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
+            val event = m.event as? arcanum.api.EventPattern.Connive ?: return@firstOrNull false
+            m.instead != null && scope.names[conniveGuard(a)] == null &&
+                Evaluator(act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches(event.objects, id)
         }
-        return true
+        if (applied == null) {
+            val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
+            val single = action.copy(objects = Objects.Bound(CONNIVER))
+            val inner = Scope(act, scope.cause, one, scope.event, scope.actor)
+            val done = doers(inner, single)
+            Steps.run(inner, KeywordExpansions.expand(single)!!)
+            done.forEach { (player, objects) -> act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Connive, player, objects))) }
+            return
+        }
+        val m = applied.mechanic as arcanum.api.Mechanic.Replacement
+        val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
+        val names = scope.names.with(applied.names).with(conniveGuard(applied), NamedValue.Number(1))
+        Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "connive:$id"), names, event), m.instead!!.steps)
     }
 
     private fun conniveGuard(applied: arcanum.engine.view.AppliedMechanic) = "\$connive-replaced:${applied.source}:${applied.origin?.key}"
@@ -1410,6 +1437,7 @@ internal object Effects {
             scope.act.state.obj(it)?.phasedOut != true }
     }
 
+    /** fra: what [player] can behold (CR 701.4a): matching cards in their hand and permanents they control. */
     fun beholdable(scope: Scope, player: arcanum.engine.state.PlayerId, filter: arcanum.api.ObjectFilter): List<ObjectId> {
         val e = scope.eval()
         val state = scope.act.state
@@ -1419,19 +1447,19 @@ internal object Effects {
     /**
      * Does [action], then records that it is done ([GameEvent.KeywordActionDone]), for every verb, so a new verb needs nothing here. Who did it
      * and with what is worked out first (an amount can change as the action happens). A few say so themselves, as they know more:
-     * [KeywordAction.Explore] and [KeywordAction.Blight] per permanent, as each is done; [KeywordAction.ManifestDread] per player;
+     * [KeywordAction.Explore], [KeywordAction.Connive] and [KeywordAction.Blight] per permanent, as each is done; [KeywordAction.ManifestDread] per player;
      * [KeywordAction.Airbend], [KeywordAction.Earthbend], [KeywordAction.Forage] and [KeywordAction.CollectEvidence] only when they happened
      * (CR 701.65b, 701.66b, 701.61a, 701.59b);
      * [KeywordAction.Foretell] with the card as it is in exile (CR 702.143c).
      */
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
+        // Connive goes one permanent at a time and says so for each (CR 701.50c)
+        if (action is KeywordAction.Connive) return connive(scope, action)
         val done = when (action) {
             is KeywordAction.Explore, is KeywordAction.Blight, is KeywordAction.ManifestDread, is KeywordAction.Airbend, is KeywordAction.Earthbend,
             KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
-        // A connive some replacement replaced says so itself, for the ones that still connived
-        if (action is KeywordAction.Connive && connive(scope, action)) return
         performKeywordAction(scope, action, bind)
         done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
     }

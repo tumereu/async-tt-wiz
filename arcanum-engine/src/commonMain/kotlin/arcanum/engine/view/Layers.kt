@@ -806,7 +806,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
         }
         // What marks let be cast from exile (CR 702.143a, 702.170d, 722.3c)
-        arcanum.engine.foretell.MarkCasts.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
+        arcanum.engine.foretell.MarkCasts.permissions(state, { board.work[it]?.controller },
+            { id -> board.work[id]?.chars?.abilities.orEmpty().map { it.ability } }).forEach { (id, applied) ->
             if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
         }
 

@@ -89,12 +89,9 @@ class GameListChangesTest {
         /** Starts [game] on engine state (both decks, Alice first, both Ready). */
         fun start(game: GameSummary) {
             val (owner, recipient) = streams.getValue(game.id)
-            val card = CardDefinition("Forest", listOf(DefinitionFace(id(), "Forest", typeLine = "Basic Land — Forest")))
             for ((actor, stream) in listOf(a to owner, b to recipient)) {
                 val service = DeckService(runtime)
-                val submitted = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, service.submit(actor, SubmitDefinitions(id(), listOf(submitted))).status)
-                val saved = service.create(actor, CreateDeck(id(), "List deck", listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 40))))
+                val saved = service.create(actor, CreateDeck(id(), "List deck", listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 40))))
                 val deck = GameWire.json.decodeFromString<SavedDeck>(saved.body)
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }

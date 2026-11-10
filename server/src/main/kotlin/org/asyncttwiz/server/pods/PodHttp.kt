@@ -43,7 +43,9 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
                 action == "cube" || action == "draft/history" -> "GET"
-                action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
+                action == "chat" -> "GET, POST"
+                action == "chat/read" -> "GET, PUT"
+                action in listOf("invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/cover", "build/notes", "draft/marks", "rotisserie/queue") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -52,13 +54,16 @@ class PodHttp(private val runtime: ServiceRuntime) {
             }
             val result = if (request.method == "GET") {
                 if (path == "/v1/pods") pods.list(principal) else if (action == "cube") pods.cube(principal, id)
-                else if (action == "draft/history") pods.history(principal, id) else pods.read(principal, id)
+                else if (action == "draft/history") pods.history(principal, id)
+                else if (action == "chat") pods.chat(principal, id, request.getParameter("before"), request.getParameter("after"))
+                else if (action == "chat/read") pods.chatRead(principal, id, null) else pods.read(principal, id)
             } else {
                 val media = request.contentType.orEmpty().split(';').map(String::trim)
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
                     !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
                 }) { error(response, 415, "json_required"); return true }
-                val maxBytes = 65536
+                // A chat message may be as long as a game chat's (its text escaped in JSON)
+                val maxBytes = if (action == "chat") DeckValidation.FIELD_BYTES * 6 + 1024 else 65536
                 val bytes = request.inputStream.readNBytes(maxBytes + 1)
                 if (bytes.size > maxBytes) { error(response, 413, "request_too_large"); return true }
                 val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
@@ -67,7 +72,6 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     path == "/v1/pods" -> pods.create(principal, json.decodeFromString<CreatePod>(text))
                     request.method == "DELETE" -> pods.destroy(principal, id, json.decodeFromString<PodRequest>(text))
                     action == "" -> pods.update(principal, id, json.decodeFromString<UpdatePod>(text))
-                    action == "cube/definitions" -> pods.cubeDefinitions(principal, id, json.decodeFromString<ReadCubeDefinitions>(text))
                     action == "cube/move" -> pods.moveCube(principal, id, json.decodeFromString<MovePodCubeCards>(text))
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")
@@ -81,6 +85,8 @@ class PodHttp(private val runtime: ServiceRuntime) {
                      action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
                      action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))
                      action == "build/cover" -> pods.deckCover(principal, id, json.decodeFromString<SetPodDeckCover>(text))
+                    action == "chat" -> pods.sendChat(principal, id, json.decodeFromString<SendPodChat>(text))
+                    action == "chat/read" -> pods.chatRead(principal, id, json.decodeFromString<ReadChat>(text))
                     action == "draft/marks" -> pods.saveMarks(principal, id, json.decodeFromString<SetPodDraftMarks>(text))
                     action == "build/notes" -> pods.saveNotes(principal, id, json.decodeFromString<SetPodDeckNotes>(text))
                      action == "submit" -> pods.submit(principal, id, json.decodeFromString<SubmitPodDeck>(text))

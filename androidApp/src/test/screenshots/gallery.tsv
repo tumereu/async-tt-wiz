@@ -191,3 +191,7 @@ number	item	screenshot	catalog	decisions
 190	The other player's X spell on the Stack, X filled in under the band's main line	stack/opponent-x-line.png	STK-057 STK-018
 191	A source paying with its corner chip, its ways open, Cast on the main button	cast-panel/source-ways.png	STK-024 STK-052 TRN-063	ManaPayment
 192	The other player's card leaving their graveyard for their hand shows as a reveal	engine/reveal-panel-pile.png	HIS-114 HIS-110 STK-044
+193	A pod game's chat on its Game tab, the Pod tab marked for an unread pod message	chat/pod-game-chat-game-tab.png	LOB-145 LOB-066	
+194	Pod chat panel on a pod screen	draft/pod-chat.png	DRF-170	
+195	Draft history: Returning packs only	pod-draft-history-returning.png	DRF-165	
+196	Main button: an assumption in violet beside your own actions	main-button/assume-or-own.png	TRN-063 TRN-070 TRN-004	

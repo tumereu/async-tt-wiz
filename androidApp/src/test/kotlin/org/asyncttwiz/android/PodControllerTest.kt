@@ -250,27 +250,21 @@ class PodControllerTest {
         assertEquals("Pick rejected.", f.controller.state.error)
     }
 
-    @Test fun librarianCatalogSnapshotIsPreparedInBackgroundForCreateAndSettingsUpdates() {
-        val card = CardDefinition("Cogwork Librarian", listOf(DefinitionFace("librarian-face", "Cogwork Librarian")))
-        val snapshot = SubmittedDefinition(DeckJson.digest(card), card)
-        var resolutions = 0
-        Fixture(PodPhase.SETUP, librarian = { resolutions++; snapshot }).use { f ->
-            f.controller.newPod(cube.id); f.deliver()
-            f.controller.newSettings { it.copy(librarians = 2) }
-            f.controller.create()
-            assertEquals(0, resolutions)
-            assertEquals(2, f.controller.state.creating!!.settings.librarians)
-            f.deliver()
-            val created = f.api.calls.single { it.first == "create" }.second as CreatePod
-            assertEquals(snapshot, created.settings!!.librarianDefinition)
-            assertEquals(1, resolutions)
-            f.controller.editSettings { it.copy(librarians = 3) }; f.controller.flushSetup()
-            assertEquals(3, f.controller.state.detail!!.settings.librarians)
-            f.deliver()
-            val updated = f.api.calls.single { it.first == "update" }.second as UpdatePod
-            assertEquals(snapshot, updated.settings!!.librarianDefinition)
-            assertEquals(1, resolutions)
-        }
+    // DRF-051 (owner 2026-11-10: card data from the server's catalog): the phone asks for Librarians; the server supplies
+    // the Cogwork Librarian's card data
+    @Test fun librariansGoWithoutCardDataForCreateAndSettingsUpdates() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.newSettings { it.copy(librarians = 2) }
+        f.controller.create()
+        assertEquals(2, f.controller.state.creating!!.settings.librarians)
+        f.deliver()
+        val created = f.api.calls.single { it.first == "create" }.second as CreatePod
+        assertEquals(2, created.settings!!.librarians); assertNull(created.settings!!.librarianDefinition)
+        f.controller.editSettings { it.copy(librarians = 3) }; f.controller.flushSetup()
+        assertEquals(3, f.controller.state.detail!!.settings.librarians)
+        f.deliver()
+        val updated = f.api.calls.single { it.first == "update" }.second as UpdatePod
+        assertEquals(3, updated.settings!!.librarians); assertNull(updated.settings!!.librarianDefinition)
     }
 
     // DRF-077
@@ -303,19 +297,11 @@ class PodControllerTest {
         }
     }
 
-    @Test fun submissionCarriesBasicsForTheDraftDeckResolvedOnceAndWithoutThemWhenUnavailable() {
-        var resolutions = 0
-        Fixture(PodPhase.DRAFTED, basics = { resolutions++; listOf(definition) }).use { f ->
-            f.open(); f.controller.submit()
-            assertEquals(0, resolutions) // resolved off the main thread, with the request
-            f.deliver()
-            val input = f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck
-            assertEquals(listOf(definition), input.basicDefinitions); assertEquals(1, resolutions)
-        }
-        Fixture(PodPhase.DRAFTED, basics = { throw LobbyFailure("basic_definitions_unavailable") }).use { f ->
-            f.open(); f.controller.submit(); f.deliver()
-            assertEquals(emptyList(), (f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck).basicDefinitions)
-        }
+    // LOB-052, LOB-055: the server gives the draft deck its basics; a submission sends no card data
+    @Test fun submissionSendsNoCardData() = Fixture(PodPhase.DRAFTED).use { f ->
+        f.open(); f.controller.submit(); f.deliver()
+        val input = f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck
+        assertEquals(SubmitPodDeck(input.requestId, f.controller.state.detail!!.draftAttemptId!!), input)
     }
 
     // DRF-069
@@ -519,17 +505,13 @@ class PodControllerTest {
 
     private fun cubes(sources: () -> List<CubeSummary> = { listOf(cube) }) = object : Cubes {
         override suspend fun listCubes(token: String, after: String?) = CubeList(sources())
-        override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
         override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
         override suspend fun readCube(token: String, id: String): SavedCube = error("unused")
-        override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
-        override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions = error("unused")
         override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
         override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
         override fun close() = Unit
     }
-    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING, librarian: () -> SubmittedDefinition = { definition },
-        basics: () -> List<SubmittedDefinition> = { emptyList() }) : AutoCloseable {
+    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING) : AutoCloseable {
         val api = Api().also { it.saved = detail(phase) }
         val worker = Worker()
         val posts = ArrayDeque<() -> Unit>()
@@ -541,7 +523,7 @@ class PodControllerTest {
         /** Pending marks timers by delay; cancelling removes them. */
         val timers = mutableListOf<Pair<Long, () -> Unit>>()
         val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
-            librarianDefinition = librarian, basicLandDefinitions = basics, clock = { now }, marksScheduler = { delay, task ->
+            clock = { now }, marksScheduler = { delay, task ->
                 val timer = delay to task; timers += timer; { timers.remove(timer); Unit }
             })
         fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second() }
@@ -1222,7 +1204,7 @@ class PodControllerTest {
         if (cubeId != null && !missing) cube.name else null, missing, setCode, setCode?.let { "Test set" }, "2026-10-30T00:00:00Z")
 
     // DRF-032
-    @Test fun savingAPresetStoresTheNewPodFormWithoutNameOrLibrarianSnapshot() = Fixture().use { f ->
+    @Test fun savingAPresetStoresTheNewPodFormWithoutItsName() = Fixture().use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.applyPreset(PodBuiltInPresets.single { it.name == "Glimpse" })
         f.controller.newSettings { it.copy(librarians = 2, librarianDefinition = definition, sideboardLimit = 7) }
@@ -1238,7 +1220,8 @@ class PodControllerTest {
         assertEquals("Saving…", presets.state.busy)
         f.deliver()
         val input = f.api.calls.single().second as SavePodPreset
-        assertEquals(SavePodPreset("Cube glimpse", DraftSettings.glimpse().copy(librarians = 2, sideboardLimit = 7), cube.id), input)
+        // The form's settings as they are: the server keeps a preset without the Librarian's card data
+        assertEquals(SavePodPreset("Cube glimpse", DraftSettings.glimpse().copy(librarians = 2, librarianDefinition = definition, sideboardLimit = 7), cube.id), input)
         assertNull(presets.state.prompt); assertNull(presets.state.busy)
         assertEquals(listOf("Cube glimpse"), presets.state.presets.map { it.name })
         assertEquals("Booster · Cube · 9×15", podPresetSummary(presets.state.presets.single()))

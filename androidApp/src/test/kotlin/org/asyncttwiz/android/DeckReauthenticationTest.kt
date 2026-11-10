@@ -47,8 +47,8 @@ class DeckReauthenticationTest {
             """{"name":"Retained text","type":"Creature","text":"Private 🧙"}""")), listOf(1))),
         emptyList(), CatalogMetadata("2026-10-22", "5.2.2", "checksum"))
     private val summary = DeckSummary(UUID.randomUUID().toString(), "Deck", "1", "2026-10-22T00:00:00Z")
-    private val plan = DeckSavePlan.from(resolved, summary.name)
-    private val saved = SavedDeck(summary, plan.deck.entries)
+    private val plan = DeckSave.from(resolved, summary.name)
+    private val saved = SavedDeck(summary, plan.entries.map { SavedDeckEntry(it.section, it.printingId, "Retained text", it.quantity) })
     private fun login(auth: AuthController, worker: Worker) {
         auth.edit(email = "wizard@example.test", password = "new password")
         auth.submit(); worker.drain()
@@ -63,15 +63,14 @@ class DeckReauthenticationTest {
         try {
             val calls: List<suspend () -> Unit> = listOf(
                 { api.list(token) }, { api.read(token, summary.id) },
-                { api.definition(token, summary.id, plan.deck.entries.single().definition) },
-                { api.submit(token, plan.definitions) }, { api.create(token, plan.deck) },
+                { api.create(token, plan.create()) },
                 { api.update(token, summary.id, UpdateDeck(UUID.randomUUID().toString(), name = "Rename")) },
                 { api.delete(token, summary.id, DeleteDeck(UUID.randomUUID().toString())) })
             calls.forEach { call -> assertEquals("authentication_required", assertFailsWith<DeckFailure> { call() }.code) }
-            assertEquals(List(7) { token }, rejected)
+            assertEquals(List(5) { token }, rejected)
             status = HttpStatusCode.ServiceUnavailable
             assertEquals("unavailable", assertFailsWith<DeckFailure> { api.list(token) }.code)
-            assertEquals(7, rejected.size)
+            assertEquals(5, rejected.size)
         } finally { api.close() }
     }
 
@@ -95,9 +94,6 @@ class DeckReauthenticationTest {
                 else {
                     val path = request.url.encodedPath
                     val body = when {
-                        path == "/v1/definitions" -> DeckJson.format.encodeToString(DefinitionsAccepted(plan.definitions.definitions.map { it.digest }))
-                        // A deck's card data, read in one request (owner playtest 2026-11-06)
-                        path.endsWith("/definitions") -> DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions))
                         request.method == HttpMethod.Post || request.method == HttpMethod.Put -> {
                             val text = request.body.toByteArray().decodeToString(); mutationBodies.add(text)
                             if (identities.add(text)) {
@@ -109,7 +105,6 @@ class DeckReauthenticationTest {
                             }
                             DeckJson.format.encodeToString(current)
                         }
-                        path.contains("/definitions/") -> DeckJson.format.encodeToString(plan.definitions.definitions.single())
                         else -> DeckJson.format.encodeToString(current)
                     }
                     respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -133,14 +128,11 @@ class DeckReauthenticationTest {
                 // A delayed failure of the old request must not invalidate the replacement credential.
                 auth.authenticationRequired("A".repeat(43)); assertNotNull(auth.state.account)
                 revoked = false; importer.save(); worker.drain()
-                assertFalse(importer.state.active); assertEquals(if (existing) 1 else 2, effects)
-                assertEquals(if (existing) 4 else 5, mutationBodies.size)
-                assertEquals(1, mutationBodies.take(4).distinct().size)
-                if (!existing) {
-                    val coverUpdate = DeckJson.format.decodeFromString<UpdateDeck>(mutationBodies.last())
-                    assertEquals(plan.deck.entries.first().definition, coverUpdate.cover)
-                    assertNull(coverUpdate.contents)
-                }
+                // One request per save, its cover with it (owner 2026-11-10: card data from the server's catalog)
+                assertFalse(importer.state.active); assertEquals(1, effects)
+                assertEquals(4, mutationBodies.size)
+                assertEquals(1, mutationBodies.distinct().size)
+                if (!existing) assertEquals(plan.cards.single().definition.printingId, DeckJson.format.decodeFromString<CreateDeck>(mutationBodies.last()).cover)
                 assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
                 assertTrue(tokens.contains("Bearer " + "B".repeat(43)))
             } finally { importer.close(); library.close(); worker.drain(); auth.close(); authWorker.drain() }
@@ -148,18 +140,16 @@ class DeckReauthenticationTest {
     }
 
     @Test fun readDefinitionAndMutationInvalidationKeepSameAccountSelectionAndRenameIdentity() {
-        listOf("read", "definition", "update", "delete").forEach { rejectedRoute ->
+        listOf("read", "update", "delete").forEach { rejectedRoute ->
             val worker = Worker(); val authWorker = Worker(); val auth = AuthController(AccountsApi(), Store(), authWorker) { it() }
             authWorker.drain(); auth.navigate(ShellDestination.DECKS); authWorker.drain()
             var reject = false; val mutationBodies = mutableListOf<String>()
             val api = DeckApi("https://review.example", HttpClient(MockEngine { request ->
                 val route = if (request.method == HttpMethod.Put) "update" else if (request.method == HttpMethod.Delete) "delete"
-                    else if (request.url.encodedPath.endsWith("/definitions")) "definition"
                     else if (request.url.encodedPath == "/v1/decks") "list" else "read"
                 if (route == "update" || route == "delete") mutationBodies.add(request.body.toByteArray().decodeToString())
                 if (reject && route == rejectedRoute) respond("revoked", HttpStatusCode.Unauthorized)
                 else respond(when (route) {
-                    "definition" -> DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions))
                     "delete" -> DeckJson.format.encodeToString(DeckDeleted(summary.id))
                     "list" -> DeckJson.format.encodeToString(DeckList(emptyList()))
                     else -> DeckJson.format.encodeToString(saved)
@@ -195,8 +185,7 @@ class DeckReauthenticationTest {
             clearPrivateWork = { clears++; importer.exit(); library.clear() }, post = { it() })
         authWorker.drain(); auth.navigate(ShellDestination.DECKS); authWorker.drain()
         val api = DeckApi("https://review.example", HttpClient(MockEngine { request ->
-            respond(if (request.url.encodedPath.contains("/definitions/"))
-                DeckJson.format.encodeToString(plan.definitions.definitions.single()) else DeckJson.format.encodeToString(saved),
+            respond(DeckJson.format.encodeToString(saved),
                 HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }), auth::authenticationRequired)
         library = DeckLibraryController(api, auth::sessionToken, worker) { posts.add(it) }

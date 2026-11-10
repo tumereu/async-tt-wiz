@@ -864,11 +864,18 @@ object KeywordExpansions {
         steps(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = true, attacking = AttackTarget.SameAs(Objects.Bound("returned"))))),
         functionsIn = zones, rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))
 
-    /** CR 702.37a–b: cast face down for {3}; turn face up for [cost] (megamorph: and put a +1/+1 counter on it). */
+    /** The X a face-down permanent is turned face up for, when [cost] has one (CR 702.37f, 702.168e). */
+    internal fun turnedUpX(cost: Cost): Value? = Value.Announced("X").takeIf {
+        cost.parts.any { p -> p is CostPart.Mana && p.cost.symbols.any { it == ManaSymbol.Variable('X') } }
+    }
+
+    /** CR 702.37a–b: cast face down for {3}; turn face up for [cost] (megamorph: and put a +1/+1 counter on it); its X is the turned-up
+     * event's (CR 702.37f). */
     private fun morph(cost: Cost, megamorph: Boolean): List<Ability> = listOf(
         Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Morph, Cost.mana(ManaCost.parse("{3}")!!), faceDown = true)), affects = Affected.Objects(Objects.Self)),
         Ability.SpecialAction(cost, steps(Effect.TurnFaceUp(Objects.Self,
-            counters = if (megamorph) listOf(CountersToPut(CounterKind.PowerToughness(1, 1), amount = Value.Fixed(1))) else emptyList())),
+            counters = if (megamorph) listOf(CountersToPut(CounterKind.PowerToughness(1, 1), amount = Value.Fixed(1))) else emptyList(),
+            x = turnedUpX(cost))),
             functionsIn = listOf(Zone.Battlefield),
             condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown)), timing = Timing.Any))
 

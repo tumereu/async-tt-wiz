@@ -142,12 +142,12 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
         LazyVerticalGrid(GridCells.Fixed(if (landscape) 3 else 2),
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // LOB-058 (owner playtest 2026-11-09): listed alphabetically
-            items(detail.saved.entries.distinctBy { it.definition }
-                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { detail.definitions[it.definition]?.name.orEmpty() }), key = { it.definition }) { entry ->
-                val definition = detail.definitions.getValue(entry.definition)
-                val chosen = state.draftCover == entry.definition
-                Surface(selected = chosen, onClick = { controller.cover(entry.definition) },
+            // LOB-058 (owner playtest 2026-11-09): listed alphabetically; a card without a printing can't be the cover
+            items(detail.saved.entries.filter { it.printingId != null }.distinctBy { it.card }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { detail.definitions[it.card]?.name.orEmpty() }), key = { it.card }) { entry ->
+                val definition = detail.definitions.getValue(entry.card)
+                val chosen = state.draftCover == entry.card
+                Surface(selected = chosen, onClick = { controller.cover(entry.card) },
                     enabled = !state.mutating, modifier = Modifier.fillMaxWidth(),
                     border = BorderStroke(if (chosen) 3.dp else 1.dp,
                     if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.small) {

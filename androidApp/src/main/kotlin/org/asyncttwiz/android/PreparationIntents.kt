@@ -56,8 +56,7 @@ internal class PreparationIntents {
         return display
     }
     fun preparationIntent(game: GameSummary, base: LobbyPreparation, actor: String, scope: GameScope, action: GameAction) =
-        if (action is GameAction.SetPodGameBasics) PodGamePreparation.setBasics(game, base, actor, scope, action)
-        else StartRules.change(game, base, actor, scope, action)
+        StartRules.change(game, base, actor, scope, action)
 
     fun readied(command: GameCommand, actor: String) { readiness[command.requestId] = Readiness(command, actor) }
     fun selected(command: GameCommand, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>) {

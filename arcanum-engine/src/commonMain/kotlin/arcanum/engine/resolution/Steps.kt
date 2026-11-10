@@ -137,7 +137,8 @@ internal object Steps {
                 } while (times < REPEAT_LIMIT && scope.holds(step.condition))
             }
             is Step.Choose -> choose(scope, step)
-            is Step.Manual -> act.manual(scope.actor, scope.self, step.text)
+            // Text a definition couldn't express: not carried out. Engine.manualParts names it, so the card isn't supported
+            is Step.Manual -> Unit
         }
     }
 

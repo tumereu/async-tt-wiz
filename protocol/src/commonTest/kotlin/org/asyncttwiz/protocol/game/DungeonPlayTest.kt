@@ -96,10 +96,9 @@ class DungeonPlayTest {
     private fun AsyncServer.cast(name: String) = act(alice, Input.Cast(alice, hand(name)), follow = flow(alice)).getOrThrow()
 
     @Test
-    fun theDeviceBringsTheDungeonsAsCardsOfTheirOwn() {
+    fun theDungeonsComeAsCardsOfTheirOwn() {
         assertEquals(listOf("Dungeon Test Crypt", "Dungeon Test Sunken City"), brought.map { it.definition.name })
         assertTrue(brought.all { it.definition.faces.size == 1 && it.definition.layout == "normal" })
-        assertTrue(OutsideCards.valid(brought))
         assertEquals(setOf(OutsideCards.Need.Dungeon), OutsideCards.needs(Cards.definition(map)))
         assertEquals(setOf(OutsideCards.Need.Undercity), OutsideCards.needs(Cards.definition(claim)))
         assertTrue(OutsideCards.provides(setOf(OutsideCards.Need.Dungeon, OutsideCards.Need.Undercity), outside))
@@ -110,14 +109,11 @@ class DungeonPlayTest {
             Odd End — You gain 1 life.
         """.trimIndent())))
         assertNull(OutsideCards.dungeon(odd))
-        val oddSubmitted = org.asyncttwiz.protocol.SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(odd), odd)
-        assertFalse(OutsideCards.valid(listOf(oddSubmitted)))
         assertEquals(setOf(OutsideCards.Need.Dungeon, OutsideCards.Need.Undercity), OutsideCards.provided(outside))
         assertEquals(emptySet(), OutsideCards.provided(listOfNotNull(GameCards.parse(odd).definition)))
         // A card that isn't a dungeon isn't brought
         val plain = CardDefinition("Dungeon Test Plain", listOf(face(4, "Dungeon Test Plain", "Sorcery", "Draw a card.")))
         assertNull(OutsideCards.dungeon(plain))
-        assertFalse(OutsideCards.valid(brought + org.asyncttwiz.protocol.SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(plain), plain)))
     }
 
     // CR 701.49a–c, 309.5–309.7: a venture enters the dungeon a plain venture may enter; the next ventures move along the arrow its

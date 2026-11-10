@@ -40,13 +40,10 @@ class PodHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             a = account("pod-a"); b = account("pod-b"); c = account("pod-c")
-            val cards = (0 until 90).map { n ->
-                val card = CardDefinition("Private fixture $n", listOf(DefinitionFace(id(), "Private fixture $n", manaCost = "{W}",
-                    sourceData = if (n % 2 == 0) "{\"colors\":[\"U\"]}" else null)))
-                SubmittedDefinition(DeckJson.digest(card), card)
-            }
-            send(a, "POST", "/v1/definitions", SubmitDefinitions(id(), cards))
-            cube = json.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(id(), "Snapshot cube", cards.map { SavedCubeEntry(it.digest, 1) }), 201))
+            // 90 different cards of the test cards' catalog, one each; never the Librarian stand-in, whose cube copies count as
+            // Librarians (the Librarian tests below assume the packs hold none)
+            cube = json.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(id(), "Snapshot cube",
+                org.asyncttwiz.server.TestPrintings.names("E2E").filter { it != "Cogwork Librarian" }.take(90).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)
@@ -147,17 +144,23 @@ class PodHttpTest {
 
     // DRF-051
     @Test fun `Librarian settings snapshot privacy spending ownership and build synchronization over HTTP`() = fixture { f ->
-        val card = CardDefinition("Cogwork Librarian", listOf(DefinitionFace(id(), "Cogwork Librarian", manaCost = "{4}")))
-        val definition = SubmittedDefinition(DeckJson.digest(card), card)
+        // Card data from the server's catalog (owner 2026-11-10): the server supplies the Librarian, whatever a device sends
+        val definition = checkNotNull(org.asyncttwiz.server.TestPrintings.catalog.librarian)
         for (invalid in listOf(DraftSettings(librarians = -1), DraftSettings(librarians = 11), DraftSettings.grid().copy(librarians = 1)))
             f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Bad", f.cube.cube.id, settings = invalid), 400)
-        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Missing", f.cube.cube.id, settings = DraftSettings(librarians = 1)), 400)
-        val impostor = definition.copy(definition = card.copy(name = "Not a Librarian"))
-        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Wrong", f.cube.cube.id,
-            settings = DraftSettings(librarians = 1, librarianDefinition = impostor)), 400)
+        val supplied = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+            CreatePod(id(), "Supplied", f.cube.cube.id, settings = DraftSettings(librarians = 1)), 201))
+        assertEquals(definition, supplied.settings.librarianDefinition)
+        val impostor = definition.copy(definition = definition.definition.copy(name = "Not a Librarian"))
+        val replaced = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Wrong", f.cube.cube.id,
+            settings = DraftSettings(librarians = 1, librarianDefinition = impostor)), 201))
+        assertEquals(definition, replaced.settings.librarianDefinition)
+        val none = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "None", f.cube.cube.id,
+            settings = DraftSettings(librarianDefinition = definition)), 201))
+        assertNull(none.settings.librarianDefinition, "no Librarians, no card data")
+        for (pod in listOf(supplied, replaced, none)) f.send(f.a, "DELETE", "/v1/pods/${pod.id}", PodRequest(id()))
         for (mode in listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE)) {
-            val settings = DraftSettings(mode = mode, packsPerPlayer = 1, cardsPerPack = 8, burn = 2,
-                librarians = 2, librarianDefinition = definition)
+            val settings = DraftSettings(mode = mode, packsPerPlayer = 1, cardsPerPack = 8, burn = 2, librarians = 2)
             val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
                 CreatePod(id(), "Librarians", f.cube.cube.id, settings = settings), 201))
             val pod = created.id
@@ -202,9 +205,8 @@ class PodHttpTest {
             }
         }
         // A Librarian already in the source is ordinary supply, but becomes spendable once picked.
-        f.send(f.a, "POST", "/v1/definitions", SubmitDefinitions(id(), listOf(definition)))
         val nativeCube = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes",
-            CreateCube(id(), "Native Librarians", listOf(SavedCubeEntry(definition.digest, 16))), 201))
+            CreateCube(id(), "Native Librarians", listOf(org.asyncttwiz.server.TestPrintings.entry("Cogwork Librarian", 16))), 201))
         val nativePod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
             CreatePod(id(), "Native", nativeCube.cube.id, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 8)), 201))
         f.join(nativePod.id); f.start(nativePod.id)
@@ -737,54 +739,58 @@ class PodHttpTest {
     // DRF-050, DRF-141: Prepare cube moves cards between the pod's Main and Maybe; the saved cube never changes, the
     // supply check and the draft use the prepared Main, and only the creator in setup can prepare.
     @Test fun `prepare cube moves cards between main and maybe for this pod only`() = fixture { f ->
-        val main = f.cube.entries.take(30)
-        val maybe = f.cube.entries.drop(30).take(4).map { it.copy(section = SavedDeckSection.MAYBEBOARD) }
-        val saved = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "Prepared cube", main + maybe), 201))
+        val names = org.asyncttwiz.server.TestPrintings.names("E2E").take(34)
+        val saved = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "Prepared cube",
+            names.take(30).map { org.asyncttwiz.server.TestPrintings.entry(it, 1) } +
+                names.drop(30).map { org.asyncttwiz.server.TestPrintings.entry(it, 1, SavedDeckSection.MAYBEBOARD) }), 201))
+        val main = saved.entries.filter { it.section == SavedDeckSection.MAINBOARD }
+        val maybe = saved.entries.filter { it.section == SavedDeckSection.MAYBEBOARD }
         val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Prepared pod", saved.cube.id,
             settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 16)), 201)).id
         assertEquals(PodSource("Prepared cube", 30, maybeCopies = 4), f.get(f.a, pod).source)
         fun cube(): PodCube = json.decodeFromString(f.request(f.a, "GET", "/v1/pods/$pod/cube").body())
-        assertEquals(main.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAINBOARD }.toSet())
-        assertEquals(maybe.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.toSet())
+        // The pod keeps the cards by digest, each with its printing and name for the phone to show it
+        fun cards(section: SavedDeckSection) = cube().entries.filter { it.section == section }.map { Triple(it.printingId, it.name, it.quantity) }.toSet()
+        assertEquals(main.map { Triple(it.printingId, it.name, it.quantity) }.toSet(), cards(SavedDeckSection.MAINBOARD))
+        assertEquals(maybe.map { Triple(it.printingId, it.name, it.quantity) }.toSet(), cards(SavedDeckSection.MAYBEBOARD))
+        val digests = cube().entries.associate { it.printingId to it.definition }
+        fun d(entry: SavedCubeEntry) = digests.getValue(entry.printingId)
         f.join(pod)
         // 2 players × 16 cards: 30 in Main is too few until Maybe cards move in.
         assertFalse(f.get(f.a, pod).supply.sufficient)
-        f.send(f.b, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD), 403)
+        f.send(f.b, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[0]), SavedDeckSection.MAYBEBOARD), 403)
         assertEquals(403, f.request(f.b, "GET", "/v1/pods/$pod/cube").statusCode())
         assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod/cube").statusCode())
-        val move = MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD)
+        val move = MovePodCubeCards(id(), d(maybe[0]), SavedDeckSection.MAYBEBOARD)
         val moved = f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move)
         assertEquals(moved, f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move))
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD))
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[1]), SavedDeckSection.MAYBEBOARD))
         assertEquals("not_enough_copies", json.decodeFromString<PodError>(f.send(f.a, "PUT", "/v1/pods/$pod/cube/move",
-            MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD), 409)).code)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD, 2), 409)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.SIDEBOARD), 400)
+            MovePodCubeCards(id(), d(maybe[1]), SavedDeckSection.MAYBEBOARD), 409)).code)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAINBOARD, 2), 409)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.SIDEBOARD), 400)
         assertEquals(PodSource("Prepared cube", 32, maybeCopies = 2), f.get(f.a, pod).source)
         assertTrue(f.get(f.a, pod).supply.sufficient)
         // Moving one back and forth again: the card returns to the same section entry.
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD))
-        assertEquals(1, cube().entries.single { it.definition == main[0].definition }.quantity)
-        assertEquals(SavedDeckSection.MAYBEBOARD, cube().entries.single { it.definition == main[0].definition }.section)
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAYBEBOARD))
-        // Definitions are read for the prepared cube's cards only.
-        val digests = cube().entries.map { it.definition }
-        val definitions = json.decodeFromString<SubmittedDefinitions>(f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions",
-            ReadCubeDefinitions(digests))).definitions
-        assertEquals(digests.toSet(), definitions.map { it.digest }.toSet())
-        f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions", ReadCubeDefinitions(listOf(f.cube.entries.last().definition)), 404)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAINBOARD))
+        assertEquals(1, cube().entries.single { it.definition == d(main[0]) }.quantity)
+        assertEquals(SavedDeckSection.MAYBEBOARD, cube().entries.single { it.definition == d(main[0]) }.section)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(main[0]), SavedDeckSection.MAYBEBOARD))
+        // The phone builds the cards itself: there is no read of their card data
+        assertEquals(404, f.request(f.a, "POST", "/v1/pods/$pod/cube/definitions").statusCode())
         // The saved cube is unchanged.
         val unchanged = json.decodeFromString<SavedCube>(f.request(f.a, "GET", "/v1/cubes/${saved.cube.id}").body())
         assertEquals((main + maybe).toSet(), unchanged.entries.toSet())
         val started = f.start(pod)
         assertEquals(PodPhase.DRAFTING, started.phase)
         val drafted = (f.get(f.a, pod).draft!!.head!!.cards + f.get(f.b, pod).draft!!.head!!.cards).map { it.definition }.toSet()
-        assertTrue(maybe[0].definition in drafted && maybe[1].definition in drafted, "moved Maybe cards are drafted")
-        assertFalse(maybe[2].definition in drafted || maybe[3].definition in drafted, "Maybe cards are not drafted")
-        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[2].definition, SavedDeckSection.MAYBEBOARD), 409)
+        assertTrue(d(maybe[0]) in drafted && d(maybe[1]) in drafted, "moved Maybe cards are drafted")
+        assertFalse(d(maybe[2]) in drafted || d(maybe[3]) in drafted, "Maybe cards are not drafted")
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), d(maybe[2]), SavedDeckSection.MAYBEBOARD), 409)
         // Choosing the cube again starts from the saved cube's own sections.
         val other = f.create().id
-        f.send(f.a, "PUT", "/v1/pods/$other/cube/move", MovePodCubeCards(id(), f.cube.entries[0].definition, SavedDeckSection.MAINBOARD))
+        val otherCube = json.decodeFromString<PodCube>(f.request(f.a, "GET", "/v1/pods/$other/cube").body())
+        f.send(f.a, "PUT", "/v1/pods/$other/cube/move", MovePodCubeCards(id(), otherCube.entries[0].definition, SavedDeckSection.MAINBOARD))
         assertEquals(PodSource("Snapshot cube", 89, maybeCopies = 1), f.get(f.a, other).source)
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), cubeId = f.cube.cube.id))
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, other).source)
@@ -818,7 +824,7 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId))
         f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
         // Cube rename, contents replacement and deletion do not alter the chosen pod snapshot.
-        f.send(f.a, "PUT", "/v1/cubes/${f.cube.cube.id}", UpdateCube(id(), name = "Changed", entries = f.cube.entries.take(1)))
+        f.send(f.a, "PUT", "/v1/cubes/${f.cube.cube.id}", UpdateCube(id(), name = "Changed", entries = f.cube.entries.take(1).map { CardListEntry(it.section, it.printingId, it.quantity) }))
         f.send(f.a, "DELETE", "/v1/cubes/${f.cube.cube.id}", DeleteCube(id()))
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
         f.start(pod)
@@ -827,14 +833,14 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId), 409)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), name = "Too late"), 409)
         assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod").statusCode())
-        // Snapshot stores explicit front colors, not only mana-cost inference.
+        // The snapshot keeps the catalog's colours of each card (owner 2026-11-10).
         f.db.connection().use { connection ->
             connection.prepareStatement("select source_snapshot::text from pod where id = ?").use { statement ->
                 statement.setObject(1, UUID.fromString(pod))
                 statement.executeQuery().use { rows ->
                     assertTrue(rows.next())
                     val source = json.decodeFromString<List<DraftCubeEntry>>(rows.getString(1))
-                    assertTrue(source.any { it.colors == setOf(DraftColor.U) }); assertTrue(source.any { it.colors == setOf(DraftColor.W) })
+                    assertTrue(source.any { it.colors == setOf(DraftColor.R) }); assertTrue(source.any { it.colors.isEmpty() })
                 }
             }
         }
@@ -904,7 +910,7 @@ class PodHttpTest {
     }
 
     // DRF-123
-    @Test fun `challenge HTTP creates an ordinary invitation with supplied basic definitions`() = fixture { f ->
+    @Test fun `challenge HTTP creates an ordinary invitation with the server's basic lands`() = fixture { f ->
         val pod = f.create().id; f.join(pod)
         f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1)); f.start(pod)
         for (player in listOf(f.a, f.b)) {
@@ -912,11 +918,7 @@ class PodHttpTest {
             f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 39)))
             f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
         }
-        val definitions = BasicLand.entries.map { land ->
-            val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
-        val input = ChallengeFromPod(id(), f.b.account.accountId, "HTTP challenge", definitions)
+        val input = ChallengeFromPod(id(), f.b.account.accountId, "HTTP challenge")
         assertEquals(401, f.request(null, "POST", "/v1/pods/$pod/challenge", json.encodeToString(input)).statusCode())
         val result = f.send(f.a, "POST", "/v1/pods/$pod/challenge", input, 201)
         assertEquals(result, f.send(f.a, "POST", "/v1/pods/$pod/challenge", input, 201))
@@ -1062,7 +1064,7 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), targets.last()), 409)
         f.send(f.c, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), targets.last()))
-        val replacement = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "New source", f.cube.entries.take(2).map { it.copy(quantity = 4) }), 201))
+        val replacement = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "New source", org.asyncttwiz.server.TestPrintings.names("E2E").take(2).map { org.asyncttwiz.server.TestPrintings.entry(it, 4) }), 201))
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), name = "Renamed", cubeId = replacement.cube.id))
         assertEquals(PodSource("New source", 8), f.get(f.b, pod).source)
         assertEquals("Renamed", f.get(f.b, pod).name)
@@ -1297,11 +1299,7 @@ class PodHttpTest {
                 f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 40)))
                 f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
             }
-            val basics = BasicLand.entries.map { land ->
-                val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
-                SubmittedDefinition(DeckJson.digest(card), card)
-            }
-            val result = f.send(f.a, "POST", "/v1/pods/$pod/challenge", ChallengeFromPod(id(), f.b.account.accountId, "Set challenge", basics), 201)
+            val result = f.send(f.a, "POST", "/v1/pods/$pod/challenge", ChallengeFromPod(id(), f.b.account.accountId, "Set challenge"), 201)
             val game = json.decodeFromString<GameSummary>(result)
             assertEquals(pod, game.podId)
             assertEquals(InvitationState.PENDING, game.invitationState)
@@ -1346,12 +1344,8 @@ class PodHttpTest {
             f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 40)))
             f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
         }
-        val basics = BasicLand.entries.map { land ->
-            val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
         val game = json.decodeFromString<GameSummary>(f.send(f.a, "POST", "/v1/pods/$pod/challenge",
-            ChallengeFromPod(id(), f.b.account.accountId, "Grid challenge", basics), 201))
+            ChallengeFromPod(id(), f.b.account.accountId, "Grid challenge"), 201))
         assertEquals(pod, game.podId)
     }
 
@@ -1417,5 +1411,96 @@ class PodHttpTest {
         // A set whose only unsupported cards are on a bonus sheet from another set can be drafted (CatalogPackSheets)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "BON"))
         assertEquals("Bonus Sheet Set", f.get(f.a, pod).source.setName)
+    }
+
+    private fun Fixture.chat(who: SessionCreated, pod: String, query: String = ""): PodChatPage {
+        val response = request(who, "GET", "/v1/pods/$pod/chat$query")
+        assertEquals(200, response.statusCode(), response.body())
+        return json.decodeFromString(response.body())
+    }
+    private fun Fixture.say(who: SessionCreated, pod: String, text: String, requestId: String = id(), status: Int = 200): String =
+        send(who, "POST", "/v1/pods/$pod/chat", SendPodChat(requestId, text), status)
+
+    // DRF-170, DRF-171: members write and read the pod's chat in order; the server keeps each member's read cursor (only
+    // forward), counts the other members' messages after it, and a retried send is stored once
+    @Test fun `pod chat keeps messages in order with private read cursors and once-only sends`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        assertEquals(PodChatPage(pod, emptyList(), emptyList(), PodChatRead(pod)), f.chat(f.a, pod))
+        val request = id()
+        val first = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "  Hello\n😀  ", request))
+        assertEquals("  Hello\n😀  ", first.text)
+        assertEquals("1", first.ordinal)
+        assertEquals(first, json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "  Hello\n😀  ", request)), "a retry is the same message")
+        assertEquals("request_conflict", json.decodeFromString<PodError>(f.say(f.a, pod, "Other", request, 409)).code)
+        f.say(f.b, pod, "Hi Alice")
+        f.say(f.a, pod, "Ready?")
+        val bob = f.chat(f.b, pod)
+        assertEquals(listOf("  Hello\n😀  ", "Hi Alice", "Ready?"), bob.messages.map { it.text })
+        assertEquals(listOf("1", "2", "3"), bob.messages.map { it.ordinal })
+        assertEquals(setOf(f.a.account.accountId, f.b.account.accountId), bob.authors.map { it.accountId }.toSet())
+        // His own message counts as read through it; Alice's later one is unread
+        assertEquals(PodChatRead(pod, "2", "3", 1), bob.read)
+        assertEquals(PodChatRead(pod, "3", "3", 0), f.chat(f.a, pod).read)
+        assertEquals(listOf("Ready?"), f.chat(f.b, pod, "?after=2").messages.map { it.text })
+        assertEquals(listOf("  Hello\n😀  "), f.chat(f.b, pod, "?before=2").messages.map { it.text })
+        assertEquals(1, f.list(f.b).pods.single().chatUnread)
+        val read = json.decodeFromString<PodChatRead>(f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(bob.messages.last().id)))
+        assertEquals(PodChatRead(pod, "3", "3", 0), read)
+        // The cursor never moves back
+        assertEquals(read, json.decodeFromString<PodChatRead>(f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(first.id))))
+        assertEquals(read, json.decodeFromString<PodChatRead>(f.request(f.b, "GET", "/v1/pods/$pod/chat/read").body()))
+        assertEquals(0, f.list(f.b).pods.single().chatUnread)
+        f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(id()), 404)
+        // A game chat's limits: no blank text, nothing above its size
+        f.say(f.a, pod, " \n ", status = 400)
+        f.say(f.a, pod, "x".repeat(DeckValidation.FIELD_BYTES + 1), status = 400)
+        f.say(f.a, pod, "x".repeat(DeckValidation.FIELD_BYTES))
+    }
+
+    // DRF-171: only members read, write or move a cursor; an invitee doesn't, a member who leaves loses the chat (their
+    // messages stay with their name), and the chat goes with the pod
+    @Test fun `pod chat is for members only and a member who leaves loses it`() = fixture { f ->
+        val pod = f.create().id
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.b.account.accountId))
+        val hello = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "Welcome"))
+        fun refused(who: SessionCreated) {
+            assertEquals(404, f.request(who, "GET", "/v1/pods/$pod/chat").statusCode())
+            assertEquals(404, f.request(who, "GET", "/v1/pods/$pod/chat/read").statusCode())
+            f.say(who, pod, "Let me in", status = 404)
+            f.send(who, "PUT", "/v1/pods/$pod/chat/read", ReadChat(hello.id), 404)
+        }
+        refused(f.b); refused(f.c)
+        assertEquals(401, f.request(null, "GET", "/v1/pods/$pod/chat").statusCode())
+        f.send(f.b, "POST", "/v1/pods/$pod/accept", PodRequest(id()))
+        assertEquals(listOf("Welcome"), f.chat(f.b, pod).messages.map { it.text })
+        f.say(f.b, pod, "Thanks")
+        f.send(f.b, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
+        refused(f.b)
+        val left = f.chat(f.a, pod)
+        assertEquals(listOf("Welcome", "Thanks"), left.messages.map { it.text })
+        assertTrue(left.authors.any { it.accountId == f.b.account.accountId })
+        f.send(f.a, "DELETE", "/v1/pods/$pod", PodRequest(id()))
+        assertEquals(404, f.request(f.a, "GET", "/v1/pods/$pod/chat").statusCode())
+        assertEquals(0, f.db.connection().use { connection ->
+            connection.createStatement().executeQuery("select count(*) from pod_chat").use { rows -> rows.next(); rows.getInt(1) }
+        })
+    }
+
+    // DRF-170 (owner, 2026-11-10): a message notifies no one: no notice for the other members (nor its author), so nothing
+    // reaches a phone's notifications; the chat's unread count still tells it
+    @Test fun `a pod chat message notifies no one`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod); f.join(pod, f.c)
+        val before = listOf(f.a, f.b, f.c).associateWith { who -> f.activity(who, "0").entries.filter { it.gameId == pod } }
+        f.say(f.a, pod, "Draft tonight?")
+        val rows = f.db.connection().use { connection ->
+            connection.prepareStatement("select count(*) from account_activity where game_id = ? and kind = 'POD_MESSAGE'").use { statement ->
+                statement.setObject(1, UUID.fromString(pod)); statement.executeQuery().use { it.next(); it.getInt(1) }
+            }
+        }
+        assertEquals(0, rows)
+        for (who in listOf(f.a, f.b, f.c)) assertEquals(before.getValue(who), f.activity(who, "0").entries.filter { it.gameId == pod })
+        assertEquals(1, f.chat(f.b, pod).read.unread)
     }
 }

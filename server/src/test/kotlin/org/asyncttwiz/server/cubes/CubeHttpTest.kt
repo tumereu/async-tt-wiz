@@ -11,6 +11,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.TestPrintings
 import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
@@ -32,7 +33,9 @@ class CubeHttpTest {
         assertEquals(201, request(settings, "POST", "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password😀"))).statusCode())
         return json.decodeFromString(request(settings, "POST", "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password😀"))).body())
     }
-    @Test fun `definition batches require ownership and attached digests and enforce the size cap`() {
+    // Owner 2026-11-10 (card data from the server's catalog): a cube names its cards by printing and name, and the phone
+    // builds them from its card records: there is no read of their card data
+    @Test fun `a cube names its cards by printing and has no card data read`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val config = EphemeralPorts.settings(db.settings)
@@ -44,38 +47,14 @@ class CubeHttpTest {
                     check(System.nanoTime() < deadline); Thread.sleep(20)
                 }
                 val owner = account(settings, "batch-owner"); val foreign = account(settings, "batch-foreign")
-                val definitions = List(251) { index ->
-                    val card = CardDefinition("Batch card $index", listOf(DefinitionFace(id(), "Batch card $index")))
-                    SubmittedDefinition(DeckJson.digest(card), card)
-                }
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), definitions)), owner.token).statusCode())
-                val attached = definitions.take(250)
-                val create = CreateCube(id(), "Batch cube", attached.map { SavedCubeEntry(it.digest, 1) })
+                val names = TestPrintings.names("E2E")
+                val create = CreateCube(id(), "Batch cube", names.map { TestPrintings.entry(it, 1) })
                 val created = request(settings, "POST", "/v1/cubes", json.encodeToString(create), owner.token)
                 assertEquals(201, created.statusCode(), created.body())
                 val saved = json.decodeFromString<SavedCube>(created.body())
-                val path = "/v1/cubes/${saved.cube.id}/definitions"
-                val batch = ReadCubeDefinitions(attached.map { it.digest })
-                val read = request(settings, "POST", path, json.encodeToString(batch), owner.token)
-                assertEquals(200, read.statusCode(), read.body())
-                assertEquals(SubmittedDefinitions(attached), json.decodeFromString<SubmittedDefinitions>(read.body()))
-                assertEquals(401, request(settings, "POST", path, json.encodeToString(batch)).statusCode())
-                // A grant to the definitions is not ownership of the cube.
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), attached.take(1))), foreign.token).statusCode())
-                val denied = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest))), foreign.token)
-                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains("Batch card"))
-                val foreignCard = CardDefinition("Foreign card", listOf(DefinitionFace(id(), "Foreign card")))
-                val foreignDefinition = SubmittedDefinition(DeckJson.digest(foreignCard), foreignCard)
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), listOf(foreignDefinition))), foreign.token).statusCode())
-                for (unattached in listOf(definitions.last().digest, foreignDefinition.digest, "sha256:" + "f".repeat(64))) {
-                    val rejected = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest, unattached))), owner.token)
-                    assertEquals(404, rejected.statusCode()); assertFalse(rejected.body().contains("Batch card"))
-                }
-                for (invalid in listOf(emptyList(), definitions.map { it.digest }, List(251) { attached.first().digest }, listOf("invalid"))) {
-                    assertEquals(400, request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(invalid)), owner.token).statusCode())
-                }
-                assertEquals(404, request(settings, "POST", "/v1/cubes/${id()}/definitions", json.encodeToString(batch), owner.token).statusCode())
-                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
+                assertEquals(names.map { SavedCubeEntry(TestPrintings.definition(it).printingId, it, 1) }, saved.entries)
+                assertEquals(404, request(settings, "POST", "/v1/cubes/${saved.cube.id}/definitions", "{}", owner.token).statusCode())
+                assertEquals(404, request(settings, "GET", "/v1/cubes/${saved.cube.id}", token = foreign.token).statusCode())
             }
         }
     }
@@ -92,10 +71,10 @@ class CubeHttpTest {
                     check(System.nanoTime() < deadline); Thread.sleep(20)
                 }
                 val owner = account(settings, "cube-owner"); val foreign = account(settings, "cube-foreign")
-                val card = CardDefinition("Fixture card", listOf(DefinitionFace(id(), "Fixture card")))
-                val definition = SubmittedDefinition(DeckJson.digest(card), card)
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), listOf(definition))), owner.token).statusCode())
-                val create = CreateCube(id(), "Synergy", listOf(SavedCubeEntry(definition.digest, 3000)), "synergy")
+                val card = TestPrintings.definition("Storm Spark")
+                val definition = TestPrintings.submitted("Storm Spark")
+                fun entry(quantity: Int) = TestPrintings.entry("Storm Spark", quantity)
+                val create = CreateCube(id(), "Synergy", listOf(entry(3000)), "synergy")
                 val created = request(settings, "POST", "/v1/cubes", json.encodeToString(create), owner.token)
                 assertEquals(201, created.statusCode(), created.body())
                 val saved = json.decodeFromString<SavedCube>(created.body()); val path = "/v1/cubes/${saved.cube.id}"
@@ -107,24 +86,23 @@ class CubeHttpTest {
                 assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", path, token = owner.token).body()))
                 assertEquals(listOf(saved.cube), json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = owner.token).body()).cubes)
                 assertTrue(json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = foreign.token).body()).cubes.isEmpty())
-                for (privatePath in listOf(path, "$path/definitions/${definition.digest}")) {
-                    val denied = request(settings, "GET", privatePath, token = foreign.token)
-                    assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(card.name))
-                }
-                assertEquals(definition, json.decodeFromString<SubmittedDefinition>(request(settings, "GET", "$path/definitions/${definition.digest}", token = owner.token).body()))
+                val denied = request(settings, "GET", path, token = foreign.token)
+                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(card.name))
                 assertEquals(404, request(settings, "PUT", path, json.encodeToString(UpdateCube(id(), name = "Stolen")), foreign.token).statusCode())
                 assertEquals(404, request(settings, "DELETE", path, json.encodeToString(DeleteCube(id())), foreign.token).statusCode())
-                assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(create.copy(requestId = id())), foreign.token).statusCode())
+                // A new cube holds no card without a printing
+                assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(create.copy(requestId = id(),
+                    entries = listOf(CardListEntry(SavedDeckSection.MAINBOARD, null, 1, definition.definition.name)))), foreign.token).statusCode())
                 for (bad in listOf(create.copy(requestId = id(), name = " "), create.copy(requestId = id(), entries = emptyList()),
                     create.copy(requestId = id(), entries = create.entries + create.entries),
-                    create.copy(requestId = id(), entries = listOf(SavedCubeEntry(definition.digest, 3001))),
-                    create.copy(requestId = id(), entries = listOf(SavedCubeEntry(definition.digest, 0))),
+                    create.copy(requestId = id(), entries = listOf(entry(3001))),
+                    create.copy(requestId = id(), entries = listOf(entry(0))),
                     create.copy(requestId = id(), cubeCobraId = "../bad"))) {
                     val rejected = request(settings, "POST", "/v1/cubes", json.encodeToString(bad), owner.token)
                     assertEquals(400, rejected.statusCode())
                     assertEquals(rejected.body(), request(settings, "POST", "/v1/cubes", json.encodeToString(bad), owner.token).body())
                 }
-                val update = UpdateCube(id(), "Renamed", listOf(SavedCubeEntry(definition.digest, 540)))
+                val update = UpdateCube(id(), "Renamed", listOf(entry(540)))
                 val updated = request(settings, "PUT", path, json.encodeToString(update), owner.token)
                 assertEquals(200, updated.statusCode(), updated.body())
                 val next = json.decodeFromString<SavedCube>(updated.body())
@@ -157,20 +135,18 @@ class CubeHttpTest {
                     check(System.nanoTime() < deadline); Thread.sleep(20)
                 }
                 val owner = account(settings, "maybe-owner")
-                val cards = List(2) { index -> CardDefinition("Maybe card $index", listOf(DefinitionFace(id(), "Maybe card $index")))
-                    .let { SubmittedDefinition(DeckJson.digest(it), it) } }
-                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), cards)), owner.token).statusCode())
+                val cards = listOf("Storm Spark", "Ember Cub")
                 // The same card may be in both sections.
-                val entries = listOf(SavedCubeEntry(cards[0].digest, 1999), SavedCubeEntry(cards[1].digest, 1),
-                    SavedCubeEntry(cards[0].digest, 1000, SavedDeckSection.MAYBEBOARD))
+                val entries = listOf(TestPrintings.entry(cards[0], 1999), TestPrintings.entry(cards[1], 1),
+                    TestPrintings.entry(cards[0], 1000, SavedDeckSection.MAYBEBOARD))
                 val created = request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Sections", entries)), owner.token)
                 assertEquals(201, created.statusCode(), created.body())
                 val saved = json.decodeFromString<SavedCube>(created.body())
-                assertEquals(entries, saved.entries)
+                assertEquals(entries.map { SavedCubeEntry(it.printingId, cards[if (it.printingId == TestPrintings.id(cards[0])) 0 else 1], it.quantity, it.section) }, saved.entries)
                 assertEquals(2000L, saved.cube.totalCopies); assertEquals(1000L, saved.cube.maybeCopies)
                 assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", "/v1/cubes/${saved.cube.id}", token = owner.token).body()))
-                for (bad in listOf(entries + SavedCubeEntry(cards[1].digest, 1, SavedDeckSection.MAYBEBOARD),
-                    listOf(SavedCubeEntry(cards[0].digest, 1, SavedDeckSection.SIDEBOARD)),
+                for (bad in listOf(entries + TestPrintings.entry(cards[1], 1, SavedDeckSection.MAYBEBOARD),
+                    listOf(TestPrintings.entry(cards[0], 1, SavedDeckSection.SIDEBOARD)),
                     entries + entries.last())) {
                     assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Bad", bad)), owner.token).statusCode())
                 }

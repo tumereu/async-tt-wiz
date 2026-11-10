@@ -20,7 +20,6 @@ class DeckManagementTest {
             if (detail) api.afterRead = controller::clear else api.afterList = controller::clear
             if (detail) controller.open(summary.id) else controller.refresh()
             worker.drain()
-            assertEquals(0, api.definitionReads)
             assertEquals(if (detail) 0 else 1, api.listReads)
             assertTrue(posts.isEmpty())
             assertNull(controller.state.detail)
@@ -28,14 +27,16 @@ class DeckManagementTest {
             controller.close(); worker.drain()
         }
     }
-    private val card = CardDefinition("Text without art", listOf(DefinitionFace(UUID.randomUUID().toString(), "Text without art")))
-    private val digest = DeckJson.digest(card)
+    private val card = CardDefinition("Text without art", listOf(DefinitionFace(UUID.randomUUID().toString(), "Text without art")),
+        printingId = UUID.randomUUID().toString())
+    /** The deck's card, by its printing (owner 2026-11-10). */
+    private val digest = card.printingId!!
     private val summary = DeckSummary(UUID.randomUUID().toString(), "Accepted", "1", "2026-10-22T00:00:00Z", 4, 2, DeckCover(digest, card.name))
-    private val entries = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, digest, 4), SavedDeckEntry(SavedDeckSection.SIDEBOARD, digest, 2))
+    private val entries = listOf(savedEntry(SavedDeckSection.MAINBOARD, card, 4), savedEntry(SavedDeckSection.SIDEBOARD, card, 2))
     private inner class Api : Decks {
         var afterRead: () -> Unit = {}
         var afterList: (() -> Unit)? = null
-        var definitionReads = 0; var listReads = 0
+        var listReads = 0
         var saved = SavedDeck(summary, entries)
         val updates = mutableListOf<UpdateDeck>(); val deletes = mutableListOf<DeleteDeck>()
         var fail = false; var missing = false; var reads = 0
@@ -54,9 +55,6 @@ class DeckManagementTest {
             return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
         }
         override suspend fun read(token: String, id: String): SavedDeck { reads++; draft?.takeIf { it.deck.id == id }?.let { return it }; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
-        override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
-            definitionReads++; return SubmittedDefinition(digest, card)
-        }
         override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
             updates += value
             if (fail) throw DeckFailure("network")
@@ -66,7 +64,6 @@ class DeckManagementTest {
         override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted {
             deletes += value; if (fail) throw DeckFailure("network"); missing = true; return DeckDeleted(id)
         }
-        override suspend fun submit(token: String, value: SubmitDefinitions) = DefinitionsAccepted(emptyList())
         override suspend fun create(token: String, value: CreateDeck) = saved
         override fun close() = Unit
     }

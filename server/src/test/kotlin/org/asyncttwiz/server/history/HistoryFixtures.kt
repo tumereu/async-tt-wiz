@@ -37,6 +37,9 @@ internal class TestClock(var instant: Instant = Instant.now()) : Clock() {
 }
 
 /** A database, a running service runtime, a game service and the cleanup on one [clock]. */
+/** HistoryWorld.deck's spell of each colour, cards of the test cards' catalog. */
+internal val SPELLS = mapOf("R" to "Storm Spark", "G" to "Test Bear", "U" to "Blue Note")
+
 internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, val clock: TestClock) {
     val games = GameService(runtime, clock)
     val cleanup = GameCleanup(runtime, clock)
@@ -57,20 +60,16 @@ internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, v
     fun execute(statement: String, vararg values: Any?) { sql { it.execute(statement, *values) } }
     fun number(statement: String, vararg values: Any?): Long = sql { (it.fetchValue(statement, *values) as Number).toLong() }
 
-    /** A saved deck [name] of [actor]'s: Main has a red card and a land, Side a blue card. */
+    /** A saved deck [name] of [actor]'s, of the test cards' catalog: Main has a spell of [color] ([SPELLS]) and a land, Side a
+     * colourless card. */
     fun deck(actor: AccountService.Principal, name: String, color: String = "R"): SavedDeck {
-        fun card(cardName: String, cost: String, type: String) = CardDefinition(cardName, listOf(DefinitionFace(id(), cardName,
-            typeLine = type, manaCost = cost))).let { SubmittedDefinition(DeckJson.digest(it), it) }
-        val spell = card("$name Bolt", "{1}{$color}", "Instant")
-        val land = card("$name Land", "", "Basic Land — Mountain")
-        val side = card("$name Side", "{U}", "Instant")
+        val spell = org.asyncttwiz.server.TestPrintings.id(SPELLS.getValue(color))
         val decks = DeckService(runtime)
-        assertEquals(200, decks.submit(actor, SubmitDefinitions(id(), listOf(spell, land, side))).status)
         val created = GameWire.json.decodeFromString<SavedDeck>(decks.create(actor, CreateDeck(id(), name, listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, spell.digest, 20), SavedDeckEntry(SavedDeckSection.MAINBOARD, land.digest, 20),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, side.digest, 2)))).body)
-        // Its cover is the red card
-        val covered = decks.update(actor, created.deck.id, UpdateDeck(id(), cover = spell.digest))
+            org.asyncttwiz.server.TestPrintings.entry(SPELLS.getValue(color), 20), org.asyncttwiz.server.TestPrintings.entry("Mountain", 20),
+            org.asyncttwiz.server.TestPrintings.entry("Idle Glimmer", 2, SavedDeckSection.SIDEBOARD)))).body)
+        // Its cover is the spell
+        val covered = decks.update(actor, created.deck.id, UpdateDeck(id(), cover = spell))
         assertEquals(200, covered.status, covered.body)
         return GameWire.json.decodeFromString(decks.read(actor, created.deck.id).body)
     }

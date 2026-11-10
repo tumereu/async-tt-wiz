@@ -33,6 +33,8 @@ data class PodState(
     val sourceHint: String? = null,
     /** Automatic refreshes have kept failing for a while; the shown pod data may be stale. */
     val unreachable: Boolean = false,
+    /** DRF-170: the open pod's chat panel is showing (personal UI). */
+    val chatOpen: Boolean = false,
 )
 
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
@@ -58,12 +60,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val suggest: () -> String = ::gameNameSuggestion,
     private val wait: (suspend (Long) -> Unit)? = null,
     setRepository: PodSetRepository? = null,
-    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") },
-    /** The five basics for the draft deck the server keeps from a submitted deck; none when the catalog lacks them. */
-    private val basicLandDefinitions: () -> List<SubmittedDefinition> = { emptyList() },
     clock: () -> Long = ::monotonicMillis,
     /** Saves head-pack marks on the server, outside the serialized queue so a pick never waits for them. */
-    private val marksScheduler: PodMarksScheduler? = null) : AutoCloseable {
+    private val marksScheduler: PodMarksScheduler? = null,
+    /** Where pod chat requests run, beside the serialized pod requests. */
+    chatWorker: ExecutorService = worker) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -111,8 +112,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set))
         else editSetup(set = set)
     }
+    /** Pod chats (owner, 2026-11-08), also read by a pod game's table. */
+    val chat = PodChatController(api, credential, chatWorker, post)
     /** Prepare cube for the open pod's setup (creator). */
     val cubePreparation = PodCubePreparation(api, credential, worker, post) { refresh() }
+    /** The phone's card records, which the prepared cube's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords
+        get() = cubePreparation.cardRecords
+        set(value) { cubePreparation.cardRecords = value }
     /** Draft table presets for the New pod form and the creator's setup form. */
     internal val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
 
@@ -122,6 +129,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         cubePreparation.reset()
         setPicker.clear()
         presets.clear()
+        chat.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
         pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
@@ -142,9 +150,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null)
+            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false)
         refresh()
     }
+    /** DRF-170: opens the open pod's chat. */
+    fun openChat() {
+        val pod = state.selected ?: return
+        AppLog.info("pod-chat", "Pod $pod: chat opened"); state = state.copy(chatOpen = true); chat.refresh(pod)
+    }
+    fun closeChat() { if (state.chatOpen) { AppLog.info("pod-chat", "Pod ${state.selected}: chat closed"); state = state.copy(chatOpen = false) } }
     fun back() {
         if (setPicker.state.open) { setPicker.dismiss(); return }
         if (state.confirmation != null) { dismissConfirmation(); return }
@@ -159,7 +173,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, sourcePreview = null)
+            confirmation = null, choosingMember = false, error = null, sourcePreview = null, chatOpen = false)
         refresh()
     }
     fun refresh(requested: Boolean = false) {
@@ -221,7 +235,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // A built-in preset is its mode's settings: like a mode chip it keeps the sideboard limit and Librarians (DRF-032).
         val settings = if (preset.builtIn) preset.settings.copy(sideboardLimit = current.sideboardLimit,
             freshBoosters = current.freshBoosters, librarians = if (current.mode == DraftMode.GRID) 0 else current.librarians)
-            else preset.settings.copy(librarianDefinition = null)
+            else preset.settings
         val cube = preset.cubeId?.takeUnless { preset.cubeMissing }
         val draft = state.creating
         if (draft != null) {
@@ -271,8 +285,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         }
         if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
         val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.settings, setCode = draft.set?.code)
-        val upload by lazy { input.copy(settings = withLibrarian(draft.settings)) }
-        enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, upload) }))
+        enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, input) }))
     }
     fun respond(id: String, accept: Boolean) {
         if (state.pending > 0) return
@@ -307,8 +320,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val named = validPodName(edit.name)
         if (!named && !leaving) return
         val input = UpdatePod(requestId(), edit.name.takeIf { named }, edit.cubeId, edit.settings, setCode = edit.set?.code)
-        val upload by lazy { input.copy(settings = withLibrarian(edit.settings)) }
-        enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, upload) }))
+        enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, input) }))
     }
     fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }
     fun invite(account: AccountIdentity) {
@@ -575,8 +587,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if ((state.pending > 0 && action != PodConfirmation.SUBMIT) || state.uncertain) return
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }
-        // Resolved once off the main thread; every retry resends the identical request.
-        var submission: SubmitPodDeck? = null
+        // Every retry resends the identical request.
+        val submission = submit?.let { SubmitPodDeck(it.requestId, it.draftAttemptId) }
         if (action in listOf(PodConfirmation.SUBMIT, PodConfirmation.CANCEL) && submit == null) return
         if (action == PodConfirmation.START && (state.setup != null || state.sourcePreview != null || !podCanStart(detail))) return
         enqueue(Write(detail.id, attempt = detail.draftAttemptId, submit = action == PodConfirmation.SUBMIT,
@@ -585,8 +597,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 PodConfirmation.DESTROY -> { api.destroy(token, detail.id, input); null }
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
                 PodConfirmation.CANCEL -> api.cancel(token, detail.id, submit!!)
-                PodConfirmation.SUBMIT -> api.submit(token, detail.id, submission ?: SubmitPodDeck(submit!!.requestId, submit.draftAttemptId,
-                    runCatching(basicLandDefinitions).getOrDefault(emptyList())).also { submission = it })
+                PodConfirmation.SUBMIT -> api.submit(token, detail.id, submission!!)
                 PodConfirmation.START -> api.start(token, detail.id, input)
             }
         }))
@@ -594,9 +605,6 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     private fun requestId() = UUID.randomUUID().toString()
 
-    private fun withLibrarian(settings: DraftSettings): DraftSettings =
-        if (settings.librarians == 0 || settings.librarianDefinition != null) settings
-        else settings.copy(librarianDefinition = librarianDefinition())
     private fun enqueue(write: Write) {
         syncCredential()
         if (closed || state.uncertain || credential() == null) return

@@ -10,7 +10,6 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.android.TableMarks
-import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
@@ -24,7 +23,7 @@ import kotlin.test.assertTrue
  * search (nothing castable left out) is the engine's NoFalseDenialFuzzTest.
  */
 class CastabilityTest : E2e() {
-    private fun deck(vararg cards: Pair<SubmittedDefinition, Int>) = TestDeck("Castability", cards.toList())
+    private fun deck(vararg cards: Pair<TestCard, Int>) = TestDeck("Castability", cards.toList())
 
     /** A game with Alice holding at least these cards (by name, how many), and Bob at least [bobHolds]; both have kept. */
     private fun start(aliceDeck: TestDeck, aliceHolds: Map<String, Int>, bobDeck: TestDeck = TestDeck.glimmers(), bobHolds: Map<String, Int> = emptyMap(),
@@ -694,7 +693,7 @@ class CastabilityTest : E2e() {
      * enough, and tapping her Sprite is what would. Her device passes or stops by [mode]. */
     private fun bobCastsWhileAliceCouldOnlyAfterFloating(mode: ResponseMode) {
         startGame(deck(TestCards.sprite to 20, TestCards.tappedFlash to 20), deck(TestCards.mountain to 20, TestCards.study to 20), aliceSettings = PlaySettings(mode = mode),
-            deal = { a, b -> "Ember Sprite" in hand(a) && "Tapped Flash" in hand(a) && "Ember Study" in hand(b) })
+            deal = { a, b -> "Ember Sprite" in hand(a) && "Tapped Flash" in hand(a) && "Ember Reading" in hand(b) })
         bothOpen()
         alice.tap("Keep")
         bob.tap("Keep")
@@ -708,7 +707,7 @@ class CastabilityTest : E2e() {
         endsTurn(alice)
         if (mode == ResponseMode.FullControl) return
         waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
-        bob.playFromHand("Ember Study", this)
+        bob.playFromHand("Ember Reading", this)
     }
 
     // Spec §9 (owner's decision): a spell castable only after floating first doesn't stop Quick mode: the spell resolves without Alice

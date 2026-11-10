@@ -25,7 +25,7 @@ object ActivityDisplay {
 /** What the resumed app shows. Its notifications are cleared on open and not posted while shown. */
 data class ActivityScreen(val game: String? = null, val pod: String? = null, val podList: Boolean = false) {
     fun shows(key: String): Boolean = game != null && key == "game:$game" ||
-        pod != null && key == "pod:$pod" || podList && key.startsWith("pod-invite:")
+        pod != null && (key == "pod:$pod" || key == "pod-chat:$pod") || podList && key.startsWith("pod-invite:")
 
     companion object {
         val NONE = ActivityScreen()

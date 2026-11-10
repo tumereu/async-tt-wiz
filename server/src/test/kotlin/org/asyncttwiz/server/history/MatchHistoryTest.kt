@@ -52,7 +52,7 @@ class MatchHistoryTest {
         assertTrue(alice.onThePlay); assertFalse(bob.onThePlay)
         assertEquals(0, alice.mulligans); assertEquals(20, alice.finalLife)
         assertEquals("Alice Red", alice.deck!!.name); assertEquals("R", alice.deck!!.colors)
-        assertEquals("Alice Red Bolt", alice.deck!!.cover!!.name)
+        assertEquals("Storm Spark", alice.deck!!.cover!!.name)
         assertTrue(alice.deck!!.openable, "her own saved deck: Open deck")
         assertNull(bob.deck, "Bob's deck was never shown to Alice")
 

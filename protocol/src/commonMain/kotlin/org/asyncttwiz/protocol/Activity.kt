@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
 /** Account activity, never board state, covered-card names, read receipts or player progress.
  * Only the authenticated feed carries display content; ActivityPushHint stays opaque. */
 /** [GAME_REMOVAL] and [POD_REMOVAL]: the cleanup's warning 3 days before a game in play or a pod is deleted for lack of
- * activity (game history spec §4.5). */
+ * activity (game history spec §4.5). A pod chat message notifies no one (DRF-170: the in-app dots tell it). */
 @Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF,
     GAME_REMOVAL, POD_REMOVAL }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for

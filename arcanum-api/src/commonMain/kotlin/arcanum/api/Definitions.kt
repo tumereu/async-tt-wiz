@@ -450,7 +450,7 @@ sealed interface Step {
     @Serializable @SerialName("choose") data class Choose(
         val choice: Choice, val bind: String, val chooser: Players, val remember: Boolean = false,
     ) : Step
-    /** Part of the text the definition can't express: shown to players as a reminder to do by hand. */
+    /** Part of the text the definition can't express. An engine doesn't carry it out: a card with one isn't fully supported. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : Step
 }
 

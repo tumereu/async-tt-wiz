@@ -10,83 +10,51 @@ class PodChallengesTest {
         val definition = CardDefinition(land.cardName, listOf(DefinitionFace(id(10 + index), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
         SubmittedDefinition(DeckJson.digest(definition), definition)
     }
-    private val basicMap = PodGamePreparation.basicDefinitions(definitions)!!
+    private val basicMap = BasicLand.entries.zip(definitions).associate { (land, card) -> land to card.digest }
     private val deck = PreparedDeck(id(20), id(6), "1", "Pod", null, id(21),
         listOf(PreparedEntry(definitions.first().digest, SavedDeckSection.MAINBOARD, "0", 2)), basicMap)
     private val state = LobbyPreparation(game.id, game.preparationRound,
         listOf(PlayerPreparation(id(2), true, deck), PlayerPreparation(id(3), true, deck.copy(id = id(22)))), definitions,
         podRules = PodGameRules(1))
     private val scope = GameScope(game.id, game.preparationRound)
-    private fun edit(current: LobbyPreparation = state, basics: PodDeckBasics = PodDeckBasics(plains = 38)) =
-        PodGamePreparation.setBasics(game, current, id(2), scope, GameAction.SetPodGameBasics(deck.id, basics, definitions))
-
-    @Test fun definitionsRequireFiveExactNamedNonsnowBasicLandsAndMatchingDigests() {
-        assertEquals(5, basicMap.size)
-        assertNull(PodGamePreparation.basicDefinitions(definitions.drop(1)))
-        assertNull(PodGamePreparation.basicDefinitions(definitions.dropLast(1) + definitions.first()))
-        assertNull(PodGamePreparation.basicDefinitions(definitions.map { it.copy(digest = "sha256:" + "0".repeat(64)) }))
-        for (type in listOf("Land — Plains", "Basic Creature — Plains", "Snow Basic Land — Plains",
-            "Basic Land Creature — Swamp Horror", "Basic Land — Swamp", "Basic Land - Plains", "Basic Land — Plains ")) {
-            val invalid = definitions.first().definition.let { it.copy(faces = listOf(it.faces.single().copy(typeLine = type))) }
-            assertNull(PodGamePreparation.basicDefinitions(listOf(SubmittedDefinition(DeckJson.digest(invalid), invalid)) + definitions.drop(1)))
-        }
+    /** [current] with [basics] added to the first player's deck in [section], as a pod deck holds its supplied basics (LOB-052). */
+    private fun withBasics(current: LobbyPreparation = state, basics: PodDeckBasics = PodDeckBasics(plains = 38),
+        section: SavedDeckSection = SavedDeckSection.MAINBOARD): LobbyPreparation {
+        val prepared = current.players[0].deck!!
+        var index = maxOf(GameWire.ordinal(prepared.nextCardIndex), prepared.entries.maxOfOrNull { GameWire.ordinal(it.firstIndex) + it.quantity } ?: 0)
+        val added = BasicLand.entries.mapNotNull { land -> land.count(basics).takeIf { it > 0 }?.let { count ->
+            PreparedEntry(prepared.basicDefinitions.getValue(land), section, index.toString(), count, land).also { index += count }
+        } }
+        return current.copy(players = current.players.mapIndexed { i, player ->
+            if (i == 0) player.copy(deck = prepared.copy(entries = prepared.entries + added, nextCardIndex = index.toString())) else player
+        })
     }
 
-    @Test fun suppliedBasicsRejectForgedFacesAndAbilitiesEvenWithCorrectDigests() {
-        val card = definitions.first().definition
-        val face = card.faces.single()
-        val invalid = listOf(
-            card.copy(name = "plains"), card.copy(faces = listOf(face.copy(name = "Island"))),
-            card.copy(faces = listOf(face, face.copy(faceId = id(99)))), card.copy(token = true),
-        ) + listOf(face.copy(power = "20"), face.copy(toughness = "20"), face.copy(loyalty = "1"),
-            face.copy(defense = "1"), face.copy(rulesText = "Draw twenty cards."),
-            face.copy(rulesText = "({T}: Add {B}.)"), face.copy(rulesText = "({T}: Add {W}.)\nDraw a card."),
-            face.copy(rulesText = " ")).map { card.copy(faces = listOf(it)) }
-        for (definition in invalid) {
-            assertNull(PodGamePreparation.basicDefinitions(
-                listOf(SubmittedDefinition(DeckJson.digest(definition), definition)) + definitions.drop(1)))
-        }
-    }
-
-    @Test fun catalogManaReminderTextIsAcceptedForEachBasic() {
-        val catalog = definitions.zip(listOf("W", "U", "B", "R", "G")).map { (submitted, mana) ->
-            val card = submitted.definition.copy(provider = "mtgjson", printingId = submitted.definition.faces.single().faceId,
-                faces = submitted.definition.faces.map { it.copy(rulesText = "({T}: Add {$mana}.)", sourceData = "{}") })
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
-        assertEquals(5, PodGamePreparation.basicDefinitions(catalog)!!.size)
-    }
-
-    @Test fun basicsAreConcreteMainCopiesAndOnlyOwnReadyClearsWithoutTouchingDraftedLands() {
-        val next = edit().state!!
-        assertFalse(next.players[0].ready); assertTrue(next.players[1].ready)
+    // DRF-124, LOB-052: a supplied basic moves between Main and Side like any card.
+    @Test fun suppliedBasicsAreConcreteCopiesThatMoveLikeAnyCard() {
+        val next = withBasics()
         val prepared = next.players[0].deck!!
         assertEquals(40L, prepared.count(SavedDeckSection.MAINBOARD))
         assertEquals(deck.entries.single(), prepared.entries.first())
         assertEquals(38, PodGamePreparation.basics(prepared).plains)
         val basic = prepared.entries.single { it.suppliedBasic != null }
-        // DRF-124, LOB-052: a supplied basic moves between Main and Side like any card.
         val moved = PreparationRules.transfer(game, next, id(2), scope,
             GameAction.TransferPreparedCard(prepared.id, prepared.card(basic, 0).id, basic.firstIndex, basic.section)).state!!.players[0].deck!!
         assertEquals(37, PodGamePreparation.basics(moved).plains)
         assertEquals(1, PodGamePreparation.basics(moved, SavedDeckSection.SIDEBOARD).plains)
         assertEquals(40L, PreparationRules.capture(next, id(2), definitions.first().digest, SavedDeckSection.MAINBOARD, true)!!.count)
-        val removed = edit(next, PodDeckBasics()).state!!
-        assertEquals(deck.entries, removed.players.first().deck!!.entries)
-        val addedAgain = edit(removed).state!!.players.first().deck!!
-        assertNotEquals(prepared.card(basic, 0).id, addedAgain.card(addedAgain.entries.last(), 0).id)
-        assertEquals(next, edit(next).state)
     }
 
     // DRF-124
     @Test fun readinessUsesFortyIncludingBasicsAndGameLocalSideLimitAndSavedSelectionIsForbidden() {
         assertEquals("mainTooSmall", StartRules.change(game, state, id(2), scope, GameAction.Ready).reason)
-        val next = edit().state!!
+        val next = withBasics()
         assertNotNull(StartRules.change(game, next, id(2), scope, GameAction.Ready).state)
         val side = next.copy(players = next.players.map { it.copy(deck = it.deck!!.copy(entries = it.deck!!.entries.map { entry ->
             if (entry.suppliedBasic == null) entry.copy(section = SavedDeckSection.SIDEBOARD) else entry
         })) })
-        val enlarged = edit(side, PodDeckBasics(plains = 40)).state!!
+        val enlarged = withBasics(side.copy(players = side.players.map { it.copy(deck = it.deck!!.copy(
+            entries = it.deck!!.entries.filter { entry -> entry.suppliedBasic == null })) }), PodDeckBasics(plains = 40))
         assertEquals("sideboardLimit", StartRules.change(game, enlarged, id(2), scope, GameAction.Ready).reason)
         assertNotNull(StartRules.change(game, enlarged.copy(podRules = PodGameRules()), id(2), scope, GameAction.Ready).state)
         assertEquals("podDeckFixed", PreparationRules.select(game, state, id(2), id(30), scope,
@@ -94,44 +62,21 @@ class PodChallengesTest {
     }
 
     // DRF-124
-    @Test fun sideBasicsAreSideboardCopiesEditedSeparatelyAndCountTowardTheSideLimit() {
-        fun section(current: LobbyPreparation, basics: PodDeckBasics, section: SavedDeckSection) = PodGamePreparation.setBasics(game, current,
-            id(2), scope, GameAction.SetPodGameBasics(deck.id, basics, definitions, section))
-        val main = edit().state!!
-        val side = section(main, PodDeckBasics(island = 1), SavedDeckSection.SIDEBOARD).state!!
+    @Test fun sideBasicsAreSideboardCopiesThatCountTowardTheSideLimit() {
+        val side = withBasics(withBasics(), PodDeckBasics(island = 1), SavedDeckSection.SIDEBOARD)
         val prepared = side.players[0].deck!!
         assertEquals(40L, prepared.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, prepared.count(SavedDeckSection.SIDEBOARD))
         assertEquals(PodDeckBasics(plains = 38), PodGamePreparation.basics(prepared))
         assertEquals(PodDeckBasics(island = 1), PodGamePreparation.basics(prepared, SavedDeckSection.SIDEBOARD))
-        assertEquals(SavedDeckSection.SIDEBOARD, prepared.entries.single { it.suppliedBasic == BasicLand.ISLAND }.section)
         assertNotNull(StartRules.change(game, side, id(2), scope, GameAction.Ready).state)
-        val over = section(side, PodDeckBasics(island = 2), SavedDeckSection.SIDEBOARD).state!!
+        val over = withBasics(side, PodDeckBasics(island = 1), SavedDeckSection.SIDEBOARD)
         assertEquals("sideboardLimit", StartRules.change(game, over, id(2), scope, GameAction.Ready).reason)
-        val mainAgain = edit(over, PodDeckBasics(plains = 39)).state!!.players[0].deck!!
-        assertEquals(PodDeckBasics(island = 2), PodGamePreparation.basics(mainAgain, SavedDeckSection.SIDEBOARD))
-        assertEquals(PodDeckBasics(plains = 39), PodGamePreparation.basics(mainAgain))
-        assertEquals(over, section(over, PodDeckBasics(island = 2), SavedDeckSection.SIDEBOARD).state)
-        assertEquals("invalidBasics", section(main, PodDeckBasics(island = 961), SavedDeckSection.SIDEBOARD).reason)
         val basic = prepared.entries.single { it.suppliedBasic == BasicLand.ISLAND }
         val back = PreparationRules.transfer(game, side, id(2), scope,
             GameAction.TransferPreparedCard(prepared.id, prepared.card(basic, 0).id, basic.firstIndex, basic.section)).state!!.players[0].deck!!
         assertEquals(PodDeckBasics(plains = 38, island = 1), PodGamePreparation.basics(back))
         assertEquals(PodDeckBasics(), PodGamePreparation.basics(back, SavedDeckSection.SIDEBOARD))
-        val legacy = """{"type":"setPodGameBasics","deckId":"${deck.id}","basics":{},"basicDefinitions":[]}"""
-        assertEquals(SavedDeckSection.MAINBOARD, (GameWire.json.decodeFromString<GameAction>(legacy) as GameAction.SetPodGameBasics).section)
-    }
-
-    @Test fun editsFenceScopeOwnershipDefinitionsAndCodec() {
-        val action = GameAction.SetPodGameBasics(deck.id, PodDeckBasics(plains = 38), definitions)
-        assertEquals("preparedDeckChanged", PodGamePreparation.setBasics(game, state, id(3), scope, action).reason)
-        assertEquals("invalidBasics", edit(basics = PodDeckBasics(plains = -1)).reason)
-        assertEquals("invalidBasics", edit(basics = PodDeckBasics(plains = 1000)).reason)
-        assertEquals("inapplicable", PodGamePreparation.setBasics(game, state, id(2), scope.copy(preparationId = id(99)), action).reason)
-        val command = GameCommand(id(40), scope, action, id(41), "1")
-        assertTrue(GameWire.valid(command))
-        assertEquals(command, GameWire.decodeClient(DeckJson.format.encodeToString(GameClientMessage.serializer(), command)))
-        assertFalse(GameWire.valid(command.copy(action = action.copy(basicDefinitions = emptyList()))))
-        val head = GameHead(game.id, "0", game, preparation = edit().state)
+        val head = GameHead(game.id, "0", game, preparation = side)
         assertEquals(head, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(head)))
     }
 }

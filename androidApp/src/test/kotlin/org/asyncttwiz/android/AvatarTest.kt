@@ -91,10 +91,10 @@ class AvatarTest {
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.INDEXING, 50, 100)
         catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { MaterialTheme { AvatarChooser(fixture.auth, catalog) } }
-        compose.onNodeWithText("Card records updating · 59%").assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 40%").assertIsDisplayed()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsNotEnabled()
         compose.runOnIdle { catalog.seed(CatalogUiState(installed = org.asyncttwiz.storage.CatalogMetadata("2026-10-27", "test"), ready = true)) }
-        compose.onNodeWithText("Card records updating · 59%").assertDoesNotExist()
+        compose.onNodeWithText("Card records updating · 40%").assertDoesNotExist()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsEnabled()
         compose.onNodeWithText("Skip").assertIsDisplayed()
     }

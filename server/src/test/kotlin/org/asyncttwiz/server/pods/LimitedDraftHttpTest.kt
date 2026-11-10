@@ -42,13 +42,11 @@ class LimitedDraftHttpTest {
                 check(System.nanoTime() < deadline); Thread.sleep(20)
             }
             players = List(5) { account("limited-$it") }
-            val cards = (0 until 120).map { n ->
-                val card = CardDefinition("Limited fixture $n", listOf(DefinitionFace(UUID.randomUUID().toString(), "Limited fixture $n", manaCost = "{G}")))
-                SubmittedDefinition(DeckJson.digest(card), card)
-            }
-            send(a, "POST", "/v1/definitions", SubmitDefinitions(UUID.randomUUID().toString(), cards))
-            cube = json.decodeFromString(send(a, "POST", "/v1/cubes",
-                CreateCube(UUID.randomUUID().toString(), "Limited cube", cards.map { SavedCubeEntry(it.digest, 1) }), 201))
+            // 120 cards of the test cards' catalog: its supported cards, each once
+            val cards = org.asyncttwiz.server.TestPrintings.supported().take(120)
+            check(cards.size == 120) { "the test cards' catalog has ${cards.size} supported cards" }
+            cube = DeckJson.format.decodeFromString(send(a, "POST", "/v1/cubes", CreateCube(UUID.randomUUID().toString(), "Limited cube",
+                cards.map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
         }
         private fun account(name: String): SessionCreated {
             send(null, "POST", "/accounts", RegisterAccount(name, "$name@example.invalid", "password😀"), 201)

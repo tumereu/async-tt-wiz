@@ -55,7 +55,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     val records = catalog?.state?.records ?: CardRecords.Ready
     val content: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalCardRecords provides records, LocalCardRecordsRetry provides catalog?.let { it::retry }) {
+            CompositionLocalProvider(LocalCardRecords provides records, LocalCardRecordsRetry provides catalog?.let { it::retry },
+                LocalPodChat provides pods?.chat) {
                 if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null && records != CardRecords.Ready) {

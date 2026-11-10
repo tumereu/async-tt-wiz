@@ -76,7 +76,8 @@ class ProductionUpgradeTest {
     private class Stream(val games: GameService, val actor: AccountService.Principal, val gameId: String) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString()); val connection = UUID.randomUUID()
         val stream = games.open(actor, hello, connection, gameId, UUID.randomUUID().toString())
-        fun execute(action: GameAction): GameResult {
+        fun execute(action: GameAction): GameResult = attempt(action).also { assertEquals("accepted", it.outcome, "$action: ${it.reason}") }
+        fun attempt(action: GameAction): GameResult {
             val summary = games.head(actor, gameId).summary
             val scope = if (action is GameAction.Submit || action.isEngine || action is GameAction.SendChat)
                 GameScope(gameId, playId = summary.playId)
@@ -84,7 +85,6 @@ class ProductionUpgradeTest {
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
-                .also { assertEquals("accepted", it.outcome, "$action: ${it.reason}") }
         }
     }
 
@@ -125,11 +125,6 @@ class ProductionUpgradeTest {
         }
     }
 
-    private val basics = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).map { (land, mana) ->
-        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName,
-            typeLine = "Basic Land — ${land.cardName}", rulesText = "({T}: Add {$mana}.)")), provider = "mtgjson")
-        SubmittedDefinition(DeckJson.digest(card), card)
-    }
 
     /** Everything a pair of players builds up, through the real services. */
     private fun dataset(runtime: ServiceRuntime): JsonObject {
@@ -141,16 +136,14 @@ class ProductionUpgradeTest {
         val ann = account("Ann"); val ben = account("Ben")
         val decks = DeckService(runtime); val games = GameService(runtime); val lobby = LobbyService(runtime)
         val pods = PodService(runtime); val presets = PodPresetService(runtime)
-        fun card(name: String, type: String = "Creature — Bear") = CardDefinition(name, listOf(DefinitionFace(id(), name,
-            manaCost = "{1}{G}", typeLine = type, rulesText = "Fixture text.", corner = "2/2"))).let { SubmittedDefinition(DeckJson.digest(it), it) }
-        fun deck(owner: AccountService.Principal, name: String, cards: List<SubmittedDefinition>): SavedDeck {
-            assertEquals(200, decks.submit(owner, SubmitDefinitions(id(), cards)).status)
-            return json.decodeFromString(decks.create(owner, CreateDeck(id(), name, cards.mapIndexed { index, card ->
-                SavedDeckEntry(if (index == cards.lastIndex) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD, card.digest, 4) })).body)
-        }
-        val annDeck = deck(ann, "Ann's deck", (1..4).map { card("Ann card $it") })
-        deck(ann, "Ann's spare deck", listOf(card("Spare card", "Instant"), card("Spare land", "Land")))
-        val benDeck = deck(ben, "Ben's deck", (1..4).map { card("Ben card $it") })
+        // The test cards' catalog (card data from the server's catalog, owner 2026-11-10)
+        val names = TestPrintings.names("E2E")
+        fun deck(owner: AccountService.Principal, name: String, cards: List<String>): SavedDeck =
+            json.decodeFromString(decks.create(owner, CreateDeck(id(), name, cards.mapIndexed { index, card ->
+                TestPrintings.entry(card, 4, if (index == cards.lastIndex) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD) })).body)
+        val annDeck = deck(ann, "Ann's deck", names.take(4))
+        deck(ann, "Ann's spare deck", names.drop(4).take(2))
+        val benDeck = deck(ben, "Ben's deck", names.drop(6).take(4))
         lobby.add(ann, AddContact(id(), ben.account.accountId))
         fun game(name: String): Pair<Stream, Stream> {
             val game = json.decodeFromString<GameSummary>(lobby.create(ann, CreateInvitation(id(), ben.account.accountId, name)).body)
@@ -178,10 +171,8 @@ class ProductionUpgradeTest {
         w1.execute(GameAction.SelectDeck(annDeck.deck.id, annDeck.deck.revision))
         val (pending, _) = game("Pending invitation")
 
-        val cubeCards = (1..30).map { card("Cube card $it", if (it % 3 == 0) "Instant" else "Creature — Elf") }
-        assertEquals(200, decks.submit(ann, SubmitDefinitions(id(), cubeCards + basics)).status)
         val cube = json.decodeFromString<SavedCube>(CubeService(runtime).create(ann, CreateCube(id(), "Fixture cube",
-            cubeCards.map { SavedCubeEntry(it.digest, 1) })).body)
+            names.drop(10).take(30).map { TestPrintings.entry(it, 1) })).body)
         fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
         fun pod(name: String, settings: DraftSettings): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(ann, CreatePod(id(), name, cube.cube.id, settings.mode)).body).id
@@ -213,7 +204,7 @@ class ProductionUpgradeTest {
             assertEquals(200, pods.basics(who, finishedPod, SetPodBasics(id(), attempt, PodDeckBasics(8, 8, 8, 8, 8))).status)
             assertEquals(200, pods.submit(who, finishedPod, SubmitPodDeck(id(), attempt)).status)
         }
-        val challenge = pods.challenge(ann, finishedPod, ChallengeFromPod(id(), ben.account.accountId, "Pod game", basics))
+        val challenge = pods.challenge(ann, finishedPod, ChallengeFromPod(id(), ben.account.accountId, "Pod game"))
         assertEquals(201, challenge.status, challenge.body)
         val podGame = json.decodeFromString<GameSummary>(challenge.body).id
 
@@ -291,20 +282,37 @@ class ProductionUpgradeTest {
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             // No migration deleted anything but V54's, V59's, V63's and V74's (I-D52, I-D54, stable decision ids, the engine's general forms; owner-approved): every game that had started a play, with
-            // everything that belongs to it, but its match records: they are never deleted (V66).
+            // everything that belongs to it, but its match records: they are never deleted (V66); and V76's (owner 2026-11-10): the request rows
+            // holding the old model's fields (R4d) at their top level or in their play, with the outbox rows of those requests.
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
             val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()
+            val retired = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",
+                "mutation", "group", "treeDelta", "targetNodeId")
+            fun oldForm(text: String?): Boolean {
+                val stored = text?.let { runCatching { json.parseToJsonElement(it) }.getOrNull() } as? JsonObject ?: return false
+                return stored.keys.any { it in retired } || (stored["play"] as? JsonObject)?.keys?.any { it in retired } == true
+            }
+            fun JsonObject.value(key: String) = this[key]?.jsonPrimitive?.contentOrNull
+            val oldRequests = tables["game_inbox"].orEmpty().map { it.jsonObject }
+                .filter { oldForm(it.value("command")) || oldForm(it.value("result")) }.map { it.value("request_id") }.toSet()
             fun wiped(table: String, row: JsonObject): Boolean {
-                fun value(key: String) = row[key]?.jsonPrimitive?.contentOrNull
+                fun value(key: String) = row.value(key)
                 if (table == "match_record") return false
+                if (table == "game_revision" && oldForm(value("payload")) || table == "game_inbox" && value("request_id") in oldRequests ||
+                    table == "game_outbox" && (value("request_id") in oldRequests || oldForm(value("revision")) || oldForm(value("result"))))
+                    return true
                 return (table == "game" && value("id") in wipedGames) || value("game_id") in wipedGames || value("play_id") in wipedPlays
             }
             assertTrue(started in wipedGames)
             // V62 dropped the old model's tables: V59 had already emptied them, so none of their rows was a game's still
             val dropped = setOf("game_play_mutation", "gameplay_endpoint_edge", "gameplay_endpoint_record", "gameplay_tree_control",
                 "gameplay_mutation", "gameplay_group")
+            // V77 and V78 (card data from the server's catalog, owner 2026-11-10) drop the token favourites and the grants of
+            // uploaded card data: their rows go with their tables
+            val droppedWithRows = setOf("account_token_favorites", "account_definition")
             for ((table, rows) in tables)
-                if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
+                if (table in droppedWithRows) continue
+                else if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
                 else assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
                     "$table rows after upgrade")
 
@@ -354,7 +362,9 @@ class ProductionUpgradeTest {
                 // V46: Ann's deck finished a game against Ben, so the waiting game now shows it.
                 assertTrue(games.head(ann, e<String>("waiting")).preparation!!.players.single { it.accountId == e<String>("ann") }.deckShown)
                 val benDeck = json.decodeFromString<DeckList>(decks.list(ben, null).body).decks.single()
-                Stream(games, ben, e<String>("waiting")).execute(GameAction.SelectDeck(benDeck.id, benDeck.revision))
+                // V80 (owner 2026-11-10): the recorded decks' card data has no printing, so their cards are cards without a
+                // printing, which Automatum can't play (LOB-115): choosing one is refused
+                assertEquals("automatumUnsupported", Stream(games, ben, e<String>("waiting")).attempt(GameAction.SelectDeck(benDeck.id, benDeck.revision)).reason)
                 Stream(games, ben, e<String>("podGame")).execute(GameAction.AcceptInvitation)
 
                 fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
@@ -377,11 +387,14 @@ class ProductionUpgradeTest {
                 fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
                 fun JsonObject.number(key: String) = getValue(key).jsonPrimitive.content.toInt()
                 val deckRows = rows("deck_entry").groupBy { it.text("deck_id") }
+                // V80 (card data from the server's catalog, owner 2026-11-10): each row names its card data's printing and name
+                val cards = rows("definition").associate { it.text("digest") to json.decodeFromString<CardDefinition>(it.text("payload")) }
+                fun JsonObject.card() = cards.getValue(text("definition_digest"))
                 assertTrue(deckRows.isNotEmpty())
                 for (deck in rows("saved_deck")) {
                     val saved = json.decodeFromString<SavedDeck>(decks.read(owners.getValue(deck.text("account_id")), deck.text("id")).body)
                     val stored = deckRows[deck.text("id")].orEmpty().sortedBy { it.number("position") }
-                    assertEquals(stored.map { SavedDeckEntry(SavedDeckSection.valueOf(it.text("section")), it.text("definition_digest"), it.number("quantity")) },
+                    assertEquals(stored.map { SavedDeckEntry(SavedDeckSection.valueOf(it.text("section")), it.card().printingId, it.card().name, it.number("quantity")) },
                         saved.entries, deck.text("name"))
                     assertEquals(0L, saved.deck.maybeboard)
                 }
@@ -390,7 +403,7 @@ class ProductionUpgradeTest {
                 for (cube in rows("saved_cube")) {
                     val saved = json.decodeFromString<SavedCube>(cubes.read(owners.getValue(cube.text("account_id")), cube.text("id")).body)
                     val stored = cubeRows.getValue(cube.text("id")).sortedBy { it.number("position") }
-                    assertEquals(stored.map { SavedCubeEntry(it.text("definition_digest"), it.number("quantity"), SavedDeckSection.MAINBOARD) }, saved.entries)
+                    assertEquals(stored.map { SavedCubeEntry(it.card().printingId, it.card().name, it.number("quantity"), SavedDeckSection.MAINBOARD) }, saved.entries)
                     assertEquals(stored.sumOf { it.number("quantity").toLong() } to 0L, saved.cube.totalCopies to saved.cube.maybeCopies)
                 }
             }

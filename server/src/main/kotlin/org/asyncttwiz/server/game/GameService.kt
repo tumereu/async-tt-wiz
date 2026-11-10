@@ -292,7 +292,6 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
-            is GameAction.SetPodGameBasics -> applyPodBasics(sql, game, inbox.accountId!!, command)
             is GameAction.SetStarter, is GameAction.SetAlternateStarter, is GameAction.ShowDeck, GameAction.Ready, GameAction.WithdrawReady ->
                 applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
@@ -510,7 +509,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
      * game's lobby (decks, readiness, settings, cancelling it): both players are still at its table. */
     private fun lobbyWaitsForResult(game: GameRecord, action: GameAction): Boolean = game.lifecycle == "LOBBY" &&
         game.resultNotice != null && when (action) {
-            is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetPodGameBasics, is GameAction.SetStarter,
+            is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetStarter,
             is GameAction.SetAlternateStarter, is GameAction.ShowDeck, is GameAction.SetAssumeReveals,
             GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> true
             else -> false
@@ -543,9 +542,17 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (!canReadPreparation(summary, account.toString())) return "accessDenied"
         if (summary.podId != null) return "podDeckFixed"
         val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
-        // I-D51/I-D52: a deck Automatum can't play fully (as the owner's device worked it out) can't start a game.
-        if (source?.deck?.automatum?.supported == false) return "automatumUnsupported"
-        val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
+        // I-D51/I-D52 (LOB-118, LOB-124): a deck Automatum can't play fully, by the card catalog's marks, can't start a game.
+        source?.deck?.automatum?.takeUnless { it.supported }?.let { support ->
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Deck choice refused game={} account={} deck={}: Automatum can't play {} cards by the catalog's marks: {}",
+                game.id, account, action.deckId, support.byHand.size, support.byHand.take(20))
+            return "automatumUnsupported"
+        }
+        // The deck's cards built from the server's card catalog by their printings (owner 2026-11-10)
+        val definitions = org.asyncttwiz.server.catalog.ServerCatalogs.current()?.let { catalog ->
+            source?.entries.orEmpty().mapNotNull { it.printingId }.distinct().mapNotNull(catalog::card)
+                .map { SubmittedDefinition(DeckJson.digest(it), it) }
+        }.orEmpty()
         val current = PreparationStore.read(sql, summary)
         val change = PreparationRules.select(summary, current, account.toString(),
             command.requestId, command.scope, action, source, definitions)
@@ -556,14 +563,6 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             val previous = current.players.single { it.accountId == account.toString() }.deck?.sourceId
             if (previous != action.deckId) DeckVisibilityStore.apply(sql, summary, account, action.deckId)
         }
-        return change.reason
-    }
-
-    private fun applyPodBasics(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
-        val summary = lobby.summary(sql, game.id!!)
-        val change = PodGamePreparation.setBasics(summary, PreparationStore.read(sql, summary), account.toString(),
-            command.scope, command.action as GameAction.SetPodGameBasics)
-        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
         return change.reason
     }
 
@@ -609,11 +608,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         val summary = lobby.summary(sql, game.id!!)
         val changed = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
-        // CR 309.2: a Ready brings the player's dungeon cards outside the game; a deck that ventures or takes the initiative needs them
-        val outside = command.inlineDefinitions
-        if (changed.state != null && command.action == GameAction.Ready) {
-            if (!org.asyncttwiz.protocol.game.OutsideCards.valid(outside)) return "invalidOutsideCards"
-            if (!EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) return "automatumUnsupported"
+        // CR 309.2, LOB-117: the Ready of a deck that ventures or takes the initiative brings the dungeons of the server's
+        // catalog outside the game; it needs the ones its cards ask for
+        val outside = changed.state?.takeIf { command.action == GameAction.Ready && EngineDecks.ventures(it, account.toString()) }
+            ?.let { org.asyncttwiz.server.catalog.ServerCatalogs.current()?.dungeons }.orEmpty()
+        if (changed.state != null && command.action == GameAction.Ready &&
+            !EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Ready refused game={} account={}: its deck ventures and the catalog's dungeons {} don't provide what it needs",
+                game.id, account, outside.map { it.definition.name })
+            return "automatumUnsupported"
         }
         // TRN-065: a player gets Ready only after tapping OK on the last match's result
         if (command.action == GameAction.Ready && summary.resultNotice?.unseen?.contains(account.toString()) == true) return "resultNotSeen"
@@ -622,15 +625,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&
             preparation.players.any { !DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) } } == true)
             return "invalidDeck"
-        // I-D51/I-D52 (pivot review #2): a player is Ready, and a game starts, only with decks Automatum can play fully, as
-        // stored for the deck each player prepared (also in a lobby kept from before the block); a pod game's decks come
-        // from the pod's source
+        // I-D51/I-D52 (LOB-118, LOB-124): a player is Ready, and a game starts, only with decks Automatum can play fully: the
+        // cards each player prepared, by the card catalog's marks (also in a lobby kept from before the block); a pod
+        // game's decks come from the pod's source
         if (change.state?.let { preparation -> (command.action == GameAction.Ready || StartRules.canStart(summary, preparation)) &&
             unsupported(sql, summary, preparation, account.toString().takeUnless { StartRules.canStart(summary, preparation) }) } == true)
             return "automatumUnsupported"
         // I-D54: the play's state is the engine's, its decks parsed on the server. Switchreview #9 (I-D51/I-D52): the
-        // server's own parse decides too, whatever support was stored for the decks (none, an older deck revision, a
-        // pod's source): a card it can't read never starts a game as a dead card
+        // server's own parse decides too, whatever the marks say (a pod's source kept from before): a card it can't read
+        // never starts a game as a dead card
         val seats = change.state?.takeIf { StartRules.canStart(summary, it) }?.let { engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(it) }
         if (seats?.any { seat -> (seat.deck + seat.sideboard).any { it.definition == null } } == true) return "automatumUnsupported"
         change.state?.let { preparation ->
@@ -651,13 +654,32 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         return change.reason
     }
 
-    /** Whether a deck of [preparation] ([only]'s alone when given) is one Automatum can't play fully, by the stored support
-     * results (I-D52). */
+    /**
+     * Whether a deck of [preparation] ([only]'s alone when given) holds cards Automatum can't play fully (I-D52, LOB-118): a
+     * pod game's by its pod's source as kept with the pod; otherwise each prepared deck's cards, Side and Maybe included
+     * (LOB-141), by the card catalog's marks (LOB-124), a card without a printing counting as one. Without a catalog
+     * nothing is known, so it refuses.
+     */
     private fun unsupported(sql: DSLContext, summary: GameSummary, preparation: LobbyPreparation, only: String? = null): Boolean {
         summary.podId?.let { return PodService(runtime).unsupported(sql, UUID.fromString(it)) }
-        return preparation.players.filter { only == null || it.accountId == only }.any { player -> player.deck?.let { deck ->
-            DeckService(runtime).storedSupport(sql, UUID.fromString(player.accountId), deck.sourceId, deck.sourceRevision)?.supported == false
-        } == true }
+        val log = org.slf4j.LoggerFactory.getLogger(GameService::class.java)
+        val catalog = org.asyncttwiz.server.catalog.ServerCatalogs.current()
+        val definitions = preparation.definitions.associateBy({ it.digest }) { it.definition }
+        return preparation.players.filter { only == null || it.accountId == only }.any { player ->
+            val deck = player.deck ?: return@any false
+            if (catalog == null) {
+                log.warn("Automatum support unknown game={} account={} deck={}: no card catalog, so the deck is refused", summary.id,
+                    player.accountId, deck.sourceId)
+                return@any true
+            }
+            val support = catalog.support(deck.entries.map { entry ->
+                definitions[entry.definition].let { it?.printingId to (it?.name ?: entry.definition) } })
+            log.info("Automatum support game={} account={} deck={} revision={}: {} of {} distinct cards unsupported by catalog {}{}",
+                summary.id, player.accountId, deck.sourceId, deck.sourceRevision, support.byHand.size,
+                deck.entries.map { it.definition }.distinct().size, catalog.version.checksum,
+                if (support.supported) "" else ": " + support.byHand.take(20))
+            !support.supported
+        }
     }
 
     /** Recovery validates the newly implemented durable worker inputs, not forgotten client queues. */

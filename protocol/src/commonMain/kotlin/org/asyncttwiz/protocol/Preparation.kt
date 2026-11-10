@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class PreparedDeck(val id: String, val sourceId: String, val sourceRevision: String,
     val name: String, val cover: String?, val selectionRequestId: String, val entries: List<PreparedEntry>,
     val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0",
-    /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards their device
-     * sent with Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
+    /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards the server
+     * brought with their Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val outside: List<String> = emptyList()) {
     fun count(section: SavedDeckSection) = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     fun card(entry: PreparedEntry, offset: Int): PreparedCard {
@@ -136,27 +136,24 @@ object PreparationRules {
         if (game.podId != null || current.podRules != null) return reject("podDeckFixed")
         if (source == null || source.deck.id != action.deckId) return reject("sourceUnavailable")
         if (source.deck.revision != action.sourceRevision) return reject("sourceChanged")
-        if (!DeckValidation.create(CreateDeck(requestId, source.deck.name, source.entries))) return reject("invalidSource")
+        if (!DeckValidation.text(source.deck.name) || source.deck.name.isBlank() || !DeckValidation.entries(source.entries))
+            return reject("invalidSource")
         // LOB-141: Maybe comes along too (outside the game with Side), after Main and Side.
         val prepared = source.entries.filter { it.section in SavedDeckSection.PREPARED } +
             source.entries.filter { it.section !in SavedDeckSection.PREPARED }
-        val needed = prepared.map { it.definition }.toSet()
-        val attached = definitions.associateBy { it.digest }
-        if (attached.size != definitions.size || needed.any { digest -> attached[digest]?.let {
-                DeckValidation.definition(it.definition) && DeckJson.digest(it.definition) == digest
-            } != true }) return reject("definitionsUnavailable")
-        // New games use physical sides even when a saved catalog snapshot predates normalization.
-        val physical = needed.associateWith { digest ->
-            val definition = PhysicalCardFaces.normalize(attached.getValue(digest).definition)
-            SubmittedDefinition(DeckJson.digest(definition), definition)
-        }
+        // [definitions]: the deck's cards built from the card catalog by their printings (owner 2026-11-10), each the
+        // physical card its front face's printing is a face of; a card without a printing has none (LOB-115)
+        val cards = definitions.filter { DeckValidation.definition(it.definition) && DeckJson.digest(it.definition) == it.digest }
+            .associateBy { it.definition.printingId }
+        if (prepared.any { entry -> entry.printingId == null || entry.printingId !in cards }) return reject("definitionsUnavailable")
         var index = 0L
         val entries = prepared.map { entry ->
-            PreparedEntry(physical.getValue(entry.definition).digest, entry.section, index.toString(), entry.quantity).also { index += entry.quantity }
+            PreparedEntry(cards.getValue(entry.printingId).digest, entry.section, index.toString(), entry.quantity).also { index += entry.quantity }
         }
+        val used = prepared.map { cards.getValue(it.printingId) }
         val deck = PreparedDeck(CommandIds.output(requestId, "prepared-deck", 0), source.deck.id,
-            source.deck.revision, source.deck.name, source.deck.cover?.definition?.let { physical[it]?.digest }, requestId, entries)
-        val retained = (current.definitions + physical.values).associateBy { it.digest }
+            source.deck.revision, source.deck.name, source.deck.cover?.definition?.let { cards[it]?.digest }, requestId, entries)
+        val retained = (current.definitions + used).associateBy { it.digest }
         return PreparationChange(current.copy(players = current.players.map {
             if (it.accountId == actor) it.copy(ready = false, deck = deck) else it
         }, definitions = retained.values.sortedBy { it.digest }))

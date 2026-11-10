@@ -177,6 +177,29 @@ class HobChunk09WhiteTest {
                 slot("creatures", and(creature, ObjectFilter.OwnedBy(PlayerFilter.You)), min = 0, max = null).copy(onlyIf = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self)))),
     )
 
+    /** The same wording creating two tokens for each creature returned: twice as many (a misread found by swapping wordings: the
+     * number was dropped). */
+    // CR 603.7, 111.1
+    @Test
+    fun theHawksAreHereTwice() = card(
+        name = "The Hawks Are Here Twice!",
+        cost = "{1}{W}",
+        type = "Instant",
+        text = """
+            Kicker {2}{W}{W} (You may pay an additional {2}{W}{W} as you cast this spell.)
+            Choose target creature you own. If this spell was kicked, instead choose any number of target creatures you own. Return each chosen creature to your hand. At the beginning of the next upkeep, create two 1/1 white Bird creature tokens with flying for each creature returned to your hand this way.
+        """,
+    ) parsesTo abilities(
+        Keyword.Kicker(listOf(manaCost("{2}{W}{W}"))),
+        spell(
+            Step.Do(Effect.Move(Objects.Union(listOf(target("creature"), target("creatures"))), Destination(Zone.Hand), postBind = "returned")),
+            Step.Do(Effect.CreateDelayedTrigger(stepBegins(TurnStep.Upkeep, PlayerFilter.Any), Instructions(steps = listOf(
+                create(creatureToken("Bird", listOf(Color.White), 1, 1, abilities = listOf(Keyword.Flying)), Value.Times(Value.Count(Objects.Bound("returned")), 2)))))),
+            targets = listOf(
+                slot("creature", and(creature, ObjectFilter.OwnedBy(PlayerFilter.You))).copy(onlyIf = Condition.Not(Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self))),
+                slot("creatures", and(creature, ObjectFilter.OwnedBy(PlayerFilter.You)), min = 0, max = null).copy(onlyIf = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self)))),
+    )
+
     // CR 603.4: "if you've drawn two or more cards this turn"
     @Test
     fun mereTownTinker() = card(

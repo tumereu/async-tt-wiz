@@ -10,11 +10,10 @@ data class GameNameDraft(val recipient: AccountIdentity, val name: String)
 
 /** LobbyController's invitations: naming and creating a new game with a contact, challenging from a
  * pod, and answering or repeating an invitation. Main thread; requests run on [worker]. */
-internal class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies, private val deckApi: Decks?,
+internal class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
     private val credential: () -> String?, private val accountId: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
-    private val session: GameSession?, private val queue: LobbyActionQueue, private val suggest: () -> String,
-    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)?) {
+    private val session: GameSession?, private val queue: LobbyActionQueue, private val suggest: () -> String) {
     private var state: LobbyState
         get() = scope.state
         set(value) { scope.state = value }
@@ -22,7 +21,7 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
     private val epoch get() = scope.epoch
     private val latest get() = scope.latest
     private var pendingCreate: CreateInvitation? = null
-    private data class PodChallenge(val podId: String, val input: ChallengeFromPod, val submission: SubmitDefinitions)
+    private data class PodChallenge(val podId: String, val input: ChallengeFromPod)
     private var pendingChallenge: PodChallenge? = null
     private var pendingRecipient: AccountIdentity? = null
     fun clear() { pendingCreate = null; pendingChallenge = null; pendingRecipient = null }
@@ -78,12 +77,11 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
         val request = pendingChallenge ?: return
         challengeFromPod(request.podId, request.input.opponentId, request.input.gameName)
     }
-    /** Pod UI supplies a suggested name; retries retain the original name and request identities. */
+    /** Pod UI supplies a suggested name; retries retain the original name and request identity. The server supplies the
+     * basic lands (LOB-052): one request. */
     fun challengeFromPod(podId: String, opponentId: String, gameName: String) {
         if (closed || state.mutating) return
         val token = credential() ?: return
-        val decks = deckApi ?: return
-        val resolve = basicLandDefinitions ?: return
         val previous = pendingChallenge
         if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId)) {
             state = state.copy(error = "Retry the original pod challenge before creating another."); return
@@ -95,19 +93,16 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
             if (generation != epoch) return@execute
             var captured = previous
             val result = runCatching { runBlocking {
-                val request = captured ?: resolve().let { definitions ->
-                    PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName, definitions),
-                        SubmitDefinitions(UUID.randomUUID().toString(), definitions))
-                }.also { captured = it }
-                serviceRetry(current = { generation == epoch }) { decks.submit(token, request.submission) }
+                val request = captured ?: PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName))
+                    .also { captured = it }
                 serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }
             } }
             post { if (!closed && generation == epoch) {
                 val game = result.getOrNull()
                 val failure = result.exceptionOrNull()
-                val code = when (failure) { is LobbyFailure -> failure.code; is DeckFailure -> failure.code; else -> null }
+                val code = (failure as? LobbyFailure)?.code
                 val terminal = code in listOf("not_found", "opponent_not_member", "invalid_opponent",
-                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_basic_definitions", "invalid_deck", "invalid_definition")
+                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_deck")
                 pendingChallenge = if (game != null || terminal) null else captured
                 state = state.copy(mutating = false, error = failure?.let(::lobbyError),
                     retryPodChallengeName = pendingChallenge?.input?.gameName)

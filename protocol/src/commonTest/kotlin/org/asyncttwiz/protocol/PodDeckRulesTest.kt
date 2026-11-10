@@ -16,16 +16,26 @@ class PodDeckRulesTest {
     private fun card(name: String, cost: String = "", type: String = "Creature") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
 
-    // DRF-099
+    // DRF-099 (owner, 2026-11-09): right one section up, left one down, in the order Main, Side, Maybe, wrapping
     @Test fun swipeTable() {
         val table = listOf(
-            Triple(PodDeckCategory.MAIN, PodDeckCategory.SIDE, PodDeckCategory.MAYBE),
+            Triple(PodDeckCategory.MAIN, PodDeckCategory.MAYBE, PodDeckCategory.SIDE),
             Triple(PodDeckCategory.SIDE, PodDeckCategory.MAIN, PodDeckCategory.MAYBE),
-            Triple(PodDeckCategory.MAYBE, PodDeckCategory.MAIN, PodDeckCategory.SIDE),
+            Triple(PodDeckCategory.MAYBE, PodDeckCategory.SIDE, PodDeckCategory.MAIN),
         )
         for ((source, right, left) in table) {
             assertEquals(right, PodDeckRules.swipe(source, PodDeckSwipe.RIGHT))
             assertEquals(left, PodDeckRules.swipe(source, PodDeckSwipe.LEFT))
+        }
+    }
+
+    // LOB-048, LOB-105, DRF-141 (owner, 2026-11-09): the same rule with two sections: either way goes to the other
+    @Test fun twoSectionsSwipeEitherWayToTheOther() {
+        for (right in listOf(true, false)) {
+            assertEquals(SavedDeckSection.SIDEBOARD, SectionSwipe.target(SavedDeckSection.PREPARED, SavedDeckSection.MAINBOARD, right))
+            assertEquals(SavedDeckSection.MAINBOARD, SectionSwipe.target(SavedDeckSection.PREPARED, SavedDeckSection.SIDEBOARD, right))
+            assertEquals(SavedDeckSection.MAYBEBOARD, SectionSwipe.target(SavedDeckSection.CUBE, SavedDeckSection.MAINBOARD, right))
+            assertEquals(SavedDeckSection.MAINBOARD, SectionSwipe.target(SavedDeckSection.CUBE, SavedDeckSection.MAYBEBOARD, right))
         }
     }
 

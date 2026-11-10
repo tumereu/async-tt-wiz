@@ -1,0 +1,1 @@
+fix: In the draft, a card you hold to look at stays open however you move your finger, until you lift it.

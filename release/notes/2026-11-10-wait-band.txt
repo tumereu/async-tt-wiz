@@ -1,0 +1,1 @@
+mod: The band under the other player's hand runs across the whole table and is easier to read: what they cast in bigger letters, what it does under it. When they are behind you, it says where they are, such as "Bob is at turn 5 · their combat".

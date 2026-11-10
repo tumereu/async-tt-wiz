@@ -1,0 +1,1 @@
+mod: The cards to choose a deck cover from are listed alphabetically.

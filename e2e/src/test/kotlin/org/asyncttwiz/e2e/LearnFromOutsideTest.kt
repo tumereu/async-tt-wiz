@@ -5,7 +5,6 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import arcanum.engine.decision.Decision
-import org.asyncttwiz.android.REVEAL_OK_TAG
 import org.asyncttwiz.protocol.PresenceState
 import org.asyncttwiz.protocol.SavedDeckSection
 import org.junit.Test
@@ -61,7 +60,7 @@ class LearnFromOutsideTest : E2e() {
         waitUntil("the reveal on Bob's phone") { bob.shown.reveal != null && bob.shows(hasContentDescription("Ember Treatise") and inReveal) }
         assertTrue(bob.showsText("${alice.name} revealed · Ember Study"), bob.screen())
         for (card in outside - "Ember Treatise") assertFalse(bob.shows(hasContentDescription(card)), "$card not on Bob's phone: ${bob.screen()}")
-        bob.tagged(REVEAL_OK_TAG).performClick()
+        bob.revealOk()
         waitUntil("the Treatise in Alice's hand, on the server", along = listOf(bob)) {
             alice.hand("Ember Treatise").size == 1 && alice.engine { device.session.pending.isEmpty() }
         }

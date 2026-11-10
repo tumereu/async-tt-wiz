@@ -6,6 +6,7 @@ DGM Dragon's Maze
 DSK Duskmourn: House of Horror
 ECL Lorwyn Eclipsed
 EOE Edge of Eternities
+FDN Foundations
 FIN Final Fantasy
 FRA Reality Fracture
 GTC Gatecrash

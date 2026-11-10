@@ -218,6 +218,15 @@ internal object Options {
     /** [Engine.anyReduction]. */
     fun anyReduction(state: GameState): Boolean = (state.pending?.continuation as? Continuation.Announcing)?.let { Plan(state, it).anyReduction } == true
 
+    /** [Engine.announcedMayPay]: the proof [announced] stops its tries at. */
+    fun announcedMayPay(state: GameState, value: Int): Boolean {
+        val pending = state.pending ?: return false
+        val d = pending.decision as? Decision.Announce ?: return false
+        val c = pending.continuation as? Continuation.Announcing ?: return false
+        val plan = Plan(state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to value))))
+        return manaFound(plan) || (plan.anyReduction && paysAtTheMostItCanFall(plan))
+    }
+
     /** [Engine.finishableWith]. */
     fun finishableWith(state: GameState, answer: Answer): Boolean {
         val pending = state.pending ?: return false
@@ -347,13 +356,14 @@ internal object Options {
     }
 
     /** [Engine.fillPayment]: see there. */
-    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> {
+    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
+        exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> {
         val pending = state.pending ?: return emptyList()
         val d = pending.decision as? Decision.ManaPayment ?: return emptyList()
         val c = pending.continuation as? Continuation.Announcing
-        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed)
+        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed, exact = exact)
         val plan = Plan(state, c)
-        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed)
+        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed, exact)
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {

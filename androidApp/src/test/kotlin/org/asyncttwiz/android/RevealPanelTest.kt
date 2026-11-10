@@ -118,6 +118,9 @@ class RevealPanelTest {
     private fun mainButton(): SemanticsNodeInteraction =
         compose.onNode(hasTestTag("main-button") or hasTestTag("engine-wait-action"))
 
+    /** HIS-110, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
+    private fun revealOk(): SemanticsNodeInteraction = compose.onNode(hasTestTag("main-button") and hasContentDescription("OK"))
+
     /** What holding the main button says, or null when it says none of [reasons]. */
     private fun holdingMainButtonSays(vararg reasons: String): String? {
         mainButton().performTouchInput { down(center) }
@@ -147,18 +150,18 @@ class RevealPanelTest {
         compose.onNode(hasContentDescription(name) and hasAnyAncestor(hasContentDescription("Reveal"))).assertExists()
         compose.onNodeWithTag(CHOICE_SOURCE_TAG).assertContentDescriptionEquals(EngineGameFixture.Choices.INSIGHT)
         captureShot("$SCREENSHOTS/engine/reveal-panel.png",
-            "Bob catching up on Alice's turn: her Ember Insight revealed her top card ($name), so his playback stopped right after it with the reveal panel above his hand, \"Alice revealed · Ember Insight\", the revealed card face up, the Insight at the right, the eye and OK; the table waits there until he taps OK.")
+            "Bob catching up on Alice's turn: her Ember Insight revealed her top card ($name), so his playback stopped right after it with the reveal panel above his hand, \"Alice revealed · Ember Insight\", the revealed card face up, the Insight at the right and the eye, with OK on his main button; the table waits there until he taps it.")
         repeat(3) { bob.step() }
         assertEquals(held, bob.device.session.localHead, "the table stays at the reveal")
-        compose.onNodeWithTag(REVEAL_OK_TAG).performClick()
+        revealOk().performClick()
         compose.runOnIdle { assertNull(bob.shown?.reveal) }
         while (bob.shown?.status is GameDevice.Status.Playing && guard++ < 400) bob.step()
         assertTrue(bob.device.session.localHead != held, "playback went on after OK: ${bob.shown?.status} behind=${bob.device.session.behind} buffered=${bob.device.session.buffered.size}")
     }
 
-    // HIS-110, TRN-063, STK-029 (owner, 2026-11-07): while the reveal panel is open the main button is greyed: a tap does
-    // nothing (it shakes) and holding it says why; after OK it acts again
-    @Test fun theMainButtonIsGreyedUntilOk() {
+    // HIS-110, TRN-063, STK-029 (owner playtest 2026-11-09): while the reveal panel is open the main button is its OK (Resolve
+    // waits); a tap on it dismisses the reveal, and the main button is Resolve again and acts
+    @Test fun theMainButtonIsTheRevealsOk() {
         // Bob starts (Control: he holds priority wherever he gets it) with free Ember Glints, Alice holds free Ember Foresights
         val g = EngineGameFixture(startingPlayer = f.b, aliceCards = listOf(EngineGameFixture.Choices.FORESIGHT),
             bobCards = listOf(EngineGameFixture.Choices.GLINT))
@@ -193,28 +196,17 @@ class RevealPanelTest {
         // The hand card size at 2x for the shot: the revealed card drawn at it (owner, 2026-11-07)
         CardAppearancePreferences(ApplicationProvider.getApplicationContext()).apply { customizeAreas(true); setSize(2f, CardArea.HAND) }
         render(bob, g.b) { settle() }
-        compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
-        val version = bob.shown?.version
-        compose.onNodeWithTag("main-button").performClick()
-        compose.runOnIdle {
-            assertEquals(version, bob.shown?.version, "a tap moves nothing")
-            assertNotNull(bob.shown?.reveal, "the panel stays open")
-        }
-        compose.onNodeWithTag("main-button").performTouchInput { down(center) }
-        compose.mainClock.advanceTimeBy(1_000)
-        compose.waitForIdle()
-        compose.onNodeWithText(REVEAL_BUSY).assertExists()
+        revealOk().assertExists()
         captureShot("$SCREENSHOTS/engine/reveal-panel-greyed.png",
-            "Bob's turn: Alice answered his Ember Glint with her Ember Foresight, which revealed her top card; he let it resolve, so the reveal panel shows that card at his hand's card size (set to 2x) and his main button, Resolve, is greyed; held, it says to dismiss the reveal first.")
-        compose.onNodeWithTag("main-button").performTouchInput { up() }
-        compose.waitForIdle()
-        compose.onNodeWithTag(REVEAL_OK_TAG).performClick()
+            "Bob's turn: Alice answered his Ember Glint with her Ember Foresight, which revealed her top card; he let it resolve, so the reveal panel shows that card at his hand's card size (set to 2x) and his main button is the reveal's OK, Resolve waiting behind it.")
+        revealOk().performClick()
         compose.runOnIdle { assertNull(bob.shown?.reveal) }
         refresh()
-        compose.onNodeWithTag(REVEAL_OK_TAG).assertDoesNotExist()
-        compose.onNodeWithTag("main-button").assertExists()
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         assertEquals(null, holdingMainButtonSays(REVEAL_BUSY), "no longer greyed")
         val before = bob.shown?.version
+        // TRN-063: a tap right after the OK would be ignored as the second tap of a double tap
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(MainButtonGuard.MILLIS))
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(bob.shown?.version != before, "the main button acted after OK") }
     }
@@ -240,6 +232,43 @@ class RevealPanelTest {
         card.assertWidthIsEqualTo(42.dp).assertHeightIsEqualTo(60.dp)
     }
 
+    // HIS-114, HIS-110, STK-044 (owner playtest 2026-11-09): Alice casts a Hedge Study and then a Hedge Recall returning the
+    // Study from her graveyard to her hand; Bob's playback stops there with the reveal panel naming the move and showing only
+    // the Study, the Recall at its right, until his OK. Alice's own move opens nothing of hers
+    @Test fun theOtherPlayersCardLeavingTheirGraveyardForTheirHandShowsAsAReveal() {
+        val g = EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.STUDY, EngineGameFixture.Choices.RECALL))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.STUDY)))
+        alice.tick(3_000)
+        val study = alice.device.model.engine.player(PlayerId(g.a)).graveyard.single()
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.RECALL)))
+        alice.tick(4_000)
+        assertNull(alice.shown?.reveal, "her own move opens nothing of hers")
+        assertTrue(study.let { (it as arcanum.engine.state.ObjectId.Card).card } in alice.device.model.engine.player(PlayerId(g.a)).hand
+            .map { (it as arcanum.engine.state.ObjectId.Card).card }, "the Study back in her hand")
+        alice.endTurn()
+        alice.tick(5_000)
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        val panel = assertNotNull(bob.shown?.reveal, "stopped at her move")
+        assertEquals(GameDevice.LeftPile(arcanum.api.Zone.Graveyard, arcanum.api.Zone.Hand, PlayerId(g.a)), panel.left)
+        val held = bob.device.session.localHead
+        render(bob, g.b)
+        compose.onNodeWithText("Alice returned ${EngineGameFixture.Choices.STUDY} from their graveyard to their hand").assertExists()
+        compose.onNode(hasContentDescription(EngineGameFixture.Choices.STUDY) and hasAnyAncestor(hasContentDescription("Reveal"))).assertExists()
+        assertEquals(1, compose.onAllNodes(hasAnyAncestor(hasContentDescription("Reveal")) and hasContentDescription(EngineGameFixture.Choices.RECALL))
+            .fetchSemanticsNodes().size, "the Recall only as the source")
+        compose.onNodeWithTag(CHOICE_SOURCE_TAG).assertContentDescriptionEquals(EngineGameFixture.Choices.RECALL)
+        captureShot("$SCREENSHOTS/engine/reveal-panel-pile.png",
+            "Bob catching up on Alice's turn: her Hedge Recall returned her Hedge Study from her graveyard to her hand, so his playback stopped there with the reveal panel, \"Alice returned Hedge Study from their graveyard to their hand\", only the Study face up, the Recall at the right and OK on his main button.")
+        repeat(3) { bob.step() }
+        assertEquals(held, bob.device.session.localHead, "the table stays at the move")
+        revealOk().performClick()
+        compose.runOnIdle { assertNull(bob.shown?.reveal) }
+    }
+
     // HIS-110 (owner, 2026-11-09): Alice's own reveal of a card she couldn't see opens her own panel: "You revealed · <source>",
     // the card, OK; her table's actions wait for her OK, and it closes only for her
     @Test fun yourOwnRevealShowsYouThePanelWithItsOk() {
@@ -248,11 +277,11 @@ class RevealPanelTest {
         assertEquals(PlayerId(f.a), reveal.by)
         render(alice, f.a)
         compose.onNodeWithText("You revealed · ${EngineGameFixture.Choices.INSIGHT}").assertExists()
-        compose.onNodeWithTag(REVEAL_OK_TAG).assertExists()
+        revealOk().assertExists()
         captureShot("$SCREENSHOTS/engine/reveal-panel-own.png", "Alice cast her own Ember Insight: it revealed her top card, so the " +
-            "panel above her hand says \"You revealed\" with the card and the Insight, and her table waits for her own OK.")
-        compose.onNodeWithTag(REVEAL_OK_TAG).performClick()
+            "panel above her hand says \"You revealed\" with the card and the Insight, and her table waits for her own OK, her main button.")
+        revealOk().performClick()
         refresh()
-        compose.onNodeWithTag(REVEAL_OK_TAG).assertDoesNotExist()
+        revealOk().assertDoesNotExist()
     }
 }

@@ -841,6 +841,29 @@ class CastabilityTest {
         assertTrue(mountain in filled)
     }
 
+    // CR 106.1, 601.2g: a source pinned exactly pays with the colour chosen for it; the rest is filled around that colour, and
+    // nothing is found when the rest can't be paid with it
+    @Test fun aSourcePinnedExactlyKeepsItsColour() = scenario {
+        val dual = Cards.invent("Cast Glacier Ford", null, "Land", "{T}: Add {W} or {U}.")
+        alice.battlefield(dual)
+        alice.battlefield("Plains", "Island")
+        val both = Cards.invent("Cast White Blue", "{W}{U}", "Sorcery", "Draw a card.")
+        alice.hand(both)
+        perform(Input.Cast(alice.id, card(both)))
+        val payment = decision<Decision.ManaPayment>()
+        fun ford(color: Color) = payment.options.filterIsInstance<ManaUse.Ability>().first { it.source == card(dual) && it.color == color }
+        val island = payment.options.first { (it as? ManaUse.Ability)?.source == card("Island") }
+        val plains = payment.options.first { (it as? ManaUse.Ability)?.source == card("Plains") }
+        val blue = Engine.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.Blue)))
+        assertEquals(setOf(ford(Color.Blue), plains), blue.toSet())
+        val white = Engine.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.White)))
+        assertEquals(setOf(ford(Color.White), island), white.toSet())
+        assertTrue(Engine.fillPayment(state, emptyList(), listOf(island), exact = listOf(ford(Color.White))).isEmpty(),
+            "white from the ford leaves {U} unpaid without the Island")
+        // Pinned by its source only, the colour is free: the payment is found with the Island taken out
+        assertEquals(setOf(ford(Color.Blue), plains), Engine.fillPayment(state, listOf(ford(Color.White)), listOf(island)).toSet())
+    }
+
     @Test fun aSourceTakenOutIsNotUsedAgain() = scenario {
         alice.battlefield("Plains", "Plains", "Mountain")
         val two = Cards.invent("Cast Any Two", "{2}", "Sorcery", "Draw a card.")

@@ -1,0 +1,1 @@
+mod: Draft Stats: in the Type view each bar of the mana curve shows its creatures and noncreatures, such as "2 · 3".

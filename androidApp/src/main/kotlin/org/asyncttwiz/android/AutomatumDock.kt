@@ -190,12 +190,17 @@ internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
     DisposableEffect(slot) { onDispose { slot.buttons = null } }
 }
 
-/** A target bar's title ("Choose any target") over the sentence it asks about ([line], STK-047), in the bar's room. */
+/** A target bar's title ("Choose any target") over the sentence it asks about ([line], STK-047), in the bar's room; [count]: how
+ * many are picked of how many (owner playtest 2026-11-09), beside the title. */
 @Composable
-internal fun RowScope.TargetBarTitle(title: String, line: String?) {
+internal fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null) {
     Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Text(title, Modifier.semantics { heading() }, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CardText(title, Modifier.weight(1f, fill = false).semantics { heading() }, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
+                fontWeight = FontWeight.Medium), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (count != null) Text(count, Modifier.semantics { contentDescription = "Picked: $count" }, fontSize = 12.sp,
+                fontWeight = FontWeight.Medium, color = AutomatumViolet, maxLines = 1)
+        }
         if (line != null) TargetBarLine(line)
     }
 }

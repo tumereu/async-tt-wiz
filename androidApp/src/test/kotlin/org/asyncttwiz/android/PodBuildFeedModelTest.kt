@@ -34,11 +34,12 @@ class PodBuildFeedModelTest {
     // DRF-107, DRF-108: swipes move a copy as in the columns (DRF-099); Maybe has a review too
     @Test fun swipesFollowTheColumnsAndMaybeHasAFeed() {
         val main = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, null)!!
-        assertEquals(PodDeckCategory.SIDE to PodDeckCategory.MAYBE, main.right to main.left)
+        // SYS-083: right one section up, left one down, wrapping
+        assertEquals(PodDeckCategory.MAYBE to PodDeckCategory.SIDE, main.right to main.left)
         val side = podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null)!!
         assertEquals(PodDeckCategory.MAIN to PodDeckCategory.MAYBE, side.right to side.left)
         val maybe = assertNotNull(podBuildFeed(PodDeckCategory.MAYBE, buckets, labels, null))
-        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.SIDE, maybe.right to maybe.left)
+        assertEquals(PodDeckCategory.SIDE to PodDeckCategory.MAIN, maybe.right to maybe.left)
         assertEquals("Maybe · Lands", maybe.title)
     }
 
@@ -48,7 +49,8 @@ class PodBuildFeedModelTest {
         val done = feed.decide(null).decide(PodDeckCategory.SIDE).decide(PodDeckCategory.MAYBE)
         assertTrue(done.finished)
         assertNull(done.current)
-        assertEquals("Kept 1 · 1 to Side · 1 to Maybe", done.summary)
+        // The moves in the order of the review's buttons, right before left (DRF-099)
+        assertEquals("Kept 1 · 1 to Maybe · 1 to Side", done.summary)
         assertSame(done, done.decide(PodDeckCategory.SIDE))
         assertEquals("2 to Maybe", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!
             .decide(PodDeckCategory.MAYBE).decide(PodDeckCategory.MAYBE).summary)

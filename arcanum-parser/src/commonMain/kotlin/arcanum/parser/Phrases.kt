@@ -58,7 +58,20 @@ internal object Filters {
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
+        // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
+        Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
+            return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
+        }
+        // fdn chunk 11c: "red instant or sorcery spell": the colour describes both kinds (CR 202.2)
+        Fdn.COLOR_TYPE_OR_TYPE.matchEntire(phrase)?.let { m ->
+            return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} ${m.groupValues[2]}${m.groupValues[4]}") ?: return null,
+                noun("${m.groupValues[1]} ${m.groupValues[3]}${m.groupValues[4]}") ?: return null))
+        }
         gtcNoun(phrase)?.let { return it }
+        // fdn chunk 10a: "creatures you control of the chosen color" (the color chosen as this permanent entered, CR 105.1)
+        OF_CHOSEN_COLOR.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Remembered("color")))
+        }
         // blb chunk 12: "creatures you control of the chosen type" (the creature type chosen as this permanent entered)
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
@@ -163,7 +176,8 @@ internal object Filters {
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind, atLeast = 1))
         }
         // chunk 47: "creatures with decayed": a keyword ability (CR 702)
-        WITH_KEYWORD.matchEntire(phrase)?.let { m ->
+        // fdn chunk 22: not "an instant card or a card with flash": the alternative after " or a" has its own noun, the " or " split owns it
+        WITH_KEYWORD.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
         }
         // chunk 20: "artifact and/or enchantment" is either of them
@@ -232,7 +246,7 @@ internal object Filters {
         if (phrase.contains(" or ") && phrase.endsWith(" spell"))
             return all(noun(phrase.removeSuffix(" spell")) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 36: "creatures with flying or reach": keyword abilities as alternatives
-        WITH_KEYWORDS.matchEntire(phrase)?.let { m ->
+        WITH_KEYWORDS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val keywords = m.groupValues[2].split(LazyRegexes.OR_LIST).map { OracleParser.keyword(it) }
             if (keywords.all { it != null }) {
                 val has = keywords.map { ObjectFilter.HasKeyword(it!!.kind) }
@@ -313,7 +327,7 @@ internal object Filters {
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
     private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with power less than or equal to (.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
-    private val GTC_NAMED = Regex("""(creatures?|permanents?) named (.+?)( you control)?""")
+    private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
     /** "creature you control" → every such object; "card named [this card] in each graveyard". */
     fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = noun(phrase)?.let { Objects.Each(it) }
@@ -390,7 +404,8 @@ internal object Filters {
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
-    private val SPELLS_YOU_CAST = Regex("""(\w+) spells you cast""")
+    // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
+    private val SPELLS_YOU_CAST = Regex("""(\w+(?:(?:,| or|, or) \w+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
@@ -438,6 +453,7 @@ internal object Filters {
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
+    private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
@@ -458,6 +474,7 @@ internal object Filters {
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     // chunk 36
+    private val OR_AN_ALTERNATIVE = Regex(" or an? ")
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
@@ -620,6 +637,10 @@ internal object Events {
         }
         // chunk 12
         // "you cast a creature spell": the event's object is always a spell, so the filter names only its kind.
+        // fdn chunk 11c: "you cast a spell of the chosen color" (the color an as-enters choice remembered)
+        YOU_CAST_OF_CHOSEN.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(spell = Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You)
+        }
         YOU_CAST.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
@@ -706,6 +727,8 @@ internal object Events {
         // chunk 36: "the beginning of each end step": every player's
         BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         // blb chunk 05: "the beginning of each opponent's upkeep"
+        // fdn chunk 11c: "the beginning of each player's draw step" (every turn's step, CR 503.1)
+        BEGINNING_OF_EACH_PLAYERS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         BEGINNING_OF_EACH_OPPONENTS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Opponent) }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
@@ -740,6 +763,8 @@ internal object Events {
         }
         // gtc chunk 08: "enchanted land becomes tapped"; gtc chunk 10: "enchanted land is tapped for mana"
         GTC_BECOMES_TAPPED.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null) }
+        // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
+        Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
         // gtc chunk 07: "this creature deals combat damage" (to any player or permanent)
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
@@ -866,6 +891,7 @@ internal object Events {
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
     // chunk 12
+    private val YOU_CAST_OF_CHOSEN = Regex("""you cast an? (spell of the chosen \w+)""")
     private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")
     // chunk 25
     private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
@@ -913,6 +939,7 @@ internal object Events {
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
+    private val BEGINNING_OF_EACH_PLAYERS = Regex("""the beginning of each player's (upkeep|draw step|end step)""")
     private val BECOMES_LEVEL = Regex("""(.+) becomes level (\d+)""")
     private val ONE_OR_MORE_DIE = Regex("""one or more (.+) die""")
     // blb chunk 04
@@ -982,8 +1009,9 @@ internal object Conditions {
             return Condition.PlayerExists(PlayerFilter.Life(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())), atLeast = 1)
         }
         // dsk chunk 13: "Kaiden has one or more loyalty counters on him" (this object)
-        HAS_ONE_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1))
+        // fdn chunk 06: "this creature has three or more +1/+1 counters on it"
+        HAS_N_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[3]) ?: return null, atLeast = Numbers.count(m.groupValues[2]) ?: return null))
         }
         // dsk chunk 13: "you sacrificed one or more permanents this turn" (a sacrificed permanent is its controller's, CR 701.21a)
         if (text == "you sacrificed one or more permanents this turn")
@@ -998,7 +1026,7 @@ internal object Conditions {
             return Condition.Prime(Value.Count(Filters.objects(m.groupValues[1] + " you control") ?: return null))
         }
         // dsk chunk 11: "there are seven or more time counters on it" (this object), "the discarded card wasn't a land card"
-        COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.let { m ->
+        COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[3] == "it" || it.groupValues[3] in self }?.let { m -> // fdn chunk 01: "on this artifact"
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null))
         }
         THE_DISCARDED_CARD_WAS.matchEntire(text)?.let { m ->
@@ -1202,7 +1230,14 @@ internal object Conditions {
             return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
         // dsk chunk 08: "you have at least 7 life more than your starting life total" (CR 103.4)
         LIFE_MORE_THAN_STARTING.matchEntire(text)?.let { m ->
-            return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed(m.groupValues[1].toInt()))))
+            return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed((m.groupValues[1] + m.groupValues[2]).toInt()))))
+        }
+        // fdn chunk 05: "your life total is greater than your starting life total" (CR 103.4)
+        if (text == "your life total is greater than your starting life total")
+            return Condition.Compare(Value.LifeOf(Players.You), Comparison.Greater, Value.StartingLife(Players.You))
+        // fdn chunk 05: "any player controls a black permanent": the permanent of anyone (CR 110.1)
+        Fdn.ANY_PLAYER_CONTROLS.matchEntire(text)?.let { m ->
+            return Condition.Exists(Filters.noun(m.groupValues[1]) ?: return null, atLeast = 1)
         }
         // dsk chunk 06: "a permanent entered the battlefield face down under your control this turn", "you turned a permanent
         // face up this turn"
@@ -1236,11 +1271,11 @@ internal object Conditions {
     // dsk chunk 14
     private val A_PLAYER_HAS_LIFE_OR_LESS = Regex("""a player has (\d+) or less life""")
     // dsk chunk 13
-    private val HAS_ONE_OR_MORE_COUNTERS_ON = Regex("""(.+) has one or more (\S+) counters on (?:it|him|her)""")
+    private val HAS_N_OR_MORE_COUNTERS_ON = Regex("""(.+) has (\w+) or more (\S+) counters on (?:it|him|her)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
     private val YOU_CONTROL_PRIME_NUMBER_OF = Regex("""you control a prime number of (.+)""")
     // dsk chunk 11
-    private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on it""")
+    private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on (.+)""")
     private val THE_DISCARDED_CARD_WAS = Regex("""the discarded card (was|wasn't) an? (.+)""")
     // dsk chunk 10
     private val A_DIED_THIS_TURN = Regex("""an? ([\w-]+(?: [\w-]+)?) died this turn""")
@@ -1248,7 +1283,7 @@ internal object Conditions {
     // dsk chunk 09
     private val CAST_IT = Regex("""you cast it( from your hand| from your graveyard)?""")
     // dsk chunk 08
-    private val LIFE_MORE_THAN_STARTING = Regex("""you have at least (\d+) life more than your starting life total""")
+    private val LIFE_MORE_THAN_STARTING = Regex("""(?:you have at least (\d+) life more than|your life total is at least (\d+) greater than) your starting life total""")
     // dsk chunk 04
     private val CONTROL_A_PHRASE = Regex("""you (don't )?control (an?|another) (.+)""")
     private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")

@@ -236,7 +236,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
         compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: a dark band under his hand says Bob is deciding on a mulligan, in small words, nothing covers her hand, and the main button's place is empty (his keep is never assumed).")
+            "Alice kept while Bob is online: a dark band under his hand, edge to edge and fading out toward both sides, says Bob is deciding on a mulligan, nothing covers her hand, and the main button's place is empty (his keep is never assumed).")
     }
 
     // TRN-066 (owner, 2026-11-09): in landscape the band lies under the other player's hand as well, and takes no touch: a tap
@@ -250,7 +250,7 @@ class EngineTableScreenshotTest {
         val band = compose.onNodeWithTag("wait-band").assertExists()
         assertTrue(androidx.compose.ui.semantics.SemanticsActions.OnClick !in band.fetchSemanticsNode().config, "no touch taken")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-band-landscape.png",
-            "In landscape, Alice kept while Bob is online: the same dark band under his hand says Bob is deciding on a mulligan.")
+            "In landscape, Alice kept while Bob is online: the same dark band under his hand, running edge to edge and fading out toward both sides, says Bob is deciding on a mulligan.")
     }
 
     // HIS-033, HIS-094 (§29.1, owner 2026-11-05): coming back after the opening, Bob's playback of what Alice did starts
@@ -387,7 +387,7 @@ class EngineTableScreenshotTest {
         assertEquals(listOf(false, false), actions.map { it.enabled }, "Mulligan and Keep greyed")
         assertEquals(listOf("Put the card on the bottom first."), actions.mapNotNull { it.refused }.distinct())
         captureShot("$SCREENSHOTS/engine/opening-bottom.png",
-            "Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK.")
+            "Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK, the main button.")
         val card = (game.device.model.engine.player(PlayerId(f.a)).hand.first() as arcanum.engine.state.ObjectId.Card).card.value
         assertIs<GameDevice.Acted.Sent>(game.bottom(listOf(card)))
         game.tick(3_000)

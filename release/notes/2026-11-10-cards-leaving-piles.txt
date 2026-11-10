@@ -1,0 +1,1 @@
+add: When the other player returns a card from their graveyard or exile to their hand or library, your table shows that card in the reveal panel until you tap OK.

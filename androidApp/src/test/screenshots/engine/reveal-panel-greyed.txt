@@ -1,1 +1,1 @@
-Bob's turn: Alice answered his Ember Glint with her Ember Foresight, which revealed her top card; he let it resolve, so the reveal panel shows that card at his hand's card size (set to 2x) and his main button, Resolve, is greyed; held, it says to dismiss the reveal first.
+Bob's turn: Alice answered his Ember Glint with her Ember Foresight, which revealed her top card; he let it resolve, so the reveal panel shows that card at his hand's card size (set to 2x) and his main button is the reveal's OK, Resolve waiting behind it.

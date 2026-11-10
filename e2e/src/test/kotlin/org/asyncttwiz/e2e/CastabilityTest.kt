@@ -341,8 +341,9 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
-    // STK-059, STK-049, CR 605.3a, 118.12 (spec §4, §6.8): a payment during resolution takes every mana ability: Autotap's source taken out, the panel
-    // fills in an Ancient Tomb style one, whose extra mana floats; then the pool pays; then a Signet picked is fed by a Shard
+    // STK-059, STK-049, CR 605.3a, 118.12 (spec §4, §6.8): a payment during resolution takes every mana ability, picked on the table (owner
+    // playtest 2026-11-09): Autotap's source taken out, an Ancient Tomb style one fills in, whose extra mana floats; then the pool pays;
+    // then a Signet picked is fed by a Shard
     @Test fun aPaymentDuringResolutionTakesEveryManaAbility() {
         start(deck(TestCards.tollkeeper to 14, TestCards.tomb to 8, TestCards.signet to 8, TestCards.shard to 10),
             mapOf("Ember Tollkeeper" to 3, "Tomb Stone" to 1, "Ember Signet" to 1, "Ember Shard" to 1))
@@ -352,10 +353,10 @@ class CastabilityTest : E2e() {
         }
         alice.playFromHand("Ember Tollkeeper", this)
         tollAsked()
-        assertTrue(alice.shows(hasContentDescription("Mana source Ember Shard", substring = true) and hasContentDescription(", tapped", substring = true)), "Autotap's Shard: ${alice.screen()}")
-        alice.node(hasContentDescription("Mana source Ember Shard", substring = true)).performClick()
+        waitUntil("Autotap's Shard outlined on the table: ${alice.screen()}") { "source" in alice.marks("Ember Shard") }
+        alice.battlefieldCard("Ember Shard").performClick()
         waitUntil("the Shard out, the Tomb filled in: ${alice.screen()}") {
-            alice.shows(hasContentDescription("Mana source Tomb Stone", substring = true) and hasContentDescription(", tapped", substring = true))
+            "source" in alice.marks("Tomb Stone") && "source" !in alice.marks("Ember Shard")
         }
         alice.text("Pay").performClick()
         waitUntil("the Tomb paid, its other mana floats", along = listOf(bob)) {
@@ -369,10 +370,9 @@ class CastabilityTest : E2e() {
         assertEquals(0, alice.tappedCount("Ember Shard"), "the pool first")
         alice.playFromHand("Ember Tollkeeper", this)
         tollAsked()
-        alice.node(hasContentDescription("Mana source Ember Signet", substring = true)).performClick()
+        alice.battlefieldCard("Ember Signet").performClick()
         waitUntil("the Signet picked, the Shard feeding it: ${alice.screen()}") {
-            alice.shows(hasContentDescription("Mana source Ember Signet", substring = true) and hasContentDescription(", tapped", substring = true)) &&
-                alice.shows(hasContentDescription("Mana source Ember Shard", substring = true) and hasContentDescription(", tapped", substring = true))
+            "source" in alice.marks("Ember Signet") && "source" in alice.marks("Ember Shard")
         }
         alice.text("Pay").performClick()
         waitUntil("the chain paid, one mana left over", along = listOf(bob)) {

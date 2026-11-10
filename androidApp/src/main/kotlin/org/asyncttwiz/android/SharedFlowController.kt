@@ -17,6 +17,7 @@ import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.ManaPicks
+import org.asyncttwiz.automatum.ManaWays
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
@@ -64,9 +65,9 @@ internal class SharedFlowController(
     /** Targets picked so far for a slot that takes several. */
     var picked by mutableStateOf<List<TargetRef>>(emptyList()); private set
     override var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
-    /** STK-024: the sources the player picked in the open payment, and those they took out: Autotap fills in the rest. */
-    private var pins: List<ManaUse> = emptyList()
-    private var outs: List<ManaUse> = emptyList()
+    /** STK-024: the sources the player tapped in the open payment (with their ways), the ways chosen with a source's corner chip,
+     * and those they took out: Autotap fills in the rest. */
+    private var taps = ManaTaps()
     /** Automatum is working out the last answer (SYS-025): nothing else is taken meanwhile. */
     var busy by mutableStateOf(false); private set
     private var shownDecision: String? = null
@@ -95,7 +96,7 @@ internal class SharedFlowController(
             shownDecision = id
             picked = emptyList()
             hidden = false
-            pins = emptyList(); outs = emptyList()
+            taps = ManaTaps()
             // STK-049 (owner gallery review, 2026-11-06): with Autotap on a payment opens with its sources picked, off none
             mana = if (!autotap() || next == null) emptyList()
                 else ((next.decision as? Decision.ManaPayment) ?: next.payment)?.let { suggestion(next, it) }.orEmpty()
@@ -276,9 +277,12 @@ internal class SharedFlowController(
 
     fun confirmTargets(): Boolean {
         val pick = pick ?: return false
-        if (picked.size < pick.min) return false
+        if (!pickDone) return false
         return answer(pick.answer(picked))
     }
+
+    /** Done (or None) can be pressed: as many are picked as the open choice takes. */
+    val pickDone: Boolean get() = pick?.let { p -> picked.size >= p.min && p.max.let { it == null || picked.size <= it } } == true
 
     /** The table items that glow as legal picks of the open decision the viewer answers. */
     fun glow(play: TableBoard): Set<String> {
@@ -319,33 +323,96 @@ internal class SharedFlowController(
         paidFor?.takeIf { it.first === flow && it.second === mana }?.let { return it.third }
         return flow.pays(mana).also { paidFor = Triple(flow, mana, it) }
     }
-    /** The tapped sources are a set: their colours are worked out together ([ManaPicks], as in a cast), on [work]
-     * (SYS-025: up to a few dozen engine calls). */
+    /** The tapped sources are a set: their colours are worked out together ([ManaTaps], as in a cast), on [work]
+     * (SYS-025: up to a few dozen engine calls). A pool or life chip in the bar. */
     override fun toggleMana(group: List<ManaUse>) {
+        val key = ManaPicks.key(group.first())
+        tapWays(group, "chip ${ManaWays.label(group.first())}") { ManaPicks.key(it) == key }
+    }
+
+    /** STK-049 (owner playtest 2026-11-09): the open payment the viewer makes while something resolves, picked on the table: a
+     * [Decision.ManaPayment], or the payment after a "you may pay" ([payment]); null when none is open for them. */
+    val payment: Decision.ManaPayment? get() {
+        val decision = answering ?: return null
+        return decision as? Decision.ManaPayment ?: view?.takeIf { decision is Decision.May }?.payment
+    }
+
+    /** STK-049 (owner playtest 2026-11-09): the open payment is made on the table: its sources are tapped there, the panel is a slim
+     * bar and Pay is the main button; on the board the viewer acts on ([flowOn]). */
+    val paying: Boolean get() = payment != null && current()?.let(::flowOn) != null
+
+    /** STK-024: the table card [use] is tapped on: a battlefield source's mana ability or a way to pay with it alone; null for pool
+     * mana, life and a source used with other objects (chips in the bar). */
+    fun tableSource(use: ManaUse): String? {
+        val flow = view ?: return null
+        return when (use) {
+            is ManaUse.Ability -> if (use.answers.any { it is Answer.Objects }) null
+                else flow.atwCard(use.source).takeIf { flow.state.obj(use.source)?.zone == arcanum.api.Zone.Battlefield }
+            is ManaUse.Special -> use.objects.singleOrNull()?.let(flow::atwCard)
+            else -> null
+        }
+    }
+
+    /** STK-024: the ways the table card [cardId] can pay the open payment, in the engine's order. */
+    fun waysOf(cardId: String): List<ManaUse> = payment?.options.orEmpty().filter { tableSource(it) == cardId }
+
+    /** STK-024: the way the table card [cardId] pays the open payment now, null when it doesn't. */
+    fun paidWith(cardId: String): ManaUse? = if (!paying) null else mana.firstOrNull { tableSource(it) == cardId }
+
+    /** STK-049: the table cards paying the open payment (outlined in amber, in a pile of their own). */
+    fun paySources(): Set<String> = if (!paying) emptySet() else mana.mapNotNull(::tableSource).toSet()
+
+    /** STK-049: the table cards a tap adds to the open payment (or takes out). */
+    fun payableSources(): Set<String> = if (!paying) emptySet() else payment?.options.orEmpty().mapNotNull(::tableSource).toSet()
+
+    /** STK-049 (owner playtest 2026-11-09): a tap on the battlefield card [cardId] while the viewer pays on the table: a source the
+     * payment can use is added (its sensible way, STK-024) or taken out; false when it isn't one. */
+    fun tapSource(cardId: String): Boolean {
+        if (!paying) return false
+        val ways = waysOf(cardId).ifEmpty { return false }
+        AppLog.info("decision", "Payment while resolving: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
+        val mine = ways.toSet()
+        tapWays(ways, "source $cardId") { it in mine }
+        return true
+    }
+
+    /** STK-024 (owner playtest 2026-11-09): [way] chosen with the corner chip of the table card [cardId]: kept exactly. */
+    fun chooseWay(cardId: String, way: ManaUse) {
         val flow = view ?: return
-        val decision = flow.decision as? Decision.ManaPayment ?: flow.payment ?: return
+        val decision = payment ?: return
+        if (busy || !paying) return
+        val mine = waysOf(cardId).toSet()
+        val before = taps
+        val autotapOn = autotap()
+        run(flow, mana, { ManaTaps.choose(before, decision, way, { it in mine }, autotapOn, engineOf(flow)) }, "$cardId's corner chip")
+    }
+
+    private fun engineOf(flow: SharedFlow) = ManaTaps.Engine({ pinned, removed, exact -> flow.fill(pinned, removed, exact) }, flow::pays)
+
+    private fun tapWays(ways: List<ManaUse>, what: String, belongs: (ManaUse) -> Boolean) {
+        val flow = view ?: return
+        val decision = payment ?: return
         if (busy) return
         val current = mana
+        val before = taps
         val autotapOn = autotap()
-        val key = ManaPicks.key(group.first())
-        val taken = current.any { it in group }
-        pins = if (taken) pins.filterNot { ManaPicks.key(it) == key } else pins + group.first()
-        outs = if (taken) outs + group.first() else outs.filterNot { ManaPicks.key(it) == key }
-        val pinned = pins
-        val removed = outs
+        run(flow, current, {
+            ManaTaps.tap(before, decision, current, ways, belongs, autotapOn, ManaWays.care(flow.state, decision.source), engineOf(flow))
+        }, what)
+    }
+
+    /** Works [outcome] out on [work] and applies it while the same flow and payment are shown. */
+    private fun run(flow: SharedFlow, current: List<ManaUse>, outcome: () -> ManaTaps.Outcome, what: String) {
         busy = true
         work.run({
-            runCatching {
-                // STK-024 (owner 2026-11-08): a pick stays and Autotap fills in the rest; with Autotap off, only the picks
-                val uses = if (autotapOn) flow.fill(pinned, removed).ifEmpty { ManaPicks.carry(decision, pinned, flow::pays) }
-                    else ManaPicks.toggle(decision, current, group, flow::pays, flow::fill)
-                uses to flow.pays(uses)
-            }
+            runCatching { outcome().let { it to flow.pays(it.mana) } }
                 .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${it::class.java.simpleName}") }.getOrNull()
         }) { result ->
             busy = false
-            val (uses, pays) = result ?: return@run
-            if (view === flow && mana === current) { mana = uses; paidFor = Triple(flow, uses, pays) }
+            val (done, pays) = result ?: return@run
+            AppLog.info("decision", "Payment while resolving: $what, ${done.said}; paying now ${done.mana.joinToString { ManaWays.label(it) }}" +
+                (if (pays) ", paid" else ", not paid yet"))
+            if (view === flow && mana === current) { mana = done.mana; taps = done.taps; paidFor = Triple(flow, done.mana, pays) }
         }
     }
 

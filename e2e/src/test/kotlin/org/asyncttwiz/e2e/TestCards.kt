@@ -217,6 +217,17 @@ object TestCards {
     /** A free permanent, so what it mills is all that is in the graveyard. */
     val sifter = card("Ember Sifter", "Artifact", "{0}", "When this artifact enters, mill two cards.")
 
+    /** A free source of two colours (STK-024: its ways to pay). */
+    val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
+    /** A free Vehicle with crew 2 (CR 702.122a). */
+    val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
+
+    /** HIS-114: a free permanent that puts itself into its graveyard, and free spells moving a card out of it: to the hand
+     * (a hidden zone) and to the battlefield. */
+    val trinket = card("Ember Trinket", "Artifact", "{0}", "Sacrifice this artifact: Draw a card.")
+    val recall = card("Ember Recall", "Sorcery", "{0}", "Return target card from your graveyard to your hand.")
+    val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
+
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag: SubmittedDefinition = run {
         val ids = listOf("Ember Path", "Ember Crag").map { UUID.nameUUIDFromBytes("e2e/$it".encodeToByteArray()).toString() }

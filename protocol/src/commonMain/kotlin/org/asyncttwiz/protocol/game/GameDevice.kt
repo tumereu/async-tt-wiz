@@ -484,6 +484,34 @@ class GameDevice(
         return Indicator(after.count { it.assumed?.assumedBy == me }, after.size - first - 1)
     }
 
+    /** Where the other player is ([OpponentAt.turn], [OpponentAt.step], whose turn it is) when they are behind this player. */
+    data class OpponentAt(val turn: Int, val step: arcanum.api.TurnStep, val active: PlayerId)
+
+    private var opponentAtKey: Pair<String, String>? = null
+    private var opponentAtCached: OpponentAt? = null
+
+    /**
+     * TRN-066 (owner, 2026-11-09): where the other player is when they are behind this player, who went ahead on assumptions
+     * about them not yet confirmed: the board at their local head as the server last said; null when they aren't behind
+     * (or their head isn't on this line, or too far back to reach exactly). Worked out once per pair of heads.
+     */
+    fun opponentAt(): OpponentAt? {
+        val head = heads[opponent] ?: return null
+        if (indicator() == null) return null
+        val at = session.indexOf(head) ?: return null
+        val local = session.indexOf(session.localHead) ?: return null
+        if (at >= local) return null
+        val key = head to session.localHead
+        if (key != opponentAtKey) {
+            opponentAtKey = key
+            // Still in the opening (before turn 1: "turn 0") says nothing of where they are
+            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn?.takeIf { it.number >= 1 }
+                ?.let { OpponentAt(it.number, it.step, it.active) }
+            remember("the other player behind, at ${head.take(8)}: $opponentAtCached")
+        }
+        return opponentAtCached
+    }
+
     /** Whether [event], an assumed input, is confirmed: the other player's local head is past it (§2). */
     fun confirmed(event: GameEvent): Boolean {
         val about = event.assumed?.let { Acceptance.assumedAbout(it, event, players) } ?: return true
@@ -633,7 +661,16 @@ class GameDevice(
      * waits, and the device still makes its own steps at the head.
      */
     data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
-        val source: arcanum.engine.state.CardId?, val sourceName: String?)
+        val source: arcanum.engine.state.CardId?, val sourceName: String?,
+        /** HIS-114: not a reveal but [cards] leaving a public pile for a hidden zone, moved by [by]; null for a reveal. */
+        val left: LeftPile? = null)
+
+    /**
+     * HIS-114 (owner playtest 2026-11-09): cards that left [owner]'s public pile [from] (a graveyard, or exile face up) for
+     * [to], a hidden zone (a hand, a library), shown to the other player as a reveal is ([Reveal.left]): only the cards
+     * that left the pile, nothing else of the zone they went to.
+     */
+    data class LeftPile(val from: arcanum.api.Zone, val to: arcanum.api.Zone, val owner: PlayerId)
 
     /** HIS-110: the reveal panel open now (the oldest not dismissed), or null. */
     val reveal: Reveal? get() { syncReveals(); return revealsOpen.firstOrNull() }
@@ -735,7 +772,13 @@ class GameDevice(
         }
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
-            for (r in revealsIn(e)) if (r.by != me || ownRevealNews(line, e, r)) {
+            for (r in revealsIn(e)) if (r.left != null) {
+                // HIS-114: the other player's move out of a public pile into a zone hidden from this player
+                val what = "${r.by.value.take(8)} moved ${r.cards.map { it.value }} from ${r.left.owner.value.take(8)}'s ${r.left.from} to ${r.left.to} by ${r.sourceName} in ${e.id}"
+                if (r.by == me) remember("own pile move, nothing shown: $what")
+                else if (r.left.to == arcanum.api.Zone.Hand && r.left.owner == me) remember("pile move into this player's own hand, nothing shown: $what")
+                else { revealsOpen += r; remember("pile move open (left a public pile for a hidden zone): $what") }
+            } else if (r.by != me || ownRevealNews(line, e, r)) {
                 revealsOpen += r
                 remember("reveal open: ${r.by.value.take(8)} revealed ${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
             } else remember("own reveal in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
@@ -2549,21 +2592,57 @@ class GameDevice(
         /**
          * HIS-110: the reveals in [event] ([arcanum.engine.change.GameEvent.Revealed]: shown to every player, CR 701.20), one
          * per reveal in order, with what made each: the source the change carries (a spell's or ability's instructions), else
-         * the card cast or the ability's source of the step's input (a cost).
+         * the card cast or the ability's source of the step's input (a cost). HIS-114: with them, in the same order, the
+         * cards that left a public pile for a hidden zone ([leftPiles]), whoever moved them (the caller tells them apart).
          */
         fun revealsIn(event: GameEvent): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
-            step.changes.mapNotNull { change ->
-                val happened = change as? arcanum.engine.change.Change.Happened ?: return@mapNotNull null
-                val revealed = happened.event as? arcanum.engine.change.GameEvent.Revealed ?: return@mapNotNull null
-                val cards = revealed.ids.mapNotNull { (it as? ObjectId.Card)?.card }.distinct()
-                if (cards.isEmpty()) return@mapNotNull null
-                val by = happened.by?.source ?: when (val input = step.input) {
-                    is Input.Cast -> input.card
-                    is Input.Activate -> input.source
-                    else -> null
-                }
-                Reveal(event.id, revealed.player, cards, (by as? ObjectId.Card)?.card, happened.by?.name)
+            step.changes.flatMap { change ->
+                if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change)
+                else listOfNotNull(revealOf(event, step, change))
             }
+        }
+
+        /** HIS-110: the reveal [change] of [step] in [event] is, or null. */
+        private fun revealOf(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change): Reveal? {
+            val happened = change as? arcanum.engine.change.Change.Happened ?: return null
+            val revealed = happened.event as? arcanum.engine.change.GameEvent.Revealed ?: return null
+            val cards = revealed.ids.mapNotNull { (it as? ObjectId.Card)?.card }.distinct()
+            if (cards.isEmpty()) return null
+            return Reveal(event.id, revealed.player, cards, sourceOf(step, happened.by), happened.by?.name)
+        }
+
+        /** What made a change of [step] that says [by]: its source card, else the card cast or the ability's source of the
+         * step's input (a cost); null when none is a card. */
+        private fun sourceOf(step: EngineStep, by: arcanum.engine.change.CausedBy?): arcanum.engine.state.CardId? {
+            val source = by?.source ?: when (val input = step.input) {
+                is Input.Cast -> input.card
+                is Input.Activate -> input.source
+                else -> null
+            }
+            return (source as? ObjectId.Card)?.card
+        }
+
+        /**
+         * HIS-114 (owner playtest 2026-11-09): the cards [change] of [step] in [event] moved out of a public pile (a graveyard,
+         * or exile face up) into a hidden zone (a hand, a library), one [Reveal] per player who moved them, pile and zone,
+         * with [Reveal.left]. Who moved them: the controller of what made the move, else the player of the step's input
+         * (a cost), else the card's owner. Tokens are left out (they cease to exist there).
+         */
+        private fun leftPiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange): List<Reveal> {
+            val inputPlayer = when (val input = step.input) {
+                is Input.Cast -> input.player
+                is Input.Activate -> input.player
+                else -> null
+            }
+            return change.moves.filter { m ->
+                (m.from == arcanum.api.Zone.Graveyard || m.from == arcanum.api.Zone.Exile) && !m.before.faceDown && !m.before.token &&
+                    (m.to == arcanum.api.Zone.Hand || m.to == arcanum.api.Zone.Library)
+            }.groupBy { m -> Triple(change.by?.controller ?: inputPlayer ?: m.before.owner, m.from to m.to, m.after.owner) }
+                .map { (key, moves) ->
+                    val (mover, zones, owner) = key
+                    Reveal(event.id, mover, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name,
+                        LeftPile(zones.first, zones.second, owner))
+                }
         }
 
         /**

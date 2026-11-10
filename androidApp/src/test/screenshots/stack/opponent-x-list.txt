@@ -1,0 +1,1 @@
+Alice tapped the Stack holding Bob's Ember Burst: its row shows "Ember Burst deals 1 damage to you." with X filled in and "X = 1" under it.

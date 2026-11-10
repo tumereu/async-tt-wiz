@@ -579,12 +579,21 @@ internal object Payment {
                 activations = Legality.counted(source.facts.activations, Legality.alternativeKey(origin), recorder.state.turn.number))))
         }
         // CR 106.6a: mana that gives the spell something
-        spent.filter { it.spellGets.isNotEmpty() }.forEachIndexed { i, unit ->
+        spent.filter { it.spellGets.isNotEmpty() }
+            .filter { unit -> unit.spellGetsIf?.let { recorder.snapshot().evaluator(plan.player, self = unit.source).matches(it, id) } ?: true }
+            .forEachIndexed { i, unit ->
             recorder.record(Changes.effect(recorder.state) { t ->
-                EffectObject(EffectId("mana:$id:$i"), unit.spellGets, affects = null, locked = listOf(id), source = unit.source,
-                    controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely)
+                // the permanent a creature spell becomes keeps what the mana gave it (CR 106.6a, "it gains haste")
+                EffectObject(EffectId("mana:$id:$i"), unit.spellGets, affects = null, locked = listOfNotNull(id, (id as? ObjectId.Card)?.next()), source = unit.source,
+                    controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = unit.spellGetsUntil ?: Duration.Indefinitely)
             })
         }
+        // CR 106.6, 603.7a: mana that creates a delayed trigger "when that mana is spent": one trigger for each such mana, with the
+        // spell as its event object (an ability on the Stack above the spell, CR 603.3)
+        spent.filter { it.whenSpent != null }.map { unit ->
+            arcanum.engine.decision.WaitingTrigger(plan.player, Ability.Triggered(arcanum.api.Trigger.On(emptyList()), unit.whenSpent!!), null, unit.source,
+                event = arcanum.engine.state.TriggerEvent(objects = listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id)))))
+        }.let { arcanum.engine.trigger.Triggers.addWaiting(recorder, it) }
         // CR 608.2g: no player receives priority after a spell cast while another resolves
         if (!plan.byEffect) Casting.keepPriority(recorder, plan.player)
         return Progress.Done

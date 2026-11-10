@@ -486,16 +486,10 @@ class SpmChunk12MulticoloredTest {
         ),
         triggered(
             on(EventPattern.ZoneChange(objects = ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
-            Step.Pay(
-                steps = listOf(
-                    doing(Effect.Move(objects = Objects.EventObject(EventRole.After), to = Destination(zone = Zone.Library, libraryPosition = -1))),
-                ),
-                payer = Players.You,
-                mandatory = true,
-                bind = "paid",
-            ),
+            // CR 608.2c: "if you do" holds only when the card was put on the bottom (a mandatory Pay was always "paid")
+            doing(Effect.Move(objects = Objects.EventObject(EventRole.After), to = Destination(zone = Zone.Library, libraryPosition = -1), postBind = "bottomed")),
             Step.If(
-                condition = Condition.Did("paid"),
+                condition = Condition.NonEmpty("bottomed"),
                 then = listOf(doing(Effect.Move(objects = Objects.Remembered("exiled"), to = Destination(Zone.Hand)))),
             ),
         ),

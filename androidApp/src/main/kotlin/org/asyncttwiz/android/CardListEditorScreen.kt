@@ -186,7 +186,7 @@ private fun rememberCardDefinitions(editor: CardListEditor): (ResolvedDeckEntry)
     }
 }
 
-/** The list as pictures by section: swipe moves one copy to the next section, tap opens the card menu, hold previews. */
+/** The list as pictures by section: a swipe moves one copy to another section (LOB-105), tap opens the card menu, hold previews. */
 @Composable
 private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, lookupPending: Boolean, columns: PodBuildColumns,
     summary: Boolean, feedback: @Composable ColumnScope.() -> Unit) {
@@ -303,11 +303,12 @@ internal fun cardListSummary(kind: CardListKind, entries: List<ResolvedDeckEntry
     if (count == 0L && section != DeckSection.MAINBOARD) null else "$count ${section.saved().shortLabel().lowercase()}"
 }.joinToString(" · ")
 
-/** One editor tile: swipe moves one copy to the next section; tap opens +1, −1, Remove all, Move to…; hold inspects. */
+/** One editor tile: a swipe moves one copy to another section (right up, left down, LOB-105); tap opens +1, −1, Remove
+ * all, Move to…; hold inspects. */
 @Composable
 private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: String, section: DeckSection, menus: PodCardMenuOwner,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
-    val next = editor.kind.next(section)
+    val targets = listOf(false, true).associateWith { editor.kind.swipe(section, it) }
     val enabled = editor.editable
     val name = tile.name
     fun apply(change: (List<ResolvedDeckEntry>) -> List<ResolvedDeckEntry>): Boolean {
@@ -315,12 +316,14 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
         if (!editor.editable) return false
         editor.applyCards(change(entries), editor.listCatalog); return true
     }
-    fun moveOne() = apply { CardListEdits.move(it, tile.digest, section, next, 1) }
+    fun moveOne(target: DeckSection) = apply { CardListEdits.move(it, tile.digest, section, target, 1) }
     var choosing by remember(key) { mutableStateOf(false) }
     LaunchedEffect(menus.open == key) { if (menus.open != key) choosing = false }
-    SwipeDeckCard(tile, key, "editor-card-$key", section.saved().sectionLabel(), next.saved(), enabled, menus,
-        capture = { { moveOne() } }, onHold = onHold, onHoldScroll = onHoldScroll,
-        actions = listOf(CustomAccessibilityAction("Move one $name to ${next.saved().sectionLabel()}") { enabled && moveOne() })) { close ->
+    SwipeDeckCard(tile, key, "editor-card-$key", section.saved().sectionLabel(), { right -> targets.getValue(right).saved() }, enabled, menus,
+        capture = { right -> { moveOne(targets.getValue(right)) } }, onHold = onHold, onHoldScroll = onHoldScroll,
+        actions = targets.values.distinct().map { target ->
+            CustomAccessibilityAction("Move one $name to ${target.saved().sectionLabel()}") { enabled && moveOne(target) }
+        }) { close ->
         if (!choosing) {
             DropdownMenuItem(text = { Text("+1") }, leadingIcon = { Icon(screenIcon("add"), null) }, enabled = enabled, onClick = {
                 close()

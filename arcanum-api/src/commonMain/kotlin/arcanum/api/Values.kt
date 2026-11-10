@@ -18,7 +18,13 @@ sealed interface Value {
      * the spell's instructions, X is [Announced]. */
     @Serializable @SerialName("cast-x") data class CastX(val of: Objects) : Value
     /** Spells cast this turn before [of] (storm, CR 702.40a); spells cast in response to the storm trigger don't count. */
-    @Serializable @SerialName("spells-cast-before") data class SpellsCastBefore(val of: Objects) : Value
+    @Serializable @SerialName("spells-cast-before") data class SpellsCastBefore(
+        val of: Objects,
+        // fdn
+        /** Only spells matching this, as they were cast, and cast by a [caster] player ("each other instant and sorcery spell you've
+         * cast before it this turn"). */
+        val spells: ObjectFilter? = null, val caster: PlayerFilter? = null,
+    ) : Value
     /** How many modes were chosen for the spell or ability (escalate counts those beyond the first, CR 702.120a). */
     @Serializable @SerialName("modes-chosen") data object ModesChosen : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch

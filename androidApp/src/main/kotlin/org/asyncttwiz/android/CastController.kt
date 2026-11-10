@@ -17,6 +17,7 @@ import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CastFlow
 import org.asyncttwiz.automatum.HandCasts
 import org.asyncttwiz.automatum.ManaPicks
+import org.asyncttwiz.automatum.ManaWays
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executors
 
@@ -104,12 +105,11 @@ internal class CastController(
     /** The cast taken on to [payment] (its engine check of a payment). */
     private var ahead: CastFlow? = null
     /** Whether the player changed the payment by tapping sources: with Autotap on, what they picked stays and what they took
-     * out isn't used again while Autotap fills in the rest ([pins], [outs]); with it off, only what they picked pays. */
+     * out isn't used again while Autotap fills in the rest ([taps]); with it off, only what they picked pays. */
     var custom by mutableStateOf(false); private set
-    /** STK-024 (owner 2026-11-08): the sources the player picked in this cast. */
-    private var pins: List<ManaUse> = emptyList()
-    /** STK-024 (owner 2026-11-08): the sources the player took out in this cast. */
-    private var outs: List<ManaUse> = emptyList()
+    /** STK-024 (owner 2026-11-08, 2026-11-09): the sources the player tapped in this cast (with their ways), the ways chosen with a
+     * source's corner chip, and the sources taken out. */
+    private var taps = ManaTaps()
     /** ZON-080, ZON-082 (owner 2026-11-07): a hand card's cast panel's ways and extras (the way and extras chosen in it);
      * null for any other cast (a chip's, a card menu's). */
     var hand by mutableStateOf<org.asyncttwiz.automatum.HandCastOptions?>(null); private set
@@ -132,13 +132,16 @@ internal class CastController(
     /** STK-023 (owner playtest 2026-11-05 evening): the most each announced number of the open cast (an X, open or
      * answered) may be so that the cast can still be paid now, by decision ([HandCasts.mostAnnounced]: below its least
      * when even that can't be paid). */
-    private var announcedMost by mutableStateOf<Map<arcanum.engine.decision.DecisionId, Int>>(emptyMap())
+    private var announcedMost by mutableStateOf<Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable>>(emptyMap())
 
     override fun most(decision: Decision): Int? {
         val own = super.most(decision)
-        val payable = announcedMost[decision.id] ?: return own
+        val payable = announcedMost[decision.id]?.most ?: return own
         return own?.let { minOf(it, payable) } ?: payable
     }
+
+    /** STK-052: a value of an X known not to be payable (a gap a reduction leaves) greys Cast at the X step. */
+    override fun payable(decision: Decision, value: Int): Boolean = announcedMost[decision.id]?.unpayable?.contains(value) != true
 
     /** The text of the ability being activated (§3 I4), shown in the panel instead of the card's whole text; null for
      * a cast or land play. */
@@ -289,7 +292,7 @@ internal class CastController(
         val autotapOn = autotap
         val keep = mana
         val changed = custom
-        val picks = pins to outs
+        val picks = taps
         return step {
             val options = HandCasts.options(source(play), AutomatumBoards.definitions(play), viewer, f.cardId,
                 AutomatumBoards.handPlays(play, viewer).of(f.cardId), way, times, seeds()) ?: return@step Step.Refuse(NOT_ALLOWED)
@@ -392,41 +395,75 @@ internal class CastController(
         return answer(pick!!.answer(picked))
     }
 
-    /** STK-024 (owner 2026-11-08, partial override): adds a mana source to the cast's payment or takes it out (a tap on the table,
-     * or on a pool or life chip in the panel). With Autotap on, a source you pick stays and Autotap fills in the rest; one you
+    /** STK-024 (owner 2026-11-08, partial override): adds a mana source to the cast's payment or takes it out (a pool or life chip in
+     * the panel, or a source used with other objects). With Autotap on, a source you pick stays and Autotap fills in the rest; one you
      * take out isn't used again in this cast. With it off, only your picks pay. The tapped sources are a set: their colours are
-     * worked out together so they pay whenever they can, whatever order they were tapped in ([ManaPicks]). */
+     * worked out together so they pay whenever they can, whatever order they were tapped in ([ManaTaps]). */
     override fun toggleMana(group: List<ManaUse>) {
+        val key = ManaPicks.key(group.first())
+        tapWays(group.filter { it in (payment?.options ?: group) }.ifEmpty { group }, "chip ${ManaWays.label(group.first())}") { ManaPicks.key(it) == key }
+    }
+
+    /** STK-024 (owner playtest 2026-11-09): a tap on a source whose uses are [ways] ([belongs]: the payment's uses of it): one paying
+     * is taken out, one not paying is added with its sensible way ([ManaTaps.tap]), worked out off the main thread. */
+    private fun tapWays(ways: List<ManaUse>, what: String, belongs: (ManaUse) -> Boolean) {
         val f = flow ?: return
         val at = ahead ?: return
         val decision = payment ?: return
         if (busy) return
         val current = mana
         val autotapOn = autotap
+        val before = taps
         custom = true
-        val key = ManaPicks.key(group.first())
-        val taken = current.any { it in group }
-        pins = if (taken) pins.filterNot { ManaPicks.key(it) == key } else pins + (group.firstOrNull { it in decision.options } ?: group.first())
-        outs = if (taken) outs + group.first() else outs.filterNot { ManaPicks.key(it) == key }
-        val pinned = pins
-        val removed = outs
         step {
-            val uses = if (autotapOn) filled(at, decision, pinned, removed) else ManaPicks.toggle(decision, current, group, at::pays, at::fill)
-            Step.Mana(f, uses, at.pays(uses))
+            val outcome = ManaTaps.tap(before, decision, current, ways, belongs, autotapOn, ManaWays.care(at.state, decision.source), engineOf(at))
+            AppLog.info("cast", "Payment: $what tapped, ${outcome.said}; paying now ${outcome.mana.joinToString { ManaWays.label(it) }}")
+            Step.Mana(f, outcome.mana, at.pays(outcome.mana), outcome.taps)
         }
     }
 
-    /** STK-024: Autotap's payment around the player's picks; only the picks when the rest can't be filled (Cast is then greyed). */
-    private fun filled(flow: CastFlow, decision: Decision.ManaPayment, pinned: List<ManaUse>, removed: List<ManaUse>): List<ManaUse> =
-        flow.fill(pinned, removed).ifEmpty { ManaPicks.carry(decision, pinned, flow::pays) }
+    /** STK-024 (owner playtest 2026-11-09): [way] chosen with the corner chip of the table card [cardId] paying the cast: it pays that
+     * way from now on, kept exactly, and the rest is worked out around it. */
+    fun chooseWay(cardId: String, way: ManaUse) {
+        val f = flow ?: return
+        val at = ahead ?: return
+        val decision = payment ?: return
+        if (busy || !paying) return
+        val autotapOn = autotap
+        val before = taps
+        val mine = waysOf(cardId).toSet()
+        custom = true
+        step {
+            val outcome = ManaTaps.choose(before, decision, way, { it in mine }, autotapOn, engineOf(at))
+            AppLog.info("cast", "Payment: $cardId's corner chip, ${outcome.said}; paying now ${outcome.mana.joinToString { ManaWays.label(it) }}")
+            Step.Mana(f, outcome.mana, at.pays(outcome.mana), outcome.taps)
+        }
+    }
+
+    /** STK-024: the ways the table card [cardId] can pay the open payment (its mana abilities and colours, convoke), in the engine's
+     * order; empty when it pays none. */
+    fun waysOf(cardId: String): List<ManaUse> = payment?.options.orEmpty().filter { tableSource(it) == cardId }
+
+    /** STK-024: the way the table card [cardId] pays the open payment now, null when it doesn't. */
+    fun paidWith(cardId: String): ManaUse? = if (!paying) null else mana.firstOrNull { tableSource(it) == cardId }
+
+    private fun engineOf(at: CastFlow) = ManaTaps.Engine({ pinned, removed, exact -> at.fill(pinned, removed, exact) }, at::pays)
 
     /** STK-024 (owner 2026-11-07): a tap on the battlefield card [cardId] while the panel is open ([paying]): when it is a
-     * source the payment can use, it is added to the payment or taken out; false when it isn't one. */
+     * source the payment can use, it is added to the payment (its sensible way) or taken out; false when it isn't one. */
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
-        val group = groupOf(cardId) ?: return false
-        AppLog.info("cast", "Payment: source $cardId tapped, paying before ${paySources()}")
-        toggleMana(group)
+        val ways = waysOf(cardId)
+        if (ways.isEmpty()) {
+            // A source used with other objects (the creature an altar sacrifices): one pick per object set
+            val group = groupOf(cardId) ?: return false
+            AppLog.info("cast", "Payment: source $cardId tapped, paying before ${paySources()}")
+            toggleMana(group)
+            return true
+        }
+        AppLog.info("cast", "Payment: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
+        val mine = ways.toSet()
+        tapWays(ways, "source $cardId") { it in mine }
         return true
     }
 
@@ -515,7 +552,7 @@ internal class CastController(
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         payment = null; ahead = null; custom = false; hand = null; choosing = false
-        pins = emptyList(); outs = emptyList(); selection = null; selectionFor = emptyList(); selectionRun++
+        taps = ManaTaps(); selection = null; selectionFor = emptyList(); selectionRun++
         announcedMost = emptyMap()
         listed = emptyList(); visible = emptySet()
     }
@@ -570,7 +607,7 @@ internal class CastController(
         val autotapOn = autotap
         val changed = custom
         val chosen = hand
-        val picks = pins to outs
+        val picks = taps
         step {
             try {
                 // A hand card's panel: its ways and extras worked out again on the new board
@@ -589,7 +626,7 @@ internal class CastController(
         /** [flow] with its open question shown; [ways] set when the cast was just begun. */
         class Show(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val listed: List<Answer>,
             val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean,
-            val most: Map<arcanum.engine.decision.DecisionId, Int>,
+            val most: Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable>,
             /** The cast taken on to its payment ([HandCasts.ahead]), null when it reaches none. */
             val ahead: CastFlow?,
             /** Castability §3: what may be picked in the open choice, nothing picked yet. */
@@ -598,7 +635,7 @@ internal class CastController(
             val hand: org.asyncttwiz.automatum.HandCastOptions? = null,
             /** Whether a hand card's panel waits for its way before the targets, null: unchanged. */
             val choosing: Boolean? = null) : Step
-        class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean) : Step
+        class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val taps: ManaTaps) : Step
         /** I-D56 step C: the complete [flow]'s own [inputs], made on [board]. */
         class Engine(val flow: CastFlow, val inputs: List<Input>, val board: BoardState) : Step
         /** The cast is dropped with [message]. */
@@ -636,6 +673,10 @@ internal class CastController(
             flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList(); announcedMost = outcome.most
             selection = outcome.selection; selectionFor = emptyList(); selectionRun++
             ahead = outcome.ahead; payment = outcome.ahead?.pending as? Decision.ManaPayment
+            // With Autotap off the picks are what pays, carried to a payment whose cost changed (STK-024)
+            if (!autotap && custom) taps.chosen.filter { it in outcome.mana }.let { kept ->
+                taps = ManaTaps(tapped = outcome.mana.filterNot { it in kept }, chosen = kept)
+            }
             outcome.hand?.let { hand = it }
             outcome.choosing?.let { choosing = it }
             if (outcome.clear) fail(null)
@@ -643,7 +684,7 @@ internal class CastController(
             true
         }
         is Step.Mana -> {
-            if (flow === outcome.flow) { mana = outcome.mana; paid = outcome.paid }
+            if (flow === outcome.flow) { mana = outcome.mana; paid = outcome.paid; taps = outcome.taps }
             follow()
             true
         }
@@ -688,7 +729,7 @@ internal class CastController(
         val autotapOn = autotap
         val keep = mana
         val changed = custom
-        val picks = pins to outs
+        val picks = taps
         // An answer goes on past a hand card's way: its targets are picked on the table from here
         choosing = false
         return step {
@@ -710,7 +751,7 @@ internal class CastController(
      * Autotap off).
      */
     private fun settle(next: CastFlow, auto: Boolean, autotapOn: Boolean, keep: List<ManaUse>?, custom: Boolean = false,
-        ways: List<Input>? = null, clear: Boolean = true, picks: Pair<List<ManaUse>, List<ManaUse>> = emptyList<ManaUse>() to emptyList(),
+        ways: List<Input>? = null, clear: Boolean = true, picks: ManaTaps = ManaTaps(),
         hand: org.asyncttwiz.automatum.HandCastOptions? = null, choosing: Boolean? = null): Step {
         val payment = next.pending as? Decision.ManaPayment
         if (auto && next.complete) complete(next, autotapOn)?.let { return it }
@@ -740,9 +781,9 @@ internal class CastController(
 
     /** The mana chosen for [payment] of [flow]: with Autotap on its suggestion, around the player's picks once they made any ([filled]);
      * with it off the player's sources [keep] carried to it ([ManaPicks.carry]; none until they tap some). */
-    private fun chosen(flow: CastFlow, payment: Decision.ManaPayment, autotapOn: Boolean, custom: Boolean, keep: List<ManaUse>?, picks: Pair<List<ManaUse>, List<ManaUse>>): List<ManaUse> = when {
+    private fun chosen(flow: CastFlow, payment: Decision.ManaPayment, autotapOn: Boolean, custom: Boolean, keep: List<ManaUse>?, picks: ManaTaps): List<ManaUse> = when {
         autotapOn && !custom -> suggestion(flow, payment)
-        autotapOn -> filled(flow, payment, picks.first, picks.second)
+        autotapOn -> ManaTaps.payment(picks, payment, true, engineOf(flow))
         else -> ManaPicks.carry(payment, keep.orEmpty(), flow::pays, flow::fill)
     }
 
@@ -755,11 +796,14 @@ internal class CastController(
     }
 
     /** STK-023: the most each announcement of [flow] (open or answered) may be ([announcedMost]). */
-    private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, Int> {
-        val most = mutableMapOf<arcanum.engine.decision.DecisionId, Int>()
-        (flow.pending as? Decision.Announce)?.let { open -> HandCasts.mostAnnounced(flow)?.let { most[open.id] = it } }
+    private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, HandCasts.Announceable> {
+        val most = mutableMapOf<arcanum.engine.decision.DecisionId, HandCasts.Announceable>()
+        (flow.pending as? Decision.Announce)?.let { open -> HandCasts.announceable(flow)?.let {
+            most[open.id] = it
+            if (it.unpayable.isNotEmpty()) AppLog.info("cast", "X up to ${it.most}, can't be paid at ${it.unpayable.sorted()}")
+        } }
         flow.steps.forEachIndexed { index, (decision, _) ->
-            if (decision is Decision.Announce) runCatching { HandCasts.mostAnnounced(flow.back(index)) }.getOrNull()?.let { most[decision.id] = it }
+            if (decision is Decision.Announce) runCatching { HandCasts.announceable(flow.back(index)) }.getOrNull()?.let { most[decision.id] = it }
         }
         return most
     }

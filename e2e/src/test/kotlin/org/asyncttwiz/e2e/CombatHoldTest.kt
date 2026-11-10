@@ -1,6 +1,7 @@
 package org.asyncttwiz.e2e
 
 import android.content.Context
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.test.core.app.ApplicationProvider
 import arcanum.api.TurnStep
@@ -79,6 +80,72 @@ class CombatHoldTest : E2e() {
         assertEquals(life - 1, alice.state.player(bob.me).life, "the board shows the damage dealt while it holds")
         waitUntil("the hold over by itself, Alice's phone on past it", along = listOf(bob)) { alice.shown.combatHold == null }
         assertNull(alice.shown.show)
+    }
+
+    /** This player's screen shows [owner]'s [name] on their battlefield with [damage] damage marked (TBL-024). */
+    private fun E2ePlayer.showsDamaged(name: String, owner: E2ePlayer, damage: Int): Boolean = runCatching {
+        val field = battlefieldBounds(owner)
+        nodes(hasContentDescription("$name, owner ${owner.name}, ", substring = true) and hasContentDescription(", $damage damage", substring = true))
+            .fetchSemanticsNodes().any { field.contains(it.boundsInRoot.center) }
+    }.getOrDefault(false)
+
+    // HIS-113, TBL-024 (owner playtest 2026-11-09: the view paused before the damage showed, and nothing paused on creatures
+    // about to die): Alice attacks with two Pups and Bob blocks one with his Pup. Alice's view holds on the damage right after
+    // it is dealt: Bob's life down by one and the two blocked Pups still on the battlefields, each with its damage marked,
+    // though the game already put them into the graveyards; once the hold ends they die on her screen. Bob's phone holds
+    // on the damage the same way
+    @Test fun theDamageHoldsWithTheDamageShownBeforeTheCreaturesDie() {
+        startGame(pups, pups, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),
+            deal = { a, b -> hand(a).count { it == "Ash Pup" } >= 2 && "Ash Pup" in hand(b) })
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        for (player in listOf(alice, bob)) HistoryPlaybackPreferences(context, player.id).showPlaysMillis = HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
+        bothOpen()
+        bothKeep(bobAway = false)
+        repeat(2) { n ->
+            alice.playFromHand("Ash Pup", this)
+            waitUntil("Alice's Pup ${n + 1}", along = listOf(bob)) { alice.field("Ash Pup").size == n + 1 && alice.inOwnMain() }
+        }
+        alice.hold("To combat")
+        waitUntil("Bob's Main 1") { bob.inOwnMain() }
+        bob.playFromHand("Ash Pup", this)
+        waitUntil("Bob's Pup", along = listOf(alice)) { bob.field("Ash Pup").isNotEmpty() && bob.inOwnMain() }
+        bob.hold(requireNotNull(bob.stepArrow()))
+        waitUntil("Alice's next Main 1", along = listOf(bob)) {
+            if (alice.status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+            alice.inOwnMain() && alice.state.turn.number >= 3
+        }
+        alice.tap("To combat")
+        waitUntil("Alice declaring attackers") { alice.state.turn.step == TurnStep.DeclareAttackers && alice.stepArrow() == "No attack" && alice.settled(this) }
+        val attack = arcanum.engine.input.Input.DeclareAttackers(alice.me, alice.field("Ash Pup").map {
+            arcanum.engine.input.Attack(it, arcanum.engine.state.TargetRef.Player(bob.me)) })
+        assertTrue(alice.game!!.send(listOf(attack)) !is GameDevice.Acted.Refused)
+        waitUntil("Bob declaring blockers") { bob.state.turn.step == TurnStep.DeclareBlockers && bob.stepArrow() == "No blocks" && bob.settled(this) }
+        val blocker = bob.field("Ash Pup").single()
+        val blocked = attack.attacks.first().attacker
+        val block = arcanum.engine.input.Input.DeclareBlockers(bob.me, listOf(arcanum.engine.input.Block(blocker, blocked)))
+        // Bob's phone too, whoever made the damage's event: his own Pup shown with its damage while his view holds
+        var bobSaw = false
+        everyRun += { if (bob.game?.shown?.combatHold?.kind == GameDevice.CombatMoment.Damage && bob.showsDamaged("Ash Pup", bob, 1)) bobSaw = true }
+        assertTrue(bob.game!!.send(listOf(block)) !is GameDevice.Acted.Refused)
+        val life = alice.state.player(bob.me).life
+        waitUntil("the damage holding Alice's view with the damage on her screen", along = listOf(bob)) {
+            val status = alice.status
+            if (status is GameDevice.Status.Waiting && status.offer != null) alice.once { alice.game!!.assume(emptyList()); alice.lobby.engineSent() }
+            if (status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+            alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && alice.showsDamaged("Ash Pup", bob, 1)
+        }
+        val s = alice.state
+        assertTrue(s.player(bob.me).graveyard.any { cardName(s, it) == "Ash Pup" }, "the game already put Bob's Pup into his graveyard")
+        assertTrue(alice.showsDamaged("Ash Pup", alice, 1), "her blocked Pup still shown with its damage: ${alice.screen()}")
+        assertTrue(alice.shows(hasContentDescription("${bob.name}, life ${life - 1}", substring = true)), "Bob's life down by one: ${alice.screen()}")
+        assertEquals(GameDevice.CombatMoment.Damage, alice.shown.combatHold?.kind, "still held")
+        waitUntil("the hold over, the blocked Pups dead on her screen", along = listOf(bob)) {
+            alice.shown.combatHold == null && !alice.showsOnBattlefield("Ash Pup", bob) && alice.field("Ash Pup").size == 1
+        }
+        assertEquals(1, alice.field("Ash Pup").size, "her unblocked Pup lives")
+        waitUntil("Bob's hold over too") { bob.shown.combatHold == null && !bob.showsOnBattlefield("Ash Pup", bob) }
+        everyRun.clear()
+        assertTrue(bobSaw, "Bob's view held on the damage with his dying Pup shown")
     }
 
     // HIS-113, LOB-082: at Off there is no hold, though the combat is the same

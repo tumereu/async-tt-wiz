@@ -138,7 +138,7 @@ internal object Ltr {
     val COSTS_LESS_FOR_EACH_SACRIFICED_THIS_TURN = Regex("""This spell costs (\{\d+\}) less to cast for each (\w+) sacrificed this turn\.""")
     val COUNTER_ON_EACH_OF_UP_TO_X = Regex("""[Pp]ut an? (\S+) counter on each of up to X target (.+)\.""")
     // ltr chunk 12
-    val EACH_PLAYER_SACRIFICES_IF_YOU_DID_RETURN = Regex("""Each player sacrifices an? (\w+) of their choice\. If you sacrificed an? \1 this way, you may return another (.+?) from your graveyard to the battlefield\.""")
+    val EACH_PLAYER_SACRIFICES_IF_YOU_DID_RETURN = Regex("""Each player sacrifices an? (.+?) of their choice\. If you sacrificed an? (\w+) this way, you may return another (.+?) from your graveyard to (the battlefield|your hand)\.""")
     val TARGET_PLAYER_MILLS_THEN_AMASS_X = Regex("""Target player mills (\w+) cards\. Then amass (\w+) X(?:, where X is the number of (.+?) cards in that player's graveyard)?\.""")
     val DEALS_X_EXCESS_TO_CONTROLLER = Regex("""(.+?) deals X damage to (target .+?)(?:, where X is (.+?))?\. Excess damage is dealt to that creature's controller instead\.""")
     val GAINS_PROTECTION_FROM_CHOSEN_CARD_TYPE = Regex("""(.+?) gains protection from the card type of your choice until end of turn\.""")
@@ -163,7 +163,7 @@ internal object Ltr {
     val HAS_ALL_ACTIVATED_ABILITIES_EXCEPT_MANA = Regex("""(.+?) has all activated abilities of (.+?) except mana abilities\.""")
     val MANA_OF_ANY_TYPE_TO_ACTIVATE_SELFS = Regex("""Mana of any type can be spent to activate (.+?)'s abilities\.""")
     val OPPONENTS_MILL_WHEN_MILLED_EXILE_COPY_CAST = Regex("""Each opponent mills (\w+) cards\. When one or more cards are milled this way, exile (target .+?) with equal or lesser mana value than that spell from an opponent's graveyard\. Copy the exiled card\. You may cast the copy without paying its mana cost\.""")
-    val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
+    val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three|Any number of) target .+?) (?:each )?(gain|get) (.+)""") // fdn chunk 05: "Any number of"
     // ltr chunk 14
     val YOU_GAIN_PROTECTION_FROM_EVERYTHING = Regex("""[Yy]ou gain protection from everything until your next turn\.""")
     val YOU_LOSE_LIFE_FOR_EACH = Regex("""[Yy]ou lose (\d+) life for each (.+)\.""")
@@ -178,7 +178,7 @@ internal object Ltr {
     val NONBASIC_LANDWALK = Regex("""[Nn]onbasic landwalk""")
     val ADD_MANA_OF_ANY_COLOR_AMONG = Regex("""[Aa]dd one mana of any color among (.+)\.""")
     val SACRIFICE_SELF_AND_A = Regex("""Sacrifice (.+?) and (an? .+)""")
-    val YOU_HAVE_N_OR_LESS_LIFE = Regex("""you have (\d+) or less life""")
+    val YOU_HAVE_N_OR_LESS_LIFE = Regex("""you have (\d+) or (less|more) life""")
     val CHOOSE_UP_TO_THEN_DESTROY_THE_REST = Regex("""[Cc]hoose up to (\w+) (.+?), then destroy the rest\.""")
 }
 
@@ -271,9 +271,9 @@ internal object LtrPhrases {
 
     /** ltr: a condition. */
     fun condition(text: String): arcanum.api.Condition? {
-        // ltr chunk 14: "you have 5 or less life"
+        // ltr chunk 14: "you have 5 or less life"; fdn chunk 07: "you have 25 or more life"
         Ltr.YOU_HAVE_N_OR_LESS_LIFE.matchEntire(text)?.let { m ->
-            return arcanum.api.Condition.Compare(Value.LifeOf(arcanum.api.Players.You), Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt()))
+            return arcanum.api.Condition.Compare(Value.LifeOf(arcanum.api.Players.You), if (m.groupValues[2] == "less") Comparison.AtMost else Comparison.AtLeast, Value.Fixed(m.groupValues[1].toInt()))
         }
         // ltr chunk 07: "you control a creature with the greatest power among creatures on the battlefield" (ties count, CR 208.1)
         if (Ltr.CONTROL_CREATURE_WITH_GREATEST_POWER.matches(text)) {

@@ -64,13 +64,14 @@ class PodBuildViewTest {
             assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.RIGHT), podBuildSwipeTarget(category, 1f))
             assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.LEFT), podBuildSwipeTarget(category, -1f))
         }
-        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAIN, 5f))
-        assertEquals(PodDeckCategory.MAYBE, podBuildSwipeTarget(PodDeckCategory.MAIN, -5f))
-        assertEquals(PodDeckCategory.MAIN, podBuildSwipeTarget(PodDeckCategory.MAYBE, 5f))
-        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAYBE, -5f))
+        // SYS-083: right one section up, left one down, wrapping
+        assertEquals(PodDeckCategory.MAYBE, podBuildSwipeTarget(PodDeckCategory.MAIN, 5f))
+        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAIN, -5f))
+        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAYBE, 5f))
+        assertEquals(PodDeckCategory.MAIN, podBuildSwipeTarget(PodDeckCategory.MAYBE, -5f))
     }
 
-    // DRF-100
+    // DRF-100, DRF-099 (a Main card: right to Maybe, left to Side)
     @Test fun cardStaysWhileItsProjectionFollowsTheFingerAndSnapsBackBelowTheThreshold() {
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, true, { id, destination -> moves += id to destination }, {}) }
@@ -81,11 +82,11 @@ class PodBuildViewTest {
         val original = card.fetchSemanticsNode().boundsInRoot
         card.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(18f, 0f), delayMillis = 16) }
         compose.mainClock.advanceTimeByFrame()
-        projection.assertExists().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Side"))
+        projection.assertExists().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Maybe"))
         assertEquals(original, card.fetchSemanticsNode().boundsInRoot)
         card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(-36f, 0f), delayMillis = 16) }
         compose.mainClock.advanceTimeByFrame()
-        projection.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Maybe"))
+        projection.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Side"))
         card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(8f, 0f), delayMillis = 16); up() }
         compose.mainClock.advanceTimeByFrame()
         projection.assertExists()
@@ -97,7 +98,7 @@ class PodBuildViewTest {
         card.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(60f, 0f), delayMillis = 16); up() }
         compose.mainClock.advanceTimeBy(250)
         projection.assertDoesNotExist()
-        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.MAYBE), moves) }
     }
 
     // DRF-097, DRF-101
@@ -115,7 +116,7 @@ class PodBuildViewTest {
         assertEquals(PodBuildCardGap, second.top - first.bottom)
         assertEquals(1.dp, PodBuildCardGap)
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithTag("pod-build-card-first").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("pod-build-card-first").performTouchInput { swipeLeft() }
         compose.mainClock.advanceTimeByFrame()
         compose.mainClock.advanceTimeByFrame()
         compose.runOnIdle { assertEquals(PodDeckCategory.SIDE, build.copies.first().category) }
@@ -579,13 +580,13 @@ class PodBuildViewTest {
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 3").assertIsDisplayed()
-        // The buttons under the card do what the gestures do: Maybe (left), Keep (a tap), Side (right)
+        // The buttons under the card do what the gestures do: Side (left), Keep (a tap), Maybe (right)
         compose.onNodeWithContentDescription("Move to Maybe").assertIsDisplayed()
         compose.onNodeWithContentDescription("Keep").assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Side").assertIsDisplayed()
-        // A swipe left moves it as in the columns (DRF-099): Main → Maybe
+        // A swipe left moves it as in the columns (DRF-099, SYS-083): Main → Side
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
-        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.MAYBE), moves) }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsEnabled().performClick()
@@ -598,14 +599,14 @@ class PodBuildViewTest {
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").performClick()
         compose.runOnIdle { assertEquals(2, moves.size) }
-        // A swipe right: Main → Side
+        // A swipe right: Main → Maybe (up, wrapping)
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
-        compose.runOnIdle { assertEquals("first" to PodDeckCategory.SIDE, moves.last()) }
+        compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAYBE, moves.last()) }
         compose.onNodeWithContentDescription("Keep").performClick()
         // The last decision closes the review; its summary shows briefly on the Build screen.
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.runOnIdle { assertEquals(3, moves.size) }
-        compose.onNodeWithText("Kept 1 · 1 to Side").assertIsDisplayed()
+        compose.onNodeWithText("Kept 1 · 1 to Maybe").assertIsDisplayed()
         compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
     }
 
@@ -621,14 +622,14 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
         val actions = compose.onNodeWithTag("pod-build-feed-card-land").fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
-        assertEquals(listOf("Keep", "Move to Side", "Move to Maybe"), actions.map { it.label })
+        assertEquals(listOf("Keep", "Move to Maybe", "Move to Side"), actions.map { it.label })
         compose.runOnIdle { actions.first().action() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("Kept 1").assertIsDisplayed()
         compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
-        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("1 to Side").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
@@ -641,7 +642,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAYBE, moves.last()) }
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithText("Maybe 2").assertIsDisplayed()
-        // Maybe has a review too: right → Main, left → Side
+        // Maybe has a review too: right → Side, left → Main
         compose.onNodeWithTag("pod-build-feed-label-MAYBE-2").assertIsDisplayed()
         compose.onNodeWithTag("pod-build-feed-header-MAYBE").performClick()
         compose.onNodeWithText("Maybe · MV 1").assertIsDisplayed()
@@ -686,8 +687,8 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-basics-count").assertTextEquals("Basics 2 · Lands 3")
     }
 
-    // DRF-107, DRF-108: the Maybe review: a tap keeps, swipes and the buttons under the card move it (right → Main,
-    // left → Side)
+    // DRF-107, DRF-108, DRF-099: the Maybe review: a tap keeps, swipes and the buttons under the card move it (right → Side,
+    // left → Main)
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun maybeReviewScreenshot() {
@@ -701,7 +702,7 @@ class PodBuildViewTest {
         compose.waitForIdle()
         compose.onNodeWithText("Maybe · MV 1").assertIsDisplayed()
         captureShot("$SCREENSHOTS/pod-build-review-maybe.png",
-            "Tapping the Maybe header's Review opens the one-by-one review of the two cards in Maybe: \"Maybe · MV 1\", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Side, ✓ Keep and Main ▶ in their colours (a tap keeps, swipes move it as in the columns).")
+            "Tapping the Maybe header's Review opens the one-by-one review of the two cards in Maybe: \"Maybe · MV 1\", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Main, ✓ Keep and Side ▶ in their colours (a tap keeps, swipes move it as in the columns).")
     }
 
     // DRF-092

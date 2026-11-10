@@ -307,7 +307,8 @@ fun PodBuildView(
     }
     if (choosingCover) ScreenDialog({ choosingCover = false }, Modifier.testTag("pod-build-cover-dialog"), title = "Choose cover",
         actions = { DialogCancelButton("Cancel", { choosingCover = false }) }) {
-        coverChoices.forEach { digest ->
+        // LOB-058, DRF-166 (owner playtest 2026-11-09): listed alphabetically
+        coverChoices.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { definitions[it]?.name.orEmpty() }).forEach { digest ->
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("pod-build-cover-$digest")
                 .clickable { onCover(digest); choosingCover = false }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

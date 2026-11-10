@@ -205,3 +205,12 @@ number	item	screenshot	catalog	decisions
 204	Combat 4 of 5, Bob: the damage hold with the damage on the band (forced hold)	combat-sequence/4-damage-bob.png	CMB-050 HIS-113	
 205	Combat 5 of 5, Alice: after the combat, her own move, the splashes gone	combat-sequence/5-after-alice.png	CMB-050	
 206	Combat 5 of 5, Bob: after the combat, a wait for Alice, the splashes gone	combat-sequence/5-after-bob.png	CMB-050 TRN-066	
+207	Multiset drafting: the Sets tab with set symbols	draft/source-sets-symbols.png	DRF-088 DRF-176	
+208	Multiset drafting: one set for every pack, with Mix sets	draft/multiset-one-set.png	DRF-177	
+209	Multiset drafting: the open pack grid	draft/multiset-grid-open.png	DRF-177 DRF-176	
+210	Multiset drafting: a row label chosen (Round 2)	draft/multiset-row.png	DRF-178	
+211	Multiset drafting: a column label chosen (Pack 1)	draft/multiset-column.png	DRF-178	
+212	Multiset drafting: the set list for one cell	draft/multiset-cell-list.png	DRF-178 DRF-176	
+213	Multiset drafting: a single cell chosen	draft/multiset-cell.png	DRF-178	
+214	Multiset drafting: Sealed's one row	draft/multiset-sealed.png	DRF-177	
+215	Multiset drafting: a preset saved with a pack grid	draft/multiset-preset.png	DRF-032 DRF-177	

@@ -182,15 +182,31 @@ object GridEngine {
      * own booster (the nine dealt first, then its refill cards); a booster smaller than that is topped up from spare
      * boosters generated after the grid boosters. Deterministic from the seed.
      */
-    fun freshBoosterCards(source: SetSourceSnapshot, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> {
+    fun freshBoosterCards(source: SetSourceSnapshot, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> =
+        freshBoosterCards(SetPackSources.of(source), settings, players, seed)
+
+    /**
+     * Fresh boosters from the pack grid (DRF-177): grid i's booster comes from its cell's set; each set's boosters (and
+     * its spares) are generated from that set's seed ([SetBoosters.setSeed]), so a pod of one set gets the same cards as
+     * from one source.
+     */
+    fun freshBoosterCards(sources: SetPackSources, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> {
         val perGrid = cardsPerGrid(settings, players)
-        val grids = settings.grids
-        var boosters = SetBoosters.generate(source, grids, seed).map { it.cards }
-        val short = boosters.sumOf { (perGrid - it.size).coerceAtLeast(0) }
-        if (short > 0) {
-            // The same seed generates the same leading boosters, so spares only append.
-            val smallest = boosters.minOf { it.size }.coerceAtLeast(1)
-            boosters = SetBoosters.generate(source, grids + (short + smallest - 1) / smallest, seed).map { it.cards }
+        val gridSets = PodPackGrid.packSets(sources.packs, settings, players)
+        val order = gridSets.distinct()
+        val counts = order.map { code -> gridSets.count { it == code } }
+        val generated = order.mapIndexed { index, code ->
+            val source = sources.set(code)
+            val setSeed = SetBoosters.setSeed(seed, index)
+            fun boosters(count: Int) = SetBoosters.generate(source, count, setSeed).map { SetBoosters.inSet(it, index).cards }
+            var boosters = boosters(counts[index])
+            val short = boosters.sumOf { (perGrid - it.size).coerceAtLeast(0) }
+            if (short > 0) {
+                // The same seed generates the same leading boosters, so spares only append.
+                val smallest = boosters.minOf { it.size }.coerceAtLeast(1)
+                boosters = boosters(counts[index] + (short + smallest - 1) / smallest)
+            }
+            boosters
         }
         val words = RandomV1.Words(seed, "grid-booster-v1")
         fun shuffled(values: List<DraftCopy>): MutableList<DraftCopy> {
@@ -201,11 +217,31 @@ object GridEngine {
             }
             return result
         }
-        val spares = shuffled(boosters.drop(grids).flatten())
-        return boosters.take(grids).flatMap { booster ->
-            val taken = shuffled(booster).take(perGrid)
-            taken + List(perGrid - taken.size) { spares.removeAt(spares.lastIndex) }
+        val spares = order.indices.map { shuffled(generated[it].drop(counts[it]).flatten()) }
+        val boosters = order.indices.map { ArrayDeque(generated[it].take(counts[it])) }
+        return gridSets.flatMap { code ->
+            val set = order.indexOf(code)
+            val taken = shuffled(boosters[set].removeFirst()).take(perGrid)
+            taken + List(perGrid - taken.size) { spares[set].removeAt(spares[set].lastIndex) }
         }
+    }
+
+    /**
+     * Grids from set packs without fresh boosters: each set's packs are opened in card order (refill cards included) and
+     * every grid takes its cards from its cell's set (DRF-177), each set's packs from that set's seed.
+     */
+    fun setCards(sources: SetPackSources, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> {
+        val perGrid = cardsPerGrid(settings, players)
+        val gridSets = PodPackGrid.packSets(sources.packs, settings, players)
+        val order = gridSets.distinct()
+        val streams = order.mapIndexed { index, code ->
+            val set = sources.set(code)
+            val needed = gridSets.count { it == code } * perGrid
+            val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
+            ArrayDeque(SetBoosters.generate(set, (needed + minPack - 1) / minPack, SetBoosters.setSeed(seed, index))
+                .flatMap { SetBoosters.inSet(it, index).cards }.take(needed))
+        }
+        return gridSets.flatMap { code -> val stream = streams[order.indexOf(code)]; List(perGrid) { stream.removeFirst() } }
     }
 
     /**

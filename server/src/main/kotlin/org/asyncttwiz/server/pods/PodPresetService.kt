@@ -32,6 +32,11 @@ class PodPresetService(private val runtime: ServiceRuntime) {
         if (setCode != null && (!PodPresetValidation.setCode(setCode) || input.setName?.let(PodPresetValidation::setName) != true) ||
             setCode == null && input.setName != null) return error(400, "invalid_source")
         if (input.cubeId?.let(DeckValidation::uuid) == false) return error(404, "cube_not_found")
+        // DRF-032, DRF-177: a set preset keeps its pack grid, starting with its set; null when every pack is that set
+        if (input.packSets.isNotEmpty() && (setCode == null || !PodPackGrid.valid(input.packSets) || input.packSets.first() != setCode))
+            return error(400, "invalid_source")
+        val packSets = input.packSets.takeIf { it.isNotEmpty() }?.let { PodPackGrid.normalize(it, settings) }
+            ?.takeIf { PodPackGrid.mixed(it) }?.let { json.encodeToString(it) }
         return transaction(principal) { sql, owner ->
             val cube = input.cubeId?.let { UUID.fromString(it) }
             if (cube != null && !sql.fetchExists(SAVED_CUBE, SAVED_CUBE.ID.eq(cube).and(SAVED_CUBE.ACCOUNT_ID.eq(owner))))
@@ -44,7 +49,7 @@ class PodPresetService(private val runtime: ServiceRuntime) {
             val id = if (existing != null) {
                 sql.update(POD_PRESET).set(POD_PRESET.NAME, input.name).set(POD_PRESET.SETTINGS, encoded)
                     .set(POD_PRESET.CUBE_ID, cube).set(POD_PRESET.SET_CODE, input.setCode).set(POD_PRESET.SET_NAME, input.setName)
-                    .set(POD_PRESET.UPDATED_AT, DSL.currentOffsetDateTime()).where(POD_PRESET.ID.eq(existing.id)).execute()
+                    .set(POD_PRESET.PACK_SETS, packSets).set(POD_PRESET.UPDATED_AT, DSL.currentOffsetDateTime()).where(POD_PRESET.ID.eq(existing.id)).execute()
                 existing.id!!
             } else {
                 if (sql.fetchCount(POD_PRESET, POD_PRESET.ACCOUNT_ID.eq(owner)) >= PodPresetValidation.MAX_PRESETS)
@@ -54,7 +59,7 @@ class PodPresetService(private val runtime: ServiceRuntime) {
                 val inserted = sql.insertInto(POD_PRESET).set(POD_PRESET.ID, id).set(POD_PRESET.ACCOUNT_ID, owner)
                     .set(POD_PRESET.NAME, input.name).set(POD_PRESET.NAME_KEY, key).set(POD_PRESET.SETTINGS, encoded)
                     .set(POD_PRESET.CUBE_ID, cube).set(POD_PRESET.SET_CODE, input.setCode).set(POD_PRESET.SET_NAME, input.setName)
-                    .onConflictDoNothing().execute()
+                    .set(POD_PRESET.PACK_SETS, packSets).onConflictDoNothing().execute()
                 if (inserted == 0) return@transaction error(409, "preset_exists")
                 id
             }
@@ -92,17 +97,19 @@ class PodPresetService(private val runtime: ServiceRuntime) {
     private fun presets(sql: DSLContext, owner: UUID): List<PodPreset> {
         val cubeName = SAVED_CUBE.NAME.`as`("cube_name")
         return sql.select(POD_PRESET.ID, POD_PRESET.NAME, POD_PRESET.SETTINGS, POD_PRESET.CUBE_ID, POD_PRESET.SET_CODE,
-            POD_PRESET.SET_NAME, POD_PRESET.UPDATED_AT, cubeName).from(POD_PRESET)
+            POD_PRESET.SET_NAME, POD_PRESET.UPDATED_AT, POD_PRESET.PACK_SETS, cubeName).from(POD_PRESET)
             .leftJoin(SAVED_CUBE).on(SAVED_CUBE.ID.eq(POD_PRESET.CUBE_ID)).and(SAVED_CUBE.ACCOUNT_ID.eq(owner))
             .where(POD_PRESET.ACCOUNT_ID.eq(owner)).orderBy(POD_PRESET.NAME_KEY, POD_PRESET.ID).fetch().mapNotNull { row ->
                 // A preset whose stored settings can't be read is left out (SYS-052).
                 val settings = StoredData.orSkip("pod preset", row.get(POD_PRESET.ID)) {
                     json.decodeFromString<DraftSettings>(row.get(POD_PRESET.SETTINGS)!!) } ?: return@mapNotNull null
+                val packSets = StoredData.orSkip("pod preset", row.get(POD_PRESET.ID)) {
+                    row.get(POD_PRESET.PACK_SETS)?.let { json.decodeFromString<List<String>>(it) }.orEmpty() } ?: return@mapNotNull null
                 val cube = row.get(POD_PRESET.CUBE_ID)
                 val name = row.get(cubeName)
                 PodPreset(row.get(POD_PRESET.ID).toString(), row.get(POD_PRESET.NAME)!!, settings,
                     cube?.toString(), name, cube != null && name == null,
-                    row.get(POD_PRESET.SET_CODE), row.get(POD_PRESET.SET_NAME), row.get(POD_PRESET.UPDATED_AT)!!.toInstant().toString())
+                    row.get(POD_PRESET.SET_CODE), row.get(POD_PRESET.SET_NAME), row.get(POD_PRESET.UPDATED_AT)!!.toInstant().toString(), packSets)
             }
     }
 

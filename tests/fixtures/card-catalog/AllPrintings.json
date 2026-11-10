@@ -9,6 +9,7 @@
    "name": "Broken Set",
    "type": "core",
    "releaseDate": "2020-03-01",
+   "keyruneCode": "BAD",
    "cards": [
     {
      "uuid": "980e6105-fab5-52d6-a196-eeee13d675e8",
@@ -111,6 +112,7 @@
    "name": "Bonus Sheet Set",
    "type": "expansion",
    "releaseDate": "2020-05-01",
+   "keyruneCode": "BON",
    "cards": [
     {
      "uuid": "f5a51f53-c896-5d03-82d1-a4b4b33f4561",
@@ -336,6 +338,7 @@
    "name": "Test Promos",
    "type": "promo",
    "releaseDate": "2020-05-01",
+   "keyruneCode": "DCK",
    "cards": [
     {
      "uuid": "ee9b503b-5df7-521d-b62d-ace7c56d9560",
@@ -3782,6 +3785,7 @@
    "name": "Unlisted Set",
    "type": "expansion",
    "releaseDate": "2020-04-01",
+   "keyruneCode": "DEFAULT",
    "cards": [
     {
      "uuid": "f19bbb3d-0c1f-51e5-adfa-b9e830816a08",
@@ -3923,6 +3927,7 @@
    "name": "Test Set",
    "type": "expansion",
    "releaseDate": "2020-01-01",
+   "keyruneCode": "TST",
    "cards": [
     {
      "uuid": "4ac5c430-76a7-57d2-944f-f25f7d7e1779",
@@ -4145,6 +4150,7 @@
    "name": "Thornwall Crossing",
    "type": "expansion",
    "releaseDate": "2020-02-01",
+   "keyruneCode": "TWL",
    "cards": [
     {
      "uuid": "2816f289-370f-5be2-a45e-f701c556bdba",

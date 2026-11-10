@@ -46,7 +46,7 @@ class CatalogTest {
             CatalogPrintingRecord(id(4), 2, "TTST", "1", id(104), token = true, makers = listOf("glorp wizard")),
         )
         val sets = listOf(
-            CatalogSetRecord("OLD", "Old Set", "core", "2001-01-01", draftable = true, automatum = true),
+            CatalogSetRecord("OLD", "Old Set", "core", "2001-01-01", "old", draftable = true, automatum = true),
             CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", draftable = true, unsupported = listOf("Glorp Wizard")),
             CatalogSetRecord("TTST", "Test Set Tokens", "token", "2026-01-01"),
         )
@@ -70,7 +70,9 @@ class CatalogTest {
         }
         override fun download(checksum: String, output: OutputStream, progress: (Long) -> Unit) {
             asked += checksum
-            file.toList().chunked(64).forEach { chunk -> output.write(chunk.toByteArray()); progress(chunk.size.toLong()) }
+            // The bytes so far, as CatalogSource.download reports them
+            var sent = 0L
+            file.toList().chunked(64).forEach { chunk -> output.write(chunk.toByteArray()); sent += chunk.size; progress(sent) }
         }
     }
 
@@ -93,10 +95,11 @@ class CatalogTest {
         assertEquals(id(101), bear.scryfallId)
         assertEquals("Creature — Bear", JsonParser.parseString(bear.json).asJsonObject.get("type").asString)
         assertEquals(2, repo().find("test bear").size)
-        // SYS-082's marks (section 3.8): supported printings, and the draft sets with their unsupported cards
+        // SYS-082's marks (section 3.8): supported printings, and the draft sets with their unsupported cards and
+        // their Keyrune set symbols (DRF-088)
         assertEquals(setOf(id(3), id(4), id(9)), repo().unsupported(listOf(id(1), id(2), id(3), id(4), id(9))))
         assertEquals(listOf(DraftableSet("TST", "Test Set", "2026-01-01", 2, false, listOf("Glorp Wizard")),
-            DraftableSet("OLD", "Old Set", "2001-01-01", 1, true)), repo().draftableSets())
+            DraftableSet("OLD", "Old Set", "2001-01-01", 1, true, keyrune = "old")), repo().draftableSets())
     }
 
     // LOB-095: an app whose built-in checksum differs from the installed catalog's installs its own; without one it takes

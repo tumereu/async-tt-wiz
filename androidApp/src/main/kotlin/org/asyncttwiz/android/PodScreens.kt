@@ -120,7 +120,11 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             }
         }
     }
-    if (controller.setPicker.state.open) PodSourcePickerDialog(controller, manageCubes)
+    if (controller.setPicker.state.open) {
+        val target = controller.setPicker.state.target
+        if (target == null) PodSourcePickerDialog(controller, manageCubes)
+        else PodPackSetDialog(controller, target, state.creating?.settings ?: state.setup?.settings ?: state.detail?.settings ?: DraftSettings())
+    }
     if (state.confirmation != null && state.detail != null) {
         val action = state.confirmation
         ScreenDialog(controller::dismissConfirmation, title = when (action) {
@@ -268,9 +272,17 @@ internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modif
     }
 }
 
-/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support. */
-private fun podSourceSupport(controller: PodController, cubeId: String?, setCode: String?): CardListSupport? =
-    cubeId?.let { id -> controller.state.cubes.find { it.id == id }?.automatum } ?: controller.setPicker.state.support(setCode)
+/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support; a pack grid's (DRF-177) is every one
+ * of its sets', the cards none of them can play together. */
+private fun podSourceSupport(controller: PodController, cubeId: String?, setCode: String?, packs: List<String> = listOfNotNull(setCode)): CardListSupport? {
+    cubeId?.let { id -> return controller.state.cubes.find { it.id == id }?.automatum }
+    val supports = packs.ifEmpty { listOfNotNull(setCode) }.distinct().map { controller.setPicker.state.support(it) ?: return null }
+    return supports.firstOrNull()?.let { first -> if (supports.size == 1) first else first.copy(byHand = supports.flatMap { it.byHand }.distinct()) }
+}
+
+/** The pack grid (DRF-177) of the set pod form being shown: its sets from the card records, editable when [editable]. */
+private fun podPackGridUi(controller: PodController, packs: List<String>, editable: Boolean): PodPackGridUi? =
+    packs.takeIf { it.isNotEmpty() }?.let { PodPackGridUi(it, controller.setPicker.state::set, controller::choosePacks.takeIf { editable }) }
 
 @Composable
 private fun NewPodScreen(controller: PodController) {
@@ -282,16 +294,18 @@ private fun NewPodScreen(controller: PodController) {
             val source = state.sourcePreview ?: draft.set?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
             val setCode = draft.set?.code.takeIf { draft.cubeId == null }
             LaunchedEffect(setCode) { if (setCode != null) controller.setPicker.loadSupport() }
-            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, setCode)
+            val packs = if (setCode == null) emptyList() else draft.packs
+            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, setCode, packs)
             PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
-                controller::newSettings, controller::reroll, automatum = support)
+                controller::newSettings, controller::reroll, automatum = support,
+                grid = podPackGridUi(controller, packs, state.sourcePreview == null))
             // I-D52 (DRF-161): a source Automatum can't play fully can't start a pod.
             if (support?.supported == false) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"),
                 color = MaterialTheme.colorScheme.error)
         }
         Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.set != null) && draft.name.isNotBlank() &&
             draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
-            podSourceSupport(controller, draft.cubeId, draft.set?.code)?.supported != false) { ButtonLabel("add", "Create") }
+            podSourceSupport(controller, draft.cubeId, draft.set?.code, draft.packs)?.supported != false) { ButtonLabel("add", "Create") }
     }
 }
 
@@ -322,9 +336,13 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val setCode = edit?.set?.code ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
         LaunchedEffect(detail.id, setCode) { if (setCode != null) controller.setPicker.loadSupport() }
-        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode)
+        // DRF-177: the pod's pack grid (the setup edit's predicted source holds an edited one)
+        val packs = if (setCode == null) emptyList() else edit?.set?.let { listOf(it.code) }
+            ?: source.packSets.ifEmpty { listOf(setCode) }.let { PodPackGrid.normalize(it, settings) }
+        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode, packs)
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
-            { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support)
+            { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support,
+            grid = podPackGridUi(controller, packs, enabled && state.sourcePreview == null && !state.uncertain))
         val unsupported = support?.supported == false
         // DRF-141: the creator moves this pod's cards between the cube's Main and Maybe before drafting.
         if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.set == null)

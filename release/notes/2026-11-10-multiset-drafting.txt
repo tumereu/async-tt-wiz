@@ -1,0 +1,1 @@
+add: A pod from sets can mix sets: "Mix sets" shows a grid of every round's packs, and you choose the set of one pack, a whole round or the same pack in every round. Presets keep the mix.

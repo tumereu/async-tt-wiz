@@ -41,7 +41,7 @@ class CatalogBuilder(
      * no card in the file has; [missingSets]: listed sets the file doesn't have. */
     class Built(val catalog: CardCatalog, val listed: List<Listed>, val unknownNames: List<String>, val missingSets: List<String>)
 
-    private class SetInfo(val code: String) { var name = code; var type = ""; var released = "" }
+    private class SetInfo(val code: String) { var name = code; var type = ""; var released = ""; var keyrune = "" }
 
     private class Collector : MtgJsonCatalogSink {
         val printings = ArrayList<Pair<CatalogPrinting, CatalogPrintingTraits?>>()
@@ -56,6 +56,7 @@ class CatalogBuilder(
         override fun addSet(code: String, releaseDate: String, checksum: String) { sets.getOrPut(code) { SetInfo(code) }.released = releaseDate }
         override fun setName(code: String, name: String) { sets.getOrPut(code) { SetInfo(code) }.name = name }
         override fun setType(code: String, type: String) { sets.getOrPut(code) { SetInfo(code) }.type = type }
+        override fun setKeyrune(code: String, keyrune: String) { sets.getOrPut(code) { SetInfo(code) }.keyrune = keyrune }
         override val readsBoosters: Boolean get() = true
         override fun recipes(code: String, recipes: Result<Map<String, SetBoosterRecipe>>) {
             recipes.onSuccess { found -> selectSetBoosterRecipe(found)?.let { this.recipes[code] = it } }
@@ -90,7 +91,7 @@ class CatalogBuilder(
         val recipes = collected.recipes.filterKeys { collected.sets[it]?.type in draftTypes }.toSortedMap()
             .map { (code, recipe) -> CatalogRecipeRecord(code, recipe) }
         val setRecords = collected.sets.values.sortedBy { it.code }.map { info ->
-            CatalogSetRecord(info.code, info.name, info.type, info.released, draftable = info.type in draftTypes)
+            CatalogSetRecord(info.code, info.name, info.type, info.released, info.keyrune, draftable = info.type in draftTypes)
         }
         val header = CatalogHeader(CardCatalogFormat.FORMAT, metadata.version, metadata.date, CardSearchRules.FORMATS,
             OracleParser.VERSION, Engine.SUPPORT_VERSION, setRecords.size, faces.size, printings.size, recipes.size)

@@ -18,7 +18,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
 @Serializable enum class PodSourceKind { CUBE, SET }
-/** A cube source's [totalCopies] counts the pod's prepared Main (what gets drafted); [maybeCopies] its Maybe. */
+/** A cube source's [totalCopies] counts the pod's prepared Main (what gets drafted); [maybeCopies] its Maybe. A set
+ * source's [packSets] is its pack grid read row by row (DRF-177, [PodPackGrid], normalized: `[setCode]` for one set);
+ * [setCode], [setName] and [boosterName] are its first pack's set's, and [boosterKind] is approximate when any of its sets
+ * has no booster recipe. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PodSource(
     val cubeName: String = "", val totalCopies: Long = 0,
@@ -26,6 +29,7 @@ import kotlinx.serialization.Serializable
     val setCode: String? = null, val setName: String? = null, val boosterKind: SetBoosterKind? = null,
     val boosterName: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeCopies: Long = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String> = emptyList(),
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
@@ -70,20 +74,24 @@ import kotlinx.serialization.Serializable
 }
 /** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
 @Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
-/** POST /v1/pods: exactly one of cubeId/setCode is required. [setCode]: a draft set the server builds the packs of from
- * its card catalog (docs/specs/web-client.md section 3.7). GET /v1/pods returns PodList, GET /v1/pods/{id} returns
- * PodDetail. */
+/** POST /v1/pods: exactly one of cubeId/setCode/packSets is required. [setCode]: a draft set the server builds the packs
+ * of from its card catalog (docs/specs/web-client.md section 3.7), for every pack. [packSets]: the pack grid read row by
+ * row (DRF-177, [PodPackGrid]), each pack's set by its code; every set must be draftable. GET /v1/pods returns PodList,
+ * GET /v1/pods/{id} returns PodDetail. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class CreatePod(val requestId: String, val name: String, val cubeId: String? = null,
     val mode: DraftMode = DraftMode.BOOSTER,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val settings: DraftSettings? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
-/** PUT /v1/pods/{id}. Omitted fields are unchanged; settings replace the complete settings object.
- * At most one of cubeId/setCode may be supplied, replacing the entire source snapshot in setup. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String>? = null)
+/** PUT /v1/pods/{id}. Omitted fields are unchanged; settings replace the complete settings object (a set pod's pack grid
+ * is then resized to them). At most one of cubeId/setCode/packSets may be supplied, replacing the entire source snapshot
+ * in setup. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class UpdatePod(val requestId: String, val name: String? = null, val cubeId: String? = null,
     val settings: DraftSettings? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val setCode: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String>? = null)
 /** POST /v1/pods/{id}/invitations. */
 @Serializable data class InviteToPod(val requestId: String, val accountId: String)
 /** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.

@@ -1,0 +1,1 @@
+Tapping the source's edit button in pod setup and then the Sets tab lists the draftable sets newest first, each with its set symbol before its name; Ember Reaches (invented, no symbol) shows its code instead, and Duskmourn, greyed with the warning sign, can't be chosen.

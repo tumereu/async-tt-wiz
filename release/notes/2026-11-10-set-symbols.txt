@@ -1,0 +1,1 @@
+add: Sets show their set symbol in the set list and in the pack grid.

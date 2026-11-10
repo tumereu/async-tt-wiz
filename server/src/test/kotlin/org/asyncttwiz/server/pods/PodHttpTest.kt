@@ -14,6 +14,7 @@ import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.EphemeralPorts
 import org.asyncttwiz.server.startBound
+import org.asyncttwiz.server.catalog.ServerCatalogs
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -1280,7 +1281,7 @@ class PodHttpTest {
             assertEquals(created, f.send(f.a, "POST", "/v1/pods", request, 201))
             val pod = json.decodeFromString<PodDetail>(created).id
             assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set",
-                boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play"), f.get(f.a, pod).source)
+                boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play", packSets = listOf("TST")), f.get(f.a, pod).source)
             f.join(pod)
             f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 7))
             val started = f.start(pod)
@@ -1377,7 +1378,7 @@ class PodHttpTest {
     @Test fun `a set chosen by its code gets packs the server builds from its card catalog`() = fixture { f ->
         val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Catalog set", setCode = "TST"), 201))
         assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set", boosterKind = SetBoosterKind.RECIPE_BASED,
-            boosterName = "play"), created.source)
+            boosterName = "play", packSets = listOf("TST")), created.source)
         f.join(created.id)
         val started = f.start(created.id)
         val pack = started.draft!!.head!!.cards
@@ -1390,6 +1391,90 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL"))
         assertEquals("Thornwall Crossing", f.get(f.a, other).source.setName)
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL", cubeId = f.cube.cube.id), 400)
+    }
+
+    /** The stored draft of pod [pod], as the server keeps it. */
+    private inline fun <reified T> storedDraft(f: Fixture, pod: String): T = f.db.connection().use { connection ->
+        connection.prepareStatement("select draft_state::text from pod where id = ?").use { statement ->
+            statement.setObject(1, UUID.fromString(pod))
+            statement.executeQuery().use { rows -> assertTrue(rows.next()); json.decodeFromString<T>(rows.getString(1)) }
+        }
+    }
+
+    /** The definitions of the cards set [code]'s packs can hold, from the server's card catalog. */
+    private fun setCards(code: String) = ServerCatalogs.current()!!.source(code)!!.snapshot.cards.map { it.definition }.toSet()
+
+    // DRF-177, DRF-179, DRF-169: pods send the pack grid of set codes; the server builds each pack from its cell's set
+    // and resizes the grid when the settings change
+    @Test fun `a mixed pack grid builds each pack from its own cell's set`() = fixture { f ->
+        val settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 4)
+        val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+            CreatePod(id(), "Mixed", settings = settings, packSets = listOf("TST", "TWL", "TWL")), 201))
+        assertEquals(listOf("TST", "TWL"), created.source.packSets, "stored normalized")
+        assertEquals("TST", created.source.setCode)
+        assertEquals("Test Set", created.source.setName)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", setCode = "TST", packSets = listOf("TST")), 400)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "No sets", packSets = emptyList()), 400)
+        val pod = created.id
+        // A settings change resizes the grid: fewer packs drop the last ones, more packs repeat the last set
+        f.configure(pod, settings.copy(packsPerPlayer = 1))
+        assertEquals(listOf("TST"), f.get(f.a, pod).source.packSets)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), packSets = listOf("TWL", "TST", "TST")))
+        assertEquals(listOf("TWL"), f.get(f.a, pod).source.packSets, "cut to the pod's one pack")
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), settings = settings, packSets = listOf("TST", "TWL")))
+        assertEquals(listOf("TST", "TWL"), f.get(f.a, pod).source.packSets)
+        f.join(pod)
+        f.start(pod)
+        // Round 1 from Test Set, rounds 2 and 3 from Thornwall Crossing: every player's pack of each round
+        val state = storedDraft<DraftState>(f, pod)
+        val definitions = state.copies.associate { it.id to it.definition }
+        val tst = setCards("TST"); val twl = setCards("TWL")
+        assertEquals(6, state.packs.size)
+        for (pack in state.packs) {
+            val expected = if (pack.round == 0) tst else twl
+            assertTrue(pack.cards.all { definitions.getValue(it) in expected }, "round ${pack.round}: ${pack.cards}")
+        }
+        assertEquals(state.copies.size, state.copies.map { it.id }.distinct().size)
+    }
+
+    // DRF-179: Sealed's one row and Grid's grids: each booster or grid from its own cell's set
+    @Test fun `Sealed boosters and fresh grid boosters come from their cells' sets`() = fixture { f ->
+        val sealed = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Mixed sealed",
+            mode = DraftMode.SEALED, settings = DraftSettings.sealed().copy(packsPerPlayer = 2), packSets = listOf("TWL", "TST")), 201)).id
+        f.join(sealed)
+        f.start(sealed)
+        val limited = storedDraft<LimitedDraftState>(f, sealed)
+        val definitions = limited.copies.associate { it.id to it.definition }
+        val tst = setCards("TST"); val twl = setCards("TWL")
+        limited.pools.values.forEach { pool ->
+            assertEquals(4, pool.count { definitions.getValue(it) in tst }, "a Test Set booster each")
+            assertEquals(15, pool.count { definitions.getValue(it) in twl }, "a Thornwall Crossing booster each")
+        }
+        val grid = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Mixed grid", mode = DraftMode.GRID,
+            settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2), packSets = listOf("TWL", "TST")), 201)).id
+        f.join(grid)
+        val started = f.start(grid)
+        val cards = started.grid!!.publicView.grids.map { board -> board.positions.map { it!!.definition } }
+        assertTrue(cards[0].all { it in twl }); assertTrue(cards[1].all { it in tst })
+    }
+
+    // DRF-178, DRF-162: every set of the grid must be draftable; one that isn't, in any cell, refuses the whole grid
+    @Test fun `a pack grid with an undraftable set in any cell is refused`() = fixture { f ->
+        fun refused(packs: List<String>, status: Int, code: String) = assertEquals(code, json.decodeFromString<PodError>(
+            f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Grid", packSets = packs), status)).code)
+        refused(listOf("TST", "TST", "BAD"), 409, "automatum_unsupported")
+        refused(listOf("OFF", "TST", "TST"), 409, "automatum_unsupported")
+        refused(listOf("TST", "DCK"), 404, "set_not_found")
+        refused(listOf("TST", "NOPE"), 404, "set_not_found")
+        refused(listOf("TST", "T S T"), 400, "invalid_source")
+        refused(List(61) { "TST" }, 400, "invalid_source")
+        val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Grid", packSets = listOf("TST", "TWL")), 201)).id
+        assertEquals("automatum_unsupported", json.decodeFromString<PodError>(
+            f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), packSets = listOf("TST", "TWL", "BAD")), 409)).code)
+        assertEquals(listOf("TST", "TWL"), f.get(f.a, pod).source.packSets, "unchanged")
+        // A cell past the grid's end is cut before it is checked: only the packs the pod opens count
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), packSets = listOf("TWL", "TWL", "TWL", "BAD")))
+        assertEquals(listOf("TWL"), f.get(f.a, pod).source.packSets)
     }
 
     // DRF-162, SYS-082 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's

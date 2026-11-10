@@ -339,6 +339,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "report" -> Icons.Outlined.BugReport
     "sync" -> Icons.Outlined.Sync
     "presets" -> Icons.Outlined.Bookmarks
+    "pack-grid" -> Icons.Outlined.GridView
     "switch" -> Icons.Outlined.SwapHoriz
     "start" -> Icons.Outlined.PlayArrow
     "pass" -> Icons.AutoMirrored.Outlined.ArrowForward

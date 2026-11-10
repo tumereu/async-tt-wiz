@@ -110,4 +110,66 @@ object CatalogCards {
             if (face.oracle.isNotEmpty()) put("scryfallOracleId", face.oracle)
         }
     }
+
+    /** [sourceRecord] as text, character for character what its toString() gives, written directly: a device installing
+     * card records makes one per printing, and building the JSON tree first takes several times as long. */
+    fun sourceRecordText(printing: CatalogPrintingRecord, face: CatalogFaceRecord): String = buildString(512) {
+        var first = true
+        fun key(key: String) { append(if (first) "{\"" else ",\""); first = false; append(key).append("\":") }
+        fun put(key: String, value: String) { key(key); quoted(value) }
+        fun text(key: String, value: String) { if (value.isNotEmpty()) put(key, value) }
+        fun array(key: String, values: List<String>) {
+            key(key); append('[')
+            values.forEachIndexed { index, value -> if (index > 0) append(','); quoted(value) }
+            append(']')
+        }
+        put("uuid", printing.id)
+        put("name", face.name)
+        put("setCode", printing.set)
+        put("number", printing.number)
+        put("language", "English")
+        text("side", face.side)
+        if (printing.others.isNotEmpty()) array("otherFaceIds", printing.others)
+        text("faceName", face.faceName)
+        put("layout", face.layout)
+        text("type", face.type)
+        text("manaCost", face.manaCost)
+        text("text", face.text)
+        text("power", face.power)
+        text("toughness", face.toughness)
+        text("loyalty", face.loyalty)
+        text("defense", face.defense)
+        array("colors", face.colors)
+        array("availability", printing.availability)
+        if (printing.onlineOnly) { key("isOnlineOnly"); append("true") }
+        if (printing.promo) { key("isPromo"); append("true") }
+        key("identifiers")
+        append('{')
+        printing.scryfall?.let { append("\"scryfallId\":"); quoted(it) }
+        if (face.oracle.isNotEmpty()) { if (printing.scryfall != null) append(','); append("\"scryfallOracleId\":"); quoted(face.oracle) }
+        append("}}")
+    }
+
+    /** A JSON string as kotlinx.serialization prints one: `"`, `\` and control characters escaped, nothing else. */
+    private fun StringBuilder.quoted(value: String) {
+        append('"')
+        var from = 0
+        for (index in value.indices) {
+            val escape = when (val char = value[index]) {
+                '"' -> "\\\""
+                '\\' -> "\\\\"
+                '\t' -> "\\t"
+                '\b' -> "\\b"
+                '\n' -> "\\n"
+                '\r' -> "\\r"
+                '\u000c' -> "\\f"
+                else -> if (char < ' ') "\\u00" + HEX[char.code shr 4] + HEX[char.code and 0xf] else continue
+            }
+            append(value, from, index).append(escape)
+            from = index + 1
+        }
+        append(value, from, value.length).append('"')
+    }
+
+    private const val HEX = "0123456789abcdef"
 }

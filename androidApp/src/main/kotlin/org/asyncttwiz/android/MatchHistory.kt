@@ -49,10 +49,15 @@ class HistoryController(private val api: Lobbies, private val credential: () -> 
         }
     }
 
-    /** Reads [podId]'s matches (its Games tab). */
-    fun loadPod(podId: String) {
+    /** Reads [podId]'s matches (its Games tab): on opening it, and again when one of its games starts or ends ([why]). */
+    fun loadPod(podId: String, why: String = "opened") {
+        AppLog.info("history", "Pod ${podId.take(8)} matches read ($why)")
         pods = pods + (podId to (pods[podId] ?: HistoryList()).copy(loading = true))
         read({ api.podMatches(it, podId) }) { result ->
+            if (result == null) AppLog.info("history", "Pod ${podId.take(8)} matches read ($why) failed; the earlier list stays")
+            else AppLog.info("history", "Pod ${podId.take(8)} matches read ($why): ${result.records.size} records " +
+                "(${result.records.joinToString { "${it.gameId.take(8)} ${if (it.finished) "ended" else "unfinished"}" }}), ${result.playing.size} in play " +
+                "(${result.playing.joinToString { "${it.gameId.take(8)} turn ${it.turn}" }})")
             pods = pods + (podId to (result?.let { HistoryList(it) } ?: (pods[podId] ?: HistoryList()).copy(loading = false, failed = true)))
         }
     }

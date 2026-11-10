@@ -892,7 +892,6 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val OBJECTS = "\$objects:"
         const val PER_PLAYER = "\$per-player:"
         const val COLOR = "\$color:"
-        const val MANUAL = "\$manual"
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 

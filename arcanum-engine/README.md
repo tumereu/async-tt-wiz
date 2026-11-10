@@ -110,8 +110,8 @@ seeded random games of cube cards, failing on any open player decision without a
   in its definition, CR 707.8a; designations and status stay on the object, and what can transform or meld goes by its own
   definition, CR 712.9; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
-  yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
-  keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
+  yet (none today), abilities with a `Manual` step at its natural moment (cast, enters, attacks, dies, …), which
+  `Engine.manualParts` names, so no keyword is silently taken as supported (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
   make it differ (a host's state never caches; `Engine.view` works it out afresh). A host that keeps a state's view
   itself passes it in instead: `perform`'s `view` (the given state's), the `options`, `passCheck`, `shouldPassFor`,
@@ -315,8 +315,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   splice (CR 702.47: cards in hand offered as the spell is cast, their text added after its own, their costs added, a
   card whose target names clash with the spell's not offered), collect evidence as a cost (CR 701.59a), convoke, delve, cost changes (CR 118.7; "the next … spell" effects apply to and are used up by the spells they wait for,
   CR 611.2f), Phyrexian, hybrid, snow, restricted mana;
-  mana abilities without the Stack (their other effects at once, a part needing a decision
-  by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
+  mana abilities without the Stack (their other effects at once, what they ask stopping the activation, which is redone with
+  the answers, D29; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (CR 116: `casting/SpecialActions` lists what the rules give an object: unlocking a door, turning a manifested or cloaked card or a face-down card's own way up, foretelling; those of keywords are its abilities; any of them pays its cost and runs its steps through the step runner without the Stack, and every way of turning face up is one `Effect.TurnFaceUp`, which ends what `MarkClear.TurnedFaceUp` says); combat:
   declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c; goaded creatures
   attack, a player other than the goader if able, until the goader's next turn, CR 701.15),
@@ -355,8 +355,9 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   card has or another object gives it, within its limit each turn, the player choosing which (CR 601.2b, 118.9; none
   when the effect's terms are one, CR 118.9a, and none face down); not cast without legal targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
-  `ManaPayment` decision, asked only when a payment is found (CR 118.3), by hand when its amount isn't known there ("its
-  mana cost", an unannounced X). Permanents enter with their printed
+  `ManaPayment` decision, asked only when a payment is found (CR 118.3); an X nothing defines chosen by the payer as they pay, up
+  to the most they may pay, and read as X by the rest (CR 107.3f); "its mana cost" the source's (X as 0 unless it is a spell, CR
+  107.3h; none is unpayable, CR 118.6). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
   draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
@@ -629,12 +630,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   its player concedes goes to that player at once (or to the controller's choice of who); an open cost choice stays open for
   "no"; a payment (`ManaPayment`) is never handed to another player (800.4f), and another player's cast asking the one who left
   goes on with its next question (assist: the caster pays it all).
-- By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
+- By hand still: nothing is asked by hand any more (`Decision.Manual` is no longer asked; the type stays until the owner agrees
+  its removal). What the engine doesn't carry out, `Engine.manualParts` names, so such a card isn't supported:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
-  - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
-    whose other effect needs a decision, and
-    the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
+  - `Step.Manual` (does nothing when run) and `CostPart.Manual` (can't be paid on resolution); no card the parser reads has
+    either (an unreadable dungeon room leaves the dungeon unread).
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round; exert, costs to attack and block, "any time you could mulligan", starting hand sizes, "is a

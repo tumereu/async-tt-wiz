@@ -250,7 +250,8 @@ sealed interface Decision {
         val objects: List<ObjectId>, val reason: String, val answered: Int = 0,
     ) : Decision
 
-    /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. */
+    /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. The engine no longer asks it: what it can't carry out
+     * is named by [arcanum.engine.Engine.manualParts] and not done. Its removal waits for the owner (stored engine states may name it). */
     @Serializable @SerialName("manual")
     data class Manual(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,

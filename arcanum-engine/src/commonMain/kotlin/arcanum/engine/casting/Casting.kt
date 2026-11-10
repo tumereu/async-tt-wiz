@@ -156,10 +156,6 @@ internal object Casting {
 
     fun resume(recorder: Recorder, continuation: Continuation.Announcing, answer: Answer): Progress {
         val start = recorder.changes.size
-        if (continuation.choices.names[Plan.MANUAL] != null) {
-            require(answer == Answer.Done) { "Answer the manual step with Done" }
-            return Progress.Done
-        }
         // A payment that waited for a decision is redone with the answers so far (D29)
         continuation.choices.paying?.let { paying ->
             return Payment.finish(recorder, continuation.copy(choices = continuation.choices.copy(paying = null)), paying.uses, start,

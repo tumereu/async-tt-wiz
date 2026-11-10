@@ -102,7 +102,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   "[this] mutates", "Venture into the dungeon." / "Venture into Undercity.", "You take the initiative.", "you complete a dungeon",
   "you've completed a dungeon", "whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as a noun, subject and
   object ("Put a +1/+1 counter on your Ring-bearer."), haunt's modal trigger working in exile too, and a dungeon card's rooms ("[name] — [effect] (→ [room] or [room])", also as card data writes the arrows,
-  "(Leads to: [room], [room])", `MechanicWordings.rooms`; a room effect it can't read is a `Step.Manual`) and its restriction
+  "(Leads to: [room], [room])", `MechanicWordings.rooms`; a room effect it can't read leaves the whole dungeon unread) and its restriction
   "You can't enter this dungeon unless you "venture into [quality]."" (`Mechanic.OnlyVentureInto`, working outside the game);
   the room effects the general rules didn't read (`Sentences.dungeonEffect`, `DungeonRoomWordingsTest`): "Draw three cards and
   reveal them. You may cast one of them without paying its mana cost.", "Reveal the top ten cards of your library. Put a creature card

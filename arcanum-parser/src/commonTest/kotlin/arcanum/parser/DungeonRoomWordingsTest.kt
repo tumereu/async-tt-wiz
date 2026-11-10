@@ -174,4 +174,16 @@ class DungeonRoomWordingsTest {
         val manual = face.rooms.filter { r -> r.instructions.steps.any { it is Step.Manual } }.map { it.name }
         assertEquals(emptyList(), manual)
     }
+
+    // CR 309.4: a room whose effect isn't read leaves the whole dungeon unread, never a room done by hand
+    @Test
+    fun aDungeonWithAnUnreadRoomIsUnread() {
+        val text = """
+            Drowned Gate — Each player loses 1 life. (Leads to: Moonlit Hall)
+            Moonlit Hall — Whenever the moon is full, dance a slow jig.
+        """.trimIndent()
+        val face = OracleParser.parse(OracleCard("Jigging Warren", null, "Dungeon", text))
+        assertEquals(emptyList(), face.rooms)
+        assertEquals(listOf<arcanum.api.Ability>(arcanum.api.Ability.Unparsed(text)), face.abilities)
+    }
 }

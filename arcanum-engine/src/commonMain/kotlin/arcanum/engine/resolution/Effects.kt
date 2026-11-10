@@ -61,8 +61,7 @@ import arcanum.engine.trigger.Triggers
 /**
  * Every one-shot [Effect] of arcanum-api (CR 610), performed through the event pipeline ([Actions]). Objects that left
  * their zone can be read (last known information, CR 608.2h) but not acted on (CR 400.7). Effects that produce objects
- * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21). What the engine can't carry out stops with a
- * [arcanum.engine.decision.Decision.Manual] (D61): only on a card [arcanum.engine.Engine.manualParts] names as unsupported.
+ * bind them ([Effect] KDoc): `bind`, or `preBind`/`postBind` around a zone change (D21).
  */
 internal object Effects {
     fun perform(scope: Scope, effect: Effect) {

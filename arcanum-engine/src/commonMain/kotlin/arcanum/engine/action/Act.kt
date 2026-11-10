@@ -316,11 +316,6 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses)
     }
 
-    /** Something to do by hand (D61): shown to [player], answered "done". */
-    fun manual(player: PlayerId, source: ObjectId?, text: String) {
-        ask { Decision.Manual(it, player, source, text) }
-    }
-
     /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
      * at them, or everyone sees them when [public] ([Decision.HostFill]). */
     fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false, shown: Boolean = true, named: String? = null) {

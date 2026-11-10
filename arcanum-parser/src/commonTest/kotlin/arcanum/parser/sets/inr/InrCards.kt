@@ -6,6 +6,8 @@ import arcanum.api.Affected
 import arcanum.api.AbilityLabel
 import arcanum.api.CardType
 import arcanum.api.Color
+import arcanum.api.ColorRef
+import arcanum.api.Comparison
 import arcanum.api.Combine
 import arcanum.api.Condition
 import arcanum.api.Cost
@@ -38,6 +40,7 @@ import arcanum.api.Recipients
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.Supertype
+import arcanum.api.SubtypeRef
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
 import arcanum.api.Timing
@@ -266,3 +269,26 @@ val werewolfFront: Ability = triggered(eachUpkeep, transformSelf, interveningIf 
 /** "At the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature." */
 val werewolfBack: Ability = triggered(eachUpkeep, transformSelf, interveningIf = aPlayerCastLastTurn(2))
 val wolf: TokenSpec = creatureToken("Wolf", listOf(Color.Green), 2, 2)
+
+// ---- inr chunk 02
+fun delayed(trigger: Trigger, vararg steps: Step): Step = Step.Do(Effect.CreateDelayedTrigger(trigger, Instructions(steps = steps.toList())))
+fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = emptyList()): Step = Step.If(condition, then.toList(), otherwise)
+val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
+val vampire2: TokenSpec = creatureToken("Vampire", listOf(Color.Black), 2, 2, abilities = listOf(Keyword.Flying))
+val zombie: TokenSpec = creatureToken("Zombie", listOf(Color.Black), 2, 2)
+val blood: TokenSpec = TokenSpec.Predefined("Blood")
+val ice: CounterKind = CounterKind.Named("ice")
+/** "if you control N or more [filter]" */
+fun youControl(filter: ObjectFilter, atLeast: Int): Condition = Condition.Exists(and(filter, you), atLeast = atLeast)
+val wizardToken: TokenSpec = creatureToken("Human Wizard", listOf(Color.Blue), 1, 1)
+val invitation: CounterKind = CounterKind.Named("invitation")
+/** "if you gained life this turn" */
+val gainedLifeThisTurn: Condition = Condition.HappenedThisTurn(EventPattern.GainLife(PlayerFilter.You), atLeast = 1, measure = Measure.Events)
+/** "Creatures with power less than this creature's power can't block it." */
+val smallerCantBlock: Ability = static(Mechanic.CantBeBlockedBy(ObjectFilter.And(listOf(creature, ObjectFilter.Power(Comparison.Less, power(Objects.Self))))))
+val attackedWithTwo: Condition = Condition.HappenedThisTurn(EventPattern.Attack(and(creature, you)), atLeast = 2, measure = Measure.Objects)
+val batBlood: Step = Step.Do(Effect.ApplyMechanics(listOf(
+    Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Bat")))),
+    Mechanic.SetColors(listOf(ColorRef.Literal(Color.Black))),
+    Mechanic.GainAbilities(listOf(Keyword.Flying, Keyword.Haste)),
+    Mechanic.SetPowerToughness(Value.Fixed(2), Value.Fixed(2))), Affected.Objects(Objects.Target("token")), Duration.Indefinitely))

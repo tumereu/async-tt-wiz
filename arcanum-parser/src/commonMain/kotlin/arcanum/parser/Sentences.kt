@@ -5215,7 +5215,8 @@ internal class Sentences(
         }
         // chunk 56: "Transform this creature." / "transform it" (CR 701.27)
         TRANSFORM.matchEntire(sentence)?.let { m ->
-            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null else return null
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null else return@let
+            context.it = objects // "Transform this land, then untap it." (inr chunk 02)
             return listOf(Step.Do(Effect.Transform(objects)))
         }
         // chunk 56: "Return all non-Horror creatures to their owners' hands."

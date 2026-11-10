@@ -20,6 +20,7 @@ import org.asyncttwiz.protocol.game.GameCards
  */
 object CatalogCards {
     private const val FRONT = "a"
+    private const val REVERSIBLE = "reversible_card"
 
     /** A printing and the faces it links to (itself included), sides in order. */
     fun linked(catalog: CardCatalog, printing: CatalogPrintingRecord): List<CatalogPrintingRecord> =
@@ -41,11 +42,29 @@ object CatalogCards {
     fun definition(catalog: CardCatalog, printing: CatalogPrintingRecord): CardDefinition =
         definition(catalog, physicalSides(catalog, linked(catalog, printing)))
 
-    /** The card data of one physical card's [sides] (from [physicalSides]), the first naming it. */
+    /** A reversible printing (layout "reversible_card": the same card on both sides) is the card it shows. */
+    fun reversible(face: CatalogFaceRecord): Boolean = face.layout == REVERSIBLE
+
+    /** The name of the card [face] belongs to: a reversible printing's is the card it shows ([reversible]). */
+    fun cardName(face: CatalogFaceRecord): String = if (reversible(face) && face.faceName.isNotEmpty()) face.faceName else face.name
+
+    /** The card data of one physical card's [sides] (from [physicalSides]), the first naming it. A reversible printing
+     * is the card its first side shows, a card of one face ([reversible]). */
     fun definition(catalog: CardCatalog, sides: List<CatalogPrintingRecord>): CardDefinition {
+        val first = catalog.faces[sides.first().face]
+        if (reversible(first)) return definition(sides.first().copy(others = emptyList()),
+            first.copy(name = cardName(first), faceName = "", layout = "normal", side = ""), catalog.header)
+        return definition(catalog.header, sides) { catalog.faces[it.face] }
+    }
+
+    private fun definition(printing: CatalogPrintingRecord, face: CatalogFaceRecord, header: CatalogHeader): CardDefinition =
+        definition(header, listOf(printing)) { face }
+
+    private fun definition(header: CatalogHeader, sides: List<CatalogPrintingRecord>,
+        faceOf: (CatalogPrintingRecord) -> CatalogFaceRecord): CardDefinition {
         val ids = sides.map { it.id }.toSet()
         val faces = sides.map { side ->
-            val face = catalog.faces[side.face]
+            val face = faceOf(side)
             val record = sourceRecord(side, face)
             DefinitionFace(side.id, face.faceName.ifBlank { face.name }, side.others.filter { it in ids }, face.type,
                 face.manaCost, face.text, face.power, face.toughness, face.loyalty, face.defense, scryfallId = side.scryfall,
@@ -53,9 +72,9 @@ object CatalogCards {
                 .let { it.copy(corner = it.defaultCorner()) }
         }
         val first = sides.first()
-        val face = catalog.faces[first.face]
+        val face = faceOf(first)
         val definition = CardDefinition(face.name, faces, provider = "mtgjson",
-            sourceVersion = "${catalog.header.mtgjsonDate}/${catalog.header.mtgjsonVersion}", printingId = first.id,
+            sourceVersion = "${header.mtgjsonDate}/${header.mtgjsonVersion}", printingId = first.id,
             layout = face.layout, token = first.token)
         // Linked token/designation records are physical sides, even for provider layouts such as double_faced_token
         // or token. Do not flatten them like split/adventure spell parts.

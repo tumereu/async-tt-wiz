@@ -44,72 +44,34 @@ class NonGameplayBusyTest {
         assertEquals(before, compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot)
     }
 
-    @Test fun catalogPillUsesStructuredDeterminateProgressAndUnknownTotalFallback() {
-        var total by mutableStateOf<Long?>(450_000_000)
-        compose.setContent { ScreenTheme {
-            val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.INDEXING,
-                160_000_000, total, 45_123)
-            ScreenBusyOverlay(progress.label(), progress) { Text("Content remains usable") }
-        } }
-        compose.onNodeWithText("Indexing card records: 160 / 450 MB processed · 45,123 cards").assertIsDisplayed()
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo(160f / 450f, 0f..1f))).assertCountEquals(1)
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
-        compose.runOnIdle { total = null }
-        compose.onNodeWithText("Indexing card records: 160 MB processed · 45,123 cards").assertIsDisplayed()
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(2)
-        compose.runOnIdle { total = 0 }
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(2)
-        compose.runOnIdle { total = 450_000_000 }
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
-    }
-
-    // LOB-096: the card records progress never covers a screen's bottom buttons
-    @Test fun catalogProgressLeavesTheScreensBottomButtonsUncovered() {
-        var tapped = 0
-        compose.setContent { ScreenTheme {
-            val progress = CatalogProgress(CatalogPhase.INDEXING, 149_000_000, 184_000_000, 101_866)
-            CatalogProgressDock(progress.label(), progress) {
-                Button(onClick = { tapped++ }, Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) { Text("Ready") }
-            }
-        } }
-        val pill = compose.onNodeWithTag("floating-busy-pill").fetchSemanticsNode().boundsInRoot
-        val ready = compose.onNodeWithText("Ready").fetchSemanticsNode().boundsInRoot
-        assertTrue(ready.bottom <= pill.top, "the button sits above the progress, not under it")
-        compose.onNodeWithText("Ready").performClick()
-        compose.runOnIdle { assertEquals(1, tapped) }
-    }
-
     @Test fun messageWithoutProgressKeepsItsSpinner() {
         compose.setContent { ScreenTheme { FloatingBusyPill("Loading games…") } }
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(1)
     }
 
-    // LOB-096, SYS-023
-    @Test fun shellCatalogChecksStaySilentAndOnlyTransfersSuppressScreenPills() {
+    // LOB-096 (docs/specs/web-client.md section 3.6): while the card records install, controls that read them are greyed
+    // with "Card records updating · NN%"; the rest of the screen works and no busy pill covers it
+    @Test fun whileCardRecordsInstallTheirControlsAreGreyedWithTheLine() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.GAMES))
-        fixtures.lobby.seed(fixtures.lobby.state.copy(busy = true))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
-        val checking = CatalogUiState(busy = true, status = "Checking card records…")
-        catalog.seed(checking)
+        catalog.seed(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)))
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, lobby = fixtures.lobby) } }
-        compose.onNodeWithText("Checking card records…").assertDoesNotExist()
-        compose.onNodeWithText("Loading games…").assertDoesNotExist()
+        compose.onNodeWithText("Card records updating · 59%").assertIsDisplayed()
+        compose.onNodeWithTag("new-game").assertIsNotEnabled()
+        compose.onNodeWithText("Azure Spark").assertIsDisplayed()
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
-        val before = compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot
-        for (phase in CatalogPhase.entries) {
-            val progress = CatalogProgress(phase, 160_000_000, 450_000_000, 45_123)
-            compose.runOnIdle { catalog.seed(checking.copy(status = progress.label(), progress = progress)) }
-            compose.onNodeWithText(progress.label()).assertIsDisplayed()
-            compose.onNodeWithText("Loading games…").assertDoesNotExist()
-            compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(1)
-            assertEquals(before, compose.onNodeWithText("Azure Spark").fetchSemanticsNode().boundsInRoot)
-        }
-        compose.runOnIdle { catalog.seed(checking) }
-        compose.onNodeWithText("Checking card records…").assertDoesNotExist()
-        compose.onNodeWithText("Loading games…").assertDoesNotExist()
-        compose.runOnIdle { fixtures.lobby.seed(fixtures.lobby.state.copy(busy = false)) }
-        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
+        val game = fixtures.lobby.state.games.first { it.gameName == "Azure Spark" }
+        compose.onNodeWithTag("quick-continue-${game.id}").assertIsNotEnabled()
+        // Failed: the line says so with Retry
+        compose.runOnIdle { catalog.seed(CatalogUiState(failed = true)) }
+        compose.onNodeWithText("Card records couldn't be downloaded").assertIsDisplayed()
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        // Installed: everything works
+        compose.runOnIdle { catalog.seed(CatalogUiState(ready = true)) }
+        compose.onNodeWithTag("card-records-note").assertDoesNotExist()
+        compose.onNodeWithTag("new-game").assertIsEnabled()
+        compose.onNodeWithTag("quick-continue-${game.id}").assertIsEnabled()
     }
 
     // SYS-023
@@ -120,40 +82,6 @@ class NonGameplayBusyTest {
         compose.onNodeWithText("Loading games…").assertIsDisplayed()
         compose.runOnIdle { fixtures.lobby.seed(LobbyState(busy = true, backgroundLoading = true)) }
         compose.onNodeWithText("Loading games…").assertDoesNotExist()
-    }
-
-    @Test fun automaticCatalogTransfersStaySilentButErrorsRemainVisible() {
-        val fixtures = ScreenFixtures()
-        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.SETTINGS))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
-        val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 10, 100)
-        catalog.seed(CatalogUiState(busy = true, status = progress.label(), progress = progress, background = true, loaded = true))
-        compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog) } }
-        compose.onNodeWithText(progress.label()).assertDoesNotExist()
-        compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
-        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
-        compose.runOnIdle { catalog.seed(CatalogUiState(background = true, error = true, status = "Download failed", loaded = true)) }
-        compose.onNodeWithText("Download failed").assertIsDisplayed()
-    }
-
-    // LOB-091
-    @Test fun startupConsentHasOnlyTheTwoButtonActions() {
-        var downloads = 0
-        var dismissals = 0
-        compose.setContent { ScreenTheme {
-            CatalogStartupDialog(CatalogUiState(), download = { downloads++ }, dismiss = { dismissals++ })
-        } }
-        compose.onAllNodes(hasClickAction()).assertCountEquals(2)
-        compose.onNodeWithContentDescription("Not now").assertDoesNotExist()
-        compose.onNodeWithText("Not now").assertDoesNotExist()
-        compose.onNodeWithText("The app needs the card catalog to work. Artwork downloads separately, only when needed.").assertIsDisplayed()
-        compose.onNodeWithText("Approximate download size: 450 MB (varies by catalog version).").assertIsDisplayed()
-        compose.onNodeWithText("Exit").performClick()
-        assertEquals(1, dismissals)
-        assertEquals(0, downloads)
-        compose.onNodeWithText("Download").performClick()
-        assertEquals(1, downloads)
-        assertEquals(1, dismissals)
     }
 
     @Test fun drawerRetainsControllerTruthAndItsPaneDuringExitAnimation() {

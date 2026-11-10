@@ -190,7 +190,8 @@ class MainActivity : ComponentActivity() {
                         auth.openActivity(route)
                     }
                 }
-                val catalogBlocked = catalog.state.busy || catalog.needsInitialDownloadConsent || catalog.promptPolicy.shouldPrompt(catalog.state)
+                // Prompts wait while the card records install (section 3.6), not after a failure
+                val catalogBlocked = !catalog.state.ready && !catalog.state.failed
                 val releaseNotes = remember { ReleaseNotePreferences(this@MainActivity) }
                 var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
                 // From the first frame (even over sign-in); catalog and permission prompts wait for it instead.
@@ -225,9 +226,10 @@ class MainActivity : ComponentActivity() {
                 }) {
                     if (storage.state == StorageState.Ready) {
                         // I-D51: Automatum support icons work lists out with the device's card definitions.
-                        androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport) {
+                        androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport,
+                            LocalCardMarks provides auth.cardMarks) {
                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods,
-                            catalogPrompts = whatsNew.isEmpty(), tableShown = ::tableShown)
+                            tableShown = ::tableShown)
                         }
                     }
                     else Column(

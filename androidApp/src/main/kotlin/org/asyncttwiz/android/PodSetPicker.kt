@@ -6,177 +6,90 @@ import org.asyncttwiz.storage.*
 import java.time.LocalDate
 import java.util.concurrent.ExecutorService
 
-/** Blocking methods: the picker calls these only on its worker. */
-interface PodSetRepository {
+/** The draft sets of the card records with their support marks (section 3.8). Blocking: the picker's worker only. */
+fun interface PodSetRepository {
     fun sets(): List<DraftableSet>
-    fun isCached(code: String): Boolean
-    /** Loads [code], downloading it when needed (DRF-089: redownloaded once by itself when cards are missing). */
-    fun load(code: String): SetSourceUpload
-    /** I-D51: the unsupported card names of the sets worked out so far, by set code. */
-    fun automatum(): Map<String, List<String>> = emptyMap()
-    /** DRF-161 (smoke 2026-11-04): asks for the support of the sets [codes] shown, worked out in the background; [done]
-     * runs (on any thread) once they are. Not blocking. */
-    fun requestAutomatum(codes: List<String>, done: () -> Unit) {}
-    /** DRF-161: works out [code]'s support now when it isn't known yet (a chosen source). */
-    fun automatumNow(code: String) {}
 }
 
-internal class StoredPodSets(factory: () -> SetSourceRepository,
-    private val support: () -> Map<String, List<String>> = { emptyMap() },
-    private val request: (List<String>, () -> Unit) -> Unit = { _, _ -> },
-    private val now: (String) -> Unit = {}) : PodSetRepository {
-    // Repository construction also touches the filesystem; defer it to the worker.
-    private val repository by lazy(factory)
-    override fun sets() = repository.sets()
-    override fun automatum() = support()
-    override fun requestAutomatum(codes: List<String>, done: () -> Unit) = request(codes, done)
-    override fun automatumNow(code: String) = now(code)
-    override fun isCached(code: String) = repository.isCached(code)
-    override fun load(code: String) = repository.load(code)
+/** The device's card records as the pickers' set list. */
+internal class StoredPodSets(private val repository: () -> CatalogRepository) : PodSetRepository {
+    override fun sets() = repository().draftableSets()
 }
 
-/** [automatum]: the set's Automatum support (DRF-161), null until worked out. */
-internal data class PodSetRow(val set: DraftableSet, val cached: Boolean, val automatum: CardListSupport? = null)
+/** A draft set chosen as a pod's source: the server builds its packs from its card catalog (DRF-169, section 3.7). */
+data class PodSetChoice(val code: String, val name: String)
+
+internal fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = code, setName = name)
+
+/** A set's support as a list's (LOB-115's icon and hold): its unsupported cards (DRF-161), from the card catalog's marks. */
+internal fun DraftableSet.support(): CardListSupport =
+    CardListSupport(CardDefinitions.parserVersion, unsupported, arcanum.engine.Engine.SUPPORT_VERSION)
+
 internal data class PodSetPickerState(
-    val open: Boolean = false, val rows: List<PodSetRow> = emptyList(), val query: String = "",
-    val loaded: Boolean = false, val busy: Boolean = false, val status: String? = null,
-    val error: String? = null, val warnings: List<String> = emptyList(),
-    /** DRF-161: the unsupported card names of the sets worked out so far, by set code ([PodSetPickerController.loadSupport]). */
-    val support: Map<String, List<String>> = emptyMap(),
+    val open: Boolean = false, val sets: List<DraftableSet> = emptyList(), val query: String = "",
+    val loaded: Boolean = false, val busy: Boolean = false, val error: String? = null,
 ) {
-    /** A set's Automatum support, null until worked out. */
-    fun support(code: String?): CardListSupport? = code?.let(support::get)?.let { CardListSupport(CardDefinitions.parserVersion, it,
-        arcanum.engine.Engine.SUPPORT_VERSION) }
+    /** A set's Automatum support (DRF-161), null when the card records don't list it. */
+    fun support(code: String?): CardListSupport? = sets.firstOrNull { it.code == code }?.support()
 
-    val filtered get() = rows.filter { row ->
-        row.set.draftable && row.set.releaseDate <= LocalDate.now(AppClock.clock()).toString() && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
-            row.set.code.contains(it, true) || row.set.releaseDate.contains(it, true) }
-    }.sortedWith(compareByDescending<PodSetRow> { it.set.releaseDate }.thenBy { it.set.name }.thenBy { it.set.code })
+    val filtered get() = sets.filter { set ->
+        set.releaseDate <= LocalDate.now(AppClock.clock()).toString() && query.trim().let { it.isEmpty() || set.name.contains(it, true) ||
+            set.code.contains(it, true) || set.releaseDate.contains(it, true) }
+    }.sortedWith(compareByDescending<DraftableSet> { it.releaseDate }.thenBy { it.name }.thenBy { it.code })
 }
 
+/**
+ * The Sets tab of a pod's source picker (DRF-088): the draft sets of the card records, newest first. A set Automatum
+ * can't play every card of (the card catalog's marks, section 3.9) is greyed and can't be chosen; a chosen set goes to
+ * the pod by its code ([selected]).
+ */
 internal class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
-    private val post: (() -> Unit) -> Unit, private val choosing: (DraftableSet) -> Unit = {},
-    private val failed: (String) -> Unit = {}, private val selected: (SetSourceUpload) -> Unit) {
+    private val post: (() -> Unit) -> Unit, private val selected: (PodSetChoice) -> Unit) {
     var state by mutableStateOf(PodSetPickerState())
         private set
     private var generation = 0L
-    private var retryAction: (() -> Unit)? = null
 
     fun open() {
         if (state.open) return
-        generation++
-        state = state.copy(open = true, busy = false, query = "", error = null, warnings = emptyList())
-        list()
+        state = state.copy(open = true, query = "", error = null)
+        load()
     }
-    fun dismiss() { generation++; retryAction = null; state = state.copy(open = false, busy = false, status = null, error = null) }
-    fun clear() { dismiss(); asked.clear(); state = PodSetPickerState() }
+    fun dismiss() { generation++; state = state.copy(open = false, busy = false, error = null) }
+    fun clear() { dismiss(); state = PodSetPickerState() }
     fun query(value: String) { state = state.copy(query = value) }
-    fun retry() { if (!state.busy) retryAction?.invoke() }
-    private fun list() = work("Loading installed sets…", ::list, action = {
-        val support = runCatching { checkNotNull(repository).automatum() }
-            .onFailure { AppLog.warn("sets", "Reading the sets' support failed", it) }.getOrDefault(emptyMap())
-        checkNotNull(repository).sets().map { set ->
-            PodSetRow(set, repository.isCached(set.code), support[set.code]?.let { CardListSupport(CardDefinitions.parserVersion, it, arcanum.engine.Engine.SUPPORT_VERSION) })
-        } to support
-    }) { (rows, support) -> state = state.copy(rows = rows, loaded = true, support = support) }
+    fun retry() { if (!state.busy) load() }
 
-    /** Set codes asked for this session (personal, cleared with [clear]), so each is asked for once. */
-    private val asked = mutableSetOf<String>()
+    /** Reads the sets (for a chosen source's warning sign too, DRF-161) when they aren't read yet. */
+    fun loadSupport() { if (!state.loaded && !state.busy) load() }
 
-    /** DRF-161 (smoke 2026-11-04): the picker shows the sets [codes]: those whose support isn't known are worked out in
-     * the background, and the icons show once they are. Main thread. */
-    fun showing(codes: List<String>) {
+    private fun load() {
         val source = repository ?: return
-        val wanted = codes.filter { it !in state.support && it !in asked }
-        if (wanted.isEmpty()) return
-        asked += wanted
-        source.requestAutomatum(wanted) { post { loadSupport() } }
-    }
-
-    /** DRF-161: reads the sets' Automatum support worked out so far, for the chosen source's icon; [code]: that source's
-     * set, worked out in the background when it isn't known yet. */
-    fun loadSupport(code: String? = null) {
-        val source = repository ?: return
-        if (code != null) showing(listOf(code))
-        worker.execute {
-            val support = runCatching { source.automatum() }
-                .onFailure { AppLog.warn("sets", "Reading the sets' support failed", it) }.getOrNull() ?: return@execute
-            post { state = state.copy(support = support) }
-        }
-    }
-
-    private fun supportOf(source: PodSetRepository, code: String) = runCatching { source.automatum() }
-        .onSuccess { AppLog.info("sets", "$code: Automatum can't play ${it[code]?.size?.toString() ?: "an unknown number of"} cards: ${it[code]?.take(20)}") }
-        .onFailure { AppLog.warn("sets", "$code: reading its support failed", it) }.getOrNull()
-
-    fun choose(code: String) {
-        val set = state.rows.firstOrNull { it.set.code == code && it.set.draftable }?.set ?: return
-        if (!state.open) return
-        // Displayed rows remain selectable during refresh. Fence its queued result before choosing.
-        generation++
-        state = state.copy(busy = false)
-        work("Loading $code: downloading if needed and preparing card definitions…", { choose(code) }, code, detached = true, action = {
-                val source = checkNotNull(repository)
-                val upload = source.load(code)
-                // DRF-161: the chosen set's support goes with it (I-D52), worked out now when it isn't known yet
-                source.automatumNow(code)
-                upload to supportOf(source, code)
-            }) { (upload, support) ->
-            if (support != null) state = state.copy(support = support)
-            state = state.copy(rows = state.rows.map { if (it.set.code == code) it.copy(cached = true) else it }, warnings = upload.warnings)
-            dismiss(); selected(upload)
-        }
-        state = state.copy(open = false); choosing(set)
-    }
-
-    /** Loads [code] straight from the catalog without showing the list (a preset's set); reported like a picked set. */
-    fun load(code: String, name: String) {
-        if (state.busy && state.open) return
         val current = ++generation
-        retryAction = null
-        state = state.copy(open = false, busy = false, status = null, error = null, warnings = emptyList())
-        choosing(DraftableSet(code, name, "", 0))
+        state = state.copy(busy = true, error = null)
         worker.execute {
-            try {
-                val source = checkNotNull(repository)
-                val upload = source.load(code)
-                source.automatumNow(code)
-                val support = supportOf(source, code)
-                post { if (current == generation) { if (support != null) state = state.copy(support = support); selected(upload) } }
-            } catch (failure: Exception) {
-                AppLog.warn("sets", "Loading $code ($name) for a preset failed", failure)
-                val message = setSourceFailureMessage(code, failure)
-                post { if (current == generation) failed(message) }
+            val sets = runCatching { source.sets() }
+                .onSuccess { sets -> AppLog.info("sets", "${sets.size} draft sets, ${sets.count { it.automatum }} Automatum can play") }
+                .onFailure { AppLog.warn("sets", "Reading the draft sets failed", it) }
+            post {
+                if (current != generation) return@post
+                state = sets.fold({ state.copy(sets = it, loaded = true, busy = false) },
+                    { state.copy(busy = false, error = "Could not load the sets.") })
             }
         }
     }
 
-    /** [code]: the set being loaded, whose failure [setSourceFailureMessage] explains. */
-    private fun <T> work(status: String, retry: () -> Unit, code: String? = null, detached: Boolean = false, action: () -> T, apply: (T) -> Unit) {
-        if (!state.open || state.busy) return
-        val current = generation
-        retryAction = retry
-        state = state.copy(busy = true, status = status, error = null, warnings = emptyList())
-        worker.execute {
-            try {
-                val result = action()
-                post { if (current == generation && (state.open || detached)) {
-                    retryAction = null
-                    state = state.copy(busy = false, status = null, error = null)
-                    apply(result)
-                } }
-            } catch (failure: Exception) {
-                AppLog.warn("sets", "$status failed", failure)
-                val message = code?.let { setSourceFailureMessage(it, failure) } ?: "Could not load source."
-                post { if (current == generation && (state.open || detached)) {
-                    state = state.copy(busy = false, status = null, error = message)
-                    if (detached) failed(message)
-                } }
-            }
-        }
+    /** Chooses set [code] when Automatum can play every card of it; an unsupported set can't be chosen (section 3.9). */
+    fun choose(code: String) {
+        val set = state.sets.firstOrNull { it.code == code } ?: return
+        if (!set.automatum) { AppLog.info("sets", "$code not chosen: Automatum can't play ${set.unsupported.size} of its cards"); return }
+        AppLog.info("sets", "$code (${set.name}) chosen as the source")
+        dismiss()
+        selected(PodSetChoice(set.code, set.name))
+    }
+
+    /** A preset's set, by its code: chosen without showing the list, reported like a picked set. */
+    fun load(code: String, name: String) {
+        dismiss()
+        selected(PodSetChoice(code, name))
     }
 }
-
-internal fun PodSetSource.podSource() = PodSource(kind = PodSourceKind.SET, setCode = snapshot.setCode,
-    setName = snapshot.setName, boosterKind = if (snapshot.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
-    boosterName = snapshot.recipe?.name)

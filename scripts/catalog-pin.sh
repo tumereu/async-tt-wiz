@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # The card catalog's pin (docs/specs/web-client.md section 3.1): catalog/pin.properties names the MTGJSON AllPrintings
-# build everything reads and the trimmed catalog built from it. The raw file is kept only on this machine, at
-# $ATW_ALLPRINTINGS (default ~/projects/atw-cache/AllPrintings.json.gz); it is never committed.
+# build everything reads. The raw file is kept only on this machine, at $ATW_ALLPRINTINGS (default
+# ~/projects/atw-cache/AllPrintings.json.gz); it is never committed.
 #   verify             checks the local raw file against the pin
-#   build <dir>        verifies it, builds the catalog into <dir> (<checksum>.jsonl.gz and `current`) and stops when the
-#                      catalog differs from the pin's (the release runs this)
-#   update             records the catalog the pinned file builds now (after a parser, engine or support list change)
+#   build <dir>        verifies it and builds the catalog into <dir> (<checksum>.jsonl.gz, and `current` naming that
+#                      checksum, which the release builds into the app)
 #   move               downloads MTGJSON's current AllPrintings over the local file and pins it (a task of its own: run
 #                      setSupport and parserDiff against it and fix or accept their changes before it ships)
 set -euo pipefail
@@ -20,7 +19,6 @@ case "${1:-}" in
 verify) (( $# == 1 )) || exit 2; catalog_command verify ;;
 build) (( $# == 2 )) || { echo "Usage: $0 build <dir>" >&2; exit 2; }
     mkdir -p "$2"; catalog_command build --out "$(cd "$2" && pwd)" ;;
-update) (( $# == 1 )) || exit 2; catalog_command update ;;
 move)
     (( $# == 1 )) || exit 2
     mkdir -p "$(dirname "$FILE")"
@@ -34,5 +32,5 @@ move)
     sha256sum "$FILE" | cut -d' ' -f1 > "$FILE.sha256"
     catalog_command move
     echo "Now run setSupport and parserDiff against the new file, and commit catalog/pin.properties." ;;
-*) echo "Usage: $0 verify | build <dir> | update | move" >&2; exit 2 ;;
+*) echo "Usage: $0 verify | build <dir> | move" >&2; exit 2 ;;
 esac

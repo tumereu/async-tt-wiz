@@ -1,1 +1,0 @@
-Portrait Games screen while card records are checked in the background, with no status text.

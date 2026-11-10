@@ -28,10 +28,10 @@ class AppClockTest {
         try {
             AppClock.pinned = Clock.fixed(Instant.parse("2027-01-01T12:00:00Z"), ZoneId.systemDefault())
             assertEquals("21 Oct 2026", gameLastActivity(game))
-            val sets = listOf(PodSetRow(DraftableSet("NXT", "Next set", "2026-11-15", 200, "expansion"), false))
-            assertEquals(listOf("NXT"), PodSetPickerState(rows = sets).filtered.map { it.set.code })
+            val sets = listOf(DraftableSet("NXT", "Next set", "2026-11-15", 200, true))
+            assertEquals(listOf("NXT"), PodSetPickerState(sets = sets).filtered.map { it.code })
             AppClock.pinned = pinned
-            assertEquals(emptyList(), PodSetPickerState(rows = sets).filtered.map { it.set.code })
+            assertEquals(emptyList(), PodSetPickerState(sets = sets).filtered.map { it.code })
         } finally { AppClock.pinned = pinned }
     }
 

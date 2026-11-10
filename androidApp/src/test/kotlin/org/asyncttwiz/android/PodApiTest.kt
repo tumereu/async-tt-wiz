@@ -21,7 +21,7 @@ class PodApiTest {
 
     @Test fun optionalCreationSettingsPreserveLegacyWireAndRetryIntentWhenAbsent() {
         val input = CreatePod(request, "Pod", id)
-        val legacy = """{"requestId":"$request","name":"Pod","cubeId":"$id","mode":"BOOSTER","setSource":null}"""
+        val legacy = """{"requestId":"$request","name":"Pod","cubeId":"$id","mode":"BOOSTER"}"""
         assertEquals(legacy, DeckJson.format.encodeToString(input))
         assertEquals(input, DeckJson.format.decodeFromString<CreatePod>(legacy))
         val configured = input.copy(settings = DraftSettings.glimpse().copy(sideboardLimit = 7))

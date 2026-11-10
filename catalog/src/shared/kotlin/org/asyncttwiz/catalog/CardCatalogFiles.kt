@@ -52,6 +52,18 @@ object CardCatalogFiles {
         return catalog to hex(digest.digest())
     }
 
+    /** Reads the catalog in [input] (gzip) one record at a time into [visit], in file order (the app indexes it so, never
+     * holding it whole), and returns its checksum, worked out while reading. */
+    fun stream(input: InputStream, visit: (CatalogRecord) -> Unit): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        GZIPInputStream(input, 1 shl 16).use { gzip ->
+            java.security.DigestInputStream(gzip, digest).bufferedReader(Charsets.UTF_8).use { reader ->
+                reader.lineSequence().filter { it.isNotEmpty() }.forEach { visit(CardCatalogFormat.decode(it)) }
+            }
+        }
+        return hex(digest.digest())
+    }
+
     /** The catalog in [file], checked against the checksum its name gives. */
     fun read(file: File): CardCatalog {
         val expected = file.name.removeSuffix(SUFFIX)

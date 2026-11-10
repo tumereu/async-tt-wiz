@@ -81,7 +81,7 @@ class SettingsScreenTest {
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
             models.put("catalog", it)
-            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-26", "1", records = 124_555), loaded = true))
+            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-26", "1", records = 124_555), ready = true))
         }
         val source = FakeSettings()
         compose.setContent { ScreenTheme { SettingsContent(catalog, "shots", {}, fixtures.auth, source,

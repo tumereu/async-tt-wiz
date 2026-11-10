@@ -74,8 +74,7 @@ class CatalogAvatarsTest {
         JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}").use { it.execute(null, "DROP TABLE avatar_choice", 0) }
         assertEquals(listOf("Imported legend"), repository.avatarChoices().map { it.name })
         assertEquals(scryfall, repository.avatarChoices().single().avatar.scryfallId)
-        repository.stage(copyInstalled = true) { index ->
-            index.removeSet("SET")
+        repository.stage { index ->
             index.addBatch(listOf(card("New walker", "Planeswalker")))
             meta
         }

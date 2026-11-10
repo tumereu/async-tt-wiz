@@ -44,7 +44,10 @@ class CardListScreenshotTest {
     @Test fun searchPortrait() = search(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun searchLandscape() = search(true)
 
-    private fun search(landscape: Boolean) {
+    // LOB-144 (docs/specs/web-client.md section 3.9): cards Automatum can't play yet carry the warning sign
+    @Test fun searchMarksUnsupportedCards() = search(false, marked = true)
+
+    private fun search(landscape: Boolean, marked: Boolean = false) {
         val fixture = ScreenFixtures().apply { configure("deck-edit") }
         val editor = fixture.importer
         val metadata = CatalogMetadata("2026-10-30", "fixture", "fixture")
@@ -60,10 +63,22 @@ class CardListScreenshotTest {
         editor.search.seed(CardListSearchState(open = true, text = "rune", colors = colors, types = setOf(SearchType.CREATURE),
             values = values, query = cardSearchQuery("rune", colors, setOf(SearchType.CREATURE), values),
             cards = names.map { CatalogCard("o-$it", it, listOf(printing(it))) }, metadata = metadata, baseline = baseline))
+        val unsupported = setOf(placeholderPrinting("Rune Charm"), placeholderPrinting("Rune Golem"))
+        val marks = CardMarks { ids -> ids.filter { it in unsupported }.toSet() }.takeIf { marked }
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
-            DeckImportScreen(editor, landscape, if (landscape) null else ({}), null)
+            androidx.compose.runtime.CompositionLocalProvider(LocalCardMarks provides marks) {
+                DeckImportScreen(editor, landscape, if (landscape) null else ({}), null)
+            }
         } } }
         compose.mainClock.advanceTimeBy(500)
+        if (marked) {
+            compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription(AUTOMATUM_CARD_UNSUPPORTED), useUnmergedTree = true)
+                .fetchSemanticsNodes().size == 2 }
+            captureShot(path("card-search-unsupported", landscape), "Portrait Add cards search page of the Training deck editor " +
+                "searching rune, with the amber warning sign over the top-left corner of Rune Charm and Rune Golem, the cards Automatum " +
+                "can't play yet.")
+            return
+        }
         compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("2")
         compose.onNodeWithTag("search-count-Rune Bear-maybe").assertTextEquals("1")
         compose.onNodeWithText("Done · +4 cards").assertIsDisplayed()

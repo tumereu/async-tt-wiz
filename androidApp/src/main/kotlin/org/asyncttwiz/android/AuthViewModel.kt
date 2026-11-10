@@ -24,8 +24,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val local = AndroidAccountLocalData(application).also { local ->
         AutomatumBoards.definitionSource = local::cardDefinitions
     }
-    /** I-D51: which cards of a deck or cube Automatum plays by hand, from the device's parsed card definitions. */
-    internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, dungeons = catalog.dungeons::provided)
+    /** LOB-115: which cards of a deck or cube Automatum can't play yet, from the card catalog's marks (section 3.8). */
+    internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, catalog.repository::unsupported)
+    /** Section 3.9: the warning sign on cards Automatum can't play yet. */
+    internal val cardMarks = CardMarks(catalog.repository::unsupportedPictures)
     val activity = AndroidActivityDelivery.get(application)
     fun openActivity(route: ActivityRoute) {
         val heldInPod = route.heldInPod
@@ -91,12 +93,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val cancel: () -> Unit = { scheduled.cancel(false) }
                 cancel
             }
-        }, setRepository = StoredPodSets({
-            org.asyncttwiz.storage.SetSourceRepository(java.io.File(application.noBackupFilesDir, "mtg-set-sources"),
-                catalog.repository, if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
-                    org.asyncttwiz.storage.HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
-                else org.asyncttwiz.storage.HttpCatalogSource(), log = { AppLog.info("sets", it) })
-        }, support = { catalog.setSupport.sets() }, request = catalog::requestSetSupport, now = catalog::setSupportNow))
+        }, setRepository = StoredPodSets { catalog.repository })
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },

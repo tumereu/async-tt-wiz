@@ -237,19 +237,19 @@ private fun NewPodScreen(controller: PodController) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val source = state.sourcePreview ?: draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
-            val setCode = draft.setSource?.snapshot?.setCode.takeIf { draft.cubeId == null }
-            LaunchedEffect(setCode) { controller.setPicker.loadSupport(setCode) }
-            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)
+            val source = state.sourcePreview ?: draft.set?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
+            val setCode = draft.set?.code.takeIf { draft.cubeId == null }
+            LaunchedEffect(setCode) { if (setCode != null) controller.setPicker.loadSupport() }
+            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, setCode)
             PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
                 controller::newSettings, controller::reroll, automatum = support)
             // I-D52 (DRF-161): a source Automatum can't play fully can't start a pod.
             if (support?.supported == false) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"),
                 color = MaterialTheme.colorScheme.error)
         }
-        Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() &&
+        Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.set != null) && draft.name.isNotBlank() &&
             draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
-            podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)?.supported != false) { ButtonLabel("add", "Create") }
+            podSourceSupport(controller, draft.cubeId, draft.set?.code)?.supported != false) { ButtonLabel("add", "Create") }
     }
 }
 
@@ -278,14 +278,14 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     val source = state.sourcePreview ?: detail.source
     LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        val setCode = edit?.setSource?.snapshot?.setCode ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
-        LaunchedEffect(detail.id, setCode) { controller.setPicker.loadSupport(setCode) }
+        val setCode = edit?.set?.code ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
+        LaunchedEffect(detail.id, setCode) { if (setCode != null) controller.setPicker.loadSupport() }
         val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode)
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
             { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support)
         val unsupported = support?.supported == false
         // DRF-141: the creator moves this pod's cards between the cube's Main and Maybe before drafting.
-        if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.setSource == null)
+        if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.set == null)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ScreenOutlinedButton({ controller.cubePreparation.open(detail.id) }, Modifier.testTag("prepare-cube"),
                     enabled = state.pending == 0 && !state.uncertain) {
@@ -361,7 +361,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             PodHistoryButton(controller, definitions, historyColumns)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
-                PodTab.DRAFT -> if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
+                // Section 3.6: pod picks wait for the card records
+                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
                     state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
@@ -372,7 +373,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu,
                     savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
-                    orientation = podPickOrientationText(detail))
+                    orientation = podPickOrientationText(detail)) }
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),

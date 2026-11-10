@@ -1,0 +1,3 @@
+-- The card records now come from the server's card catalog, checked against the app's built-in checksum
+-- (docs/specs/web-client.md section 3.5): version 6's one-off downloading again goes.
+DROP TABLE IF EXISTS catalog_redownload;

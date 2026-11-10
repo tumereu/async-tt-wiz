@@ -64,7 +64,7 @@ class PodStatsViewTest {
         val parsed = org.asyncttwiz.protocol.game.GameCards.parse(card.definition)
         card.digest to (parsed.definition?.let { org.asyncttwiz.storage.ParsedCard.Read(it, parsed.manualAbilities) }
             ?: org.asyncttwiz.storage.ParsedCard.Unreadable(parsed.problem.orEmpty()))
-    } })
+    } }, { emptySet() })
 
     private fun card(name: String, type: String, cost: String, text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))

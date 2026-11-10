@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -254,13 +255,14 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val ownCards = remember(own?.deck, state.preparation?.definitions) {
             own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
         }
-        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes)
+        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes); the card catalog's
+        // marks tell at once (section 3.8), so the wait says nothing
         val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
         val support = rememberCardListSupport(ownCards)
         val reason = readyReason(state.preparation, accountId)
             ?: RESULT_FIRST.takeIf { state.detail?.let(controller::resultUnseen) == true }
             ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
-            ?: AUTOMATUM_CHECKING.takeIf { checking && support == null }
+            ?: "".takeIf { checking && support == null }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                 if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
@@ -325,10 +327,12 @@ internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, e
 
 /** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
 @OptIn(ExperimentalFoundationApi::class)
-internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, open: () -> Unit): Modifier {
+internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
     val cancel = controller.offersSetupCancellation(game)
     val delete = controller.offersGameDeletion(game)
-    return combinedClickable(onClick = open, role = Role.Button, onLongClickLabel = if (cancel || delete) "Game actions" else null,
+    // Section 3.6: opening a game reads card records; greyed while they install
+    return alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
+        onLongClickLabel = if (cancel || delete) "Game actions" else null,
         onLongClick = when {
             cancel -> ({ controller.showGameContext(game) })
             delete -> ({ controller.gameContext(game) })

@@ -1,0 +1,1 @@
+add: Cards Automatum can't play yet show a warning sign in card search, the deck editor and when you look at a card closely; draft sets it can't play every card of are greyed out and can't be picked.

@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
@@ -17,46 +18,29 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.asyncttwiz.automatum.AutomatumSupport
 import org.asyncttwiz.protocol.CardListSupport
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.storage.CardDefinitions
 import org.asyncttwiz.storage.ParsedCard
-import java.util.concurrent.ConcurrentHashMap
 
 /**
- * I-D51: works out which cards of a list Automatum plays by hand, from each card's rules text as a game parses it
- * ([parse]: the device's card definitions, cached per card data digest and parser version) and Automatum's rule
- * ([AutomatumSupport]), which follows the engine ([engineVersion]). A card whose data can't be read counts as by hand.
- * Blocking: call on a worker only.
+ * LOB-115 (section 3.8): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
+ * supported when its printing is ([unsupported]: of the printing ids asked for, those the card records don't mark as
+ * supported; null without card records). A card without a printing counts as unsupported. Blocking: a worker only.
  */
 internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
-    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION,
-    /** The dungeons the device can bring (LOB-117): a venturing card without one is played by hand. */
-    private val dungeons: () -> Set<org.asyncttwiz.protocol.game.OutsideCards.Need> = { AutomatumSupport.ALL_DUNGEONS }) {
-    private val byHand = ConcurrentHashMap<String, Boolean>()
+    private val unsupported: (Collection<String>) -> Set<String>?,
+    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
 
-    /** The cards' Automatum definitions as the support is worked out from (the device's cache), e.g. for Stats' mana
-     * sources (DRF-115). Blocking. */
+    /** The cards' Automatum definitions (the device's cache), for Stats' mana sources (DRF-115). Blocking. */
     fun parsed(definitions: Collection<SubmittedDefinition>): Map<String, ParsedCard> = parse(definitions.distinctBy { it.digest })
 
-    /** The list's support; throws when the device couldn't read its cards at all (storage closed), so nothing is kept. */
+    /** The list's support; throws when the card records aren't installed, so nothing is kept. */
     fun support(definitions: Collection<SubmittedDefinition>): CardListSupport {
         val cards = definitions.distinctBy { it.digest }
-        val missing = cards.filterNot { byHand.containsKey(it.digest) }
-        if (missing.isNotEmpty()) {
-            val parsed = parse(missing)
-            val provided by lazy { dungeons() }
-            check(missing.all { it.digest in parsed }) { "Card definitions unavailable" }
-            parsed.forEach { (digest, card) ->
-                byHand[digest] = when (card) {
-                    is ParsedCard.Read -> AutomatumSupport.byHand(card.definition, provided)
-                    is ParsedCard.Unreadable -> true
-                }
-            }
-        }
-        return CardListSupport(parserVersion, cards.filter { byHand[it.digest] == true }.map { it.definition.name }.distinct().sorted(),
-            engineVersion)
+        val marks = checkNotNull(unsupported(cards.mapNotNull { it.definition.printingId })) { "Card records not installed" }
+        return CardListSupport(parserVersion, cards.filter { card -> card.definition.printingId.let { it == null || it in marks } }
+            .map { it.definition.name }.distinct().sorted(), engineVersion)
     }
 }
 
@@ -89,8 +73,6 @@ internal val AutomatumWarning = Color(0xffc77700)
 
 /** I-D52: why an unsupported list can't be used (hold the warning icon for its cards). */
 internal const val AUTOMATUM_DECK_BLOCKED = "Automatum can't play every card of this deck yet. Hold the warning sign to see which."
-/** Pivot review #2: Ready waits while the device works out which cards of the deck Automatum plays. */
-internal const val AUTOMATUM_CHECKING = "Checking which cards Automatum can play…"
 internal const val AUTOMATUM_SOURCE_BLOCKED = "Automatum can't play every card of this source yet. Hold the warning sign to see which."
 
 /**
@@ -115,5 +97,40 @@ internal fun HoldWarningIcon(tip: String, modifier: Modifier = Modifier, onTap: 
         }, contentAlignment = Alignment.Center) {
         Icon(Icons.Outlined.WarningAmber, null, Modifier.size(20.dp), tint = AutomatumWarning)
         if (tooltip) HoldTooltip(tip)
+    }
+}
+
+/** Section 3.9: what holding a card's warning sign says. */
+internal const val AUTOMATUM_CARD_UNSUPPORTED = "Automatum can't play this card yet"
+
+/**
+ * Section 3.9: which cards Automatum can't play yet, by their pictures' printing (Scryfall id), as the card catalog marks
+ * them ([unsupported]: of the ids asked for, those of no supported printing; null without card records). Answers are
+ * kept for the app's run (the records change only with a new app). Blocking: a worker only.
+ */
+internal class CardMarks(private val unsupported: (Collection<String>) -> Set<String>?) {
+    private val known = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    fun unsupported(scryfallId: String): Boolean? = known[scryfallId]
+        ?: unsupported(listOf(scryfallId))?.let { (scryfallId in it).also { value -> known[scryfallId] = value } }
+}
+
+/** The app's card marks, null where there are none (previews, most tests: no sign is shown). */
+internal val LocalCardMarks = staticCompositionLocalOf<CardMarks?> { null }
+
+/**
+ * Section 3.9 (deck building, card search, the visual deck editor, Inspect): LOB-115's amber warning sign over the art's
+ * corner of a card Automatum can't play yet ([scryfallId]: its picture's printing); holding it says so. Nothing while
+ * unknown or for a supported card.
+ */
+@Composable
+internal fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
+    val marks = LocalCardMarks.current ?: return
+    if (scryfallId.isNullOrEmpty()) return
+    val unsupported by produceState(false, marks, scryfallId) {
+        value = withContext(Dispatchers.IO) { runCatching { marks.unsupported(scryfallId) }.getOrNull() } == true
+    }
+    if (unsupported) androidx.compose.material3.Surface(modifier.padding(4.dp), shape = androidx.compose.foundation.shape.CircleShape,
+        color = Color.White.copy(alpha = .9f)) {
+        HoldWarningIcon(AUTOMATUM_CARD_UNSUPPORTED, Modifier.size(32.dp))
     }
 }

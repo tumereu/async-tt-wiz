@@ -156,6 +156,17 @@ object ServerSetup {
         }
     }
 
+    /** [b] joins [a]'s pod [pod] (invited as a contact, accepting) and [a] starts its draft. */
+    fun joinAndStart(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            api.invite(a.token, pod, InviteToPod(id(), b.id))
+            api.accept(b.token, pod, PodRequest(id()))
+            api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
+        }
+    }
+
     /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards]. Returns the pod's id. */
     fun setupPod(a: TestAccount, name: String, cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()

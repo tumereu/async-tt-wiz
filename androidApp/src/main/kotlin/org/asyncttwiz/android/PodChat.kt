@@ -65,7 +65,10 @@ data class PodChatView(val podId: String, val messages: List<PodChatMessage> = e
  * are seen. Background reads fail quietly; a send that fails says "Not delivered". Main thread, requests on [worker].
  */
 class PodChatController(private val api: Pods, private val credential: () -> String?, private val worker: ExecutorService,
-    private val post: (() -> Unit) -> Unit) {
+    private val post: (() -> Unit) -> Unit,
+    /** Runs the work after the milliseconds on the main thread, by its clock; gives what cancels it ([watch]'s re-reads).
+     * By default the main looper's handler. */
+    private val delayed: ((Long, () -> Unit) -> () -> Unit)? = null) {
     var views by mutableStateOf<Map<String, PodChatView>>(emptyMap())
         private set
     private var epoch = 0L
@@ -77,8 +80,37 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
     fun view(podId: String): PodChatView = views[podId] ?: PodChatView(podId)
     private fun update(podId: String, change: (PodChatView) -> PodChatView) { views = views + (podId to change(view(podId))) }
 
-    /** Reads what is new in [podId]'s chat (its newest page the first time), with the viewer's read state. */
-    fun refresh(podId: String) {
+    private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    private fun later(millis: Long, work: () -> Unit): () -> Unit = delayed?.invoke(millis, work)
+        ?: Runnable(work).let { r -> handler.postDelayed(r, millis); { handler.removeCallbacks(r) } }
+
+    /** Per pod, the re-reads since one was last logged ([watch]: only one that brings something, or fails, is). */
+    private val quiet = mutableMapOf<String, Int>()
+
+    /**
+     * DRF-170, LOB-066 (2026-11-10): [podId]'s chat read at once and then every [everyMillis] on the main thread's clock,
+     * for [where] (the pod screen, a pod game's table), until the returned closer is called. On the main thread's clock,
+     * not a composition's frame clock, which stands still while nothing on the screen animates: the table's chat dot lights
+     * for a new pod message within the interval. Each re-read's result is logged when it brings something or fails, with
+     * the quiet ones counted.
+     */
+    fun watch(podId: String, everyMillis: Long, where: String): () -> Unit {
+        var active = true
+        var cancel: () -> Unit = {}
+        AppLog.info("pod-chat", "Pod $podId: re-read every ${everyMillis / 1000} s ($where)")
+        fun next() { cancel = later(everyMillis) { if (active) { refresh(podId, "every ${everyMillis / 1000} s, $where"); next() } } }
+        refresh(podId, "watching, $where")
+        next()
+        return {
+            if (active) {
+                active = false; cancel()
+                AppLog.info("pod-chat", "Pod $podId: re-reads stopped ($where) after ${quiet.remove(podId) ?: 0} quiet ones")
+            }
+        }
+    }
+
+    /** Reads what is new in [podId]'s chat (its newest page the first time), with the viewer's read state; [reason]: why. */
+    fun refresh(podId: String, reason: String = "asked") {
         if (podId in reading) { readAgain += podId; return }
         val token = credential() ?: return
         val generation = epoch
@@ -92,9 +124,12 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
                 reading -= podId
                 result.onSuccess { page ->
                     failing.remove(podId)
-                    if (page.messages.isNotEmpty()) AppLog.info("pod-chat", "Pod $podId: ${page.messages.size} new messages " +
-                        "#${page.messages.first().ordinal}–#${page.messages.last().ordinal} (${page.messages.sumOf { it.text.length }} chars), " +
-                        "read through #${page.read.readThrough}, ${page.read.unread} unread")
+                    val unreadBefore = view(podId).read?.unread
+                    if (page.messages.isNotEmpty() || page.read.unread != unreadBefore) AppLog.info("pod-chat", "Pod $podId ($reason, " +
+                        "after ${quiet.put(podId, 0) ?: 0} quiet re-reads): ${page.messages.size} new messages" +
+                        (if (page.messages.isEmpty()) "" else " #${page.messages.first().ordinal}–#${page.messages.last().ordinal} (${page.messages.sumOf { it.text.length }} chars)") +
+                        ", read through #${page.read.readThrough}, ${page.read.unread} unread")
+                    else quiet[podId] = (quiet[podId] ?: 0) + 1
                     update(podId) { it.install(page) }
                     if (page.next != null) readAgain += podId
                     syncRead(podId)
@@ -106,7 +141,7 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
                     } else {
                         // Once per stretch of failures, so an offline phone's polling doesn't push out what matters
                         val cause = code ?: failure.javaClass.simpleName
-                        if (failing.put(podId, cause) != cause) AppLog.info("pod-chat", "Pod $podId: chat read failed quietly: $cause")
+                        if (failing.put(podId, cause) != cause) AppLog.info("pod-chat", "Pod $podId: chat read failed quietly ($reason): $cause")
                     }
                 }
                 if (readAgain.remove(podId)) refresh(podId)
@@ -164,5 +199,5 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
         }
     }
 
-    fun clear() { epoch++; reading.clear(); readAgain.clear(); cursors.clear(); failing.clear(); views = emptyMap() }
+    fun clear() { epoch++; reading.clear(); readAgain.clear(); cursors.clear(); failing.clear(); quiet.clear(); views = emptyMap() }
 }

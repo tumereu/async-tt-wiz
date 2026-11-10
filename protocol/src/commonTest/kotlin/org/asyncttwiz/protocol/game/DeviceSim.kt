@@ -75,7 +75,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         val snapshot = EngineSnapshot(codec.encodeDefinitions(), "root", server.head, codec.encodeModel(server.state()),
             server.heads.mapKeys { it.key.value }, settings[p], server.request, server.lines,
             baseId.takeIf { after.isNotEmpty() }, if (after.isEmpty()) null else codec.encodeModel(server.stateAt(baseId)),
-            after.map(codec::encodeEvent), modes = modes())
+            after.map(codec::encodeEvent), modes = modes(), assumes = assumes())
         val (device, _) = GameDevice.load(snapshot, p) { "${p.value}-${++ids}" }
         device.assumeReveals(reveals)
         watch(device)
@@ -180,12 +180,15 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
 
     private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null, rewoundBy: String? = null) {
         val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed,
-            rewoundBy = rewoundBy, modes = modes())
+            rewoundBy = rewoundBy, modes = modes(), assumes = assumes())
         for (q in listOf(alice, bob)) inbox.getValue(q) += Delivery.Revision(events, update)
     }
 
     /** Each player's current response mode, as the server sends it (owner 2026-11-06). */
     private fun modes() = settings.entries.associate { (p, s) -> p.value to s.mode }
+
+    /** Each player's current "Assume resolves" setting, as the server sends it (owner 2026-11-10). */
+    private fun assumes() = settings.entries.associate { (p, s) -> p.value to s.assume }
 
     private fun refuse(p: PlayerId, action: GameAction, reason: String) { inbox.getValue(p) += Delivery.Refusal(action, reason) }
 

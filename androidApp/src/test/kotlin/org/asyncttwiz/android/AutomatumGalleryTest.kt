@@ -10,20 +10,29 @@ import kotlin.test.assertTrue
  * The Automatum screenshot gallery's list (owner, 2026-11-06): `src/test/screenshots/gallery.tsv` names one
  * representative screenshot per Automatum UI item (scripts/aa-gallery.sh builds the page from it). Each listed
  * screenshot and its caption must be there, each catalog ID it names must be in docs/features, and every engine decision
- * kind the app shows must have an item.
+ * kind the app shows must have an item. Items meant to be seen as a sequence (owner, 2026-11-10) share a name in the
+ * optional sixth column and are numbered one after another; the gallery shows a sequence whole.
  */
 class AutomatumGalleryTest {
-    private class Item(val number: Int, val name: String, val screenshot: String, val ids: List<String>, val decisions: List<String>)
+    private class Item(val number: Int, val name: String, val screenshot: String, val ids: List<String>, val decisions: List<String>,
+        val sequence: String)
 
     private val items: List<Item> by lazy {
         val lines = File("$SCREENSHOTS/gallery.tsv").readLines().filter { it.isNotBlank() }
-        assertEquals("number\titem\tscreenshot\tcatalog\tdecisions", lines.first(), "gallery.tsv's header")
+        assertEquals("number\titem\tscreenshot\tcatalog\tdecisions\tsequence", lines.first(), "gallery.tsv's header")
         lines.drop(1).map { line ->
             val cells = line.split('\t')
-            assertTrue(cells.size in 4..5, "four or five tab-separated cells (the decisions may be left out): $line")
+            assertTrue(cells.size in 4..6, "four to six tab-separated cells (the decisions and sequence may be left out): $line")
             Item(cells[0].toInt(), cells[1], cells[2], cells[3].split(' ').filter(String::isNotBlank),
-                cells.getOrElse(4) { "" }.split(' ', ',').filter(String::isNotBlank))
+                cells.getOrElse(4) { "" }.split(' ', ',').filter(String::isNotBlank), cells.getOrElse(5) { "" }.trim())
         }
+    }
+
+    @Test fun aSequencesItemsFollowOneAnother() {
+        val broken = items.filter { it.sequence.isNotEmpty() }.groupBy { it.sequence }.filter { (_, members) ->
+            members.map { it.number } != (members.first().number until members.first().number + members.size).toList()
+        }.keys
+        assertTrue(broken.isEmpty(), "a sequence's items must be numbered one after another: $broken")
     }
 
     /** The decision kinds the devices answer themselves, never shown to a player. */

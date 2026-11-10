@@ -8,7 +8,10 @@ import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 
-data class CubeDetail(val saved: SavedCube, val definitions: Map<String, CardDefinition>)
+/** A saved cube with its cards as the phone shows them ([definitions], by [SavedCubeEntry.card]), built from the card
+ * records' [faces] (owner 2026-11-10). */
+data class CubeDetail(val saved: SavedCube, val definitions: Map<String, CardDefinition>,
+    val faces: SavedCardFaces = SavedCardFaces(emptyMap(), null))
 enum class CubeDialog { RENAME, DELETE }
 data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boolean = false,
     val selected: String? = null, val detail: CubeDetail? = null, val busy: Boolean = false,
@@ -33,8 +36,6 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         private set
     /** The editor's catalog search page (a section header's +). */
     val search = CardListSearch(worker, post)
-    /** I-D51: works out a saved cube's Automatum support right after saving (null: left to the background run). */
-    internal var supportCheck: CardListSupportCheck? = null
     /** Name and text the editor opened with, to ask before discarding changes. */
     private var initial: Pair<String, String> = "" to ""
     override val kind get() = CardListKind.CUBE
@@ -44,7 +45,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     override val editable get() = state.editing && !state.busy
     override val destination get() = state.destination
     override fun destination(section: DeckSection) { if (section in kind.sections) state = state.copy(destination = section) }
-    override fun retainedDefinition(printingId: String) = source?.definitions?.get(printingId)
+    override fun retainedDefinition(printingId: String) = placeholders[printingId]
     override val cardsError get() = state.error
     override fun cardsMessage(message: String?) { state = state.copy(error = message) }
     /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
@@ -71,12 +72,15 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun keepEditing() { state = state.copy(discard = false) }
     fun discardEdit() {
         if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
-        search.reset(); undo.clear(); source = null; cobraSource = null; pendingSave = null
+        search.reset(); undo.clear(); placeholders = emptyMap(); cobraSource = null; pendingSave = null
         state = state.copy(editing = false, result = null, error = null, discard = false)
     }
     @Volatile private var epoch = 0L
     private var closed = false
-    private var source: CubeEditorSource? = null
+    /** The open cube's cards the records can't build, by their entries' printing ids ([SavedCardFaces.placeholders]). */
+    private var placeholders: Map<String, CardDefinition> = emptyMap()
+    /** The phone's card records, which a saved cube's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords = SavedCardRecords.NONE
     private var cobraSource: ParsedDeck? = null
     /** One cube save, a single request (owner 2026-11-10: card data from the server's catalog), kept while uncertain so
      * a retry sends the same request; [cards]: its cards as the phone makes them (the server builds the same). */
@@ -84,9 +88,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private var pendingSave: CubeSave? = null
     private var pendingUpdate: UpdateCube? = null
     private var pendingDelete: DeleteCube? = null
-    // Replace on logout so an in-flight old request cannot populate the new session's cache.
-    @Volatile private var definitionCache = ConcurrentHashMap<String, CardDefinition>()
-    fun clear() { search.reset(); undo.clear(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
+    fun clear() { search.reset(); undo.clear(); epoch++; placeholders = emptyMap(); cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
         if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
@@ -104,7 +106,6 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private fun load(id: String?) {
         if (closed || state.busy) return
         val token = credential() ?: return
-        val cache = definitionCache
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.cube.id == id }, error = null)
         work { current ->
             if (id == null) {
@@ -117,20 +118,17 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 return@work { state = state.copy(cubes = cubes.values.toList(), loaded = true) }
             } else {
                 val saved = serviceRetry(current = current) { api.readCube(token, id) }
-                val digests = saved.entries.map { it.definition }.distinct()
-                for (batch in digests.filterNot(cache::containsKey).chunked(CubeValidation.MAX_DEFINITIONS_PER_READ)) {
-                    val received = serviceRetry(current = current) { api.cubeDefinitions(token, id, ReadCubeDefinitions(batch)) }.definitions
-                    if (received.size != batch.size || received.map { it.digest }.toSet() != batch.toSet()) throw DeckFailure("invalid_response")
-                    received.forEach { cache[it.digest] = it.definition }
-                }
-                val definitions = digests.associateWith(cache::getValue)
-                return@work { state = state.copy(detail = CubeDetail(saved, definitions)) }
+                // Its cards built from the phone's card records by printing (owner 2026-11-10)
+                if (!current()) return@work null
+                val cards = saved.cards()
+                val faces = cardRecords.read(cards.mapNotNull { it.printingId })
+                return@work { state = state.copy(detail = CubeDetail(saved, faces.definitions(cards), faces)) }
             }
         }
     }
     fun newCube() {
         if (state.busy) return
-        source = null; cobraSource = null; pendingSave = null; search.reset(); undo.clear()
+        placeholders = emptyMap(); cobraSource = null; pendingSave = null; search.reset(); undo.clear()
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
             provenance = null, result = null, error = null, linkDialog = false, clipboardRead = false,
             linkError = null, destination = DeckSection.MAINBOARD, discard = false)
@@ -139,13 +137,17 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun edit() {
         if (state.busy) return
         val detail = state.detail ?: return
-        val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null; search.reset(); undo.clear()
+        // The cube's cards as built when it was read (owner 2026-11-10); no lookup runs
+        val cards = detail.saved.cards()
+        val entries = detail.faces.entries(cards) { if (it == SavedDeckSection.MAINBOARD) DeckSection.MAINBOARD else DeckSection.MAYBEBOARD }
+        val text = CardListEdits.text(kind, entries)
+        placeholders = detail.faces.placeholders(cards); cobraSource = null; pendingSave = null; search.reset(); undo.clear()
+        AppLog.info("cubes", "edit cube ${detail.saved.cube.id}: ${cards.size} entries, ${placeholders.size} not in the card records")
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
-            text = retained.text, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
-            result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null,
-            destination = DeckSection.MAINBOARD, discard = false)
+            text = text, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
+            result = DeckImportResult(text, entries, emptyList(), detail.faces.catalog), error = null, linkDialog = false,
+            clipboardRead = false, linkError = null, destination = DeckSection.MAINBOARD, discard = false)
         initial = state.name to state.text
-        lookup()
     }
     private fun editInput() {
         if (state.busy && !state.saving) { epoch++; state = state.copy(busy = false, fetching = false) }
@@ -181,7 +183,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     val canSave: Boolean get() = state.editing && state.result?.resolved == true && CubeValidation.name(state.name) && !state.busy
     fun lookup() {
         if (!state.editing || state.busy) return
-        val input = state; val retained = source; val cobra = cobraSource
+        val input = state; val cobra = cobraSource
         work { _ ->
             val result = if (cobra != null) {
                 val parsed = CubeImportResolver.parse(input.text)
@@ -194,7 +196,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                     line.copy(scryfallId = original?.scryfallId)
                 }
                 resolveCobra(parsed.copy(lines = lines))
-            } else retained?.resolve(input.text, resolve) ?: resolve(input.text)
+            } else resolve(input.text)
             return@work { state = state.copy(result = result) }
         }
     }
@@ -207,7 +209,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             val parsed = fetchCobra(id)
             val result = resolveCobra(parsed)
             return@work {
-                source = null; cobraSource = parsed; pendingSave = null; undo.clear()
+                placeholders = emptyMap(); cobraSource = parsed; pendingSave = null; undo.clear()
                 // An ordinary editable paste list: the list is replaced and a typed name is kept.
                 state = state.copy(text = parsed.text, name = state.name.ifBlank { id }, provenance = id,
                     result = result, linkDialog = false, linkError = null, error = null)
@@ -218,43 +220,37 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (state.busy || !state.editing || state.result?.resolved != true) return
         if (!CubeValidation.name(state.name)) { state = state.copy(error = "Enter a cube name."); return }
         val token = credential() ?: return
-        val input = state; val retained = source?.definitions.orEmpty()
-        val cache = definitionCache
+        val input = state; val retained = placeholders
         var attempted = pendingSave
         state = state.copy(saving = true)
         work(onFailure = { pendingSave = attempted.takeIf { state.text == input.text && state.name == input.name } }) { current ->
             val plan = attempted ?: run {
                 val cards = linkedMapOf<String, SubmittedDefinition>()
-                val copies = linkedMapOf<Pair<SavedDeckSection, String>, Int>()
+                val copies = linkedMapOf<Pair<SavedDeckSection, ResolvedDeckEntry>, Int>()
+                val first = HashMap<Pair<SavedDeckSection, String>, ResolvedDeckEntry>()
                 for (entry in input.result!!.entries) {
-                    // A card the cube holds from before is named by its digest (its printing id here) and kept as stored
-                    val kept = retained[entry.printing.id]
-                    val definition = kept ?: PhysicalCardFaces.normalize(entry.definition(input.result.catalog))
-                    val digest = if (kept != null) entry.printing.id else DeckJson.digest(definition)
+                    // A card the records can't build is kept as the editor holds it (by printing id, or by name without one)
+                    val definition = retained[entry.printing.id] ?: PhysicalCardFaces.normalize(entry.definition(input.result.catalog))
+                    val digest = DeckJson.digest(definition)
                     cards[digest] = SubmittedDefinition(digest, definition)
-                    copies.merge(entry.cubeSection() to entry.printing.id, entry.quantity, Int::plus)
+                    val section = entry.cubeSection()
+                    copies.merge(section to first.getOrPut(section to entry.printing.id) { entry }, entry.quantity, Int::plus)
                 }
-                val entries = copies.map { (key, quantity) -> CardListEntry(key.first, key.second, quantity) }
+                val entries = copies.map { (key, quantity) -> key.second.listEntry(key.first, quantity) }
                 if (!CubeValidation.input(entries)) throw DeckFailure("invalid_cube")
                 CubeSave(CreateCube(UUID.randomUUID().toString(), input.name, entries, input.provenance), input.target, cards.values.toList())
             }
             attempted = plan
             AppLog.info("cubes", "save ${if (plan.target == null) "new cube" else "cube ${plan.target}"}: ${plan.cube.entries.size} entries, " +
-                "${plan.cube.entries.count { DeckValidation.digest(it.printingId) }} kept from before, request ${plan.cube.requestId}")
-            plan.cards.forEach { cache[it.digest] = it.definition }
+                "${plan.cube.entries.count { it.printingId == null }} without a printing, request ${plan.cube.requestId}")
             val saved = serviceRetry(current = current) {
                 if (plan.target == null) api.create(token, plan.cube) else api.update(token, plan.target,
                     UpdateCube(plan.cube.requestId, plan.cube.name, plan.cube.entries, plan.cube.cubeCobraId))
             }
-            // I-D51 (DRF-161): its support goes with it at once; a failure leaves it to the background run.
-            supportCheck?.let { check -> runCatching {
-                val support = check.support(plan.cards)
-                api.setCubeSupport(token, saved.cube.id, SetCardListSupport(saved.cube.revision, support))
-            } }
             return@work {
                 pendingSave = null
                 if (state.text == input.text && state.name == input.name) {
-                    source = null; cobraSource = null; search.reset(); undo.clear(); state = state.copy(editing = false, result = null)
+                    placeholders = emptyMap(); cobraSource = null; search.reset(); undo.clear(); state = state.copy(editing = false, result = null)
                     open(saved.cube.id)
                 } else { initial = input.name to input.text; state = state.copy(target = saved.cube.id) }
             }

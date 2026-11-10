@@ -76,7 +76,8 @@ class ProductionUpgradeTest {
     private class Stream(val games: GameService, val actor: AccountService.Principal, val gameId: String) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString()); val connection = UUID.randomUUID()
         val stream = games.open(actor, hello, connection, gameId, UUID.randomUUID().toString())
-        fun execute(action: GameAction): GameResult {
+        fun execute(action: GameAction): GameResult = attempt(action).also { assertEquals("accepted", it.outcome, "$action: ${it.reason}") }
+        fun attempt(action: GameAction): GameResult {
             val summary = games.head(actor, gameId).summary
             val scope = if (action is GameAction.Submit || action.isEngine || action is GameAction.SendChat)
                 GameScope(gameId, playId = summary.playId)
@@ -84,7 +85,6 @@ class ProductionUpgradeTest {
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
-                .also { assertEquals("accepted", it.outcome, "$action: ${it.reason}") }
         }
     }
 
@@ -362,7 +362,9 @@ class ProductionUpgradeTest {
                 // V46: Ann's deck finished a game against Ben, so the waiting game now shows it.
                 assertTrue(games.head(ann, e<String>("waiting")).preparation!!.players.single { it.accountId == e<String>("ann") }.deckShown)
                 val benDeck = json.decodeFromString<DeckList>(decks.list(ben, null).body).decks.single()
-                Stream(games, ben, e<String>("waiting")).execute(GameAction.SelectDeck(benDeck.id, benDeck.revision))
+                // V80 (owner 2026-11-10): the recorded decks' card data has no printing, so their cards are cards without a
+                // printing, which Automatum can't play (LOB-115): choosing one is refused
+                assertEquals("automatumUnsupported", Stream(games, ben, e<String>("waiting")).attempt(GameAction.SelectDeck(benDeck.id, benDeck.revision)).reason)
                 Stream(games, ben, e<String>("podGame")).execute(GameAction.AcceptInvitation)
 
                 fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
@@ -385,11 +387,14 @@ class ProductionUpgradeTest {
                 fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
                 fun JsonObject.number(key: String) = getValue(key).jsonPrimitive.content.toInt()
                 val deckRows = rows("deck_entry").groupBy { it.text("deck_id") }
+                // V80 (card data from the server's catalog, owner 2026-11-10): each row names its card data's printing and name
+                val cards = rows("definition").associate { it.text("digest") to json.decodeFromString<CardDefinition>(it.text("payload")) }
+                fun JsonObject.card() = cards.getValue(text("definition_digest"))
                 assertTrue(deckRows.isNotEmpty())
                 for (deck in rows("saved_deck")) {
                     val saved = json.decodeFromString<SavedDeck>(decks.read(owners.getValue(deck.text("account_id")), deck.text("id")).body)
                     val stored = deckRows[deck.text("id")].orEmpty().sortedBy { it.number("position") }
-                    assertEquals(stored.map { SavedDeckEntry(SavedDeckSection.valueOf(it.text("section")), it.text("definition_digest"), it.number("quantity")) },
+                    assertEquals(stored.map { SavedDeckEntry(SavedDeckSection.valueOf(it.text("section")), it.card().printingId, it.card().name, it.number("quantity")) },
                         saved.entries, deck.text("name"))
                     assertEquals(0L, saved.deck.maybeboard)
                 }
@@ -398,7 +403,7 @@ class ProductionUpgradeTest {
                 for (cube in rows("saved_cube")) {
                     val saved = json.decodeFromString<SavedCube>(cubes.read(owners.getValue(cube.text("account_id")), cube.text("id")).body)
                     val stored = cubeRows.getValue(cube.text("id")).sortedBy { it.number("position") }
-                    assertEquals(stored.map { SavedCubeEntry(it.text("definition_digest"), it.number("quantity"), SavedDeckSection.MAINBOARD) }, saved.entries)
+                    assertEquals(stored.map { SavedCubeEntry(it.card().printingId, it.card().name, it.number("quantity"), SavedDeckSection.MAINBOARD) }, saved.entries)
                     assertEquals(stored.sumOf { it.number("quantity").toLong() } to 0L, saved.cube.totalCopies to saved.cube.maybeCopies)
                 }
             }

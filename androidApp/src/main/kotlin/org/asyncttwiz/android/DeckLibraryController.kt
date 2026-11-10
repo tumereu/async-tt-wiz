@@ -6,6 +6,8 @@ import org.asyncttwiz.protocol.*
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 
+/** A saved deck with its cards as the phone shows them ([definitions], by [SavedDeckEntry.card]), built from its card
+ * records (owner 2026-11-10: card data from the server's catalog). */
 data class DeckDetail(val saved: SavedDeck, val definitions: Map<String, CardDefinition>)
 enum class DeckDialog { EDIT, RENAME, COVER, DELETE }
 /** [draftDecks]: kept automatically from submitted pod decks, newest first, read-only until saved as an ordinary deck. */
@@ -23,6 +25,8 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     private var closed = false
     private data class Pending(val id: String, val update: UpdateDeck? = null, val delete: DeleteDeck? = null, val copy: CopyDeck? = null)
     private var pending: Pending? = null
+    /** The phone's card records, which a saved deck's cards are built from (owner 2026-11-10). */
+    var cardRecords: SavedCardRecords = SavedCardRecords.NONE
     fun clear() { epoch++; pending = null; state = DeckLibraryState() }
     fun back() {
         if (state.dialog != null) { dismiss(); return }
@@ -43,7 +47,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     }
     fun name(value: String) { if (!state.mutating) { pending = null; state = state.copy(draftName = value, error = null) } }
     fun cover(value: String) {
-        if (!state.mutating && state.detail?.saved?.entries?.any { it.definition == value } == true) {
+        if (!state.mutating && state.detail?.saved?.entries?.any { it.printingId == value } == true) {
             pending = null; state = state.copy(draftCover = value, error = null)
         }
     }
@@ -53,13 +57,12 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         if (closed || state.mutating) return
         val token = credential() ?: return
         val generation = ++epoch
-        val known = state.detail?.takeIf { it.saved.deck.id == id }?.definitions.orEmpty()
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.deck.id == id },
             busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
             try {
-                val result = runBlocking { serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, known, generation) } }
+                val result = runBlocking { serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, generation) } }
                 if (id != null && result == null) return@execute
                 val decks = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@execute else null
                 val drafts = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
@@ -146,14 +149,12 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         } while (after != null)
         return decks.values.toList()
     }
-    private suspend fun detail(token: String, id: String, known: Map<String, CardDefinition>, generation: Long): DeckDetail? {
+    /** Deck [id] with its cards built from the card records by printing (owner 2026-11-10). */
+    private suspend fun detail(token: String, id: String, generation: Long): DeckDetail? {
         val saved = api.read(token, id)
-        val digests = saved.entries.map { it.definition }.distinct()
         if (generation != epoch) return null
-        val read = digests.filterNot(known::containsKey).takeIf { it.isNotEmpty() }
-            ?.let { missing -> api.definitions(token, id, missing).associate { it.digest to it.definition } }.orEmpty()
-        val definitions = digests.associateWith { known[it] ?: read.getValue(it) }
-        return DeckDetail(saved, definitions)
+        val cards = saved.cards()
+        return DeckDetail(saved, cardRecords.read(cards.mapNotNull { it.printingId }).definitions(cards))
     }
     override fun close() { closed = true; clear(); worker.execute { api.close() }; worker.shutdown() }
 }

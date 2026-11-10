@@ -12,10 +12,11 @@ class LobbyPreparationTest {
     private val owner = AccountIdentity(id(), "Inviter")
     private val other = AccountIdentity(id(), "Recipient")
     private val game = GameSummary(id(), "Azure Spark", "2026-10-22T00:00:00Z", owner, other, id(), id(), InvitationState.PENDING)
-    private val definition = CardDefinition("Retained card", listOf(DefinitionFace(id(), "Retained card")))
-    private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+    private val definition = CardDefinition("Retained card", listOf(DefinitionFace(id(), "Retained card")), printingId = id())
+    /** The card as the phone builds it from its card records (owner 2026-11-10). */
+    private val submitted = builtCard(definition)
     private val source = SavedDeck(DeckSummary(id(), "Selected copy", "1", game.createdAt, 4, 2), listOf(
-        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 4), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))
+        savedEntry(SavedDeckSection.MAINBOARD, definition, 4), savedEntry(SavedDeckSection.SIDEBOARD, definition, 2)))
     private val alternate = source.copy(deck = source.deck.copy(id = id(), name = "Alternate"))
     private class Worker : AbstractExecutorService() {
         val queue = ArrayDeque<Runnable>()
@@ -67,7 +68,6 @@ class LobbyPreparationTest {
                 readFailure?.let { if (it == "authentication_required") auth.authenticationRequired(token); throw DeckFailure(it) }
                 return (decks + draftDecks).find { it.deck.id == id } ?: throw DeckFailure("not_found")
             }
-            override suspend fun definitions(token: String, id: String, digests: List<String>) = digests.distinct().map { submitted }
             override suspend fun create(token: String, value: CreateDeck): SavedDeck = error("Not a selection endpoint")
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck = error("No source mutation")
             override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted = error("No source mutation")
@@ -76,6 +76,7 @@ class LobbyPreparationTest {
         init {
             lobby = LobbyController(api, auth::sessionToken, worker, { posts.add(it) }, gameConnection = wire,
                 accountId = { auth.state.account?.accountId }, authenticationRequired = auth::authenticationRequired, deckApi = deckApi)
+            lobby.cardRecords = testCardRecords(definition)
             drain(); lobby.open(game.id); drain(); ready()
         }
         fun drain() {

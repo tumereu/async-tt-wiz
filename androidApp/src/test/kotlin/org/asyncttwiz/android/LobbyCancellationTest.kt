@@ -13,10 +13,10 @@ class LobbyCancellationTest {
     private val other = AccountIdentity(id(), "Other")
     private val game = GameSummary(id(), "Spark", "2026-10-23T00:00:00Z", owner, other, id(), id(), InvitationState.ACCEPTED)
     private fun prepared(): LobbyPreparation {
-        val definition = CardDefinition("Retained card", listOf(DefinitionFace(id(), "Face")))
+        val definition = CardDefinition("Retained card", listOf(DefinitionFace(id(), "Face")), printingId = id())
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val source = SavedDeck(DeckSummary(id(), "Source", "1", game.createdAt, 3, 0), listOf(
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 3)))
+            savedEntry(SavedDeckSection.MAINBOARD, definition, 3)))
         var state = PreparationRules.empty(game)
         for (actor in listOf(owner, other)) state = PreparationRules.select(game, state, actor.accountId, id(), GameScope(game.id, game.preparationRound),
             GameAction.SelectDeck(source.deck.id, source.deck.revision), source, listOf(submitted)).state!!
@@ -127,7 +127,6 @@ class LobbyCancellationTest {
         val decks = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck = error("unused")
-            override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> = error("unused")
             override suspend fun create(token: String, value: CreateDeck): SavedDeck = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted = error("unused")

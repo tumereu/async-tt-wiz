@@ -47,11 +47,14 @@ class DraftDeckCoverTest : E2e() {
         alice.text("Cancel").performClick()
         waitUntil("the list closed") { !alice.shows(hasTestTag("pod-build-cover-dialog")) }
 
+        // The pod keeps its cards (and the Build cover) by digest; the draft deck holds printings, its cover the chosen card's
+        // printing (owner 2026-11-10: saved decks by printing)
+        val printings = choices.associateWith { digest -> alice.pods.state.detail!!.definitions.single { it.digest == digest }.definition.printingId }
         choose(choices[1])
         ServerSetup.submitPodDeck(alice.account, pod)
-        assertEquals(choices[1], draftDeckCover())
+        assertEquals(printings.getValue(choices[1]), draftDeckCover())
         choose(choices[0])
-        assertEquals(choices[0], draftDeckCover())
+        assertEquals(printings.getValue(choices[0]), draftDeckCover())
     }
 
     private fun server(pod: String) = runBlocking {

@@ -143,8 +143,6 @@ class LobbyHttpTest {
                 for (session in listOf(phone, tablet)) {
                     assertEquals(listOf(deck.deck), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = session.token).body()).decks)
                     assertEquals(deck, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${deck.deck.id}", token = session.token).body()))
-                    assertEquals(listOf(definition), json.decodeFromString<SubmittedDefinitions>(post(settings,
-                        "/v1/decks/${deck.deck.id}/definitions", ReadCubeDefinitions(listOf(definition.digest)), session.token).body()).definitions)
                     assertEquals(listOf(friend.account), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = session.token).body()).contacts)
                     assertEquals(listOf(game), json.decodeFromString<GameList>(request(settings, "GET", "/v1/games", token = session.token).body()).games)
                 }
@@ -257,7 +255,7 @@ class LobbyHttpTest {
             val account = id(); val deck = id(); val request = id()
             db.connection().use { it.createStatement().execute("""
                 INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES ('$account','Retained','retained','retained@example.invalid','retained@example.invalid','retained-phc');
-                INSERT INTO definition VALUES ('sha256:${"0".repeat(64)}',1,'retained-definition');
+                INSERT INTO definition VALUES ('sha256:${"0".repeat(64)}',1,'{"name":"Retained card","faces":[]}');
                 INSERT INTO account_definition VALUES ('$account','sha256:${"0".repeat(64)}');
                 INSERT INTO saved_deck(id,account_id,name,revision) VALUES ('$deck','$account','Retained deck',7);
                 INSERT INTO deck_entry VALUES ('$deck','$account',0,'MAINBOARD','sha256:${"0".repeat(64)}',3);

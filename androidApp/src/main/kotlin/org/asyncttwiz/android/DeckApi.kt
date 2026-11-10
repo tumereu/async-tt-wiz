@@ -35,17 +35,12 @@ interface Decks : Closeable {
     suspend fun create(token: String, value: CreateDeck): SavedDeck
     suspend fun list(token: String, after: String? = null): DeckList
     suspend fun read(token: String, id: String): SavedDeck
-    /** The card data of [digests] in deck [id], in one request per [CubeValidation.MAX_DEFINITIONS_PER_READ] cards, never
-     * one per card (owner playtest 2026-11-06: that ran into the deck service's per-account limit). */
-    suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition>
     suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck
     suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted
     /** Draft decks, newest first. */
     suspend fun drafts(token: String): DeckList = DeckList(emptyList())
     /** "Save as deck": an independent ordinary copy. */
     suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck = throw DeckFailure("unsupported")
-    /** I-D51: stores the deck's Automatum support for its revision (not an edit; draft decks too). */
-    suspend fun setSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored = throw DeckFailure("unsupported")
 }
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
@@ -76,10 +71,6 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/cubes/$id")
     }
-    override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
-        if (!DeckValidation.uuid(id) || !CubeValidation.definitionRead(value.digests)) throw DeckFailure("invalid_response")
-        return call(token, HttpMethod.Post, "/v1/cubes/$id/definitions", DeckJson.format.encodeToString(value))
-    }
     override suspend fun create(token: String, value: CreateDeck): SavedDeck =
         call(token, HttpMethod.Post, "/v1/decks", DeckJson.format.encodeToString(value))
     override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
@@ -99,25 +90,9 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Post, "/v1/decks/$id/copy", DeckJson.format.encodeToString(value))
     }
-    override suspend fun setSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored {
-        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
-        return call(token, HttpMethod.Put, "/v1/decks/$id/automatum", DeckJson.format.encodeToString(value))
-    }
-    override suspend fun setCubeSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored {
-        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
-        return call(token, HttpMethod.Put, "/v1/cubes/$id/automatum", DeckJson.format.encodeToString(value))
-    }
     override suspend fun read(token: String, id: String): SavedDeck {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/decks/$id")
-    }
-    override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> {
-        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
-        return digests.distinct().chunked(CubeValidation.MAX_DEFINITIONS_PER_READ).flatMap { batch ->
-            val value = ReadCubeDefinitions(batch)
-            if (!CubeValidation.definitionRead(batch)) throw DeckFailure("invalid_response")
-            call<SubmittedDefinitions>(token, HttpMethod.Post, "/v1/decks/$id/definitions", DeckJson.format.encodeToString(value)).definitions
-        }
     }
     private suspend inline fun <reified T> call(token: String, method: HttpMethod, path: String, body: String? = null): T {
         if (origin.isEmpty()) throw DeckFailure("not_configured")

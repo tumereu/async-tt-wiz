@@ -68,6 +68,13 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.printing(id) } }
     }
 
+    /** Owner 2026-11-10 (card data from the server's catalog): the cards of [printingIds] as saved decks and cubes hold
+     * them, each the faces of the card the printing is a face of, front first ([CatalogIndex.cards]); printings the
+     * records don't have are left out, and nothing without card records. Worker-only. */
+    fun cards(printingIds: Collection<String>): Map<String, List<CatalogPrinting>> = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.cards(printingIds) } }.orEmpty()
+    }
+
     /** The token printing a token Automatum makes is drawn with ([TokenArtMatch]), null for the plain frame or
      * without card records. Worker-only. */
     fun tokenArt(face: DefinitionFace, sourceName: String?, sourcePrintingId: String?): CatalogPrinting? = synchronized(lock) {
@@ -328,6 +335,20 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     }, 0).value
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
+
+    /** Each of [printingIds] with the faces of its card (the printing and those it links to), in side then id order as a
+     * deck import resolves them; ids the records don't have are left out. A few queries for a whole list. */
+    internal fun cards(printingIds: Collection<String>): Map<String, List<CatalogPrinting>> {
+        fun read(ids: Collection<String>) = ids.chunked(500).flatMap { chunk ->
+            rows("SELECT * FROM printing WHERE id IN (${chunk.joinToString(",") { "?" }})", chunk) }.associateBy { it.id }
+        val wanted = printingIds.distinct()
+        val first = read(wanted)
+        val all = first + read(first.values.flatMap { it.otherFaces }.filter { it !in first }.distinct())
+        return wanted.mapNotNull { id -> all[id]?.let { printing ->
+            id to (printing.otherFaces + printing.id).distinct().mapNotNull { all[it] }
+                .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
+        } }.toMap()
+    }
     private var scryfallLookupPrepared = false
     /** Cube Cobra supplies Scryfall printing identities, not MTGJSON UUIDs. Prepare on the import worker
      * so already installed catalogs need neither a format bump nor a fresh download. */

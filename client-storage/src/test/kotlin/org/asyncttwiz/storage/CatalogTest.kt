@@ -187,5 +187,13 @@ class CatalogTest {
         for (entry in result.entries) assertEquals(
             PhysicalCardFaces.normalize(CatalogCards.definition(catalog, catalog.printing.getValue(entry.printing.id))),
             PhysicalCardFaces.normalize(entry.definition(result.catalog)), entry.printing.name)
+        // A saved list's printings read back by id (owner 2026-11-10): each card's faces, front first, whichever face names
+        // it, built into the server's card data; a printing the records don't have is left out
+        val cards = repo().cards(listOf(id(1), id(5), id(6), id(99)))
+        assertEquals(setOf(id(1), id(5), id(6)), cards.keys)
+        assertEquals(listOf(id(5), id(6)), cards.getValue(id(6)).map { it.id })
+        for ((printing, sides) in cards) assertEquals(
+            PhysicalCardFaces.normalize(CatalogCards.definition(catalog, catalog.printing.getValue(printing))),
+            PhysicalCardFaces.normalize(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, sides, emptyList()).definition(result.catalog)), printing)
     }
 }

@@ -40,7 +40,8 @@ class DeckChoiceRequestsTest : E2e() {
         val deckService = synchronized(alice.link.requests) { alice.link.requests.filter { request ->
             request.substringAfter(' ').let { it.startsWith("/v1/decks") || it.startsWith("/v1/definitions") || it.startsWith("/v1/cubes") }
         } }
-        // The list, the draft decks, the deck, its cards' data: one request each (no card read on its own)
+        // The list, the draft decks, the deck: one request each; no card data is read (owner 2026-11-10: the phone builds
+        // the cards from its records)
         assertTrue(deckService.size <= 6, "${deckService.size} deck-service requests to choose a deck: $deckService")
     }
 }

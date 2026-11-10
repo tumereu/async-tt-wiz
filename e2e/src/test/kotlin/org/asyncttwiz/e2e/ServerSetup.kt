@@ -349,6 +349,10 @@ object ServerSetup {
      * player's local head). */
     fun head(account: TestAccount, gameId: String): GameHead = Socket(account).use { it.head(gameId) }
 
+    /** [account]'s [actions] in [game]'s lobby, one after another, and their results (refusals included). */
+    fun attempt(account: TestAccount, game: GameSummary, vararg actions: GameAction): List<GameResult> =
+        Socket(account).use { socket -> val stream = socket.open(game); actions.map { socket.attempt(game, stream, it) } }
+
     /** A bare game socket for the setup's commands. */
     private class Socket(account: TestAccount) : WebSocket.Listener, AutoCloseable {
         private val queue = LinkedBlockingQueue<GameServerMessage>()
@@ -406,11 +410,16 @@ object ServerSetup {
         }
 
         fun execute(game: GameSummary, stream: GameStreamReady, action: GameAction) {
+            val result = attempt(game, stream, action)
+            check(result.outcome == "accepted") { "setup ${action::class.simpleName}: ${result.outcome} ${result.reason}" }
+        }
+
+        /** [action] in [game]'s lobby, whatever its outcome. */
+        fun attempt(game: GameSummary, stream: GameStreamReady, action: GameAction): GameResult {
             val scope = GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             send(command)
-            val result = next { it is GameResult && it.requestId == command.requestId } as GameResult
-            check(result.outcome == "accepted") { "setup ${action::class.simpleName}: ${result.outcome} ${result.reason}" }
+            return next { it is GameResult && it.requestId == command.requestId } as GameResult
         }
 
         override fun close() { socket.abort() }

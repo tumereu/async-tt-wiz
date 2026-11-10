@@ -31,7 +31,7 @@ class DeckSaveTest {
             ResolvedDeckEntry(DeckSection.SIDEBOARD, 2, faces, listOf(4))), emptyList(), CatalogMetadata("2026-10-11", "5.2.2"))
     }
     /** [this] save's entries as the server stores them (one card in these tests). */
-    private fun DeckSave.saved() = entries.map { SavedDeckEntry(it.section, cards.single().digest, it.quantity) }
+    private fun DeckSave.saved() = entries.map { SavedDeckEntry(it.section, it.printingId, "Front // Back", it.quantity) }
 
     // Card data from the server's catalog (owner 2026-11-10): a save names printings; the phone keeps its own card data
     // of them (the server's) for the pictures and the support check
@@ -214,7 +214,7 @@ class DeckSaveTest {
         controller.save(); worker.drain(); posts.removeAt(0)()
         assertEquals(attempts[0], attempts[1]); assertEquals(summary.id, attempts[0].target)
         assertNull(attempts[0].update().name)
-        assertEquals(attempts[0].cards.first().digest, attempts[0].update().cover)
+        assertEquals(attempts[0].cards.first().definition.printingId, attempts[0].update().cover)
         assertEquals(listOf(4, 2), attempts[0].update().contents!!.entries.map { it.quantity })
         controller.editList(); controller.name("Renamed"); controller.review()
         controller.save(); worker.drain(); posts.removeAt(0)()
@@ -228,6 +228,8 @@ class DeckSaveTest {
     @Test fun libraryFollowsPagesAndReadsServerDefinitionsWithoutCatalog() {
         val worker = Worker(); val api = FakeDecks()
         val library = DeckLibraryController(api, { "token" }, worker) { it() }
+        // The saved deck's cards come from the card records by printing (owner 2026-11-10)
+        library.cardRecords = SavedCardRecords { ids -> SavedCardFaces(mapOf(first to result().entries.first().faces).filterKeys { it in ids }, null) }
         library.refresh(); worker.drain()
         assertEquals(2, api.pages); assertEquals(2, library.state.decks.size)
         library.open(summary.id); worker.drain()
@@ -242,7 +244,6 @@ class DeckSaveTest {
         override suspend fun list(token: String, after: String?): DeckList { pages++
             return DeckList(listOf(if (after == null) summary else summary.copy(id = second)), if (after == null) summary.id else null) }
         override suspend fun read(token: String, id: String) = SavedDeck(summary, plan.saved())
-        override suspend fun definitions(token: String, id: String, digests: List<String>) = plan.cards
         override suspend fun create(token: String, value: CreateDeck) = SavedDeck(summary, plan.saved())
         override suspend fun update(token: String, id: String, value: UpdateDeck) = SavedDeck(summary, plan.saved())
         override suspend fun delete(token: String, id: String, value: DeleteDeck) = DeckDeleted(id)
@@ -264,18 +265,16 @@ class DeckSaveTest {
                     assertEquals(plan.copy(target = summary.id).update(),
                         DeckJson.format.decodeFromString<UpdateDeck>(body!!))
                     DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
-                } else if (request.url.encodedPath.endsWith("/definitions"))
-                    DeckJson.format.encodeToString(SubmittedDefinitions(plan.cards))
-                    else DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
+                } else DeckJson.format.encodeToString(SavedDeck(summary, plan.saved()))
             }
             respond(json, headers = headersOf("Content-Type", "application/json"))
         }) { followRedirects = false })
         api.use { val token = "A".repeat(43)
             it.create(token, plan.create()); it.list(token)
-            it.read(token, summary.id); it.definitions(token, summary.id, listOf(plan.cards.first().digest))
+            it.read(token, summary.id)
             it.update(token, summary.id, plan.copy(target = summary.id).update())
         }
-        assertEquals(5, paths.size)
+        assertEquals(4, paths.size)
         for (status in listOf(401, 409, 503, 307)) {
             var calls = 0
             DeckApi("https://decks.example", HttpClient(MockEngine { calls++

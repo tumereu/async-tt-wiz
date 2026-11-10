@@ -13,6 +13,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val main = Handler(Looper.getMainLooper())
     private val catalogStore = ViewModelStore()
     val catalog = ViewModelProvider(catalogStore, ViewModelProvider.AndroidViewModelFactory(application))[CatalogViewModel::class.java]
+    /** Saved decks' and cubes' cards come from the phone's card records by printing (owner 2026-11-10). */
+    private val cardRecords = SavedCardRecords { ids -> SavedCardFaces(catalog.repository.cards(ids), catalog.repository.metadata()) }
     val deckImport = DeckImportController(DeckImportResolver(catalog.repository)::resolve,
         Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } }).apply {
         connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
@@ -82,7 +84,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } }).apply {
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
         search.cardData = { this@AuthViewModel.catalog.repository.searchData(it) }
-        supportCheck = cardListSupport
     }
     val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
@@ -120,49 +121,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         controller.foreground()
         if (controller.state.account != null) {
             lobby.sync()
-            // Switch-review #11: while a game is open only the list's changes are read (badges); the rest waits
-            if (lobby.state.selected == null) {
-                refreshAutomatumSupport()
-            }
         }
     }, main, lobby::tick)
 
-    /** Owner playtest 2026-11-06: the background runs over every saved list read one list a second (three requests or so),
-     * well inside the deck service's 600 requests a minute, so a deck chosen meanwhile is never refused as busy. */
-    private suspend fun paceSavedLists() = kotlinx.coroutines.delay(1_000)
-
-    private val cardDataWork by lazy { Executors.newSingleThreadExecutor { Thread(it, "card-data-refresh") } }
-    // I-D51 (LOB-115, DRF-161): saved decks and cubes without Automatum support for this parser version get it in the
-    // background, on the card data worker, at most every 15 minutes while the app returns.
-    @Volatile private var supportRun: Pair<String, Long>? = null
-    private fun refreshAutomatumSupport() {
-        val account = controller.state.account?.accountId ?: return
-        val token = controller.sessionToken() ?: return
-        val now = System.currentTimeMillis()
-        supportRun?.let { (last, at) -> if (last == account && now - at < 15 * 60_000L) return }
-        supportRun = account to now
-        cardDataWork.execute {
-            try {
-                val outcome = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired).use { api ->
-                    kotlinx.coroutines.runBlocking { AutomatumSupportRun(api, api, cardListSupport.parserVersion, cardListSupport.engineVersion, cardListSupport::support,
-                        pace = ::paceSavedLists).run(token) }
-                }
-                if (outcome.decks + outcome.cubes > 0)
-                    AppLog.info("Automatum", "Automatum support worked out: ${outcome.decks} decks, ${outcome.cubes} cubes")
-            } catch (failure: Exception) {
-                AppLog.warn("Automatum", "Automatum support of saved lists failed; trying again later", failure)
-                if (supportRun?.first == account) supportRun = null
-            }
-        }
-    }
     init {
+        deckImport.cardRecords = cardRecords; decks.cardRecords = cardRecords; cubes.cardRecords = cardRecords
+        pods.cardRecords = cardRecords; lobby.cardRecords = cardRecords
         lobby.gameInput = heartbeat::input
         activity.authenticationRequired = ::authenticationRequired
         activity.activityHints = { hints ->
             val token = controller.sessionToken()
             main.post { if (token != null && token == controller.sessionToken()) hints.forEach(pods::hint) }
         }
-        deckImport.supportCheck = cardListSupport
         deckImport.connectSave(saveApi, controller::sessionToken, saved = {
             // An import started from a lobby's Choose deck returns there with the new deck highlighted.
             if (!lobby.importedForPicker(it.deck)) {
@@ -184,7 +154,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         heartbeat.close()
         gameMaintenance.close()
-        cardDataWork.shutdown()
         activity.authenticationRequired = null
         activity.activityHints = null
         controller.close()

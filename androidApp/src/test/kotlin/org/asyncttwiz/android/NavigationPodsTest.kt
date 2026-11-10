@@ -147,8 +147,8 @@ class NavigationPodsTest {
 
     // DRF-010
     @Test fun draftThisCubeOpensNewPodWithThatCubeChosen() {
-        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
-        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(DeckJson.digest(card), 3)))
+        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")), printingId = "00000000-0000-4000-8000-000000000201")
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(card.printingId, card.name, 3)))
         val immediate = object : AbstractExecutorService() {
             override fun execute(command: Runnable) = command.run()
             override fun shutdown() = Unit
@@ -160,14 +160,13 @@ class NavigationPodsTest {
         val api = object : Cubes {
             override suspend fun listCubes(token: String, after: String?) = CubeList(listOf(saved.cube))
             override suspend fun readCube(token: String, id: String) = saved
-            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
-                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, card) })
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
             override fun close() = Unit
         }
         val cubes = CubeController(api, { "token" }, { error("unused") }, { error("unused") }, immediate, { it() })
+            .also { it.cardRecords = testCardRecords(card) }
         try {
             cubes.open(saved.cube.id)
             fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.DECKS))

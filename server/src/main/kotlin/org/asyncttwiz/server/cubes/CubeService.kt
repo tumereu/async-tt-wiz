@@ -10,7 +10,6 @@ import org.asyncttwiz.server.decks.DeckService.Result
 import org.asyncttwiz.server.decks.CardListInput
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.CubeEntry.CUBE_ENTRY
-import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.generated.tables.SavedCube.SAVED_CUBE
 import org.asyncttwiz.server.generated.tables.records.SavedCubeRecord
@@ -18,22 +17,21 @@ import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 
-/** Account-owned snapshots; their cards' card data comes from the server's catalog as saved decks' does. */
+/** Account-owned lists of printings, whose cards the phone and the server build from the card catalog as saved decks'. */
 class CubeService(private val runtime: ServiceRuntime) {
     private val json = DeckJson.format
     private fun error(status: Int, code: String) = Result(status, json.encodeToString(DeckError(code)))
 
-    /** A new cube of [CreateCube.entries], its cards' card data built from the server's catalog ([CardListInput]). */
+    /** A new cube of [CreateCube.entries], its cards checked against the server's catalog ([CardListInput]). */
     fun create(principal: AccountService.Principal, input: CreateCube): Result {
         val valid = CubeValidation.name(input.name) && CubeValidation.input(input.entries) && CubeValidation.provenance(input.cubeCobraId)
         val (built, refused) = if (valid) CardListInput.build(input.entries) else null to null
         if (refused != null) return error(refused.status, refused.code)
         return business(principal, input.requestId, "createCube", DeckJson.canonical(input)) { sql, owner ->
             if (built == null) return@business error(400, "invalid_cube")
-            // A new cube holds no card from before: every card comes from the catalog.
+            // A new cube holds no card without a printing: every card comes from the catalog.
             if (built.kept.isNotEmpty()) return@business error(400, "definitions_unavailable")
             val entries = cubeEntries(built)
-            built.store(sql)
             val row = sql.insertInto(SAVED_CUBE).set(SAVED_CUBE.ID, UUID.randomUUID())
                 .set(SAVED_CUBE.ACCOUNT_ID, owner).set(SAVED_CUBE.NAME, input.name)
                 .set(SAVED_CUBE.CUBE_COBRA_ID, input.cubeCobraId).returning().fetchSingle()
@@ -53,19 +51,17 @@ class CubeService(private val runtime: ServiceRuntime) {
                 !validEntries) return@business error(400, "invalid_cube")
             val previous = entries(sql, row.id!!)
             val next = if (built == null) previous else {
-                // A card from before is kept only while the cube holds it.
-                if (!previous.map { it.definition }.containsAll(built.kept)) return@business error(400, "definitions_unavailable")
+                // A card without a printing is kept only while the cube holds it.
+                if (!previous.filter { it.printingId == null }.map { it.name }.containsAll(built.kept))
+                    return@business error(400, "definitions_unavailable")
                 cubeEntries(built)
             }
             val name = input.name ?: row.name!!
             val provenance = input.cubeCobraId ?: row.cubeCobraId
             if (next != previous || name != row.name || provenance != row.cubeCobraId) {
-                if (next != previous) { built?.store(sql); replace(sql, owner, row.id!!, next) }
-                // I-D51: changed cards need their Automatum support worked out again.
-                if (next != previous) row.automatumSupport = null
+                if (next != previous) replace(sql, owner, row.id!!, next)
                 row.name = name; row.cubeCobraId = provenance; row.revision = row.revision!! + 1
                 row.updatedAt = sql.update(SAVED_CUBE).set(SAVED_CUBE.NAME, row.name).set(SAVED_CUBE.CUBE_COBRA_ID, provenance)
-                    .set(SAVED_CUBE.AUTOMATUM_SUPPORT, row.automatumSupport)
                     .set(SAVED_CUBE.REVISION, row.revision).set(SAVED_CUBE.UPDATED_AT, DSL.currentOffsetDateTime())
                     .where(SAVED_CUBE.ID.eq(row.id)).returning(SAVED_CUBE.UPDATED_AT).fetchSingle().updatedAt
             }
@@ -73,7 +69,7 @@ class CubeService(private val runtime: ServiceRuntime) {
         }
     }
 
-    private fun cubeEntries(built: CardListInput) = built.entries.map { SavedCubeEntry(it.digest, it.quantity, it.section) }
+    private fun cubeEntries(built: CardListInput) = built.entries.map { SavedCubeEntry(it.printingId, it.name, it.quantity, it.section) }
 
     fun delete(principal: AccountService.Principal, id: String, input: DeleteCube): Result =
         business(principal, input.requestId, "deleteCube", intent(id, json.encodeToJsonElement(input))) { sql, owner ->
@@ -106,58 +102,26 @@ class CubeService(private val runtime: ServiceRuntime) {
         }
     }
 
-    fun definitions(principal: AccountService.Principal, id: String, input: ReadCubeDefinitions): Result {
-        if (!DeckValidation.uuid(id)) return error(404, "not_found")
-        if (!CubeValidation.definitionRead(input.digests)) return error(400, "invalid_request")
-        return runtime.transaction { connection ->
-            val sql = DSL.using(connection, SQLDialect.POSTGRES)
-            val row = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
-                .and(SAVED_CUBE.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
-                ?: return@transaction error(404, "not_found")
-            val definitions = sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(CUBE_ENTRY).join(DEFINITION)
-                .on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
-                .where(CUBE_ENTRY.CUBE_ID.eq(row.id)).and(DEFINITION.DIGEST.`in`(input.digests))
-                .fetch().associate { it.get(DEFINITION.DIGEST)!! to it.get(DEFINITION.PAYLOAD)!! }
-            if (definitions.keys != input.digests.toSet()) return@transaction error(404, "not_found")
-            Result(200, json.encodeToString(SubmittedDefinitions(input.digests.distinct().map { digest ->
-                SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(definitions.getValue(digest)))
-            })))
-        }
-    }
-
     private fun owned(sql: DSLContext, owner: UUID, id: String): SavedCubeRecord? =
         if (!DeckValidation.uuid(id)) null else sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forUpdate().fetchOne()
     private fun entries(sql: DSLContext, id: UUID) = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id))
-        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.definitionDigest!!, it.quantity!!, SavedDeckSection.valueOf(it.section!!)) }
+        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.printingId, it.name!!, it.quantity!!, SavedDeckSection.valueOf(it.section!!)) }
     /** [entries] as cube [id]'s rows, in order, replacing its old ones; the new rows in one statement (SYS-025). */
     private fun replace(sql: DSLContext, owner: UUID, id: UUID, entries: List<SavedCubeEntry>) {
         sql.deleteFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id)).execute()
         if (entries.isEmpty()) return
         var insert = sql.insertInto(CUBE_ENTRY, CUBE_ENTRY.CUBE_ID, CUBE_ENTRY.ACCOUNT_ID, CUBE_ENTRY.POSITION, CUBE_ENTRY.SECTION,
-            CUBE_ENTRY.DEFINITION_DIGEST, CUBE_ENTRY.QUANTITY)
-        entries.forEachIndexed { index, entry -> insert = insert.values(id, owner, index, entry.section.name, entry.definition, entry.quantity) }
+            CUBE_ENTRY.PRINTING_ID, CUBE_ENTRY.NAME, CUBE_ENTRY.QUANTITY)
+        entries.forEachIndexed { index, entry -> insert = insert.values(id, owner, index, entry.section.name, entry.printingId, entry.name, entry.quantity) }
         insert.execute()
     }
+    /** LOB-124, DRF-161: its Automatum support worked out from its cards' printings by the catalog's marks. */
     private fun summary(row: SavedCubeRecord, entries: List<SavedCubeEntry>) = CubeSummary(row.id.toString(), row.name!!,
         row.revision.toString(), row.createdAt!!.toInstant().toString(), row.updatedAt!!.toInstant().toString(),
         entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() }, row.cubeCobraId,
         entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
-        org.asyncttwiz.server.decks.automatumSupport(row.automatumSupport))
-
-    /** I-D51: stores the owner's device's Automatum support for the cube's [SetCardListSupport.revision] only. */
-    fun setSupport(principal: AccountService.Principal, id: String, input: SetCardListSupport): Result {
-        if (!DeckValidation.uuid(id)) return error(404, "not_found")
-        if (!CardListSupport.valid(input.support) || input.revision.toLongOrNull() == null) return error(400, "invalid_request")
-        return runtime.transaction { connection ->
-            val sql = DSL.using(connection, SQLDialect.POSTGRES)
-            val row = owned(sql, UUID.fromString(principal.account.accountId), id) ?: return@transaction error(404, "not_found")
-            val stored = row.revision == input.revision.toLong()
-            if (stored) sql.update(SAVED_CUBE).set(SAVED_CUBE.AUTOMATUM_SUPPORT, json.encodeToString(input.support))
-                .where(SAVED_CUBE.ID.eq(row.id)).execute()
-            Result(200, json.encodeToString(CardListSupportStored(stored)))
-        }
-    }
+        org.asyncttwiz.server.decks.CardListSupports.support(entries.map { it.printingId to it.name }))
     private fun intent(id: String, input: JsonElement) = DeckJson.canonicalElement(buildJsonObject { put("cubeId", id); put("input", input) })
 
     private fun business(principal: AccountService.Principal, requestId: String, kind: String, canonical: String,

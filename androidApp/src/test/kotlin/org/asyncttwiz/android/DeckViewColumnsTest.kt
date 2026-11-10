@@ -102,11 +102,12 @@ class DeckViewColumnsTest {
     }
 
     private fun cubeController(): CubeController {
-        val cards = listOf(CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear"))),
-            CardDefinition("Rune Bolt", listOf(DefinitionFace("rune-bolt", "Rune Bolt", typeLine = "Instant"))))
-            .associateBy { org.asyncttwiz.protocol.DeckJson.digest(it) }
+        val cards = listOf(CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")),
+                printingId = "00000000-0000-4000-8000-000000000201"),
+            CardDefinition("Rune Bolt", listOf(DefinitionFace("rune-bolt", "Rune Bolt", typeLine = "Instant")),
+                printingId = "00000000-0000-4000-8000-000000000202"))
         val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 4),
-            cards.keys.mapIndexed { index, digest -> SavedCubeEntry(digest, if (index == 0) 3 else 1) })
+            cards.mapIndexed { index, card -> SavedCubeEntry(card.printingId, card.name, if (index == 0) 3 else 1) })
         val immediate = object : java.util.concurrent.AbstractExecutorService() {
             override fun execute(command: Runnable) = command.run()
             override fun shutdown() = Unit
@@ -118,15 +119,13 @@ class DeckViewColumnsTest {
         val api = object : Cubes {
             override suspend fun listCubes(token: String, after: String?) = CubeList(listOf(saved.cube))
             override suspend fun readCube(token: String, id: String) = saved
-            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
-                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, cards.getValue(it)) })
             override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
             override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
             override fun close() = Unit
         }
         return CubeController(api, { "token" }, { _ -> error("unused") }, { error("unused") }, immediate, { it() })
-            .also { it.open(saved.cube.id) }
+            .also { it.cardRecords = testCardRecords(cards); it.open(saved.cube.id) }
     }
 
     // DRF-010, LOB-056

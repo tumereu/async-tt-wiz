@@ -5,6 +5,7 @@ import androidx.compose.ui.test.performClick
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.CubeController
 import org.asyncttwiz.android.DeckApi
+import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.SavedCubeEntry
 import org.asyncttwiz.protocol.SavedDeckEntry
@@ -18,18 +19,18 @@ import kotlin.test.assertTrue
 
 /**
  * Card data from the server's catalog (owner 2026-11-10, SYS-084): a phone saves a deck or a cube as one request naming
- * its cards' printings, and the server builds their card data from its card catalog, the same card data (and so the same
- * digests) the phone makes of them; a pod challenge sends no card data (the server supplies the basic lands), and a
- * Ready brings the server's dungeons for a deck that ventures.
+ * its cards' printings, the server keeps them by printing and the phone shows them from its own card records (no card
+ * data is read or uploaded); a pod challenge sends no card data (the server supplies the basic lands), a Ready brings the
+ * server's dungeons for a deck that ventures, and the server refuses a deck holding a card Automatum can't play (LOB-124).
  */
 class CatalogCardDataTest : E2e() {
     /** The deck-service and pod requests Alice's phone made since [from] (method and path). */
     private fun requests(from: Int = 0) = synchronized(alice.link.requests) { alice.link.requests.drop(from) }
         .filter { request -> request.substringAfter(' ').let { it.startsWith("/v1/decks") || it.startsWith("/v1/cubes") ||
             it.startsWith("/v1/definitions") || it.startsWith("/v1/pods") } }
-    /** Of [requests], the ones that change something: not the reads of the saved list that open it afterwards (its cards' data
-     * in one batch read included); an upload of card data (POST /v1/definitions) would be one. */
-    private fun changes(from: Int) = requests(from).filter { !it.startsWith("GET") && !Regex("POST /v1/(decks|cubes)/[^/]+/definitions").matches(it) }
+    /** Of [requests], the ones that change something: not the reads of the saved list that open it afterwards; an upload or a
+     * read of card data (POST /v1/definitions, …/definitions) would be one. */
+    private fun changes(from: Int) = requests(from).filter { !it.startsWith("GET") }
 
     // SYS-084, LOB-064: a new deck from the editor is one request; its cards are the catalog's, as the phone makes them
     @Test fun aNewDeckIsSavedByPrintingInOneRequest() {
@@ -50,14 +51,31 @@ class CatalogCardDataTest : E2e() {
         assertEquals(listOf("POST /v1/decks"), changes(from), "${requests(from)}")
         val saved = alice.decks.state.detail!!.saved
         val read = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }
-        assertEquals(listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, TestCards.mountain.digest, 20),
-            SavedDeckEntry(SavedDeckSection.MAINBOARD, TestCards.spark.digest, 20),
-            SavedDeckEntry(SavedDeckSection.SIDEBOARD, TestCards.pathCrag.digest, 1)), read.entries)
-        assertEquals(TestCards.mountain.digest, read.deck.cover!!.definition)
-        // The card data the deck view shows is the server's, read back in one request
-        assertEquals(setOf(TestCards.mountain, TestCards.spark, TestCards.pathCrag).associate { it.digest to it.definition },
+        assertEquals(listOf(saved(SavedDeckSection.MAINBOARD, TestCards.mountain, 20), saved(SavedDeckSection.MAINBOARD, TestCards.spark, 20),
+            saved(SavedDeckSection.SIDEBOARD, TestCards.pathCrag, 1)), read.entries)
+        assertEquals(TestCards.mountain.printingId, read.deck.cover!!.definition)
+        // The cards the deck view shows are built from Alice's card records, the same the server builds
+        assertEquals(setOf(TestCards.mountain, TestCards.spark, TestCards.pathCrag).associate { it.printingId to it.definition },
             alice.decks.state.detail!!.definitions)
+
+        // Reopened in the editor from the records, edited and saved: one request, still by printing
+        alice.deckImport.openEditor(alice.decks.state.detail!!)
+        waitUntil("the deck open in the editor") { alice.deckImport.state.result?.resolved == true }
+        assertTrue("20 Mountain" in alice.deckImport.state.text, alice.deckImport.state.text)
+        alice.deckImport.edit(alice.deckImport.state.text.replace("20 Mountain", "18 Mountain"))
+        alice.deckImport.lookup()
+        waitUntil("the edit looked up") { alice.deckImport.state.result?.resolved == true && alice.deckImport.canSave }
+        val edit = alice.link.requests.size
+        alice.deckImport.save()
+        waitUntil("the edited deck saved") { !alice.deckImport.state.active }
+        assertEquals(listOf("PUT /v1/decks/${saved.deck.id}"), changes(edit), "${requests(edit)}")
+        val edited = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }
+        assertEquals(listOf(saved(SavedDeckSection.MAINBOARD, TestCards.mountain, 18), saved(SavedDeckSection.MAINBOARD, TestCards.spark, 20),
+            saved(SavedDeckSection.SIDEBOARD, TestCards.pathCrag, 1)), edited.entries)
+        assertEquals("2", edited.deck.revision)
     }
+
+    private fun saved(section: SavedDeckSection, card: TestCard, quantity: Int) = SavedDeckEntry(section, card.printingId, card.name, quantity)
 
     // SYS-084, DRF-002: a new cube is one request too, Main and Maybe by printing
     @Test fun aNewCubeIsSavedByPrintingInOneRequest() {
@@ -77,8 +95,25 @@ class CatalogCardDataTest : E2e() {
             waitUntil("the saved cube") { !cubes.state.editing && cubes.state.detail != null }
             assertEquals(listOf("POST /v1/cubes"), changes(from), "${requests(from)}")
             val saved = runBlocking { DeckApi(E2eStack.origin).use { it.readCube(alice.account.token, cubes.state.detail!!.saved.cube.id) } }
-            assertEquals(listOf(SavedCubeEntry(TestCards.cub.digest, 3), SavedCubeEntry(TestCards.spark.digest, 2),
-                SavedCubeEntry(TestCards.hound.digest, 1, SavedDeckSection.MAYBEBOARD)), saved.entries)
+            assertEquals(listOf(SavedCubeEntry(TestCards.cub.printingId, TestCards.cub.name, 3), SavedCubeEntry(TestCards.spark.printingId, TestCards.spark.name, 2),
+                SavedCubeEntry(TestCards.hound.printingId, TestCards.hound.name, 1, SavedDeckSection.MAYBEBOARD)), saved.entries)
+
+            // Opened from the records, edited and saved: one request, still by printing
+            cubes.cardRecords = alice.cardRecords
+            cubes.open(saved.cube.id)
+            waitUntil("the cube read") { cubes.state.detail?.saved?.cube?.id == saved.cube.id && !cubes.state.busy }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { cubes.edit() }
+            waitUntil("the cube open in the editor") { cubes.state.editing && cubes.state.result?.resolved == true }
+            assertTrue("3 Ember Cub" in cubes.state.text, cubes.state.text)
+            android.os.Handler(android.os.Looper.getMainLooper()).post { cubes.text(cubes.state.text.replace("3 Ember Cub", "5 Ember Cub")); cubes.lookup() }
+            waitUntil("the edit looked up") { cubes.state.result?.resolved == true && cubes.canSave }
+            val edit = alice.link.requests.size
+            android.os.Handler(android.os.Looper.getMainLooper()).post { cubes.save() }
+            waitUntil("the edited cube saved") { !cubes.state.editing && cubes.state.detail?.saved?.cube?.revision == "2" }
+            assertEquals(listOf("PUT /v1/cubes/${saved.cube.id}"), changes(edit), "${requests(edit)}")
+            val edited = runBlocking { DeckApi(E2eStack.origin).use { it.readCube(alice.account.token, saved.cube.id) } }
+            assertEquals(5, edited.entries.first().quantity)
+            assertEquals(TestCards.cub.printingId, edited.entries.first().printingId)
         } finally { cubes.close() }
     }
 
@@ -98,6 +133,18 @@ class CatalogCardDataTest : E2e() {
         val printings = deck.basicDefinitions.mapValues { (_, digest) -> preparation.definitions.single { it.digest == digest }.definition.printingId }
         assertEquals(with(TestCards) { listOf(plains, island, swamp, mountain, forest) }.map { it.printingId }, printings.values.toList())
         assertEquals(40, deck.entries.filter { it.suppliedBasic != null && it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity })
+    }
+
+    // LOB-118, LOB-124: a deck holding a card Automatum can't play (the catalog's marks): the server's result names it at
+    // once, and the server refuses choosing it, so the player can't get Ready with it
+    @Test fun aDeckWithACardAutomatumCantPlayIsRefused() {
+        val (a, b) = ServerSetup.accounts()
+        val deck = ServerSetup.deck(a, TestDeck("E2E odd deck", listOf(TestCards.mountain to 39, TestCards.relic to 1)))
+        assertEquals(listOf("Odd Relic"), deck.deck.automatum?.byHand)
+        val game = ServerSetup.invitation(a, b, "E2E odd game ${UUID.randomUUID().toString().take(6)}")
+        val (chosen, ready) = ServerSetup.attempt(a, game, GameAction.SelectDeck(deck.deck.id, deck.deck.revision), GameAction.Ready)
+        assertEquals("automatumUnsupported", chosen.reason)
+        assertEquals("rejected", ready.outcome, "Ready without a deck: ${ready.reason}")
     }
 
     // LOB-117, LOB-123: a deck that ventures readies with the server's dungeons outside the game, its own of none

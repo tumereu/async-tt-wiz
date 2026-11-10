@@ -42,9 +42,8 @@ interface Pods : Closeable {
     suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = PodAcknowledged(id)
     /** Saves the caller's private deck notes for the current attempt; latest wins. */
     suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = PodAcknowledged(id)
-    /** Prepare cube (creator, setup): the pod's prepared cube, its definitions and moves between Main and Maybe. */
+    /** Prepare cube (creator, setup): the pod's prepared cube and moves between Main and Maybe. */
     suspend fun cube(token: String, id: String): PodCube = throw PodFailure("not_configured")
-    suspend fun cubeDefinitions(token: String, id: String, input: ReadCubeDefinitions): SubmittedDefinitions = throw PodFailure("not_configured")
     suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube = throw PodFailure("not_configured")
     /** A page of the pod's chat (owner, 2026-11-08): the newest, or what is newer than the ordinal [after], with the caller's read state. */
     suspend fun chat(token: String, id: String, after: String? = null): PodChatPage = throw PodFailure("not_configured")
@@ -92,8 +91,6 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = call(token, path(id, "/draft/marks"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = call(token, path(id, "/build/notes"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun cube(token: String, id: String): PodCube = call(token, path(id, "/cube"))
-    override suspend fun cubeDefinitions(token: String, id: String, input: ReadCubeDefinitions): SubmittedDefinitions =
-        call(token, path(id, "/cube/definitions"), DeckJson.format.encodeToString(input))
     override suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube =
         call(token, path(id, "/cube/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun chat(token: String, id: String, after: String?): PodChatPage =

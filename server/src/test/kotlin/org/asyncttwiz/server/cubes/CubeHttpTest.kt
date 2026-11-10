@@ -33,7 +33,9 @@ class CubeHttpTest {
         assertEquals(201, request(settings, "POST", "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password😀"))).statusCode())
         return json.decodeFromString(request(settings, "POST", "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password😀"))).body())
     }
-    @Test fun `definition batches require ownership and the cube's cards and enforce the size cap`() {
+    // Owner 2026-11-10 (card data from the server's catalog): a cube names its cards by printing and name, and the phone
+    // builds them from its card records: there is no read of their card data
+    @Test fun `a cube names its cards by printing and has no card data read`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val config = EphemeralPorts.settings(db.settings)
@@ -46,31 +48,13 @@ class CubeHttpTest {
                 }
                 val owner = account(settings, "batch-owner"); val foreign = account(settings, "batch-foreign")
                 val names = TestPrintings.names("E2E")
-                val attached = names.map(TestPrintings::submitted)
                 val create = CreateCube(id(), "Batch cube", names.map { TestPrintings.entry(it, 1) })
                 val created = request(settings, "POST", "/v1/cubes", json.encodeToString(create), owner.token)
                 assertEquals(201, created.statusCode(), created.body())
                 val saved = json.decodeFromString<SavedCube>(created.body())
-                val path = "/v1/cubes/${saved.cube.id}/definitions"
-                val batch = ReadCubeDefinitions(attached.map { it.digest })
-                val read = request(settings, "POST", path, json.encodeToString(batch), owner.token)
-                assertEquals(200, read.statusCode(), read.body())
-                assertEquals(SubmittedDefinitions(attached), json.decodeFromString<SubmittedDefinitions>(read.body()))
-                assertEquals(401, request(settings, "POST", path, json.encodeToString(batch)).statusCode())
-                // Saving the same cards is not ownership of the cube.
-                assertEquals(201, request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Foreign cube",
-                    listOf(TestPrintings.entry(names.first(), 1), TestPrintings.entry("Forest", 1)))), foreign.token).statusCode())
-                val denied = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest))), foreign.token)
-                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(names.first()))
-                for (unattached in listOf(TestPrintings.digest("Forest"), "sha256:" + "f".repeat(64))) {
-                    val rejected = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest, unattached))), owner.token)
-                    assertEquals(404, rejected.statusCode()); assertFalse(rejected.body().contains(names.first()))
-                }
-                for (invalid in listOf(emptyList(), List(251) { "sha256:%064x".format(it) }, List(251) { attached.first().digest }, listOf("invalid"))) {
-                    assertEquals(400, request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(invalid)), owner.token).statusCode())
-                }
-                assertEquals(404, request(settings, "POST", "/v1/cubes/${id()}/definitions", json.encodeToString(batch), owner.token).statusCode())
-                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
+                assertEquals(names.map { SavedCubeEntry(TestPrintings.definition(it).printingId, it, 1) }, saved.entries)
+                assertEquals(404, request(settings, "POST", "/v1/cubes/${saved.cube.id}/definitions", "{}", owner.token).statusCode())
+                assertEquals(404, request(settings, "GET", "/v1/cubes/${saved.cube.id}", token = foreign.token).statusCode())
             }
         }
     }
@@ -102,17 +86,13 @@ class CubeHttpTest {
                 assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", path, token = owner.token).body()))
                 assertEquals(listOf(saved.cube), json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = owner.token).body()).cubes)
                 assertTrue(json.decodeFromString<CubeList>(request(settings, "GET", "/v1/cubes", token = foreign.token).body()).cubes.isEmpty())
-                val read = json.encodeToString(ReadCubeDefinitions(listOf(definition.digest)))
-                for (denied in listOf(request(settings, "GET", path, token = foreign.token),
-                    request(settings, "POST", "$path/definitions", read, foreign.token))) {
-                    assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(card.name))
-                }
-                assertEquals(listOf(definition), json.decodeFromString<SubmittedDefinitions>(request(settings, "POST", "$path/definitions", read, owner.token).body()).definitions)
+                val denied = request(settings, "GET", path, token = foreign.token)
+                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains(card.name))
                 assertEquals(404, request(settings, "PUT", path, json.encodeToString(UpdateCube(id(), name = "Stolen")), foreign.token).statusCode())
                 assertEquals(404, request(settings, "DELETE", path, json.encodeToString(DeleteCube(id())), foreign.token).statusCode())
-                // A new cube holds no card from before
+                // A new cube holds no card without a printing
                 assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(create.copy(requestId = id(),
-                    entries = listOf(CardListEntry(SavedDeckSection.MAINBOARD, definition.digest, 1)))), foreign.token).statusCode())
+                    entries = listOf(CardListEntry(SavedDeckSection.MAINBOARD, null, 1, definition.definition.name)))), foreign.token).statusCode())
                 for (bad in listOf(create.copy(requestId = id(), name = " "), create.copy(requestId = id(), entries = emptyList()),
                     create.copy(requestId = id(), entries = create.entries + create.entries),
                     create.copy(requestId = id(), entries = listOf(entry(3001))),
@@ -162,7 +142,7 @@ class CubeHttpTest {
                 val created = request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Sections", entries)), owner.token)
                 assertEquals(201, created.statusCode(), created.body())
                 val saved = json.decodeFromString<SavedCube>(created.body())
-                assertEquals(entries.map { SavedCubeEntry(TestPrintings.digest(cards[if (it.printingId == TestPrintings.id(cards[0])) 0 else 1]), it.quantity, it.section) }, saved.entries)
+                assertEquals(entries.map { SavedCubeEntry(it.printingId, cards[if (it.printingId == TestPrintings.id(cards[0])) 0 else 1], it.quantity, it.section) }, saved.entries)
                 assertEquals(2000L, saved.cube.totalCopies); assertEquals(1000L, saved.cube.maybeCopies)
                 assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", "/v1/cubes/${saved.cube.id}", token = owner.token).body()))
                 for (bad in listOf(entries + TestPrintings.entry(cards[1], 1, SavedDeckSection.MAYBEBOARD),

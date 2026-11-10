@@ -45,7 +45,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 action == "cube" || action == "draft/history" -> "GET"
                 action == "chat" -> "GET, POST"
                 action == "chat/read" -> "GET, PUT"
-                action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/cover", "build/notes", "draft/marks", "rotisserie/queue") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -72,7 +72,6 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     path == "/v1/pods" -> pods.create(principal, json.decodeFromString<CreatePod>(text))
                     request.method == "DELETE" -> pods.destroy(principal, id, json.decodeFromString<PodRequest>(text))
                     action == "" -> pods.update(principal, id, json.decodeFromString<UpdatePod>(text))
-                    action == "cube/definitions" -> pods.cubeDefinitions(principal, id, json.decodeFromString<ReadCubeDefinitions>(text))
                     action == "cube/move" -> pods.moveCube(principal, id, json.decodeFromString<MovePodCubeCards>(text))
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")

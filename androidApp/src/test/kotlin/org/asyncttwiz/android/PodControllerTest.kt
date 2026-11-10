@@ -507,7 +507,6 @@ class PodControllerTest {
         override suspend fun listCubes(token: String, after: String?) = CubeList(sources())
         override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
         override suspend fun readCube(token: String, id: String): SavedCube = error("unused")
-        override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions = error("unused")
         override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
         override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
         override fun close() = Unit

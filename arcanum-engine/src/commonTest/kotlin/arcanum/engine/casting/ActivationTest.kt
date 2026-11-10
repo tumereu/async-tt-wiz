@@ -347,9 +347,9 @@ class ActivationTest {
         }
     }
 
-    // D61: a part of a mana ability that needs a decision is left to the players, with a manual step
+    // CR 605.3b, 608.2c: what the rest of a mana ability asks is asked as it resolves, the activation redone with the answer (D29)
     @Test
-    fun manaAbilityWithAChoiceLeftToPlayers() = scenario {
+    fun manaAbilityAsksWhatItsRestAsks() = scenario {
         // "{T}: Add {G}. You may gain 1 life."
         val seer = Cards.definition("Elvish Seer")
         val face = seer.faces.single()
@@ -359,11 +359,51 @@ class ActivationTest {
             abilities = listOf(mana.copy(instructions = mana.instructions.copy(steps = mana.instructions.steps + may)))))))
         alice.battlefield("Hopeful Druid")
         alice.activates("Hopeful Druid")
-        assertEquals(listOf(Color.Green), alice.pool.map { it.color })
-        assertIs<Decision.Manual>(pending)
-        answer(Answer.Done)
+        assertIs<Decision.May>(pending)
+        answer(Answer.YesNo(true))
         assertEquals(null, pending)
-        expect { alice.life shouldBe 20 }
+        assertEquals(listOf(Color.Green), alice.pool.map { it.color })
+        expect {
+            alice.life shouldBe 21
+            "Hopeful Druid".tapped shouldBe true
+        }
+    }
+
+    // CR 605.1a, 605.3b: mana added only if something holds is still added as the ability resolves, its colour asked then
+    @Test
+    fun manaAddedUnderAConditionAsksItsColour() {
+        val caryatid = Cards.invent("Grove Caryatid", "{1}{G}", "Creature — Plant",
+            "{T}: Add one mana of any color. If you control a creature with power 4 or greater, add two mana of any one color instead.", "1/1")
+        val giant = Cards.invent("Grove Giant", "{4}{G}", "Creature — Giant", "", "4/4")
+        scenario {
+            alice.battlefield(caryatid)
+            alice.activates(caryatid)
+            answer(Answer.ColorChoice(Color.Red))
+            assertEquals(null, pending)
+            assertEquals(listOf<Color?>(Color.Red), alice.pool.map { it.color })
+        }
+        scenario {
+            alice.battlefield(caryatid, giant)
+            alice.activates(caryatid)
+            answer(Answer.ColorChoice(Color.Green))
+            assertEquals(null, pending)
+            assertEquals(listOf<Color?>(Color.Green, Color.Green), alice.pool.map { it.color })
+        }
+    }
+
+    // CR 605.3b, 603.7: a mana ability that creates a delayed trigger asks nothing as it resolves; the trigger chooses later
+    @Test
+    fun manaAbilityWithADelayedTriggerAsksNothing() = scenario {
+        val vale = Cards.invent("Wandering Vale", null, "Land",
+            "{T}: Add one mana of any color. An opponent gains control of this land at the beginning of the next end step.")
+        assertEquals(emptyList(), arcanum.engine.Engine.manualParts(Cards.definition(vale)))
+        alice.battlefield(vale)
+        alice.activates(vale, color = Color.Blue)
+        assertEquals(null, pending)
+        assertEquals(listOf<Color?>(Color.Blue), alice.pool.map { it.color })
+        beginStep(TurnStep.End)
+        resolve()
+        expect { bob.battlefield has vale }
     }
 
     // CR 605.3a: "Add X mana in any combination of colors": a colour is chosen for each mana

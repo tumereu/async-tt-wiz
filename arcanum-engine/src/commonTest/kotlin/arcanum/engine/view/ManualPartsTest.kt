@@ -41,10 +41,23 @@ class ManualPartsTest {
         assertEquals(emptyList(), Engine.manualParts(spell(Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Learn)))))
     }
 
-    // CR 107.3: a cost paid on resolution with an X the definition doesn't set is left to the players; set, it isn't
-    @Test fun aResolutionCostNeedsItsX() {
+    // CR 107.3f: a cost paid on resolution with an X the definition doesn't set is chosen as it is paid, so it isn't left to the
+    // players; nor is "its mana cost" (CR 107.3h)
+    @Test fun aResolutionCostIsPlayedWithOrWithoutItsX() {
         val x = ManaCost.parse("{X}")!!
-        assertEquals(listOf("by hand: pay {X}"), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x))), payer = Players.You))))
+        assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x))), payer = Players.You))))
         assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x, x = Value.Announced("X")))), payer = Players.You))))
+        assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.ItsManaCost)), payer = Players.You))))
+    }
+
+    // CR 605.3b: a mana ability whose other steps ask something is played (asked as it resolves), not left to the players
+    @Test fun aManaAbilityThatAsksIsPlayed() {
+        assertEquals(emptyList(), Engine.manualParts(card("{T}: Add one mana of any color. An opponent gains control of this creature at the beginning of the next end step.")))
+    }
+
+    // A cost part the definition can't express is named, as a Manual step is
+    @Test fun aManualCostPartIsLeftToThePlayers() {
+        assertEquals(listOf("by hand: Pay the odd price"),
+            Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Manual("Pay the odd price"))), payer = Players.You))))
     }
 }

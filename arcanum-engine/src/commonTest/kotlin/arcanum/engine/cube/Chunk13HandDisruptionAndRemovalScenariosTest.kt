@@ -320,10 +320,15 @@ class Chunk13HandDisruptionAndRemovalScenariosTest {
 
         alice.casts("Deadly Plotting", target = "Elvish Hierophant", paying = listOf("Swamp", "Onyx Bauble", "Corpse Gnawer", "Tinkered Mite"))
         allPass()
-        // Each conniving creature's controller draws, then discards (one connive at a time)
+        // Each conniving creature's controller draws, then discards (one connive at a time; CR 701.50c: their controller chooses
+        // which connives first)
         while (pending is Decision.ChooseObjects) {
             val options = decision<Decision.ChooseObjects>().options
-            alice.chooses(if (card("Storm Spark") in options) "Storm Spark" else "Forest")
+            alice.chooses(when {
+                card("Corpse Gnawer") in options -> "Corpse Gnawer"
+                card("Storm Spark") in options -> "Storm Spark"
+                else -> "Forest"
+            })
         }
 
         expect {

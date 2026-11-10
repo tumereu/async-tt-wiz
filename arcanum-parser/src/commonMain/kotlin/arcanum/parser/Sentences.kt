@@ -326,6 +326,8 @@ internal class Sentences(
             val entering = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds),
                 ObjectFilter.ControlledBy(PlayerFilter.You))
             val kind = Counters.kind(m.groupValues[2]) ?: return null
+            // the same kind both times ("+1/+1 … three additional +1/+1 counters")
+            if (m.groupValues[5] != m.groupValues[2]) return null
             val mv = Value.Fixed(m.groupValues[3].toInt())
             fun replacement(comparison: arcanum.api.Comparison, n: Int) = Mechanic.Replacement(EventPattern.ZoneChange(
                 Filters.all(entering, ObjectFilter.ManaValue(comparison, mv)), to = Zone.Battlefield), modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(n))))
@@ -2286,6 +2288,9 @@ internal class Sentences(
         if (trigger.events.singleOrNull() is EventPattern.Cycle && !rest.contains("where X is")) instructions = instructions?.withX(Value.EventX)
         // X in "when this creature becomes monstrous" is the X as it became monstrous (CR 701.37c)
         if ((trigger.events.singleOrNull() as? EventPattern.GotMark)?.mark == arcanum.api.ObjectMark.Monstrous && !rest.contains("where X is"))
+            instructions = instructions?.withX(Value.EventX)
+        // X in "when this creature is turned face up" is the X of the morph or disguise cost it was turned up for (CR 702.37f, 702.168e)
+        if (trigger.events == listOf(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))) && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.EventX)
         if (instructions == null) return null
         // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
@@ -11502,8 +11507,17 @@ internal class Sentences(
         BlbGaps.FOR_EACH_COUNTER_ON_IT.matchEntire(sentence)?.let { m ->
             val it = context.it ?: return@let
             val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            val before = context.targets.size
             val steps = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, context) ?: return@let
-            return listOf(Step.Repeat(Value.Of(arcanum.api.NumericProperty.Counters(kind), it, arcanum.api.Combine.Single), steps))
+            val times = Value.Of(arcanum.api.NumericProperty.Counters(kind), it, arcanum.api.Combine.Single)
+            // "for each isolation counter on it, exile up to one target …": one target per counter, chosen as the ability is put on
+            // the Stack (CR 115.1, 601.2c), each of them exiled once; not one target exiled again and again
+            val slot = context.targets.drop(before).singleOrNull()
+            if (slot != null && slot.max == Value.Fixed(1) && m.groupValues[2].contains("up to one target ")) {
+                context.targets[context.targets.indexOf(slot)] = slot.copy(min = Value.Fixed(0), max = times)
+                return steps
+            }
+            return listOf(Step.Repeat(times, steps))
         }
         // "Each opponent loses 4 life unless that player sacrifices a nonland permanent of their choice or discards a card." (CR
         // 101.4, 118.12a): each opponent may pay; those who don't lose the life
@@ -11707,8 +11721,10 @@ internal class Sentences(
             val one = Filters.noun(m.groupValues[1]) ?: return null
             val many = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: Filters.noun(m.groupValues[2]) ?: return null
             val kicked = arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
-            val token = Tokens.spec(m.groupValues[3])?.second ?: return null
+            val (each, token) = Tokens.spec(m.groupValues[3]) ?: return null
             val returned = Objects.Bound("returned")
+            // "create two … tokens for each creature returned": that many for each
+            val count = if (each == 1) Value.Count(returned) else Value.Times(Value.Count(returned), each)
             return Ability.Spell(Instructions(
                 targets = listOf(
                     hobSlot("creature", Filters.all(one, ObjectFilter.OwnedBy(PlayerFilter.You))).copy(onlyIf = arcanum.api.Condition.Not(kicked)),
@@ -11716,7 +11732,7 @@ internal class Sentences(
                 steps = listOf(
                     Step.Do(Effect.Move(Objects.Union(listOf(Objects.Target("creature"), Objects.Target("creatures"))), Destination(Zone.Hand), postBind = "returned")),
                     Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, whose = PlayerFilter.Any)),
-                        Instructions(steps = listOf(Step.Do(Effect.CreateToken(token, Value.Count(returned), Players.You)))))))))
+                        Instructions(steps = listOf(Step.Do(Effect.CreateToken(token, count, Players.You)))))))))
         }
         return null
     }
@@ -18810,6 +18826,8 @@ internal class Sentences(
         // instead." (CR 614.1a)
         Fin.COUNTERS_DOUBLED.matchEntire(line)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
+            // "twice that many" of the same kind
+            if (m.groupValues[3] != m.groupValues[1]) return null
             val onto = Filters.noun(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CountersPut(onto, kind), modify = listOf(Modification.MultiplyAmount(2)))),
                 affects = arcanum.api.Affected.Objects(Objects.Self))
@@ -21322,6 +21340,8 @@ internal class Sentences(
         // you win the game." (CR 105.1: the five colors; one Dragon may be chosen for several colors)
         Tdm.FOR_EACH_COLOR_COUNTER_WIN.matchEntire(text)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
+            // the counters counted are the ones put ("put a +1/+1 counter … If you put +1/+1 counters on five")
+            if (m.groupValues[3] != m.groupValues[1]) return null
             val noun = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
             val colors = listOf(Color.White, Color.Blue, Color.Black, Color.Red, Color.Green)
             val names = colors.map { "dragon-" + it.toString().lowercase() }

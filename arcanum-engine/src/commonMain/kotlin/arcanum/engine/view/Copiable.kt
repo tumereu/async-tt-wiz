@@ -178,25 +178,51 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     private val evaluating = mutableSetOf<StaticCopy>()
 
     /** The static copy effects that apply to [id] (CR 613.2a): the ability's condition holds and its `affects` include [id], both
-     * read on the copiable values (layer 1 comes first, CR 613.8 aside); the copied values are those the object copied has. */
+     * read on the copiable values (layer 1 comes first, CR 613.8 aside). The copied values are those it fixed as it first started to
+     * apply ([GameObject.fixedCopies], CR 707.2c), or, until that is kept, those the object copied has now. */
     private fun staticCopiesOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> {
+        val fixed = state.obj(id)?.fixedCopies.orEmpty()
+        return applyingOn(id).map { sc ->
+            val controller = sc.source.controller ?: sc.source.owner
+            EffectObject(
+                id = arcanum.engine.state.EffectId("static-copy:${sc.source.id}:${sc.index}"), mechanics = listOf(sc.copy),
+                affects = sc.ability.affects, locked = listOf(id), source = sc.source.id, controller = controller,
+                timestamp = sc.source.timestamp, createdTurn = 0, duration = arcanum.api.Duration.Indefinitely,
+                copiedValues = fixed.firstOrNull { it.source == sc.source.id && it.ability == sc.index }?.values,
+            ) to sc.copy
+        }
+    }
+
+    /** The static copies whose condition holds and whose `affects` include [id]. */
+    private fun applyingOn(id: ObjectId): List<StaticCopy> {
         if (staticCopies.isEmpty()) return emptyList()
-        return staticCopies.filter { it !in evaluating }.mapNotNull { sc ->
-                evaluating += sc
-                try {
-                    val controller = sc.source.controller ?: sc.source.owner
-                    val e = Evaluator(PrintedBoard(state, this), Context(you = controller, self = sc.source.id))
-                    val affected = (sc.ability.affects as? arcanum.api.Affected.Objects)?.let { e.objects(it.objects) }.orEmpty()
-                    if (id !in affected || (sc.ability.condition?.let { !e.holds(it) } == true)) return@mapNotNull null
-                    EffectObject(
-                        id = arcanum.engine.state.EffectId("static-copy:${sc.source.id}:${sc.index}"), mechanics = listOf(sc.copy),
-                        affects = sc.ability.affects, locked = listOf(id), source = sc.source.id, controller = controller,
-                        timestamp = sc.source.timestamp, createdTurn = 0, duration = arcanum.api.Duration.Indefinitely,
-                    ) to sc.copy
-                } finally {
-                    evaluating -= sc
-                }
+        return staticCopies.filter { it !in evaluating }.filter { sc ->
+            evaluating += sc
+            try {
+                val e = Evaluator(PrintedBoard(state, this), Context(you = sc.source.controller ?: sc.source.owner, self = sc.source.id))
+                val affected = (sc.ability.affects as? arcanum.api.Affected.Objects)?.let { e.objects(it.objects) }.orEmpty()
+                id in affected && sc.ability.condition?.let { !e.holds(it) } != true
+            } finally {
+                evaluating -= sc
             }
+        }
+    }
+
+    /**
+     * CR 707.2c: the fixed copies [id] should keep now: those it has of static copy effects that still apply, and, for each that
+     * applies without one, the values the object it copies has now (a copy effect finding nothing fixes nothing). Null when the
+     * permanents have no static copy effect and [id] keeps none.
+     */
+    fun fixedCopiesNow(id: ObjectId): List<arcanum.engine.state.FixedCopy>? {
+        val o = state.obj(id) ?: return null
+        if (staticCopies.isEmpty() && o.fixedCopies.isEmpty()) return null
+        return applyingOn(id).mapNotNull { sc ->
+            o.fixedCopies.firstOrNull { it.source == sc.source.id && it.ability == sc.index } ?: run {
+                val controller = sc.source.controller ?: sc.source.owner
+                val original = Evaluator(PrintedBoard(state, this), Context(you = controller, self = sc.source.id)).objects(sc.copy.objects).firstOrNull()
+                original?.takeIf { it != id }?.let(::forCopyEffect)?.let { arcanum.engine.state.FixedCopy(sc.source.id, sc.index, it) }
+            }
+        }
     }
 
     /** What copying the original gives [o] while the effect is read each time ([EffectObject.copiedValues] not fixed). */
@@ -269,9 +295,11 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         /** CR 702.168a, 701.58a: a disguised or cloaked face-down object is a 2/2 creature with ward {2}. */
         val FACE_DOWN_WARD = FACE_DOWN.copy(abilities = listOf(arcanum.api.Keyword.Ward(arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{2}")!!))))
 
-        /** The face-down values of [o] (CR 708.2a): with ward {2} when it was cast disguised or cloaked. */
+        /** The face-down values of [o] (CR 708.2a): with ward {2} while it is cloaked, or face down since it was cast disguised (not
+         * once it has been turned face up: face down again, it is a plain 2/2). */
         fun faceDown(o: arcanum.engine.state.GameObject): FaceDefinition =
-            if (arcanum.api.ObjectMark.Cloaked in o.marks || o.facts.alternative?.keyword == arcanum.api.Keyword.Disguise.Kind) FACE_DOWN_WARD
+            if (arcanum.api.ObjectMark.Cloaked in o.marks ||
+                (o.facts.alternative?.keyword == arcanum.api.Keyword.Disguise.Kind && !o.facts.turnedFaceUp)) FACE_DOWN_WARD
             else FACE_DOWN
 
         /** CR 702.103b: "becomes an Aura enchantment and gains enchant creature" (no longer a creature, nor of a creature

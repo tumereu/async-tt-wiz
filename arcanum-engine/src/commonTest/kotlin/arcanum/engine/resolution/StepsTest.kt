@@ -127,7 +127,7 @@ class StepsTest {
         expect { bob.graveyard has "Umbral Elves" }
     }
 
-    // D61: a part the definition can't express is done by hand
+    // D61: a part the definition can't express isn't carried out (Engine.manualParts names it) and asks nothing
     @Test
     fun manualStep() = scenario {
         /** "Draw a card. [Something only a player can do.]" */
@@ -137,8 +137,7 @@ class StepsTest {
 
         alice.castsWithoutCosts(card)
         resolve()
-        assertEquals("Name a planet", decision<Decision.Manual>().text)
-        answer(Answer.Done)
+        assertEquals(null, pending)
 
         expect {
             alice.hand has "Forest"

@@ -78,6 +78,9 @@ data class GameObject(
     val flippedStatus: Boolean = false,
     /** A token's copiable abilities that are in none of its faces ([CopiableValues.gained], CR 707.9a, 702.140e). */
     val gainedInCopying: List<arcanum.api.Ability> = emptyList(),
+    /** The copiable values each static copy effect that applies to it fixed as it first started to apply (CR 707.2c), kept while it
+     * applies ([arcanum.engine.view.StaticCopies]). */
+    val fixedCopies: List<FixedCopy> = emptyList(),
 ) {
     val card: CardId get() = id.card
 
@@ -105,6 +108,11 @@ data class GameObject(
     /** A token (CR 111.1); a merged permanent only if its topmost component is one (CR 730.2d). */
     val isToken: Boolean get() = mergedAbove.firstOrNull()?.token ?: token
 }
+
+/** The copiable [values] the static copy effect of [source]'s printed ability number [ability] fixed for an object as it first
+ * started to apply to it (CR 707.2c). */
+@Serializable
+data class FixedCopy(val source: ObjectId, val ability: Int, val values: CopiableValues)
 
 /**
  * One card or token among those representing a merged permanent other than its own card (CR 730.2): the object it was as it
@@ -184,6 +192,9 @@ data class ObjectFacts(
     val heldPhasedOut: Boolean = false,
     /** The marks it gained whose [arcanum.api.MarkRule.recordsTurn] asks to keep when, one entry per mark, the latest. */
     val marksGained: List<MarkGained> = emptyList(),
+    /** It has been turned face up since it became this object: turned face down again by an effect that lists no characteristics,
+     * it is a plain 2/2, not what the way it was cast face down gave it (a disguise's ward, CR 708.2a). */
+    val turnedFaceUp: Boolean = false,
 ) {
     /** The record of when it gained [mark] (CR 702.143a, 702.170d), or null when none is kept. */
     fun gained(mark: ObjectMark): MarkGained? = marksGained.firstOrNull { it.mark == mark }

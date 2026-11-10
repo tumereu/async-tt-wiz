@@ -46,6 +46,18 @@ class OracleParserSafetyTest {
         assertTrue(parse("Artifact", "Sacrifice two Xs: Add {G}.").single() is Ability.Unparsed)
     }
 
+    // CR 122.1: a sentence naming a counter kind twice reads only when both name the same kind; one with two kinds isn't read as the
+    // first (misreads found by swapping wordings: the second kind was a wildcard)
+    @Test
+    fun aSecondCounterKindMustMatchTheFirst() {
+        assertTrue(parse("Artifact", "If one or more +1/+1 counters would be put on a creature you control, twice that many -1/-1 counters " +
+            "are put on that creature instead.").single() is Ability.Unparsed)
+        assertTrue(parse("Artifact", "Each other Vehicle and creature you control enters with an additional +1/+1 counter on it if its mana " +
+            "value is 4 or less. Otherwise, it enters with three additional -1/-1 counters on it.").single() is Ability.Unparsed)
+        assertTrue(parse("Enchantment", "At the beginning of your upkeep, for each color, put a +1/+1 counter on a Dragon you control of that " +
+            "color. If you put -1/-1 counters on five Dragons this way, you win the game.").single() is Ability.Unparsed)
+    }
+
     // CR 711.2a: a level band is one static ability, so a band with an unread line stays printed text as a whole and
     // its readable lines never become abilities outside the band.
     @Test

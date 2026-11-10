@@ -106,8 +106,12 @@ sealed interface Effect {
     @Serializable @SerialName("flip") data class Flip(val objects: Objects) : Effect
     /** [players] skip their next turn. */
     @Serializable @SerialName("skip-next-turn") data class SkipNextTurn(val players: Players) : Effect
-    /** Turn [objects] face up, putting [counters] on as it is turned (megamorph, CR 702.37b). */
-    @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects, val counters: List<CountersToPut> = emptyList()) : Effect
+    /** Turn [objects] face up, putting [counters] on as it is turned (megamorph, CR 702.37b). [x]: the X of the cost it is turned face
+     * up for (a morph or disguise cost with {X}, CR 702.37f, 702.168e), which its "When this is turned face up" abilities read
+     * ([Value.EventX]). */
+    @Serializable @SerialName("turn-face-up") data class TurnFaceUp(
+        val objects: Objects, val counters: List<CountersToPut> = emptyList(), val x: Value? = null,
+    ) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     /** [objects] phase out (CR 702.26); mh2: [untilLeaves], "phase out until this enchantment leaves the battlefield": they don't phase in
      * during untap steps but when that object leaves the battlefield, and if it has already left, nothing phases out (CR 610.3,
@@ -117,8 +121,9 @@ sealed interface Effect {
     @Serializable @SerialName("phase-in") data class PhaseIn(val objects: Objects) : Effect
     /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"): only on those where it can live ([MarkRules]): a
      * permanent's marks on permanents, "becomes plotted" or "becomes foretold" on a card in exile (CR 702.170c, 702.143d). When it clears
-     * and what it gives are in the table too. */
-    @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
+     * and what it gives are in the table too. [cost]: the cost of the mark's keyword the effect gives as it is gained ("It becomes
+     * foretold. Its foretell cost is …", CR 702.143d), cast for besides any the card has. */
+    @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false, val cost: Cost? = null) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 
     /** Create [count] tokens, as one event; [attacking]: what they attack (CR 508.4); [attachedTo]: created attached

@@ -67,6 +67,8 @@ internal object Costs {
                     repeat(times.coerceAtLeast(0)) { symbols += withX(part.cost, partX).symbols }
                 }
                 CostPart.ItsManaCost -> itsManaCost?.let { symbols += withX(it, x).symbols }
+                // CR 702.143d, 118.7: "its mana cost reduced by {2}"
+                is CostPart.ItsManaCostLess -> itsManaCost?.let { symbols += reduce(withX(it, x), part.less).symbols }
                 is CostPart.OneOf -> {
                     val chosen = oneOf(key)
                     if (chosen == null) parts += KeyedPart(key, part)

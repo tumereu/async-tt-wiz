@@ -229,7 +229,7 @@ internal object Fin {
     val EACH_OTHER_DEALS_DAMAGE_EQUAL_POWER = Regex("""When (.+?) enters, each other (.+?) deals damage equal to its power to target (.+)\.""")
     val DAMAGE_NOT_REMOVED = Regex("""Damage isn't removed from (.+?) during cleanup steps\.""")
     val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
-    val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many \S+ counters are put on that creature instead\.""")
+    val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
     val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
     val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast ([A-Z][a-z]+) spells from the top of your library\.""")
     val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")

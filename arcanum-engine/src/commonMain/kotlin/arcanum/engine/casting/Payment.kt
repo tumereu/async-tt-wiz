@@ -508,7 +508,7 @@ internal object Payment {
                 recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Behold, player, ids)))
             }
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
-            is CostPart.Mana, CostPart.ItsManaCost -> Unit
+            is CostPart.Mana, CostPart.ItsManaCost, is CostPart.ItsManaCostLess -> Unit
         }
     }
 
@@ -690,9 +690,9 @@ internal object Payment {
     }
 
     /**
-     * CR 605.3b: a mana ability resolves at once. What else it does ("Each opponent gains 1 life", "draw a card") happens
-     * right after its mana is added, as resolution steps would (CR 608.2c); a part that would need a decision is left to
-     * the players.
+     * CR 605.3b: a mana ability resolves at once. What else it does ("Each opponent gains 1 life", "you may …", mana added only
+     * if something holds) happens right after its mana is added, as resolution steps would (CR 608.2c); what that asks stops the
+     * activation, which is redone with the answers so far (D29).
      */
     private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
         val recorder = outer.recorder
@@ -733,22 +733,10 @@ internal object Payment {
             (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered)
         }
         if (rest.isEmpty()) return Progress.Done
-        // Inside a payment what it asks is asked of the payment's player, the payment redone with the answer (D29)
-        if (nested) {
-            val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
-            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(outer, cause, names, null), rest)
-            return Progress.Done
-        }
-        val mark = recorder.changes.size
-        return try {
-            val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker.NONE)
-            val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
-            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, names, null), rest)
-            Progress.Done
-        } catch (n: arcanum.engine.action.NeedDecision) {
-            recorder.rollback(mark)
-            manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")
-        }
+        // What it asks is asked of its player (inside a payment, the payment's), the activation (or the payment) redone with the answer (D29)
+        val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
+        arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(outer, cause, names, null), rest)
+        return Progress.Done
     }
 
     /**
@@ -770,12 +758,6 @@ internal object Payment {
         }
         Casting.keepPriority(recorder, plan.player)
         return Progress.Done
-    }
-
-    /** Stops with a [Decision.Manual] for what the engine doesn't do yet (D61); answered Done, it's finished. */
-    private fun manual(recorder: Recorder, plan: Plan, text: String): Progress {
-        val c = plan.c.copy(choices = plan.c.choices.copy(names = plan.c.choices.names.with(Plan.MANUAL, NamedValue.Number(1))), made = emptyList())
-        return Progress.Waiting(Pending(Decision.Manual(decisionId(recorder.state, plan.player, "manual"), plan.player, plan.sourceId, text), c))
     }
 
     /** The name the flashback-like replacement uses for the spell. */

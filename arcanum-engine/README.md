@@ -110,8 +110,8 @@ seeded random games of cube cards, failing on any open player decision without a
   in its definition, CR 707.8a; designations and status stay on the object, and what can transform or meld goes by its own
   definition, CR 712.9; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
-  yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
-  keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
+  yet (none today), abilities with a `Manual` step at its natural moment (cast, enters, attacks, dies, …), which
+  `Engine.manualParts` names, so no keyword is silently taken as supported (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
   make it differ (a host's state never caches; `Engine.view` works it out afresh). A host that keeps a state's view
   itself passes it in instead: `perform`'s `view` (the given state's), the `options`, `passCheck`, `shouldPassFor`,
@@ -315,8 +315,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   splice (CR 702.47: cards in hand offered as the spell is cast, their text added after its own, their costs added, a
   card whose target names clash with the spell's not offered), collect evidence as a cost (CR 701.59a), convoke, delve, cost changes (CR 118.7; "the next … spell" effects apply to and are used up by the spells they wait for,
   CR 611.2f), Phyrexian, hybrid, snow, restricted mana;
-  mana abilities without the Stack (their other effects at once, a part needing a decision
-  by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
+  mana abilities without the Stack (their other effects at once, what they ask stopping the activation, which is redone with
+  the answers, D29; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (CR 116: `casting/SpecialActions` lists what the rules give an object: unlocking a door, turning a manifested or cloaked card or a face-down card's own way up, foretelling; those of keywords are its abilities; any of them pays its cost and runs its steps through the step runner without the Stack, and every way of turning face up is one `Effect.TurnFaceUp`, which ends what `MarkClear.TurnedFaceUp` says); combat:
   declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c; goaded creatures
   attack, a player other than the goader if able, until the goader's next turn, CR 701.15),
@@ -355,8 +355,9 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   card has or another object gives it, within its limit each turn, the player choosing which (CR 601.2b, 118.9; none
   when the effect's terms are one, CR 118.9a, and none face down); not cast without legal targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
-  `ManaPayment` decision, asked only when a payment is found (CR 118.3), by hand when its amount isn't known there ("its
-  mana cost", an unannounced X). Permanents enter with their printed
+  `ManaPayment` decision, asked only when a payment is found (CR 118.3); an X nothing defines chosen by the payer as they pay, up
+  to the most they may pay, and read as X by the rest (CR 107.3f); "its mana cost" the source's (X as 0 unless it is a spell, CR
+  107.3h; none is unpayable, CR 118.6). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
   draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
@@ -368,7 +369,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   discard, triggering from where it went, CR 702.29c–d), becoming crewed (a crew ability resolving, CR 702.122e),
   becoming saddled (saddle marks it until the cleanup step, CR 702.171), expending (the mana spent on spells this turn
   reaching N, CR 700.14), and every keyword action done and mark gained: `Effects.keywordAction` records `GameEvent.KeywordActionDone` for every
-  verb once the rules say it counts as done (explore, CR 701.44b, c, several at once in the order the first player in APNAP order chooses, 701.44d; discover, 701.57b; proliferate with nothing to choose, 701.34a; scry and surveil
+  verb once the rules say it counts as done (explore, CR 701.44b, c, several at once in the order the first player in APNAP order chooses, 701.44d; connive the same way, 701.50c; discover, 701.57b; proliferate with nothing to choose, 701.34a; scry and surveil
   with no library, 701.22d, 701.25d; collecting evidence or foraging as a cost; foretelling, 702.143c), and a mark gained is seen in
   `Change.Status` or a move (`EventPattern.GotMark`). Waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
@@ -484,7 +485,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   tapped for a crew or saddle cost recorded with the permanent they paid for (`Meaning.PaidFor.source`, the event's source role: "that Mount
   or Vehicle"), attacking while saddled, activations recorded with their ability's label ("whenever you activate an exhaust ability") and
   exhaust abilities activated again while `Mechanic.AsThoughNotActivated` applies, speed read (`Value.Speed`) and reduced, the X of a
-  cycling {X} kept on the discard (`Meaning.CostX`) for "when you cycle this card" (`Value.EventX`), planeswalkers that can't be attacked,
+  cycling {X} kept on the discard (`Meaning.CostX`) for "when you cycle this card" (`Value.EventX`; the X of a morph or disguise cost
+  likewise on turning face up, CR 702.37f, 702.168e), planeswalkers that can't be attacked,
   and creature cards with no abilities.
 - Done, Edge of Eternities (scenarios in `commonTest/…/sets/eoe/`): all 261 cards play. Warp (from the hand only, unless a permission
   says so: cast from the graveyard, or a warp another permanent gives the spell, which the spell keeps once cast), the warped card's
@@ -525,11 +527,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
-  KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold or
-  has printed, CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
+  KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold,
+  has printed, has now in exile, or an effect gave it as it became foretold (`Effect.Mark.cost`, CR 702.143d; "its mana cost reduced by {2}" is
+  `CostPart.ItsManaCostLess`), CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
   gained in one record (`ObjectFacts.marksGained`, read by
   `ObjectFacts.gained`), disguise and cloak (face-down with ward
-  {2}, `Copiable.faceDown`), manifest, backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
+  {2}, `Copiable.faceDown`; not once turned face up, `ObjectFacts.turnedFaceUp`, CR 708.2a), manifest (a manifested or cloaked instant or
+  sorcery card an effect would turn face up is revealed and stays face down, CR 701.40g, 701.58g), static copy effects (the values fixed as
+  each first applies, `GameObject.fixedCopies`, recorded with the checks before priority by `view/StaticCopies`, CR 707.2c), backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
   transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: game ledger, untap check CR 731.2, daybound and nightbound
   transforming and entering transformed), speed (`turn/Speed`: player ledger, start your engines! as a state-based action, the
@@ -629,12 +634,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   its player concedes goes to that player at once (or to the controller's choice of who); an open cost choice stays open for
   "no"; a payment (`ManaPayment`) is never handed to another player (800.4f), and another player's cast asking the one who left
   goes on with its next question (assist: the caster pays it all).
-- By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
+- By hand still: nothing is asked by hand any more (`Decision.Manual` is no longer asked; the type stays until the owner agrees
+  its removal). What the engine doesn't carry out, `Engine.manualParts` names, so such a card isn't supported:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
-  - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
-    whose other effect needs a decision, and
-    the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
+  - `Step.Manual` (does nothing when run) and `CostPart.Manual` (can't be paid on resolution); no card the parser reads has
+    either (an unreadable dungeon room leaves the dungeon unread).
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round; exert, costs to attack and block, "any time you could mulligan", starting hand sizes, "is a

@@ -158,8 +158,8 @@ internal object MechanicWordings {
     /**
      * A dungeon card's rooms (CR 309.4): one line each, "[name] — [effect] (→ [room] or [room])" (card data also writes the arrows
      * "(Leads to: [room], [room])"), the topmost first; the arrows name the rooms they lead to. A first line "You can't enter this
-     * dungeon unless you "venture into [quality]."" restricts how it is entered (CR 701.49d). [effect] reads a room's effect; one it
-     * can't read is done by hand. Null when another line isn't a room.
+     * dungeon unless you "venture into [quality]."" restricts how it is entered (CR 701.49d). [effect] reads a room's effect. Null when
+     * another line isn't a room or a room's effect isn't read (the dungeon stays unread).
      */
     fun rooms(text: String, effect: (String) -> arcanum.api.Instructions?): DungeonText? {
         val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
@@ -173,7 +173,7 @@ internal object MechanicWordings {
             val next = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" or ", ", ")
                 ?.map { n -> names.indexOf(n.trim()).takeIf { it >= 0 } ?: return null }.orEmpty()
             val text = m.groupValues[2].trim()
-            arcanum.api.DungeonRoom(m.groupValues[1], effect(text) ?: arcanum.api.Instructions(steps = listOf(Step.Manual(text))), next)
+            arcanum.api.DungeonRoom(m.groupValues[1], effect(text) ?: return null, next)
         }, only)
     }
 

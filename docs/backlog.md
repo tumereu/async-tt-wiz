@@ -26,26 +26,12 @@ Needs discussion, owner thinking (2026-11-09):
 
 - When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.
 
-Arcanum by-hand leftovers and face-down gaps, found building special actions (2026-11-09):
-
-- `Decision.Manual` still arises, always on a card `Engine.manualParts` names, so the card is unsupported, and is skipped and logged if ever played (`EngineRun`): the rest of a mana ability whose other step asks something (`Payment.finishManaAbility`; of every card read, Ilysian Caryatid and Rainbow Vale), mana paid on resolution with an X nothing defines (`resolution/Costs.payMana`; Azor the Lawbringer, Elenda and Azor, Hero of Leina Tower, Vigil for the Lost), and on no read card "its mana cost" paid on resolution, `Step.Manual` (the parser's dungeon room it can't read) and `CostPart.Manual`. Once those are carried out or refused, the type can go with a wipe.
-- X of a morph or disguise cost isn't kept for that permanent's later abilities (CR 702.37f, 702.168e; Bane of the Living's shape: `Payment.finishSpecialAction`'s names end with the action, so a turned-up trigger reads X as 0). Found by reading, not run; the parser doesn't read that trigger's wording yet, so no supported card plays it wrong. Write a test first.
-- A manifested or cloaked instant or sorcery card that an effect would turn face up is revealed and stays face down, with no turned-face-up trigger (CR 701.40g, 701.58g): `Effect.TurnFaceUp` turns it up.
-- A permanent cast disguised, turned face up and later turned face down again keeps ward {2} (CR 708.2a: a plain 2/2): `Copiable.faceDown` reads the cast's `facts.alternative`, which stays. Found by reading; write a test first.
-
-Arcanum foretell gaps, found building the mark table (2026-11-09):
-
-- An effect that gives a foretell cost as a card becomes foretold (CR 702.143d; Ethereal Valkyrie: "It becomes foretold. Its foretell cost is its mana cost reduced by {2}"): `Effect.Mark` has no cost to give, so the card is cast only for a foretell cost it already has.
-- A granted foretell whose cost depends on the card (Dream Devourer, Bohn: "Its foretell cost is equal to its mana cost reduced by {2}"): a fixed granted cost is kept as the card is foretold, but `Keyword.Foretell` can't say this one and these printed cards stay unread. Also CR 702.143a's "any foretell cost it has" for foretell granted later to a card already in exile: only the costs it had as it became foretold and its printed ones are read.
-
 Arcanum copies, found building copiable values (2026-11-09; can be done any time):
 
-- Static copy effects stay live, against CR 707.2c ("determined only at the time that effect first starts to apply"): `Copiable.staticCopiesOn` makes a fresh effect each time, so a permanent under one follows the original's later changes. Fixing it needs state recording, per affected object, the values as the effect first applied to it (add-only, a new field on `GameObject` or a list on `GameState`), found again by source and ability.
 - A token copy of a double-faced permanent that copies a multi-part card (a Room, a prepare creature) isn't double-faced (CR 707.8a): `CopiableValues` has one layout, so it can't hold two faces each with their own parts. The token has the copied layout; what it lacks is transforming between two identical faces. Holding it needs a layout per face.
 Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74), queued after the engine items; not built ahead of them without asking the owner:
 
 - Support moves set by set (LOB entries on support, DRF-161, DRF-162, to be named when built): today `AutomatumSupport` treats any card the parser reads as fully supported, about 14,000 of them unaudited, and `supported-sets.txt` is used only by tools. Wanted: a card counts as supported if it is in a listed set, by any printing, or on a list of individually supported cards: a general, easily edited mechanism for marking single cards, not a cube special case, which has to reach the app. First use: Caleb Gannon's Powered Synergy Cube, which the owner and a friend want to play: `~/projects/atw-cache/arcanum-cube-cards.json` (500 distinct names; the list goes by name, so duplicate lands need nothing), minus Ineffable Blessing and Mons's Goblin Waiters, plus Enduring Innocence and Marwyn, the Clearcutter, also 500 names. Both additions are in supported sets; 432 of the rest go on the list. Compare with the owner's own edited prod cube when this is built, in case they change anything else. Run the real support check (`AutomatumSupport.handParts`) on the whole list: reading isn't playing fully, and anything it finds goes to the owner. Support by set doesn't ship before the cube's cards are on the list. Built in step 1a: the list (`arcanum-tools/src/main/resources/arcanum/tools/supported-cards.txt`, the 432) and the catalog's marks, which the server's set pods follow; `handParts` found nothing on the 500 cube cards. The app reads the marks (step 1b, built). Still to do: the comparison with the owner's prod cube, and the games and drafts already holding such cards. This changes what players can use: catalog entries change and e2e covers it. Check how a game or a draft already holding such cards behaves, and raise that with the owner rather than deciding.
-- Misreads are noted as found and another implementor checks them as a separate task. Known: Quarantine Field (one target slot, should be one target per isolation counter); "Create a Food token for each artifact sacrificed this way" reads the same as "for each creature" (a wildcard drops the word). Parser report sections 4.2 and 4.4. Found by swapping wordings, so the printed cards may still be right, and each needs checking against its printed text; a swap gave the same model for: The Eagles Are Coming! ("create two" vs "create a"); Call the Spirit Dragons, Ooze Flux, Simic Manipulator, The Earth Crystal, Thunderous Velocipede (`-1/-1` vs `+1/+1`).
 
 Old forms only read now, found at the wipe (2026-11-09; read, not run; can be done any time after the wipe release):
 
@@ -56,10 +42,6 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 
 - Tokens in Inspect (TBL-104, TBL-018; owner): Inspect shows a token's picture as it is, with normal corners, so the cut corners no longer hide its P/T and text; the battlefield keeps the cut corners.
-
-Small, not urgent (owner, 2026-11-08):
-
-- Connive at once (CR 701.50c; found building explore's order, 2026-11-09): several permanents told to connive at the same time connive in object order, through the `Step.ForEach` of `KeywordExpansions`; the first player in APNAP order who controls (or last controlled) one should choose which is next, as explore now does (CR 701.44d). Needs `Effects.connive`'s per-permanent path to run for every connive, with the choice in front of it.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

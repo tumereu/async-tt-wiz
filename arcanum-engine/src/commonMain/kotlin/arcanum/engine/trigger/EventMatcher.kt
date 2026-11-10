@@ -196,7 +196,9 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
         is EventPattern.TurnedFaceUp -> (change as? Change.Status)?.takeIf {
             it.flag == StatusFlag.FaceDown && it.before && !it.after && e.matches(pattern.objects, it.id)
-        }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
+        }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))),
+            // CR 702.37f, 702.168e: the X of the morph or disguise cost it was turned up for
+            x = it.meanings.filterIsInstance<Meaning.CostX>().firstOrNull()?.x)) }.orEmpty()
         is EventPattern.Search -> ((change as? Change.Happened)?.event as? GameEvent.Searched)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.StepBegins -> (change as? Change.Step)?.takeIf {

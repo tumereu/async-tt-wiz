@@ -37,6 +37,8 @@ The definition model (overview in `Definitions.kt`):
   (`MarkPermission`: the card itself for a `MarkCost`, or a copy of its prepare spell) and whether the turn it was gained is kept (`recordsTurn`).
   A new mark is one entry, and the engine reads what clears as a permanent is turned face up (`MarkClear.TurnedFaceUp`: manifested, cloaked) from it. Foretelling's {2} and "during your turn" are changed with `ObjectFilter.AbilityOf(keyword = Keyword.Foretell.Kind)` in
   `Mechanic.CostChange`, a free `Mechanic.AbilityAlternativeCost` and `Mechanic.ActivateAtInstantSpeed`; these have no wording in the parser yet.
+  An effect that makes a card foretold may give it a foretell cost (`Effect.Mark.cost`, CR 702.143d), and a foretell cost may be "its mana cost
+  reduced by {2}" (`CostPart.ItsManaCostLess`, also in a granted `Keyword.Foretell`); the parser reads neither wording yet.
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.
@@ -202,7 +204,8 @@ The definition model (overview in `Definitions.kt`):
   `Mechanic.UsesToughnessFor`, plus `Mechanic.PowerGreaterFor` for "as though its power were 2 greater"); `EventPattern.Tap` with
   `forCost` of crew or saddle has the source role (the Vehicle or Mount, "whenever this creature saddles a Mount or crews a Vehicle");
   `EventPattern.Activate.label` ("whenever you activate an exhaust ability"); `Mechanic.AsThoughNotActivated` (CR 702.177b);
-  `Value.Speed` and `Effect.ReduceSpeed` (CR 702.179); `Value.EventX` (the X of a cycling {X} in "when you cycle this card", CR 107.3a);
+  `Value.Speed` and `Effect.ReduceSpeed` (CR 702.179); `Value.EventX` (the X of a cycling {X} in "when you cycle this card", CR 107.3a; also the X a morph or disguise cost was paid with
+  in "when this creature is turned face up", `Effect.TurnFaceUp.x`, CR 702.37f, 702.168e);
   `Mechanic.CantBeAttacked` (CR 508.1b) and `ObjectFilter.NoAbilities` (CR 113.1).
 - Engine lane 4 (2026-11-03): `Mechanic.BlockCost` ("creatures can't block unless their controller pays …", CR 509.1d), beside
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`

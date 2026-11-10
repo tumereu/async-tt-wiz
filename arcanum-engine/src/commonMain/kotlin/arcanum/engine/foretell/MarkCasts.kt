@@ -31,10 +31,13 @@ internal object MarkCasts {
     private const val COST_MARK = ":"
     private val CAST_COPY: Mechanic = Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You)
 
-    /** What marks let be cast from exile now, by card. [controllerOf]: who controls a permanent, as the layers have it. */
-    fun permissions(state: GameState, controllerOf: (ObjectId) -> PlayerId?): Map<ObjectId, List<AppliedMechanic>> = state.exile.mapNotNull { id ->
+    /** What marks let be cast from exile now, by card. [controllerOf]: who controls a permanent, as the layers have it; [abilitiesOf]: the
+     * abilities an object has now, as the layers have it (foretell given to a card already in exile, CR 702.143a: any foretell cost it has). */
+    fun permissions(
+        state: GameState, controllerOf: (ObjectId) -> PlayerId?, abilitiesOf: (ObjectId) -> List<arcanum.api.Ability> = { emptyList() },
+    ): Map<ObjectId, List<AppliedMechanic>> = state.exile.mapNotNull { id ->
         val o = state.obj(id) ?: return@mapNotNull null
-        val own = o.marks.flatMap { mark -> o.facts.gained(mark).let { ownPermissions(state, o, MarkRules.of(mark), it?.turn, it?.costs.orEmpty()) } }
+        val own = o.marks.flatMap { mark -> o.facts.gained(mark).let { ownPermissions(state, o, MarkRules.of(mark), it?.turn, it?.costs.orEmpty(), abilitiesOf(id)) } }
         val all = copyPermission(state, o, controllerOf) + own
         if (all.isEmpty()) null else id to all
     }.toMap()
@@ -52,13 +55,14 @@ internal object MarkCasts {
         return listOf(AppliedMechanic(CAST_COPY, controllerOf(permanent.id) ?: permanent.owner, permanent.timestamp, source = permanent.id))
     }
 
-    /** The permissions [rule]'s mark gives [o] itself: after the turn it was gained in; [recorded]: the costs kept as it was gained. */
-    private fun ownPermissions(state: GameState, o: GameObject, rule: MarkRule, turn: Int?, recorded: List<Cost>): List<AppliedMechanic> {
+    /** The permissions [rule]'s mark gives [o] itself: after the turn it was gained in; [recorded]: the costs kept as it was gained; [now]:
+     * the abilities it has now, whose costs of the keyword count too. */
+    private fun ownPermissions(state: GameState, o: GameObject, rule: MarkRule, turn: Int?, recorded: List<Cost>, now: List<arcanum.api.Ability>): List<AppliedMechanic> {
         val permission = rule.permission as? MarkPermission.CastCard ?: return emptyList()
         if (turn == null || turn >= state.turn.number) return emptyList()
         val mechanics = when (val cost = permission.cost) {
             MarkCost.Free -> listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You))
-            is MarkCost.OfKeyword -> (recorded + printedCosts(o, cost.keyword)).distinct()
+            is MarkCost.OfKeyword -> (recorded + printedCosts(o, cost.keyword) + costsOf(now, cost.keyword)).distinct()
                 .map { Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, cost = it, holder = PlayerFilter.You) }
         }
         return mechanics.mapIndexed { i, mechanic ->
@@ -67,6 +71,8 @@ internal object MarkCasts {
     }
 
     /** The costs of [keyword] printed on [o]'s card, read through its definition as a face-down card shows none (CR 702.143a). */
-    private fun printedCosts(o: GameObject, keyword: KeywordKind) = o.definition?.faces?.firstOrNull()?.abilities.orEmpty()
-        .filterIsInstance<Keyword>().filter { it.kind == keyword }.filterIsInstance<HasCost>().map { it.cost }
+    private fun printedCosts(o: GameObject, keyword: KeywordKind) = costsOf(o.definition?.faces?.firstOrNull()?.abilities.orEmpty(), keyword)
+
+    private fun costsOf(abilities: List<arcanum.api.Ability>, keyword: KeywordKind) =
+        abilities.filterIsInstance<Keyword>().filter { it.kind == keyword }.filterIsInstance<HasCost>().map { it.cost }
 }

@@ -116,6 +116,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val combatHoldMillis by playbackPreferences.showPlaysState()
     if (combatHold != null) LaunchedEffect(combatHold) {
         snapshotFlow { !motion.playing || (motion.atAttackers && combatHold.kind == GameDevice.CombatMoment.Attackers) }.first { it }
+        // Problem report QVERHX: when the hold's time starts (the steps reached the attackers, or ended)
+        AppLog.info("game", "Combat hold ${combatHold.kind::class.simpleName} in ${combatHold.event.take(8)}: ${combatHoldMillis} ms" +
+            (if (motion.playing) " (steps stopped at the attackers)" else "") + if (routes.viewPause.paused) ", paused by a finger or Inspect" else "")
         routes.viewPause.wait(combatHoldMillis)
         engine.dismissCombatHold(combatHold); controller.engineSent()
     }
@@ -268,7 +271,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
                             engine.pause(); controller.engineSent() }) else null,
-                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold); controller.engineSent() }) },
+                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold, "double tap"); controller.engineSent() }) },
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,

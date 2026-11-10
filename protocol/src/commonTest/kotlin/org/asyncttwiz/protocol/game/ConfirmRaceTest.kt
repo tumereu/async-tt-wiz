@@ -157,6 +157,35 @@ class ConfirmRaceTest {
         assertTrue(sim.equivalence().isEmpty())
     }
 
+    // SYS-077, SYS-011 (e2e CombatHoldTest, 2026-11-10): the same, but the server refuses her pass and her discard made on it
+    // in the race instead of taking them on his assumption (as when her phone's own events and his device's assumptions of
+    // them cross at the start of her turn). Her phone had already put his event in her pass's place, so her discard was
+    // made on that very board: it is made again there at once, quietly, never left waiting for an event that isn't coming
+    @Test
+    fun aMoveRefusedOnTheMatchingAnswerIsMadeAgainOnTheAssumption() {
+        val crossed = crossed(answer = true)
+        val sim = crossed.sim; val alice = sim.alice
+        val alices = sim.device(alice)
+        // Her pass and her discard on their way, still unanswered when his assumption reaches her phone
+        val sent = alices.take(sim.now).filterIsInstance<org.asyncttwiz.protocol.GameAction.Submit>()
+        assertEquals(crossed.mine.map { it.id }, sent.map { it.submission.id })
+        sim.deliver(alice)
+        assertEquals(crossed.assumption.id, alices.session.pending.single().parentId, "her discard made on Bob's event now")
+        // The server refuses both
+        for (action in sent) alices.refused(action, "stale")
+        alices.advance(sim.now)
+        assertTrue(alices.notes().none { it is GameDevice.Note.Refused }, "no note")
+        val again = assertNotNull(alices.session.pending.singleOrNull(), "her discard made again")
+        assertEquals(crossed.assumption.id, again.parentId)
+        assertEquals(crossed.mine[1].engine?.steps?.firstOrNull()?.input, again.engine?.steps?.firstOrNull()?.input, "the same discard")
+        sim.settle()
+        assertEquals(sim.server.head, alices.session.head)
+        assertEquals(crossed.assumption.id, sim.server.line().last().parentId, "taken on the assumption")
+        assertEquals(1, sim.server.state().engine.player(alice).graveyard.size, "her discard taken")
+        assertEquals(0, sim.branches)
+        assertTrue(sim.equivalence().isEmpty())
+    }
+
     // SYS-077, SYS-012 (owner 2026-11-07): the other way round: Alice presses Assume on Bob's pause at her spell while his
     // own pass by hand reaches the server first: her assumption is its duplicate, dropped quietly (nothing refused), and
     // her phone keeps its board with his pass in place of her assumption

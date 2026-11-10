@@ -239,7 +239,12 @@ class GameSession(private val connection: GameConnection, private val credential
             if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
                 onShown = { engineShown(head.gameId) },
                 pages = { through, done -> connection.historyPage(head.gameId, through, done) })
-            else existing.load(snapshot, play)
+            else {
+                // Why an open game loads again (e2e CombatHoldTest, 2026-11-10: a load in the middle of play said nothing of it)
+                AppLog.info("engine", "Game ${head.gameId.take(8)} loads again from head ${head.engine?.headId?.take(8)} at revision " +
+                    "${head.revision}: ${if (existing.needsReload) "the device can't follow" else "the head is past revision ${existing.revision}"}")
+                existing.load(snapshot, play)
+            }
             reloadAsked.remove(head.gameId)
         } else following = true
         // A head the game didn't load from says nothing of the revisions up to it that are still on their way (it can be

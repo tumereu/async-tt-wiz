@@ -79,7 +79,7 @@ internal object Spm {
     // spm chunk 07: heroes and their tricks
     val UP_TO_ONE_TARGET_GAINS = Regex("""[Uu]p to one target (.+?) gains (.+) until end of turn\.""")
     val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each get ([+-]\d+)/([+-]\d+) and gain (.+) until end of turn\.""")
-    val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+), (.+)""")
+    val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."
     val SUSPECT = Regex("""[Ss]uspect (up to one )?target (.+?)\.""")
     val WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY = Regex("""When excess damage is dealt to the (.+?) this way, destroy up to one target (.+)\.""")
     val CREATE_THEN_YOU = Regex("""[Cc]reate (.+?), then you (.+)""")
@@ -88,7 +88,7 @@ internal object Spm {
     val ATTACHED_GETS_FOR_EACH_ATTACHED = Regex("""Enchanted creature gets ([+-]\d+)/([+-]\d+) for each Aura and Equipment attached to it\.""")
     val ALL_DAMAGE_TO_YOU_TO_ENCHANTED = Regex("""All damage that would be dealt to you is dealt to enchanted creature instead\.""")
     val PREVENT_DAMAGE_PUT_THAT_MANY_COUNTERS = Regex("""If damage would be dealt to (.+?), prevent that damage and put that many (\+1/\+1) counters on (?:him|her|it|them)\.""")
-    val LOOK_AT_OPPONENTS_HAND_CHOOSE_CARD_TYPE = Regex("""As (.+?) enters, look at an opponent's hand, then choose a card type other than (\w+)\.""")
+    val LOOK_AT_OPPONENTS_HAND_CHOOSE_CARD_TYPE = Regex("""As (.+?) enters, look at an opponent's hand, then choose (?:a card type other than (\w+)|any card name)\.""")
     val SPELLS_OF_CHOSEN_TYPE_COST_MORE = Regex("""Spells of the chosen type cost ((?:\{[^}]+\})+) more to cast\.""")
     val DOUBLE_EACH_KIND_ON_EACH = Regex("""[Dd]ouble the number of each kind of counter on each (.+)\.""")
     val CHOOSE_ONE_OR_BOTH_MODES = Regex("""choose one or both —""")

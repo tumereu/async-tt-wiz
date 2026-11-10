@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 41
+    const val VERSION: Int = 61
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -532,6 +532,8 @@ object OracleParser {
         if (line.isEmpty() || (line.endsWith(".") && !line.contains('—'))) return null
         // CR 702.124j: "Partner with [name]", a name that may have a comma, alone on its line
         PARTNER_WITH.matchEntire(line)?.let { return listOf(Keyword.PartnerWith(it.groupValues[1])) }
+        // fdn chunk 02: "Enchant creature, land, or planeswalker": one list of what it can enchant, not several keywords (CR 702.5a)
+        if (line.startsWith("Enchant ")) keyword(line)?.let { return listOf(it) }
         // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
         val parts = when {
             line.contains("; ") -> line.split("; ")
@@ -585,7 +587,8 @@ object OracleParser {
             return Keyword.HexproofFrom(when (m.groupValues[1]) {
                 "monocolored" -> arcanum.api.ObjectFilter.Monocolored
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
-                else -> return null
+                // fdn chunk 05: "hexproof from black", "hexproof from instants" (a colour or a card type)
+                else -> Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             })
         }
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.

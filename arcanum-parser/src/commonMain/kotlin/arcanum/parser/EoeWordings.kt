@@ -214,7 +214,7 @@ internal object Eoe {
     val LOOK_X_PUT_ANY_NUMBER_ONTO_BATTLEFIELD_SHUFFLE = Regex("""[Ll]ook at the top X cards of your library\. Put any number of (.+?) from among them onto the battlefield tapped, then shuffle\.""")
     val COMBAT_DAMAGE_CANT_BE_PREVENTED = Regex("""Combat damage can't be prevented\.""")
     val COUNTERS_WOULD_BE_PUT_TWICE = Regex("""If one or more counters would be put on an? (.+?), twice that many of each of those kinds of counters are put on it instead\.""")
-    val DOUBLE_POWER_UNTIL_EOT = Regex("""[Dd]ouble the power of target (.+?) until end of turn\.""")
+    val DOUBLE_POWER_UNTIL_EOT = Regex("""[Dd]ouble (?:the power of target (.+?)|target (.+?)'s power) until end of turn\.""")
     val RETURN_UP_TO_HAND_THEN_UP_TO_BATTLEFIELD = Regex("""Return up to (\w+) target (.+?) from your graveyard to your hand, then return up to (\w+) target (.+?) from your graveyard to the battlefield tapped\.""")
     val BLOCKS_A = Regex("""(.+?) blocks an? (.+)""")
     val STATIONS_USING_TOUGHNESS = Regex("""Each (.+?) stations permanents using its toughness rather than its power\.""")

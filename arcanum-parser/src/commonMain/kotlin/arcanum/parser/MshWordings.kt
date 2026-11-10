@@ -126,7 +126,7 @@ internal object Msh {
     val IF_ATTACKING_UNTAP_EXTRA_COMBAT = Regex("""If it's attacking, untap it and there is an additional combat phase after this phase\.""")
 
     // msh chunk 09: more wordings
-    val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return that card to the battlefield under its owner's control at the beginning of the next end step\.""")
+    val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
     val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast\.""")
     val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(.+ spells you cast) this turn cost (\{\d+\}) less to cast\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")

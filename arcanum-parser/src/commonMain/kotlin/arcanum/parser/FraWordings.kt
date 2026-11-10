@@ -76,7 +76,7 @@ internal object Fra {
     val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: .+)"""")
     val AS_LONG_AS_MAY_CAST_EXILED = Regex("""As long as (.+?), you may cast the exiled card, and mana of any type can be spent to cast that spell\.""")
     val SPELLS_WITH_MV_AT_MOST = Regex("""spells with mana value less than or equal to (.+)""")
-    val MAY_CAST_FROM_HAND_WITHOUT_PAYING = Regex("""You may cast (spells with .+?) from your hand without paying their mana costs\.""")
+    val MAY_CAST_FROM_HAND_WITHOUT_PAYING = Regex("""You may cast (spells(?: with .+?)?) from your hand without paying their mana costs\.""")
     val HAS_KEYWORD_UNTIL_DEALT_COMBAT_DAMAGE = Regex("""(.+?) has ([a-z ,]+) as long as (?:it hasn't|they haven't|he hasn't|she hasn't) dealt combat damage yet\.""")
     val POWER_EQUAL_TO = Regex("""(.+?)'s power is equal to (.+?)(?:( and its toughness is equal to that number plus) (\w+))?\.""")
 
@@ -112,7 +112,7 @@ internal object Fra {
     val UNTAP_UP_TO = Regex("""Untap up to (\w+) target (.+)\.""")
     val UNTAP_ALL = Regex("""Untap all (.+)\.""")
     val UNTIL_NEXT_TURN_WHENEVER_ATTACK_OPPONENT = Regex("""Until your next turn, whenever one or more creatures attack one of your opponents, those creatures get \+(\d+)/\+(\d+) and gain (\w+) until end of turn\.""")
-    val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each color among (.+)\.""")
+    val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each (color|different mana value) among (.+)\.""")
     val PROLIFERATE_TIMES = Regex("""Proliferate (\w+) times\.""")
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")

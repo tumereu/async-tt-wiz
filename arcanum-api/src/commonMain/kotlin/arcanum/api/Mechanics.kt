@@ -408,6 +408,10 @@ sealed interface Mechanic {
     @Serializable @SerialName("spend-mana-as-any-color") data class SpendManaAsAnyColor(
         /** Only when paying for spells or abilities matching this ("to activate abilities of creatures you control"). */
         val onlyFor: ObjectFilter? = null,
+        // fdn
+        /** "Mana of any type": also as though it were colorless mana (CR 118.14, 609.4b: "You can spend mana of any type to cast
+         * creature spells"). */
+        val anyType: Boolean = false,
     ) : Mechanic
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */
@@ -418,6 +422,8 @@ sealed interface Mechanic {
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
+    /** The affected player can't win the game by an effect (CR 104.2b); being the last player left still wins (CR 104.2a). */
+    @Serializable @SerialName("cant-win-game") data object CantWinGame : Mechanic
     @Serializable @SerialName("no-maximum-hand-size") data object NoMaximumHandSize : Mechanic
     // tla
     /** The affected players don't lose unspent mana of [colors] as steps and phases end ("you don't lose unspent red mana as steps and

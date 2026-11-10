@@ -678,14 +678,18 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                     .distinct().filterNot { it in op.remove }
                 // CR 205.1a: new subtypes replace those of the same kind only
                 val replacedKinds = if (op.replaceSubtypes) op.addSubtypes.map { Subtypes.kindOf(it) }.toSet() else emptySet()
-                val subtypes = (c.subtypes.filterNot { Subtypes.kindOf(it) in replacedKinds } + op.addSubtypes).distinct()
+                // CR 205.1a: a subtype goes with its card type, unless it's also a subtype of a card type the object still has
+                val typesRemoved = (c.types - types.toSet()).isNotEmpty()
+                val kept = if (typesRemoved) c.subtypes.filter { s -> Subtypes.kindOf(s).types.any { it in types } } else c.subtypes
+                val noCreatureTypes = typesRemoved && SubtypeKind.Creature.types.none { it in types }
+                val subtypes = (kept.filterNot { Subtypes.kindOf(it) in replacedKinds } + op.addSubtypes).distinct()
                 // CR 305.7: a land whose subtype is set to basic land types loses the abilities from its rules text and
                 // old land types (it gets the new types' mana abilities after layer 4)
                 val setsBasicLandType = op.replaceSubtypes && op.addSubtypes.any { it in Subtypes.basicLandTypes }
                 val abilities = if (setsBasicLandType && CardType.Land in types) c.abilities.filterNot { it.origin.isOwn() } else c.abilities
                 p.copy(chars = c.copy(
                     types = types, subtypes = subtypes, supertypes = (c.supertypes + op.addSupertypes).distinct() - op.removeSupertypes.toSet(),
-                    allCreatureTypes = c.allCreatureTypes && SubtypeKind.Creature !in replacedKinds, abilities = abilities,
+                    allCreatureTypes = c.allCreatureTypes && SubtypeKind.Creature !in replacedKinds && !noCreatureTypes, abilities = abilities,
                 ))
             }
             Op.AllCreatureTypes -> p.copy(chars = c.copy(allCreatureTypes = true))

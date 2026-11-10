@@ -212,13 +212,13 @@ internal object Costs {
                 Actions.removeCounters(act, TargetRef.Object(id), kind, scope.value(part.amount))
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
-            is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(payer), part.kind, scope.value(part.amount))
+            is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(payer), part.kind, scope.value(part.amount), listOf(Meaning.Paid))
             is CostPart.PutCounters -> choose(scope, payer, part.on, Zone.Battlefield, "put counters on").forEach { id ->
-                Actions.putCounters(act, cause, TargetRef.Object(id), part.kind, scope.value(part.amount))
+                Actions.putCounters(act, cause, TargetRef.Object(id), part.kind, scope.value(part.amount), listOf(Meaning.Paid))
             }
             is CostPart.Loyalty -> scope.self?.let { id ->
                 val n = scope.value(part.amount)
-                if (n > 0) Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.Loyalty, n)
+                if (n > 0) Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.Loyalty, n, listOf(Meaning.Paid))
                 else Actions.removeCounters(act, TargetRef.Object(id), CounterKind.Loyalty, -n)
             }
             is CostPart.Mill -> Actions.mill(act, cause, payer, scope.value(part.count))

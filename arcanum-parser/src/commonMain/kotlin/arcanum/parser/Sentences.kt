@@ -7914,7 +7914,9 @@ internal class Sentences(
         }
         // blb chunk 11: "Put a +1/+1 counter on target creature and you gain 1 life."
         // fdn chunk 27: not across "If you do, …" ("you may pay {B}. If you do, target player loses 2 life and you gain 2 life": the gain is inside the If)
-        Blb.AND_YOU_GAIN_LIFE.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("If ") && !it.groupValues[1].contains(". If you do,") }?.let { m ->
+        Blb.AND_YOU_GAIN_LIFE.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("If ") && !it.groupValues[1].contains(". If you do,") &&
+            // inr chunk 10: nor across "When you do, …" (a reflexive trigger runs to the end of the ability, CR 603.12)
+            !it.groupValues[1].contains(". When you do,") }?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return@let
             return first + Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[2].toInt())))
         }

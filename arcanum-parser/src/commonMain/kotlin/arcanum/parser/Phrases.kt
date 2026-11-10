@@ -254,6 +254,16 @@ internal object Filters {
                 return all(noun(m.groupValues[1]) ?: return null, has.singleOrNull() ?: ObjectFilter.Or(has))
             }
         }
+        // inr chunk 10: "attacking Wolf or Werewolf": a leading status or colour describes every creature-type alternative
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }.map { it.removeArticle() }
+            val first = list.first().split(' ')
+            val modifiers = first.dropLast(1)
+            if (list.size > 1 && modifiers.isNotEmpty() && modifiers.all { it[0].isLowerCase() && it !in CARD_TYPES } &&
+                (listOf(first.last()) + list.drop(1)).all { it in RulesWords.subtypes && it[0].isUpperCase() })
+                return all(ObjectFilter.Or((listOf(first.last()) + list.drop(1)).map { ObjectFilter.Sub(Subtype(it)) }),
+                    *modifiers.map { word(it) ?: return null }.toTypedArray())
+        }
         // inr chunk 07: "Angel or Human creature card": the creature types are the alternatives, the rest describes both (CR 205.3m)
         if (phrase.contains(" or ")) {
             val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }

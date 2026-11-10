@@ -252,6 +252,14 @@ sealed interface Effect {
         val onlyAttackers: ObjectFilter? = null,
     ) : Effect
     @Serializable @SerialName("exchange-life") data class ExchangeLife(val first: Players, val second: Players) : Effect
+    // inr
+    /** "Exchange target opponent's life total with this creature's toughness" (CR 701.12g): [player]'s life total becomes
+     * [creature]'s [property] ([NumericProperty.Power] or [NumericProperty.Toughness]), gained or lost, and a continuous
+     * effect sets that [property] to the player's previous life total (layer 7b, CR 613.4b), for as long as the creature
+     * stays. Nothing happens unless both are there (CR 701.12a). */
+    @Serializable @SerialName("exchange-life-with-stat") data class ExchangeLifeWithStat(
+        val player: Players, val creature: Objects, val property: NumericProperty,
+    ) : Effect
     /** [mechanics] apply to the spell [objects] and to the permanent it becomes (CR 400.7d): "that creature enters with
      * two additional +1/+1 counters", "it can't be countered". Inside [mechanics], [Objects.Affected] is the spell and the
      * permanent it becomes; values are fixed when this effect happens (CR 608.2h). Mana riders use the same idea

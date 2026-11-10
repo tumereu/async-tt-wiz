@@ -226,7 +226,7 @@ internal object Fin {
     val SHUFFLE_MILL_PUT_CREATURES_HASTE_RETURN = Regex("""Shuffle your library, then mill (\w+) cards\. Put each creature card milled this way onto the battlefield\. They gain haste\. At the beginning of the next end step, return those creatures to their owner's hand\.""")
     val ADD_ONLY_EQUIPMENT = Regex("""Add ((?:\{[WUBRGC]\})+)\. Spend this mana only to cast an Equipment spell or activate an equip ability\.""")
     val DEALS_DAMAGE_EQUAL_TO_DEFENDING = Regex("""(.+?) deals damage equal to (the number of .+?) to defending player\.""")
-    val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and X damage to that creature's controller\.""")
+    val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and (X|\d+) damage to (?:that creature's|its) controller\.""") // inr chunk 08: N, its
     val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
     val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
     val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")

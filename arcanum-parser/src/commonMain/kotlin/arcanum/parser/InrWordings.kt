@@ -58,6 +58,22 @@ internal object Inr {
     val CREATURES_ATTACK_THIS_TURN_IF_ABLE = Regex("""(Creatures .+?) attack this turn if able\.""")
     // inr chunk 06: Aberrant Scholar: "Mill a card. If an instant or sorcery card was milled this way, transform this creature." (CR 701.17a)
     val MILL_IF_MILLED_TRANSFORM = Regex("""Mill (an?|\w+) cards?\. If an? (.+?) card was milled this way, transform (?:this creature|it)\.""")
+    // inr chunk 08: Geistcatcher's Rig, Angel's Tomb: "you may have it deal 4 damage to …", "you may have this artifact become a 3/3 …" (CR 608.2d)
+    val YOU_MAY_HAVE_SELF = Regex("""[Yy]ou may have (it|this [a-z]+|[A-Z][^ ]*(?: [^ ]+)*?) (deal|become) (.+)\.""")
+    // inr chunk 08: Vexing Devil: "any opponent may have it deal 4 damage to them." (each in turn order until one does, CR 101.4)
+    val ANY_OPPONENT_MAY_HAVE_DEAL_TO_THEM = Regex("""[Aa]ny opponent may have (it|this [a-z]+) deal (\d+) damage to them\.""")
+    // inr chunk 08: Moonlight Hunt: "Each creature you control that's a Wolf or a Werewolf deals damage equal to its power to that creature."
+    val EACH_DEALS_POWER_TO_THAT = Regex("""Each (.+?) deals damage equal to its power to (that creature|target .+)\.""")
+    // inr chunk 08: Tree of Perdition (CR 701.12g)
+    val EXCHANGE_LIFE_WITH_SELF_PT = Regex("""Exchange (target opponent's|target player's|your) life total with (.+)'s (power|toughness)\.""")
+    // inr chunk 08: Chandra, Dressed to Kill: "If it's red, you may cast it this turn." (the card exiled just before)
+    val IF_ITS_COLOR = Regex("""If it's (white|blue|black|red|green), (.+)""")
+    // inr chunk 08: Chandra, Dressed to Kill: "You may cast red spells from among them this turn." (CR 601.2a)
+    val MAY_CAST_COLOR_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (white|blue|black|red|green) spells from among (?:them|those cards) this turn\.""")
+    // inr chunk 08: Fiend Hunter: "you may exile another target creature." (CR 115.1)
+    val EXILE_ANOTHER_TARGET = Regex("""Exile another target (.+)\.""")
+    // inr chunk 08: Compelling Deterrence: "Return target … to its owner's hand. Then that player discards a card if you control a Zombie."
+    val RETURN_THEN_THAT_PLAYER_DISCARDS_IF = Regex("""Return target (.+?) to its owner's hand\. Then that player discards a card(?: if (.+))?\.""")
 }
 
 /** Conditions first met in INR. */
@@ -70,7 +86,27 @@ internal object InrPhrases {
     // inr chunk 01: "Garruk has two or fewer loyalty counters on him" (this object)
     private val HAS_N_OR_FEWER_COUNTERS_ON = Regex("""(.+) has (\w+) or fewer (\S+) counters on (?:it|him|her)""")
 
+    // inr chunk 08: Boarded Window "if you were dealt 4 or more damage this turn" (all of it, from any sources, CR 120.1)
+    private val YOU_WERE_DEALT_DAMAGE_THIS_TURN = Regex("""you were dealt (?:(\d+) or more )?damage this turn""")
+    // inr chunk 08: Boarded Window "Creatures attacking you": attacking you, not a planeswalker or battle (CR 506.3, 508.1b)
+    private val ATTACKING_YOU = Regex("""(.+?) attacking you""")
+
+    fun noun(phrase: String): ObjectFilter? {
+        ATTACKING_YOU.matchEntire(phrase)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(noun, ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
+                ObjectFilter.Where(Condition.PlayerMatches(Players.DefendingPlayerOf(Objects.Tested), PlayerFilter.You)),
+                ObjectFilter.Where(Condition.Compare(Value.Count(Objects.AttackedBy(Objects.Tested)), Comparison.Equal, Value.Fixed(0))))
+        }
+        return null
+    }
+
     fun condition(text: String, self: Set<String>): Condition? {
+        YOU_WERE_DEALT_DAMAGE_THIS_TURN.matchEntire(text)?.let { m ->
+            val n = m.groupValues[1].takeIf { it.isNotEmpty() }?.toInt() ?: 1
+            return Condition.HappenedThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.You)), atLeast = n,
+                measure = Measure.Amount)
+        }
         // inr chunk 07: Laboratory Maniac "while your library has no cards in it"
         if (text == "your library has no cards in it")
             return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))

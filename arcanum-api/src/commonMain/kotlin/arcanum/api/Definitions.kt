@@ -415,6 +415,10 @@ sealed interface Step {
     @Serializable @SerialName("pay") data class Pay(
         val cost: Cost? = null, val steps: List<Step> = emptyList(), val payer: Players,
         val mandatory: Boolean = false, val bind: String? = null,
+        // inr
+        /** Names the player who pays, for [steps] and the steps after ("any opponent may have it deal 4 damage to them").
+         * When [payer] is several players ("any opponent may"), each is asked in turn order until one pays (CR 101.4). */
+        val payerBind: String? = null,
     ) : Step
     /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
      * copy). Entering tapped is not becoming tapped (CR 110.5b, 603.2e). */

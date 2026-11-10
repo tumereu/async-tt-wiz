@@ -58,6 +58,7 @@ internal object Filters {
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
+        InrPhrases.noun(phrase)?.let { return it } // inr
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -1461,6 +1462,8 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        // inr chunk 08: "twice the number of Blood tokens you control"
+        if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)

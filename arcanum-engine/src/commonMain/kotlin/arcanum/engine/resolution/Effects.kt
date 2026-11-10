@@ -391,6 +391,17 @@ internal object Effects {
                 setLife(scope, a, lb)
                 setLife(scope, b, la)
             }
+            // inr chunk 08: "Exchange target opponent's life total with this creature's toughness." (CR 701.12g; nothing without both, 701.12a)
+            is Effect.ExchangeLifeWithStat -> {
+                val p = scope.players(effect.player).firstOrNull() ?: return
+                val id = onBattlefield(scope, effect.creature).firstOrNull() ?: return
+                val life = act.state.player(p).life
+                val stat = scope.value(Value.Of(effect.property, effect.creature, arcanum.api.Combine.Single))
+                setLife(scope, p, stat)
+                val set = if (effect.property == arcanum.api.NumericProperty.Power) Mechanic.SetPowerToughness(Value.Fixed(life), null)
+                    else Mechanic.SetPowerToughness(null, Value.Fixed(life))
+                applyMechanics(scope, listOf(set), Affected.Objects(effect.creature), Duration.Indefinitely, null, locked = listOf(id))
+            }
             is Effect.SpellGets -> scope.objects(effect.objects).forEach { id ->
                 // CR 400.7d: the effect follows the spell onto the battlefield
                 val next = (id as? ObjectId.Card)?.next()

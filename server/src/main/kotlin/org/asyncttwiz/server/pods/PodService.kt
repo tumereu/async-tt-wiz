@@ -53,17 +53,6 @@ class PodService(private val runtime: ServiceRuntime) {
         if (isSetSource(row)) stored(row) { json.decodeFromString<SetSourceSnapshot>(json.decodeFromString<String>(it)) } else null
     }
     private fun encodedSet(source: SetSourceSnapshot) = encoded(json.encodeToString(source))
-    private fun sourceIntent(input: JsonElement, source: PodSetSource?): JsonElement {
-        val fixed = source?.snapshot?.recipe?.sheets.orEmpty().filterValues { it.fixed }
-        if (fixed.isEmpty()) return input
-        // Canonical JSON sorts object keys; include significant fixed-sheet order as ordered arrays.
-        return buildJsonObject {
-            put("input", input)
-            putJsonObject("fixedSheetOrder") {
-                for ((name, sheet) in fixed) putJsonArray(name) { sheet.cards.keys.forEach { add(it) } }
-            }
-        }
-    }
     private fun source(row: PodRecord) = if (!isSetSource(row))
         stored(row) { json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data()) } else emptyList()
     /** The prepared cube's Maybe: cards of the cube not drafted in this pod. */
@@ -120,28 +109,15 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun librarianDigests(sql: DSLContext, digests: Set<String>) =
         PreparationStore.definitions(sql, digests).filter { it.definition.name == "Cogwork Librarian" }.map { it.digest }.toSet()
 
-    private fun validateSet(input: PodSetSource): Result? {
-        if (input.snapshot.validate().isNotEmpty()) return error(400, "invalid_set_snapshot")
-        val definitions = input.definitions
-        if (definitions.size !in 1..SetSourceValidation.MAX_CARDS || definitions.map { it.digest }.distinct().size != definitions.size ||
-            definitions.any { !DeckValidation.digest(it.digest) || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != it.digest })
-            return error(400, "invalid_definition")
-        if (!definitions.map { it.digest }.toSet().containsAll(input.snapshot.cards.map { it.definition }))
-            return error(400, "definitions_unavailable")
-        if (input.support?.let(CardListSupport::valid) == false) return error(400, "invalid_request")
-        return null
-    }
-
     /** A set as a pod's source: what is stored ([source], and its Automatum support as JSON), or why it can't be one. */
-    private class ChosenSet(val source: PodSetSource? = null, val support: String? = null, val refusal: Result? = null)
+    private class ChosenSet(val source: org.asyncttwiz.catalog.CatalogSetSource? = null, val support: String? = null, val refusal: Result? = null)
 
     /**
      * A draft set chosen as a pod's source, by its code: its source and support from the server's card catalog
      * (docs/specs/web-client.md sections 3.7, 3.8), or why it can't be one. DRF-162: a set whose packs can hold a card
-     * Automatum can't play (the catalog's marks) is refused. [upload]: a set the device sent (until step 1b), kept as sent;
-     * only the catalog's marks decide whether it may be drafted.
+     * Automatum can't play (the catalog's marks) is refused.
      */
-    private fun chooseSet(code: String, upload: PodSetSource?): ChosenSet {
+    private fun chooseSet(code: String): ChosenSet {
         val catalog = ServerCatalogs.current()
         val set = catalog?.draftSet(code)
         if (catalog == null || set == null) {
@@ -153,14 +129,13 @@ class PodService(private val runtime: ServiceRuntime) {
             return ChosenSet(refusal = error(409, "automatum_unsupported"))
         }
         val support = json.encodeToString(catalog.support(set))
-        if (upload != null) return ChosenSet(upload, support)
         val source = try { catalog.source(code) } catch (failure: IllegalStateException) {
             log("set $code refused: its source can't be built: ${failure.message}")
             null
         } ?: return ChosenSet(refusal = error(409, "set_unavailable"))
         log("set $code from catalog ${catalog.version.checksum}: ${source.snapshot.cards.size} cards, ${source.definitions.size} " +
             "definitions, recipe ${source.snapshot.recipe?.name ?: "none"}, ${source.missing} recipe printings not in the catalog")
-        return ChosenSet(PodSetSource(source.snapshot, source.definitions), support)
+        return ChosenSet(source, support)
     }
 
     private fun log(message: String) = println("${java.time.Instant.now()} Pods: $message")
@@ -176,7 +151,7 @@ class PodService(private val runtime: ServiceRuntime) {
     internal fun unsupported(row: PodRecord): Result? =
         if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
-    private fun storeSet(sql: DSLContext, input: PodSetSource) = storeDefinitions(sql, input.definitions)
+    private fun storeSet(sql: DSLContext, input: org.asyncttwiz.catalog.CatalogSetSource) = storeDefinitions(sql, input.definitions)
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
         for (submitted in definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
             .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
@@ -215,18 +190,15 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)
 
     fun create(principal: AccountService.Principal, input: CreatePod): Result =
-        business(principal, input.requestId, "createPod", DeckJson.canonicalElement(sourceIntent(json.encodeToJsonElement(input), input.setSource))) { sql, owner, _ ->
+        business(principal, input.requestId, "createPod", DeckJson.canonicalElement(json.encodeToJsonElement(input))) { sql, owner, _ ->
             if (!validName(input.name)) return@business error(400, "invalid_name")
             if (input.settings?.validate(2)?.isNotEmpty() == true) return@business error(400, "invalid_settings")
-            if (listOfNotNull(input.cubeId, input.setSource, input.setCode).size != 1) return@business error(400, "invalid_source")
-            input.setSource?.let { validateSet(it)?.let { failure -> return@business failure } }
+            if (listOfNotNull(input.cubeId, input.setCode).size != 1) return@business error(400, "invalid_source")
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
             // I-D51/I-D52: a cube Automatum can't play fully (as the owner's device worked it out) can't start a pod.
             if (snapshot?.unsupported == true) return@business error(409, "automatum_unsupported")
             // DRF-162: a set's source and support come from the card catalog, refused by its marks
-            val set = (input.setCode ?: input.setSource?.snapshot?.setCode)?.let { code ->
-                chooseSet(code, input.setSource).also { chosen -> chosen.refusal?.let { return@business it } }
-            }
+            val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@business it } } }
             set?.source?.let { storeSet(sql, it) }
             val settings = input.settings ?: DraftSettings.defaults(input.mode)
             validateLibrarian(settings)?.let { return@business it }
@@ -243,7 +215,7 @@ class PodService(private val runtime: ServiceRuntime) {
         }
 
     fun update(principal: AccountService.Principal, id: String, input: UpdatePod): Result =
-        mutate(principal, id, input.requestId, "updatePod", sourceIntent(json.encodeToJsonElement(input), input.setSource)) { sql, owner, row ->
+        mutate(principal, id, input.requestId, "updatePod", json.encodeToJsonElement(input)) { sql, owner, row ->
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
             if (input.name?.let { !validName(it) } == true) return@mutate error(400, "invalid_name")
@@ -252,13 +224,10 @@ class PodService(private val runtime: ServiceRuntime) {
             val members = members(sql, row.id!!).size
             if (input.settings?.validate(members.coerceAtLeast(2))?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
-            if (listOfNotNull(input.cubeId, input.setSource, input.setCode).size > 1) return@mutate error(400, "invalid_source")
-            input.setSource?.let { validateSet(it)?.let { failure -> return@mutate failure } }
+            if (listOfNotNull(input.cubeId, input.setCode).size > 1) return@mutate error(400, "invalid_source")
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@mutate error(404, "cube_not_found") }
             if (snapshot?.unsupported == true) return@mutate error(409, "automatum_unsupported")
-            val set = (input.setCode ?: input.setSource?.snapshot?.setCode)?.let { code ->
-                chooseSet(code, input.setSource).also { chosen -> chosen.refusal?.let { return@mutate it } }
-            }
+            val set = input.setCode?.let { code -> chooseSet(code).also { chosen -> chosen.refusal?.let { return@mutate it } } }
             input.name?.let { row.name = it }
             input.settings?.let { row.settings = encoded(it) }
             validateLibrarian(settings(row))?.let { return@mutate it }

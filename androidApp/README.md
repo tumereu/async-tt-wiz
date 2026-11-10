@@ -21,7 +21,7 @@ Unconfigured builds fail safely instead of simulating login. Release uses platfo
 TLS and forbids cleartext. Only debug builds allow explicit `http://127.0.0.1:<port>`
 for isolated development with ADB reverse; see the root [local setup](../README.md#run-locally).
 `atwCatalogTestOrigin`/`atwCatalogPath` configure debug-only synthetic public data;
-release always uses MTGJSON/Scryfall. Set `atwArtContact` before real artwork use.
+release pictures come from Scryfall, card records from the ATW server. Set `atwArtContact` before real artwork use.
 
 For a friend-installable APK and signing options, use
 [`scripts/build-release-apk.sh`](../scripts/build-release-apk.sh) and the

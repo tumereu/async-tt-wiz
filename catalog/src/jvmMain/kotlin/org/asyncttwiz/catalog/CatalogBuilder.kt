@@ -102,7 +102,8 @@ class CatalogBuilder(
     private fun mark(catalog: CardCatalog): Built {
         val dungeons = dungeons(catalog)
         log("Dungeons Automatum plays fully: $dungeons")
-        val cards = catalog.printings.filter { !it.token }.groupBy { catalog.faces[it.face].name }
+        // A reversible printing counts as the card it shows (CatalogCards.cardName).
+        val cards = catalog.printings.filter { !it.token }.groupBy { CatalogCards.cardName(catalog.faces[it.face]) }
         val frontNames = HashMap<String, String>()
         cards.forEach { (name, printings) ->
             printings.map { catalog.faces[it.face] }.firstOrNull { it.side == "a" }?.faceName?.takeIf { it.isNotEmpty() }
@@ -115,23 +116,31 @@ class CatalogBuilder(
             val sets = printings.map { it.set }.filter { it in supportedSets }.distinct().sorted()
             val front = printings.map { catalog.faces[it.face] }.firstOrNull { it.side == "a" }?.faceName.orEmpty()
             // A card of several faces is listed by its whole name or its front face's, unless that names a card of its
-            // own (a reversible printing "Sol Ring // Sol Ring" is not the listed Sol Ring).
+            // own.
             val onList = name in supportedCards || (front.isNotEmpty() && front in supportedCards && front !in cards)
             if (sets.isEmpty() && !onList) continue
-            val printing = printings.firstOrNull { it.set in supportedSets } ?: printings.first()
+            val ordinary = printings.sortedBy { CatalogCards.reversible(catalog.faces[it.face]) }
+            val printing = ordinary.firstOrNull { it.set in supportedSets } ?: ordinary.first()
             val parts = handParts(catalog, printing, dungeons)
             listed += Listed(name, sets, onList, parts)
             if (parts.isEmpty()) supported += name
         }
         log("Listed cards: ${listed.size}, supported ${supported.size}")
-        val faces = catalog.faces.map { if (it.name in supported) it.copy(automatum = true) else it }
+        val faces = catalog.faces.map { if (CatalogCards.cardName(it) in supported) it.copy(automatum = true) else it }
+        // Packs leave out unsupported bonus sheets from other sets (CatalogPackSheets).
+        val recipes = catalog.recipes.map { record ->
+            val kept = CatalogPackSheets.kept(catalog, record.set, record.recipe) { CatalogCards.cardName(catalog.faces[it.face]) in supported }
+            if (kept !== record.recipe) log("Set ${record.set}: packs leave out sheets ${record.recipe.sheets.keys - kept.sheets.keys}")
+            CatalogRecipeRecord(record.set, kept)
+        }
+        val packed = CardCatalog(catalog.header, catalog.sets, catalog.faces, catalog.printings, recipes)
         val sets = catalog.sets.map { set ->
             if (!set.draftable) return@map set
-            val names = packCards(catalog, set.code).map { catalog.faces[it.face].name }.toSortedSet()
+            val names = packCards(packed, set.code).map { CatalogCards.cardName(catalog.faces[it.face]) }.toSortedSet()
             val unsupported = names.filter { it !in supported }
             set.copy(automatum = names.isNotEmpty() && unsupported.isEmpty(), unsupported = unsupported)
         }
-        val marked = CardCatalog(catalog.header, sets, faces, catalog.printings, catalog.recipes)
+        val marked = CardCatalog(catalog.header, sets, faces, catalog.printings, recipes)
         return Built(marked, listed.sortedBy { it.name }, supportedCards.filter { it !in known }.sorted(),
             supportedSets.filter { it !in marked.set }.sorted())
     }

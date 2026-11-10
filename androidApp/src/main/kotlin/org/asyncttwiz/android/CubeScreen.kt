@@ -27,19 +27,25 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
     draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
     var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
+        // A cube's cards need card records (section 3.6)
+        if (!cardRecordsReady()) { CardRecordsScreen("Cube", navigation, cubes::back); return }
         CubeScreen(cubes, navigation, draftCube, landscape); return
     }
     if (!cubeTab && importer?.state?.active == true) {
         DeckImportScreen(importer, landscape, navigation, catalog); return
     }
     if (!cubeTab && decks?.state?.selected != null) {
+        if (!cardRecordsReady()) { CardRecordsScreen("Saved deck", navigation, decks::back); return }
         SavedDeckScreen(decks, navigation, importDeck = importer?.let { editor -> { detail -> decks.dismiss(); editor.openEditor(detail) } }); return
     }
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Manage decks", navigation) {
-            if (cubeTab) ScreenCreateAction("New cube", "add", cubes::newCube, Modifier.testTag("new-cube"), enabled = !cubes.state.busy)
-            else if (importer != null) ScreenCreateAction("Import deck", "import", importer::open, Modifier.testTag("import-deck"))
+            if (cubeTab) ScreenCreateAction("New cube", "add", cubes::newCube, Modifier.testTag("new-cube"),
+                enabled = !cubes.state.busy && cardRecordsReady())
+            else if (importer != null) ScreenCreateAction("Import deck", "import", importer::open, Modifier.testTag("import-deck"),
+                enabled = cardRecordsReady())
         }
+        CardRecordsNote(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
         TabRow(selectedTabIndex = if (cubeTab) 1 else 0) {
             Tab(selected = !cubeTab, onClick = { cubeTab = false }, text = { Text("Decks") })
             Tab(selected = cubeTab, onClick = { cubeTab = true }, text = { Text("Cubes") })

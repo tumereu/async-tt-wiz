@@ -3,10 +3,6 @@ package org.asyncttwiz.android
 import org.asyncttwiz.storage.dungeonDefinitions
 
 import android.app.Application
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -15,264 +11,117 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import org.asyncttwiz.storage.*
 import java.io.File
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-data class CatalogUiState(val installed: CatalogMetadata? = null, val available: CatalogMetadata? = null,
-    val size: Long? = null, val metered: Boolean = true, val busy: Boolean = false,
-    val status: String? = null, val error: Boolean = false, val progress: CatalogProgress? = null,
-    val background: Boolean = false, val plan: CatalogUpdatePlan? = null,
-    val fullRefresh: CatalogUpdatePlan? = null, val fullSize: Long? = null, val loaded: Boolean = false)
-
-/** Only optional updates to an installed catalog can be deferred within this process. */
-internal class CatalogPromptPolicy {
-    private var dismissed by mutableStateOf(emptySet<String>())
-    private fun key(state: CatalogUiState): String? {
-        if (state.installed == null) return null // Mandatory first download has its own pre-login dialog.
-        val available = state.available ?: return null
-        if (state.plan == null && !CatalogUpdatePolicy.changed(state.installed, available)) return null
-        return "${available.date}/${available.version}"
+/**
+ * The card records (docs/specs/web-client.md sections 3.5, 3.6): [installed] the records in use once they are the app's
+ * catalog ([ready]); [progress] while it installs; [failed] when the download failed twice (Retry).
+ */
+data class CatalogUiState(val installed: CatalogMetadata? = null, val ready: Boolean = false,
+    val progress: CatalogProgress? = null, val failed: Boolean = false) {
+    /** What the screens show: controls reading card records are greyed until they are [CardRecords.Ready]. */
+    val records: CardRecords get() = when {
+        ready -> CardRecords.Ready
+        failed -> CardRecords.Failed
+        else -> CardRecords.Updating(progress?.percent ?: 0)
     }
-    fun shouldPrompt(state: CatalogUiState): Boolean = !state.busy && key(state)?.let { it !in dismissed } == true
-    fun dismiss(state: CatalogUiState) { key(state)?.let { dismissed = dismissed + it } }
 }
 
-private val processCatalogPrompt = CatalogPromptPolicy()
-
-/** Public downloads are independent of login; no account tokens, callbacks or private data enter this worker. */
-class CatalogViewModel(application: Application) : AndroidViewModel(application) {
-    internal val promptPolicy get() = processCatalogPrompt
+/**
+ * The app's card records are the server's card catalog its build names ([expected], the built-in checksum; null in local
+ * and test builds: the server's current one): on start ([start]) it compares the installed records with it and, when they
+ * differ, downloads and installs the catalog while the app stays usable. A failed attempt is tried once more by itself,
+ * then the screens say so with Retry ([retry]). Public data only: no account or session enters this worker.
+ */
+internal class CatalogController(private val directory: File, val repository: CatalogRepository,
+    private val source: () -> CatalogSource, private val expected: String?, private val worker: ExecutorService,
+    private val post: (() -> Unit) -> Unit, private val retryPause: Long = 2_000) {
     var state by mutableStateOf(CatalogUiState())
         private set
-    private var initialDownloadAccepted by mutableStateOf(false)
-    internal val needsInitialDownloadConsent get() = state.loaded && state.installed == null && !initialDownloadAccepted
-    private val main = Handler(Looper.getMainLooper())
-    private val worker = Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }
-    private val connectivity = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    private val directory = AndroidCatalogStorage.directory(application)
-    internal val repository = AndroidCatalogStorage.repository(application)
-    private val cadence = CatalogCadence(File(directory, "cadence.properties"))
-    /** LOB-117: the catalog's dungeons Automatum plays fully, which the device brings to games whose decks venture. */
-    internal val dungeons = CatalogDungeonCards({ repository.dungeonDefinitions() }, { repository.tokenGeneration() })
-    /** I-D51 (DRF-161): draft sets' Automatum support, worked out on the phone for the sets asked for ([requestSetSupport]). */
-    internal val setSupport = CatalogSetSupport(repository, { org.asyncttwiz.automatum.AutomatumSupport.byHand(it, dungeons.provided()) },
-        engineVersion = arcanum.engine.Engine.SUPPORT_VERSION)
-    private val supportWorker = Executors.newSingleThreadExecutor { Thread(it, "set-support").apply { priority = Thread.MIN_PRIORITY } }
-    /** Sets asked for and not worked out yet, the latest asked first, each with what to tell once it is done. */
-    private val supportWanted = LinkedHashMap<String, MutableList<() -> Unit>>()
-
-    /**
-     * Smoke 2026-11-04 (DRF-161): works out the Automatum support of the draft sets [codes] (the sets a picker shows, or
-     * a chosen source) on the low-priority "set-support" thread, one set at a time with a pause after each set worked
-     * out, skipping sets already worked out for these card records and support version (kept across app updates);
-     * [done] runs on that thread once each of [codes] is done. Sets asked for again move to the front; nothing is worked
-     * out unless asked.
-     */
-    internal fun requestSetSupport(codes: Collection<String>, done: () -> Unit = {}) {
-        if (cleared || codes.isEmpty()) return
-        synchronized(supportWanted) {
-            val previous = LinkedHashMap(supportWanted)
-            supportWanted.clear()
-            for (code in codes) supportWanted.getOrPut(code) { previous.remove(code) ?: mutableListOf() }.add(done)
-            supportWanted.putAll(previous)
-        }
-        supportWorker.execute(::workSetSupport)
-    }
-
-    /** The set-support thread: the wanted sets, the latest asked first, until none is left. */
-    private fun workSetSupport() {
-        while (!cleared) {
-            val (code, done) = synchronized(supportWanted) {
-                val first = supportWanted.entries.firstOrNull() ?: return
-                supportWanted.remove(first.key)
-                first.key to first.value.toList()
-            }
-            var worked = 0
-            try { worked = setSupport.refresh(listOf(code)) { cleared } }
-            catch (failure: Exception) { AppLog.warn("Automatum", "Working out set $code's Automatum support failed", failure) }
-            done.forEach { it() }
-            // A breather for the rest of the phone after each set actually worked out
-            if (worked > 0) try { Thread.sleep(SET_SUPPORT_PAUSE_MS) } catch (_: InterruptedException) { return }
-        }
-    }
-
-    /** Chosen as a source (DRF-161): works out [code]'s support now on the caller's (background) thread when it isn't
-     * known yet, so it goes with the source. Blocking. */
-    internal fun setSupportNow(code: String) {
-        try { setSupport.refresh(listOf(code)) { cleared } }
-        catch (failure: Exception) { AppLog.warn("Automatum", "Working out set $code's Automatum support failed", failure) }
-    }
-    private val preferences = application.getSharedPreferences("public-catalog-update", Context.MODE_PRIVATE)
-    private val source: CatalogSource = if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
-        HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
-        else HttpCatalogSource()
-    private var cleared = false
     private var working = false
-    private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            main.post { foreground() }
-        }
-    }
-    init { connectivity.registerDefaultNetworkCallback(callback) }
+    private var closed = false
 
-    fun foreground(force: Boolean = false) {
-        if (cleared || working || state.fullRefresh != null) return
+    /** Starts the check (and an installation when needed) unless it is running or the records are ready. Main thread. */
+    fun start() {
+        if (working || closed || state.ready) return
         working = true
-        val metered = connectivity.isActiveNetworkMetered
-        state = state.copy(busy = true, metered = metered, status = "Checking card records…", error = false, progress = null,
-            background = !force)
-        worker.execute {
-            var installed: CatalogMetadata? = null
-            var available: CatalogMetadata? = null
-            var size: Long? = null
-            var pending: CatalogUpdatePlan? = null
-            try {
-                CatalogRedownloadGate.await()
-                installed = repository.metadata()
-                val local = installed
-                main.post { if (!cleared) state = state.copy(installed = local, loaded = true) }
-                available = preferences.getString("date", null)?.let { date ->
-                    CatalogMetadata(date, preferences.getString("version", "")!!)
+        state = state.copy(failed = false)
+        worker.execute(::work)
+    }
+
+    fun retry() = start()
+
+    /** Tests: shows [value] as the state. */
+    internal fun seed(value: CatalogUiState) { state = value }
+
+    fun close() { closed = true; worker.shutdownNow() }
+
+    private fun work() {
+        try {
+            val installed = repository.metadata()
+            post { if (!closed) state = state.copy(installed = installed) }
+            val wanted = expected ?: try { source().current().checksum } catch (failure: Exception) {
+                if (installed != null) {
+                    AppLog.warn("catalog", "The server's card catalog couldn't be read; keeping the installed ${installed.checksum}", failure)
+                    return finish(installed)
                 }
-                size = preferences.getLong("size", -1).takeIf { it > 0 }
-                var sets = preferences.getStringSet("sets", emptySet()).orEmpty().map { value ->
-                    val (code, date) = value.split('|')
-                    CatalogSet(code, date)
-                }
-                if (force || available == null || CatalogUpdatePolicy.changed(installed, available) || cadence.due(System.currentTimeMillis())) {
-                    val list = if (force || installed == null) retriedOnce("Checking card records") { source.setList() } else source.setList()
-                    available = list.metadata
-                    sets = list.sets
-                    // HEAD is small metadata, not consent to a bulk download.
-                    size = if (CatalogUpdatePolicy.changed(installed, available)) source.size() else null
-                    check(preferences.edit().putString("date", available.date).putString("version", available.version)
-                        .putLong("size", size ?: -1).putStringSet("sets", sets.map { "${it.code}|${it.releaseDate}" }.toSet()).commit())
-                }
-                // Only plan a recent-set refresh when due, not on every connectivity/foreground callback.
-                val plan = CatalogUpdatePolicy.plan(installed, repository.installedSets(), CatalogSetList(available, sets))
-                pending = plan
-                val due = force || cadence.due(System.currentTimeMillis()) || CatalogUpdatePolicy.changed(installed, available)
-                if (due && (catalogAutoDownload(installed, plan, metered) || installed == null && initialDownloadAccepted && plan != null)) {
-                    installed = retriedOnce("Card records download") { install(checkNotNull(plan), size) }
-                    cadence.checked(System.currentTimeMillis(), true)
-                    publish(CatalogUiState(installed = installed, metered = metered, background = !force,
-                        status = if (force) "Card records are up to date." else null))
-                } else {
-                    if (due && plan == null) cadence.checked(System.currentTimeMillis(), true)
-                    publish(CatalogUiState(installed, plan?.metadata?.takeIf { due }, size.takeIf { plan?.full == true }, metered, status =
-                        if (force && plan == null && installed != null) "Card records are up to date." else null,
-                        background = !force, plan = plan?.takeIf { due }))
-                }
-            } catch (failure: Exception) {
-                AppLog.warn("catalog", "Card records check or update failed", failure)
-                cadence.checked(System.currentTimeMillis(), false)
-                // Failed automatic installation still leaves an actionable update/consent offer.
-                publish(CatalogUiState(installed = installed,
-                    available = pending?.metadata ?: available?.takeIf { CatalogUpdatePolicy.changed(installed, it) }, size = size,
-                    plan = pending,
-                    metered = metered, error = true,
-                    status = "Card records could not be updated. ${if (installed != null) "Your installed records are still available." else "Check your connection and free storage, then retry."}"))
+                null
             }
+            if (wanted != null && installed != null && installed.checksum == wanted) {
+                AppLog.info("catalog", "Card records are the app's catalog $wanted (${installed.records} printings)")
+                return finish(installed)
+            }
+            AppLog.info("catalog", "Card records ${installed?.checksum ?: "not installed"}; installing ${wanted ?: "the server's current catalog"}")
+            finish(retriedOnce { install(wanted) })
+        } catch (failure: Exception) {
+            AppLog.warn("catalog", "Card records couldn't be installed", failure)
+            post { if (!closed) { working = false; state = state.copy(failed = true, progress = null) } }
         }
     }
 
-    /** Initial consent, retry and optional metered incremental acquisition. */
-    fun consent() {
-        val current = state
-        if (current.installed == null) initialDownloadAccepted = true
-        if (working || cleared) return
-        val plan = current.plan ?: current.available?.takeIf { CatalogUpdatePolicy.changed(current.installed, it) }
-            ?.let { CatalogUpdatePlan(it, full = true) }
-        if (plan == null) { foreground(force = true); return }
-        startInstall(plan, current.size)
+    private fun finish(installed: CatalogMetadata) = post {
+        if (!closed) { working = false; state = CatalogUiState(installed, ready = true) }
     }
 
-    fun requestFullRefresh() {
-        if (working || cleared) return
-        working = true
-        state = state.copy(busy = true, status = "Checking full catalog size…", error = false, background = false, progress = null)
-        val current = state
-        worker.execute {
-            try {
-                val meta = source.metadata()
-                val size = source.size()
-                publish(current.copy(busy = false, status = null, fullRefresh = CatalogUpdatePolicy.fullRefresh(meta), fullSize = size))
-            } catch (_: Exception) {
-                publish(current.copy(busy = false, error = true, status = "Could not check the full catalog. Check your connection, then retry."))
-            }
-        }
-    }
-
-    fun dismissFullRefresh() { state = state.copy(fullRefresh = null, fullSize = null) }
-    fun dismissError() { state = state.copy(status = null) }
-    fun confirmFullRefresh() {
-        val plan = state.fullRefresh ?: return
-        if (working || cleared) return
-        val size = state.fullSize
-        dismissFullRefresh()
-        startInstall(plan, size)
-    }
-
-    private fun startInstall(plan: CatalogUpdatePlan, size: Long?) {
-        val current = state
-        // Confirming a manual full refresh is also explicit download consent.
-        if (current.installed == null) initialDownloadAccepted = true
-        working = true
-        val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 0, size)
-        state = current.copy(busy = true, error = false, status = progress.label(), progress = progress, background = false)
-        worker.execute {
-            try {
-                val installed = retriedOnce("Card records download") { install(plan, size) }
-                cadence.checked(System.currentTimeMillis(), true)
-                publish(CatalogUiState(installed = installed, metered = current.metered, status = "Card records are up to date."))
-            }
-            catch (failure: Exception) {
-                AppLog.warn("catalog", "Card records download failed", failure)
-                publish(current.copy(busy = false, error = true,
-                    status = "Download failed. Check your connection and free storage, then retry. Your previous records have not changed.")) }
-        }
-    }
-
-    /** A failed card records transfer is logged with its cause and tried once more on its own before the player is asked to
-     * retry (the first download on a fresh install has failed at once and worked on Retry). Worker only. */
-    private fun <T> retriedOnce(what: String, block: () -> T): T = try { block() } catch (failure: Exception) {
-        if (cleared || failure is InterruptedException) throw failure
-        AppLog.warn("catalog", "$what failed; trying once more", failure)
-        Thread.sleep(2_000)
+    /** A failed download is tried once more by itself before the screens say so (LOB-091). Worker only. */
+    private fun <T> retriedOnce(block: () -> T): T = try { block() } catch (failure: Exception) {
+        if (closed || failure is InterruptedException) throw failure
+        AppLog.warn("catalog", "Card records download failed; trying once more", failure)
+        Thread.sleep(retryPause)
         block()
     }
 
-    private fun install(plan: CatalogUpdatePlan, size: Long?): CatalogMetadata {
+    private fun install(checksum: String?): CatalogMetadata {
         var last = 0L
         var phase: CatalogPhase? = null
-        return CatalogInstaller(directory, repository, source).install(plan, size) { progress ->
+        return CatalogInstaller(directory, repository, source(), log = { AppLog.info("catalog", it) }).install(checksum) { progress ->
             val now = System.nanoTime()
-            if (phase != progress.phase || now - last >= 250_000_000 || progress.done == progress.total) {
+            if (phase != progress.phase || now - last >= 250_000_000) {
                 last = now
                 phase = progress.phase
-                main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label(), background = false) }
+                post { if (!closed) state = state.copy(progress = progress, failed = false) }
             }
         }
     }
-    private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
-        state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)
-        working = false
-        // Consent may arrive while the small metadata check is finishing.
-        if (initialDownloadAccepted && value.installed == null && !value.error && value.plan != null) consent()
-    } } }
-    override fun onCleared() {
-        cleared = true
-        connectivity.unregisterNetworkCallback(callback)
-        worker.shutdownNow()
-        supportWorker.shutdownNow()
-    }
 }
 
-/** The set-support thread's pause after each set it worked out (smoke 2026-11-04: light on the phone). */
-private const val SET_SUPPORT_PAUSE_MS = 1_000L
+/** The app's [CatalogController] (MainActivity starts it on resume, [foreground]); [custom]: another one (end-to-end
+ * tests: a phone's own directory and the test server). */
+class CatalogViewModel internal constructor(application: Application, custom: CatalogController?) : AndroidViewModel(application) {
+    constructor(application: Application) : this(application, null)
+    private val main = Handler(Looper.getMainLooper())
+    internal val repository = custom?.repository ?: AndroidCatalogStorage.repository(application)
+    internal val controller = custom ?: CatalogController(AndroidCatalogStorage.directory(application), repository,
+        { HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN) }, BuildConfig.CATALOG_CHECKSUM.ifEmpty { null },
+        Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }, { action -> main.post { action() } })
+    /** LOB-117: the catalog's dungeons Automatum plays fully, which the device brings to games whose decks venture. */
+    internal val dungeons = CatalogDungeonCards({ repository.dungeonDefinitions() }, { repository.tokenGeneration() })
+    val state: CatalogUiState get() = controller.state
 
-internal fun catalogAutoDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean): Boolean =
-    installed != null && plan != null && CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false)
+    fun foreground() = controller.start()
+    fun retry() = controller.retry()
+    internal fun seed(value: CatalogUiState) = controller.seed(value)
 
-/** Metadata checks before consent are not failed downloads and must not show a retry banner. */
-internal fun catalogConsentPresentation(state: CatalogUiState, initialDownloadAccepted: Boolean): CatalogUiState =
-    if (state.installed == null && !initialDownloadAccepted && state.error) state.copy(error = false, status = null) else state
+    override fun onCleared() = controller.close()
+}

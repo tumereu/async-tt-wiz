@@ -1253,76 +1253,42 @@ class PodHttpTest {
             input.copy(requestId = id(), draftAttemptId = draft.draftAttemptId!!), 409)).code)
     }
 
-    private fun setUpload(recipe: Boolean = true, large: Boolean = false): PodSetSource {
-        val definitions = List(3) { index ->
-            val card = CardDefinition("Set fixture $index", listOf(DefinitionFace(id(), "Set fixture $index",
-                rulesText = if (large) "x".repeat(30000) else "")))
-            SubmittedDefinition(DeckJson.digest(card), card)
-        }
-        val cards = definitions.mapIndexed { index, definition ->
-            // Reverse UUID order makes accidental JSONB key sorting of a fixed sheet observable.
-            SetSourceCard(definition.digest, "00000000-0000-4000-8000-${(3 - index).toString().padStart(12, '0')}",
-                listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index])
-        }
-        val booster = if (recipe) SetBoosterRecipe(listOf(SetBoosterComposition(mapOf("fixed" to 3), 1)),
-            mapOf("fixed" to SetBoosterSheet(cards.associate { it.uuid to 1 }, fixed = true)), name = "play") else null
-        return PodSetSource(SetSourceSnapshot("TST", "Uploaded test set", cards, booster), definitions)
-    }
-
-    @Test fun `set upload validates definitions digest coverage recipes sizes and exclusive sources`() = fixture { f ->
-        val upload = setUpload()
-        fun create(source: PodSetSource, code: String) {
-            val result = f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Set", setSource = source), 400)
-            assertEquals(code, json.decodeFromString<PodError>(result).code)
-        }
-        create(upload.copy(definitions = upload.definitions.dropLast(1)), "definitions_unavailable")
-        create(upload.copy(definitions = upload.definitions.map { it.copy(digest = "sha256:" + "0".repeat(64)) }), "invalid_definition")
-        create(upload.copy(snapshot = upload.snapshot.copy(cards = List(5001) { upload.snapshot.cards.first().copy(uuid = id()) })), "invalid_set_snapshot")
-        create(upload.copy(snapshot = upload.snapshot.copy(recipe = upload.snapshot.recipe!!.copy(boostersTotalWeight = 99))), "invalid_set_snapshot")
+    // DRF-169: a pod's set is named by its code alone
+    @Test fun `a pod's source is one cube or one set code`() = fixture { f ->
         f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "No source"), 400)
-        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", f.cube.cube.id, setSource = upload), 400)
-        val oversized = " ".repeat(8 * 1024 * 1024 + 1)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", f.cube.cube.id, setCode = "TST"), 400)
+        val oversized = " ".repeat(65537)
         assertEquals(413, f.request(f.a, "POST", "/v1/pods", oversized).statusCode())
         val pod = f.create().id
         assertEquals(413, f.request(f.a, "PUT", "/v1/pods/$pod", oversized).statusCode())
-        assertEquals(413, f.request(f.a, "POST", "/v1/pods/$pod/start", " ".repeat(65537)).statusCode())
-        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id, setSource = upload), 400)
-        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload.copy(definitions = emptyList())), 400)
+        assertEquals(413, f.request(f.a, "POST", "/v1/pods/$pod/start", oversized).statusCode())
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id, setCode = "TST"), 400)
         assertEquals(PodSourceKind.CUBE, f.get(f.a, pod).source.kind)
-        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload))
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "TST"))
         assertEquals(PodSourceKind.SET, f.get(f.a, pod).source.kind)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id))
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
     }
 
-    @Test fun `set boosters use configured approximate size or recipe size and allow challenges`() = fixture { f ->
-        for (recipe in listOf(true, false)) {
-            val upload = setUpload(recipe, large = true) // A real source upload larger than the ordinary 64 KiB route limit.
-            val request = CreatePod(id(), "Set pod", setSource = upload)
+    // DRF-090: recipe packs from the catalog's set, and challenges from a set pod
+    @Test fun `set boosters use the recipe size and allow challenges`() = fixture { f ->
+        run {
+            val request = CreatePod(id(), "Set pod", setCode = "TST")
             val created = f.send(f.a, "POST", "/v1/pods", request, 201)
             assertEquals(created, f.send(f.a, "POST", "/v1/pods", request, 201))
-            if (recipe) {
-                val booster = upload.snapshot.recipe!!
-                val reordered = booster.copy(sheets = booster.sheets.mapValues { (_, sheet) ->
-                    sheet.copy(cards = sheet.cards.entries.reversed().associate { it.key to it.value })
-                })
-                f.send(f.a, "POST", "/v1/pods", request.copy(setSource = upload.copy(snapshot = upload.snapshot.copy(recipe = reordered))), 409)
-            }
             val pod = json.decodeFromString<PodDetail>(created).id
-            assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Uploaded test set",
-                boosterKind = if (recipe) SetBoosterKind.RECIPE_BASED else SetBoosterKind.APPROXIMATE,
-                boosterName = upload.snapshot.recipe?.name), f.get(f.a, pod).source)
+            assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set",
+                boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play"), f.get(f.a, pod).source)
             f.join(pod)
             f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 7))
             val started = f.start(pod)
             assertTrue(started.supply.sufficient)
-            val packSize = if (recipe) 3 else 7
+            val packSize = 4
             assertEquals(packSize, started.draft!!.head!!.cards.size)
             assertNull(started.grid)
-            f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = setUpload(!recipe)), 409)
+            f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "TWL"), 409)
             val all = started.draft!!.head!!.cards
-            assertTrue(all.all { card -> upload.definitions.any { it.digest == card.definition } })
-            if (recipe) assertEquals(upload.snapshot.cards.map { it.definition }, all.map { it.definition })
+            assertTrue(all.all { card -> started.definitions.any { it.digest == card.definition } })
             f.finish(pod, listOf(f.a, f.b))
             assertEquals(2 * packSize, listOf(f.a, f.b).sumOf { f.get(it, pod).draft!!.pool.size })
             assertPrivacy(f, pod)
@@ -1363,22 +1329,16 @@ class PodHttpTest {
     }
 
     // DRF-090
-    @Test fun `set Grid generates ordered cards with unlimited supply and completes`() = fixture { f ->
-        val upload = setUpload()
+    @Test fun `set Grid generates cards with unlimited supply and completes`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id
         f.join(pod)
-        val replacement = UpdatePod(id(), setSource = upload,
+        val replacement = UpdatePod(id(), setCode = "TWL",
             settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2, freshBoosters = false))
         val updated = f.send(f.a, "PUT", "/v1/pods/$pod", replacement)
         assertEquals(updated, f.send(f.a, "PUT", "/v1/pods/$pod", replacement))
-        val recipe = upload.snapshot.recipe!!
-        val reordered = recipe.copy(sheets = recipe.sheets.mapValues { (_, sheet) ->
-            sheet.copy(cards = sheet.cards.entries.reversed().associate { it.key to it.value })
-        })
-        f.send(f.a, "PUT", "/v1/pods/$pod", replacement.copy(setSource = upload.copy(snapshot = upload.snapshot.copy(recipe = reordered))), 409)
         val started = f.start(pod)
         assertTrue(started.supply.sufficient)
-        assertEquals(upload.snapshot.cards.map { it.definition }, started.grid!!.publicView.grids.first().positions.take(3).map { it!!.definition })
+        assertEquals(9, started.grid!!.publicView.grids.first().positions.count { it != null })
         finishGrid(f, pod, listOf(f.a, f.b))
         assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
         for (player in listOf(f.a, f.b)) {
@@ -1397,22 +1357,21 @@ class PodHttpTest {
 
     // DRF-091
     @Test fun `set Grid with fresh boosters gives each grid random cards from its own booster`() = fixture { f ->
-        val upload = setUpload()
         val pod = f.create(DraftMode.GRID).id
         f.join(pod)
         assertTrue(f.get(f.a, pod).settings.freshBoosters) // on by default
         val settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2)
-        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload, settings = settings.copy(freshBoosters = false)))
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "TST", settings = settings.copy(freshBoosters = false)))
         assertFalse(f.get(f.b, pod).settings.freshBoosters)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), settings = settings))
         assertTrue(f.get(f.b, pod).settings.freshBoosters)
         val started = f.start(pod)
         val grids = started.grid!!.publicView.grids
         assertEquals(2, grids.size)
-        // The fixture booster holds 3 cards: each grid takes all of its own booster and is topped up from spare boosters.
+        // The test set's booster holds 4 cards: each grid takes all of its own booster and is topped up from spare boosters.
         grids.forEachIndexed { index, grid ->
             val boosters = grid.positions.map { it!!.id.substringBefore(":copy:") }
-            assertEquals(3, boosters.count { it == "set-pack-$index" })
+            assertEquals(4, boosters.count { it == "set-pack-$index" })
             assertTrue(boosters.filter { it != "set-pack-$index" }.all { it.removePrefix("set-pack-").toInt() >= 2 })
         }
         finishGrid(f, pod, listOf(f.a, f.b))
@@ -1437,11 +1396,10 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL"))
         assertEquals("Thornwall Crossing", f.get(f.a, other).source.setName)
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL", cubeId = f.cube.cube.id), 400)
-        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", setCode = "TST", setSource = setUpload()), 400)
     }
 
     // DRF-162, SYS-082 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
-    // marks, whether chosen by its code or uploaded, and a set its catalog doesn't have to draft
+    // marks, and a set its catalog doesn't have to draft
     @Test fun `a set the catalog's marks say can't be drafted is refused`() = fixture { f ->
         fun refused(input: CreatePod, status: Int, code: String) =
             assertEquals(code, json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods", input, status)).code)
@@ -1449,15 +1407,15 @@ class PodHttpTest {
         refused(CreatePod(id(), "Unlisted", setCode = "OFF"), 409, "automatum_unsupported")
         refused(CreatePod(id(), "Promos", setCode = "DCK"), 404, "set_not_found")
         refused(CreatePod(id(), "Unknown", setCode = "NOPE"), 404, "set_not_found")
-        val upload = setUpload()
-        refused(CreatePod(id(), "Uploaded broken", setSource = upload.copy(snapshot = upload.snapshot.copy(setCode = "BAD"))), 409,
-            "automatum_unsupported")
         val pod = f.create().id
         assertEquals("automatum_unsupported", json.decodeFromString<PodError>(
             f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "BAD"), 409)).code)
         assertEquals(PodSourceKind.CUBE, f.get(f.a, pod).source.kind)
         // A set the catalog can draft keeps its support from the marks: nothing Automatum can't play
-        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload))
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "TST"))
         assertEquals(PodSourceKind.SET, f.get(f.a, pod).source.kind)
+        // A set whose only unsupported cards are on a bonus sheet from another set can be drafted (CatalogPackSheets)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "BON"))
+        assertEquals("Bonus Sheet Set", f.get(f.a, pod).source.setName)
     }
 }

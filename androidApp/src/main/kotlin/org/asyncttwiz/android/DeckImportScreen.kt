@@ -27,10 +27,11 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     LaunchedEffect(state.linkDialog) {
         if (state.linkDialog) controller.prefillUrl { clipboard.getText()?.text }
     }
-    LaunchedEffect(catalog?.state?.installed, catalog?.state?.busy) {
-        controller.catalogChanged(catalog?.state?.installed, catalog?.state?.busy == true)
+    val installing = catalog != null && !catalog.state.ready
+    LaunchedEffect(catalog?.state?.installed, installing) {
+        controller.catalogChanged(catalog?.state?.installed?.takeIf { !installing }, installing)
     }
-    LaunchedEffect(state.text, catalog?.state?.busy) {
+    LaunchedEffect(state.text, installing) {
         if (state.text.isNotBlank() && state.result == null) {
             kotlinx.coroutines.delay(400); controller.lookup()
         }
@@ -69,7 +70,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         feedback = {
             ImportError(state.error)
             if (state.lookupFailed) ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() },
-                enabled = !state.busy && !state.saving && catalog?.state?.busy != true, modifier = Modifier.testTag("retry-lookup")) {
+                enabled = !state.busy && !state.saving && !installing, modifier = Modifier.testTag("retry-lookup")) {
                 EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text("Retry lookup")
             }
             ImportResultSummary(state.result, lineNumbers = true)

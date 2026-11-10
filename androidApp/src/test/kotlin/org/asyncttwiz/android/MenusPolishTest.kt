@@ -27,7 +27,7 @@ class MenusPolishTest {
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
             viewModels.put("catalog", it)
-            it.seed(CatalogUiState(loaded = true))
+            it.seed(CatalogUiState(ready = true))
         }
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, decks = fixtures.library) } }
         compose.onNodeWithTag("menu-SETTINGS").performScrollTo().performClick()

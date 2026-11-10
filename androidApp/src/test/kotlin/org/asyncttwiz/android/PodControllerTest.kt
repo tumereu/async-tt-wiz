@@ -65,7 +65,7 @@ class PodControllerTest {
             calls += "create" to input
             if (failSourceWrites) throw PodFailure("network")
             saved = detail(PodPhase.SETUP).copy(name = input.name, settings = input.settings ?: podModeSettings(input.mode, DraftSettings()),
-                source = input.setSource?.podSource() ?: PodSource("Cube", 540))
+                source = input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: PodSource("Cube", 540))
             return saved
         }
         override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail {
@@ -73,7 +73,7 @@ class PodControllerTest {
             updateFailure?.let { throw PodFailure(it) }
             if (failSourceWrites) throw PodFailure("network")
             saved = saved.copy(name = input.name ?: saved.name, settings = input.settings ?: saved.settings,
-                source = input.setSource?.podSource() ?: saved.source)
+                source = input.setCode?.let { PodSetChoice(it, "Test set").podSource() } ?: saved.source)
             return saved
         }
         override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail { calls += "invite" to input; return saved }
@@ -557,41 +557,25 @@ class PodControllerTest {
     private inner class Sets : PodSetRepository {
         val calls = mutableListOf<String>()
         var fail = false
-        /** What loading a set throws (7ZZC89). */
-        var failure: Exception? = null
-        var upload = SetSourceUpload(SetSourceSnapshot("TST", "Test set",
-            listOf(SetSourceCard(definition.digest, UUID.randomUUID().toString()))), SubmittedDefinitions(listOf(definition)), emptyList(), emptyList())
-        override fun sets(): List<DraftableSet> { calls += "sets"; return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, "expansion")) }
-        override fun isCached(code: String) = true
-        override fun load(code: String): SetSourceUpload { calls += "load:$code"; failure?.let { throw it }; if (fail) error("offline"); return upload }
-        /** DRF-161: the support worked out so far, the background requests and the sets worked out at once. */
-        val support = mutableMapOf<String, List<String>>()
-        val requested = mutableListOf<List<String>>()
-        val requestsDone = mutableListOf<() -> Unit>()
-        val now = mutableListOf<String>()
-        /** What working a set out at once finds (none: it stays unknown). */
-        var computed = emptyMap<String, List<String>>()
-        override fun automatum(): Map<String, List<String>> = support.toMap()
-        override fun requestAutomatum(codes: List<String>, done: () -> Unit) { requested += codes; requestsDone += done }
-        override fun automatumNow(code: String) { now += code; computed[code]?.let { support[code] = it } }
+        override fun sets(): List<DraftableSet> {
+            calls += "sets"; if (fail) error("offline")
+            return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, true), DraftableSet("BAD", "Broken set", "2026-09-01", 2, false, listOf("Odd Cub")))
+        }
     }
 
-    // DRF-161 (smoke 2026-11-04): the picker asks for the support of the sets it shows, each once; an icon shows once
-    // the set is worked out; a chosen set is worked out at once and its result goes with the source
-    @Test fun setSupportIsWorkedOutOnlyForShownAndChosenSets() = Fixture(PodPhase.SETUP).use { f ->
+    // DRF-161, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
+    // of can't be chosen
+    @Test fun setSupportComesFromTheMarksAndAnUnsupportedSetCantBeChosen() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()
-        assertTrue(f.sets.requested.isEmpty(), "nothing is asked for before rows show")
-        f.controller.setPicker.showing(listOf("TST", "OLD"))
-        f.controller.setPicker.showing(listOf("TST"))
-        assertEquals(listOf(listOf("TST", "OLD")), f.sets.requested)
-        f.sets.support["OLD"] = emptyList()
-        f.sets.requestsDone.forEach { it() }; f.deliver()
-        assertEquals(true, f.controller.setPicker.state.support("OLD")?.supported)
-        assertNull(f.controller.setPicker.state.support("TST"))
-        f.sets.computed = mapOf("TST" to listOf("Odd Cub"))
+        assertEquals(true, f.controller.setPicker.state.support("TST")?.supported)
+        assertEquals(listOf("Odd Cub"), f.controller.setPicker.state.support("BAD")?.byHand)
+        f.controller.setPicker.choose("BAD"); f.deliver()
+        assertTrue(f.controller.setPicker.state.open, "the unsupported set is not chosen")
+        assertEquals(cube.id, f.controller.state.creating!!.cubeId)
         f.controller.setPicker.choose("TST"); f.deliver()
-        assertEquals(listOf("TST"), f.sets.now)
-        assertEquals(listOf("Odd Cub"), f.controller.state.creating!!.setSource!!.support?.byHand)
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals(PodSetChoice("TST", "Test set"), f.controller.state.creating!!.set)
+        assertNull(f.controller.state.creating!!.cubeId)
     }
 
     @Test fun setupFieldTransformsMergeIntoLatestPendingSettingsAndSaveTogether() = Fixture(PodPhase.SETUP).use { f ->
@@ -707,154 +691,70 @@ class PodControllerTest {
         assertEquals(2, f.api.saved.settings.keep)
     }
 
-    @Test fun reopeningSourcePickerCancelsPreparationAndRestoresThePreviousSelection() = Fixture(PodPhase.SETUP).use { f ->
-        f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()
-        f.controller.setPicker.choose("TST")
-        assertNotNull(f.controller.state.sourcePreview)
-        f.controller.chooseSet()
-        assertNull(f.controller.state.sourcePreview)
-        f.controller.setPicker.dismiss(); f.deliver()
-        assertNull(f.controller.state.creating!!.setSource)
-        assertEquals(cube.id, f.controller.state.creating!!.cubeId)
-    }
-
     // DRF-019
-    @Test fun cachedSetSelectionDuringPendingSaveClosesImmediatelyAndSurvivesQueuedRefresh() = Fixture(PodPhase.SETUP).use { f ->
+    @Test fun setSelectionDuringPendingSaveClosesImmediatelyAndSurvivesQueuedRefresh() = Fixture(PodPhase.SETUP).use { f ->
         f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
         f.controller.editSetup(name = "Renamed"); f.controller.flushSetup()
-        f.controller.chooseSet()
-        assertTrue(f.controller.state.loading)
-        assertEquals(1, f.controller.state.pending)
-        assertTrue(f.controller.setPicker.state.busy)
-        assertTrue(f.controller.setPicker.state.rows.single().cached)
+        f.controller.chooseSet(); f.deliver()
         f.controller.setPicker.choose("TST")
         assertFalse(f.controller.setPicker.state.open)
-        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
-        assertEquals(listOf("sets"), f.sets.calls) // Save, refresh and preparation are still queued.
         f.deliver()
-        assertFalse(f.controller.setPicker.state.open)
-        assertFalse(f.controller.setPicker.state.busy)
-        assertNull(f.controller.state.sourcePreview)
         assertEquals("Renamed", f.controller.state.detail!!.name)
         assertEquals("Test set", f.controller.state.detail!!.source.setName)
-        assertEquals(f.sets.upload.snapshot, f.controller.state.setup!!.setSource!!.snapshot)
+        assertEquals(PodSetChoice("TST", "Test set"), f.controller.state.setup!!.set)
         f.controller.flushSetup(); f.deliver()
-        assertEquals("Test set", f.api.saved.source.setName)
+        assertEquals("TST", (f.api.calls.last().second as UpdatePod).setCode)
         assertNull(f.controller.state.setup)
-        assertEquals(listOf("sets", "sets", "load:TST"), f.sets.calls)
     }
 
-    // DRF-019
-    @Test fun cachedSetSelectionDuringRefreshRevertsPreviewOnPreparationFailure() = Fixture(PodPhase.SETUP).use { f ->
-        f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
-        val original = f.controller.state.detail!!.source
-        f.controller.editSettings { it.copy(keep = 2) }; f.controller.flushSetup()
-        f.controller.chooseSet()
-        f.sets.fail = true
-        f.controller.setPicker.choose("TST")
-        assertFalse(f.controller.setPicker.state.open)
-        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
-        f.deliver()
-        assertNull(f.controller.state.sourcePreview)
-        assertEquals(original, f.controller.state.detail!!.source)
-        assertEquals(2, f.controller.state.detail!!.settings.keep)
-        assertEquals("Could not load source.", f.controller.state.error)
-        assertFalse(f.controller.setPicker.state.open)
-        assertFalse(f.controller.setPicker.state.busy)
-    }
-
-    // DRF-168, problem report 7ZZC89: the player reads why the set can't be loaded, the log (and so the report) its cause
-    @Test fun aSetThatCantBeLoadedSaysWhyAndLogsTheCause() = Fixture(PodPhase.SETUP).use { f ->
-        f.open(); f.controller.chooseSet(); f.deliver()
-        f.sets.failure = SetSourceProblem("Invalid catalog definition for some-card-7ZZC89", "Test set can't be used as a draft source.")
-        f.controller.setPicker.choose("TST"); f.deliver()
-        assertEquals("Test set can't be used as a draft source.", f.controller.state.error)
-        assertNull(f.controller.state.sourcePreview)
-        assertTrue("Invalid catalog definition for some-card-7ZZC89" in AppLog.text(), AppLog.text())
-        // A preset's set, which never opens the list, likewise
-        f.controller.dismissError()
-        f.sets.failure = SetSourceProblem("Set source card limit for preset-7ZZC89", "Preset set has too many cards.")
-        f.controller.setPicker.load("TST", "Test set"); f.deliver()
-        assertEquals("Preset set has too many cards.", f.controller.state.error)
-        assertTrue("Set source card limit for preset-7ZZC89" in AppLog.text(), AppLog.text())
-    }
-
-    // DRF-019
-    @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
+    // DRF-169: a set pod sends only the set's code, the same request on retries
+    @Test fun setCreateSendsOnlyTheCodeAndKeepsRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.chooseSet()
         assertTrue(f.sets.calls.isEmpty()) // No repository IO on the caller/main thread.
-        assertTrue(f.controller.setPicker.state.busy)
         f.deliver()
-        f.controller.setPicker.choose("TST")
-        assertFalse(f.controller.setPicker.state.open)
-        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
-        assertEquals(listOf("sets"), f.sets.calls)
-        f.deliver()
+        f.controller.setPicker.choose("TST"); f.deliver()
         assertNull(f.controller.state.creating!!.cubeId)
-        assertEquals(f.sets.upload.snapshot, f.controller.state.creating!!.setSource!!.snapshot)
-        assertFalse(f.controller.setPicker.state.open)
         f.api.failSourceWrites = true
         f.controller.create()
-        assertTrue(f.controller.state.loading)
         assertEquals(1, f.controller.state.pending)
-        assertTrue(f.api.calls.isEmpty())
         f.deliver()
         assertTrue(f.controller.state.uncertain)
         val original = f.api.calls.first().second as CreatePod
         assertNull(original.cubeId)
-        assertEquals(PodSetSource(f.sets.upload.snapshot, listOf(definition)), original.setSource)
+        assertEquals("TST", original.setCode)
         assertTrue(f.api.calls.all { it.second == original })
-        f.sets.upload = f.sets.upload.copy(snapshot = f.sets.upload.snapshot.copy(setName = "Changed download"))
         f.api.failSourceWrites = false; f.controller.retry(); f.deliver()
         assertEquals(original, f.api.calls.last().second)
-        assertEquals(listOf("sets", "load:TST"), f.sets.calls)
         assertEquals(PodSourceKind.SET, f.controller.state.detail!!.source.kind)
         assertFalse(f.controller.state.uncertain)
     }
 
-    @Test fun setUpdateUsesDefinitionsAndStableRetryAndSettingsOnlyUpdateDoesNotReupload() = Fixture(PodPhase.SETUP).use { f ->
+    // DRF-169
+    @Test fun setUpdateSendsTheCodeWithStableRetryAndSettingsOnlyUpdatesDont() = Fixture(PodPhase.SETUP).use { f ->
         f.open(); f.controller.chooseSet(); f.deliver()
         f.controller.setPicker.choose("TST"); f.deliver()
-        assertNotNull(f.controller.state.setup!!.setSource)
         f.api.failSourceWrites = true; f.controller.flushSetup(); f.deliver()
         val original = f.api.calls.first().second as UpdatePod
-        assertNull(original.cubeId)
-        assertEquals(PodSetSource(f.sets.upload.snapshot, listOf(definition)), original.setSource)
-        assertTrue(f.controller.state.uncertain)
+        assertEquals("TST", original.setCode)
         f.api.failSourceWrites = false; f.controller.retry(); f.deliver()
         assertEquals(original, f.api.calls.last().second)
-        assertNull(f.controller.state.setup)
         f.controller.editSetup(name = "Set draft"); f.controller.flushSetup(); f.deliver()
-        assertNull((f.api.calls.last().second as UpdatePod).setSource)
+        assertNull((f.api.calls.last().second as UpdatePod).setCode)
         assertEquals(PodSourceKind.SET, f.controller.state.detail!!.source.kind)
     }
 
-    @Test fun setDownloadErrorsDoNotSelectOrUpload() = Fixture(PodPhase.SETUP).use { f ->
-        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
-        f.sets.fail = true; f.controller.setPicker.choose("TST"); f.deliver()
-        assertNotNull(f.controller.setPicker.state.error)
-        assertNull(f.controller.state.sourcePreview)
-        assertNull(f.controller.state.creating!!.setSource)
-        assertNotNull(f.controller.state.error)
-        f.sets.fail = false; f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
-        assertNotNull(f.controller.state.creating!!.setSource)
+    @Test fun setsThatCantBeReadSayWhyAndAChosenCubeReplacesASet() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(); f.deliver()
+        f.sets.fail = true; f.controller.chooseSet(); f.deliver()
+        assertEquals("Could not load the sets.", f.controller.setPicker.state.error)
+        f.sets.fail = false; f.controller.setPicker.retry(); f.deliver()
+        f.controller.setPicker.choose("TST"); f.deliver()
+        assertNotNull(f.controller.state.creating!!.set)
         assertTrue(f.api.calls.isEmpty())
         f.controller.newCube(cube.id)
-        assertNull(f.controller.state.creating!!.setSource)
+        assertNull(f.controller.state.creating!!.set)
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
-    }
-
-    @Test fun leavingPickerOrLoggingOutFencesLateSetPreparation() = Fixture(PodPhase.SETUP).use { f ->
-        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
-        f.controller.setPicker.choose("TST"); f.worker.drain()
-        f.controller.back(); f.deliver()
-        assertNull(f.controller.state.creating)
-        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.worker.drain()
-        f.controller.clear(); f.deliver()
-        assertNull(f.controller.state.creating)
-        assertFalse(f.controller.setPicker.state.open)
-        assertTrue(f.api.calls.isEmpty())
     }
 
     @Test fun listKeepsServerOrderingAndPrivateDetailMapsDefinitionsAndStatus() = Fixture().use { f ->
@@ -1434,15 +1334,15 @@ class PodControllerTest {
         assertEquals(listOf("Friday", cube.id, settings), listOf(created.name, created.cubeId, created.settings))
     }
 
-    @Test fun loadingASetPresetLoadsTheSetFromTheCatalog() = Fixture().use { f ->
+    @Test fun loadingASetPresetChoosesTheSetByItsCode() = Fixture().use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.presets.open(); f.deliver()
         f.controller.applyPreset(preset("Set booster", DraftSettings().copy(packsPerPlayer = 4), setCode = "TST"))
         assertNull(f.controller.state.creating!!.cubeId)
-        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        assertNull(f.controller.state.sourcePreview)
         f.deliver()
-        assertEquals(listOf("load:TST"), f.sets.calls)
-        assertEquals("TST", f.controller.state.creating!!.setSource?.snapshot?.setCode)
+        assertTrue(f.sets.calls.isEmpty(), "a set goes by its code: nothing is loaded")
+        assertEquals("TST", f.controller.state.creating!!.set?.code)
         assertEquals(4, f.controller.state.creating!!.settings.packsPerPlayer)
         assertNull(f.controller.state.sourcePreview)
         // Saving again remembers the set by its code.
@@ -1457,7 +1357,7 @@ class PodControllerTest {
         val settings = DraftSettings.glimpse()
         f.controller.applyPreset(preset("Old cube", settings, UUID.randomUUID().toString(), missing = true))
         val draft = f.controller.state.creating!!
-        assertEquals(listOf(null, null, settings), listOf(draft.cubeId, draft.setSource, draft.settings))
+        assertEquals(listOf(null, null, settings), listOf(draft.cubeId, draft.set, draft.settings))
         assertTrue(f.controller.setPicker.state.open)
         assertEquals("The cube of “Old cube” no longer exists. Choose a set or cube.", f.controller.state.sourceHint)
         f.deliver()
@@ -1478,6 +1378,6 @@ class PodControllerTest {
         assertEquals(DraftSettings.glimpse(), f.controller.state.detail!!.settings)
         f.controller.flushSetup(); f.deliver()
         val update = f.api.calls.single().second as UpdatePod
-        assertEquals(listOf(DraftSettings.glimpse(), null, null), listOf(update.settings, update.cubeId, update.setSource))
+        assertEquals(listOf(DraftSettings.glimpse(), null, null), listOf(update.settings, update.cubeId, update.setCode))
     }
 }

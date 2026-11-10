@@ -146,19 +146,18 @@ class DraftGalleryScreenshotTest {
     // DRF-018, DRF-088, DRF-089
     @Test fun sourceSetsTab() {
         val detail = detail(PodPhase.SETUP, DraftSettings.booster(), listOf(PodMember(alice), PodMember(bob)))
-        pods.setPicker.seed(PodSetPickerState(open = true, loaded = true, rows = listOf(
-            PodSetRow(DraftableSet("EMR", "Ember Reaches", "2026-10-02", 280, "expansion"), true),
-            PodSetRow(DraftableSet("TWI", "Tidewild Isles", "2026-06-12", 271, "expansion"), true),
-            PodSetRow(DraftableSet("CRM", "Crown of Masters", "2026-03-06", 300, "masters"), false),
-            PodSetRow(DraftableSet("HRV", "Harvest Hollow", "2025-11-14", 264, "expansion"), false),
-            PodSetRow(DraftableSet("CR26", "Core Rites 2026", "2025-07-11", 281, "core"), false),
-            PodSetRow(DraftableSet("PCK", "Pack Commander Decks", "2025-07-11", 100, "commander"), false))))
+        pods.setPicker.seed(PodSetPickerState(open = true, loaded = true, sets = listOf(
+            DraftableSet("EMR", "Ember Reaches", "2026-10-02", 280, true),
+            DraftableSet("TWI", "Tidewild Isles", "2026-06-12", 271, false, listOf("Tidal Oddity", "Whirling Omen")),
+            DraftableSet("CRM", "Crown of Masters", "2026-03-06", 300, true),
+            DraftableSet("HRV", "Harvest Hollow", "2025-11-14", 264, true),
+            DraftableSet("CR26", "Core Rites 2026", "2025-07-11", 281, false, listOf("Rite of Doubt")))))
         show(opened(detail))
         compose.onNodeWithText("Sets").performClick()
         settle()
         compose.onNodeWithText("Ember Reaches").assertIsDisplayed()
         shot("source-sets", "Tapping the source's edit button in pod setup and then the Sets tab lists the draftable sets newest " +
-            "first, with a search field; downloaded and other sets look the same (invented set names).")
+            "first, with a search field; the two Automatum can't play every card of are greyed with the warning sign (invented set names).")
     }
 
     // DRF-031, DRF-032

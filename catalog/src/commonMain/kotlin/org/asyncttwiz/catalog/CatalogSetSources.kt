@@ -16,11 +16,10 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 class CatalogSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>, val missing: Int)
 
 /**
- * Set packs from the card catalog (docs/specs/web-client.md section 3.7), as a device builds a set source from its card
- * records and a set file today (client-storage's `SetSourceRepository`): every card of the set, and the cards of other
+ * Set packs from the card catalog (docs/specs/web-client.md section 3.7): every card of the set, and the cards of other
  * sets its recipe names; a meld result is never a card of its own; printings the catalog doesn't have are left out of the
- * recipe, and a recipe that no longer holds together without them is dropped (approximate packs, DRF-090). No size
- * limits: any set the catalog has can be built.
+ * recipe, and a recipe that no longer holds together without them is dropped (approximate packs, DRF-090). Any set the
+ * catalog has can be built.
  */
 object CatalogSetSources {
     /** Set [code]'s source, or null when the catalog has no usable cards of it. Throws when a card's data isn't valid. */
@@ -70,9 +69,8 @@ object CatalogSetSources {
         return CatalogSetSource(snapshot, definitions.values.toList(), missing)
     }
 
-    /** A set source's checks without an uploaded set's size limits. */
-    fun validate(snapshot: SetSourceSnapshot): List<SetSourceIssue> =
-        SetSourceValidation.validate(snapshot, Int.MAX_VALUE, Int.MAX_VALUE)
+    /** A set source's checks. */
+    fun validate(snapshot: SetSourceSnapshot): List<SetSourceIssue> = SetSourceValidation.validate(snapshot)
 
     private fun rarity(value: String): SetCardRarity = when (value) {
         "common" -> SetCardRarity.COMMON

@@ -106,6 +106,231 @@
     }
    }
   },
+  "BON": {
+   "code": "BON",
+   "name": "Bonus Sheet Set",
+   "type": "expansion",
+   "releaseDate": "2020-05-01",
+   "cards": [
+    {
+     "uuid": "f5a51f53-c896-5d03-82d1-a4b4b33f4561",
+     "name": "Bonus Elk",
+     "setCode": "BON",
+     "number": "1",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elk",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "fbb3869b-aef3-510e-9a1c-2d9bb3a45d2b",
+      "scryfallOracleId": "80b1d383-2c5f-5a66-8beb-c03268538b1b"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "2"
+    },
+    {
+     "uuid": "980edbec-4047-56a6-9b24-8abeea5c0afa",
+     "name": "Bonus Moose",
+     "setCode": "BON",
+     "number": "2",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Moose",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "e5bc5f2b-a069-506e-aabe-44f7537e45de",
+      "scryfallOracleId": "1f4af352-4063-5f3f-aee1-7fbd93b299e1"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "2"
+    },
+    {
+     "uuid": "d9a3be70-c8ba-525b-b60b-613def2e3854",
+     "name": "Bonus Stag",
+     "setCode": "BON",
+     "number": "3",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elk",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "201a1406-93db-5b6f-b0e7-2dd44016f7b9",
+      "scryfallOracleId": "f2b5bf78-799d-51ad-8d0d-589e72876ab4"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "2"
+    },
+    {
+     "uuid": "90584489-e015-5d16-a066-1ce089bf1699",
+     "name": "Test Bear // Test Bear",
+     "setCode": "BON",
+     "number": "4",
+     "language": "English",
+     "side": "a",
+     "otherFaceIds": [
+      "9a1f2288-e30b-56c2-8e84-2e41a075b4f5"
+     ],
+     "faceName": "Test Bear",
+     "layout": "reversible_card",
+     "type": "Creature — Bear",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "rare",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "6517ff47-8c47-592c-87ee-901077fe7625",
+      "scryfallOracleId": "3dea0bdb-0392-5862-a519-46b320195fc5"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "2"
+    },
+    {
+     "uuid": "9a1f2288-e30b-56c2-8e84-2e41a075b4f5",
+     "name": "Test Bear // Test Bear",
+     "setCode": "BON",
+     "number": "4",
+     "language": "English",
+     "side": "b",
+     "otherFaceIds": [
+      "90584489-e015-5d16-a066-1ce089bf1699"
+     ],
+     "faceName": "Test Bear",
+     "layout": "reversible_card",
+     "type": "Creature — Bear",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "rare",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "b52ae4ab-c037-571b-a0c0-6eab057384b9",
+      "scryfallOracleId": "3dea0bdb-0392-5862-a519-46b320195fc5"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "2"
+    }
+   ],
+   "tokens": [],
+   "booster": {
+    "play": {
+     "boosters": [
+      {
+       "contents": {
+        "common": 2,
+        "reversible": 1,
+        "specialGuest": 1
+       },
+       "weight": 1
+      }
+     ],
+     "boostersTotalWeight": 1,
+     "sheets": {
+      "common": {
+       "cards": {
+        "f5a51f53-c896-5d03-82d1-a4b4b33f4561": 1,
+        "980edbec-4047-56a6-9b24-8abeea5c0afa": 1,
+        "d9a3be70-c8ba-525b-b60b-613def2e3854": 1
+       },
+       "totalWeight": 3
+      },
+      "reversible": {
+       "cards": {
+        "90584489-e015-5d16-a066-1ce089bf1699": 1
+       },
+       "totalWeight": 1
+      },
+      "specialGuest": {
+       "cards": {
+        "68431eb3-75d4-5161-8578-a6cba8a57f51": 1
+       },
+       "totalWeight": 1
+      }
+     },
+     "sourceSetCodes": [
+      "BON",
+      "OFF"
+     ]
+    }
+   }
+  },
   "DCK": {
    "code": "DCK",
    "name": "Test Promos",

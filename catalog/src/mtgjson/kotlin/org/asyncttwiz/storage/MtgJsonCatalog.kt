@@ -20,36 +20,6 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         metadata(root.getAsJsonObject("data"))
     }
 
-    fun setList(input: InputStream): CatalogSetList = reader(input).use { reader ->
-        var meta: CatalogMetadata? = null
-        val sets = linkedMapOf<String, CatalogSet>()
-        var sawData = false
-        objectFields(reader) { key -> when (key) {
-            "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
-            "data" -> {
-                sawData = true
-                reader.beginArray()
-                while (reader.hasNext()) {
-                    // Real entries embed large decks/sealedProduct lists; keep only planning/display fields.
-                    val json = JsonObject()
-                    objectFields(reader) { key ->
-                        if (key in setOf("code", "releaseDate", "name", "type")) json.add(key, value(reader, 3, intArrayOf(0))) else skip(reader, 3)
-                    }
-                    val code = string(json, "code", true)
-                    catalogSetFilename(code) // Reject path-like codes before planning or downloading.
-                    val date = string(json, "releaseDate", true).also { LocalDate.parse(it) }
-                    val name = string(json, "name").takeIf { it.isNotBlank() }?.also { check(it.length <= 256) }
-                    val type = string(json, "type").takeIf { it.isNotBlank() }?.also { check(it.length <= 64) }
-                    check(sets.size < 20_000 && sets.put(code, CatalogSet(code, date, name = name, type = type)) == null)
-                }
-                reader.endArray()
-            }
-            else -> skip(reader, 1)
-        } }
-        check(sawData && reader.peek() == JsonToken.END_DOCUMENT)
-        CatalogSetList(checkNotNull(meta), sets.values.toList())
-    }
-
     /** The `meta` of an AllPrintings file (its first field), read without the rest of the file. */
     fun peekMetadata(input: InputStream): CatalogMetadata = reader(input).use { reader ->
         reader.beginObject()
@@ -60,7 +30,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         error("No meta in the MTGJSON file")
     }
 
-    fun import(input: InputStream, index: MtgJsonCatalogSink, expected: CatalogMetadata, setCode: String? = null,
+    fun import(input: InputStream, index: MtgJsonCatalogSink, expected: CatalogMetadata,
         progress: (Long) -> Unit = {}): CatalogMetadata {
         var meta: CatalogMetadata? = null
         var sawData = false
@@ -77,12 +47,11 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             fun readSet(set: String) {
                 check(set.length in 1..32)
                 var sawCards = false
-                var sawCode = false
                 var releaseDate = ""
                 var setName = set
                 var setType: String? = null
                 objectFields(reader) { field -> when (field) {
-                    "code" -> { check(reader.nextString() == set); sawCode = true }
+                    "code" -> check(reader.nextString() == set)
                     "name" -> setName = reader.nextString().also { check(it.length in 1..256) }
                     "type" -> setType = reader.nextString().also { check(it.length in 1..64) }
                     "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
@@ -123,11 +92,11 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                     // Read whole, then parsed apart: a recipe that can't be read never strands the stream.
                     "booster" -> if (!index.readsBoosters || reader.peek() == JsonToken.NULL) skip(reader, 3) else {
                         val booster = JsonParser.parseReader(reader).toString()
-                        index.recipes(set, runCatching { MtgJsonSetSource.boosters(booster) })
+                        index.recipes(set, runCatching { MtgJsonBoosters.boosters(booster) })
                     }
                     else -> skip(reader, 3)
                 } }
-                check(sawCards && (setCode == null || sawCode))
+                check(sawCards)
                 index.addBatch(batch, traits); batch.clear(); traits.clear()
                 index.addSet(set, releaseDate, expected.checksum)
                 index.setName(set, setName)
@@ -137,13 +106,13 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
                 "data" -> {
                     sawData = true
-                    if (setCode == null) objectFields(reader, ::readSet) else readSet(setCode)
+                    objectFields(reader, ::readSet)
                 }
                 else -> skip(reader, 1)
             } }
             check(reader.peek() == JsonToken.END_DOCUMENT)
         }
-        check(sawData && meta != null && meta.version == expected.version && (setCode != null || meta.date == expected.date))
+        check(sawData && meta != null && meta.version == expected.version && meta.date == expected.date)
         index.addBatch(batch, traits)
         progress(count)
         Logger.getLogger(MtgJsonCatalog::class.java.name).info(

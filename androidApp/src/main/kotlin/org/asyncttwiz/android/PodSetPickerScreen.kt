@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,13 +45,14 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
                     }
                 }
             }
-        } else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::retry, picker::showing)
+        } else if (!cardRecordsReady()) CardRecordsPlaceholder(Modifier.fillMaxWidth().height(320.dp)) // The sets are card records (3.6)
+        else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::retry)
     }
 }
 
 @Composable
 internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
-    retry: () -> Unit, showing: (List<String>) -> Unit = {}) {
+    retry: () -> Unit) {
     OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true,
         keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
     val rows = state.filtered
@@ -59,19 +60,15 @@ internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Un
     if (!state.loaded && state.busy && rows.isEmpty()) CircularProgressIndicator()
     else if (rows.isEmpty()) Text("No sets found")
     else {
-    // DRF-161 (smoke 2026-11-04): the support of the sets on screen is worked out, no others
-    val list = rememberLazyListState()
-    val shown by rememberUpdatedState(showing)
-    LaunchedEffect(list) {
-        snapshotFlow { list.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }.distinctUntilChanged().collect { shown(it) }
-    }
-    LazyColumn(Modifier.fillMaxSize(), list, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        items(rows, key = { it.set.code }) { row ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                ScreenOutlinedButton({ choose(row.set.code) }, Modifier.weight(1f)) {
-                    Text(row.set.name)
+    LazyColumn(Modifier.fillMaxSize(), rememberLazyListState(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(rows, key = { it.code }) { set ->
+            // Section 3.9: a set Automatum can't play every card of is greyed and can't be chosen; holding its warning
+            // sign names those cards (DRF-161)
+            Row(Modifier.fillMaxWidth().testTag("set-${set.code}"), verticalAlignment = Alignment.CenterVertically) {
+                ScreenOutlinedButton({ choose(set.code) }, Modifier.weight(1f), enabled = set.automatum) {
+                    Text(set.name)
                 }
-                AutomatumSupportIcon(state.support(row.set.code) ?: row.automatum)
+                AutomatumSupportIcon(set.support())
             }
         }
     }

@@ -31,7 +31,7 @@ class CatalogBuildTest {
     // SYS-081
     @Test fun `the catalog holds every English printing, each face once, the set list and the draftable sets' recipes`() {
         assertEquals("5.3.0+20261031", catalog.header.mtgjsonVersion)
-        assertEquals(listOf("BAD", "DCK", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
+        assertEquals(listOf("BAD", "BON", "DCK", "OFF", "TST", "TWL"), catalog.sets.map { it.code })
         // Test Bear is printed in TST and OFF: one face, two printings; the Japanese printing is left out
         val bear = face("Test Bear")
         assertEquals(setOf("TST", "OFF"), catalog.printings.filter { catalog.faces[it.face] == bear }.map { it.set }.toSet())
@@ -48,8 +48,8 @@ class CatalogBuildTest {
         assertEquals(listOf(token.id), catalog.printings.single { catalog.faces[it.face].name == "Test Caller" }.tokens)
         assertEquals(listOf("test caller"), token.makers)
         // DRF-088's kinds of set; only draftable sets keep a recipe
-        assertEquals(listOf("BAD", "OFF", "TST", "TWL"), catalog.sets.filter { it.draftable }.map { it.code })
-        assertEquals(listOf("BAD", "TST", "TWL"), catalog.recipes.map { it.set })
+        assertEquals(listOf("BAD", "BON", "OFF", "TST", "TWL"), catalog.sets.filter { it.draftable }.map { it.code })
+        assertEquals(listOf("BAD", "BON", "TST", "TWL"), catalog.recipes.map { it.set })
         assertEquals(catalog.header.faces, catalog.faces.size)
         assertEquals(catalog.header.printings, catalog.printings.size)
     }
@@ -71,6 +71,42 @@ class CatalogBuildTest {
         val built = build()
         assertEquals(listOf("Glorp Wizard"), built.listed.filter { it.parts.isNotEmpty() }.map { it.name })
         assertEquals(listOf("Nobody Here"), build(setOf("Listed Lone", "Nobody Here")).unknownNames)
+    }
+
+    // SYS-082: a reversible printing (the same card on both sides) counts as the card it shows
+    @Test fun `a reversible printing is the card it shows`() {
+        val reversible = catalog.faces.filter { it.layout == "reversible_card" }
+        assertEquals(2, reversible.size)
+        assertTrue(reversible.all { it.automatum }, "Test Bear is supported, and so are its reversible printing's faces")
+        // It never makes its set's packs unsupported on its own
+        assertTrue(catalog.set.getValue("BON").automatum)
+        assertTrue(build().listed.none { it.name == "Test Bear // Test Bear" })
+        // In packs it is Test Bear, a card of one face
+        val printing = catalog.printings.single { catalog.faces[it.face].layout == "reversible_card" && catalog.faces[it.face].side == "a" }
+        val definition = CatalogCards.definition(catalog, printing)
+        assertEquals("Test Bear", definition.name)
+        assertEquals("normal", definition.layout)
+        assertEquals(1, definition.faces.size)
+        assertEquals(printing.scryfall, definition.faces.single().scryfallId)
+        assertTrue(DeckValidation.definition(definition))
+    }
+
+    // SYS-082, DRF-090: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
+    @Test fun `an unsupported bonus sheet from another set is left out of the packs`() {
+        val recipe = catalog.recipe.getValue("BON")
+        assertEquals(setOf("common", "reversible"), recipe.sheets.keys, "the special guest (Plain Bear, OFF) is left out")
+        assertEquals(listOf(mapOf("common" to 3, "reversible" to 1)), recipe.boosters.map { it.contents })
+        assertTrue(catalog.set.getValue("BON").automatum)
+        assertEquals(emptyList(), catalog.set.getValue("BON").unsupported)
+        val bon = assertNotNull(CatalogSetSources.build(catalog, "BON"))
+        assertTrue(bon.definitions.none { it.definition.name == "Plain Bear" })
+        assertTrue(CatalogSetSources.validate(bon.snapshot).isEmpty())
+        // A sheet of the set's own cards stays even when unsupported: BAD still can't be drafted
+        assertEquals(setOf("common"), catalog.recipe.getValue("BAD").sheets.keys)
+        assertFalse(catalog.set.getValue("BAD").automatum)
+        // A sheet from another set whose cards are all supported stays (Plain Bear put on the single-card list)
+        val listed = build(lines("supported-cards.txt").toSet() + "Plain Bear").catalog
+        assertEquals(setOf("common", "reversible", "specialGuest"), listed.recipe.getValue("BON").sheets.keys)
     }
 
     // SYS-081 (section 3.3): the version is the checksum of the content, so the same input gives the same file
@@ -103,8 +139,8 @@ class CatalogBuildTest {
         assertNull(CatalogSetSources.build(catalog, "NOPE"))
     }
 
-    // SYS-081 (section 3.4): the release builds the catalog from the pinned file and stops on a pin mismatch
-    @Test fun `the catalog command stops on a raw file or a catalog that isn't the pinned one`() {
+    // SYS-081 (section 3.4): the release builds the catalog from the pinned file only
+    @Test fun `the catalog command builds only from the pinned raw file, and move pins a file`() {
         val directory = createTempDirectory("catalog-pin").toFile()
         try {
             val raw = CardCatalogFiles.sha256(allPrintings)
@@ -117,19 +153,14 @@ class CatalogBuildTest {
                     "--cards", File(fixtures, "supported-cards.txt").path))
                 return code to out.toString()
             }
-            CatalogPin("5.3.0+20261031", "2026-10-31", raw, checksum).write(pin)
+            CatalogPin("5.3.0+20261031", "2026-10-31", raw).write(pin)
             assertEquals(0, run("verify").first)
             val (built, _) = run("build", "--out", File(directory, "out").path)
             assertEquals(0, built)
             assertEquals(checksum, File(directory, "out/current").readText().trim())
             assertTrue(File(directory, "out/$checksum.jsonl.gz").isFile)
 
-            CatalogPin("5.3.0+20261031", "2026-10-31", raw, "0".repeat(64)).write(pin)
-            val (mismatch, said) = run("build", "--out", File(directory, "out2").path)
-            assertEquals(1, mismatch)
-            assertTrue("the pin says ${"0".repeat(64)}" in said, said)
-
-            CatalogPin("5.3.0+20261031", "2026-10-31", "1".repeat(64), checksum).write(pin)
+            CatalogPin("5.3.0+20261031", "2026-10-31", "1".repeat(64)).write(pin)
             val (other, message) = run("build", "--out", File(directory, "out3").path)
             assertEquals(1, other)
             assertTrue("isn't the pinned MTGJSON file" in message && "scripts/catalog-pin.sh move" in message, message)
@@ -137,7 +168,8 @@ class CatalogBuildTest {
 
             val (moved, _) = run("move")
             assertEquals(0, moved)
-            assertEquals(CatalogPin("5.3.0+20261031", "2026-10-31", raw, checksum), CatalogPin.read(pin))
+            assertEquals(CatalogPin("5.3.0+20261031", "2026-10-31", raw), CatalogPin.read(pin))
+            assertFalse("catalog.sha256" in pin.readText(), "the trimmed catalog's checksum isn't pinned")
         } finally {
             directory.deleteRecursively()
         }

@@ -27,12 +27,13 @@ internal fun GameRows(games: List<GameSummary>, controller: LobbyController, acc
             games.forEachIndexed { index, game ->
                 if (index > 0) HorizontalDivider(thickness = 1.dp, color = ScreenBorder)
                 val incoming = incomingInvitation(game, accountId)
+                val ready = cardRecordsReady()
                 GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                    .gameRowActions(controller, game) { if (!incoming) controller.open(game.id) },
+                    .gameRowActions(controller, game, enabled = ready || incoming) { if (!incoming) controller.open(game.id) },
                     trailing = if (incoming) ({
                         val state = controller.state
                         MenuInvitationActions(game.id in state.connectedGames && game.id !in state.pendingGames,
-                            acceptEnabled = !game.invitationHeld) { controller.respond(game, it) }
+                            acceptEnabled = !game.invitationHeld && ready) { controller.respond(game, it) }
                     }) else null)
             }
         }

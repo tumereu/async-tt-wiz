@@ -186,3 +186,4 @@ number	item	screenshot	catalog	decisions
 185	Wait band in landscape	engine/waiting-band-landscape.png	TRN-066 STK-057
 186	Keep / Bottom screen right after a second mulligan	engine/opening-bottom.png	TRN-062 STK-043
 187	Game end dialog of the conceder, waiting for the other OK	engine/game-end-conceder.png	TRN-065 TRN-064
+188	Warning sign on cards Automatum can't play yet, in card search	non-gameplay/card-search-unsupported-portrait.png	LOB-144 SYS-082

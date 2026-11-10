@@ -12,12 +12,10 @@ import kotlin.system.exitProcess
  *
  * - `verify`: the raw MTGJSON file against the pin.
  * - `build --out <dir>`: verifies the raw file, builds the trimmed catalog with its support marks into `<dir>` as
- *   `<checksum>.jsonl.gz` (pointed to by `<dir>/current`, the one before it kept as `previous`), checks that every set
- *   it marks draftable builds its packs, and stops with 1 when its checksum differs from the pin's. `--no-pin` builds
- *   from any file (the test cards' catalogs) without the pin.
- * - `update`: records in the pin the catalog the pinned raw file builds now (after a parser, engine or support list change
- *   that changes it: section 3.3, a change in what we extract is a new version).
- * - `move`: makes the pin name the raw file (and the catalog built from it).
+ *   `<checksum>.jsonl.gz` (pointed to by `<dir>/current`, the one before it kept as `previous`) and checks that every
+ *   set it marks draftable builds its packs. The checksum in `current` is what the release builds into the app (section
+ *   3.4). `--no-pin` builds from any file (the test cards' catalogs) without the pin.
+ * - `move`: makes the pin name the raw file.
  *
  * Options: `--pin <file>` (default `catalog/pin.properties`), `--file <AllPrintings.json[.gz]>` (default
  * `$ATW_ALLPRINTINGS`, else `~/projects/atw-cache/AllPrintings.json.gz`), `--sets <file>` and `--cards <file>` (the support
@@ -56,30 +54,15 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
                 val pin = if ("--no-pin" in flags) null else CatalogPin.read(pinFile)
                 pin?.let { verify(it, file) }?.let { return fail(it) }
                 val built = build(file, sets, cards, options["--report"]?.let(::File))
-                val written = publish(built.catalog, output)
-                val checksum = written.name.removeSuffix(CardCatalogFiles.SUFFIX)
-                if (pin != null && checksum != pin.catalogSha256) return fail("The catalog built from the pinned file has checksum " +
-                    "$checksum, the pin says ${pin.catalogSha256}: what the build makes of the cards changed (a parser, engine or support list " +
-                    "change). If that is intended, record it with scripts/catalog-pin.sh update, and commit the pin.")
-                0
-            }
-            "update" -> {
-                val pin = CatalogPin.read(pinFile)
-                verify(pin, file)?.let { return fail(it) }
-                val built = build(file, sets, cards, options["--report"]?.let(::File))
-                val checksum = CardCatalogFiles.write(built.catalog, java.io.OutputStream.nullOutputStream())
-                pin.copy(catalogSha256 = checksum).write(pinFile)
-                out.println(if (checksum == pin.catalogSha256) "The pin's catalog is unchanged: $checksum." else
-                    "The pin's catalog was ${pin.catalogSha256}, now $checksum.")
+                publish(built.catalog, output)
                 0
             }
             "move" -> {
                 if (!file.isFile) return fail("No MTGJSON file at $file to move the pin to.")
+                val metadata = open(file).use(org.asyncttwiz.storage.MtgJsonCatalog()::peekMetadata)
                 val raw = CardCatalogFiles.sha256(file)
-                val built = build(file, sets, cards, options["--report"]?.let(::File))
-                val checksum = CardCatalogFiles.write(built.catalog, java.io.OutputStream.nullOutputStream())
-                CatalogPin(built.catalog.header.mtgjsonVersion, built.catalog.header.mtgjsonDate, raw, checksum).write(pinFile)
-                out.println("The pin names MTGJSON ${built.catalog.header.mtgjsonVersion} (SHA-256 $raw), catalog $checksum.")
+                CatalogPin(metadata.version, metadata.date, raw).write(pinFile)
+                out.println("The pin names MTGJSON ${metadata.version} (SHA-256 $raw).")
                 0
             }
             else -> usage()

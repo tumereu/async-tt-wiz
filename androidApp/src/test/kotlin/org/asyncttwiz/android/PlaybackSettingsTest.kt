@@ -103,7 +103,7 @@ class PlaybackSettingsTest {
         val models = ViewModelStore()
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
             models.put("catalog", it)
-            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100), loaded = true))
+            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100), ready = true))
         }
         try {
             compose.setContent { MaterialTheme { SettingsContent(catalog, "gap") {} } }
@@ -115,39 +115,19 @@ class PlaybackSettingsTest {
             assertTrue(compose.onNodeWithTag("app-version").getUnclippedBoundsInRoot().top > controls().bottom)
             assertTrue(compose.onNodeWithTag("logout").getUnclippedBoundsInRoot().top > compose.onNodeWithTag("app-version").getUnclippedBoundsInRoot().bottom,
                 "Log out is last")
-            // Idle installed catalog: header, installed line and two rows, with no reserved status space.
+            // Installed: header and installed line only, with no reserved status space.
             compose.onNodeWithTag("catalog-status").assertDoesNotExist()
-            val check = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
-            assertTrue(check.top - controls().top <= 120.dp, "Header and installed line only above the actions: ${controls()} $check")
-            assertEquals(controls().bottom, compose.onNodeWithTag("catalog-full-refresh").getUnclippedBoundsInRoot().bottom)
-            val installed = catalog.state
-            val available = CatalogMetadata("2026-10-26", "2", records = 200)
+            assertTrue(controls().bottom - controls().top <= 120.dp, "Header and installed line only: ${controls()}")
             for (state in listOf(
                 CatalogUiState(),
-                installed.copy(busy = true, status = "Downloading card records…", progress = CatalogProgress(CatalogPhase.DOWNLOADING, 1, 10)),
-                installed.copy(error = true, status = "Synthetic network failure"),
-                installed.copy(available = available, size = 12_000_000),
-                CatalogUiState(loaded = true, available = available),
-                installed.copy(installed = available, status = "Card records are up to date.")
+                CatalogUiState(progress = CatalogProgress(CatalogPhase.DOWNLOADING, 1, 10)),
+                CatalogUiState(failed = true),
+                catalog.state,
             )) {
                 compose.runOnIdle { catalog.seed(state) }
                 fixedSections.forEach { (tag, bounds) -> assertEquals(bounds, compose.onNodeWithTag(tag).getUnclippedBoundsInRoot(), tag) }
-                if (!state.loaded) {
-                    compose.onNodeWithText("Card records").assertDoesNotExist()
-                    continue
-                }
-                val action = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
-                assertEquals(check.right - check.left, action.right - action.left)
-                assertEquals(check.bottom - check.top, action.bottom - action.top)
-                if (state.status != null && !state.error) compose.onNodeWithTag("catalog-status").assertExists()
-                if (state.progress != null) compose.onNodeWithTag("catalog-status").assertExists()
-                if (state.error) {
-                    compose.onNodeWithText("Retry").assertExists()
-                    // Failures are a floating message, not text inside the section.
-                    compose.onNodeWithTag("catalog-status").assertDoesNotExist()
-                    compose.onNodeWithText("Synthetic network failure").assertIsDisplayed()
-                    assertEquals(check, action)
-                }
+                if (!state.ready && !state.failed) compose.onNodeWithTag("catalog-status").assertExists()
+                if (state.failed) compose.onNodeWithTag("catalog-retry").assertExists()
             }
         } finally { models.clear() }
     }

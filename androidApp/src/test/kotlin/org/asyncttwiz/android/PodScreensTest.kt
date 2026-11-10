@@ -67,14 +67,15 @@ class PodScreensTest {
         field.assertIsEnabled().assertTextEquals("0–2147483647", "0")
     }
 
-    // DRF-088, DRF-089: no set row has a Redownload button, downloaded or not.
-    @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstWithoutRedownloadButtons() {
-        var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, rows = listOf(
-            PodSetRow(DraftableSet("OLD", "Older set", "2000-01-01", 100, "core"), false),
-            PodSetRow(DraftableSet("NEW", "Newer set", "2026-10-01", 200, "expansion"), true),
-            PodSetRow(DraftableSet("CMD", "Commander set", "2027-10-01", 200, "commander"), false),
-            PodSetRow(DraftableSet("FUT", "Future set", java.time.LocalDate.now(AppClock.clock()).plusDays(1).toString(), 200, "expansion"), false),
-            PodSetRow(DraftableSet("TOD", "Today's set", java.time.LocalDate.now(AppClock.clock()).toString(), 200, "expansion"), false))))
+    // DRF-088, DRF-089: the card records' draft sets, newest first, no Redownload buttons; section 3.9: an unsupported set
+    // is greyed and can't be chosen
+    @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRefusesUnsupportedSets() {
+        var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, sets = listOf(
+            DraftableSet("OLD", "Older set", "2000-01-01", 100, true),
+            DraftableSet("NEW", "Newer set", "2026-10-01", 200, true),
+            DraftableSet("ODD", "Odd set", "2025-10-01", 200, false, listOf("Odd Cub")),
+            DraftableSet("FUT", "Future set", java.time.LocalDate.now(AppClock.clock()).plusDays(1).toString(), 200, true),
+            DraftableSet("TOD", "Today's set", java.time.LocalDate.now(AppClock.clock()).toString(), 200, true))))
         var chosen: String? = null
         compose.setContent { ScreenTheme { Column {
             PodSetPickerContent(state, { state = state.copy(query = it) }, { chosen = it }, {})
@@ -82,8 +83,9 @@ class PodScreensTest {
         val newer = compose.onNodeWithText("Newer set").fetchSemanticsNode().boundsInRoot
         val older = compose.onNodeWithText("Older set").fetchSemanticsNode().boundsInRoot
         assertTrue(newer.top < older.top)
-        compose.onNodeWithText("Commander set").assertDoesNotExist()
         compose.onNodeWithText("Future set").assertDoesNotExist()
+        compose.onNode(hasText("Odd set") and hasClickAction()).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(automatumSupportTip(CardListSupport(1, listOf("Odd Cub"))), useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Today's set").assertIsDisplayed()
         compose.onNodeWithContentDescription("Redownload NEW").assertDoesNotExist()
         compose.onNodeWithContentDescription("Redownload OLD").assertDoesNotExist()
@@ -97,15 +99,13 @@ class PodScreensTest {
         search.performTextReplacement("newer")
         compose.onNodeWithText("Newer set").performClick()
         assertEquals("NEW", chosen)
-        compose.runOnIdle { state = state.copy(busy = true, status = "Downloading NEW…") }
-        compose.onNodeWithText("Downloading NEW…").assertDoesNotExist()
-        compose.runOnIdle { state = state.copy(busy = false, error = "Download failed.") }
+        compose.runOnIdle { state = state.copy(busy = false, error = "Could not load the sets.") }
         compose.onNodeWithContentDescription("Retry source").assertExists()
     }
 
-    @Test fun setWithMissingTypeStaysVisibleAndSelectableDuringBackgroundRefresh() {
-        val state = PodSetPickerState(open = true, loaded = true, busy = true, rows = listOf(
-            PodSetRow(DraftableSet("OLD", "Legacy set", "2000-01-01", 100), true)))
+    @Test fun setStaysVisibleAndSelectableDuringBackgroundRefresh() {
+        val state = PodSetPickerState(open = true, loaded = true, busy = true, sets = listOf(
+            DraftableSet("OLD", "Legacy set", "2000-01-01", 100, true)))
         var chosen: String? = null
         compose.setContent { ScreenTheme { Column {
             PodSetPickerContent(state, {}, { chosen = it }, {})

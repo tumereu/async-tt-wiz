@@ -46,6 +46,12 @@ class MainPhaseStaysTest : E2e() {
         // Her uplink slow: what her phone makes for her on his spell reaches the server after his End turn
         alice.link.holdOutgoing()
         bob.playFromHand("Ember Herald", this)
+        // His spell reaches her phone before his phone's assumption of her pass does, as on the report's phone: her phone,
+        // now ticking on as a phone does (its playback paced), answers it by itself before that assumption arrives
+        waitUntil("his spell at the head of Alice's line") { alice.engine { device.session.headModel().engine.stack.isNotEmpty() } }
+        alice.link.holdIncoming()
+        waitUntil("her own pass made, held by her slow uplink") { alice.engine { device.session.pending.isNotEmpty() } }
+        alice.link.releaseIncoming()
         waitUntil("the Herald and its token on Bob's battlefield") {
             bob.inOwnMain() && bob.field("Ember Herald").isNotEmpty() && bob.state.battlefield.any { bob.state.obj(it)?.token == true }
         }

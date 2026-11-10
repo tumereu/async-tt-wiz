@@ -22,6 +22,8 @@ internal object FinPhrases {
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
     private val ABILITIES_OR_SPELL = Regex("""activated ability, triggered ability, or (.+ spell)""")
+    // inr chunk 07: Overcharged Amalgam "spell, activated ability, or triggered ability"
+    private val SPELL_OR_ABILITIES = Regex("""(.*spell), activated ability, or triggered ability""")
     private val SUBTYPE_LIST_YOU_CONTROL = Regex("""([A-Z][a-z]+), ([A-Z][a-z]+), and(?:/or)? ([A-Z][a-z]+) you control""")
     /** A subtype written singular or plural ("Scouts", "Scout"); null when neither is a subtype. */
     private fun singular(word: String): String? = listOf(word, word.removeSuffix("s"), word.removeSuffix("es")).firstOrNull { it in RulesWords.subtypes }
@@ -46,6 +48,11 @@ internal object FinPhrases {
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
             val spell = Filters.noun(m.groupValues[1]) ?: return null
             return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
+        }
+        SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
+            fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
+            val spell = Filters.noun(m.groupValues[1]) ?: return null
+            return ObjectFilter.Or(listOf(spell, ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
         }
         // fin chunk 12: "attacking equipped creature" (CR 301.5c)
         if (phrase == "attacking equipped creature")

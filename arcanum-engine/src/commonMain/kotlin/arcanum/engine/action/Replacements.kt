@@ -159,6 +159,25 @@ internal object Replacements {
     }
 
     /** CR 616.1a–e: the next replacement to apply. */
+    /**
+     * inr: a draw from an empty library (CR 614.11: replacements of drawing apply even when no card could be drawn): the first "instead"
+     * replacement of [player]'s draw runs [instead] and the draw doesn't happen. Returns whether one did. A replacement that counts the
+     * player's draws ([arcanum.api.EventPattern.Draw.exceptFirstIn]) isn't applied here.
+     */
+    fun replaceEmptyDraw(act: Act, cause: Cause?, player: PlayerId, instead: (Replacement, TriggerEvent) -> Unit): Boolean {
+        val matching = candidates(act, cause).filter { r ->
+            val pattern = r.mechanic.event as? arcanum.api.EventPattern.Draw ?: return@filter false
+            r.key !in act.replacing && r.mechanic.instead != null && pattern.exceptFirstIn == null &&
+                Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.players, player)
+        }.map { it to TriggerEvent(players = listOf(player)) }
+        if (matching.isEmpty()) return false
+        val (r, instance) = pick(act, matching, player, null)
+        if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) return false
+        useUp(act, r)
+        instead(r, instance)
+        return true
+    }
+
     private fun pick(act: Act, matching: List<Pair<Replacement, TriggerEvent>>, affected: PlayerId, about: ObjectId?): Pair<Replacement, TriggerEvent> {
         matching.firstOrNull { it.first.own }?.let { return it }
         matching.firstOrNull { (r, _) -> r.mechanic.modify.any { it is Modification.EntersUnderControlOf } }?.let { return it }

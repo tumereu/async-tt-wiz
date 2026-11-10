@@ -253,6 +253,14 @@ internal object Filters {
                 return all(noun(m.groupValues[1]) ?: return null, has.singleOrNull() ?: ObjectFilter.Or(has))
             }
         }
+        // inr chunk 07: "Angel or Human creature card": the creature types are the alternatives, the rest describes both (CR 205.3m)
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
+            val last = list.last().split(' ')
+            if (list.size > 1 && last.size > 1 && singular(last[1]) in CARD_TYPES && (list.dropLast(1).map { it.removeArticle() } + last.first()).all { it in RulesWords.subtypes && it[0].isUpperCase() })
+                return all(ObjectFilter.Or((list.dropLast(1).map { it.removeArticle() } + last.first()).map { ObjectFilter.Sub(Subtype(it)) }),
+                    noun(last.drop(1).joinToString(" ")) ?: return null)
+        }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
             val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
@@ -340,6 +348,8 @@ internal object Filters {
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
+        // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
+        if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 

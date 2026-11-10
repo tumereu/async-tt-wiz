@@ -342,6 +342,9 @@ sealed interface Effect {
         // tla
         /** Only during their next combat phase ("you control target opponent during their next combat phase", CR 723.2). */
         val combatPhase: Boolean = false,
+        // inr
+        /** "After that turn, that player takes an extra turn" (CR 500.7): the extra turn comes directly after the controlled turn. */
+        val thenExtraTurn: Boolean = false,
     ) : Effect
 }
 

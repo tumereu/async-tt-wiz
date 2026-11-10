@@ -472,7 +472,7 @@ internal object Effects {
             is Effect.ControlNextTurn -> {
                 val controller = scope.players(effect.controller).firstOrNull() ?: return
                 scope.players(effect.players).forEach { p ->
-                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase)
+                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase, thenExtraTurn = effect.thenExtraTurn)
                     val turn = act.state.turn
                     // tla: only their next combat phase (CR 723.2): this turn's when it is theirs and its combat is still to come
                     val now = effect.combatPhase && turn.active == p && turn.step in BEFORE_COMBAT

@@ -173,7 +173,7 @@ internal object Ltr {
     val MAY_CAST_FROM_HAND_WITH_MANA_VALUE_AT_MOST = Regex("""[Yy]ou may cast an? (.+?) spell from your hand with mana value less than or equal to (.+?) without paying its mana cost\.""")
     val OWNER_SHUFFLES_IT = Regex("""[Ii]ts owner shuffles it into their library\.""")
     val OPPONENT_MAY_HAVE_YOU_DRAW_ELSE_MILL = Regex("""(.+?\.) Then target opponent may have you draw a card\. If that player doesn't, you mill X cards, where X is the number of (\S+) counters on (.+?), and that player loses life equal to the total mana value of those cards\.""")
-    val WOULD_WHILE_YOU_HAVE = Regex("""If you would (.+?) while you have (.+?), (.+)\.""")
+    val WOULD_WHILE_YOU_HAVE = Regex("""If you would (.+?) while (you have .+?|your library has no cards in it), (.+)\.""")
     val UNTAP_EQUIPPED_CREATURE = Regex("""[Uu]ntap equipped creature\.""")
     val HAS_AS_LONG_AS_BLOCKING_OR_BLOCKED_BY = Regex("""Equipped creature has (.+?) as long as it's blocking or blocked by an? (.+)\.""")
     val NONBASIC_LANDWALK = Regex("""[Nn]onbasic landwalk""")

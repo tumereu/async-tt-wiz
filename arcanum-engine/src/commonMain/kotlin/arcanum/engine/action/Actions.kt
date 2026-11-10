@@ -887,6 +887,8 @@ internal object Actions {
             val max = act.view().players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.MaxDrawsPerTurn)?.count }.minOrNull()
             if (max != null && drawsThisTurn(act, player) >= max) return drawn
             val top = act.state.player(player).library.firstOrNull()
+            // CR 614.11: an "instead" replacement of the draw applies with no card to draw ("you win the game instead")
+            if (top == null && Replacements.replaceEmptyDraw(act, cause, player) { r, instance -> runInstead(act, r, instance) }) return@repeat
             if (top == null) {
                 // CR 121.4, 704.5b
                 val before = act.state.player(player).ledger[EMPTY_DRAW] ?: 0

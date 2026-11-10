@@ -27,6 +27,31 @@ internal object Inr {
     // inr chunk 01: Ravager of the Fells: the creature target belongs to the player or the planeswalker's controller (CR 115.1)
     val DEALS_TO_OPPONENT_OR_PW_AND_UP_TO_ONE_CREATURE_THAT_PLAYER_CONTROLS = Regex(
         """(.+?) deals (\d+) damage to target ((?:opponent|player) or planeswalker) and (\d+) damage to up to one target creature that player or that planeswalker's controller controls\.""")
+    // inr chunk 07: Geistlight Snare: a second conditional reduction on the same line (CR 601.2f)
+    val COSTS_LESS_IF_IT_ALSO_COSTS_LESS_IF = Regex("""(This spell costs (\{\d+\}) less to cast if [^.]+\.) It also costs (\{\d+\}) less to cast if (.+)\.""")
+    // inr chunk 07: Emrakul, the Promised End: "for each card type among cards in your graveyard" (CR 205.2a)
+    val CARD_TYPE_AMONG = Regex("""card type among (.+)""")
+    // inr chunk 07: Summary Dismissal: "Exile all other spells and counter all abilities." (abilities on the Stack, CR 113.1c)
+    val AND_COUNTER_ALL_ABILITIES = Regex("""(.+) and counter all abilities\.""")
+    // inr chunk 07: Triskaidekaphobia: "Each player with exactly 13 life loses the game" (CR 104.3e)
+    val EACH_PLAYER_WITH_LIFE_LOSES = Regex("""Each player with (?:exactly (\d+)|(\d+) or (less|more)) life loses the game\.""")
+    // inr chunk 07: Necroduality, Soul Separator: a copy of the object an earlier sentence or the trigger named (CR 707.2, 707.9b)
+    val CREATE_COPY_OF_THAT = Regex("""[Cc]reate a token that's a copy of (?:that card|that creature)(?:, except (.+))?\.""")
+    // inr chunk 07: Soul Separator: "Create a black Zombie creature token with power equal to that card's power and toughness equal to that card's
+    // toughness." (values fixed as the token is created, CR 111.4)
+    val CREATE_TOKEN_PT_EQUAL_TO_THAT_CARDS = Regex("""[Cc]reate an? (\w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) token with power equal to that (?:card|creature)'s power and toughness equal to that (?:card|creature)'s toughness\.""")
+    // inr chunk 07: Cultivator Colossus: "you may put a land card … If you do, draw a card and repeat this process." (CR 608.2c)
+    val MAY_PUT_IF_YOU_DO_REPEAT = Regex("""(You may put [^.]+? from your hand onto the battlefield(?: tapped)?)\. If you do, (.+?) and repeat this process\.""")
+    // inr chunk 07: Gather the Townsfolk: "create five of those tokens instead" (the same token, another number)
+    val CREATE_N_OF_THOSE_TOKENS = Regex("""create (\w+) of those tokens""")
+    // inr chunk 07: Altered Ego "except it enters with X additional +1/+1 counters on it" (CR 614.1c)
+    val EXCEPT_ENTERS_WITH_ADDITIONAL_COUNTERS = Regex("""it enters with (X|\w+) additional (\S+) counters? on it""")
+    // inr chunk 07: Odric, Lunarch Marshal (CR 608.2h)
+    val GAIN_IF_ONE_HAS_SAME_FOR = Regex("""(Creatures you control) gain ([a-z ]+) until end of turn if (an? .+?) has \2\. The same is true for (.+)\.""")
+    // inr chunk 07: Tamiyo, Field Researcher (CR 603.7c)
+    val CHOOSE_TARGETS_UNTIL_NEXT_TURN_WHENEVER_DEALS = Regex("""Choose up to (one|two|three) target (creatures?)\. Until your next turn, whenever (?:either of those creatures|any of those creatures|that creature) deals (combat damage(?: to a player)?), (.+)""")
+    // inr chunk 07: Emrakul, the Promised End (CR 723.1, 500.7)
+    val CONTROL_NEXT_TURN_THEN_EXTRA_TURN = Regex("""[Yy]ou gain control of target (opponent|player) during that player's next turn\. After that turn, that player takes an extra turn\.""")
     // inr chunk 06: Briseis: "Your opponents can't cast spells with mana value 3 or less." (CR 101.2)
     val OPPONENTS_CANT_CAST_SPELLS_WITH = Regex("""Your opponents can't cast (spells with .+)\.""")
     // inr chunk 06: Grisly Eelfish: "Creatures your opponents control attack this turn if able." (CR 508.1d)
@@ -46,6 +71,12 @@ internal object InrPhrases {
     private val HAS_N_OR_FEWER_COUNTERS_ON = Regex("""(.+) has (\w+) or fewer (\S+) counters on (?:it|him|her)""")
 
     fun condition(text: String, self: Set<String>): Condition? {
+        // inr chunk 07: Laboratory Maniac "while your library has no cards in it"
+        if (text == "your library has no cards in it")
+            return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
+        // inr chunk 07: Lupine Prototype "a player has no cards in hand" (any player, CR 402)
+        if (text == "a player has no cards in hand")
+            return Condition.PlayerExists(PlayerFilter.Where(Condition.Compare(Value.HandSize(Players.Tested), Comparison.Equal, Value.Fixed(0))), atLeast = 1)
         HAS_N_OR_FEWER_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
             val n = Numbers.count(m.groupValues[2]) ?: return null
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[3]) ?: return null, atLeast = n + 1)))

@@ -1,4 +1,4 @@
-number	item	screenshot	catalog	decisions
+number	item	screenshot	catalog	decisions	sequence
 1	Cast panel with a mode to choose	choice-source/cast-panel.png	STK-023 STK-044	Modes
 2	Announced number (X) in the cast panel	cast-panel/x-cast.png	STK-023 STK-052	Announce
 3	Target bar of a spell	choice-source/target-bar.png	STK-044 STK-047	Targets

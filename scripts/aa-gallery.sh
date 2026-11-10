@@ -4,7 +4,8 @@
 # decision kinds), as committed at HEAD. The owner reviews only what's new, changed or commented since the last
 # gallery review (the gallery-reviewed tag; the screenshots-approved tag if missing): those items come first with a
 # badge and red boxes around the pixels that changed (toggle: H), the rest are folded away; a picture re-recorded with the
-# same pixels is no change. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
+# same pixels is no change. Items sharing a sequence (gallery.tsv's sixth column) show as one card, all their pictures in
+# order, to review whole when any is. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
 # Tap a picture to open it full size. Complements, never replaces, scripts/review.sh (the release gate).
 #   scripts/aa-gallery.sh [output dir]     default ~/projects/atw-cache/aa-gallery (outside the repository)
 #   git tag -f gallery-reviewed HEAD      after a gallery review: what the owner has now seen
@@ -50,7 +51,7 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     if not line.strip():
         continue
     cells = line.split("\t") + [""]
-    number, name, shot, ids, decisions = cells[:5]
+    number, name, shot, ids, decisions, sequence = (cells + [""])[:6]
     path = f"{shots}/{shot}"
     caption_path = path[:-4] + ".txt"
     try:
@@ -72,18 +73,36 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
             same_pixels += status == ""
     items.append(dict(number=int(number), name=name, shot=shot, ids=ids.split(), decisions=decisions.replace(",", " ").split(),
                       caption=caption, image=image, status=status, comment=comments.get(shot, ""), regions=regions,
-                      size=size(png)))
+                      size=size(png), sequence=sequence.strip()))
 
 for i in items:
     i["review"] = bool(i["status"] or i["comment"])
 items.sort(key=lambda i: i["number"])
-review = [i for i in items if i["review"]]
-rest = [i for i in items if not i["review"]]
+# A sequence (the sixth column, owner 2026-11-10) is one entry, shown whole: it is to review when any of its pictures is
+units = []
+for i in items:
+    if i["sequence"] and units and units[-1][0] == i["sequence"]:
+        units[-1][1].append(i)
+    else:
+        units.append((i["sequence"], [i]))
+review = [u for u in units if any(i["review"] for i in u[1])]
+rest = [u for u in units if not any(i["review"] for i in u[1])]
 count = lambda status: sum(i["status"] == status for i in items)
-summary = (f'{len(review)} to review ({count("new")} new, {count("changed")} changed, {count("caption")} caption only, '
+summary = (f'{sum(len(u[1]) for u in review)} to review ({count("new")} new, {count("changed")} changed, {count("caption")} caption only, '
            f'{sum(bool(i["comment"]) for i in items)} commented)' + (f'; {same_pixels} re-recorded with the same pixels left out' if same_pixels else ""))
 
-def card(i):
+def unit(u):
+    name, members = u
+    if not name:
+        return card(members[0])
+    flagged = any(i["review"] for i in members)
+    frames = "".join(f'''<div class="step">{card(i, inner=True)}</div>''' for i in members)
+    return f'''<article class="item sequence{' review' if flagged else ''}" id="item-{members[0]['number']}">
+  <h2><span class="num">{members[0]['number']}–{members[-1]['number']}</span> {html.escape(name)} <span class="badge seq">sequence · {len(members)}</span></h2>
+  <div class="strip">{frames}</div>
+</article>'''
+
+def card(i, inner=False):
     label = {"caption": "caption only", "changed": f'changed · {len(i["regions"])} area{"s" if len(i["regions"]) != 1 else ""}'}.get(i["status"], i["status"])
     badge = f'<span class="badge {i["status"]}">{label}</span>' if i["status"] else ""
     w, h = i["size"]
@@ -94,12 +113,13 @@ def card(i):
     note = f'<p class="note">Your comment: {html.escape(i["comment"])}</p>' if i["comment"] else ""
     ids = " ".join(f'<span class="id">{html.escape(x)}</span>' for x in i["ids"])
     kinds = " ".join(f'<span class="kind">{html.escape(x)}</span>' for x in i["decisions"])
-    return f'''<article class="item{' review' if i['review'] else ''}" id="item-{i['number']}">
+    tag = "div" if inner else "article"
+    return f'''<{tag} class="{'sub' if inner else 'item'}{' review' if i['review'] else ''}" id="item-{i['number']}">
   <h2><span class="num">{i['number']}</span> {html.escape(i['name'])} {badge}</h2>{note}
   <a class="shot" href="{html.escape(i['image'])}"><span class="frame"><img loading="lazy" src="{html.escape(i['image'])}" alt="{html.escape(i['name'])}">{marks}</span></a>
   <p class="caption">{html.escape(i['caption'])}</p>
   <p class="meta">{ids} {kinds} <span class="file">{html.escape(i['shot'])}</span></p>
-</article>'''
+</{tag}>'''
 
 page = f'''<!DOCTYPE html>
 <html lang="en">
@@ -136,6 +156,14 @@ page = f'''<!DOCTYPE html>
                    border: 1px solid #ff3b3b; background: #fff0f0; color: var(--ink); cursor: pointer; }}
   body.nobox header button {{ border-color: var(--line); background: #fff; }}
   .badge.caption {{ background: var(--soft); }}
+  .badge.seq {{ background: var(--ink); }}
+  .item.sequence {{ grid-column: 1 / -1; }}
+  .strip {{ display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }}
+  .step {{ flex: 0 0 min(86vw, 340px); scroll-snap-align: start; }}
+  .sub {{ border-left: 3px solid var(--line); padding-left: 8px; }}
+  .sub.review {{ border-left-color: var(--amber); }}
+  .sub h2 {{ font-size: 13px; }}
+  .sub .shot img {{ max-height: 60vh; }}
   .caption {{ margin: 8px 0 6px; }}
   .meta {{ margin: 0; display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--soft); }}
   .id, .kind {{ padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); }}
@@ -150,11 +178,11 @@ page = f'''<!DOCTYPE html>
   <p>{summary} since {html.escape(tag)} ({html.escape(reviewed)}) · {len(items)} items · commit {html.escape(head)} ({html.escape(date)}): {html.escape(subject)}</p>
 </header>
 <main>
-{chr(10).join(card(i) for i in review) or '<p>Nothing new, changed or commented.</p>'}
+{chr(10).join(unit(u) for u in review) or '<p>Nothing new, changed or commented.</p>'}
 </main>
 <details><summary>Already reviewed, unchanged ({len(rest)})</summary>
 <main>
-{chr(10).join(card(i) for i in rest)}
+{chr(10).join(unit(u) for u in rest)}
 </main>
 </details>
 <script>

@@ -153,7 +153,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false)
         refresh()
     }
-    /** DRF-170: opens the open pod's chat (also from its "New message" notification, DRF-172). */
+    /** DRF-170: opens the open pod's chat. */
     fun openChat() {
         val pod = state.selected ?: return
         AppLog.info("pod-chat", "Pod $pod: chat opened"); state = state.copy(chatOpen = true); chat.refresh(pod)
@@ -185,8 +185,6 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val text = podActivityText(hint.kind)
             if (state.selected == hint.gameId) state = state.copy(notice = text) else notices[hint.gameId] = text
         }
-        // Pod chat: another member's message is read at once (the dots on the pod screens and a pod game's table)
-        if (hint.kind == ActivityKind.POD_MESSAGE) chat.refresh(hint.gameId)
         // Always refresh the list (Quick continue too); refresh the open detail in the same pass.
         refresh()
     }

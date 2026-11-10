@@ -1,0 +1,1 @@
+mod: The main button shows an assumption ("Assume resolves" and the like) in violet with its own icon, so it stands apart from your own actions.

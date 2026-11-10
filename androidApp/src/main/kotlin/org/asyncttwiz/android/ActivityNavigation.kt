@@ -43,8 +43,6 @@ internal fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.GAME || kind == ActivityKind.GAME_REMOVAL -> "game:$gameId"
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
-    // DRF-172: a pod's chat notice stands apart from its pick or build notice
-    kind == ActivityKind.POD_MESSAGE -> "pod-chat:$gameId"
     else -> "pod:$gameId"
 }
 
@@ -72,7 +70,6 @@ internal fun podActivityText(kind: ActivityKind, name: String? = null): String =
     ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
     ActivityKind.POD_DESTROYED -> "Pod destroyed"
     ActivityKind.POD_AUTO_START_OFF -> name?.let { "Auto-start off — $it" } ?: "Auto-start off"
-    ActivityKind.POD_MESSAGE -> name?.let { "New message — $it" } ?: "New message"
     // Game history §4.5: the cleanup's warning 3 days before a stalled pod is deleted
     ActivityKind.POD_REMOVAL -> "${name ?: "Pod"}: Removed in 3 days if nobody picks or plays"
     else -> "Game activity"

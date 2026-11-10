@@ -322,6 +322,12 @@ object ServerSetup {
     fun challenge(a: TestAccount, b: TestAccount, pod: String, name: String): GameSummary =
         lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name)) }
 
+    /** Every notice [account] has of [resource] (a game, or a pod for its POD_* kinds) as the server recorded them, by kind:
+     * what their phone's notifications come from. Read from the database (see [gameNotice]). */
+    fun notices(account: TestAccount, resource: String): List<String> =
+        E2eStack.query("SELECT kind FROM account_activity WHERE account_id = '${account.id}' AND game_id = '$resource' " +
+            "ORDER BY activity_id")
+
     /** [account]'s invitation notices of game [gameId] as the server recorded them (DRF-137): one per notification. Read
      * from the database (see [gameNotice]). */
     fun invitationNotices(account: TestAccount, gameId: String): Int =

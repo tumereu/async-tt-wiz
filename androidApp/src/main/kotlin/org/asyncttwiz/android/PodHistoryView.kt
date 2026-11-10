@@ -9,9 +9,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -30,6 +32,17 @@ import org.asyncttwiz.protocol.*
 /** "Pack 1 · Pick 3", "· given automatically" for an automatic award (DRF-165). */
 internal fun podHistoryHeader(pick: DraftHistoryPick): String =
     "Pack ${pick.pack} · Pick ${pick.pick}" + if (pick.automatic) " · given automatically" else ""
+
+/** DRF-165 (owner, 2026-11-10): a round's header, "Round 2 · passed right": round 1 passes left, the direction flipping
+ * each round (DRF-043; [DraftEngine.direction]: the next seat is the left one). */
+internal fun podHistoryRoundHeader(round: Int): String =
+    "Round $round · passed " + if (DraftEngine.direction(round - 1) == DraftDirection.NEXT_SEAT) "left" else "right"
+
+/** DRF-165: the picks shown, round by round, in order within each round, each with its place in [picks] (a round's last
+ * card given automatically may come after you opened the next round); [returningOnly]: only packs that came back to you a
+ * second or later time in their round, a round without any left out. */
+internal fun podHistoryRounds(picks: List<DraftHistoryPick>, returningOnly: Boolean): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
+    picks.withIndex().filter { !returningOnly || it.value.returning }.groupBy { it.value.round }.toSortedMap().toList()
 
 /** A history pack's cards sorted like Build columns: W U B R G, multicolour, colourless, then name (DRF-165). */
 internal fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<DraftCopy> =
@@ -68,13 +81,16 @@ internal fun PodHistoryButton(controller: PodController, definitions: Map<String
 
 /**
  * Draft history (DRF-165), full screen: every pick of yours in order under "Pack 1 · Pick 3", the pack as it came with
- * keeps green and burns red, and for a pack that came round again the cards taken since, greyed. Holding inspects.
+ * keeps green and burns red, and for a pack that came round again the cards taken since, greyed. Holding inspects. Each
+ * round has its header ("Round 2 · passed right") and a divider before it; "Returning packs only" shows only packs that
+ * came back to you (owner, 2026-11-10).
  */
 @Composable
 internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
     columns: Int, retry: () -> Unit, dismiss: () -> Unit) {
     val known = remember(definitions, history) { definitions + history?.definitions.orEmpty().associate { it.digest to it.definition } }
     val preview = remember { PodLimitedPreview() }
+    var returningOnly by rememberSaveable { mutableStateOf(false) }
     PodArtPrefetch(remember(history) { podHistoryPrefetchCards(history) }, known, preview.tileSize)
     Dialog(dismiss, DialogProperties(usePlatformDefaultWidth = false)) {
         ScreenTheme {
@@ -82,6 +98,11 @@ internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, defini
                 Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Draft history", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
+                        FilterChip(returningOnly, {
+                            returningOnly = !returningOnly
+                            AppLog.info("pods", "Draft history: returning packs only ${if (returningOnly) "on" else "off"}")
+                        }, { Text("Returning packs only") }, Modifier.testTag("pod-history-returning"),
+                            leadingIcon = if (returningOnly) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null)
                         ScreenIconButton("Close draft history", "close", dismiss)
                     }
                     when {
@@ -96,7 +117,10 @@ internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, defini
                         history.picks.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No picks yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        else -> PodHistoryPicks(history.picks, known, columns.coerceAtLeast(1), preview)
+                        returningOnly && history.picks.none { it.returning } -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No packs have come back to you yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        else -> PodHistoryPicks(history.picks, returningOnly, known, columns.coerceAtLeast(1), preview)
                     }
                 }
             }
@@ -107,30 +131,42 @@ internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, defini
 }
 
 @Composable
-private fun PodHistoryPicks(picks: List<DraftHistoryPick>, definitions: Map<String, CardDefinition>, columns: Int,
-    preview: PodLimitedPreview) {
+private fun PodHistoryPicks(picks: List<DraftHistoryPick>, returningOnly: Boolean, definitions: Map<String, CardDefinition>,
+    columns: Int, preview: PodLimitedPreview) {
+    val rounds = remember(picks, returningOnly) { podHistoryRounds(picks, returningOnly) }
     LazyVerticalGrid(GridCells.Fixed(columns), Modifier.fillMaxSize().testTag("pod-history-picks"),
         contentPadding = PaddingValues(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        picks.forEachIndexed { index, pick ->
-            item(span = { GridItemSpan(maxLineSpan) }, key = "header-$index") {
+        rounds.forEachIndexed { place, (round, shown) ->
+            // DRF-165 (owner, 2026-11-10): a header per round, a strong divider between rounds
+            item(span = { GridItemSpan(maxLineSpan) }, key = "round-$place-$round") {
                 Column {
-                    if (index > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    Text(podHistoryHeader(pick), Modifier.testTag("pod-history-header-$index"), style = MaterialTheme.typography.labelLarge)
+                    if (place > 0) HorizontalDivider(Modifier.padding(top = 10.dp, bottom = 6.dp), thickness = 3.dp,
+                        color = MaterialTheme.colorScheme.outline)
+                    Text(podHistoryRoundHeader(round), Modifier.testTag("pod-history-round-$round"),
+                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
-            items(podHistoryOrder(pick.cards, definitions), key = { "card-$index-${it.id}" }) { copy ->
-                val mark = when (copy.id) { in pick.kept -> PodPickMark.KEEP; in pick.burned -> PodPickMark.BURN; else -> null }
-                PodHistoryCard(copy, definitions[copy.definition], mark, copy.id in pick.librarians, false,
-                    "pod-history-$index-${copy.id}", preview)
-            }
-            if (pick.takenSince.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "since-$index") {
-                    Text("Taken since you last saw it", Modifier.padding(top = 4.dp).testTag("pod-history-since-$index"),
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            shown.forEachIndexed { inRound, (index, pick) ->
+                item(span = { GridItemSpan(maxLineSpan) }, key = "header-$index") {
+                    Column {
+                        if (inRound > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                        Text(podHistoryHeader(pick), Modifier.testTag("pod-history-header-$index"), style = MaterialTheme.typography.labelLarge)
+                    }
                 }
-                items(podHistoryOrder(pick.takenSince, definitions), key = { "since-$index-${it.id}" }) { copy ->
-                    PodHistoryCard(copy, definitions[copy.definition], null, false, true, "pod-history-$index-${copy.id}", preview)
+                items(podHistoryOrder(pick.cards, definitions), key = { "card-$index-${it.id}" }) { copy ->
+                    val mark = when (copy.id) { in pick.kept -> PodPickMark.KEEP; in pick.burned -> PodPickMark.BURN; else -> null }
+                    PodHistoryCard(copy, definitions[copy.definition], mark, copy.id in pick.librarians, false,
+                        "pod-history-$index-${copy.id}", preview)
+                }
+                if (pick.takenSince.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "since-$index") {
+                        Text("Taken since you last saw it", Modifier.padding(top = 4.dp).testTag("pod-history-since-$index"),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    items(podHistoryOrder(pick.takenSince, definitions), key = { "since-$index-${it.id}" }) { copy ->
+                        PodHistoryCard(copy, definitions[copy.definition], null, false, true, "pod-history-$index-${copy.id}", preview)
+                    }
                 }
             }
         }

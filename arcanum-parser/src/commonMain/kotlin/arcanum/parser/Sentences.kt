@@ -2027,8 +2027,11 @@ internal class Sentences(
 
     /** chunks 45-47: "gets +2/+2", "has flying and haste", "attacks each combat if able", "can't block", "can't be
      * blocked", joined by commas and "and". */
-    private fun predicates(text: String): List<Mechanic>? = text.split(PREDICATE_SPLIT).map { predicate ->
-        GETS_PT.matchEntire(predicate)?.let { m ->
+    private fun predicates(text: String): List<Mechanic>? = text.split(PREDICATE_SPLIT).flatMap { predicate ->
+        // inr chunk 04: "can't attack, block, or transform" (a comma list, so [PREDICATE_SPLIT] leaves it whole)
+        if (predicate == "can't attack, block, or transform")
+            return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any), Mechanic.CantTransform)
+        listOf(GETS_PT.matchEntire(predicate)?.let { m ->
             val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Value.Count(Filters.objects(it) ?: return null) }
             fun amount(n: Int): Value = when {
                 per == null || n == 0 -> Value.Fixed(n)
@@ -2042,9 +2045,10 @@ internal class Sentences(
             "attacks each combat if able" -> Mechanic.MustAttack()
             "can't block" -> Mechanic.CantBlock(attackers = ObjectFilter.Any)
             "can't be blocked" -> Mechanic.CantBeBlocked
+            "can't transform" -> Mechanic.CantTransform // inr chunk 04
             "loses all abilities" -> Mechanic.LoseAbilities() // dsk chunk 09
             else -> return null
-        }
+        })
     }
 
     /** chunk 46: "Arwen's toughness": a number of the object itself. */
@@ -5662,12 +5666,14 @@ internal class Sentences(
             return Ability.Static(mechanics, affects = Affected.Objects(objects))
         }
         // gtc chunk 08: "Enchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard."
+        // inr chunk 04: also "-X/-0" and "cards in your graveyard" (CR 208.1: the number is counted as it applies)
         Gtc.GETS_MINUS_X_CONTROLLERS_GRAVEYARD.matchEntire(line)?.let { m ->
             val subject = attachedSubject(m.groupValues[1]) ?: return null
-            val owner = ObjectFilter.OwnedBy(PlayerFilter.Is(Players.ControllerOf(subject)))
-            val count = Value.Count(Objects.Each(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), owner)))
+            val owner = ObjectFilter.OwnedBy(if (m.groupValues[4] == "your") PlayerFilter.You else PlayerFilter.Is(Players.ControllerOf(subject)))
+            val type = if (m.groupValues[3].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card) else Filters.noun(m.groupValues[3]) ?: return null
+            val count = Value.Count(Objects.Each(Filters.all(type, ObjectFilter.InZone(Zone.Graveyard), owner)))
             val minus = Value.Times(count, -1)
-            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(minus, minus)), affects = Affected.Objects(subject))
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(minus, if (m.groupValues[2] == "X") minus else Value.Fixed(0))), affects = Affected.Objects(subject))
         }
         // gtc chunk 08: "This creature gets +1/+1 for each creature card in your opponents' graveyards."
         Gtc.GETS_FOR_EACH.matchEntire(line)?.let { m ->
@@ -8512,7 +8518,8 @@ internal class Sentences(
             return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
         // blb chunk 02: "Those creatures fight each other." (CR 701.14a)
-        if (sentence == "Those creatures fight each other.") {
+        // inr chunk 04: "Then the chosen creatures fight each other." (the same two targets)
+        if (sentence == "Those creatures fight each other." || sentence == "The chosen creatures fight each other." || sentence == "Then the chosen creatures fight each other.") {
             val slots = context.targets.filter { it.what is TargetKind.Objects }.takeLast(2).takeIf { it.size == 2 } ?: return null
             return listOf(Step.Do(Effect.Fight(Objects.Target(slots[0].name), Objects.Target(slots[1].name))))
         }
@@ -8653,11 +8660,13 @@ internal class Sentences(
         // ability's "this creature"/"this land" is the object that has it, CR 113.10)
         Rtr.HAS_QUOTED.matchEntire(line)?.let { m ->
             val affects = rtrSubject(m.groupValues[1]) ?: return@let
-            val granted = Sentences(setOf("this creature", "this land", "this permanent", "this artifact")).line(m.groupValues[4]) ?: return null
+            val granted = Sentences(setOf("this creature", "this land", "this permanent", "this artifact")).line(m.groupValues[5]) ?: return null
+            // inr chunk 04: 'Enchanted creature has vigilance and "…"' (keywords before the quote)
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
             val pump = m.groupValues[2].takeIf { it.isNotEmpty() }?.let {
                 Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)
             }
-            return Ability.Static(listOfNotNull(pump, Mechanic.GainAbilities(listOf(granted))), affects = affects)
+            return Ability.Static(listOfNotNull(pump, Mechanic.GainAbilities(keywords + granted)), affects = affects)
         }
         // rtr chunk 03: "If a card or token would be put into a graveyard from anywhere, exile it instead." (any graveyard, CR 614.1a)
         Rtr.WOULD_BE_PUT_INTO_A_GRAVEYARD.matchEntire(line)?.let { m ->
@@ -10622,7 +10631,7 @@ internal class Sentences(
         val DETAIN = Regex("""Detain (?:(up to \w+) )?target (.+)\.""")
         val THEN_POPULATE = Regex("""(.+), then populate\.""")
         // rtr chunk 02
-        val HAS_QUOTED = Regex("""(.+?) (?:gets ([+-]\d+)/([+-]\d+) and )?has "(.+)"\.?""")
+        val HAS_QUOTED = Regex("""(.+?) (?:gets ([+-]\d+)/([+-]\d+) and )?has (?:([a-z ,]+?) and )?"(.+)"\.?""")
         val TARGET_PLAYER_GAINS_LIFE = Regex("""Target player gains (\d+) life\.""")
         val PUMP = Regex("""(.+?) gets? ([+-][\dX]+)/([+-][\dX]+)(.*)""")
         val FOR_EACH_PART = Regex("""^ for each (.+?)(?= and | until end of turn|$)""")
@@ -10824,7 +10833,7 @@ internal class Sentences(
         val RETURN_UNDER_OWNERS_CONTROL_WITH_COUNTERS = Regex("""[Rr]eturn (?:that card|it) to the battlefield under its owner's control with (a|an|one|two|three) (\S+) counters? on it\.""")
         val TARGET_SACRIFICES_GREATEST = Regex("""Target (opponent|player) sacrifices an? (.+?) with the greatest (power|mana value) among (.+) they control\.""")
         val CHOOSE_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
-        val PUT_COUNTERS_ON_THE = Regex("""Put (a|an|one|two|three) (\S+) counters? on the (.+)\.""")
+        val PUT_COUNTERS_ON_THE = Regex("""Put (a|an|one|two|three) (\S+) counters? on the (?:chosen )?(.+)\.""")
     }
 
     private companion object {
@@ -15343,6 +15352,23 @@ internal class Sentences(
 
     /** inr: single-sentence effects. */
     private fun inrEffect(sentence: String, context: Context): List<Step>? {
+        // inr chunk 04: "You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater." (one choice each,
+        // from the revealed hand, CR 701.9; the player then discards "those cards")
+        Inr.YOU_CHOOSE_FROM_IT_A_AND_B.matchEntire(sentence)?.let { m ->
+            val from = context.revealed ?: return null
+            val first = Filters.noun(m.groupValues[1].removeArticle() + m.groupValues[2]) ?: return null
+            val second = Filters.noun(m.groupValues[3].removeArticle() + m.groupValues[4]) ?: return null
+            context.chosen += listOf("chosen", "chosenSecond")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(first, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosen", chooser = Players.You),
+                Step.Choose(arcanum.api.Choice.Objects(second, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosenSecond", chooser = Players.You))
+        }
+        // inr chunk 04: "That player discards those cards." (the cards chosen just before)
+        if (sentence == "That player discards those cards.") {
+            val player = context.player ?: return null
+            val cards = context.chosen.takeLast(2).takeIf { it.size == 2 }?.map { Objects.Bound(it) } ?: return null
+            return listOf(Step.Do(Effect.Discard(player, objects = Objects.Union(cards), count = Value.Fixed(2), filter = ObjectFilter.Any)))
+        }
         // inr chunk 01: "add {R} at the beginning of your next main phase this turn." (a delayed trigger that triggers once, this turn, CR 603.7b)
         Inr.ADD_AT_NEXT_MAIN_PHASE_THIS_TURN.matchEntire(sentence)?.let { m ->
             val mana = ManaCost.parse(m.groupValues[1]) ?: return null

@@ -179,7 +179,7 @@ internal object Gtc {
     val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't) .+)\.""")
     val STATIC_PREDICATE_AND = Regex(""",? and (?=(?:has|have|gets?|can't|attacks?|its) )""")
     val HAVE_KEYWORDS = Regex("""(?:has|have) (.+)""")
-    val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets -X/-X, where X is the number of (.+?) cards? in its controller's graveyard\.""")
+    val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets -X/-(X|0), where X is the number of (?:(.+?) )?cards? in (its controller's|your) graveyard\.""")
     val GETS_FOR_EACH = Regex("""(.+) gets \+(\d+)/\+(\d+) for each (.+)\.""")
     val PREVENT_DAMAGE_TO_SELF_BY_BLOCKERS = Regex("""Prevent all combat damage that would be dealt to (.+) by creatures blocking it\.""")
     val BLOCKING_OR_BLOCKED_BY_HAVE = Regex("""Creatures blocking or blocked by (.+) have (.+)\.""")

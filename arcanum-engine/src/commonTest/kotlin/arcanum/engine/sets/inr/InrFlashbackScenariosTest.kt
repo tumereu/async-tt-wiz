@@ -61,7 +61,7 @@ class InrFlashbackScenariosTest {
     """)
     private val ox = Cards.invent("Tarnished Ox", "{2}", "Creature — Ox", "", "2/2")
     private val whisper = Cards.invent("Quiet Whisper", "{U}", "Instant", "You gain 1 life.")
-    private val spark = Cards.invent("Spark Jolt", "{R}", "Instant", "Spark Jolt deals 1 damage to each opponent.")
+    private val spark = Cards.invent("Ember Jolt", "{R}", "Instant", "Ember Jolt deals 1 damage to each opponent.")
     private val libs = (1..9).map { Cards.invent("Library Card $it", "{1}", "Sorcery", "") }
 
     private fun Scenario.count(name: String) = state.battlefield.count { state.obj(it)?.let { o -> nameOf(o) } == name }

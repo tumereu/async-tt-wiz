@@ -181,6 +181,8 @@ internal object Effects {
             // represents it decides, not its copiable values (CR 712.9): a double-faced token does, a copy on a one-faced card doesn't
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
+                // CR 701.27, 101.2: "can't transform" wins over the instruction
+                if (act.view()[id]?.has { it == Mechanic.CantTransform } == true) return@forEach
                 // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
                 val layout = o.definition?.layout
                 if (layout != Layout.Transform && layout != Layout.ModalDoubleFaced) return@forEach

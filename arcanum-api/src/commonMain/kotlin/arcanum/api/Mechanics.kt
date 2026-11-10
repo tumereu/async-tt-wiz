@@ -390,6 +390,8 @@ sealed interface Mechanic {
     /** The affected face-down permanents can't be turned face up: neither by a special action (CR 116.2b, 701.40b) nor by an
      * effect. */
     @Serializable @SerialName("cant-be-turned-face-up") data object CantBeTurnedFaceUp : Mechanic
+    /** The affected permanents can't transform (and so can't convert) by any effect or by day and night (CR 701.27, 701.28f, 101.2). */
+    @Serializable @SerialName("cant-transform") data object CantTransform : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
      * are [CantCast]. */
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic

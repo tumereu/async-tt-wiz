@@ -29,6 +29,7 @@ import arcanum.api.Mechanic
 import arcanum.api.Mode
 import arcanum.api.Modes
 import arcanum.api.NumericProperty
+import arcanum.api.SharedQuality
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
@@ -292,3 +293,7 @@ val batBlood: Step = Step.Do(Effect.ApplyMechanics(listOf(
     Mechanic.SetColors(listOf(ColorRef.Literal(Color.Black))),
     Mechanic.GainAbilities(listOf(Keyword.Flying, Keyword.Haste)),
     Mechanic.SetPowerToughness(Value.Fixed(2), Value.Fixed(2))), Affected.Objects(Objects.Target("token")), Duration.Indefinitely))
+
+// ---- inr chunk 04
+/** Coven: "you control three or more creatures with different powers" (CR 700.1 ability word; the powers are counted as they differ) */
+val coven: Condition = Condition.Compare(Value.CountDistinct(Objects.Each(and(creature, you)), SharedQuality.Number(NumericProperty.Power)), Comparison.AtLeast, n(3))

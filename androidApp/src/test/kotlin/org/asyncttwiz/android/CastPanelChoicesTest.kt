@@ -73,7 +73,7 @@ class CastPanelChoicesTest {
         compose.onNodeWithText("Set the value, then Cast.").assertExists()
         compose.onNodeWithText("Cast").assertIsEnabled()
         compose.onRoot().captureShot("$SCREENSHOTS/cast-panel/x-cast.png",
-            "Alice began casting Ember Burst ({X}) with one Mountain and tapped + once: the cast panel shows X at 1 in its box (a tap on it would open a numeric input) with + greyed at the most her mana pays, and only the eye and Cast below, no OK and no Cancel.")
+            "Alice began casting Ember Burst ({X}) with one Mountain and tapped + once: the cast panel shows X at 1 in its box (a tap on it would open a numeric input) with + greyed at the most her mana pays, and only the eye below it and Cast on the main button, no OK and no Cancel.")
         compose.onNodeWithText("Cast").performClick()
         compose.waitForIdle()
         assertTrue(kit.toolkit.cast.targeting, "X answered, the target is next")

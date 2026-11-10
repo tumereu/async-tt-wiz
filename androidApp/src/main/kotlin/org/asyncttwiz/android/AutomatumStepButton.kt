@@ -142,11 +142,8 @@ internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Mo
     blocked: String? = null, resolveTip: String? = null,
     /** TRN-017, STK-029 (owner 2026-11-07): holding Resolve, the Resolve chain (null: holding it says [resolveTip]). */
     onResolveHold: (() -> Unit)? = null,
-    /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice (the damage division's OK) in its place. */
-    main: MainAction? = null,
     /** TRN-063: the viewer's response mode is Control ([AutomatumStep.of]). */
     control: Boolean = false, onClick: () -> Unit) {
-    if (main != null) { MainActionArrow(main, enabled, modifier); return }
     val step = AutomatumStep.of(play, control)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
@@ -175,17 +172,54 @@ internal const val RESOLVE_CHAIN = "Resolve the whole Stack"
 class MainAction(val label: String, val icon: ImageVector, val refusal: String? = null, val tooltip: String? = null,
     val run: () -> Unit)
 
+/** TRN-063 (owner playtest 2026-11-09): a quick second tap on the main button is ignored. */
+internal object MainButtonGuard {
+    /** A press this soon (ms) after the last one taken is the second tap of a double tap. */
+    const val MILLIS = 300L
+}
+
+/**
+ * TRN-063 (owner playtest 2026-11-09): the go-on action of the open panel or bar (the cast panel's Cast, a target bar's Done, a
+ * choice's OK, Pay), which the main button holds while it is open instead of the panel having a button of its own. The panel
+ * puts it here while it is composed ([MainButtonAction]); the latest one put wins.
+ */
+internal class MainSlot {
+    private var owner: Any? = null
+    var action by androidx.compose.runtime.mutableStateOf<MainAction?>(null); private set
+    fun set(key: Any, action: MainAction?) {
+        if (action == null) { clear(key); return }
+        owner = key; this.action = action
+    }
+    fun clear(key: Any) { if (owner === key) { owner = null; action = null } }
+}
+
+/** The table's [MainSlot], null where there is no main button (a panel then keeps its own button). */
+internal val LocalMainSlot = androidx.compose.runtime.compositionLocalOf<MainSlot?> { null }
+
+/** Puts [action] on the main button while this is composed ([MainSlot]); false where there is no main button ([LocalMainSlot]),
+ * so the caller shows a button of its own. */
+@Composable
+internal fun MainButtonAction(action: MainAction): Boolean {
+    val slot = LocalMainSlot.current ?: return false
+    val key = remember { Any() }
+    androidx.compose.runtime.SideEffect { slot.set(key, action) }
+    androidx.compose.runtime.DisposableEffect(slot, key) { onDispose { slot.clear(key) } }
+    return true
+}
+
 /** The main button holding [action] ([MainAction]): the step arrow's look, no hold command. */
 @Composable
-internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier) {
+internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
+    /** TRN-063: whether a press is taken at all (false: a quick second tap, ignored before anything else). */
+    guard: ((String) -> Boolean)? = null) {
     var shakes by remember { mutableIntStateOf(0) }
     val ink = AutomatumStepInk.copy(alpha = if (enabled && action.refusal == null) 1f else .38f)
     ActionSquare(action.label, "", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
-        fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip,
+        fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip, refused = action.refusal != null,
         gestureKey = action.label to action.refusal,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
-            label = action.label) }, onClick = { if (action.refusal != null) shakes++ else action.run() })
+            label = action.label) }, onClick = { if (guard?.invoke(action.label) != false) { if (action.refusal != null) shakes++ else action.run() } })
 }
 
 /**

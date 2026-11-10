@@ -1,0 +1,1 @@
+mod: The big button at the bottom right is now Cast, OK, Done or Pay for whatever panel is open, and a quick double tap on it only counts once.

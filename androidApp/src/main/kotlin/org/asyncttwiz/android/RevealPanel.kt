@@ -23,14 +23,14 @@ internal const val REVEAL_OK_TAG = "reveal-ok"
 
 /** HIS-110, TRN-063 (owner, 2026-11-07): why the main button is greyed and game actions are refused while a reveal panel
  * is open, until its OK. */
-internal const val REVEAL_BUSY = "Dismiss the reveal first: tap its OK."
+internal const val REVEAL_BUSY = "Dismiss the reveal first: tap OK."
 
 /**
  * HIS-110 (owner 2026-11-09): a reveal, the other player's or your own ([name] "You"), docked above the hand like every
  * Automatum panel (STK-044): "<name> revealed · <source>", the revealed cards as cards at the Hand card size (holding one inspects it,
  * TBL-104), the source's card at the right, the eye, and OK, which [dismiss]es it (the table then plays on). The cards
- * were revealed to the viewer, so they show face up wherever they are now. Until OK the main button is greyed
- * ([REVEAL_BUSY]) and game actions are refused as while a choice is open.
+ * were revealed to the viewer, so they show face up wherever they are now. Until OK (the main button, TRN-063) game actions are
+ * refused as while a choice is open ([REVEAL_BUSY]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -42,8 +42,10 @@ internal fun RevealPanel(play: TableBoard, viewer: String, reveal: GameDevice.Re
     val title = "$name revealed" + (sourceName?.let { " · $it" } ?: "")
     val cards = reveal.cards.mapIndexed { i, card -> choiceCard(play, viewer, "reveal/$i/${card.value}", card.value, true, "A card") }
     CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+        // TRN-063 (owner playtest 2026-11-09): its OK is the main button (its own button where there is none)
+        val onMain = MainButtonAction(MainAction("OK", Icons.Outlined.Check, tooltip = "Dismiss the reveal") { dismiss() })
         AutomatumDockPanel("Reveal", hidden, { hidden = !hidden }, "reveal panel", buttons = {
-            ChoiceButton("OK", Icons.Outlined.Check, Modifier.testTag(REVEAL_OK_TAG), primary = true, onClick = dismiss)
+            if (!onMain) ChoiceButton("OK", Icons.Outlined.Check, Modifier.testTag(REVEAL_OK_TAG), primary = true, onClick = dismiss)
         }) {
             ChoiceHead(title, source, inspector)
             FlowRow(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),

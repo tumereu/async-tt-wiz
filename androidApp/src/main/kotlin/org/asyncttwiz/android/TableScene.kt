@@ -196,7 +196,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val attackerSlots = !runtime.reviewing && writable && toolkit?.combat?.readyOrLast(play)?.choices
             ?.let { it.attackers && it.declaring == accountId } == true
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
-        val paying = if (runtime.reviewing) emptySet() else toolkit?.cast?.paySources().orEmpty()
+        val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val laid = if (paying.isEmpty()) layout else layout.copy(paying = paying)
         val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
@@ -334,7 +334,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val shaking = toolkit?.shaking
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
             // STK-024 (owner 2026-11-07): and while the cast panel is open, the sources that pay it
-            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.cast?.paySources().orEmpty()
+            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
             // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange;
             // CMB-034, CMB-040 (owner, 2026-11-08): as do those that may block while the viewer places blockers
             val assumingBlocks = LocalEngineRoutes.current?.assuming() != null
@@ -384,6 +384,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             EmblemChipsOverlay(scene, accountId)
             // TRN-072, TRN-073: a player's states and the game's day or night; holding one explains it
             StateChipsOverlay(scene)
+            // STK-024 (owner playtest 2026-11-09): each source paying the open payment carries the mana it pays at its corner
+            if (toolkit != null && !runtime.reviewing) PaymentCornerChips(toolkit, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // LOB-136, LOB-137 (owner, 2026-11-08): chat messages as speech bubbles at the life squares, over what lies there;
             // last here, so a tap on the other player's takes that tap from the table and its chips
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }

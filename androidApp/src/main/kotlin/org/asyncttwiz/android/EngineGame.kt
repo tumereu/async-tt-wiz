@@ -942,6 +942,17 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         AppLog.info("game", gameLog.press(state, label, hold, shown?.engine))
     }
 
+    /** TRN-063 (owner playtest 2026-11-09): when the last main button press of this game was taken ([SystemClock.uptimeMillis]). */
+    @Volatile var lastPressAt: Long = Long.MIN_VALUE / 2; private set
+
+    /** TRN-063 (owner playtest 2026-11-09): whether a main button press at [now] is taken: not when it comes within
+     * [MainButtonGuard.MILLIS] of the last one taken (a quick second tap of a double tap; the button may already say something else). */
+    fun pressTaken(now: Long = android.os.SystemClock.uptimeMillis()): Boolean {
+        if (now - lastPressAt < MainButtonGuard.MILLIS) return false
+        lastPressAt = now
+        return true
+    }
+
     /** LOB-089 (report KX8GYS): the board shown and what the player can do on it, into the app log, just before a problem report. */
     fun logBoard() { worker.call { previous?.engine?.state?.let { state ->
         AppLog.info("game", gameLog.board(state, GameLog.options(state, device.me)))

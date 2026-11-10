@@ -4,7 +4,6 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
-import org.asyncttwiz.android.REVEAL_OK_TAG
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
@@ -62,12 +61,12 @@ class RevealStopTest : E2e() {
         waitUntil("the reveal panel on Alice's phone") { alice.showsText(title) && alice.shown.reveal != null }
         val name = revealedName()
         assertTrue(alice.shows(hasContentDescription(name) and inPanel), "the revealed card in the panel: ${alice.screen()}")
-        assertTrue(alice.shows(hasTestTag(REVEAL_OK_TAG)))
+        assertTrue(alice.showsRevealOk())
         val at = alice.shown.tip
         assertEquals(at, alice.shown.reveal!!.event, "her table at the reveal's event")
         waitUntil("Bob's own panel on his phone") { bob.showsText("You revealed · Ember Insight") && bob.shows(hasContentDescription(name) and inPanel) }
-        bob.tagged(REVEAL_OK_TAG).performClick()
-        waitUntil("Bob's own panel gone, Alice's still open") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) && alice.showsText(title) }
+        bob.revealOk()
+        waitUntil("Bob's own panel gone, Alice's still open") { !bob.showsRevealOk() && alice.showsText(title) }
         bobPlaysOn()
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
         // SYS-077: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
@@ -78,7 +77,7 @@ class RevealStopTest : E2e() {
         assertTrue(alice.shown.behind, "Bob's later events wait on her phone")
         assertFalse(alice.showsOnBattlefield("Mountain", bob), "his Mountain not shown to her yet")
         assertTrue(alice.showsText(title))
-        alice.tagged(REVEAL_OK_TAG).performClick()
+        alice.revealOk()
         waitUntil("Alice's table playing on to her own turn", along = listOf(alice)) {
             !alice.showsText(title) && alice.showsOnBattlefield("Mountain", bob) && alice.state.turn.active == alice.me
         }
@@ -93,9 +92,9 @@ class RevealStopTest : E2e() {
         waitUntil("the Insight resolved on Bob's table") {
             bob.state.player(bob.me).graveyard.isNotEmpty() && bob.state.stack.isEmpty() && bob.inOwnMain()
         }
-        waitUntil("Bob's own panel") { bob.shows(hasTestTag(REVEAL_OK_TAG)) }
-        bob.tagged(REVEAL_OK_TAG).performClick()
-        waitUntil("Bob's own panel gone") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) }
+        waitUntil("Bob's own panel") { bob.showsRevealOk() }
+        bob.revealOk()
+        waitUntil("Bob's own panel gone") { !bob.showsRevealOk() }
         bobPlaysOn()
         alice.back()
         // She watches as a player does: the centre text's tap, and at a stop of hers (HIS-095) the main button
@@ -115,7 +114,7 @@ class RevealStopTest : E2e() {
         assertEquals(at, alice.shown.tip, "her playback waits at the reveal")
         assertTrue(alice.shown.behind)
         assertFalse(alice.showsOnBattlefield("Mountain", bob))
-        alice.tagged(REVEAL_OK_TAG).performClick()
+        alice.revealOk()
         waitUntil("Alice's playback going on to her own turn", along = listOf(alice)) {
             !alice.showsText(title) && alice.showsOnBattlefield("Mountain", bob) && alice.state.turn.active == alice.me
         }
@@ -144,10 +143,10 @@ class RevealStopTest : E2e() {
         assertFalse(names.dropLast(1).contains("Mountain"), "no land before it: $names")
         for (p in listOf(alice, bob)) for (name in names.toSet()) assertTrue(p.shows(hasContentDescription(name) and inPanel),
             "${p.name}'s panel shows $name: ${p.screen()}")
-        alice.tagged(REVEAL_OK_TAG).performClick()
-        waitUntil("Alice's OK leaving Bob's panel open") { !alice.shows(hasTestTag(REVEAL_OK_TAG)) && bob.shows(hasTestTag(REVEAL_OK_TAG)) }
-        bob.tagged(REVEAL_OK_TAG).performClick()
-        waitUntil("Bob's panel gone") { !bob.shows(hasTestTag(REVEAL_OK_TAG)) }
-        assertFalse(alice.shows(hasTestTag(REVEAL_OK_TAG)), "Alice's stays dismissed")
+        alice.revealOk()
+        waitUntil("Alice's OK leaving Bob's panel open") { !alice.showsRevealOk() && bob.showsRevealOk() }
+        bob.revealOk()
+        waitUntil("Bob's panel gone") { !bob.showsRevealOk() }
+        assertFalse(alice.showsRevealOk(), "Alice's stays dismissed")
     }
 }

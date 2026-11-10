@@ -56,7 +56,8 @@ class OpeningBottomTest : E2e() {
         waitUntil("the card picked for the bottom") {
             alice.state.player(alice.me).hand.size == 6 || alice.shows(androidx.compose.ui.test.hasText("Bottom · 1") and hasAnyAncestor(panels))
         }
-        if (alice.state.player(alice.me).hand.size == 7) alice.node(androidx.compose.ui.test.hasText("OK") and hasAnyAncestor(panels)).performClick()
+        // TRN-063 (owner playtest 2026-11-09): the screen's OK is the main button
+        if (alice.state.player(alice.me).hand.size == 7) alice.tap("OK")
         waitUntil("six cards in Alice's hand") { alice.state.player(alice.me).hand.size == 6 && !alice.shows(panels) }
         alice.tap("Keep")
         // A moment for a panel that would open

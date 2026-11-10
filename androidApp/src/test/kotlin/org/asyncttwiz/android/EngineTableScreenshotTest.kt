@@ -387,7 +387,7 @@ class EngineTableScreenshotTest {
         assertEquals(listOf(false, false), actions.map { it.enabled }, "Mulligan and Keep greyed")
         assertEquals(listOf("Put the card on the bottom first."), actions.mapNotNull { it.refused }.distinct())
         captureShot("$SCREENSHOTS/engine/opening-bottom.png",
-            "Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK.")
+            "Right after Alice's second mulligan the Keep / Bottom screen asks for the one card it puts on the bottom, all seven cards in Keep; Mulligan and Keep are greyed until its OK, the main button.")
         val card = (game.device.model.engine.player(PlayerId(f.a)).hand.first() as arcanum.engine.state.ObjectId.Card).card.value
         assertIs<GameDevice.Acted.Sent>(game.bottom(listOf(card)))
         game.tick(3_000)

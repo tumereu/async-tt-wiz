@@ -108,8 +108,9 @@ class QuestionPanelsTest {
         listOf(ManaUse.Ability(mountain, arcanum.engine.view.AbilityOrigin.Printed(0, 0), arcanum.api.Color.Red)),
         listOf(ManaUse.Ability(mountain, arcanum.engine.view.AbilityOrigin.Printed(0, 0), arcanum.api.Color.Red)))
 
-    // STK-030, STK-049, CR 118.12 (owner gallery review, 2026-11-06, bug: no decline): "unless its controller pays {R}" is one
-    // panel "Pay {R}" with the sources Autotap picks already tapped (changeable) and "Don't pay" beside Pay
+    // STK-030, CR 118.12 (owner gallery review, 2026-11-06, bug: no decline): the choice panel's own form of "unless its controller
+    // pays {R}": "Pay {R}" with the sources Autotap picks already tapped (changeable) and "Don't pay" beside Pay. On the table such a
+    // payment is the slim bar with its sources tapped there (STK-049, owner playtest 2026-11-09: PayOnTableTest)
     @Test fun aCostYouMayPayOrDecline() {
         kit.opening()
         kit.playLand()

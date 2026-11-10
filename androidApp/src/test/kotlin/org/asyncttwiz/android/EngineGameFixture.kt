@@ -111,6 +111,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val OX_HUMAN = "Ox Human"
         const val GOAT = "Lone Goat"
         const val BLUE_NOTE = "Blue Note"
+        /** STK-024: a free source of two colours ({R} or {U}). */
+        const val FORK = "Ember Fork"
+        /** STK-049: "When this creature enters, you may pay {1}. If you do, draw a card." */
+        const val TOLLKEEPER = "Ember Tollkeeper"
         const val SIGNET = "Ember Signet"
         const val BROOD = "Ember Brood"
         const val ELF = "Ember Elf"
@@ -165,6 +169,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("brood", Choices.BROOD, "Creature — Elemental", "Offspring {2}", "1", "1"),
         free("elf", Choices.ELF, "Creature — Elf", "Haste\n{T}: Add {R}.", "1", "1"),
         free("stone", Choices.STONE, "Artifact", "{T}: Add {C}."),
+        free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
+        free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),
             OracleCard(Choices.BROODRAIDER, "{2}{R}", "Creature — Elemental Warrior", BROODRAIDER_TEXT, "2", "2")),

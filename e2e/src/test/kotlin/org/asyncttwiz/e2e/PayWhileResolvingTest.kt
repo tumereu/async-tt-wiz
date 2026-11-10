@@ -13,11 +13,15 @@ import kotlin.test.assertTrue
 /**
  * Owner gallery review, 2026-11-06 (bug): a cost to pay while something resolves had no way to decline it in its payment
  * panel. Alice has a Mountain and casts Ember Tollkeepers ("When this creature enters, you may pay {1}. If you do, draw a
- * card."): the trigger asks in one panel "Pay {1}" with Autotap's Mountain already picked and "Don't pay" beside Pay. She
- * declines the first (nothing drawn, the Mountain untapped) and pays for the second (a card drawn, the Mountain tapped).
+ * card."): the trigger asks in the slim bar "Pay {1}" (owner playtest 2026-11-09: paid on the table, STK-049) with Autotap's
+ * Mountain already picked on the table, "Don't pay" in the bar and Pay on the main button. She declines the first (nothing
+ * drawn, the Mountain untapped) and pays for the second (a card drawn, the Mountain tapped).
  */
 class PayWhileResolvingTest : E2e() {
-    private fun payPanel() = alice.shows(hasText("Pay {1}") and isHeading())
+    private fun payPanel() = alice.shows(hasText("Pay {1}") and isHeading()) && alice.shows(hasContentDescription("Pay on the table"))
+
+    private fun mountainPays() = runCatching { alice.battlefieldCard("Mountain").fetchSemanticsNode().config
+        .getOrElse(org.asyncttwiz.android.TableMarks) { emptySet() } }.getOrDefault(emptySet()).contains("source")
 
     // STK-030, STK-049, CR 118.12: Pay or Don't pay, the sources Autotap picks already picked
     @Test fun aCostToPayOnResolutionCanBeDeclinedOrPaid() {
@@ -31,8 +35,7 @@ class PayWhileResolvingTest : E2e() {
         val before = alice.state.player(alice.me).hand.size
         alice.playFromHand("Ember Tollkeeper", this)
         waitUntil("Alice asked to pay {1}", along = listOf(bob)) { alice.state.pending?.decision is Decision.May && payPanel() }
-        assertTrue(alice.shows(hasContentDescription("Mana source Mountain", substring = true) and
-            hasContentDescription(", tapped", substring = true)), "Autotap's Mountain already picked: ${alice.screen()}")
+        waitUntil("Autotap's Mountain already picked, outlined on the table") { mountainPays() }
         assertTrue(alice.showsText("Don't pay"), "a decline: ${alice.screen()}")
         alice.text("Don't pay").performClick()
         waitUntil("the trigger declined", along = listOf(bob)) {
@@ -43,7 +46,7 @@ class PayWhileResolvingTest : E2e() {
 
         alice.playFromHand("Ember Tollkeeper", this)
         waitUntil("Alice asked to pay {1} again", along = listOf(bob)) { alice.state.pending?.decision is Decision.May && payPanel() }
-        alice.text("Pay").performClick()
+        alice.tap("Pay")
         waitUntil("the cost paid and a card drawn", along = listOf(bob)) {
             alice.state.stack.isEmpty() && alice.state.pending == null && alice.field("Ember Tollkeeper").size == 2 &&
                 alice.state.player(alice.me).hand.size == before - 1

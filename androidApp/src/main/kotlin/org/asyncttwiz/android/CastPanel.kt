@@ -183,17 +183,29 @@ internal class CastOk(
     fun clear(decision: arcanum.engine.decision.DecisionId) { if (this.decision == decision) { this.decision = null; answer = null } }
 }
 
+/** TRN-063: why a choice's OK on the main button is greyed. */
+internal const val CHOICE_INCOMPLETE = "Finish the choice first."
+
 /** The cast panel the composed choice sits in ([CastOk]), null elsewhere. */
 internal val LocalCastOk = compositionLocalOf<CastOk?> { null }
 
 /**
- * A choice's OK: its own button (enabled when [enabled]) answering with [answer]; in the cast panel ([LocalCastOk]) no
- * button: the panel's Cast answers it (STK-023).
+ * A choice's OK: on the table the main button (TRN-063, owner playtest 2026-11-09: [MainButtonAction], greyed with why while not
+ * [enabled]), elsewhere its own button, answering with [answer]; in the cast panel ([LocalCastOk]) no button: the panel's Cast
+ * answers it (STK-023). [label]: what it says ("OK", "Keep").
  */
 @Composable
-internal fun ChoiceOk(decision: Decision, enabled: Boolean, answer: () -> Unit) {
+internal fun ChoiceOk(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
     val ok = LocalCastOk.current
-    if (ok == null) { ChoiceButton("OK", Icons.Outlined.Check, enabled = enabled, primary = true, onClick = answer); return }
+    if (ok == null) {
+        val main = MainButtonAction(MainAction(label, Icons.Outlined.Check, refusal = CHOICE_INCOMPLETE.takeIf { !enabled },
+            tooltip = "$label: answer ${choiceWhat(decision).replaceFirstChar { it.lowercase() }}") {
+            AppLog.info("decision", "$label on the main button for ${decision.id.value} (${decision.kind})")
+            answer()
+        })
+        if (!main) ChoiceButton(label, Icons.Outlined.Check, enabled = enabled, primary = true, onClick = answer)
+        return
+    }
     SideEffect { ok.set(decision.id, answer.takeIf { enabled }) }
     DisposableEffect(ok, decision.id) { onDispose { ok.clear(decision.id) } }
 }
@@ -235,13 +247,32 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
     // choice, the card it is for sits at the right. D1: a cost of battlefield permanents (a sacrifice) is picked the same way
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision))
-        if (pick.max != 1 || pick.min == 0) TextButton(cast::confirmTargets, enabled = cast.pickDone) {
-            IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
+        TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision), pickCount(pick, cast.picked.size))
+        // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
+        if (pick.max != 1 || pick.min == 0) {
+            val none = cast.picked.isEmpty()
+            val onMain = MainButtonAction(MainAction(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
+                refusal = PICK_INCOMPLETE.takeIf { !cast.pickDone }, tooltip = pick.title) {
+                AppLog.info("cast", "${if (none) "None" else "Done"} on the main button: ${cast.picked.size} picked for ${pick.title}")
+                cast.confirmTargets()
+            })
+            if (!onMain) TextButton(cast::confirmTargets, enabled = cast.pickDone) { IconText(Icons.Outlined.Check, if (none) "None" else "Done") }
         }
         ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
         ChoiceInspection(inspector, play, viewer)
     }
+}
+
+/** TRN-063: why Done on the main button is greyed while targets or permanents are picked. */
+internal const val PICK_INCOMPLETE = "Pick on the table first: what is picked can't be finished yet."
+
+/** STK-047 (owner playtest 2026-11-09): how many are picked of how many the bar asks ("1 of 2", "2 picked", "1 of up to 3"); null for a
+ * single pick that a tap answers. */
+internal fun pickCount(pick: TablePick, picked: Int): String? = when {
+    pick.max == 1 && pick.min <= 1 -> null
+    pick.max == null -> if (pick.min > 0) "$picked picked, at least ${pick.min}" else "$picked picked"
+    pick.min == pick.max -> "$picked of ${pick.max}"
+    else -> "$picked of up to ${pick.max}"
 }
 
 /** I-D48: a button's icon beside its words. */
@@ -265,6 +296,23 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
+    // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also answers a choice built
+    // up in place (X) and goes on. TRN-063 (owner playtest 2026-11-09): it is the main button, the panel has no button of its own
+    val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
+    // STK-024 (owner 2026-11-07): greyed while the chosen mana doesn't pay (the payment line says why)
+    val refusal = when {
+        cast.busy -> CAST_WORKING
+        !cast.paid -> CAST_UNPAID
+        answering != null || flow.complete || flow.pending is Decision.ManaPayment || (cast.choosing && cast.pick != null) -> null
+        else -> CHOICE_INCOMPLETE
+    }
+    val label = actionLabel(flow)
+    val go = {
+        AppLog.info("cast", "$label pressed in the cast panel of ${flow.cardId}: ${if (answering != null) "answers ${flow.pending?.kind}" else "casts"}")
+        answering?.invoke() ?: cast.cast(); Unit
+    }
+    val onMain = MainButtonAction(MainAction(label, if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, refusal,
+        "$label ${source.name}", go))
     Column(Modifier.fillMaxWidth()
         .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
         .drawBehind {
@@ -330,13 +378,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
             Spacer(Modifier.weight(1f))
             AnimatedVisibility(!cast.hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also
-                    // answers a choice built up in place (X) and goes on
-                    val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
-                    // STK-024 (owner 2026-11-07): greyed while the chosen mana doesn't pay (the payment line says why)
-                    Button({ answering?.invoke() ?: cast.cast() }, enabled = !cast.busy && cast.paid && (answering != null || flow.complete ||
-                        flow.pending is Decision.ManaPayment || (cast.choosing && cast.pick != null)),
-                        colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
+                    if (!onMain) Button(go, enabled = refusal == null, colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
                         IconText(if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, actionLabel(flow))
                     }
                 }
@@ -344,6 +386,11 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
         }
     }
 }
+
+/** TRN-063: why Cast on the main button is greyed: Automatum works the last step out. */
+internal const val CAST_WORKING = "Automatum is working this out."
+/** TRN-063, STK-024: why Cast on the main button is greyed: the mana chosen doesn't pay. */
+internal const val CAST_UNPAID = "The sources chosen don't pay the cost: tap sources on the table."
 
 /** I-D48: an icon-only control without a hold action of its own says what it does on hold. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -507,8 +554,9 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
 
 /** A choice's OK alone ([ChoiceOk]): in a row of buttons of its own, or in the cast panel none (its Cast answers it). */
 @Composable
-internal fun OkRow(decision: Decision, enabled: Boolean, answer: () -> Unit) {
-    if (LocalCastOk.current != null) ChoiceOk(decision, enabled, answer) else DockButtons { ChoiceOk(decision, enabled, answer) }
+internal fun OkRow(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
+    if (LocalCastOk.current != null || LocalMainSlot.current != null) ChoiceOk(decision, enabled, label, answer)
+    else DockButtons { ChoiceOk(decision, enabled, label, answer) }
 }
 
 /** Choices the panel has no control of its own for: the engine's listed answers (a card type, a basic land type). */

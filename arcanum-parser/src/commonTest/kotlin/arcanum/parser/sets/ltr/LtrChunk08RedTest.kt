@@ -344,8 +344,9 @@ class LtrChunk08RedTest {
         Keyword.Trample,
         Keyword.Haste,
         triggered(stepBegins(TurnStep.End, PlayerFilter.You),
-            Step.Pay(steps = listOf(move(Objects.Self, Zone.Hand)), payer = Players.You, mandatory = true, bind = "paid"),
-            Step.If(Condition.Did("paid"), then = listOf(create(humanSoldier, toughness(Objects.Self)))),
+            // CR 608.2c, 400.7: "if you do" asks whether it was returned (not once it has left the battlefield)
+            move(Objects.Self, Zone.Hand, postBind = "returned"),
+            Step.If(Condition.NonEmpty("returned"), then = listOf(create(humanSoldier, toughness(Objects.Self)))),
             interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(Objects.Self))))),
     )
 

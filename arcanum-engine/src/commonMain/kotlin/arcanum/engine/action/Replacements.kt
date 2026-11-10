@@ -161,13 +161,14 @@ internal object Replacements {
     /** CR 616.1a–e: the next replacement to apply. */
     /**
      * inr: a draw from an empty library (CR 614.11: replacements of drawing apply even when no card could be drawn): the first "instead"
-     * replacement of [player]'s draw runs [instead] and the draw doesn't happen. Returns whether one did. A replacement that counts the
-     * player's draws ([arcanum.api.EventPattern.Draw.exceptFirstIn]) isn't applied here.
+     * replacement of [player]'s draw runs [instead] and the draw doesn't happen. Returns whether one did. One that spares the first draw of
+     * a step ([arcanum.api.EventPattern.Draw.exceptFirstIn]) applies as it does to a draw with cards left (inr sweep).
      */
     fun replaceEmptyDraw(act: Act, cause: Cause?, player: PlayerId, instead: (Replacement, TriggerEvent) -> Unit): Boolean {
         val matching = candidates(act, cause).filter { r ->
             val pattern = r.mechanic.event as? arcanum.api.EventPattern.Draw ?: return@filter false
-            r.key !in act.replacing && r.mechanic.instead != null && pattern.exceptFirstIn == null &&
+            r.key !in act.replacing && r.mechanic.instead != null &&
+                (pattern.exceptFirstIn?.let { step -> !arcanum.engine.trigger.EventMatcher.firstDrawIn(act.state, step, player) } ?: true) &&
                 Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.players, player)
         }.map { it to TriggerEvent(players = listOf(player)) }
         if (matching.isEmpty()) return false

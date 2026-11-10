@@ -251,7 +251,8 @@ internal object Steps {
     /** A choice made during resolution (CR 608.2d): bound as [Step.Choose.bind], kept as card memory when [Step.Choose.remember]. */
     private fun choose(scope: Scope, step: Step.Choose) {
         val act = scope.act
-        val chooser = scope.players(step.chooser).firstOrNull() ?: return
+        // inr sweep: "an opponent chooses" with several opponents: the controller picks which one chooses (CR 102.3), not the first
+        val chooser = scope.players(step.chooser).let { all -> act.choosePlayer(scope.you, scope.self, all) } ?: return
         val e = scope.eval()
         val source = scope.self
         val value: NamedValue = when (val choice = step.choice) {

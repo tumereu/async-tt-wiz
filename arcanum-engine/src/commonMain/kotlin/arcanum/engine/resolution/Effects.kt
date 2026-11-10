@@ -971,13 +971,18 @@ internal object Effects {
             if (effect.newTargets) {
                 val instructions = arcanum.engine.action.Replacements.instructionsOf(original.ability)
                 val slots = instructions?.targets.orEmpty() + original.modes.flatMap { m -> instructions?.modes?.options?.getOrNull(m)?.instructions?.targets.orEmpty() }
-                targets = targets.mapValues { (slot, chosen) ->
-                    val s = slots.firstOrNull { it.name == slot } ?: return@mapValues chosen
-                    val options = Targeting.options(act, s, controller, original.source, original.names, self = copyId)
+                // inr sweep: a later slot sees the copy's targets so far, new ones included ("another target creature", "target creature
+                // that player controls", CR 707.10c, 115.3, 601.2c)
+                val now = LinkedHashMap(targets)
+                for ((slot, chosen) in targets) {
+                    val s = slots.firstOrNull { it.name == slot } ?: continue
+                    val names = now.entries.filter { it.key != slot }.fold(original.names) { b, (k, v) -> b.with(k, NamedValue.Targets(v)) }
+                    val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
-                    if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
-                    else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
+                    now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
+                        else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
+                targets = now
             }
             copies += addCopy(scope, id, original, copyId, ts, controller, targets, effect)
         }

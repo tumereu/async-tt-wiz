@@ -2324,8 +2324,9 @@ internal class Sentences(
         // zone the ability works in (CR 113.6b)
         val oneOrMore = trigger.oneOrMore || m.groupValues[2].startsWith("one or more ")
         // chunk 15: "return this card from your graveyard" works only there (CR 113.6m)
+        // (inr sweep: not for an Aura whose trigger is the enchanted object leaving the battlefield, CR 113.6m)
         val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
-            ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") }
+            ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") && trigger.events.none { e -> enchantedLeft(e) } }
         // inr chunk 09: eminence "if Edgar is in the command zone or on the battlefield": each of the zones (CR 113.6b)
         val zones = zone?.let { listOf(it) } ?: (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.Or)?.any
             ?.map { (it as? ObjectFilter.InZone)?.zone ?: return@map null }?.takeIf { z -> z.all { it != null } }?.filterNotNull()
@@ -3491,8 +3492,12 @@ internal class Sentences(
         }
         // dsk chunk 14: "Sacrifice it at the beginning of the next end step." (a delayed trigger, CR 603.7)
         if (sentence == "Sacrifice it at the beginning of the next end step." && context.it != null) {
-            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(context.it!!)))))))
+            // inr sweep: an event's object ("Whenever another nontoken creature you control enters, sacrifice it at the beginning of the next end
+            // step") is named now: the delayed trigger has its own event (CR 603.7c)
+            val it = context.it!!
+            val named = if (it is Objects.EventObject) listOf(Step.Bind(it, EVENT_OBJECT)) else emptyList()
+            return named + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(if (it is Objects.EventObject) Objects.Bound(EVENT_OBJECT) else it))))))
         }
         // dsk chunk 14: "Put target card from a graveyard on the bottom of its owner's library."
         PUT_TARGET_ON_BOTTOM.matchEntire(sentence)?.let { m ->
@@ -4084,7 +4089,7 @@ internal class Sentences(
             Step.ForEach(arcanum.api.Each.Objects(Objects.Bound("chosen")), bind = "card", steps = listOf(
                 Step.Do(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))))
         // fdn chunk 02: "When enchanted creature dies, return this card to its owner's hand.": by then the Aura is a new object in the graveyard (CR 400.7, 704.5m)
-        if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && context.event.let { it is EventPattern.ZoneChange && it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) && it.to == Zone.Graveyard })
+        if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && enchantedLeft(context.event))
             return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))))
         // fdn chunk 06: "return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield"
         // (her power, or as it last existed if she left: CR 608.2h, 113.7a)
@@ -5109,7 +5114,9 @@ internal class Sentences(
             val counters = it.groupValues[3].takeIf { c -> c.isNotEmpty() }?.let { c -> listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(1))) }
             if (counters != null) return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty(), counters = counters))))
             context.it = Objects.Bound("returned")
-            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty()), postBind = "returned")))
+            // inr sweep: "When enchanted creature dies, return this card from your graveyard to the battlefield": the Aura is a new object there (CR 400.7)
+            val self = if (enchantedLeft(context.event)) Objects.SelfAfter else Objects.Self
+            return listOf(Step.Do(Effect.Move(self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty()), postBind = "returned")))
         }
         // chunk 20: "Target player mills cards equal to the sacrificed creature's power."
         TARGET_PLAYER_MILLS_SACRIFICED.matchEntire(sentence)?.let { m ->
@@ -7467,6 +7474,11 @@ internal class Sentences(
     }
 
     /** chunk 26: the steps with the last created tokens named [TOKENS] ("they", "them"). */
+    /** fdn chunk 02, inr sweep: the event is the enchanted object leaving the battlefield for a graveyard ("When enchanted creature
+     * dies"): by the time its trigger resolves, an Aura is a new object in the graveyard (CR 400.7, 704.5m, 113.6m). */
+    private fun enchantedLeft(event: EventPattern?): Boolean =
+        event is EventPattern.ZoneChange && event.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) && event.to == Zone.Graveyard
+
     private fun bindTokens(steps: List<Step>): List<Step>? {
         val index = steps.indexOfLast { (it as? Step.Do)?.effect is Effect.CreateToken }.takeIf { it >= 0 } ?: return null
         val create = (steps[index] as Step.Do).effect as Effect.CreateToken
@@ -8566,16 +8578,24 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
         }
         // blb chunk 02: "[Effect] at the beginning of the next end step." (a delayed trigger, CR 603.7)
-        Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" }?.let { m ->
+        Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" &&
+            // inr sweep: one sentence only ("You may exile Hikari. If you do, return it …" isn't all delayed)
+            ". " !in it.groupValues[1] }?.let { m ->
             // inr chunk 06: "When you sacrifice this creature, return it to the battlefield transformed ... at the beginning of the next end step":
             // "it" is the card in the graveyard (CR 400.7), named now because the delayed trigger has another event (CR 603.7c)
             // inr chunk 14: the same for "Whenever another creature dies, return that card to its owner's hand at the beginning of the next end step"
             val dyingCard = (context.event as? EventPattern.ZoneChange)?.takeIf { e -> e.to == Zone.Graveyard }
                 ?.let { context.it is Objects.EventObject } == true
-            if (context.event is EventPattern.Sacrifice && context.it == Objects.EventObject(EventRole.Object) || dyingCard) {
-                context.it = Objects.Bound("sacrificed")
-                val inner = effect(m.groupValues[1] + ".", context) ?: return null
-                return listOf(Step.Bind(Objects.EventObject(EventRole.After), "sacrificed"), Step.Do(Effect.CreateDelayedTrigger(
+            // inr sweep: and for any other event's object ("Whenever another nontoken creature you control enters, sacrifice it at the beginning
+            // of the next end step"), named as it is now
+            val eventObject = context.it as? Objects.EventObject
+            if (context.event is EventPattern.Sacrifice && context.it == Objects.EventObject(EventRole.Object) || dyingCard || eventObject != null) {
+                val dying = context.event is EventPattern.Sacrifice || dyingCard
+                val name = if (dying) "sacrificed" else EVENT_OBJECT
+                val outer = context.it
+                context.it = Objects.Bound(name)
+                val inner = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: run { context.it = outer; return null }
+                return listOf(Step.Bind(if (dying) Objects.EventObject(EventRole.After) else eventObject!!, name), Step.Do(Effect.CreateDelayedTrigger(
                     arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)), Instructions(steps = inner))))
             }
             val targets = context.targets.size
@@ -11232,6 +11252,8 @@ internal class Sentences(
         val CANT_BE_BLOCKED = Regex("""(.+) can't be blocked\.""")
         val LOYALTY = Regex("""\[([+−-]?)(\d+)\]""")
         const val TOKENS = "tokens"
+        /** inr sweep: the object of a triggered ability's event, named for a delayed trigger it creates (CR 603.7c). */
+        const val EVENT_OBJECT = "event object"
         val THEY_GAIN = Regex("""They gain (.+)\.""")
         val YOU_MAY_IF_YOU_DO = Regex("""You may (.+?)\. If you do, (.+)""")
         val THAT_CREATURES_CONTROLLER_MAY_DRAW = Regex("""That creature's controller may draw (a|one|two) cards?\.""")
@@ -23544,8 +23566,9 @@ internal class Sentences(
         // ltr chunk 08: "Return it to its owner's hand. If you do, create a number of 1/1 white Human Soldier creature tokens equal to its toughness."
         Ltr.RETURN_IT_TO_HAND_IF_YOU_DO_EQUAL_TO_TOUGHNESS.matchEntire(body)?.let { m ->
             val create = (effect("Create two ${m.groupValues[1]}.", context)?.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
-            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand)))), payer = Players.You, mandatory = true, bind = "paid"),
-                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(create.copy(count = Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Self, arcanum.api.Combine.Single))))))
+            // inr sweep: "if you do" asks whether it was returned (it may have left the battlefield meanwhile, CR 608.2c, 400.7)
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand), postBind = "returned")),
+                Step.If(arcanum.api.Condition.NonEmpty("returned"), then = listOf(Step.Do(create.copy(count = Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Self, arcanum.api.Combine.Single))))))
         }
         // ltr chunk 08: "It deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature." (CR 301.5)
         Ltr.DAMAGE_THEN_DESTROY_EQUIPMENT_ATTACHED.matchEntire(body)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let { m ->

@@ -33,7 +33,7 @@ internal object EventMatcher {
     // dgm
     /** Whether a draw of [player] now would be the first they draw in their own [step] ("except the first one they draw
      * in each of their draw steps", CR 504.1): no draw of theirs since the step began. */
-    private fun firstDrawIn(state: arcanum.engine.state.GameState, step: arcanum.api.TurnStep, player: PlayerId): Boolean {
+    fun firstDrawIn(state: arcanum.engine.state.GameState, step: arcanum.api.TurnStep, player: PlayerId): Boolean {
         if (state.turn.step != step || state.turn.active != player) return false
         val events = state.eventsOf(state.turn.number)
         val began = events.indexOfLast { it is Change.Step && it.after.step == step && it.before.step != step }

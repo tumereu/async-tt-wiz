@@ -5563,10 +5563,13 @@ internal class Sentences(
         RETURN_IT_UNDER_OWNERS_CONTROL.matchEntire(sentence)?.let { m ->
             val card = context.it ?: return null
             // dsk chunk 10: "… tapped under its owner's control with two stun counters on it"
-            val counters = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { c ->
-                listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))) }.orEmpty()
-            if (m.groupValues[1].isNotEmpty() || counters.isNotEmpty())
-                return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty(), controller = Players.OwnerOf(card), counters = counters))))
+            val counters = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { c ->
+                listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(Numbers.count(m.groupValues[4]) ?: return null))) }.orEmpty()
+            // inr chunk 05: "return it to the battlefield transformed under your control" (a dies trigger, CR 712.14)
+            val controller = if (m.groupValues[3] == "your") Players.You else Players.OwnerOf(card)
+            if (m.groupValues[1].isNotEmpty() || m.groupValues[2].isNotEmpty() || m.groupValues[3] == "your" || counters.isNotEmpty())
+                return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty(),
+                    transformed = m.groupValues[2].isNotEmpty(), controller = controller, counters = counters))))
             return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, controller = Players.OwnerOf(card)), postBind = "returned")))
         }
         MILL.matchEntire(sentence)?.let { m ->
@@ -6919,6 +6922,9 @@ internal class Sentences(
     /** gtc: the source a "deals damage" sentence names: this object ("It" in an activated ability or about this object). */
     private fun gtcSource(text: String, @Suppress("UNUSED_PARAMETER") context: Context): Objects? = when {
         isSelf(text) || text == "It" || text == "it" -> Objects.Self
+        // inr chunk 05: "Blazing Torch deals 2 damage to any target." in an ability the Equipment gives: the Equipment is the source,
+        // as it last existed if it was sacrificed to pay for it (CR 113.10, 608.2h)
+        granterName != null && text == granterName -> Objects.Granter
         else -> null
     }
 
@@ -11317,7 +11323,7 @@ internal class Sentences(
         val SACRIFICE_A = Regex("""Sacrifice (another|an?) (.+)\.""")
         val EXILE_UP_TO_TARGET = Regex("""Exile up to (\w+) (other )?target (.+)\.""")
         val AT_BEGINNING_OF_NEXT_END_STEP = Regex("""At the beginning of the next end step, (.+)""")
-        val RETURN_IT_UNDER_OWNERS_CONTROL = Regex("""Return (?:that card|it) to the battlefield( tapped)? under its owner's control(?: with (\w+) (\S+) counters? on it)?\.""")
+        val RETURN_IT_UNDER_OWNERS_CONTROL = Regex("""Return (?:that card|it) to the battlefield( tapped)?( transformed)? under (its owner's|your) control(?: with (\w+) (\S+) counters? on it)?\.""")
         val LOSE_LIFE_EQUAL_TO_THAT_CARDS_MANA_VALUE = Regex("""(.+) loses? life equal to that card's mana value\.""")
         val UNLESS_CONDITION = Regex("""(.+) unless (.+)\.""")
         // chunk 45
@@ -16585,9 +16591,12 @@ internal class Sentences(
                 Step.Do(Effect.Draw(Players.You, Value.HandSize(opponent))))
         }
         // sos chunk 07: "Discard your hand, then draw cards equal to the number of cards discarded this way."
-        if (Sos.DISCARD_HAND_DRAW_EQUAL_DISCARDED.matches(sentence))
-            return listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, objects = Objects.Each(handOf(Players.You)), postBind = "discarded")),
-                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("discarded")))))
+        // inr chunk 05: "Target player discards all the cards in their hand, then draws that many cards."
+        Sos.DISCARD_HAND_DRAW_EQUAL_DISCARDED.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "Discard your hand") Players.You else context.targetPlayer()
+            return listOf(Step.Do(Effect.Discard(player, Value.Fixed(1), ObjectFilter.Any, objects = Objects.Each(handOf(player)), postBind = "discarded")),
+                Step.Do(Effect.Draw(player, Value.Count(Objects.Bound("discarded")))))
+        }
         // sos chunk 07: "Target player discards any number of cards, then draws that many cards.", "discard any number of cards, then draw that
         // many cards plus one"
         Sos.DISCARD_ANY_NUMBER_DRAW_THAT_MANY.matchEntire(sentence)?.let { m ->
@@ -18391,8 +18400,9 @@ internal class Sentences(
             return kinds.map { Step.Do(Effect.PutCounters(on, it, Value.Fixed(1))) }
         }
         // ecl chunk 08: "Ashling's Command deals 2 damage to each creature target player controls."
+        // inr chunk 05: "… to each creature target opponent controls."
         Ecl.DEALS_TO_EACH_CREATURE_TARGET_PLAYER_CONTROLS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val player = context.targetPlayer()
+            val player = if (m.groupValues[3] == "opponent") context.targetOpponent() else context.targetPlayer()
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature),
                 ObjectFilter.ControlledBy(PlayerFilter.Is(player))))), Value.Fixed(m.groupValues[2].toInt()), Objects.Self)))
         }
@@ -20341,6 +20351,8 @@ internal class Sentences(
         if (granterName != null && text == "Exile $granterName") return listOf(CostPart.Exile(CostObjects.These(Objects.Granter), from = Zone.Battlefield))
         // fdn chunk 03: "Tap Fishing Pole" in an ability the Equipment gives: tap the Equipment, not the creature (CR 113.10, 602.2b)
         if (granterName != null && text == "Tap $granterName") return listOf(CostPart.TapObjects(CostObjects.These(Objects.Granter)))
+        // inr chunk 05: "Sacrifice Blazing Torch" in an ability the Equipment gives: sacrifice the Equipment (CR 113.10, 602.2b)
+        if (granterName != null && text == "Sacrifice $granterName") return listOf(CostPart.Sacrifice(CostObjects.These(Objects.Granter)))
         // eoe chunk 13: "Tap X untapped artifacts you control" (X announced, CR 107.3a); as "Tap two untapped Elves you control" reads, only the
         // kind is named (a cost taps untapped permanents its payer controls, CR 602.2b)
         Eoe.TAP_X_UNTAPPED.matchEntire(text)?.let { m ->

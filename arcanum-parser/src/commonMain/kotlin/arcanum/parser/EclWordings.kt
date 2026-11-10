@@ -117,7 +117,7 @@ internal object Ecl {
     val CREATE_MUTAVAULT = Regex("""[Cc]reate a (tapped )?Mutavault token\.""")
     val UP_TO_ONE_OTHER_LOSES_ALL = Regex("""[Uu]p to one (other target creature) loses all abilities\.""")
     val PUT_KEYWORD_COUNTERS_ON = Regex("""Put (an? [a-z ]+ counter, an? [a-z ]+ counter,? and an? [a-z ]+ counter) on (that creature|it)\.""")
-    val DEALS_TO_EACH_CREATURE_TARGET_PLAYER_CONTROLS = Regex("""(.+?) deals (\d+) damage to each creature target player controls\.""")
+    val DEALS_TO_EACH_CREATURE_TARGET_PLAYER_CONTROLS = Regex("""(.+?) deals (\d+) damage to each creature target (player|opponent) controls\.""")
     val CREATURES_TARGET_PLAYER_CONTROLS_GET_GAIN = Regex("""Creatures target player controls (?:get ([+-]\d+)/([+-]\d+)(?: and )?)?(?:gain ([a-z ,]+?))? until end of turn\.""")
     val MILLS_THEN_PUTS_EACH_INTO_HAND = Regex("""Target player mills (\w+) cards, then puts each (.+?) milled this way into their hand\.""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) from your graveyard to your hand\.""")

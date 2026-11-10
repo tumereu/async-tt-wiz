@@ -1066,6 +1066,9 @@ internal object Effects {
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
         // fin: "that player" of the trigger's event, for an effect that lasts after the trigger has resolved
         scope.event?.players?.takeIf { it.isNotEmpty() }?.let { names = names.with(arcanum.engine.query.Evaluator.EVENT_PLAYERS, NamedValue.Players(it)) }
+        // inr chunk 05: and its objects, for an effect that names them after the trigger has resolved ("it doesn't untap during its
+        // controller's next untap step", CR 608.2h)
+        scope.event?.objects?.forEach { r -> names = names.with(arcanum.engine.query.Evaluator.eventObjects(r.role), NamedValue.Objects(r.ids)) }
         // gtc backfill: a copy of the object an event names ("become a copy of that card", the card put into a graveyard) is
         // found now and kept by name (D37): the event is gone when the copy effect is applied later (CR 707.2)
         val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }.map { m ->

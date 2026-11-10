@@ -741,6 +741,8 @@ internal object Events {
             if (m.groupValues[2] !in self) return null
             return EventPattern.Transform(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Named(m.groupValues[2])))
         }
+        // inr chunk 05: "equipped creature transforms" (CR 701.27a)
+        TRANSFORMS.matchEntire(text)?.let { m -> return EventPattern.Transform(subject(m.groupValues[1], self) ?: return null) }
         return null
     }
 
@@ -937,6 +939,7 @@ internal object Events {
     private val EXILED_FROM_THE_BATTLEFIELD = Regex("""(.+) is exiled from the battlefield""")
     // chunk 56
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
+    private val TRANSFORMS = Regex("""(.+) transforms""")
     // blb chunk 01
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
@@ -1192,7 +1195,9 @@ internal object Conditions {
         }
         // blb chunk 05: "that player has one or fewer cards in hand" (the event's player)
         THAT_PLAYER_HAS_CARDS.matchEntire(text)?.let { m ->
-            return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            // inr chunk 05: "that player has no cards in hand"
+            val most = if (m.groupValues[2].isNotEmpty()) 0 else Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(most))
         }
         // blb chunk 05: "you control a creature with power 4 or greater"
         BLB_CONTROL_A_PHRASE.matchEntire(text)?.let { m -> Filters.noun(m.groupValues[1] + " you control")?.let { return Condition.Exists(it, atLeast = 1) } }
@@ -1340,7 +1345,7 @@ internal object Conditions {
     // blb chunk 07
     private val LIFE_THIS_TURN = Regex("""(you|you've|an opponent) (gained|lost)(?: (or|and) (gained|lost))? life this turn""")
     // blb chunk 05
-    private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (\w+) or fewer cards in hand""")
+    private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (?:(\w+) or fewer|(no)) cards in hand""")
     private val BLB_CONTROL_A_PHRASE = Regex("""you control an? (.+)""")
     // blb chunk 03
     private val OR_IF = Regex("""(.+?) or if (.+)""")

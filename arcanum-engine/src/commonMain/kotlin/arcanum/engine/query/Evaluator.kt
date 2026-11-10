@@ -126,7 +126,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Bound -> boundObjects(ctx.names[objects.name]
             ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES })
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
-        is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
+        // inr chunk 05: an effect that outlasts its trigger finds the event's objects by name ("it doesn't untap during its controller's
+        // next untap step" after an attack trigger)
+        is Objects.EventObject -> ctx.event?.objects?.filter { it.role == objects.role }?.flatMap { it.ids }
+            ?: (ctx.names[eventObjects(objects.role)] as? arcanum.engine.state.NamedValue.Objects)?.ids.orEmpty()
         // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // tla: in an ability another object's static ability gives, that object (CR 113.10)
@@ -913,6 +916,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         const val SELF_AFTER = "\$self-after"
         /** fin: the players of the event of the triggered ability that created an effect ([Players.EventPlayer] in it). */
         const val EVENT_PLAYERS = "\$event-players"
+        /** inr: the objects of one role of the event of the triggered ability that created an effect ([Objects.EventObject] in it). */
+        fun eventObjects(role: arcanum.api.EventRole): String = "\$event-objects:$role"
         const val USES_ACTIVATED = "\$uses-activated"
         const val USES_RESOLVED = "\$uses-resolved"
         const val EXCESS_PREFIX = "\$excess:"

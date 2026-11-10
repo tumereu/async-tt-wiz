@@ -157,7 +157,7 @@ internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodS
     OutlinedTextField(name, rename, Modifier.fillMaxWidth(), label = { Text("Pod name") }, singleLine = true,
         readOnly = !editable, keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = hideKeyboardActions(), trailingIcon = reroll?.let { action -> { ScreenIconButton("Suggest another pod name", "shuffle", action) } })
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // DRF-173: a pack grid of several sets reads "Mixed sets"
+        // DRF-177: a pack grid of several sets reads "Mixed sets"
         Text(source?.let { if (it.kind == PodSourceKind.SET) (if (grid != null && PodPackGrid.mixed(grid.packs)) "Mixed sets" else null)
             ?: it.setName ?: it.setCode.orEmpty() else it.cubeName }
             ?.takeIf { it.isNotBlank() } ?: "No source", Modifier.weight(1f))

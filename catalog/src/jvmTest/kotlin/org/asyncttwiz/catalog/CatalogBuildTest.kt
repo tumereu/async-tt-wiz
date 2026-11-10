@@ -55,7 +55,7 @@ class CatalogBuildTest {
         assertEquals(catalog.header.printings, catalog.printings.size)
     }
 
-    // DRF-088, DRF-172: a set record carries MTGJSON's keyruneCode, the Keyrune set symbol the app draws
+    // DRF-088, DRF-176: a set record carries MTGJSON's keyruneCode, the Keyrune set symbol the app draws
     @Test fun `a set record carries its Keyrune symbol code`() {
         assertEquals("TST", catalog.set.getValue("TST").keyrune)
         assertEquals("DEFAULT", catalog.set.getValue("OFF").keyrune, "MTGJSON's code, not the set's own")

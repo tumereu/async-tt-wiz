@@ -1404,7 +1404,7 @@ class PodHttpTest {
     /** The definitions of the cards set [code]'s packs can hold, from the server's card catalog. */
     private fun setCards(code: String) = ServerCatalogs.current()!!.source(code)!!.snapshot.cards.map { it.definition }.toSet()
 
-    // DRF-173, DRF-175, DRF-169: pods send the pack grid of set codes; the server builds each pack from its cell's set
+    // DRF-177, DRF-179, DRF-169: pods send the pack grid of set codes; the server builds each pack from its cell's set
     // and resizes the grid when the settings change
     @Test fun `a mixed pack grid builds each pack from its own cell's set`() = fixture { f ->
         val settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 4)
@@ -1437,7 +1437,7 @@ class PodHttpTest {
         assertEquals(state.copies.size, state.copies.map { it.id }.distinct().size)
     }
 
-    // DRF-175: Sealed's one row and Grid's grids: each booster or grid from its own cell's set
+    // DRF-179: Sealed's one row and Grid's grids: each booster or grid from its own cell's set
     @Test fun `Sealed boosters and fresh grid boosters come from their cells' sets`() = fixture { f ->
         val sealed = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Mixed sealed",
             mode = DraftMode.SEALED, settings = DraftSettings.sealed().copy(packsPerPlayer = 2), packSets = listOf("TWL", "TST")), 201)).id
@@ -1458,7 +1458,7 @@ class PodHttpTest {
         assertTrue(cards[0].all { it in twl }); assertTrue(cards[1].all { it in tst })
     }
 
-    // DRF-174, DRF-162: every set of the grid must be draftable; one that isn't, in any cell, refuses the whole grid
+    // DRF-178, DRF-162: every set of the grid must be draftable; one that isn't, in any cell, refuses the whole grid
     @Test fun `a pack grid with an undraftable set in any cell is refused`() = fixture { f ->
         fun refused(packs: List<String>, status: Int, code: String) = assertEquals(code, json.decodeFromString<PodError>(
             f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Grid", packSets = packs), status)).code)

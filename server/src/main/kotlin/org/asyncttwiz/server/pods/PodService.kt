@@ -46,7 +46,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun <T> stored(row: PodRecord, read: () -> T) = StoredData.decode("pod", row.id, read)
     private fun build(row: PodRecord, data: String) = stored(row) { json.decodeFromString<PodDeckBuild>(data) }
     private fun settings(row: PodRecord) = stored(row) { json.decodeFromString<DraftSettings>(row.settings!!.data()) }
-    // Cubes are arrays. A set source (its pack grid and the snapshot of each of its sets, DRF-173) is stored as a JSON
+    // Cubes are arrays. A set source (its pack grid and the snapshot of each of its sets, DRF-177) is stored as a JSON
     // string inside JSONB: PostgreSQL's object-key reordering must not change the significant card-map order of fixed
     // recipe sheets.
     private fun isSetSource(row: PodRecord) = row.sourceSnapshot!!.data().trimStart().startsWith("\"")
@@ -136,7 +136,7 @@ class PodService(private val runtime: ServiceRuntime) {
         return ChosenSet(source, support)
     }
 
-    /** The sets of a pod's pack grid, chosen as its source (DRF-173): what is stored, or why it can't be. */
+    /** The sets of a pod's pack grid, chosen as its source (DRF-177): what is stored, or why it can't be. */
     private class ChosenSets(val sources: SetPackSources? = null, val definitions: List<SubmittedDefinition> = emptyList(),
         val support: String? = null, val refusal: Result? = null)
 
@@ -158,7 +158,7 @@ class PodService(private val runtime: ServiceRuntime) {
             chosen.flatMap { it.source!!.definitions }.distinctBy { it.digest }, json.encodeToString(combined))
     }
 
-    /** [sources] resized to [settings] (DRF-175): the grid cut or carried on, sets no pack names any more dropped. */
+    /** [sources] resized to [settings] (DRF-179): the grid cut or carried on, sets no pack names any more dropped. */
     private fun resized(sources: SetPackSources, settings: DraftSettings): SetPackSources {
         val packs = PodPackGrid.normalize(sources.packs, settings)
         return SetPackSources(packs, sources.sets.filter { it.setCode in packs })
@@ -238,7 +238,7 @@ class PodService(private val runtime: ServiceRuntime) {
             // I-D51/I-D52: a cube Automatum can't play fully (as the owner's device worked it out) can't start a pod.
             if (snapshot?.unsupported == true) return@business error(409, "automatum_unsupported")
             val requested = input.settings ?: DraftSettings.defaults(input.mode)
-            // DRF-162, DRF-173: every set of the pack grid comes from the card catalog, refused by its marks
+            // DRF-162, DRF-177: every set of the pack grid comes from the card catalog, refused by its marks
             val sets = (input.packSets ?: input.setCode?.let(::listOf))?.let { packs ->
                 chooseSets(packs, requested).also { chosen -> chosen.refusal?.let { return@business it } } }
             sets?.let { storeDefinitions(sql, it.definitions) }
@@ -285,7 +285,7 @@ class PodService(private val runtime: ServiceRuntime) {
             snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe)
                 row.automatumSupport = it.support }
             sets?.let { storeDefinitions(sql, it.definitions); storeSetSource(row, it.sources!!, it.support) }
-            // DRF-175: new settings resize the pod's pack grid
+            // DRF-179: new settings resize the pod's pack grid
             if (snapshot == null && sets == null && input.settings != null) setSource(row)?.let { current ->
                 val resized = resized(current, next)
                 if (resized != current) {
@@ -431,7 +431,7 @@ class PodService(private val runtime: ServiceRuntime) {
         row.draftAttemptId = UUID.randomUUID()
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
-        // DRF-175: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
+        // DRF-179: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
         val set = setSource(row)?.let { resized(it, settings) }
         set?.let { log("pod ${row.id} starts ${settings.mode} for ${players.size} players from pack grid ${PodPackGrid.cells(it.packs, settings)}") }
         if (settings.mode.limited) {

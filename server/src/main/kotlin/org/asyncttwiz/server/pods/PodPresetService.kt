@@ -32,7 +32,7 @@ class PodPresetService(private val runtime: ServiceRuntime) {
         if (setCode != null && (!PodPresetValidation.setCode(setCode) || input.setName?.let(PodPresetValidation::setName) != true) ||
             setCode == null && input.setName != null) return error(400, "invalid_source")
         if (input.cubeId?.let(DeckValidation::uuid) == false) return error(404, "cube_not_found")
-        // DRF-032, DRF-173: a set preset keeps its pack grid, starting with its set; null when every pack is that set
+        // DRF-032, DRF-177: a set preset keeps its pack grid, starting with its set; null when every pack is that set
         if (input.packSets.isNotEmpty() && (setCode == null || !PodPackGrid.valid(input.packSets) || input.packSets.first() != setCode))
             return error(400, "invalid_source")
         val packSets = input.packSets.takeIf { it.isNotEmpty() }?.let { PodPackGrid.normalize(it, settings) }

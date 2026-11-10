@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
 /**
- * Set symbols (DRF-172): the Keyrune icon font bundled with the app (assets/fonts: keyrune.ttf, SIL OFL 1.1, its licence
+ * Set symbols (DRF-176): the Keyrune icon font bundled with the app (assets/fonts: keyrune.ttf, SIL OFL 1.1, its licence
  * beside it) draws a set's symbol offline from the card catalog's MTGJSON `keyruneCode`; keyrune-codes.txt says which
  * character of the font each code is. A code the font has no symbol for shows the set's code as text instead.
  */
@@ -50,7 +50,7 @@ internal object Keyrune {
 }
 
 /**
- * A set's symbol (DRF-172) at [size], or its [code] as small text when the font has no symbol for its [keyrune] (or the
+ * A set's symbol (DRF-176) at [size], or its [code] as small text when the font has no symbol for its [keyrune] (or the
  * card records give none). Announced as "<code> symbol" either way.
  */
 @Composable

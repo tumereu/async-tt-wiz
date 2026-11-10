@@ -50,7 +50,7 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
     }
 }
 
-/** DRF-174: the set list for some packs of the pack grid, titled by them ("Set for Round 2"); only draftable sets can be
+/** DRF-178: the set list for some packs of the pack grid, titled by them ("Set for Round 2"); only draftable sets can be
  * chosen, as in the Source dialog. */
 @Composable
 internal fun PodPackSetDialog(controller: PodController, target: PodPackTarget, settings: DraftSettings) {
@@ -81,7 +81,7 @@ internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Un
             // sign names those cards (DRF-161)
             Row(Modifier.fillMaxWidth().testTag("set-${set.code}"), verticalAlignment = Alignment.CenterVertically) {
                 ScreenOutlinedButton({ choose(set.code) }, Modifier.weight(1f), enabled = set.automatum) {
-                    // DRF-172: the set's symbol, or its code when the font has none
+                    // DRF-176: the set's symbol, or its code when the font has none
                     SetSymbol(set.keyrune, set.code, Modifier.width(40.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(set.name, Modifier.weight(1f))

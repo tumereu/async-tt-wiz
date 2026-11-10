@@ -37,7 +37,7 @@ class MultisetPodTest : E2e() {
         waitUntil("the set list closed") { !alice.pods.setPicker.state.open }
     }
 
-    // DRF-173, DRF-174, DRF-175, DRF-169, DRF-032
+    // DRF-177, DRF-178, DRF-179, DRF-169, DRF-032
     @Test fun aMixedPackGridDraftsEachRoundFromItsOwnSetAndAPresetKeepsIt() {
         launchPlayers(aliceCatalog = true)
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }

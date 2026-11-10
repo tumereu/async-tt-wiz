@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * A saved New pod form, minus the pod name and invitees, stored per account on the server.
  * The source is a cube reference or a set code (the set snapshot is rebuilt from the client's catalog on load).
  * [cubeMissing]: the referenced cube no longer exists (deleted); the player must choose another source.
- * [packSets]: a set preset's pack grid read row by row (DRF-173, [PodPackGrid], normalized; [setCode] is its first set),
+ * [packSets]: a set preset's pack grid read row by row (DRF-177, [PodPackGrid], normalized; [setCode] is its first set),
  * empty when every pack is [setCode]'s.
  */
 @Serializable data class PodPreset(
@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 /**
  * POST /v1/pod-presets. Names are unique per account ignoring case: an existing name is refused (409 preset_exists)
  * unless [overwrite], which replaces that preset's contents and name. At most one of cubeId/setCode. [packSets]: with a
- * [setCode], the pack grid read row by row (DRF-173), starting with [setCode]; stored normalized to [settings].
+ * [setCode], the pack grid read row by row (DRF-177), starting with [setCode]; stored normalized to [settings].
  */
 @Serializable data class SavePodPreset(
     val name: String, val settings: DraftSettings,

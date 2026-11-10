@@ -10,7 +10,7 @@ internal data class PodPresetForm(val settings: DraftSettings, val cubeId: Strin
     val setCode: String? = null, val setName: String? = null,
     /** Display only: the chosen cube's or set's name. */
     val sourceName: String? = null,
-    /** DRF-173: the pack grid read row by row, starting with [setCode]; empty when every pack is [setCode]'s. */
+    /** DRF-177: the pack grid read row by row, starting with [setCode]; empty when every pack is [setCode]'s. */
     val packSets: List<String> = emptyList())
 
 /** A mixed pack grid's name (DRF-032): its sets' codes in the order its packs first name them, "RTR, GTC, DGM". */

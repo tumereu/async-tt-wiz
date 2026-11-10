@@ -126,7 +126,7 @@ class PodPresetHttpTest {
                 assertEquals(404, request(a, "DELETE", "/v1/pod-presets/${second.id}").statusCode())
                 assertEquals(listOf("ALPHA grid", "CUBE NIGHT", "no source"), list(a).map { it.name })
 
-                // DRF-032, DRF-173: a set preset keeps its pack grid (so "Original RTR block" is made once), stored
+                // DRF-032, DRF-177: a set preset keeps its pack grid (so "Original RTR block" is made once), stored
                 // normalized to its settings; one set for every pack keeps none
                 val block = json.decodeFromString<PodPreset>(save(a, SavePodPreset("Original RTR block", DraftSettings.booster(),
                     setCode = "RTR", setName = "Return to Ravnica", packSets = listOf("RTR", "GTC", "DGM", "DGM", "DGM")), 201))

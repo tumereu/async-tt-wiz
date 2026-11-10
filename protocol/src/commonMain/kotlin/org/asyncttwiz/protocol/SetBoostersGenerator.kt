@@ -76,7 +76,7 @@ object SetBoosters {
     }
 
     /**
-     * Multiset drafting (DRF-173): one pack per entry of [packSets], each from its own set in [sources]. Each set's packs
+     * Multiset drafting (DRF-177): one pack per entry of [packSets], each from its own set in [sources]. Each set's packs
      * are generated together from its own seed ([setSeed]): the first set's is [seed] itself, so packs of one set are
      * the same as [generate]'s. Copies of a later set get its index in their ids so no two sets' copies share one.
      */

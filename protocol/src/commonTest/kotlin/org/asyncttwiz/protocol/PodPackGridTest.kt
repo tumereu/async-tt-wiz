@@ -7,7 +7,7 @@ class PodPackGridTest {
     private val booster = DraftSettings.booster()
     private val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
 
-    // DRF-173: one row per round, one cell per pack of that round, sized by the rounds and packs-per-round settings
+    // DRF-177: one row per round, one cell per pack of that round, sized by the rounds and packs-per-round settings
     @Test fun theGridHasARowPerRoundAndACellPerPackOfThatRound() {
         assertEquals(listOf(1, 1, 1), PodPackGrid.rows(booster))
         assertEquals(listOf(2, 2, 1), PodPackGrid.rows(booster.copy(packsPerPlayer = 5, packsOpenAtOnce = 2)))
@@ -24,7 +24,7 @@ class PodPackGridTest {
         assertEquals(listOf("A"), PodPackGrid.normalize(listOf("A", "B"), DraftSettings.rotisserie()))
     }
 
-    // DRF-174: a cell, a row label ("Round 2") and a column label ("Pack 1")
+    // DRF-178: a cell, a row label ("Round 2") and a column label ("Pack 1")
     @Test fun aCellARowLabelAndAColumnLabelSetTheirPacks() {
         val settings = booster.copy(packsPerPlayer = 5, packsOpenAtOnce = 2) // rows: [0 1] [2 3] [4]
         val one = listOf("RTR")
@@ -46,7 +46,7 @@ class PodPackGridTest {
         assertFalse(PodPackGrid.mixed(one))
     }
 
-    // DRF-175: settings changes resize the grid: a bigger one repeats the last set, a smaller one drops its last packs
+    // DRF-179: settings changes resize the grid: a bigger one repeats the last set, a smaller one drops its last packs
     @Test fun aSettingsChangeResizesTheGrid() {
         val block = listOf("RTR", "GTC", "DGM")
         assertEquals(List(4) { listOf("RTR", "GTC", "DGM", "DGM")[it] }, PodPackGrid.cells(block, booster.copy(packsPerPlayer = 4)))
@@ -57,7 +57,7 @@ class PodPackGridTest {
         assertEquals(listOf("RTR", "GTC", "DGM", "DGM", "DGM", "DGM"), PodPackGrid.cells(block, DraftSettings.sealed()))
     }
 
-    // DRF-175: each engine's pack i takes its cell's set
+    // DRF-179: each engine's pack i takes its cell's set
     @Test fun eachEnginesPacksTakeTheirCellsSet() {
         val block = listOf("RTR", "GTC", "DGM")
         assertEquals(listOf("RTR", "RTR", "GTC", "GTC", "DGM", "DGM"), PodPackGrid.packSets(block, booster, 2))
@@ -76,7 +76,7 @@ class PodPackGridTest {
         "00000000-0000-0000-0000-" + index.toString(16).padStart(12, '0'), SetCardRarity.COMMON)
     private fun set(code: String, first: Int) = SetSourceSnapshot(code, "Set $code", List(20) { card(first + it) })
 
-    // DRF-175, DRF-169: every pack is built from its own cell's set; a pod of one set gets the packs one set always gave
+    // DRF-179, DRF-169: every pack is built from its own cell's set; a pod of one set gets the packs one set always gave
     @Test fun packsComeFromTheirCellsSetAndOneSetDealsAsBefore() {
         val a = set("AAA", 0); val b = set("BBB", 100)
         val sources = SetPackSources(listOf("AAA", "BBB", "AAA"), listOf(a, b))

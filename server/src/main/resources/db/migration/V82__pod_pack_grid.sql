@@ -1,4 +1,4 @@
--- Multiset drafting (DRF-173): a set pod's source is its pack grid read row by row (each pack's set by its code) and the
+-- Multiset drafting (DRF-177): a set pod's source is its pack grid read row by row (each pack's set by its code) and the
 -- snapshot of every set it names, still a JSON string inside jsonb (the card-map order of fixed recipe sheets matters).
 -- A stored pod of one set becomes that set for every pack: {"packs":[<code>],"sets":[<its snapshot>]}. Cube pods
 -- (arrays) and games are untouched.

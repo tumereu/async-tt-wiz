@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 
 /**
- * The pack grid (multiset drafting, DRF-173): which set each pack of a set pod comes from. One row per round and one cell
+ * The pack grid (multiset drafting, DRF-177): which set each pack of a set pod comes from. One row per round and one cell
  * per pack of that round, sized by the pod's settings; the grid read row by row is each player's packs in the order they
  * are opened (Grid: its grids, Sealed: its boosters), the same set for every player.
  *

@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
 /**
- * Multiset drafting for the owner's gallery: set symbols in the Sets tab (DRF-172) and the pack grid (DRF-173, DRF-174):
+ * Multiset drafting for the owner's gallery: set symbols in the Sets tab (DRF-176) and the pack grid (DRF-177, DRF-178):
  * one set by default with Mix sets, the open grid, a row label, a column label and a single cell chosen, Sealed's one row
  * and a preset saved with a grid. The creator's setup is shown from seeded pod state and driven by taps; nothing is sent
  * (the worker never runs requests). Real set names and symbols, so the symbols show as players see them.
@@ -90,7 +90,7 @@ class MultisetDraftScreenshotTest {
     private fun choose(name: String) { compose.onNode(hasClickAction() and hasAnyDescendant(hasText(name)), useUnmergedTree = true).performScrollTo().performClick(); settle() }
     private fun cells() = pods.state.detail!!.source.packSets.let { PodPackGrid.cells(it, pods.state.detail!!.settings) }
 
-    // DRF-088, DRF-172
+    // DRF-088, DRF-176
     @Test fun setPickerSymbols() {
         show(detail(sixPacks, source("RTR")), PodSetPickerState(open = true, loaded = true, sets = sets))
         compose.onNodeWithText("Sets").performClick()
@@ -102,7 +102,7 @@ class MultisetDraftScreenshotTest {
             "Duskmourn, greyed with the warning sign, can't be chosen.")
     }
 
-    // DRF-173: one set for every pack by default, with Mix sets under the source; then the open grid
+    // DRF-177: one set for every pack by default, with Mix sets under the source; then the open grid
     @Test fun oneSetThenTheOpenGrid() {
         show(detail(sixPacks, source("RTR")))
         compose.onNodeWithTag("mix-sets").assertIsDisplayed()
@@ -115,7 +115,7 @@ class MultisetDraftScreenshotTest {
             "Return to Ravnica's symbol over its code.")
     }
 
-    // DRF-174: a row label, a column label and a single cell
+    // DRF-178: a row label, a column label and a single cell
     @Test fun rowColumnAndCell() {
         show(detail(sixPacks, source("RTR")))
         tap("mix-sets")
@@ -140,7 +140,7 @@ class MultisetDraftScreenshotTest {
         shot("multiset-cell", "Choosing Gatecrash there changes only that cell: round 3 is now Dragon's Maze then Gatecrash.")
     }
 
-    // DRF-173: Sealed's grid is one row
+    // DRF-177: Sealed's grid is one row
     @Test fun sealedOneRow() {
         show(detail(DraftSettings.sealed(), source("RTR", "RTR", "RTR", "GTC"), name = "Sealed league"))
         compose.onNodeWithTag("pack-row-0").assertTextEquals("All packs")
@@ -148,7 +148,7 @@ class MultisetDraftScreenshotTest {
             "1 to 3 from Return to Ravnica and 4 to 6 from Gatecrash; the source reads Mixed sets.")
     }
 
-    // DRF-032, DRF-173: a preset saved with a grid
+    // DRF-032, DRF-177: a preset saved with a grid
     @Test fun presetWithAGrid() {
         pods.presets.seed(PodPresetState(open = true, loaded = true, presets = listOf(
             PodPreset("1", "Friday cube", DraftSettings.booster(), cubeId = "runes", cubeName = "Runes", updatedAt = "2026-11-01T00:00:00Z"),

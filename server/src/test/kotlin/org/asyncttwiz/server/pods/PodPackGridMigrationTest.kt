@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 /**
- * Multiset drafting (DRF-173): V82 keeps every stored pod readable. A pod of one set becomes that set for every pack,
+ * Multiset drafting (DRF-177): V82 keeps every stored pod readable. A pod of one set becomes that set for every pack,
  * its snapshot unchanged to the byte (a fixed sheet's card order matters); cube pods and presets stay as they were.
  */
 class PodPackGridMigrationTest {
@@ -22,7 +22,7 @@ class PodPackGridMigrationTest {
         connection.createStatement().executeQuery(query).use { result -> assertTrue(result.next()); result.getString(1) }
     }
 
-    // DRF-173, SYS-052: stored set pods and presets still read after the change
+    // DRF-177, SYS-052: stored set pods and presets still read after the change
     @Test fun `a stored pod of one set becomes that set for every pack`() {
         FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("81").load().migrate()

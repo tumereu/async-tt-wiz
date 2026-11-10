@@ -565,7 +565,7 @@ class PodControllerTest {
     private fun gridSource(packs: List<String>) = PodSource(kind = PodSourceKind.SET, setCode = packs.first(), setName = "Test set",
         packSets = packs)
 
-    // DRF-173, DRF-174: New pod's pack grid: a row label, a column label and a cell each choose a set for their packs; the
+    // DRF-177, DRF-178: New pod's pack grid: a row label, a column label and a cell each choose a set for their packs; the
     // grid goes to the server as the list of set codes, read row by row
     @Test fun newPodsPackGridShortcutsSetTheirPacksAndCreateSendsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
@@ -586,7 +586,7 @@ class PodControllerTest {
         assertEquals(PodSetChoice("TWO", "Second set"), f.controller.state.creating!!.set)
         f.controller.choosePacks(PodPackTarget.Cell(3, 1, 1)); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
         assertEquals(listOf("TWO", "TWO", "TWO", "TST"), f.controller.state.creating!!.packs)
-        // Fewer packs drop the last ones (DRF-175)
+        // Fewer packs drop the last ones (DRF-179)
         f.controller.newSettings { it.copy(packsPerPlayer = 3) }
         assertEquals(listOf("TWO"), f.controller.state.creating!!.packs)
         f.controller.newSettings { it.copy(packsPerPlayer = 4) }
@@ -602,7 +602,7 @@ class PodControllerTest {
         assertEquals(listOf("TWO"), f.controller.state.creating!!.packs)
     }
 
-    // DRF-174, DRF-173: in setup the creator's grid edits show at once and are sent as the grid; a preset saves it and
+    // DRF-178, DRF-177: in setup the creator's grid edits show at once and are sent as the grid; a preset saves it and
     // brings it back (DRF-032)
     @Test fun setupPackGridEditsSaveAndAPresetKeepsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
         f.api.saved = f.api.saved.copy(source = gridSource(listOf("TST")))

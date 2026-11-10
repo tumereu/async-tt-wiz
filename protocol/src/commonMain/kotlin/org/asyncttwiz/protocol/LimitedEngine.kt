@@ -201,7 +201,7 @@ object LimitedEngine {
         startFromSet(players, SetPackSources.of(set), settings, seed)
 
     /**
-     * Set boosters from the pack grid (DRF-173): each pack from its cell's set ([PodPackGrid.packSets]); Rotisserie
+     * Set boosters from the pack grid (DRF-177): each pack from its cell's set ([PodPackGrid.packSets]); Rotisserie
      * opens boosters of the pod's one set.
      */
     fun startFromSet(players: List<String>, sources: SetPackSources, settings: DraftSettings, seed: String): LimitedDraftState {

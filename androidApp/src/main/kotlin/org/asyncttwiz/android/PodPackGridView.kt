@@ -18,12 +18,12 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
 
-/** What the setup form shows of a set pod's pack grid (DRF-173): each pack's set read row by row (normalized), the card
- * records' sets for names and symbols, and [choose] (null: read-only) to pick a set for some of its packs (DRF-174). */
+/** What the setup form shows of a set pod's pack grid (DRF-177): each pack's set read row by row (normalized), the card
+ * records' sets for names and symbols, and [choose] (null: read-only) to pick a set for some of its packs (DRF-178). */
 internal class PodPackGridUi(val packs: List<String>, val set: (String) -> DraftableSet?, val choose: ((PodPackTarget) -> Unit)?)
 
 /**
- * DRF-173: by default one set for the whole pod, with a "Mix sets" button that opens the pod's pack grid; a grid that mixes
+ * DRF-177: by default one set for the whole pod, with a "Mix sets" button that opens the pod's pack grid; a grid that mixes
  * sets is always shown (read-only for members). Modes without a grid (Rotisserie) show nothing.
  */
 @Composable
@@ -42,8 +42,8 @@ internal fun PodPackGridSection(settings: DraftSettings, grid: PodPackGridUi) {
 }
 
 /**
- * The pack grid (DRF-173, DRF-174): a column label row ("Pack 1", "Pack 2"…), then one row per round under its label
- * ("Round 1"…; "All packs" for a grid of one row), each cell a set chip with the set's symbol (DRF-172) over its code.
+ * The pack grid (DRF-177, DRF-178): a column label row ("Pack 1", "Pack 2"…), then one row per round under its label
+ * ("Round 1"…; "All packs" for a grid of one row), each cell a set chip with the set's symbol (DRF-176) over its code.
  * Tapping a cell, a row label or a column label chooses a set for those packs. Scrolls sideways when wide.
  */
 @Composable
@@ -86,7 +86,7 @@ private fun PodPackLabel(text: String, modifier: Modifier, onClick: (() -> Unit)
     }
 }
 
-/** A cell: its set's symbol over its code, or the code alone when the font has no symbol for it (DRF-172). */
+/** A cell: its set's symbol over its code, or the code alone when the font has no symbol for it (DRF-176). */
 @Composable
 private fun PodPackCell(code: String, set: DraftableSet?, modifier: Modifier, onClick: (() -> Unit)?, description: String) {
     Surface(onClick = onClick ?: {}, enabled = onClick != null, modifier = modifier.height(52.dp).semantics { contentDescription = description },

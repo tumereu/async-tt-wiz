@@ -186,7 +186,7 @@ object GridEngine {
         freshBoosterCards(SetPackSources.of(source), settings, players, seed)
 
     /**
-     * Fresh boosters from the pack grid (DRF-173): grid i's booster comes from its cell's set; each set's boosters (and
+     * Fresh boosters from the pack grid (DRF-177): grid i's booster comes from its cell's set; each set's boosters (and
      * its spares) are generated from that set's seed ([SetBoosters.setSeed]), so a pod of one set gets the same cards as
      * from one source.
      */
@@ -228,7 +228,7 @@ object GridEngine {
 
     /**
      * Grids from set packs without fresh boosters: each set's packs are opened in card order (refill cards included) and
-     * every grid takes its cards from its cell's set (DRF-173), each set's packs from that set's seed.
+     * every grid takes its cards from its cell's set (DRF-177), each set's packs from that set's seed.
      */
     fun setCards(sources: SetPackSources, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> {
         val perGrid = cardsPerGrid(settings, players)

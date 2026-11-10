@@ -272,7 +272,7 @@ internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modif
     }
 }
 
-/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support; a pack grid's (DRF-173) is every one
+/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support; a pack grid's (DRF-177) is every one
  * of its sets', the cards none of them can play together. */
 private fun podSourceSupport(controller: PodController, cubeId: String?, setCode: String?, packs: List<String> = listOfNotNull(setCode)): CardListSupport? {
     cubeId?.let { id -> return controller.state.cubes.find { it.id == id }?.automatum }
@@ -280,7 +280,7 @@ private fun podSourceSupport(controller: PodController, cubeId: String?, setCode
     return supports.firstOrNull()?.let { first -> if (supports.size == 1) first else first.copy(byHand = supports.flatMap { it.byHand }.distinct()) }
 }
 
-/** The pack grid (DRF-173) of the set pod form being shown: its sets from the card records, editable when [editable]. */
+/** The pack grid (DRF-177) of the set pod form being shown: its sets from the card records, editable when [editable]. */
 private fun podPackGridUi(controller: PodController, packs: List<String>, editable: Boolean): PodPackGridUi? =
     packs.takeIf { it.isNotEmpty() }?.let { PodPackGridUi(it, controller.setPicker.state::set, controller::choosePacks.takeIf { editable }) }
 
@@ -336,7 +336,7 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val setCode = edit?.set?.code ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
         LaunchedEffect(detail.id, setCode) { if (setCode != null) controller.setPicker.loadSupport() }
-        // DRF-173: the pod's pack grid (the setup edit's predicted source holds an edited one)
+        // DRF-177: the pod's pack grid (the setup edit's predicted source holds an edited one)
         val packs = if (setCode == null) emptyList() else edit?.set?.let { listOf(it.code) }
             ?: source.packSets.ifEmpty { listOf(setCode) }.let { PodPackGrid.normalize(it, settings) }
         val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode, packs)

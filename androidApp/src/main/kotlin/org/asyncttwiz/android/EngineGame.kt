@@ -366,6 +366,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             // HIS-110: what a reveal panel shows reaches the report, once per panel
             device.reveal?.takeIf { it != loggedReveal }?.let { loggedReveal = it; AppLog.info("game", gameLog.reveal(state, it)) }
         }
+        logStatus(status)
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
@@ -941,7 +942,36 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** LOB-089 (report KX8GYS): the board shown and what the player can do on it, into the app log, just before a problem report. */
     fun logBoard() { worker.call { previous?.engine?.state?.let { state ->
         AppLog.info("game", gameLog.board(state, GameLog.options(state, device.me)))
+        // Problem report QVERHX: where playback stands and what holds the view (why the main button shows or not)
+        AppLog.info("game", "View: ${device.viewState()}")
     } } }
+
+    /** Problem report QVERHX: the status last logged ([logStatus]). */
+    private var loggedStatus: String? = null
+
+    /**
+     * Problem report QVERHX: the status published, once per change, into the app log: a stop (where, the assumed input, the
+     * main button shown), playback starting or held (by what: a reveal, a play shown, a combat's hold, the catch-up pause),
+     * a wait, Your move. Playback going from one event to the next isn't a change (one line per playback run, not per
+     * event). Engine thread.
+     */
+    private fun logStatus(status: GameDevice.Status) {
+        val holds = listOfNotNull(device.reveal?.let { "reveal ${it.event.take(8)}" }, device.show?.let { "play ${it.event.take(8)}" },
+            device.combatHold?.let { "combat ${it.kind::class.simpleName} ${it.event.take(8)}" })
+        val line = when (status) {
+            is GameDevice.Status.Playing -> "playing" + if (holds.isEmpty()) "" else ", held by $holds before ${status.next.id.take(8)}"
+            is GameDevice.Status.Stopped -> "stopped before ${status.event.id.take(8)}, assumed ${status.assumed::class.simpleName}" +
+                (if (status.paused) " (paused)" else "") + ", main button shown"
+            GameDevice.Status.CatchUp -> "catch-up pause (centre text), ${device.session.buffered.size} to show" + if (holds.isEmpty()) "" else ", holds $holds"
+            GameDevice.Status.YourMove -> "your move, main button shown" + if (holds.isEmpty()) "" else ", holds $holds"
+            // The table logs the waiting band's words ("Wait: ...")
+            is GameDevice.Status.Waiting -> "waiting"
+            else -> status::class.simpleName
+        }
+        if (line == loggedStatus) return
+        loggedStatus = line
+        if (status !is GameDevice.Status.Waiting) AppLog.info("game", "Status: $line; move ${device.move?.value?.take(8)}, tip ${device.session.tip.take(8)}, head ${device.session.head.take(8)}")
+    }
 
     /** The device's reproduction bundle (I-D43) for a problem report; null while it can't be made. */
     fun repro(): GameRepro? = worker.call { runCatching {
@@ -1068,6 +1098,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * after it already shows the next event (owner playtest 2026-11-05: nothing waited for after the tap). Over a held
      * take-back ([Held]) the take-back plays first ([releaseHeld]). */
     fun startPlayback() = worker.run {
+        AppLog.info("game", "Centre text tapped: ${device.viewState()}${if (heldWork != null) ", a take-back held" else ""}")
         if (heldWork != null) { releaseHeld(); return@run }
         // HIS-106 (owner 2026-11-08): from the stop at the branch point the other player's new events play back as a plain
         // catch-up, with its stops
@@ -1102,7 +1133,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** HIS-113: the combat moment [hold] is done (its time is up, or the player tapped the table): the next moment comes, or
      * the view goes on. Nothing when it is no longer the one (taken back meanwhile). */
-    fun dismissCombatHold(hold: GameDevice.CombatHold) = worker.run { if (device.dismissCombatHold(hold)) { publish(); afterBoard() } }
+    fun dismissCombatHold(hold: GameDevice.CombatHold, why: String = "its time") = worker.run {
+        val done = device.dismissCombatHold(hold)
+        // Problem report QVERHX: each combat hold's end reaches the report, with what ended it
+        AppLog.info("game", "Combat hold ${hold.kind::class.simpleName} in ${hold.event.take(8)} ${if (done) "done" else "already gone"}: $why")
+        if (done) { publish(); afterBoard() }
+    }
 
     /** HIS-112, HIS-113: every play shown and combat moment ends (timeline mode entered). */
     fun dismissShows() = worker.run {

@@ -26,6 +26,8 @@ interface MtgJsonCatalogSink {
     fun addSet(code: String, releaseDate: String, checksum: String = "")
     fun setName(code: String, name: String)
     fun setType(code: String, type: String)
+    /** Set [code]'s MTGJSON `keyruneCode`: which Keyrune set symbol it shows (DRF-088). */
+    fun setKeyrune(code: String, keyrune: String) {}
 
     /** Whether the import reads each set's booster recipes ([recipes]); the app's index skips them. */
     val readsBoosters: Boolean get() = false

@@ -55,6 +55,16 @@ class CatalogBuildTest {
         assertEquals(catalog.header.printings, catalog.printings.size)
     }
 
+    // DRF-088, DRF-172: a set record carries MTGJSON's keyruneCode, the Keyrune set symbol the app draws
+    @Test fun `a set record carries its Keyrune symbol code`() {
+        assertEquals("TST", catalog.set.getValue("TST").keyrune)
+        assertEquals("DEFAULT", catalog.set.getValue("OFF").keyrune, "MTGJSON's code, not the set's own")
+        assertEquals("", catalog.set.getValue("E2E").keyrune, "none given")
+        val line = CardCatalogFormat.encode(catalog.set.getValue("TST"))
+        assertTrue("\"keyrune\":\"TST\"" in line, line)
+        assertEquals(catalog.set.getValue("TST"), CardCatalogFormat.decode(line))
+    }
+
     // SYS-082 (section 3.8): a card is supported when it is in a listed set or on the single-card list, and nothing of it is left to the players
     @Test fun `the support marks follow the lists and what Automatum leaves to the players`() {
         assertTrue(face("Test Bear").automatum, "in a listed set")

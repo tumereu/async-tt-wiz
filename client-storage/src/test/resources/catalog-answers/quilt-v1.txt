@@ -1,8 +1,8 @@
 indexes: face_target, name_lookup, printing_oracle, search_card_name, search_printing_set, set_lookup, sqlite_autoindex_avatar_choice_1, sqlite_autoindex_catalog_set_1, sqlite_autoindex_face_1, sqlite_autoindex_import_name_1, sqlite_autoindex_printing_1, sqlite_autoindex_search_card_1, sqlite_autoindex_search_data_1, sqlite_autoindex_search_printing_1, token_name_lookup
-user_version: 5
+user_version: 6
 table automatum_printing: 0 rows, e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 table avatar_choice: 0 rows, e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-table catalog_set: 2 rows, 8c297a725e0439396f1d2c9cfe938f5ff53f0bf022e7df4a4904989877dd6a95
+table catalog_set: 2 rows, a530c505fd3040cfd373222e9d85583f733f480cf9344fa9ca3e1710944f760b
 table face: 2 rows, c661a8e41104889b36a4b9de6472fc0bf70d5146e5d7fd74ea5dcffb5d981cbe
 table import_name: 19 rows, 3c38be14cf47fa756b06e498407c9b3b80113ab937e3073865d956fb1402cece
 table metadata: 1 rows, 44c1df5d66086d6c71bc7673868a3956a0cc021b9a4eccaddb8053babe5f6e3d

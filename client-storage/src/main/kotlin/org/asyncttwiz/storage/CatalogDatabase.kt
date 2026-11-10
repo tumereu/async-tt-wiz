@@ -14,13 +14,14 @@ import java.util.logging.Logger
 // The card records' format, kept as the file's user_version. Card records are always the app's built-in card catalog
 // (docs/specs/web-client.md section 3.5): a new app with a new format comes with a new catalog checksum, so the records
 // are downloaded and indexed again anyway.
-internal const val CATALOG_INDEX_VERSION = 5
+internal const val CATALOG_INDEX_VERSION = 6
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
-/** A draft set of the card records (DRF-088): [automatum] whether Automatum can play every card its packs can hold, and
+/** A draft set of the card records (DRF-088): [keyrune] its Keyrune set symbol (MTGJSON's keyruneCode, empty without
+ * one), [automatum] whether Automatum can play every card its packs can hold, and
  * the names of those it can't ([unsupported], DRF-161), as the card catalog marks them (section 3.8). */
 data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
-    val automatum: Boolean = false, val unsupported: List<String> = emptyList())
+    val automatum: Boolean = false, val unsupported: List<String> = emptyList(), val keyrune: String = "")
 
 class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
 class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
@@ -197,7 +198,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', " +
             "type TEXT NOT NULL DEFAULT '', draftable INTEGER NOT NULL DEFAULT 0, automatum INTEGER NOT NULL DEFAULT 0, " +
-            "unsupported TEXT NOT NULL DEFAULT '[]')")
+            "unsupported TEXT NOT NULL DEFAULT '[]', keyrune TEXT NOT NULL DEFAULT '')")
         // The printings of the cards the card catalog marks as supported (section 3.8)
         sql("CREATE TABLE automatum_printing (id TEXT NOT NULL PRIMARY KEY) WITHOUT ROWID")
         createImportNames()
@@ -224,13 +225,15 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     /** A set with its name, kind and marks in one row: what [addSet], [setName], [setType] and [markSet] make together. */
     internal fun addSet(code: String, releaseDate: String, name: String, type: String, draftable: Boolean, automatum: Boolean,
-        unsupported: List<String>) = execute("INSERT INTO catalog_set (code, release_date, name, type, draftable, automatum, " +
-        "unsupported) VALUES (?, ?, ?, ?, ?, ?, ?)", listOf(code, releaseDate, name, type, if (draftable) 1L else 0L,
-        if (automatum) 1L else 0L, DeckJson.format.encodeToString(unsupported)), ADD_SET)
+        unsupported: List<String>, keyrune: String = "") = execute("INSERT INTO catalog_set (code, release_date, name, type, draftable, " +
+        "automatum, unsupported, keyrune) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", listOf(code, releaseDate, name, type, if (draftable) 1L else 0L,
+        if (automatum) 1L else 0L, DeckJson.format.encodeToString(unsupported), keyrune), ADD_SET)
 
     override fun setName(code: String, name: String) = sql("UPDATE catalog_set SET name=? WHERE code=?", listOf(name, code))
 
     override fun setType(code: String, type: String) = sql("UPDATE catalog_set SET type=? WHERE code=?", listOf(type, code))
+
+    override fun setKeyrune(code: String, keyrune: String) = sql("UPDATE catalog_set SET keyrune=? WHERE code=?", listOf(keyrune, code))
 
     /** Set [code]'s marks (section 3.8): a kind of set that is drafted ([draftable], DRF-088), whether Automatum can play
      * every card its packs can hold, and the names of those it can't. */
@@ -264,11 +267,12 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     internal fun draftableSets(): List<DraftableSet> = driver.executeQuery(null,
         """SELECT s.code, s.name, s.release_date, (SELECT count(*) FROM printing p WHERE p.set_code=s.code AND p.token=0),
-            s.automatum, s.unsupported FROM catalog_set s WHERE s.draftable=1 ORDER BY s.release_date DESC, s.code""", { cursor ->
+            s.automatum, s.unsupported, s.keyrune FROM catalog_set s WHERE s.draftable=1 ORDER BY s.release_date DESC, s.code""", { cursor ->
             val sets = mutableListOf<DraftableSet>()
             while (cursor.next().value) sets += DraftableSet(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!,
                 cursor.getLong(3)!!, cursor.getLong(4) == 1L,
-                runCatching { DeckJson.format.decodeFromString<List<String>>(cursor.getString(5)!!) }.getOrDefault(emptyList()))
+                runCatching { DeckJson.format.decodeFromString<List<String>>(cursor.getString(5)!!) }.getOrDefault(emptyList()),
+                cursor.getString(6).orEmpty())
             QueryResult.Value(sets)
         }, 0).value
 

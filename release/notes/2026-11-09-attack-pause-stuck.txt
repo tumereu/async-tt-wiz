@@ -1,0 +1,1 @@
+fix: After the other player attacked you, your table could stay stuck on their turn saying "Your move" with no main button; the pause on their attack now always ends and the game goes on into your turn.

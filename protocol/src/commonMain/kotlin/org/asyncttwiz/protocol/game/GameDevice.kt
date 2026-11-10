@@ -504,7 +504,8 @@ class GameDevice(
         val key = head to session.localHead
         if (key != opponentAtKey) {
             opponentAtKey = key
-            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn
+            // Still in the opening (before turn 1: "turn 0") says nothing of where they are
+            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn?.takeIf { it.number >= 1 }
                 ?.let { OpponentAt(it.number, it.step, it.active) }
             remember("the other player behind, at ${head.take(8)}: $opponentAtCached")
         }
@@ -525,21 +526,61 @@ class GameDevice(
     // ---- Playback
 
     /** Ends the catch-up pause: playback starts. */
-    fun play() { catchUp = false }
+    fun play() {
+        if (catchUp) remember("catch-up: play, ${session.buffered.size} to show from ${session.localHead.take(8)}, ${viewState()}")
+        catchUp = false
+    }
 
     /** HIS-006: the player entered timeline mode while playback ran: it waits paused ([Status.CatchUp]) until [play]. */
-    fun holdPlayback() { if (session.behind && !opening && status is Status.Playing) catchUp = true }
+    fun holdPlayback() {
+        if (session.behind && !opening && status is Status.Playing) { catchUp = true; remember("catch-up: held (timeline), ${viewState()}") }
+    }
 
     /**
      * HIS-035 (owner playtest 2026-11-05): the player left the app. Playback pauses at the shown point at once, and what
      * arrives meanwhile waits: coming back with the other player's events past the local head starts paused
      * ([Status.CatchUp]) until [play], as a fresh load does; [returned] ends it when there is nothing to catch up on.
      */
-    fun away() { catchUp = true }
+    fun away() { catchUp = true; remember("catch-up: away, ${viewState()}") }
 
     /** The player is back and the device has everything the server had: with nothing of the other player's past the
      * local head the game is live again (HIS-006); else it stays paused for Play. */
-    fun returned() { if (session.buffered.none { it.author != session.me.value && !okOnly(it) }) catchUp = false }
+    fun returned() {
+        if (session.buffered.none { it.author != session.me.value && !okOnly(it) }) catchUp = false
+        remember("catch-up: back, ${if (catchUp) "paused for Play" else "live"}, ${viewState()}")
+    }
+
+    /**
+     * Problem report QVERHX: where playback and the view stand, for the record and the problem report: the status (what
+     * the main button can hold follows from it: Your move, Drafting and a stop show it; playback, the catch-up's pause
+     * and a wait don't), what holds the view (an open reveal, a play shown, a combat's hold), the catch-up pause and a
+     * pause of the player's, and how many events wait past the local head.
+     */
+    fun viewState(): String {
+        val s = status
+        val what = when (s) {
+            is Status.Playing -> "playing, next ${s.next.id.take(8)}"
+            is Status.Stopped -> "stopped before ${s.event.id.take(8)} (assumed ${s.assumed::class.simpleName}${if (s.paused) ", paused" else ""})"
+            is Status.Waiting -> "waiting: ${s.reason}${s.offer?.let { ", offer $it" } ?: ""}"
+            else -> s::class.simpleName ?: "?"
+        }
+        syncReveals()
+        val holds = revealsOpen.map { "reveal ${it.event.take(8)}" } + showsOpen.map { m -> when (m) {
+            is PlayShow -> "play ${m.kind::class.simpleName} ${m.event.take(8)}"
+            is CombatHold -> "combat ${m.kind::class.simpleName} ${m.event.take(8)}"
+        } }
+        return "status $what, main button ${if (s == Status.YourMove || s == Status.Drafting || s is Status.Stopped) "shown" else "none"}, " +
+            "move ${move?.value?.take(8)}, holds $holds, catch-up $catchUp, pausing $pausing, buffered ${session.buffered.size}, ${where()}"
+    }
+
+    /** Why [step] last showed nothing while events waited (the record says each reason once, until playback moves on). */
+    private var heldWhy: String? = null
+
+    private fun playbackHeld(why: String?) {
+        if (why == heldWhy) return
+        heldWhy = why
+        if (why != null) remember("playback holds before ${session.buffered.firstOrNull()?.id?.take(8)}: $why")
+    }
 
     /** TRN-065: whether [event] only says a player pressed OK on the result or took it back: nothing to watch. */
     private fun okOnly(event: GameEvent): Boolean = event.engine == null && event.table.isNotEmpty() && event.table.all { it is TableChange.ResultOk }
@@ -594,9 +635,14 @@ class GameDevice(
      * every event up to the first turn, a stop or the head shows at once: the last of them is answered.
      */
     fun step(): GameEvent? {
-        if (needsReload || holding || (catchUp && !opening) || session.drafting || !session.behind) return null
-        if (viewHolds()) return null
-        if (stopAt(session.buffered.first()) != null) return null
+        if (!session.behind) { playbackHeld(null); return null }
+        if (needsReload || holding || (catchUp && !opening) || session.drafting) {
+            playbackHeld(when { needsReload -> "reload"; holding -> "take-back held"; session.drafting -> "own draft open"; else -> "catch-up pause" })
+            return null
+        }
+        if (viewHolds()) { playbackHeld("view held: ${viewState()}"); return null }
+        stopAt(session.buffered.first())?.let { playbackHeld("decision stop at the assumed $it (mode ${settings.mode}${if (pausing) ", paused" else ""}), main button shown"); return null }
+        playbackHeld(null)
         var shown: GameEvent
         do shown = session.showNext() while (opening && session.behind && !viewHolds() && stopAt(session.buffered.first()) == null)
         showResultOks()
@@ -721,7 +767,10 @@ class GameDevice(
                 revealsOpen += r
                 remember("reveal open: ${r.by.value.take(8)} revealed ${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
             } else remember("own reveal in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
-            if (showPlays) showsOpen += momentsIn(e, me)
+            if (showPlays) momentsIn(e, me).takeIf { it.isNotEmpty() }?.let { moments ->
+                showsOpen += moments
+                remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> if (m is CombatHold) "combat ${m.kind::class.simpleName}" else "play" }}")
+            }
         }
     }
 
@@ -824,6 +873,7 @@ class GameDevice(
         if (which != null && which != open) return false
         showsOpen.removeAt(0)
         showDone = open.event
+        remember("play shown done in ${open.event.take(8)}, holds left ${showsOpen.size}")
         return true
     }
 
@@ -834,6 +884,7 @@ class GameDevice(
         if (which != null && which != open) return false
         showsOpen.removeAt(0)
         showDone = open.event
+        remember("combat hold done: ${open.kind::class.simpleName} in ${open.event.take(8)}, holds left ${showsOpen.size}")
         return true
     }
 
@@ -2086,8 +2137,13 @@ class GameDevice(
         }
         // Wait for the event the server took instead (a refusal can come before it) and for it to be shown; also while the
         // point the moves were made after is still one of the device's own events on its way (a refusal can come before
-        // its confirmation too): compared on the board there, before the other player's event, they were dropped
-        else if (session.head == first.parent || session.behind || session.pending.any { it.id == first.parent }) return false
+        // its confirmation too): compared on the board there, before the other player's event, they were dropped.
+        // Except (e2e CombatHoldTest, 2026-11-10) where that point is the other player's event that took the place of the
+        // device's own one (SYS-077, [adopted]): the moves were sent on the device's own event, which the server refused
+        // in the race, so the event the server took instead is that one, here and shown; nothing else is coming for them
+        else if ((session.head == first.parent && first.parent !in adopted.values) || session.behind ||
+            session.pending.any { it.id == first.parent }) return false
+        if (!answered && session.head == first.parent) remember("remake on ${first.parent.take(8)}, which took the place of the device's own event")
         val moves = remaking.toList()
         remaking.clear()
         for ((n, move) in moves.withIndex()) {

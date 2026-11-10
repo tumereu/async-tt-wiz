@@ -504,7 +504,8 @@ class GameDevice(
         val key = head to session.localHead
         if (key != opponentAtKey) {
             opponentAtKey = key
-            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn
+            // Still in the opening (before turn 1: "turn 0") says nothing of where they are
+            opponentAtCached = runCatching { session.stateAt(head) }.getOrNull()?.engine?.turn?.takeIf { it.number >= 1 }
                 ?.let { OpponentAt(it.number, it.step, it.active) }
             remember("the other player behind, at ${head.take(8)}: $opponentAtCached")
         }

@@ -377,13 +377,17 @@ object HandCasts {
         if (Engine.anyReduction(flow.state)) {
             var most = open.min - 1
             var value = open.min
+            var proven = false
             val unpayable = mutableSetOf<Int>()
             while (value <= top && value - most <= GAP_TRIED) {
+                // STK-023: a value that can't be paid even at the most every reduction could take ends the look exactly
+                if (!Engine.announcedMayPay(flow.state, value)) { proven = true; break }
                 if (pays(value)) most = value else unpayable += value
                 value++
             }
-            // The run of values that can't be paid ran out before the top: unknown beyond it, so open up to the top
-            return if (value <= top) Announceable(top, unpayable) else Announceable(most, unpayable.filterTo(mutableSetOf()) { it < most })
+            // The run of values that can't be paid ran out before the top without that proof: unknown beyond it, so open up to the top
+            return if (!proven && value <= top) Announceable(top, unpayable)
+                else Announceable(most, unpayable.filterTo(mutableSetOf()) { it < most })
         }
         return Announceable(mostWithoutGaps(open, top, ::pays))
     }

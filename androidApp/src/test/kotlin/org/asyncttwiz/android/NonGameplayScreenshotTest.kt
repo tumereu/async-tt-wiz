@@ -273,7 +273,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "play" -> "Games list for alex: riley's pending invitation with Accept and Decline, then two games with riley"
             "games-loading" -> "Games list while it refreshes in the background, with no loading text"
             "records-downloading" -> "Games screen while the card records download: New game and the games greyed under \"Card records updating · 7%\""
-            "records-indexing" -> "Games screen while the downloaded card records are indexed: New game and the games greyed under \"Card records updating · 62%\""
+            "records-indexing" -> "Games screen while the downloaded card records are indexed: New game and the games greyed under \"Card records updating · 41%\""
             "records-failed" -> "Games screen after the card records' download failed twice: the controls stay greyed and the line offers Retry"
             "contacts" -> "Contacts screen with riley and morgan, and a search for sam showing one result"
             "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create"

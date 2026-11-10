@@ -1,0 +1,263 @@
+indexes: face_target, name_lookup, printing_oracle, search_card_name, search_printing_set, set_lookup, sqlite_autoindex_avatar_choice_1, sqlite_autoindex_catalog_set_1, sqlite_autoindex_face_1, sqlite_autoindex_import_name_1, sqlite_autoindex_printing_1, sqlite_autoindex_search_card_1, sqlite_autoindex_search_data_1, sqlite_autoindex_search_printing_1, token_name_lookup
+user_version: 5
+table automatum_printing: 0 rows, e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+table avatar_choice: 0 rows, e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+table catalog_set: 2 rows, 6c38980e3e485e3383262ca0bd0a9a50053e5d03ca26d25bce0b9be44e614c39
+table face: 2 rows, b12b6f3b807db17b8fbc797775887d5802f4100d271c41ef77b3dc6ba6fa765f
+table import_name: 19 rows, 431e8426390c43c65d1098eea529cd9b7905562fc86be4fd69698ad416e06ce6
+table metadata: 1 rows, 44c1df5d66086d6c71bc7673868a3956a0cc021b9a4eccaddb8053babe5f6e3d
+table printing: 17 rows, 4a5477e46716fb619880b90bb9860251b825382fe4062956d046cdb71a6c0450
+table search_card: 13 rows, 8fe4d410908fbc0b863eb4a21f3c2f06ce339581121b60db7f4bb29a4d7ea6d0
+table search_data: 13 rows, 41df85d3752287910793ca5ba10aa4f86d8548b15e52697d3bb86106056abe27
+table search_printing: 14 rows, 90e5f51098d68fdf514a0e5c15c476f105e73b1a9d0e7d23a2cac1864a41c39f
+table search_ready: 1 rows, c9c23ba959826aa4b50bb292bac73b2e2833649025b3f71355e6f40ff4ef0b57
+table token_relation: 0 rows, e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+search ""
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "a"
+  page examined=8 next=quiet lattice bolt|4e33749b-066a-54b5-bc16-eba1796341e2
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+  page examined=1 next=null
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+search "e"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "t:creature"
+  page examined=5 next=null
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+search "t:instant"
+  page examined=1 next=null
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+search "t:land"
+  page examined=1 next=null
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+search "-t:land"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=5 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "o:draw"
+  page examined=0 next=null
+search "o:"a card""
+  page examined=0 next=null
+search "c:r"
+  page examined=0 next=null
+search "c:u"
+  page examined=0 next=null
+search "c=wu"
+  page examined=0 next=null
+search "c>=2"
+  page examined=0 next=null
+search "id:g"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "id<=wb"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "mv>=3"
+  page examined=0 next=null
+search "mv=0"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "mv<2"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "pow>=3"
+  page examined=2 next=null
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+search "tou<=1"
+  page examined=3 next=null
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+search "pow>tou"
+  page examined=9 next=mauve window expanse|52e57bf8-cc9b-5542-8532-45ba2ab23d45
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+  page examined=4 next=null
+search "loy>=1"
+  page examined=1 next=null
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+search "r:common"
+  page examined=8 next=feltwing atlas|2416a0fc-9c20-529b-88f8-ed985f692804
+    c396034e-c5f4-56b8-9f23-dfabeb6b3ba8 Amberglass Chorus: 226039de-fc43-5a60-b804-a0e1086e1479 ZPA 3  parts=Amberglass Chorus/Enchantment
+    569025e1-2941-5127-9b69-9f7fdf0f25b4 Coppercloud Echo: c034cd03-207c-5954-a21d-6dded4bbbade ZPA 13  parts=Coppercloud Echo/Creature
+    cf275210-bff8-56b4-92f0-4555d8c38f25 Coppercloud Echo: b4b1b530-90de-584e-b9c6-b96d4c5f8339 ZPA 10  parts=Coppercloud Echo/Artifact Creature
+    34591628-7088-5cbc-9578-4a318939813d Coppercloud Echo!: d92d1241-b1b4-54c6-8121-bb14efbcc388 ZPA 11  parts=Coppercloud Echo!/Creature
+    26c36e83-7514-5767-a4c2-ba0963cd8364 Coppercloud Surveyor: fa50ab59-8f06-52f5-8ce4-7cdb308a93fd ZPA 1  parts=Coppercloud Surveyor/Creature
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+    2416a0fc-9c20-529b-88f8-ed985f692804 Feltwing Atlas: 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 ZPA 9  parts=Feltwing Atlas/
+  page examined=6 next=null
+    bf680e07-987f-57d1-b777-6033f879fcfa Folded Lantern Road: 5bd63b70-de04-56af-aa3c-b931fd66dfed ZPA 5  parts=Folded Lantern Road/Sorcery
+    52e57bf8-cc9b-5542-8532-45ba2ab23d45 Mauve Window Expanse: 70413631-a22b-52f2-8b0e-b5691682f1d8 ZPA 6  parts=Mauve Window Expanse/Land
+    387cefc6-49b2-5e74-a621-f1f53d06141e Prismgate Bulwark: 82b40eca-bcbf-5cf0-9760-17ca5da245e0 ZPA 8  parts=Prismgate Bulwark/Battle
+    4e33749b-066a-54b5-bc16-eba1796341e2 Quiet Lattice Bolt: baf88eee-62a4-5f41-907f-f99ae652a751 ZPA 4  parts=Quiet Lattice Bolt/Instant
+    32d1ed18-fc9f-5c08-8629-c3370cd6bb7f Threadglass Envoy: fc2787b7-6ad5-5e3b-a25b-0c64007d255a ZPA 7  parts=Threadglass Envoy/Planeswalker
+    1b05c47c-d3db-5b6d-a9e2-043ea53201c9 Velvet Prism Engine: 03fd65c2-9700-5126-91c9-0403e6d76bb1 ZPA 2  parts=Velvet Prism Engine/Artifact
+search "r>=rare"
+  page examined=0 next=null
+search "is:dfc"
+  page examined=1 next=null
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+search "is:mdfc"
+  page examined=0 next=null
+search "is:split"
+  page examined=0 next=null
+search "is:transform"
+  page examined=1 next=null
+    f9ad7828-71db-50ca-b96b-32dce319c752 Dayglass Loom // Nightglass Weave: 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 ZPA 12 a, 5f5ec838-d95b-5935-a1ad-ab018b212f8a ZPA 12 b parts=Dayglass Loom/Creature, Nightglass Weave/Creature
+search "f:standard"
+  page examined=0 next=null
+search "f:commander"
+  page examined=0 next=null
+search "layout:transform"
+  invalid CardSearchError(message=Unknown filter "layout:", start=0, end=16)
+search "t:token"
+  page examined=0 next=null
+find "Amberglass Chorus": 226039de-fc43-5a60-b804-a0e1086e1479 [] 2026-10-01
+find "Coppercloud Echo": b4b1b530-90de-584e-b9c6-b96d4c5f8339 [] 2026-10-01, c034cd03-207c-5954-a21d-6dded4bbbade [] 2026-10-01
+find "Coppercloud Echo!": d92d1241-b1b4-54c6-8121-bb14efbcc388 [] 2026-10-01
+find "Coppercloud Surveyor": 6e4bf7fa-acdb-51ac-9f16-a811fd73b134 [] 2026-10-01, fa50ab59-8f06-52f5-8ce4-7cdb308a93fd [] 2026-10-01
+find "Dayglass Loom // Nightglass Weave": 4aee8e53-8251-58ac-82a6-e3bebc96c4b1 [5f5ec838-d95b-5935-a1ad-ab018b212f8a] 2026-10-01, 5f5ec838-d95b-5935-a1ad-ab018b212f8a [4aee8e53-8251-58ac-82a6-e3bebc96c4b1] 2026-10-01
+find "Feltwing Atlas": 3e7dcb22-f9f6-50f1-8239-004dd57de2e2 [] 2026-10-01
+find "Folded Lantern Road": 5bd63b70-de04-56af-aa3c-b931fd66dfed [] 2026-10-01
+find "Mauve Window Expanse": 70413631-a22b-52f2-8b0e-b5691682f1d8 [] 2026-10-01
+find "Prismgate Bulwark": 82b40eca-bcbf-5cf0-9760-17ca5da245e0 [] 2026-10-01
+find "Quiet Lattice Bolt": baf88eee-62a4-5f41-907f-f99ae652a751 [] 2026-10-01
+find "Threadglass Envoy": fc2787b7-6ad5-5e3b-a25b-0c64007d255a [] 2026-10-01
+find "Velvet Prism Engine": 03fd65c2-9700-5126-91c9-0403e6d76bb1 [] 2026-10-01
+printing 03fd65c2-9700-5126-91c9-0403e6d76bb1: Velvet Prism Engine ZPA 2  false [] 2026-10-01 {"uuid":"03fd65c2-9700-5126-91c9-0403e6d76bb1","name":"Velvet Prism Engine","setCode":"ZPA","number":"2","language":"English","layout":"normal","type":"Artifact","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"655da14a-7226-568d-9cd6-3dd4499eae93","scryfallOracleId":"1b05c47c-d3db-5b6d-a9e2-043ea53201c9"}}
+printing 226039de-fc43-5a60-b804-a0e1086e1479: Amberglass Chorus ZPA 3  false [] 2026-10-01 {"uuid":"226039de-fc43-5a60-b804-a0e1086e1479","name":"Amberglass Chorus","setCode":"ZPA","number":"3","language":"English","layout":"normal","type":"Enchantment","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"ba8f2067-c780-5b4f-9e08-0da896d53f13","scryfallOracleId":"c396034e-c5f4-56b8-9f23-dfabeb6b3ba8"}}
+printing 3e7dcb22-f9f6-50f1-8239-004dd57de2e2: Feltwing Atlas ZPA 9  false [] 2026-10-01 {"uuid":"3e7dcb22-f9f6-50f1-8239-004dd57de2e2","name":"Feltwing Atlas","setCode":"ZPA","number":"9","language":"English","layout":"normal","type":"","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"071a6b32-7c2c-543f-b4f9-b354c293fffa","scryfallOracleId":"2416a0fc-9c20-529b-88f8-ed985f692804"}}
+printing 4aee8e53-8251-58ac-82a6-e3bebc96c4b1: Dayglass Loom // Nightglass Weave ZPA 12 a false [5f5ec838-d95b-5935-a1ad-ab018b212f8a] 2026-10-01 {"uuid":"4aee8e53-8251-58ac-82a6-e3bebc96c4b1","name":"Dayglass Loom // Nightglass Weave","setCode":"ZPA","number":"12","language":"English","side":"a","otherFaceIds":["5f5ec838-d95b-5935-a1ad-ab018b212f8a"],"faceName":"Dayglass Loom","layout":"transform","type":"Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"1","toughness":"4","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a","scryfallOracleId":"f9ad7828-71db-50ca-b96b-32dce319c752"}}
+printing 5bd63b70-de04-56af-aa3c-b931fd66dfed: Folded Lantern Road ZPA 5  false [] 2026-10-01 {"uuid":"5bd63b70-de04-56af-aa3c-b931fd66dfed","name":"Folded Lantern Road","setCode":"ZPA","number":"5","language":"English","layout":"normal","type":"Sorcery","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"05e63a62-475f-5814-a96c-70e8b0d6a2c4","scryfallOracleId":"bf680e07-987f-57d1-b777-6033f879fcfa"}}
+printing 5f5ec838-d95b-5935-a1ad-ab018b212f8a: Dayglass Loom // Nightglass Weave ZPA 12 b false [4aee8e53-8251-58ac-82a6-e3bebc96c4b1] 2026-10-01 {"uuid":"5f5ec838-d95b-5935-a1ad-ab018b212f8a","name":"Dayglass Loom // Nightglass Weave","setCode":"ZPA","number":"12","language":"English","side":"b","otherFaceIds":["4aee8e53-8251-58ac-82a6-e3bebc96c4b1"],"faceName":"Nightglass Weave","layout":"transform","type":"Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"4","toughness":"1","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a","scryfallOracleId":"f9ad7828-71db-50ca-b96b-32dce319c752"}}
+printing 6e4bf7fa-acdb-51ac-9f16-a811fd73b134: Coppercloud Surveyor ZPB 101  false [] 2026-10-01 {"uuid":"6e4bf7fa-acdb-51ac-9f16-a811fd73b134","name":"Coppercloud Surveyor","setCode":"ZPB","number":"101","language":"English","layout":"normal","type":"Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"2","toughness":"3","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"f76be976-d1a3-58fb-9b57-abdf2c982a94","scryfallOracleId":"26c36e83-7514-5767-a4c2-ba0963cd8364"}}
+printing 70413631-a22b-52f2-8b0e-b5691682f1d8: Mauve Window Expanse ZPA 6  false [] 2026-10-01 {"uuid":"70413631-a22b-52f2-8b0e-b5691682f1d8","name":"Mauve Window Expanse","setCode":"ZPA","number":"6","language":"English","layout":"normal","type":"Land","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"db847923-0576-5c28-ac5d-d82aca981c0e","scryfallOracleId":"52e57bf8-cc9b-5542-8532-45ba2ab23d45"}}
+printing 82b40eca-bcbf-5cf0-9760-17ca5da245e0: Prismgate Bulwark ZPA 8  false [] 2026-10-01 {"uuid":"82b40eca-bcbf-5cf0-9760-17ca5da245e0","name":"Prismgate Bulwark","setCode":"ZPA","number":"8","language":"English","layout":"normal","type":"Battle","text":"Original synthetic descriptive text. No executable behavior.","defense":"6","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"16bd9769-8968-5f98-a8ef-98bd1c8f08c9","scryfallOracleId":"387cefc6-49b2-5e74-a621-f1f53d06141e"}}
+printing b4b1b530-90de-584e-b9c6-b96d4c5f8339: Coppercloud Echo ZPA 10  false [] 2026-10-01 {"uuid":"b4b1b530-90de-584e-b9c6-b96d4c5f8339","name":"Coppercloud Echo","setCode":"ZPA","number":"10","language":"English","layout":"normal","type":"Artifact Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"*","toughness":"*","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"937399e9-2016-5a63-a8cb-16faf70f1e15","scryfallOracleId":"cf275210-bff8-56b4-92f0-4555d8c38f25"}}
+printing baf88eee-62a4-5f41-907f-f99ae652a751: Quiet Lattice Bolt ZPA 4  false [] 2026-10-01 {"uuid":"baf88eee-62a4-5f41-907f-f99ae652a751","name":"Quiet Lattice Bolt","setCode":"ZPA","number":"4","language":"English","layout":"normal","type":"Instant","text":"Original synthetic descriptive text. No executable behavior.","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159","scryfallOracleId":"4e33749b-066a-54b5-bc16-eba1796341e2"}}
+printing c034cd03-207c-5954-a21d-6dded4bbbade: Coppercloud Echo ZPA 13  false [] 2026-10-01 {"uuid":"c034cd03-207c-5954-a21d-6dded4bbbade","name":"Coppercloud Echo","setCode":"ZPA","number":"13","language":"English","layout":"normal","type":"Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"7","toughness":"2","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"5f2959e9-3c10-5585-a765-7ea5d3fe2984","scryfallOracleId":"569025e1-2941-5127-9b69-9f7fdf0f25b4"}}
+printing d92d1241-b1b4-54c6-8121-bb14efbcc388: Coppercloud Echo! ZPA 11  false [] 2026-10-01 {"uuid":"d92d1241-b1b4-54c6-8121-bb14efbcc388","name":"Coppercloud Echo!","setCode":"ZPA","number":"11","language":"English","layout":"normal","type":"Creature","text":"Original synthetic descriptive text. No executable behavior.","power":"2","toughness":"*","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"98b4ab39-48a9-53a2-81e6-8ef2f8f3be74","scryfallOracleId":"34591628-7088-5cbc-9578-4a318939813d"}}
+printing fa50ab59-8f06-52f5-8ce4-7cdb308a93fd: Coppercloud Surveyor ZPA 1  false [] 2026-10-01 {"uuid":"fa50ab59-8f06-52f5-8ce4-7cdb308a93fd","name":"Coppercloud Surveyor","setCode":"ZPA","number":"1","language":"English","layout":"normal","type":"Creature","text":"Original synthetic survey text, revision 1.","power":"2","toughness":"3","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"fd582421-7ff7-5361-82e6-d6ccf51dfd97","scryfallOracleId":"26c36e83-7514-5767-a4c2-ba0963cd8364"}}
+printing fc2787b7-6ad5-5e3b-a25b-0c64007d255a: Threadglass Envoy ZPA 7  false [] 2026-10-01 {"uuid":"fc2787b7-6ad5-5e3b-a25b-0c64007d255a","name":"Threadglass Envoy","setCode":"ZPA","number":"7","language":"English","layout":"normal","type":"Planeswalker","text":"Original synthetic descriptive text. No executable behavior.","loyalty":"4","colors":[],"availability":["paper"],"isOnlineOnly":false,"identifiers":{"scryfallId":"06477f63-9cc3-564a-b902-d9d3fe6ff45e","scryfallOracleId":"32d1ed18-fc9f-5c08-8629-c3370cd6bb7f"}}
+search data 03fd65c2-9700-5126-91c9-0403e6d76bb1: CardSearchCard(name=Velvet Prism Engine, layout=normal, faces=[CardSearchFace(name=Velvet Prism Engine, typeLine=Artifact, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 226039de-fc43-5a60-b804-a0e1086e1479: CardSearchCard(name=Amberglass Chorus, layout=normal, faces=[CardSearchFace(name=Amberglass Chorus, typeLine=Enchantment, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 3e7dcb22-f9f6-50f1-8239-004dd57de2e2: CardSearchCard(name=Feltwing Atlas, layout=normal, faces=[CardSearchFace(name=Feltwing Atlas, typeLine=, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 4aee8e53-8251-58ac-82a6-e3bebc96c4b1: CardSearchCard(name=Dayglass Loom // Nightglass Weave, layout=transform, faces=[CardSearchFace(name=Dayglass Loom, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=1, toughness=4, loyalty=null), CardSearchFace(name=Nightglass Weave, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=4, toughness=1, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 5bd63b70-de04-56af-aa3c-b931fd66dfed: CardSearchCard(name=Folded Lantern Road, layout=normal, faces=[CardSearchFace(name=Folded Lantern Road, typeLine=Sorcery, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 5f5ec838-d95b-5935-a1ad-ab018b212f8a: CardSearchCard(name=Dayglass Loom // Nightglass Weave, layout=transform, faces=[CardSearchFace(name=Dayglass Loom, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=1, toughness=4, loyalty=null), CardSearchFace(name=Nightglass Weave, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=4, toughness=1, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 6e4bf7fa-acdb-51ac-9f16-a811fd73b134: CardSearchCard(name=Coppercloud Surveyor, layout=normal, faces=[CardSearchFace(name=Coppercloud Surveyor, typeLine=Creature, text=Original synthetic survey text, revision 1., manaCost=, colors=0, power=2, toughness=3, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common), CardSearchPrinting(set=zpb, rarity=common)])
+search data 70413631-a22b-52f2-8b0e-b5691682f1d8: CardSearchCard(name=Mauve Window Expanse, layout=normal, faces=[CardSearchFace(name=Mauve Window Expanse, typeLine=Land, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data 82b40eca-bcbf-5cf0-9760-17ca5da245e0: CardSearchCard(name=Prismgate Bulwark, layout=normal, faces=[CardSearchFace(name=Prismgate Bulwark, typeLine=Battle, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data b4b1b530-90de-584e-b9c6-b96d4c5f8339: CardSearchCard(name=Coppercloud Echo, layout=normal, faces=[CardSearchFace(name=Coppercloud Echo, typeLine=Artifact Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=*, toughness=*, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data baf88eee-62a4-5f41-907f-f99ae652a751: CardSearchCard(name=Quiet Lattice Bolt, layout=normal, faces=[CardSearchFace(name=Quiet Lattice Bolt, typeLine=Instant, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data c034cd03-207c-5954-a21d-6dded4bbbade: CardSearchCard(name=Coppercloud Echo, layout=normal, faces=[CardSearchFace(name=Coppercloud Echo, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=7, toughness=2, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data d92d1241-b1b4-54c6-8121-bb14efbcc388: CardSearchCard(name=Coppercloud Echo!, layout=normal, faces=[CardSearchFace(name=Coppercloud Echo!, typeLine=Creature, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=2, toughness=*, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+search data fa50ab59-8f06-52f5-8ce4-7cdb308a93fd: CardSearchCard(name=Coppercloud Surveyor, layout=normal, faces=[CardSearchFace(name=Coppercloud Surveyor, typeLine=Creature, text=Original synthetic survey text, revision 1., manaCost=, colors=0, power=2, toughness=3, loyalty=null)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common), CardSearchPrinting(set=zpb, rarity=common)])
+search data fc2787b7-6ad5-5e3b-a25b-0c64007d255a: CardSearchCard(name=Threadglass Envoy, layout=normal, faces=[CardSearchFace(name=Threadglass Envoy, typeLine=Planeswalker, text=Original synthetic descriptive text. No executable behavior., manaCost=, colors=0, power=null, toughness=null, loyalty=4)], identity=0, legal=[], printings=[CardSearchPrinting(set=zpa, rarity=common)])
+draftable sets: []
+unsupported: [03fd65c2-9700-5126-91c9-0403e6d76bb1, 226039de-fc43-5a60-b804-a0e1086e1479, 3e7dcb22-f9f6-50f1-8239-004dd57de2e2, 4aee8e53-8251-58ac-82a6-e3bebc96c4b1, 5bd63b70-de04-56af-aa3c-b931fd66dfed, 5f5ec838-d95b-5935-a1ad-ab018b212f8a, 6e4bf7fa-acdb-51ac-9f16-a811fd73b134, 70413631-a22b-52f2-8b0e-b5691682f1d8, 82b40eca-bcbf-5cf0-9760-17ca5da245e0, b4b1b530-90de-584e-b9c6-b96d4c5f8339, baf88eee-62a4-5f41-907f-f99ae652a751, c034cd03-207c-5954-a21d-6dded4bbbade, d92d1241-b1b4-54c6-8121-bb14efbcc388, fa50ab59-8f06-52f5-8ce4-7cdb308a93fd, fc2787b7-6ad5-5e3b-a25b-0c64007d255a]
+avatars "a": [CatalogAvatar(name=Amberglass Chorus, avatar=Avatar(scryfallId=ba8f2067-c780-5b4f-9e08-0da896d53f13, face=0)), CatalogAvatar(name=Blank, avatar=Avatar(scryfallId=e790da07-e562-58d5-9bb0-ad55a056be9a, face=0)), CatalogAvatar(name=Dayglass Loom // Nightglass Weave, avatar=Avatar(scryfallId=2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a, face=0)), CatalogAvatar(name=Feltwing Atlas, avatar=Avatar(scryfallId=071a6b32-7c2c-543f-b4f9-b354c293fffa, face=0)), CatalogAvatar(name=Folded Lantern Road, avatar=Avatar(scryfallId=05e63a62-475f-5814-a96c-70e8b0d6a2c4, face=0)), CatalogAvatar(name=Mauve Window Expanse, avatar=Avatar(scryfallId=db847923-0576-5c28-ac5d-d82aca981c0e, face=0)), CatalogAvatar(name=Prismgate Bulwark, avatar=Avatar(scryfallId=16bd9769-8968-5f98-a8ef-98bd1c8f08c9, face=0)), CatalogAvatar(name=Quiet Lattice Bolt, avatar=Avatar(scryfallId=85ea1ed4-6373-5dd1-b3ec-41c9b7cd2159, face=0)), CatalogAvatar(name=Threadglass Envoy, avatar=Avatar(scryfallId=06477f63-9cc3-564a-b902-d9d3fe6ff45e, face=0))]
+deck import:  issues=[ImportIssue(line=2, message=Coppercloud Echo is ambiguous. Include an exact (SET) collector-number.)]

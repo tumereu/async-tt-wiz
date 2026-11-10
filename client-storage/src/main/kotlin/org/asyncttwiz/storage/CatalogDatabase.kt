@@ -108,29 +108,52 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
     }
 
-    /** Unpublished generations may survive process death; only the atomic pointer is readable. */
-    fun stage(finishing: () -> Unit = {}, block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
+    /**
+     * Builds a new generation with [block] (the records, in as many batches as it likes) and publishes it. Unpublished
+     * generations may survive process death; only the atomic pointer is readable. [finishing] is told how far finishing
+     * is, as printings done of all (the card search goes through them all, the rest is quick); [log] where the time went.
+     */
+    fun stage(finishing: (done: Long, total: Long) -> Unit = { _, _ -> },
+        log: (String) -> Unit = Logger.getLogger(CatalogRepository::class.java.name)::info,
+        block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
         val file = File(directory, "${UUID.randomUUID()}.db")
         var published = false
         try {
+            val times = CatalogPhaseTimes()
+            var searchTimes = ""
             val metadata = CatalogIndex(openDriver(file)).use { index ->
                 index.create()
-                val result = block(index)
-                finishing()
-                val start = System.nanoTime()
+                // The records in one transaction, unsynced: the generation is a throwaway until the durable commit below
+                val result = times.time("records") { index.transactionWithResult { block(index) } }
+                log("Card catalog records (journal ${index.journal()}): ${index.times}")
+                index.times.clear()
                 var completed = result
-                index.transaction {
-                    val records = index.validate()
-                    index.createAvatarChoices()
-                    index.rebuildCardSearch(onPrinting = index::offerAvatarChoice)
-                    completed = result.copy(records = records)
-                    index.createTokenLookup()
-                    index.finish(completed)
+                times.time("finishing") {
+                    finishing(0, result.records.coerceAtLeast(1))
+                    // Still unsynced, as the records
+                    index.transaction {
+                        times.time("lookups") { index.createLookups() }
+                        val records = times.time("validate") { index.validate() }
+                        index.createAvatarChoices()
+                        times.time("card search") {
+                            index.rebuildCardSearch(onPrinting = index::offerAvatarChoice) { done -> finishing(done, records) }
+                            index.flushAvatarChoices()
+                        }
+                        completed = result.copy(records = records)
+                        times.time("token lookup") { index.createTokenLookup() }
+                    }
+                    // The metadata last, with a FULL synchronous commit: syncing the file makes all of it durable
+                    times.time("durable commit") {
+                        index.durable()
+                        index.finish(completed)
+                    }
+                    finishing(completed.records, completed.records)
+                    searchTimes = index.times.toString()
                 }
-                Logger.getLogger(CatalogRepository::class.java.name).info("Catalog finishing: ${(System.nanoTime() - start) / 1_000_000} ms")
                 completed
             }
-            // SQLite's FULL synchronous commit precedes publication; do not switch an open staging DB.
+            // The metadata commit's full sync, of the whole file, precedes publication
+            val publishing = System.nanoTime()
             val pointer = File(directory, "current.new")
             FileOutputStream(pointer).use { it.write(file.name.toByteArray(Charsets.UTF_8)); it.fd.sync() }
             check(pointer.renameTo(File(directory, "current")))
@@ -138,6 +161,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
             // Readers and writers share this lock. Reclaim only our old, no-longer-referenced generations.
             directory.listFiles()?.filter { it.name.matches(Regex("[a-f0-9-]{36}\\.db")) && it != file }
                 ?.forEach { it.delete() }
+            log("Card catalog install phases: $times, publish ${(System.nanoTime() - publishing) / 1_000_000} ms; card search: $searchTimes")
             return metadata
         } finally {
             if (!published) file.delete()
@@ -148,19 +172,22 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 /** One disk-backed generation. Caller confines it to its catalog worker. Uses SQLDelight drivers. */
 class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable,
     MtgJsonCatalogSink {
+    /** Where the records' time went, for the install's log. */
+    internal val times = CatalogPhaseTimes()
     private var duplicateRecords = 0L
     internal fun create() {
-        sql("PRAGMA synchronous=FULL")
+        // A new generation is a throwaway until published (a crash restarts the install), so nothing is synced to disk while
+        // it is built; [durable] restores full sync for the last commit, which publication waits for.
+        sql("PRAGMA synchronous=OFF")
+        // Room for the B-trees keyed by printing id and name while records arrive in file order (native memory, not heap)
+        sql("PRAGMA cache_size=-32768")
         sql("PRAGMA page_size=4096")
         check(long("PRAGMA max_page_count=1048576") == 1048576L) // Row-returning PRAGMA on Android as well as JDBC
         sql("CREATE TABLE metadata (date TEXT NOT NULL, version TEXT NOT NULL, checksum TEXT NOT NULL, records INTEGER NOT NULL)")
         // Search columns follow json so positional reads of the first ten columns stay valid.
         sql("CREATE TABLE printing (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, normalized TEXT NOT NULL, set_code TEXT NOT NULL, number TEXT NOT NULL, language TEXT NOT NULL, side TEXT NOT NULL, scryfall TEXT, token INTEGER NOT NULL, json TEXT NOT NULL, " +
             "oracle TEXT NOT NULL DEFAULT '', rarity TEXT NOT NULL DEFAULT '', identity INTEGER, legal INTEGER NOT NULL DEFAULT 0)")
-        sql("CREATE INDEX name_lookup ON printing(normalized, set_code, number)")
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
-        sql("CREATE INDEX face_target ON face(target, source)")
-        sql("CREATE INDEX set_lookup ON printing(set_code)")
         sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', " +
             "type TEXT NOT NULL DEFAULT '', draftable INTEGER NOT NULL DEFAULT 0, automatum INTEGER NOT NULL DEFAULT 0, " +
             "unsupported TEXT NOT NULL DEFAULT '[]')")
@@ -171,8 +198,28 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
 
+    /** The lookups by name, set and other face, built once the records are in (cheaper than keeping them up per row). */
+    internal fun createLookups() {
+        sql("CREATE INDEX name_lookup ON printing(normalized, set_code, number)")
+        sql("CREATE INDEX face_target ON face(target, source)")
+        sql("CREATE INDEX set_lookup ON printing(set_code)")
+    }
+
+    /** Full sync again for the last commit, which syncs the whole file before publication (see [create]). Outside a
+     * transaction. */
+    internal fun durable() = sql("PRAGMA synchronous=FULL")
+
+    /** The journal mode, for the install's log. */
+    internal fun journal(): String = texts("PRAGMA journal_mode").singleOrNull().orEmpty()
+
     override fun addSet(code: String, releaseDate: String, checksum: String) =
         sql("INSERT INTO catalog_set (code, release_date, name) VALUES (?, ?, ?)", listOf(code, releaseDate, code))
+
+    /** A set with its name, kind and marks in one row: what [addSet], [setName], [setType] and [markSet] make together. */
+    internal fun addSet(code: String, releaseDate: String, name: String, type: String, draftable: Boolean, automatum: Boolean,
+        unsupported: List<String>) = execute("INSERT INTO catalog_set (code, release_date, name, type, draftable, automatum, " +
+        "unsupported) VALUES (?, ?, ?, ?, ?, ?, ?)", listOf(code, releaseDate, name, type, if (draftable) 1L else 0L,
+        if (automatum) 1L else 0L, DeckJson.format.encodeToString(unsupported)), ADD_SET)
 
     override fun setName(code: String, name: String) = sql("UPDATE catalog_set SET name=? WHERE code=?", listOf(name, code))
 
@@ -185,8 +232,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             if (automatum) "1" else "0", DeckJson.format.encodeToString(unsupported), code))
 
     /** Marks [printingIds] as printings of cards Automatum supports (section 3.8). */
-    internal fun markSupported(printingIds: Collection<String>) = transaction {
-        printingIds.forEach { sql("INSERT OR IGNORE INTO automatum_printing VALUES (?)", listOf(it)) }
+    internal fun markSupported(printingIds: Collection<String>) = times.time("supported marks") {
+        insertRows("INSERT OR IGNORE INTO automatum_printing", printingIds.map { listOf(it) })
     }
 
     internal fun unsupported(printingIds: Collection<String>): Set<String> {
@@ -221,24 +268,97 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     fun addBatch(records: List<CatalogPrinting>) = addBatch(records, emptyList())
 
     /** [traits] parallels [records]; missing entries leave the search traits unknown. */
-    override fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
-        records.forEachIndexed { position, record ->
-            val json = JsonParser.parseString(record.json).asJsonObject
-            val trait = traits.getOrNull(position)
-            sql("INSERT OR IGNORE INTO printing (id, name, normalized, set_code, number, language, side, scryfall, token, json, oracle, rarity, identity, legal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                listOf(record.id, record.name, record.name.lowercase(Locale.ROOT), record.set, record.number, record.language, record.side,
-                record.scryfallId, if (record.token) "1" else "0", record.json, cardSearchKey(record, json), trait?.rarity.orEmpty(),
-                trait?.identity?.toString(), (trait?.legal ?: 0L).toString()))
-            if (long("SELECT changes()") == 0L) { duplicateRecords++; return@forEachIndexed }
-            record.otherFaces.forEach { target -> sql("INSERT INTO face VALUES (?, ?)", listOf(record.id, target)) }
-            addImportNames(record, json)
-            val related = trait?.related.orEmpty()
-            if (related.isNotEmpty()) {
-                if (!tokenRelationsReady) { createTokenRelations(); tokenRelationsReady = true }
-                related.forEach { other -> sql("INSERT OR IGNORE INTO token_relation VALUES (?, ?)",
-                    if (record.token) listOf(other, record.id) else listOf(record.id, other)) }
+    override fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) {
+        val staged = times.time("record reads") {
+            records.mapIndexed { position, record ->
+                val json = JsonParser.parseString(record.json).asJsonObject
+                StagedPrinting(record, traits.getOrNull(position), cardSearchKey(record, json), faceName(json))
             }
         }
+        addPrintings(staged)
+    }
+
+    /** A printing to index, with what the index takes from its record: its card's search key ([cardSearchKey]) and its
+     * face name (an import name besides the card name; null without one). */
+    internal class StagedPrinting(val record: CatalogPrinting, val trait: CatalogPrintingTraits?, val oracle: String,
+        val faceName: String?)
+
+    /**
+     * Indexes [printings] with a few multi-row statements per table. The first record of an id wins: a later one (in this
+     * batch or an earlier one) is skipped whole, its faces, import names and token relations too.
+     */
+    internal fun addPrintings(printings: List<StagedPrinting>) = transaction {
+        val fresh = ArrayList<StagedPrinting>(printings.size)
+        times.time("printings") {
+            printings.chunked(PRINTINGS_PER_INSERT).forEach { chunk ->
+                val inserted = insertRows("INSERT OR IGNORE INTO printing (id, name, normalized, set_code, number, language, side, " +
+                    "scryfall, token, json, oracle, rarity, identity, legal)", chunk.map { staged ->
+                    val record = staged.record
+                    val trait = staged.trait
+                    listOf(record.id, record.name, record.name.lowercase(Locale.ROOT), record.set, record.number, record.language,
+                        record.side, record.scryfallId, if (record.token) 1L else 0L, record.json, staged.oracle,
+                        trait?.rarity.orEmpty(), trait?.identity?.toLong(), trait?.legal ?: 0L)
+                })
+                if (inserted == chunk.size.toLong()) fresh += chunk
+                else {
+                    // An id there already, or twice here: the rows added for this chunk are the newest (nothing is deleted
+                    // while records arrive), and of an id twice here the first was added
+                    val added = texts("SELECT id FROM printing ORDER BY rowid DESC LIMIT $inserted").toHashSet()
+                    chunk.filterTo(fresh) { added.remove(it.record.id) }
+                }
+            }
+        }
+        duplicateRecords += printings.size - fresh.size
+        times.time("faces") {
+            insertRows("INSERT INTO face", fresh.flatMap { staged -> staged.record.otherFaces.map { listOf(staged.record.id, it) } })
+        }
+        times.time("import names") {
+            insertRows("INSERT INTO import_name", fresh.flatMap { staged ->
+                importNames(staged.record.name, staged.faceName).map { listOf(it, staged.record.id) }
+            })
+        }
+        times.time("token relations") {
+            val relations = fresh.flatMap { staged -> staged.trait?.related.orEmpty().map { other ->
+                if (staged.record.token) listOf(other, staged.record.id) else listOf(staged.record.id, other)
+            } }
+            if (relations.isNotEmpty() && !tokenRelationsReady) { createTokenRelations(); tokenRelationsReady = true }
+            insertRows("INSERT OR IGNORE INTO token_relation", relations)
+        }
+    }
+
+    /**
+     * Runs "[insert] VALUES (...), (...)" for [rows] in statements of up to about [MAX_SQL] characters, and returns how
+     * many rows they added. Text and whole numbers go into the statement as literals: on Android each bound value costs
+     * far more than SQLite reading it from the statement. Decimals (exactly as bound), text holding NUL and the smallest
+     * Long are bound. A literal stores the same value, type and text as binding it.
+     */
+    internal fun insertRows(insert: String, rows: List<List<Any?>>): Long {
+        var changed = 0L
+        val statement = StringBuilder()
+        val args = ArrayList<Any?>()
+        fun run() {
+            if (statement.isEmpty()) return
+            changed += execute(statement.toString(), args)
+            statement.setLength(0); args.clear()
+        }
+        for (row in rows) {
+            if (args.isNotEmpty() && args.size + row.size > MAX_BOUND) run()
+            statement.append(if (statement.isEmpty()) "$insert VALUES (" else ",(")
+            row.forEachIndexed { column, value ->
+                if (column > 0) statement.append(',')
+                when {
+                    value == null -> statement.append("NULL")
+                    value is String && value.indexOf('\u0000') < 0 -> statement.append('\'').append(
+                        if (value.indexOf('\'') < 0) value else value.replace("'", "''")).append('\'')
+                    (value is Long && value != Long.MIN_VALUE) || value is Int -> statement.append(value)
+                    else -> { statement.append('?'); args += value }
+                }
+            }
+            statement.append(')')
+            if (statement.length >= MAX_SQL) run()
+        }
+        run()
+        return changed
     }
 
     // LOB-125. Without rows for a card, its tokens' pictures come from their characteristics alone.
@@ -364,6 +484,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             batch.forEach(::offerAvatarChoice)
             after = batch.last().id
         }
+        flushAvatarChoices()
     }
 
     /** An empty table of random avatar choices, one printing per card name. */
@@ -372,12 +493,22 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE TABLE avatar_choice (normalized TEXT NOT NULL PRIMARY KEY, printing_id TEXT NOT NULL)")
     }
 
-    /** Adds [printing] to the avatar choices when eligible; the first eligible printing of a name stays. */
+    private val avatarOffers = ArrayList<List<String>>()
+
+    /** Adds [printing] to the avatar choices when eligible; the first eligible printing of a name stays. Written in
+     * batches: [flushAvatarChoices] after the last. */
     internal fun offerAvatarChoice(printing: CatalogPrinting) {
         // A cheap prefilter before parsing; eligibility uses the retained type line, not rules text.
         if (printing.token || printing.scryfallId == null || "Legendary" !in printing.json) return
         if (printing.avatarChoice(true) == null) return
-        sql("INSERT OR IGNORE INTO avatar_choice VALUES (?, ?)", listOf(printing.name.lowercase(Locale.ROOT), printing.id))
+        avatarOffers += listOf(printing.name.lowercase(Locale.ROOT), printing.id)
+        if (avatarOffers.size >= MAX_BOUND / 2) flushAvatarChoices()
+    }
+
+    /** Writes the avatar choices offered so far, in the order offered (so the first of a name stays). */
+    internal fun flushAvatarChoices() {
+        insertRows("INSERT OR IGNORE INTO avatar_choice", avatarOffers)
+        avatarOffers.clear()
     }
     fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
@@ -392,12 +523,19 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     private fun createImportNames() = sql("CREATE TABLE import_name (normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(normalized, printing_id))")
 
-    private fun addImportNames(record: CatalogPrinting, json: com.google.gson.JsonObject = JsonParser.parseString(record.json).asJsonObject) {
-        val faceName = json.get("faceName")?.takeUnless { it.isJsonNull }?.asString
-        listOfNotNull(record.name, faceName?.takeIf { it.isNotEmpty() }).map { it.lowercase(Locale.ROOT) }.distinct().forEach {
+    private fun addImportNames(record: CatalogPrinting) {
+        importNames(record.name, faceName(JsonParser.parseString(record.json).asJsonObject)).forEach {
             sql("INSERT INTO import_name VALUES (?, ?)", listOf(it, record.id))
         }
     }
+
+    /** The names a deck import finds a printing by: its card name and its face name, lower case. */
+    private fun importNames(name: String, faceName: String?): List<String> =
+        listOfNotNull(name, faceName).map { it.lowercase(Locale.ROOT) }.distinct()
+
+    /** A record's face name, null without one (or an empty one). */
+    private fun faceName(json: com.google.gson.JsonObject): String? =
+        json.get("faceName")?.takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
 
     /** Old generations retain every record; aliases can be backfilled without the original download. */
     private fun prepareImportNames() {
@@ -465,7 +603,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             else -> error("Unsupported argument")
         } } }.value
 
-    internal fun execute(query: String, args: List<Any?>, cached: Int? = null) {
+    /** Runs [query] and returns how many rows it changed. */
+    internal fun execute(query: String, args: List<Any?>, cached: Int? = null): Long =
         driver.execute(cached, query, args.size) { args.forEachIndexed { index, value -> when (value) {
             null -> bindString(index, null)
             is String -> bindString(index, value)
@@ -473,8 +612,31 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             is Int -> bindLong(index, value.toLong())
             is Double -> bindDouble(index, value)
             else -> error("Unsupported argument")
-        } } }
-    }
+        } } }.value
 
     override fun close() = driver.close()
+}
+
+/** API 29's SQLite allows 999 bound values per statement; [MAX_VALUES] per IN list leaves room for other arguments. */
+internal const val MAX_BOUND = 999
+internal const val MAX_VALUES = 500
+
+// A prepared-statement cache id for the sets' constant SQL (arbitrary, distinct from SQLDelight's and the search's).
+private const val ADD_SET = 0x5EA4B001
+/** About how long an insert statement of many rows gets, in characters (SQLite takes up to a million bytes). */
+private const val MAX_SQL = 100_000
+/** Printings per insert (about 80 KB of statement); how many rows it added tells whether one was there already. */
+private const val PRINTINGS_PER_INSERT = 200
+
+/** Wall time per named phase of an install, summed over repeats, listed in the order first timed (the install's log). */
+internal class CatalogPhaseTimes {
+    private val nanos = LinkedHashMap<String, Long>()
+    fun add(phase: String, elapsed: Long) { nanos[phase] = (nanos[phase] ?: 0L) + elapsed }
+    fun clear() = nanos.clear()
+    fun addAll(other: CatalogPhaseTimes, prefix: String) = other.nanos.forEach { (phase, elapsed) -> add(prefix + phase, elapsed) }
+    inline fun <T> time(phase: String, block: () -> T): T {
+        val start = System.nanoTime()
+        try { return block() } finally { add(phase, System.nanoTime() - start) }
+    }
+    override fun toString() = nanos.entries.joinToString { "${it.key} ${it.value / 1_000_000} ms" }
 }

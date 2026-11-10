@@ -27,6 +27,7 @@ import arcanum.parser.cube.drawCards
 import arcanum.parser.cube.parsesTo
 import arcanum.parser.cube.whenThisEnters
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /** Wordings of mechanics that used to be done by hand ([MechanicWordings]), one test per wording, on invented cards. */
 class MechanicWordingsTest {
@@ -406,6 +407,22 @@ class MechanicWordingsTest {
         Ability.Triggered(Trigger.On(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
             Step.Do(Effect.GainLife(arcanum.api.Players.You, Value.EventX))))),
     )
+
+    // CR 115.1, 601.2c: "for each isolation counter on it, exile up to one target …" is one target per counter, each exiled once
+    @Test
+    fun oneTargetForEachCounterOnIt() {
+        val face = OracleParser.parse(OracleCard("Sealing Ward", "{X}{X}{W}{W}", "Enchantment", """
+            This enchantment enters with X isolation counters on it.
+            When this enchantment enters, for each isolation counter on it, exile up to one target nonland permanent an opponent controls until this enchantment leaves the battlefield.
+        """.trimIndent()))
+        val trigger = face.abilities.filterIsInstance<Ability.Triggered>().single()
+        val slot = trigger.instructions.targets.single()
+        assertEquals(Value.Fixed(0), slot.min)
+        assertEquals(Value.Of(arcanum.api.NumericProperty.Counters(arcanum.api.CounterKind.Named("isolation")),
+            Objects.EventObject(EventRole.After), arcanum.api.Combine.Single), slot.max)
+        assertEquals(listOf(Step.Do(Effect.Move(Objects.Target(slot.name), arcanum.api.Destination(Zone.Exile), untilLeaves = Objects.Self))),
+            trigger.instructions.steps)
+    }
 
     // CR 701.54e: "your Ring-bearer" as the affected object of a static ability, a trigger's subject and an effect's object
     @Test

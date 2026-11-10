@@ -148,4 +148,29 @@ class ReadWordingsScenariosTest {
         allPass()
         expect { alice.exile has watcher }
     }
+
+    // CR 115.1, 601.2c, 603.3d: "for each isolation counter on it, exile up to one target …": as many targets as counters, chosen as the
+    // trigger is put on the Stack, each exiled
+    @Test
+    fun oneTargetForEachCounter() = scenario {
+        val ward = Cards.invent("Read Sealing Ward", "{X}{X}{W}{W}", "Enchantment", """
+            This enchantment enters with X isolation counters on it.
+            When this enchantment enters, for each isolation counter on it, exile up to one target nonland permanent an opponent controls until this enchantment leaves the battlefield.
+        """.trimIndent())
+        val bear = Cards.invent("Read Sealed Bear", "{1}{G}", "Creature — Bear", "", "2/2")
+        val ox = Cards.invent("Read Sealed Ox", "{2}{G}", "Creature — Ox", "", "3/3")
+        alice.battlefield(*Array(6) { "Plains" })
+        bob.battlefield(bear, ox)
+        alice.hand(ward)
+        alice.casts(ward, x = 2)
+        allPass()
+        val asked = decision<Decision.Targets>()
+        kotlin.test.assertEquals(2, asked.max)
+        answer(Answer.Targets(listOf(target(bear), target(ox))))
+        allPass()
+        expect {
+            bob.exile has bear
+            bob.exile has ox
+        }
+    }
 }

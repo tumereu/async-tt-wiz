@@ -204,7 +204,7 @@ internal object Tdm {
     val COPY_IT_THEN_EXILE_WITH_TIME_COUNTERS_SUSPEND = Regex("""[Cc]opy it, then exile the spell you cast with (\w+) time counters on it\. If it doesn't have suspend, it gains suspend\.""")
     // tdm chunk 14: "for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five Dragons this way, you
     // win the game."
-    val FOR_EACH_COLOR_COUNTER_WIN = Regex("""[Ff]or each color, put an? (\S+) counter on an? (\w+) you control of that color\. If you put \S+ counters on five \w+ this way, you win the game\.""")
+    val FOR_EACH_COLOR_COUNTER_WIN = Regex("""[Ff]or each color, put an? (\S+) counter on an? (\w+) you control of that color\. If you put (\S+) counters on five \w+ this way, you win the game\.""")
     // tdm chunk 14: Betor's thresholds: "draw a card. Then if creatures you control have total toughness 20 or greater, untap each creature you control.
     // Then if creatures you control have total toughness 40 or greater, each opponent loses half their life, rounded up."
     val THEN_IF_STEP = Regex("""Then if (.+?), (.+)""")

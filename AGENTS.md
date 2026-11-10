@@ -55,10 +55,12 @@ catalog wins. Where neither says, ask rather than pick.
   caption says in one plain sentence what the picture shows and how the test got there.
   New Automatum UI gets an entry (one representative screenshot) in
   `androidApp/src/test/screenshots/gallery.tsv`, the list `scripts/aa-gallery.sh` builds the gallery page from.
-- Changed screenshots and catalog entries block releases until the owner has
-  reviewed them (`scripts/review.sh screenshots|catalog`). Only the owner
-  approves: never run `scripts/review.sh approve` or move the `catalog-approved`
-  / `screenshots-approved` tags yourself.
+- Changed catalog entries block releases until the owner has reviewed them
+  (`scripts/review.sh catalog`). Only the owner approves: never run
+  `scripts/review.sh approve` or move the `catalog-approved` tag yourself.
+  Changed screenshots are reviewed by the owner in the gallery
+  (`scripts/aa-gallery.sh`); never move its `gallery-reviewed` tag yourself.
+  Items meant to be seen as a sequence share a name in gallery.tsv's sixth column.
 
 ## Arcanum libraries
 

@@ -1,4 +1,4 @@
-"""Pixel differences between two screenshots, shared by scripts/screenshot-review.py and scripts/aa-gallery.sh.
+"""Pixel differences between two screenshots, used by scripts/aa-gallery.sh (boxes around the changed areas).
 Needs numpy and ImageMagick."""
 import struct, subprocess
 from collections import deque

@@ -238,7 +238,8 @@ class InrEffectsAndCastTriggersScenariosTest {
     }
 
     // CR 707.10d: Bob's spell at the Wyrm is copied for each other creature Bob controls: his Hound dies, his Beast is dealt 2; Alice's creatures
-    // other than the Wyrm aren't touched
+    // other than the Wyrm aren't touched. Bob puts the copies on the Stack in the order he chooses (CR 707.10d, 405.3): the Beast's first, so the
+    // Hound's is on top
     @Test
     fun wyrmCopiesTheSpellForEachOtherCreatureOfItsCaster() = scenario {
         alice.battlefield(wyrm, cub)
@@ -246,6 +247,13 @@ class InrEffectsAndCastTriggersScenariosTest {
         bob.hand(jolt)
         turn(number = 2, active = bob)
         bob.casts(jolt, target = wyrm)
+        resolveAll()
+        val order = decision<Decision.ChooseObjects>()
+        assertEquals(bob.id, order.player)
+        assertEquals(setOf(card(hound), card(brute)), order.options.toSet())
+        answer(Answer.Objects(listOf(card(brute), card(hound))))
+        assertEquals(listOf(listOf(arcanum.engine.state.TargetRef.Object(card(brute))), listOf(arcanum.engine.state.TargetRef.Object(card(hound)))),
+            state.stack.takeLast(2).map { item -> state.stackItems[item]!!.targets.values.single() })
         resolveAll()
         expect {
             bob.graveyard has hound

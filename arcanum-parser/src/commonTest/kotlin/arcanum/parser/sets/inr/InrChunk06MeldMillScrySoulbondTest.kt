@@ -35,7 +35,8 @@ import kotlin.test.Test
  */
 class InrChunk06MeldMillScrySoulbondTest {
     private fun partner(name: String) = and(creature, ObjectFilter.Named(name), you, ObjectFilter.OwnedBy(PlayerFilter.You))
-    private fun ownsBoth(partner: ObjectFilter) = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+    // CR 603.4, 701.42a: "you both own and control" this permanent and the partner, checked again on resolution
+    private fun ownsBoth(partner: ObjectFilter) = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, and(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
         Condition.Exists(partner, atLeast = 1)))
 
     /** "exile them, then meld them into [into]": the partner is chosen as the ability resolves (CR 712.4a) */

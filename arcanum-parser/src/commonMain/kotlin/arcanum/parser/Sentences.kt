@@ -15708,12 +15708,17 @@ internal class Sentences(
         }
         // inr chunk 01: "Sacrifice a creature. If you do, search your library for …" (did only if a creature was sacrificed, CR 701.21a)
         Inr.SACRIFICE_A_IF_YOU_DO.matchEntire(text)?.let { m ->
-            // "a copy of that creature" names the sacrificed one, which the rest read alone can't see: left unread
-            if (Inr.NAMES_THE_SACRIFICED.containsMatchIn(m.groupValues[2])) return null
+            // "that creature" in the rest is the sacrificed one as it last existed on the battlefield (CR 608.2h); "the sacrificed ..." isn't read here
+            val namesIt = Inr.NAMES_THE_SACRIFICED.containsMatchIn(m.groupValues[2])
+            if (namesIt && "the sacrificed" in m.groupValues[2]) return null
             val sacrifice = effect(m.groupValues[1] + ".", context) ?: return null
             if (sacrifice.count { it is Step.Do && it.effect is Effect.Sacrifice } != 1) return null
-            val bound = sacrifice.map { if (it is Step.Do && it.effect is Effect.Sacrifice) Step.Do((it.effect as Effect.Sacrifice).copy(postBind = "sacrificed")) else it }
-            val then = instructions(m.groupValues[2].replaceFirstChar { c -> c.uppercase() })?.takeIf { it.targets.isEmpty() }?.steps ?: return null
+            val bound = sacrifice.map {
+                if (it is Step.Do && it.effect is Effect.Sacrifice) Step.Do((it.effect as Effect.Sacrifice).copy(postBind = "sacrificed",
+                    preBind = if (namesIt) "sacrificed creature" else null)) else it
+            }
+            val then = instructions(m.groupValues[2].replaceFirstChar { c -> c.uppercase() },
+                that = if (namesIt) Objects.Bound("sacrificed creature") else null)?.takeIf { it.targets.isEmpty() }?.steps ?: return null
             return bound + Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Bound("sacrificed")), arcanum.api.Comparison.AtLeast, Value.Fixed(1)), then = then)
         }
         // inr chunk 01: "Look at the top two cards of your library. Put one of them into your graveyard."
@@ -20412,7 +20417,8 @@ internal class Sentences(
         }
         // "At the beginning of your first main phase, if you both own and control Vanille and a creature named Fang, Fearless l'Cie, you may pay {3}{B}{G}.
         // If you do, exile them, then meld them into Ragnarok, Divine Deliverance." Also "At the beginning of your end step, if you both own and control
-        // Gisela and a creature named Bruna, exile them, then meld them into Brisela." (CR 701.42a, 712.4)
+        // Gisela and a creature named Bruna, exile them, then meld them into Brisela." (CR 701.42a, 712.4). "You both own and control" holds for this
+        // permanent too: an opponent who gained control of it stops the meld (CR 603.4 checks it again on resolution).
         Fin.MELD_AT_STEP.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
             val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
@@ -20421,14 +20427,14 @@ internal class Sentences(
             val meld = meldSteps(partner, m.groupValues[5])
             return Ability.Triggered(trigger, Instructions(steps = if (pay == null) meld else listOf(
                 Step.Pay(pay, payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = meld))),
-                interveningIf = arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                interveningIf = arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
                     arcanum.api.Condition.Exists(partner, atLeast = 1))))
         }
         // "{3}{R}{R}, {T}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township."
         Fin.MELD_ACTIVATED.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
             return Ability.Activated(cost(m.groupValues[1]) ?: return null, Instructions(steps = listOf(Step.If(
-                arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
                     arcanum.api.Condition.Exists(partner, atLeast = 1))), then = meldSteps(partner, m.groupValues[4])))), rules())
         }
         // "When Ragnarok dies, destroy target permanent and return target nonlegendary permanent card from your graveyard to the battlefield."

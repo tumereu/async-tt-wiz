@@ -952,12 +952,16 @@ internal object Effects {
                 val instructions = arcanum.engine.action.Replacements.instructionsOf(original.ability)
                 val slots = instructions?.targets.orEmpty() + original.modes.flatMap { m -> instructions?.modes?.options?.getOrNull(m)?.instructions?.targets.orEmpty() }
                     .filter { it.name in original.targets }
-                scope.objects(each).forEach { candidate ->
+                val provisional = ObjectId.StackItem("copy:${act.state.nextTimestamp()}")
+                val legal = scope.objects(each).filter { candidate ->
                     val ref = TargetRef.Object(candidate)
+                    slots.isNotEmpty() && slots.all { s -> ref in Targeting.options(act, s, controller, original.source, original.names, self = provisional) }
+                }
+                // The copies go on the Stack in the order of their controller's choice (CR 707.10d, 405.3): first chosen, lowest
+                act.order(controller, scope.self, legal, "Order the copies: the first one chosen goes on the Stack first").forEach { candidate ->
                     val ts = act.state.nextTimestamp()
                     val copyId = ObjectId.StackItem("copy:$ts")
-                    val legal = slots.isNotEmpty() && slots.all { s -> ref in Targeting.options(act, s, controller, original.source, original.names, self = copyId) }
-                    if (legal) copies += addCopy(scope, id, original, copyId, ts, controller, original.targets.mapValues { listOf(ref) }, effect)
+                    copies += addCopy(scope, id, original, copyId, ts, controller, original.targets.mapValues { listOf(TargetRef.Object(candidate)) }, effect)
                 }
                 return@forEach
             }

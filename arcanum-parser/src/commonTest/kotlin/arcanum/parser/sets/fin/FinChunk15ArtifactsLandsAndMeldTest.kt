@@ -260,7 +260,8 @@ class FinChunk15ArtifactsLandsAndMeldTest {
                     Step.Choose(Choice.Objects(partner, n(1), n(1)), bind = "partner", chooser = Players.You),
                     move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Zone.Exile, postBind = "exiled"),
                     doing(Effect.Action(KeywordAction.Meld(Objects.Bound("exiled"), "Ragnaroth, Divine Deliverance")))),
-                interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                // CR 603.4, 701.42a: "you both own and control" Valla too
+                interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, and(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
                     Condition.Exists(partner, atLeast = 1)))),
         ),
         card(

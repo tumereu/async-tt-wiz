@@ -48,6 +48,7 @@ class InrMeldMillSoulbondScenariosTest {
             Trample, haste
             Whenever Harrow attacks, create two 3/2 colorless Eldrazi Horror creature tokens that are tapped and attacking.
         """.trimIndent(), "7/4", null, "R"))
+    private val seizure = Cards.invent("Fleeting Seizure", "{1}{R}", "Instant", "Gain control of target permanent until end of turn.")
     private val cheapTrick = Cards.invent("Cheap Trick", "{1}", "Instant", "You gain 1 life.")
     private val dearTrick = Cards.invent("Dear Trick", "{3}", "Instant", "You gain 1 life.")
     private val bear = Cards.invent("Plain Bear", "{1}{G}", "Creature — Bear", "", "2/2")
@@ -110,6 +111,44 @@ class InrMeldMillSoulbondScenariosTest {
         expect {
             card(ramparts).view.characteristics?.name shouldBe "Harrow Ramparts"
             bob.battlefield has garrison
+        }
+    }
+
+    // CR 603.4, 701.42a: "you both own and control Gilda" is checked again as the trigger resolves; Bob took Gilda with the trigger on the Stack,
+    // so nothing is exiled or melded
+    @Test
+    fun gildaStolenWithTheTriggerOnTheStackDoesNotMeld() = scenario {
+        libraries()
+        alice.battlefield(gilda, brunhild)
+        bob.battlefield("Mountain", "Mountain")
+        bob.hand(seizure)
+        advanceTo(TurnStep.End)
+        alice.passes()
+        bob.casts(seizure, target = gilda)
+        resolveAll()
+        expect {
+            card(gilda).view.characteristics?.name shouldBe "Gilda, the Shattered Edge"
+            gilda.controller shouldBe bob.id
+            alice.battlefield has brunhild
+        }
+    }
+
+    // CR 701.42a: the activated ability checks "you both own and control this land" as it resolves; Bob took the land in response
+    @Test
+    fun harrowRampartsStolenInResponseDoesNotMeld() = scenario {
+        libraries()
+        alice.battlefield(ramparts, garrison, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        bob.battlefield("Mountain", "Mountain")
+        bob.hand(seizure)
+        turn(step = TurnStep.PrecombatMain)
+        alice.activates(ramparts, ability = 1)
+        alice.passes()
+        bob.casts(seizure, target = ramparts)
+        resolveAll()
+        expect {
+            card(ramparts).view.characteristics?.name shouldBe "Harrow Ramparts"
+            ramparts.controller shouldBe bob.id
+            alice.battlefield has garrison
         }
     }
 

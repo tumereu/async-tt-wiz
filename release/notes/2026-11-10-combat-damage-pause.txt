@@ -1,0 +1,1 @@
+fix: A combat's pause on the damage now shows the damage dealt and the life lost, with the creatures that die still on the table until the pause ends.

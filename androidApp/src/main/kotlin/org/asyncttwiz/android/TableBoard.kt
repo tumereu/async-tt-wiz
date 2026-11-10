@@ -26,6 +26,9 @@ data class TableBoard(
     val definitions: List<SubmittedDefinition>,
     val engine: EngineView? = null,
     val values: EngineBoardValues? = null,
+    /** HIS-113: a step of a board's motion ([EngineGame.Transition.steps]) right after a combat damage step's damage was
+     * dealt (damage marked, life changed), before what follows it (the creatures it destroys still on the battlefield). */
+    val damageDealt: Boolean = false,
 ) {
     /** A choice of the game is open (a shared flow waits for an answer, D32): on engine state its pending decision. */
     val flowOpen: Boolean get() = engine?.let { it.state.pending != null } ?: Automatum.flowOpen(board)

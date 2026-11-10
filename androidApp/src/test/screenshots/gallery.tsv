@@ -190,3 +190,4 @@ number	item	screenshot	catalog	decisions
 189	The other player's modal spell on the Stack, its chosen mode under the band's main line	stack/opponent-mode-line.png	STK-057 STK-018
 190	The other player's X spell on the Stack, X filled in under the band's main line	stack/opponent-x-line.png	STK-057 STK-018
 191	A source paying with its corner chip, its ways open, Cast on the main button	cast-panel/source-ways.png	STK-024 STK-052 TRN-063	ManaPayment
+192	The other player's card leaving their graveyard for their hand shows as a reveal	engine/reveal-panel-pile.png	HIS-114 HIS-110 STK-044

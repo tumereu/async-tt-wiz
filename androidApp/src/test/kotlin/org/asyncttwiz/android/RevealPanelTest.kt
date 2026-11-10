@@ -232,6 +232,43 @@ class RevealPanelTest {
         card.assertWidthIsEqualTo(42.dp).assertHeightIsEqualTo(60.dp)
     }
 
+    // HIS-114, HIS-110, STK-044 (owner playtest 2026-11-09): Alice casts a Hedge Study and then a Hedge Recall returning the
+    // Study from her graveyard to her hand; Bob's playback stops there with the reveal panel naming the move and showing only
+    // the Study, the Recall at its right, until his OK. Alice's own move opens nothing of hers
+    @Test fun theOtherPlayersCardLeavingTheirGraveyardForTheirHandShowsAsAReveal() {
+        val g = EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.STUDY, EngineGameFixture.Choices.RECALL))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.STUDY)))
+        alice.tick(3_000)
+        val study = alice.device.model.engine.player(PlayerId(g.a)).graveyard.single()
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.RECALL)))
+        alice.tick(4_000)
+        assertNull(alice.shown?.reveal, "her own move opens nothing of hers")
+        assertTrue(study.let { (it as arcanum.engine.state.ObjectId.Card).card } in alice.device.model.engine.player(PlayerId(g.a)).hand
+            .map { (it as arcanum.engine.state.ObjectId.Card).card }, "the Study back in her hand")
+        alice.endTurn()
+        alice.tick(5_000)
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        val panel = assertNotNull(bob.shown?.reveal, "stopped at her move")
+        assertEquals(GameDevice.LeftPile(arcanum.api.Zone.Graveyard, arcanum.api.Zone.Hand, PlayerId(g.a)), panel.left)
+        val held = bob.device.session.localHead
+        render(bob, g.b)
+        compose.onNodeWithText("Alice returned ${EngineGameFixture.Choices.STUDY} from their graveyard to their hand").assertExists()
+        compose.onNode(hasContentDescription(EngineGameFixture.Choices.STUDY) and hasAnyAncestor(hasContentDescription("Reveal"))).assertExists()
+        assertEquals(1, compose.onAllNodes(hasAnyAncestor(hasContentDescription("Reveal")) and hasContentDescription(EngineGameFixture.Choices.RECALL))
+            .fetchSemanticsNodes().size, "the Recall only as the source")
+        compose.onNodeWithTag(CHOICE_SOURCE_TAG).assertContentDescriptionEquals(EngineGameFixture.Choices.RECALL)
+        captureShot("$SCREENSHOTS/engine/reveal-panel-pile.png",
+            "Bob catching up on Alice's turn: her Hedge Recall returned her Hedge Study from her graveyard to her hand, so his playback stopped there with the reveal panel, \"Alice returned Hedge Study from their graveyard to their hand\", only the Study face up, the Recall at the right and OK on his main button.")
+        repeat(3) { bob.step() }
+        assertEquals(held, bob.device.session.localHead, "the table stays at the move")
+        revealOk().performClick()
+        compose.runOnIdle { assertNull(bob.shown?.reveal) }
+    }
+
     // HIS-110 (owner, 2026-11-09): Alice's own reveal of a card she couldn't see opens her own panel: "You revealed · <source>",
     // the card, OK; her table's actions wait for her OK, and it closes only for her
     @Test fun yourOwnRevealShowsYouThePanelWithItsOk() {

@@ -59,8 +59,6 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 
 Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 
-- Check the combat damage hold (HIS-113; owner unsure whether it's wrong): the owner saw the view pause as the damage step began, before the damage showed, and nothing pause on creatures about to die. Check where the hold falls, live and in catch-up, against the entry's intent (let the damage be read). If it is fine, change nothing and say so; if it pauses before the damage is visible, move it after the damage is dealt (damage marked, life changed, dying creatures still shown, then they die), checking first that the event can be split there.
-- Cards leaving a public pile (owner): when the other player moves a card from their graveyard or exile to a hidden zone (hand, library), your table shows it as a reveal does (the reveal panel, closed only by your own OK, the same stops; HIS-110 and the reveal entries): "Bob returned Storm Spark from their graveyard to their hand". Not for moves to the battlefield or another public pile, nor for your own.
 - Tokens in Inspect (TBL-104, TBL-018; owner): Inspect shows a token's picture as it is, with normal corners, so the cut corners no longer hide its P/T and text; the battlefield keeps the cut corners.
 
 Small, not urgent (owner, 2026-11-08):

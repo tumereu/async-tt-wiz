@@ -1,7 +1,6 @@
 package org.asyncttwiz.e2e
 
 import android.os.Looper
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.performTouchInput
 import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.AutomatumBoards
@@ -25,6 +24,17 @@ import java.util.concurrent.locks.LockSupport
 import kotlin.test.fail
 
 /**
+ * The two phones' Compose test environment (one for both: one recomposer and frame clock, both phones' windows), with
+ * the composition on a queuing test dispatcher (Compose's v2 test rule), as a phone's runs on its main thread: a
+ * composition coroutine that another thread resumes (the end of a `withContext(Dispatchers.IO)`, a worker's callback)
+ * waits for the main thread, where the test runs the composition's work and frames. The older rule's unconfined
+ * dispatcher ran it on that worker, frame and layout included, while the main thread measured: "performMeasureAndLayout
+ * called during measure layout" (ComposeThreadsTest).
+ */
+internal fun phonesComposeRule(): androidx.compose.ui.test.junit4.ComposeTestRule =
+    androidx.compose.ui.test.junit4.v2.createEmptyComposeRule()
+
+/**
  * The base of every e2e test: two players' phones ([alice], [bob]: the real app, [E2ePlayer]) on the real server
  * ([E2eStack]), a game between them set up as the test chooses ([startGame]: decks, the starting player, each player's
  * play defaults), and [waitUntil] for whatever the test waits for (a server round trip, the other phone's table, a
@@ -43,7 +53,7 @@ import kotlin.test.fail
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 abstract class E2e {
-    private val compose = createEmptyComposeRule()
+    private val compose = phonesComposeRule()
     private val players = mutableListOf<E2ePlayer>()
     private val evidence = object : TestWatcher() {
         override fun failed(e: Throwable, description: Description) {

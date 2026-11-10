@@ -83,7 +83,7 @@ internal object Tdm {
     val POWER_LESS_THAN_CANT_BLOCK = Regex("""Creatures with power less than (.+?)'s power can't block (?:it|him|her)\.""")
     // tdm chunk 08: "Put a +1/+1 counter on target creature you control, then it deals damage equal to its power to target creature an opponent
     // controls."
-    val COUNTER_THEN_DEALS_DAMAGE_EQUAL_POWER = Regex("""Put an? (\S+) counter on target (.+?), then it deals damage equal to its power to target (.+)\.""")
+    val COUNTER_THEN_DEALS_DAMAGE_EQUAL_POWER = Regex("""Put an? (\S+) counter on target (.+?)(?:, then it|\. Then that creature) deals damage equal to its power to target (.+)\.""")
     // tdm chunk 08: "you may mill cards equal to the number of lands you control"
     val MAY_MILL_EQUAL = Regex("""[Yy]ou may mill cards equal to (.+)\.""")
     // tdm chunk 08: "draw a card if you control a creature with a counter on it. If you don't draw a card this way, put a +1/+1 counter on this

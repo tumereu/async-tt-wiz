@@ -260,7 +260,8 @@ internal object Mana {
         val c = if (yield.choice || yield.colors.size > 1) color ?: yield.colors.first() else yield.colors.first()
         return List(yield.amount) {
             ManaUnit(c, source = source, snow = yield.snow, restriction = yield.production.restriction,
-                spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent)
+                spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent,
+                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil)
         }
     }
 
@@ -525,9 +526,17 @@ internal object Mana {
     fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
         val anyColor = anyColor || spendsAsAnyColor(snap, player, paysFor)
+        val anyType = spendsAsAnyType(snap, player, paysFor)
         return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor) }
-            .map { (i, u) -> Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow, ManaUse.Pool(i), u) }
+            .map { (i, u) -> Payer(colorsOf(u, anyColor, anyType), u.snow, ManaUse.Pool(i), u) }
     }
+
+    /** fdn: "You can spend mana of any type" for [player]: as though it were colorless or any colour (CR 118.14). */
+    fun spendsAsAnyType(snap: Snapshot, player: PlayerId, paysFor: ObjectId?): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.SpendManaAsAnyColor ?: return@any false
+            m.anyType && (m.onlyFor == null || (paysFor != null && snap.evaluator(applied.controller, self = applied.source).matches(m.onlyFor!!, paysFor)))
+        }
 
     /** "Spend mana as though it were mana of any colour" for [player] (CR 609.4b). */
     fun spendsAsAnyColor(snap: Snapshot, player: PlayerId, paysFor: ObjectId?): Boolean =
@@ -689,7 +698,11 @@ internal object Mana {
         return ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) p.color else s.colors.singleOrNull(), answers = s.answers + colors, triggered = p.triggered)
     }
 
-    private fun colorsOf(unit: ManaUnit, any: Boolean): Set<Color?> = if (any) (Color.all + unit.color).toSet() else setOf(unit.color)
+    private fun colorsOf(unit: ManaUnit, any: Boolean, anyType: Boolean = false): Set<Color?> = when {
+        anyType -> (Color.all + listOf<Color?>(null)).toSet()
+        any -> (Color.all + unit.color).toSet()
+        else -> setOf(unit.color)
+    }
 
     /**
      * Searching one payment of a cost (CR 601.2g–h): which activations, with which colours, cover the cost and each other's own
@@ -703,6 +716,7 @@ internal object Mana {
     ) {
         val life = snap.state.player(player).life
         val any = anyColor || spendsAsAnyColor(snap, player, paysFor)
+        val anyType = spendsAsAnyType(snap, player, paysFor)
         private val removedPool = removed.filterIsInstance<ManaUse.Pool>().map { it.index }.toSet()
         val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any).filter { (it.use as ManaUse.Pool).index !in removedPool }
         val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()
@@ -741,7 +755,8 @@ internal object Mana {
         }
 
         private fun allPayersOf(s: Source): List<Payer> {
-            val colors = (s.yields.flatMap { it.colors } + s.bonus.flatMap { it.colors }).toSet() + if (any) Color.all else emptyList()
+            val colors = (s.yields.flatMap { it.colors } + s.bonus.flatMap { it.colors }).toSet() + (if (any || anyType) Color.all else emptyList()) +
+                (if (anyType) listOf<Color?>(null) else emptyList())
             val snow = s.yields.any { it.snow }
             val n = (s.yields + s.bonus).sumOf { y -> units(y, y.colors.firstOrNull(), s.id).count { allowed(snap, player, it, paysFor) } }.toLong() * minOf(s.limit.toLong(), 8L)
             return List(minOf(n, MAX_UNITS.toLong()).toInt()) { Payer(colors, snow, ManaUse.Life(-1)) }
@@ -860,7 +875,7 @@ internal object Mana {
             val made = s.yields.flatMap { y ->
                 if (y.combination && pick.combination.isNotEmpty()) pick.combination.flatMap { c -> units(y.copy(amount = 1), c, s.id) } else units(y, pick.color, s.id)
             } + s.bonus.flatMap { y -> units(y, if (y in free && said.hasNext()) said.next() else pick.color, s.id) }
-            return made.map { u -> Payer(colorsOf(u, p.any), u.snow, use, u) }
+            return made.map { u -> Payer(colorsOf(u, p.any, p.anyType), u.snow, use, u) }
         }
 
         /** The payment [chosen] makes, or null: its mana (in an order in which each own cost can be paid) covers the needs. */

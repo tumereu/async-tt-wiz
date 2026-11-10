@@ -110,15 +110,17 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
     SideEffect { routes.motionBusy = { motion.playing } }
     // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
-    // it; a held finger pauses that time; a double tap on the table skips it; timeline mode ends it (EngineAsyncHost)
+    // it (owner playtest 2026-11-09: the damage right after it is dealt, before the creatures it destroys die); a held
+    // finger pauses that time; a double tap on the table skips it; timeline mode ends it (EngineAsyncHost)
     val combatHold = shown.combatHold?.takeIf { reviewId == null }
-    SideEffect { motion.stopAtAttackers = combatHold?.kind == GameDevice.CombatMoment.Attackers }
+    SideEffect { motion.stopAt = combatHold?.kind }
     val combatHoldMillis by playbackPreferences.showPlaysState()
     if (combatHold != null) LaunchedEffect(combatHold) {
-        snapshotFlow { !motion.playing || (motion.atAttackers && combatHold.kind == GameDevice.CombatMoment.Attackers) }.first { it }
-        // Problem report QVERHX: when the hold's time starts (the steps reached the attackers, or ended)
+        snapshotFlow { !motion.playing || motion.stoppedAt(combatHold.kind) }.first { it }
+        // Problem report QVERHX: when the hold's time starts (the steps reached the attackers or the damage, or ended)
         AppLog.info("game", "Combat hold ${combatHold.kind::class.simpleName} in ${combatHold.event.take(8)}: ${combatHoldMillis} ms" +
-            (if (motion.playing) " (steps stopped at the attackers)" else "") + if (routes.viewPause.paused) ", paused by a finger or Inspect" else "")
+            (if (motion.playing) " (steps stopped at the ${if (combatHold.kind == GameDevice.CombatMoment.Damage) "damage dealt" else "attackers"})"
+                else " (steps over, the board as it is)") + if (routes.viewPause.paused) ", paused by a finger or Inspect" else "")
         routes.viewPause.wait(combatHoldMillis)
         engine.dismissCombatHold(combatHold); controller.engineSent()
     }

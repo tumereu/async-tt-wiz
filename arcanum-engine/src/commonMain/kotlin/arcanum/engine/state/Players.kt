@@ -71,6 +71,8 @@ data class ManaUnit(
     val spellGets: List<Mechanic> = emptyList(),
     val keptUntil: Duration? = null,
     val whenSpent: Instructions? = null,
+    val spellGetsIf: ObjectFilter? = null,
+    val spellGetsUntil: Duration? = null,
 )
 
 /**

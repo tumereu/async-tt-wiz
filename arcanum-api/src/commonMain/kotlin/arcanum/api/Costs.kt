@@ -125,6 +125,11 @@ data class ManaProduction(
     val keptUntil: Duration? = null,
     /** "When that mana is spent to cast a spell, …" (Pyromancer's Goggles). */
     val whenSpent: Instructions? = null,
+    /** [spellGets] applies only to a spell matching this ("If that mana is spent on a Dragon creature spell, it gains haste until end of
+     * turn", CR 106.6a); null: to any spell. */
+    val spellGetsIf: ObjectFilter? = null,
+    /** How long [spellGets] lasts ("until end of turn"); null: as long as the spell and the permanent it becomes. */
+    val spellGetsUntil: Duration? = null,
 )
 
 /** [property] of the chosen objects added up, at least [atLeast]. */

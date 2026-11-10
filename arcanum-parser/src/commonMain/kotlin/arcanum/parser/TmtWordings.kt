@@ -45,7 +45,7 @@ internal object Tmt {
     val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+)\.""")
     val BECOMES_COLOR_OF_CHOICE_HEXPROOF = Regex("""Until end of turn, (.+) becomes the color of your choice and gains hexproof from that color\.""")
     val ENCHANTED_IS_SUBTYPE_BASE_PT = Regex("""Enchanted creature is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\. It can't attack and loses all abilities\.""")
-    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""")
+    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another
     val RETURN_TARGET_AND_SAME_NAME = Regex("""Return target (.+?) and all other cards with the same name as that card from your graveyard to the battlefield( tapped)?\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on (.+)""")
     val PUT_FROM_THAT_PLAYERS_GRAVEYARD = Regex("""[Pp]ut up to one target (.+?) from that player's graveyard onto the battlefield under your control\. It enters tapped and attacking that player\.""")
@@ -80,7 +80,7 @@ internal object Tmt {
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?) cost (\{\d+\}) less to activate\.""")
-    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for up to (\w+) (.+?) cards, put them onto the battlefield tapped, then shuffle\.""")
+    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")

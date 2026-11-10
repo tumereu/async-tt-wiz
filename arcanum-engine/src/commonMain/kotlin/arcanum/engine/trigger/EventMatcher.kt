@@ -128,7 +128,7 @@ internal object EventMatcher {
             // spm: "play a land from exile", "from anywhere other than your hand"
             (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
-        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching))
+        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching) && (!pattern.byEffect || byEffect(change)))
             counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
         is EventPattern.CountersRemoved -> counters(e, change, pattern.objects, pattern.kind, put = false, last = pattern.last)
         is EventPattern.PlayerCountersPut -> (change as? Change.Counters)?.let { c ->
@@ -397,6 +397,10 @@ internal object EventMatcher {
         val source = by.source ?: return false
         return e.matches(exploiter, source) || e.board.state.obj(source) == null && exploiter == arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self) && source == e.ctx.self
     }
+
+    /** fdn: counters put by an effect: not paid as a cost (CR 118.3) and not by a turn-based action, which has no source (CR 714.3b). */
+    private fun byEffect(change: Change): Boolean =
+        change is Change.Counters && arcanum.engine.change.Meaning.Paid !in change.meanings && change.by?.source != null
 
     private fun causedBy(e: Evaluator, change: Change, filter: arcanum.api.ObjectFilter?): Boolean {
         if (filter == null) return true

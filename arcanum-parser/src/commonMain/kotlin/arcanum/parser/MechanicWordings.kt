@@ -28,7 +28,12 @@ internal object MechanicWordings {
 
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
     private val WAS_BARGAINED = Regex("""(.+) was bargained""")
+    /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
+    private val FROM_ANYWHERE = listOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
+        arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
     private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
+    // fdn chunk 07: "If Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead."
+    private val SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, reveal (.+) and shuffle it into its owner's library instead\.""")
     private val CHOSE_OTHER_RING_BEARER = Regex("""you chose a creature other than (.+) as your Ring-bearer""")
 
     /** Trigger events ("the Ring tempts you", "the creature it haunts dies"). */
@@ -185,7 +190,17 @@ internal object MechanicWordings {
         // CR 614.1a: "If [this] would be put into a graveyard from anywhere, exile it instead." (a disturb back face, CR 702.146b)
         SELF_TO_GRAVEYARD_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = arcanum.api.Zone.Graveyard),
-                modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+                modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))), affects = Affected.Objects(Objects.Self),
+                functionsIn = FROM_ANYWHERE)
+        }
+        // fdn chunk 07: the card goes into its owner's library and that library is shuffled in place of the graveyard (CR 614.1a, 701.24)
+        SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) }?.let {
+            val self = Objects.Self
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(self), to = arcanum.api.Zone.Graveyard),
+                instead = arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.Reveal(self)),
+                    arcanum.api.Step.Do(arcanum.api.Effect.Move(self, arcanum.api.Destination(arcanum.api.Zone.Library))),
+                    arcanum.api.Step.Do(arcanum.api.Effect.Shuffle(arcanum.api.Players.OwnerOf(self))))))), affects = Affected.Objects(self),
+                functionsIn = FROM_ANYWHERE)
         }
         val m = PAIRED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) } ?: return null
         val what = m.groupValues[3]

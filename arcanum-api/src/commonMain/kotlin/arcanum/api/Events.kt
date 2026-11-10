@@ -75,6 +75,10 @@ sealed interface EventPattern {
         /** Only the event that puts the [reaching]th counter of [kind] on the object: it had fewer before and at least that many
          * after ("When the fourth plan counter is put on this enchantment"). */
         val reaching: Int? = null,
+        // fdn
+        /** Only counters an effect puts ("If an effect would put one or more counters"), not those put as a cost (a loyalty ability's
+         * "+1", CR 118.3, 606.4) or by a turn-based action (a Saga's lore counter, CR 714.3b). */
+        val byEffect: Boolean = false,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
      * (CR 701.3d). Roles object (the attachment), from (what it was attached to, last known information). */

@@ -134,7 +134,9 @@ internal object Actions {
                     ?.chapters?.maxOrNull() }.maxOrNull()
                 val readAhead = chars?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true && final != null && final > 1
                 val lore = if (readAhead) act.chooseNumber(act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner, saga, 1, final) else 1
-                putCounters(act, cause, TargetRef.Object(saga), CounterKind.Lore, lore)
+                // CR 714.3a, 614.1c: an effect (a replacement effect) puts it, so "if an effect would put counters" replacements apply
+                val controller = act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner
+                putCounters(act, cause ?: Cause(controller, saga, key = "enters:$saga"), TargetRef.Object(saga), CounterKind.Lore, lore)
             }
         Replacements.addLinked(act, linked)
         // CR 610.3: "until" returns happen right after the event, without the Stack
@@ -151,7 +153,9 @@ internal object Actions {
         var move = m
         // spm: the entering permanent's own replacements read the names its spell's keyword costs made ("the returned creature")
         val names = if (m.memory.values.isEmpty() || r.source != m.id) r.names else Bindings(m.memory.values + r.names.values)
-        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names))
+        // fdn chunk 11b: "enters with a counter for each creature of the chosen type": the type was chosen as it enters, its memory is on the move
+        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names,
+            enteringMemory = m.memory.takeIf { r.source == m.id && it.values.isNotEmpty() }))
         for (mod in r.mechanic.modify) {
             move = when (mod) {
                 Modification.Skip -> return null
@@ -331,7 +335,9 @@ internal object Actions {
         val holder = TargetRef.Object(entering.id)
         return counters.groupBy({ it.first }, { it.second }).mapNotNull { (kind, amounts) ->
             val final = Replacements.apply(act, cause, amounts.sum(), entering.controller ?: entering.owner, entering.id,
-                proposed = { n -> if (n > 0) Change.Counters(holder, kind, null, CounterEntry(kind, n, act.state.nextTimestamp())) else null },
+                // CR 614.1c: "enters with counters" is itself an effect (a replacement effect), so "an effect would put counters" replacements apply
+                proposed = { n -> if (n <= 0) null else Change.Counters(holder, kind, null, CounterEntry(kind, n, act.state.nextTimestamp())).causedBy(
+                    arcanum.engine.change.CausedBy(cause?.source ?: entering.id, null, cause?.controller ?: entering.controller ?: entering.owner, cause?.item?.id)) },
                 modify = { n, r, _ -> modifyAmount(act, n, r) },
                 instead = { r, instance -> runInstead(act, r, instance) }, linked = linked, board = { board })
             final?.takeIf { it > 0 }?.let { kind to it }
@@ -711,7 +717,8 @@ internal object Actions {
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, affected, (holder as? TargetRef.Object)?.id,
             // blb: the proposed change names its cause, for "counters you would put" (EventPattern.CountersPut.causedBy)
-            proposed = { n -> Changes.counters(act.state, holder, kind, n).let { c ->
+            // fdn: and whether it is paid as a cost (EventPattern.CountersPut.byEffect)
+            proposed = { n -> Changes.counters(act.state, holder, kind, n, meanings.filter { it == arcanum.engine.change.Meaning.Paid }).let { c ->
                 if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0

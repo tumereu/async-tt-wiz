@@ -760,6 +760,16 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return null
     }
 
+    /**
+     * CR 700.2a, 601.2b: a mode that couldn't choose its targets (a slot needing targets with too few legal ones) can't be chosen.
+     * A slot whose options can't be judged yet (it reads a value announced later) doesn't rule the mode out.
+     */
+    private fun modeWithoutTargets(mode: arcanum.api.Mode): Boolean = mode.instructions.targets.any { slot ->
+        slot.perPlayer == null && (slot.onlyIf?.let { holdsAsCast(it) } ?: true) && runCatching {
+            targetQuestion(SlotOf(slot.name, slot, null), null)?.let { it.options.size < it.min } ?: false
+        }.getOrDefault(false)
+    }
+
     /** For modes of which one may be chosen: whether some available mode leaves the next question answerable. */
     private fun someModeWorks(q: Question.Modes): Boolean {
         val d = decision(q, DecisionId("check")) as Decision.Modes
@@ -839,7 +849,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // dsk backfill: "choose one or more instead" keeps the minimum (CR 700.2d)
             val min = if (raised && q.modes.min == q.modes.max && !q.modes.upToMaxIf) max else q.modes.min
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
-                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
+                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore) && !modeWithoutTargets(m), pawprints = m.pawprints)
             }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)

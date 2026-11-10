@@ -84,6 +84,7 @@ Small, not urgent (owner, 2026-11-08):
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
+- Intermittent (found 2026-11-10, full run on d057aef13's catalog branch, 1 of 4 runs): `MatchHistoryTest.aPodMatchShowsInThePodGamesTabWithoutDecks` waited 60 s with the pod's Games tab showing the match "In play · Turn 0" and standings 0–0–0, although Alice's phone had the server's result notice (revision 4) of her concession at the mulligan; the server writes the match record in the same transaction that ends the game. Passed 3 of 3 alone in 2 s. Investigate when it recurs: whether the pod matches request ran before the end committed or the screen kept an older list.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

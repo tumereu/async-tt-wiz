@@ -221,7 +221,7 @@ object GridEngine {
         val boosters = order.indices.map { ArrayDeque(generated[it].take(counts[it])) }
         return gridSets.flatMap { code ->
             val set = order.indexOf(code)
-            val taken = shuffled(boosters[set].removeFirst()).take(perGrid)
+            val taken = shuffled(boosters[set].removeAt(0)).take(perGrid)
             taken + List(perGrid - taken.size) { spares[set].removeAt(spares[set].lastIndex) }
         }
     }
@@ -241,7 +241,7 @@ object GridEngine {
             ArrayDeque(SetBoosters.generate(set, (needed + minPack - 1) / minPack, SetBoosters.setSeed(seed, index))
                 .flatMap { SetBoosters.inSet(it, index).cards }.take(needed))
         }
-        return gridSets.flatMap { code -> val stream = streams[order.indexOf(code)]; List(perGrid) { stream.removeFirst() } }
+        return gridSets.flatMap { code -> val stream = streams[order.indexOf(code)]; List(perGrid) { stream.removeAt(0) } }
     }
 
     /**

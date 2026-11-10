@@ -85,7 +85,7 @@ object SetBoosters {
             code to ArrayDeque(generate(sources.set(code), packSets.count { it == code }, setSeed(seed, index), cardsPerPack)
                 .map { inSet(it, index) })
         }.toMap()
-        return packSets.map { queues.getValue(it).removeFirst() }
+        return packSets.map { queues.getValue(it).removeAt(0) }
     }
 
     /** [pack]'s copies with ids of the pod's [index]th set; the first set's keep theirs. */

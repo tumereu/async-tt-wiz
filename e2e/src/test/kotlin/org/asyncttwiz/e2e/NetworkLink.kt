@@ -29,7 +29,9 @@ class NetworkLink(target: String) : AutoCloseable {
                 open += client; open += upstream
                 // A cut while this connection was being made went past it: its sockets weren't open yet
                 if (!up) { runCatching { client.close() }; runCatching { upstream.close() }; open -= client; open -= upstream; continue }
-                pump(client, upstream, incoming = false); pump(upstream, client, incoming = true)
+                // The path of this connection's latest request: its answers wait while [holdAnswers] holds it
+                val lastPath = java.util.concurrent.atomic.AtomicReference("")
+                pump(client, upstream, incoming = false, lastPath); pump(upstream, client, incoming = true, lastPath)
             }
         }, "e2e-link-${listener.localPort}").apply { isDaemon = true }.start()
     }
@@ -43,7 +45,7 @@ class NetworkLink(target: String) : AutoCloseable {
     val requests: MutableList<String> = Collections.synchronizedList(mutableListOf<String>())
     private val requestLine = Regex("(?:^|\\n)(GET|POST|PUT|DELETE|PATCH) (/\\S*) HTTP/1\\.[01]\\r\\n")
 
-    private fun pump(from: Socket, to: Socket, incoming: Boolean) = Thread({
+    private fun pump(from: Socket, to: Socket, incoming: Boolean, lastPath: java.util.concurrent.atomic.AtomicReference<String>) = Thread({
         try {
             val input = from.getInputStream(); val output = to.getOutputStream()
             val buffer = ByteArray(16 * 1024)
@@ -57,10 +59,11 @@ class NetworkLink(target: String) : AutoCloseable {
                     var end = 0
                     for (match in requestLine.findAll(text)) {
                         requests += "${match.groupValues[1]} ${match.groupValues[2]}"; end = match.range.last + 1
+                        lastPath.set(match.groupValues[2])
                     }
                     carry = text.substring(maxOf(end, text.length - 512))
                 }
-                synchronized(gate) { while (if (incoming) holding else holdingOut) gate.wait() }
+                synchronized(gate) { while (if (incoming) holding || heldAnswers.any { lastPath.get().startsWith(it) } else holdingOut) gate.wait() }
                 output.write(buffer, 0, n); output.flush()
             }
         } catch (_: Exception) {}
@@ -86,8 +89,20 @@ class NetworkLink(target: String) : AutoCloseable {
 
     fun releaseOutgoing() = synchronized(gate) { holdingOut = false; gate.notifyAll() }
 
+    @Volatile private var heldAnswers = emptySet<String>()
+
+    /** What the server sends on this device's connections whose latest request's path starts with one of [paths] waits in
+     * the network (everything else goes through), until [releaseAnswers]: a slow read, say the lists' ("/v1/games?"), or
+     * the game socket's messages ("/v1/socket"). */
+    fun holdAnswers(vararg paths: String) = synchronized(gate) { heldAnswers = heldAnswers + paths }
+
+    /** Lets through what [holdAnswers] held for [paths] (all of it without any). */
+    fun releaseAnswers(vararg paths: String) = synchronized(gate) {
+        heldAnswers = if (paths.isEmpty()) emptySet() else heldAnswers - paths.toSet(); gate.notifyAll()
+    }
+
     /** The connection is back. */
     fun restore() { up = true }
 
-    override fun close() { releaseIncoming(); releaseOutgoing(); cut(); runCatching { listener.close() } }
+    override fun close() { releaseIncoming(); releaseOutgoing(); releaseAnswers(); cut(); runCatching { listener.close() } }
 }

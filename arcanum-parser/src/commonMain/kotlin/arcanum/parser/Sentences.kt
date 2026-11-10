@@ -8567,7 +8567,10 @@ internal class Sentences(
         Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" }?.let { m ->
             // inr chunk 06: "When you sacrifice this creature, return it to the battlefield transformed ... at the beginning of the next end step":
             // "it" is the card in the graveyard (CR 400.7), named now because the delayed trigger has another event (CR 603.7c)
-            if (context.event is EventPattern.Sacrifice && context.it == Objects.EventObject(EventRole.Object)) {
+            // inr chunk 14: the same for "Whenever another creature dies, return that card to its owner's hand at the beginning of the next end step"
+            val dyingCard = (context.event as? EventPattern.ZoneChange)?.takeIf { e -> e.to == Zone.Graveyard }
+                ?.let { context.it is Objects.EventObject } == true
+            if (context.event is EventPattern.Sacrifice && context.it == Objects.EventObject(EventRole.Object) || dyingCard) {
                 context.it = Objects.Bound("sacrificed")
                 val inner = effect(m.groupValues[1] + ".", context) ?: return null
                 return listOf(Step.Bind(Objects.EventObject(EventRole.After), "sacrificed"), Step.Do(Effect.CreateDelayedTrigger(

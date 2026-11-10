@@ -1,0 +1,1 @@
+fix: The words in the band under the other player's hand no longer run onto its faded ends, so they stay readable on any screen.

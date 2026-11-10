@@ -1,0 +1,1 @@
+mod: Monarch, Initiative, speed, counters, a dungeon room, day and night now show as small round badges with a letter or picture beside your emblems, never overlapping; hold one to see what it means.

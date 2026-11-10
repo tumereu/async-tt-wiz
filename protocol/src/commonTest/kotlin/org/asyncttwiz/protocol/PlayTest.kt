@@ -153,21 +153,13 @@ class PlayTest {
         assertFalse(GameWire.valid(random.copy(action = GameAction.SetStarter(StarterChoice("invalid")))))
     }
 
-    // SYS-052 (engine-responsiveness R4d): a play row stored with the old model's fields (its history node, group and
-    // annotations) still reads as the play it started as; only the old fields are left out
-    @Test fun aPlayStoredWithTheOldModelsFieldsStillReads() {
+    // SYS-052: a stored play row reads as the play it started as, and any unknown field makes it unreadable, the old
+    // model's fields too (their last rows went in V76, owner 2026-11-10)
+    @Test fun aStoredPlayReadsStrictly() {
         val state = StartRules.initialize(game, ready(), id(11), seeds)
-        val stored = GameWire.json.encodeToJsonElement(PlayState.serializer(), state).let { element ->
-            kotlinx.serialization.json.JsonObject(element as kotlinx.serialization.json.JsonObject + mapOf(
-                "currentNodeId" to kotlinx.serialization.json.JsonPrimitive(state.root.id),
-                "engineVersion" to kotlinx.serialization.json.JsonPrimitive(1),
-                "currentGroup" to kotlinx.serialization.json.JsonNull,
-                "annotations" to kotlinx.serialization.json.buildJsonObject { put("commentsById", kotlinx.serialization.json.buildJsonObject {}) },
-                "currentBranchId" to kotlinx.serialization.json.JsonPrimitive(state.root.branchId)))
-        }.toString()
-        assertFails { GameWire.json.decodeFromString(PlayState.serializer(), stored) }
+        val stored = GameWire.json.encodeToString(PlayState.serializer(), state)
         assertEquals(state, GameWire.stored(PlayState.serializer(), stored))
-        // SYS-052: any other unknown field still makes the row unreadable
         assertFails { GameWire.stored(PlayState.serializer(), stored.replaceFirst("{", "{\"retiredField\":true,")) }
+        assertFails { GameWire.stored(PlayState.serializer(), stored.replaceFirst("{", "{\"currentNodeId\":\"${state.root.id}\",")) }
     }
 }

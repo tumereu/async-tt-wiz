@@ -1,1 +1,1 @@
-Landscape table with the same states: each player's chips after their piles in their bar row, going on beside their emblems, the opponent's above their dungeon room with a +N chip for the rest; Night sits above the Stack.
+Landscape table with the same states: each player's round chips in one line after their piles in their bar row, the opponent's starting with the door of their dungeon room, the emblems last; the moon chip for Night sits above the Stack.

@@ -1,0 +1,1 @@
+fix: A stack of identical cards you can choose (to sacrifice, tap, crew or pick for an effect) now glows violet like a single card does.

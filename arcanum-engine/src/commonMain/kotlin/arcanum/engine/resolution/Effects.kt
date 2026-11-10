@@ -204,9 +204,16 @@ internal object Effects {
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
                 // CR 708.8: turned face up, everyone sees it (D60)
                 act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
+                // CR 701.40g, 701.58g: a manifested or cloaked instant or sorcery card is revealed and left face down; nothing triggers
+                if (spellCardFaceDown(act.state.objOrThrow(id))) {
+                    act.record(Change.Happened(GameEvent.Revealed(o.controller ?: o.owner, listOf(id))))
+                    return@forEach
+                }
                 // CR 702.37f, 702.168e: the X of the cost it was turned up for, read by its turned-face-up abilities
                 val x = effect.x?.let { Meaning.CostX(scope.value(it)) }
                 act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOfNotNull(Meaning.TurnedFaceUp, x)))
+                // CR 708.2a: face down again later, by an effect that lists no characteristics, it is a plain 2/2 (no disguise's ward)
+                act.state.objOrThrow(id).let { now -> if (!now.facts.turnedFaceUp) act.record(Change.Facts(id, now.facts, now.facts.copy(turnedFaceUp = true))) }
                 // CR 701.40a, 701.58a: what lasts only while it is face down ends
                 o.marks.filter { arcanum.api.MarkClear.TurnedFaceUp in arcanum.api.MarkRules.of(it).clears }.forEach { Actions.tapStatus(act, id, StatusFlag.Marked(it), false) }
                 // CR 613.7f: it gets a new timestamp
@@ -248,7 +255,7 @@ internal object Effects {
             is Effect.Mark -> {
                 val zones = arcanum.api.MarkRules.of(effect.mark).zones
                 scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
-                    .forEach { Actions.setMark(act, it, effect.mark, !effect.remove) }
+                    .forEach { Actions.setMark(act, it, effect.mark, !effect.remove, listOfNotNull(effect.cost)) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
             is Effect.CreateToken -> createToken(scope, effect)
@@ -519,6 +526,14 @@ internal object Effects {
     }
 
     // ---- Helpers
+
+    /** CR 701.40g, 701.58g: [o] is a manifested or cloaked permanent represented by an instant or sorcery card (a split card by either half). */
+    private fun spellCardFaceDown(o: arcanum.engine.state.GameObject): Boolean {
+        if (ObjectMark.Manifested !in o.marks && ObjectMark.Cloaked !in o.marks) return false
+        val definition = o.definition ?: return false
+        val faces = if (definition.layout == Layout.Split) definition.faces else definition.faces.take(1)
+        return faces.any { f -> f.types.any { it == CardType.Instant || it == CardType.Sorcery } }
+    }
 
     /** The current objects among [objects] on the battlefield (CR 400.7: stale ids can't be acted on). */
     private fun onBattlefield(scope: Scope, objects: Objects): List<ObjectId> =

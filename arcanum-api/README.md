@@ -37,6 +37,8 @@ The definition model (overview in `Definitions.kt`):
   (`MarkPermission`: the card itself for a `MarkCost`, or a copy of its prepare spell) and whether the turn it was gained is kept (`recordsTurn`).
   A new mark is one entry, and the engine reads what clears as a permanent is turned face up (`MarkClear.TurnedFaceUp`: manifested, cloaked) from it. Foretelling's {2} and "during your turn" are changed with `ObjectFilter.AbilityOf(keyword = Keyword.Foretell.Kind)` in
   `Mechanic.CostChange`, a free `Mechanic.AbilityAlternativeCost` and `Mechanic.ActivateAtInstantSpeed`; these have no wording in the parser yet.
+  An effect that makes a card foretold may give it a foretell cost (`Effect.Mark.cost`, CR 702.143d), and a foretell cost may be "its mana cost
+  reduced by {2}" (`CostPart.ItsManaCostLess`, also in a granted `Keyword.Foretell`); the parser reads neither wording yet.
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.

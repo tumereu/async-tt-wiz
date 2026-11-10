@@ -169,6 +169,8 @@ internal object Perform {
             val before = recorder.changes.size
             // CR 506.4: also after changes made by hand (D42), which don't pass through the engine's events
             Combat.removeWhatLeft(recorder)
+            // CR 707.2c: the values a static copy effect grants, fixed as it first applies
+            arcanum.engine.view.StaticCopies.keep(recorder)
             (StateBasedActions.check(recorder) as? Progress.Waiting)?.let { return it }
             // CR 104.2a: one player left wins at once; CR 800.4a: in a game that goes on, players who lost leave it
             if (GameEnd.over(recorder.state)) return Progress.Done

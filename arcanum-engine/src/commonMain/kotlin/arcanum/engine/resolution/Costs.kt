@@ -84,6 +84,7 @@ internal object Costs {
             // An X nothing defines may be chosen as 0 (CR 107.3f)
             is CostPart.Mana -> mayPay(scope, payer, manaCost(scope, part, unknownX(part.cost, part.x).associateWith { 0 })!!)
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { mayPay(scope, payer, it) } ?: false
+            is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { mayPay(scope, payer, arcanum.engine.casting.Costs.reduce(it, part.less)) } ?: false
             is CostPart.Manual -> false
             CostPart.TapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && !it.tapped } ?: false
             CostPart.UntapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && it.tapped } ?: false
@@ -203,6 +204,7 @@ internal object Costs {
                 act.payMana(payer, scope.self, manaCost(scope, part, chosen)!!)
             }
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, it) }
+            is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
             // Can't be paid (canPay), so never chosen
             is CostPart.Manual -> Unit
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }

@@ -527,11 +527,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
-  KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold or
-  has printed, CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
+  KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold,
+  has printed, has now in exile, or an effect gave it as it became foretold (`Effect.Mark.cost`, CR 702.143d; "its mana cost reduced by {2}" is
+  `CostPart.ItsManaCostLess`), CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
   gained in one record (`ObjectFacts.marksGained`, read by
   `ObjectFacts.gained`), disguise and cloak (face-down with ward
-  {2}, `Copiable.faceDown`), manifest, backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
+  {2}, `Copiable.faceDown`; not once turned face up, `ObjectFacts.turnedFaceUp`, CR 708.2a), manifest (a manifested or cloaked instant or
+  sorcery card an effect would turn face up is revealed and stays face down, CR 701.40g, 701.58g), static copy effects (the values fixed as
+  each first applies, `GameObject.fixedCopies`, recorded with the checks before priority by `view/StaticCopies`, CR 707.2c), backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
   transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: game ledger, untap check CR 731.2, daybound and nightbound
   transforming and entering transformed), speed (`turn/Speed`: player ledger, start your engines! as a state-based action, the

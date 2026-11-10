@@ -303,7 +303,7 @@ internal object Mana {
                 CostPart.TapSelf, CostPart.UntapSelf -> exclusive = true
                 is CostPart.Mana -> if (part.times != null || part.x != null || part.cost.symbols.any { it is ManaSymbol.Variable }) unknown = true
                     else own = ManaCost((own?.symbols ?: emptyList()) + part.cost.symbols)
-                CostPart.ItsManaCost -> unknown = true
+                CostPart.ItsManaCost, is CostPart.ItsManaCostLess -> unknown = true
                 is CostPart.PayLife -> { life += eval.value(part.amount); tier = maxOf(tier, 1) }
                 is CostPart.PayEnergy -> eval.value(part.amount).let { n -> if (n > 0) limit = minOf(limit, you.counters(arcanum.api.CounterKind.Energy) / n); tier = maxOf(tier, 1) }
                 is CostPart.PutCounters -> if (part.on != CostObjects.Self) unknown = true

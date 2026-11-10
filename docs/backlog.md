@@ -30,19 +30,8 @@ Needs discussion, owner thinking (2026-11-09):
 
 - When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.
 
-Arcanum by-hand leftovers and face-down gaps, found building special actions (2026-11-09):
-
-- A manifested or cloaked instant or sorcery card that an effect would turn face up is revealed and stays face down, with no turned-face-up trigger (CR 701.40g, 701.58g): `Effect.TurnFaceUp` turns it up.
-- A permanent cast disguised, turned face up and later turned face down again keeps ward {2} (CR 708.2a: a plain 2/2): `Copiable.faceDown` reads the cast's `facts.alternative`, which stays. Found by reading; write a test first.
-
-Arcanum foretell gaps, found building the mark table (2026-11-09):
-
-- An effect that gives a foretell cost as a card becomes foretold (CR 702.143d; Ethereal Valkyrie: "It becomes foretold. Its foretell cost is its mana cost reduced by {2}"): `Effect.Mark` has no cost to give, so the card is cast only for a foretell cost it already has.
-- A granted foretell whose cost depends on the card (Dream Devourer, Bohn: "Its foretell cost is equal to its mana cost reduced by {2}"): a fixed granted cost is kept as the card is foretold, but `Keyword.Foretell` can't say this one and these printed cards stay unread. Also CR 702.143a's "any foretell cost it has" for foretell granted later to a card already in exile: only the costs it had as it became foretold and its printed ones are read.
-
 Arcanum copies, found building copiable values (2026-11-09; can be done any time):
 
-- Static copy effects stay live, against CR 707.2c ("determined only at the time that effect first starts to apply"): `Copiable.staticCopiesOn` makes a fresh effect each time, so a permanent under one follows the original's later changes. Fixing it needs state recording, per affected object, the values as the effect first applied to it (add-only, a new field on `GameObject` or a list on `GameState`), found again by source and ability.
 - A token copy of a double-faced permanent that copies a multi-part card (a Room, a prepare creature) isn't double-faced (CR 707.8a): `CopiableValues` has one layout, so it can't hold two faces each with their own parts. The token has the copied layout; what it lacks is transforming between two identical faces. Holding it needs a layout per face.
 Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74), queued after the engine items; not built ahead of them without asking the owner:
 

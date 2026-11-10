@@ -38,6 +38,9 @@ sealed interface CostPart {
     @Serializable @SerialName("mana") data class Mana(val cost: ManaCost, val times: Value? = null, val x: Value? = null) : CostPart
     /** "Pay its mana cost" / a cost "equal to its mana cost" (the object's own mana cost). */
     @Serializable @SerialName("its-mana-cost") data object ItsManaCost : CostPart
+    /** "Its mana cost reduced by [less]" (the object's own mana cost, [less] taken off as a cost reduction, CR 118.7; a foretell cost an
+     * effect gives, CR 702.143d: "Its foretell cost is its mana cost reduced by {2}"). */
+    @Serializable @SerialName("its-mana-cost-less") data class ItsManaCostLess(val less: ManaCost) : CostPart
     /** {T}: tap this permanent (CR 107.5). */
     @Serializable @SerialName("tap") data object TapSelf : CostPart
     /** {Q}: untap this permanent (CR 107.6). */

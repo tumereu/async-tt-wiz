@@ -121,8 +121,9 @@ sealed interface Effect {
     @Serializable @SerialName("phase-in") data class PhaseIn(val objects: Objects) : Effect
     /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"): only on those where it can live ([MarkRules]): a
      * permanent's marks on permanents, "becomes plotted" or "becomes foretold" on a card in exile (CR 702.170c, 702.143d). When it clears
-     * and what it gives are in the table too. */
-    @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
+     * and what it gives are in the table too. [cost]: the cost of the mark's keyword the effect gives as it is gained ("It becomes
+     * foretold. Its foretell cost is …", CR 702.143d), cast for besides any the card has. */
+    @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false, val cost: Cost? = null) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 
     /** Create [count] tokens, as one event; [attacking]: what they attack (CR 508.4); [attachedTo]: created attached

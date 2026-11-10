@@ -54,7 +54,7 @@ class ParserCorpusTest {
         assertTrue(failure?.message.orEmpty().contains("ZZZ"), failure.toString())
     }
 
-    private fun corpus(supported: Set<String> = setOf("SUP")): ParserCorpus {
+    private fun corpus(supported: Set<String> = setOf("SUP"), cubeFile: Boolean = true, fallbackCube: Set<String> = emptySet()): ParserCorpus {
         val data = JsonObject().apply {
             add("SUP", set("expansion", "2024-01-01", card("Reprinted Bolt", text = "Draw two cards."), card("Set Bear")))
             add("OLD", set("expansion", "2001-01-01", card("Reprinted Bolt", text = "Draw a card."), card("Held Sprite"), card("Cube Bear")))
@@ -88,8 +88,8 @@ class ParserCorpusTest {
                 addProperty("layout", "normal")
             }) })
         }
-        val cubeFile = File(dir, "cube.json").apply { writeText(cube.toString()) }
-        return readCorpus(file, cubeFile, supported)
+        val cubeJson = File(dir, "cube.json").apply { writeText(cube.toString()) }
+        return readCorpus(file, if (cubeFile) cubeJson else File(dir, "absent.json"), supported) { fallbackCube }
     }
 
     @Test fun readsTheVersionAndSortsByName() {
@@ -137,6 +137,22 @@ class ParserCorpusTest {
         assertEquals(CardScope.Cube, card.scope)
         assertEquals("cube:Un Waiter", card.id)
         assertTrue(cardModel(card.layout, card.faces).read)
+    }
+
+    @Test fun withoutACubeFileTheSupportedCardsListIsTheCube() {
+        val cards = corpus(cubeFile = false, fallbackCube = setOf("Held Sprite", "Up Half", "Set Bear", "Un Waiter")).cards
+        val scope = cards.associate { it.name to it.scope }
+        assertEquals(CardScope.Cube, scope["Held Sprite"])
+        assertEquals(CardScope.Cube, scope["Up Half"])
+        assertEquals(CardScope.SupportedSet, scope["Set Bear"], "a supported set outranks the list")
+        assertEquals(CardScope.HeldOut, scope["Cube Bear"])
+        assertFalse(cards.any { it.name == "Un Waiter" }, "a listed name the corpus lacks has no faces to read")
+    }
+
+    @Test fun theSupportedCardsListReadsAsNames() {
+        val names = supportedCards()
+        assertTrue(names.isNotEmpty())
+        assertTrue(names.none { it.startsWith("#") || it.isBlank() })
     }
 
     @Test fun readingTwiceGivesTheSameCardsInTheSameOrder() {

@@ -88,9 +88,15 @@ private val EXCLUDED_LAYOUTS = setOf("token", "double_faced_token", "art_series"
  * The corpus from a local AllPrintings file and the cube's card list: one printing per oracle id (the newest in a set and
  * layout that isn't excluded). Printed in a supported set, the card is [CardScope.SupportedSet]; otherwise listed in
  * the cube, [CardScope.Cube]; otherwise [CardScope.HeldOut]. A cube card the corpus leaves out (an Un-card) is read
- * from the cube's own list, so it is protected too.
+ * from the cube's own list, so it is protected too. Without a [cube] file (a fresh clone), the names of [fallbackCube]
+ * (the repository's `supported-cards.txt`) are the cube: names only, so none is read from a list of its own.
  */
-internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): ParserCorpus {
+internal fun readCorpus(
+    mtgjson: File,
+    cube: File,
+    supported: Set<String>,
+    fallbackCube: () -> Set<String> = ::supportedCards,
+): ParserCorpus {
     class Entry(val sets: MutableSet<String> = HashSet(), var date: String = "", var code: String = "", var card: CorpusCard? = null)
     val entries = HashMap<String, Entry>()
     val seenSets = HashSet<String>()
@@ -116,8 +122,12 @@ internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): Pars
     }
     val absent = supported - seenSets
     check(absent.isEmpty()) { "Supported sets not in $mtgjson, so nothing would protect them: ${absent.sorted().joinToString()}. Use a newer AllPrintings." }
-    val cubeCards = JsonParser.parseString(cube.readText()).asJsonObject.entrySet().associate { (name, faces) ->
-        name to faces.asJsonArray.map { it.asJsonObject }
+    val cubeCards = if (cube.exists()) {
+        JsonParser.parseString(cube.readText()).asJsonObject.entrySet().associate { (name, faces) ->
+            name to faces.asJsonArray.map { it.asJsonObject }
+        }
+    } else {
+        fallbackCube().associateWith { emptyList() }
     }
     fun inCube(card: CorpusCard) = card.name in cubeCards || card.name.substringBefore(" // ") in cubeCards
     val kept = entries.values.mapNotNull { entry ->
@@ -130,7 +140,7 @@ internal fun readCorpus(mtgjson: File, cube: File, supported: Set<String>): Pars
         CorpusCard(card.id, card.name, card.layout, card.faces, scope)
     }
     val names = kept.flatMap { listOf(it.name, it.name.substringBefore(" // ")) }.toSet()
-    val onlyInCube = cubeCards.filterKeys { it !in names }.map { (name, faces) ->
+    val onlyInCube = cubeCards.filter { (name, faces) -> name !in names && faces.isNotEmpty() }.map { (name, faces) ->
         CorpusCard("cube:$name", name, faces.first().get("layout")?.takeIf { it.isJsonPrimitive }?.asString ?: "normal",
             faces.map(::oracleCard), CardScope.Cube)
     }

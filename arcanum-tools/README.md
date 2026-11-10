@@ -2,6 +2,8 @@
 
 JVM developer tools for the Arcanum libraries. Not a library and never shipped.
 
+Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
+
 - `patternFrequencies`: counts normalised oracle-text patterns in the pinned MTGJSON AllPrintings file (Un-cards,
   online-only and rebalanced cards skipped) and writes them, most frequent first, to
   `build/arcanum/pattern-frequencies.tsv`, with coverage numbers for the top 50–2000
@@ -49,9 +51,10 @@ Every tool here that reads real cards reads one MTGJSON AllPrintings file, the h
 stops with one message: put the pinned file there (its version and checksum named), or move the pin. Nothing else is downloaded.
 
 `supported-cards.txt` beside `supported-sets.txt` lists cards supported one by one, by name (the host's catalog marks a card supported when it
-is in a supported set or on this list, and nothing of it is left to the players); the tools read only `supported-sets.txt`.
+is in a supported set or on this list, and nothing of it is left to the players); the tools read it only as the cube's stand-in (below).
 
-`parserDiff` and `parserMetrics` read the pinned file and `arcanum-cube-cards.json` (or `-Pcube=`) and write to
+`parserDiff` and `parserMetrics` read the pinned file and `~/projects/atw-cache/arcanum-cube-cards.json` (or `-Pcube=`; without that file, as in a fresh
+clone, the names in `supported-cards.txt` are the cube, with no cards read from a list of their own) and write to
 `~/projects/atw-cache/parser-migration/` (or `-PparserOutputs=`), never into the repository. The cards are one printing per oracle id: no Un-cards, online-only or
 rebalanced printings, no card printed only in memorabilia, token, minigame, alchemy, vanguard or treasure chest sets or in token, art series,
 planar, scheme, vanguard, host, augment, reversible, emblem or sticker layouts. Cube cards those rules leave out are read from the cube's list. A card is "read"

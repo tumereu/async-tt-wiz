@@ -48,15 +48,16 @@ the brackets and send them exactly.
    `bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`. It writes `<plan>`: `plan.tsv` (each card `UNREAD`, `TEST`
    or `REPEAT`), `chunks/NN.md`, `digest.md`, `difficult.md` (over-inclusive warnings), `notes.md` and `audit/`.
 3. **Starting point.** In `<wt>`: `bin/base-snapshot.sh <CODE>` (the parser's model of every local card, to
-   `<plan>/parser-base.snapshot`; `bin/set-tests.sh --full` compares against it).
+   `<plan>/parser-base.snapshot`; `bin/set-tests.sh <code> --full` compares against it).
 4. **Worker aids.** `python3 -I bin/chunk-pointers.py <wt> <plan>` adds, per card, the most alike existing parser test and
    engine scenario as `file:line`. `python3 -I bin/helper-index.py <wt> <plan> <newest supported set code>` writes
    `<plan>/helpers.md`, the test helpers' signatures. If the previous set's `notes.md` has general techniques
    (scenario setup, modelling tips), copy them into `<plan>/notes.md` under a heading saying where they came from.
 5. **Audit.** A cheap model rereads every card that already reads, so misreads in cards no test would look at come to light.
    `audit/seeded.tsv` names entries made deliberately wrong; auditors never see it.
-   - Calibrate on `audit/batch-01.md`: run the audit prompt twice, with `model: haiku` and `model: sonnet`, then
-     `python3 -I bin/audit-score.py <plan>`. Keep Haiku if it calls at least 90% of the seeded entries `incorrect` and at most
+   - Calibrate on `audit/batch-01.md`: run the audit prompt twice, with `model: haiku` and `model: sonnet`, renaming
+     `audit/results-01.tsv` after each run to `audit/calibration-01-haiku.tsv` or `audit/calibration-01-sonnet.tsv`, then
+     `python3 -I bin/audit-score.py <plan>`; copy the chosen model's file back to `audit/results-01.tsv`. Keep Haiku if it calls at least 90% of the seeded entries `incorrect` and at most
      10% of its other `incorrect` calls are false alarms (check those against the oracle text and the CR); otherwise Sonnet.
    - Run the remaining batches with the chosen model, one fresh agent each.
    - `python3 -I bin/audit-apply.py <plan>` writes each real `incorrect` or `unsure` finding into its card's chunk entry as an

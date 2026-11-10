@@ -86,7 +86,21 @@ class GameDevice(
 
     /** Each player's current response mode by account, as the server says it ([EngineSnapshot.modes], [EngineUpdate.modes]):
      * the other player's is [opponentMode]. */
-    fun modes(modes: Map<String, ResponseMode>) { modes[opponent.value]?.let { opponentMode = it } }
+    fun modes(modes: Map<String, ResponseMode>) {
+        modes[opponent.value]?.takeIf { it != opponentMode }?.let { remember("their response mode now ${it::class.simpleName}"); opponentMode = it }
+    }
+
+    /** The other player's current "Assume resolves" setting (owner 2026-11-10), as the server last said ([assumes]): at a
+     * point they began, where their device assumes this player's pass, the game doesn't wait for this player ([move]).
+     * Null until known: no such point is judged by it. */
+    var opponentAssume: AssumeResolves? = null
+        private set
+
+    /** Each player's current "Assume resolves" setting by account, as the server says it ([EngineSnapshot.assumes],
+     * [EngineUpdate.assumes]): the other player's is [opponentAssume]. */
+    fun assumes(assumes: Map<String, AssumeResolves>) {
+        assumes[opponent.value]?.takeIf { it != opponentAssume }?.let { remember("their Assume resolves now ${it::class.simpleName}"); opponentAssume = it }
+    }
 
     /** The game's assume reveal settings (LOB-135), as the caller last said ([assumeReveals]): the cards the information
      * rule lets through, in this player's assumptions and own actions alike. Until told, nothing ([AssumeReveals.NONE]). */
@@ -437,14 +451,107 @@ class GameDevice(
      * assumptions about them, is the other player's move. Null when the game waits for nobody (both OKs stand on a result,
      * or before the start). A draft of the player's own at the head is their move.
      */
-    val move: PlayerId? get() {
-        request?.let { return if (it.by == me.value) opponent else me }
+    val move: PlayerId? get() = moveAndWhy().first
+
+    /** [move] with the rule that decided it, in words (owner 2026-11-10: every change of the move colour is logged with
+     * its reason). */
+    fun moveAndWhy(): Pair<PlayerId?, String> {
+        val atHead = moveAtHead()
+        if (atHead == null) {
+            val (raw, waits) = headWaits()
+            // No settled head seen yet (the game just opened mid-chain): the head's own
+            val kept = settledMove ?: return raw to "$waits (nothing settled yet)"
+            return kept.move to "$waits, not settled (made by itself next): kept ${kept.move?.value?.take(8)}"
+        }
+        settledMove = Kept(atHead.first)
+        return atHead
+    }
+
+    /** The move last worked out on a settled head ([moveAtHead]), kept while the head isn't settled. */
+    private class Kept(val move: PlayerId?)
+    private var settledMove: Kept? = null
+
+    /**
+     * [move] on the head with why, or null when the head isn't settled: the game doesn't really wait there, the next step
+     * is made by itself (owner playtest 2026-11-10: the move colour flipped back and forth). The other player's device
+     * sends what it makes one event at a time, so while those events reach this device (playback behind them, or a board
+     * published before this device's own steps followed its action) the head passes through points where the player who
+     * holds priority is passed for by their own mode, or assumed about; the move there is neither's.
+     */
+    private fun moveAtHead(): Pair<PlayerId?, String>? {
+        request?.let { return (if (it.by == me.value) opponent else me) to "undo request by ${it.by.take(8)}" }
         // The player's own flow at the head (a cast, a declaration being made)
-        if (session.drafting && !session.behind) return me
-        val facts = headFacts() ?: return me
-        facts.suggestedBy?.let { return if (it == me) opponent else me }
-        if (facts.result) return if (me !in facts.resultOks) me else opponent.takeIf { it !in facts.resultOks }
-        return if (me in facts.waiting) me else opponent.takeIf { it in facts.waiting }
+        if (session.drafting && !session.behind) return me to "own draft at the head"
+        val facts = headFacts() ?: return me to "no head facts"
+        facts.suggestedBy?.let { return (if (it == me) opponent else me) to "result suggestion by ${it.value.take(8)}" }
+        if (facts.result) return (if (me !in facts.resultOks) me else opponent.takeIf { it !in facts.resultOks }) to "result, OKs ${facts.resultOks.map { it.value.take(8) }}"
+        if (session.drafting) return headWaits(facts)
+        return if (settledAtHead()) headWaits(facts) else null
+    }
+
+    private fun headWaits(facts: HeadFacts? = headFacts()): Pair<PlayerId?, String> {
+        facts ?: return me to "no head facts"
+        val waits = "head ${facts.head.take(8)} waits for ${facts.waiting.map { it.value.take(8) }}"
+        return (if (me in facts.waiting) me else opponent.takeIf { it in facts.waiting }) to waits
+    }
+
+    /** [settledAtHead] worked out last: at the shown point ([PointKey]) or, while playback is behind, at the head. */
+    private var settledShown: Pair<PointKey, Boolean>? = null
+    private data class HeadKey(val head: String, val settings: PlaySettings, val opponentMode: ResponseMode, val endTurn: Int?,
+        val chain: Boolean, val holdAt: String?, val opponentAssume: AssumeResolves?)
+    private var settledHead: Pair<HeadKey, Boolean>? = null
+
+    /**
+     * Owner playtest 2026-11-10: whether the game really waits at the main line's head as this device knows it (its own
+     * pending events included): nothing there is made by itself next, neither the player's own pass or answer by their
+     * response mode (or an End turn, a Resolve chain) nor an automatic answer or an assumption of the other player's
+     * (their mode passes, this player's Assume setting, a forced pass), nor, while playback is behind, the other player's
+     * device's assumption of this player's pass by its own Assume setting ([assumedByThem]). Whether this device could make
+     * that step now (playback behind, a play shown) doesn't matter. Worked out once per point.
+     */
+    private fun settledAtHead(): Boolean {
+        if (!session.behind) {
+            val key = pointKey()
+            if (key.same(idleAt)) return true
+            settledShown?.takeIf { key.same(it.first) }?.let { return it.second }
+            return !makesItself(model, session.tip).also { settledShown = key to !it }
+        }
+        val key = HeadKey(session.head, settings, opponentMode, endTurn, chain, holdAt, opponentAssume)
+        settledHead?.takeIf { it.first == key }?.let { return it.second }
+        val settled = runCatching { !makesItself(session.headModel(), session.head) }.getOrDefault(true)
+        settledHead = key to settled
+        return settled
+    }
+
+    /**
+     * Owner playtest 2026-11-10: whether this player's priority on [s] (state [m], the main line's head while playback is
+     * behind it), where their own mode stops, is a point the other player began at which the other player's device
+     * assumes their pass by its own "Assume resolves" setting ([opponentAssume], HIS-096: there their setting counts, never
+     * at this player's own main phase). That device sends its events one at a time, so its assumption is on its way: the
+     * game doesn't wait for this player there. Only while playback is behind the head: at the head this player's device
+     * stops there for them, and the move follows it (the other device may still wait, its Assume greyed, TRN-071).
+     */
+    private fun assumedByThem(s: GameState, m: GameModel): Boolean {
+        val setting = opponentAssume ?: return false
+        if (s.pending != null || s.priority.holder != me || Stops.stop(s, me)) return false
+        if (pointOwner(session.events + session.pending, s) != opponent) return false
+        return settingAssumes(setting, s, me, opponent) { noMana(s, me, m) }
+    }
+
+    /** Whether the device's own step at [at] (state [m]) would be made by itself ([decideStep] without making it). */
+    private fun makesItself(m: GameModel, at: String): Boolean {
+        val s = m.engine
+        if (Engine.result(s) != null) return false
+        val who = Attention.of(s) ?: return false
+        if (who == me || NextStop.declares(s, me)) {
+            if (at == session.tip && held()) return false
+            val input = own(s, m, at) ?: return m !== model && assumedByThem(s, m)
+            return reveals["$at:$input"] != true
+        }
+        return when (val point = point(s, m)) {
+            is Point.Automatic, is Point.Assume -> true
+            is Point.Wait -> chain && point.offer == Offer.AssumeResolves && point.input != null
+        }
     }
 
     /** What the main line's head says about whose move it is ([move]): its open result suggestion's author, whether it
@@ -1074,12 +1181,13 @@ class GameDevice(
         if (endTurnFirst != null && dropped.any { it.id == endTurnFirst }) endTurnFirst = null
     }
 
-    /** The player's own input the device makes at the head by itself, or null (§6, §7). */
-    private fun own(s: GameState): Input? {
+    /** The player's own input the device makes at the head by itself, or null (§6, §7). [m]: the state there (the shown
+     * one, else the main line's head while playback is behind it, [settledAtHead]), [at] the event it is at. */
+    private fun own(s: GameState, m: GameModel = model, at: String = session.tip): Input? {
         val d = s.pending?.decision
         if (d != null) {
             if (d is Decision.Random || Engine.decider(s, d.player) != me) return null
-            return WhoActs.automaticAnswer(model, d) ?: oneAnswer(s, d)?.takeIf { !keeps(session.tip) }
+            return WhoActs.automaticAnswer(m, d) ?: oneAnswer(s, d, m)?.takeIf { !keeps(at) }
         }
         val holder = s.priority.holder
         if (holder != null) {
@@ -1088,22 +1196,22 @@ class GameDevice(
             // TRN-017: so does a Resolve chain, over the Stack ([chainEnds] ends it once the Stack is empty)
             if (chain) return Input.PassPriority(holder)
             // The stop they stood at when they changed their mode waits for their answer ([keptAt])
-            if (keeps(session.tip)) return null
+            if (keeps(at)) return null
             // One search of the player's options answers both (the engine's own pass and their mode's)
-            val check = model.passCheck(holder)
+            val check = m.passCheck(holder)
             return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
-            return Engine.options(s, me, model.keptView()).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
+            return Engine.options(s, me, m.keptView()).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
         return null
     }
 
     /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
      * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
      * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
-    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
+    private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
         (d is Decision.ChooseObjects && d.total != null)) null
-        else Engine.options(s, d.player, model.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
+        else Engine.options(s, d.player, m.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2, [Stops.passes]: never
      * at their own main phases, owner smoke 2026-11-04, STK-036) or an End turn. */
@@ -1119,30 +1227,32 @@ class GameDevice(
         data class Wait(val reason: GameDevice.Wait, val offer: Offer? = null, val input: Input? = null) : Point
     }
 
-    private fun point(s: GameState): Point {
+    /** [m]: the state at the point (the shown one, else the main line's head while playback is behind it, [settledAtHead]: there
+     * the information rule's probe, which works at the tip, isn't made). */
+    private fun point(s: GameState, m: GameModel = model): Point {
         val d = s.pending?.decision
         if (d != null) {
-            if (d !is Decision.Random) WhoActs.automaticAnswer(model, d)?.let { return Point.Automatic(it) }
+            if (d !is Decision.Random) WhoActs.automaticAnswer(m, d)?.let { return Point.Automatic(it) }
             // TRN-027, HIS-096 (owner, 2026-11-05): the other player's opening keep is never assumed: their opening is waited for
-            if (Engine.options(s, d.player, model.keptView()).any { keep(it) }) return Point.Wait(Wait.Keep)
-            return Point.Wait(Wait.Choosing(d.source?.takeIf { it in model.visible(me) }))
+            if (Engine.options(s, d.player, m.keptView()).any { keep(it) }) return Point.Wait(Wait.Keep)
+            return Point.Wait(Wait.Choosing(d.source?.takeIf { it in m.visible(me) }))
         }
         val holder = s.priority.holder
         if (holder != null) {
-            if (Stops.forcedPass(model, holder)) return Point.Automatic(Input.PassPriority(holder))
+            if (Stops.forcedPass(m, holder)) return Point.Automatic(Input.PassPriority(holder))
             val pass = Input.PassPriority(holder)
-            if (Stops.stop(s, holder) || !assumable(pass)) return Point.Wait(Wait.TheirTurn)
-            if (revealing(pass)) return Point.Wait(Wait.HiddenCards)
+            if (Stops.stop(s, holder) || !assumable(pass, m)) return Point.Wait(Wait.TheirTurn)
+            if (m === model && revealing(pass)) return Point.Wait(Wait.HiddenCards)
             // HIS-096 (owner, 2026-11-05): never the other player's presence
-            if (assumesAtOnce(s, holder)) return Point.Assume(pass)
+            if (assumesAtOnce(s, holder, m)) return Point.Assume(pass)
             val top = s.stack.lastOrNull()
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
             return Point.Wait(reason, Offer.AssumeResolves, pass)
         }
-        val blocks = Engine.options(s, opponent, model.keptView()).filterIsInstance<Input.DeclareBlockers>()
+        val blocks = Engine.options(s, opponent, m.keptView()).filterIsInstance<Input.DeclareBlockers>()
         if (blocks.isNotEmpty()) {
             val none = Input.DeclareBlockers(opponent, emptyList())
-            if (!assumable(none)) return Point.Wait(Wait.Blockers)
+            if (!assumable(none, m)) return Point.Wait(Wait.Blockers)
             // CMB-040: assumed only from the Assume blockers screen the player opens
             return Point.Wait(Wait.Blockers, Offer.AssumeBlockers, none)
         }
@@ -1156,17 +1266,17 @@ class GameDevice(
      * line up to the head), also where this player's Assume setting assumes it ([settingAssumes]). At a point [holder]
      * began, the setting doesn't count: where their mode stops, the device waits for them.
      */
-    private fun assumesAtOnce(s: GameState, holder: PlayerId): Boolean {
-        if (Stops.passes(opponentMode, s, holder) { model.passCheck(holder).ownSkipOn }) return true
+    private fun assumesAtOnce(s: GameState, holder: PlayerId, m: GameModel = model): Boolean {
+        if (Stops.passes(opponentMode, s, holder) { m.passCheck(holder).ownSkipOn }) return true
         if (pointOwner(session.events + session.pending, s) != me) return false
-        return settingAssumes(settings.assume, s, holder, me) { noMana(s, holder) }
+        return settingAssumes(settings.assume, s, holder, me) { noMana(s, holder, m) }
     }
 
     /** Whether [holder] has no mana on [s] as this player's table shows it: nothing in their mana pool and nothing they
      * could activate (no untapped mana source, mana abilities being activations too, and no other ability usable now).
      * The cards in their hand are hidden and don't count. */
-    private fun noMana(s: GameState, holder: PlayerId): Boolean =
-        s.player(holder).manaPool.isEmpty() && Engine.options(s, holder, model.keptView()).none { it is Input.Activate }
+    private fun noMana(s: GameState, holder: PlayerId, m: GameModel = model): Boolean =
+        s.player(holder).manaPool.isEmpty() && Engine.options(s, holder, m.keptView()).none { it is Input.Activate }
 
     private fun keep(input: Input): Boolean = when (input) {
         is Input.SetupAnswer -> input.player == opponent && input.answer == arcanum.engine.decision.Answer.Option("Keep")
@@ -1175,8 +1285,8 @@ class GameDevice(
     }
 
     /** Whether this player may assume [input] of the other player's here (§3: the server's own rules). */
-    private fun assumable(input: Input): Boolean =
-        try { WhoActs.kind(model, input, me, assumed = true) is WhoActs.Kind.Assumed } catch (_: Refusal) { false }
+    private fun assumable(input: Input, m: GameModel = model): Boolean =
+        try { WhoActs.kind(m, input, me, assumed = true) is WhoActs.Kind.Assumed } catch (_: Refusal) { false }
 
     /** Whether assuming [input] at the tip would show this player a hidden card (§5): its whole outcome, up to the next
      * decision. Worked out once per point (the probe is taken back). */
@@ -2004,6 +2114,7 @@ class GameDevice(
         // The other player's mode as their latest own event recorded it, then as the server says it now (owner 2026-11-06)
         for (event in events) if (event.author == opponent.value && event.assumed == null) event.mode?.let { opponentMode = it }
         update?.modes?.let(::modes)
+        update?.assumes?.let(::assumes)
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             reportAgain()
@@ -2718,7 +2829,7 @@ class GameDevice(
             val local = heads[me]?.takeIf { it == baseId || events.any { e -> e.id == it } } ?: snapshot.headId
             fun device(session: GameSession) =
                 GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids)
-                    .also { it.modes(snapshot.modes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
+                    .also { it.modes(snapshot.modes); it.assumes(snapshot.assumes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
             val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
             if (gone.isNotEmpty() && gone.first().parentId == local) {
                 val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1

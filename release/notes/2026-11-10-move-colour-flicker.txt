@@ -1,0 +1,1 @@
+fix: The colours showing whose move it is no longer flick back and forth while the other player's moves are arriving.

@@ -40,7 +40,8 @@ const val GAME_PROTOCOL_MINOR = 12
     /** I-D56 §10: the requester takes their open undo request back. */
     @Serializable @SerialName("engineCancelRewind") data object EngineCancelRewind : GameAction
     /** I-D56 §13: the actor's play settings for this game (response mode, Assume resolves, Autotap); the response mode
-     * is shared with the other player at once ([EngineUpdate.modes], owner 2026-11-06). */
+     * is shared with the other player at once ([EngineUpdate.modes], owner 2026-11-06), and so is Assume resolves
+     * ([EngineUpdate.assumes], owner 2026-11-10); Autotap stays the actor's own. */
     @Serializable @SerialName("engineSettings") data class EngineSettings(val settings: org.asyncttwiz.protocol.game.PlaySettings) : GameAction
     /** LOB-135: the game's assume reveal settings; only its host (the inviter) changes them, before and during the game.
      * Scoped to the game alone (no preparation, invitation or play). */
@@ -142,7 +143,11 @@ const val GAME_PROTOCOL_MINOR = 12
      * other player's device assumes a pass wherever the player's own mode would make it). */
     val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
     /** HIS-108: who undid [takenBack] (an undo, not a branch); null otherwise. */
-    val undoneBy: String? = null)
+    val undoneBy: String? = null,
+    /** Each player's current "Assume resolves" setting by account (owner 2026-11-10: the other player's device knows where
+     * the player's device assumes its passes at points the player began, so it shows the move only where the game really
+     * waits, never at a pass of its own that is being assumed; never shown). */
+    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap())
 /**
  * HIS-111, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): a page of a play's
  * main line ending at the event [through], read on demand (`GET /v1/games/{id}/timeline?through=`): the checkpoint above
@@ -171,7 +176,9 @@ const val GAME_PROTOCOL_MINOR = 12
     val rewoundBy: String? = null,
     /** Each player's current response mode by account, as after this change ([EngineSnapshot.modes]): a player's change
      * of it reaches the other player's device at once. */
-    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap())
+    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
+    /** Each player's current "Assume resolves" setting by account, as after this change ([EngineSnapshot.assumes]). */
+    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap())
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

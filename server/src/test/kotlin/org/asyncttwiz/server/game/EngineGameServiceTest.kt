@@ -507,14 +507,53 @@ class EngineGameServiceTest {
         assertNotNull(f.snapshot(f.b).rewindRequest)
     }
 
-    // I-D56 §13: a player's play settings are their own, kept on the server, never shown to the other player
-    @Test fun `play settings are private`() = withService { runtime ->
+    // I-D56 §13, TRN-059 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
+    // the server; the other player's phone learns only their response mode (STK-036) and "Assume resolves" (both snapshots
+    // and every revision name each player's), never the rest (Autotap) or the settings as a whole
+    @Test fun `play settings are private but the assume setting is shared`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")
-        val mine = PlaySettings(ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
+        val a = f.a.account.accountId; val b = f.b.account.accountId
+        val always = org.asyncttwiz.protocol.game.AssumeResolves.Always
+        val mine = PlaySettings(ResponseMode.FullControl, assume = always, autotap = false)
         assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(mine)).outcome)
         assertEquals(mine, f.snapshot(f.b).settings)
         assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
-        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("\"assume\":{") })
+        assertEquals(mapOf(a to PlaySettings.NEW_GAMES.assume, b to always), f.snapshot(f.a).assumes)
+        assertEquals(mapOf(a to PlaySettings.NEW_GAMES.assume, b to always), f.revisions(f.a, "0").last().engine?.assumes)
+        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).let { text -> text.contains("\"assume\":{") || text.contains("autotap") } })
+    }
+
+    // TRN-059, STK-036 (owner 2026-11-10): a change of either shared setting with no move reaches the other seat at once:
+    // its revision, as the socket publishes it to the other player (GameService.publicationState), carries both players'
+    // response modes and Assume settings and nothing else of the engine (no event, no local head moved), never Autotap.
+    // First Bob's Assume setting alone, then his response mode alone.
+    @Test fun `a settings change reaches the other seat at once as a settings-only update`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "u")
+        val a = f.a.account.accountId; val b = f.b.account.accountId
+        val head = f.snapshot(f.a).headId
+        val always = org.asyncttwiz.protocol.game.AssumeResolves.Always
+        val mine = PlaySettings.NEW_GAMES
+        /** Bob changes his settings to [settings]: the update the other seat (Alice) is sent. */
+        fun change(settings: PlaySettings): EngineUpdate {
+            val revision = f.games.head(f.a, f.game.id).summary.revision
+            assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(settings)).outcome)
+            val sent = f.games.publicationState(f.a, f.revisions(f.b, revision).single()) as GameRevision
+            assertNull(sent.engineEvent)
+            assertNotNull(sent.engine)
+            val engine = sent.engine!!
+            assertTrue(engine.events.isEmpty() && engine.target == null && engine.rewindRequest == null, "a settings-only update")
+            assertTrue(!GameWire.encode(sent).contains("autotap") && !GameWire.encode(sent).contains("\"settings\""), "Autotap stays private")
+            assertEquals(head, f.snapshot(f.a).headId)
+            return engine
+        }
+        // The Assume setting alone (and Autotap, which stays private)
+        val assumeOnly = change(PlaySettings(assume = always, autotap = false))
+        assertEquals(mapOf(a to mine.assume, b to always), assumeOnly.assumes)
+        assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.AutoSkip), assumeOnly.modes)
+        // The response mode alone
+        val modeOnly = change(PlaySettings(ResponseMode.FullControl, assume = always, autotap = false))
+        assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.FullControl), modeOnly.modes)
+        assertEquals(mapOf(a to mine.assume, b to always), modeOnly.assumes)
     }
 
     // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside

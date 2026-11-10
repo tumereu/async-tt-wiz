@@ -370,6 +370,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             device.reveal?.takeIf { it != loggedReveal }?.let { loggedReveal = it; AppLog.info("game", gameLog.reveal(state, it)) }
         }
         logStatus(status)
+        logMove(play, status)
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
@@ -892,7 +893,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
+        val theirs = device.opponentMode to device.opponentAssume
         device.revision(events, update)
+        // TRN-059, STK-036 (owner 2026-11-10): the other player's settings as the server says them, at once (a settings-only
+        // update carries no event), into the app log when they change
+        if (device.opponentMode to device.opponentAssume != theirs) AppLog.info("game", "The other player's settings now: response mode " +
+            "${device.opponentMode::class.simpleName}, Assume ${device.opponentAssume?.let { it::class.simpleName }}" +
+            (if (events.isEmpty()) " (a settings update, no event)" else " (with events ${events.joinToString(",") { it.id.take(8) }})"))
         if (device.needsReload && update?.target != null) reloadRewind = rewinding
         val drained = device.notes()
         val branched = branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }
@@ -995,6 +1002,33 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * a wait, Your move. Playback going from one event to the next isn't a change (one line per playback run, not per
      * event). Engine thread.
      */
+    /** The move the boards published last showed (TRN-058: the pill, the bars, the field holding it), engine thread. */
+    private var loggedMove: String? = null
+
+    /**
+     * Owner 2026-11-10 (move colour flicker): every change of the move the published board shows (the move pill, the bar
+     * colours, the field holding the move, TRN-006, TRN-013, TRN-058) into the app log, with why: the rule that decided it
+     * on which head, the status, the shown tip, the local and main line heads, the device's own events still on their
+     * way and the newest event on its line (who made it, whether assumed, its input). Changes only.
+     */
+    private fun logMove(play: TableBoard, status: GameDevice.Status) {
+        val move = play.board.moveHolder
+        if (move == loggedMove) return
+        val before = loggedMove
+        loggedMove = move
+        val session = device.session
+        val (_, why) = device.moveAndWhy()
+        val last = (session.events.lastOrNull().takeIf { session.pending.isEmpty() } ?: session.pending.lastOrNull())?.let { e ->
+            "${e.id.take(8)} by ${e.author.take(8)}${if (e.assumed != null) " (assumed by ${e.assumed?.assumedBy?.value?.take(8)})" else ""}: " +
+                e.engine?.steps?.mapNotNull { it.input }?.joinToString { it::class.simpleName.orEmpty() }.orEmpty()
+        }
+        fun who(id: String?) = when (id) { null -> "nobody"; me -> "you"; else -> "them" }
+        AppLog.info("game", "Move (seat ${me.take(8)}): ${who(before)} → ${who(move)} (${if (play.board.move == null) "no move: the turn's or attention holder's" else why}); " +
+            "status ${status::class.simpleName}, tip ${session.tip.take(8)}, local head ${session.localHead.take(8)}, head ${session.head.take(8)}" +
+            (if (session.behind) ", behind" else "") + (if (session.pending.isNotEmpty()) ", ${session.pending.size} own on their way" else "") +
+            ", newest $last")
+    }
+
     private fun logStatus(status: GameDevice.Status) {
         val holds = listOfNotNull(device.reveal?.let { "reveal ${it.event.take(8)}" }, device.show?.let { "play ${it.event.take(8)}" },
             device.combatHold?.let { "combat ${it.kind::class.simpleName} ${it.event.take(8)}" })

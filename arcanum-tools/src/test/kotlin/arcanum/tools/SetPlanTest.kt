@@ -283,6 +283,26 @@ class SetPlanTest {
         assertEquals(1, chunksOf(cards, setOf("Zorble")).size)
     }
 
+    // ---- A set with no cards to plan
+
+    private fun record(uuid: String, vararg flags: String) = com.google.gson.JsonObject().apply {
+        addProperty("name", "Ploom Card $uuid")
+        addProperty("uuid", uuid)
+        flags.forEach { addProperty(it, true) }
+    }
+
+    @Test fun aSetWithCardsIsPlanned() = assertNull(noCardsReason("PLM", listOf(record("1"), record("2", "isOnlineOnly"))))
+
+    @Test fun anOnlineOnlySetSaysWhyItHasNoCards() {
+        val reason = assertNotNull(noCardsReason("PLM", listOf(record("1", "isOnlineOnly"), record("2", "isOnlineOnly"))))
+        assertTrue("2 online-only" in reason && "paper" in reason, reason)
+    }
+
+    @Test fun aSetWithoutCardRecordsSaysSo() {
+        val reason = assertNotNull(noCardsReason("PLM", emptyList()))
+        assertTrue("no cards in the pinned MTGJSON file" in reason, reason)
+    }
+
     // ---- Seeded audit
 
     private val mutable = listOf(

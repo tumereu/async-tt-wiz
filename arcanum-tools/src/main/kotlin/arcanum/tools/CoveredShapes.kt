@@ -56,7 +56,7 @@ internal class CoveredShapes(val byId: Map<String, ShapeCoverage>) {
 
     companion object {
         fun read(file: File): CoveredShapes {
-            check(file.exists()) { "$file is missing: run ./scripts/gradle.sh :arcanum-tools:coveredShapes first" }
+            check(file.exists()) { "$file is missing: run :arcanum-tools:coveredShapes first (arcanum-tools/set-work/bin/gradle-slot.sh :arcanum-tools:coveredShapes)" }
             return CoveredShapes(file.readLines().filter { !it.startsWith("#") && it.isNotBlank() }.associate { line ->
                 val c = line.split('\t', limit = 7)
                 c[0] to ShapeCoverage(c[5], c[6], c[1].toInt(), c[2].toInt(), c[3].toInt())

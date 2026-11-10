@@ -45,6 +45,12 @@ internal fun supportedSets(): Map<String, String> {
         .associate { it.substringBefore(' ') to it.substringAfter(' ', "").trim() }
 }
 
+/** The cards supported one by one (`supported-cards.txt` beside this class), by name: a whole name or a front face's. */
+internal fun supportedCards(): Set<String> {
+    val text = checkNotNull(object {}.javaClass.getResource("/arcanum/tools/supported-cards.txt")) { "supported-cards.txt missing" }.readText()
+    return text.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.toSet()
+}
+
 /** One card of a set: its card-data layout and its faces' records in printed order. */
 internal class SetCard(val name: String, val layout: String, val faces: List<JsonObject>) {
     /** The parts of the card the engine leaves to the players, as a host reads its card data (empty: supported). */

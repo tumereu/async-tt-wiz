@@ -5,48 +5,14 @@ Each changed screenshot gets boxes around the areas whose pixels changed. A re-r
 pixels are unchanged is left out. A change already shown in an earlier screenshot (same pixels before and
 after) is marked as seen, so screenshots holding only seen changes can be skipped."""
 import hashlib, json, os, struct, subprocess, sys
-from collections import deque
-import numpy as np
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from shotdiff import boxes, pixels
 
 tag, shots, out = sys.argv[1:]
-CELL = 8  # changed pixels closer than about one cell join one box
 
 def git(*args):
     r = subprocess.run(["git", *args], capture_output=True)
     return r.stdout if r.returncode == 0 else None
-
-def pixels(png):
-    w, h = struct.unpack(">II", png[16:24])
-    raw = subprocess.run(["magick", "png:-", "-depth", "8", "rgba:-"], input=png, capture_output=True, check=True).stdout
-    return np.frombuffer(raw, np.uint8).reshape(h, w, 4)
-
-def boxes(mask):
-    """Bounding boxes [x, y, w, h] of the changed areas: cells holding a change, joined with their neighbours."""
-    h, w = mask.shape
-    gh, gw = -(-h // CELL), -(-w // CELL)
-    grid = np.zeros((gh * CELL, gw * CELL), bool)
-    grid[:h, :w] = mask
-    grid = grid.reshape(gh, CELL, gw, CELL).any(axis=(1, 3))
-    seen, result = np.zeros_like(grid), []
-    for cy, cx in zip(*np.nonzero(grid)):
-        if seen[cy, cx]:
-            continue
-        seen[cy, cx] = True
-        queue, cells = deque([(cy, cx)]), []
-        while queue:
-            y, x = queue.popleft()
-            cells.append((y, x))
-            for ny in range(max(0, y - 1), min(gh, y + 2)):
-                for nx in range(max(0, x - 1), min(gw, x + 2)):
-                    if grid[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        queue.append((ny, nx))
-        ys, xs = [c[0] for c in cells], [c[1] for c in cells]
-        y0, x0 = min(ys) * CELL, min(xs) * CELL
-        sub = mask[y0:(max(ys) + 1) * CELL, x0:(max(xs) + 1) * CELL]
-        py, px = np.nonzero(sub)
-        result.append([int(x0 + px.min()), int(y0 + py.min()), int(px.max() - px.min() + 1), int(py.max() - py.min() + 1)])
-    return result
 
 items = {}
 for line in sys.stdin:

@@ -321,6 +321,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "chevron" -> Icons.Outlined.ChevronRight
     "chevron-left" -> Icons.Outlined.ChevronLeft
     "send" -> Icons.AutoMirrored.Outlined.Send
+    "chat" -> Icons.AutoMirrored.Outlined.Chat
     "import" -> Icons.Outlined.ContentPaste
     "paste" -> Icons.Outlined.ContentPaste
     "download" -> Icons.Outlined.FileDownload

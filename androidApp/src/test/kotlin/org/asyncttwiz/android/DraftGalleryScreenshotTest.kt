@@ -112,13 +112,14 @@ class DraftGalleryScreenshotTest {
             pod("p1", "Cube night", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 2, DraftMode.BOOSTER),
             pod("p2", "Rotisserie Sunday", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 1, DraftMode.ROTISSERIE),
             pod("p3", "Sealed league", PodPhase.DRAFTED, PodAttention.BUILD, 0, DraftMode.SEALED),
-            pod("p4", "Grid with Bob", PodPhase.DRAFTING, PodAttention.NONE, 0, DraftMode.GRID, listOf(alice, bob)),
+            pod("p4", "Grid with Bob", PodPhase.DRAFTING, PodAttention.NONE, 0, DraftMode.GRID, listOf(alice, bob)).copy(chatUnread = 2),
             pod("p5", "Winston duel", PodPhase.SETUP, PodAttention.NONE, 0, DraftMode.WINSTON, listOf(alice)),
             pod("p6", "Glimpse league", PodPhase.DRAFTED, PodAttention.NONE, 0, DraftMode.BOOSTER)),
             invitations = listOf(PodInvitation("p7", "Winchester rematch", bob, "2026-11-07T00:00:00Z"))))
         compose.onNodeWithText("Your pick · 2 packs").assertIsDisplayed()
         shot("pods-list", "The Pods screen lists Alice's pods in the shared order: two waiting for her pick (\"Your pick · 2 packs\" " +
-            "in Booster, just \"Your pick\" in Rotisserie) highlighted, a Sealed pod to build, Bob's invitation, then the rest.")
+            "in Booster, just \"Your pick\" in Rotisserie) highlighted, a Sealed pod to build, Bob's invitation, then the rest; the Grid " +
+            "pod's status has a dot for unread chat messages.")
     }
 
     // DRF-016, DRF-020, DRF-022, DRF-026, DRF-027, DRF-030, DRF-036, DRF-051, DRF-142 (a tall screen shows the whole form)

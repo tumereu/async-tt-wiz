@@ -3,7 +3,8 @@
 # androidApp/src/test/screenshots/gallery.tsv (one representative screenshot each, its caption, catalog IDs and
 # decision kinds), as committed at HEAD. The owner reviews only what's new, changed or commented since the last
 # gallery review (the gallery-reviewed tag; the screenshots-approved tag if missing): those items come first with a
-# badge, the rest are folded away. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
+# badge and red boxes around the pixels that changed (toggle: H), the rest are folded away; a picture re-recorded with the
+# same pixels is no change. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
 # Tap a picture to open it full size. Complements, never replaces, scripts/review.sh (the release gate).
 #   scripts/aa-gallery.sh [output dir]     default ~/projects/atw-cache/aa-gallery (outside the repository)
 #   git tag -f gallery-reviewed HEAD      after a gallery review: what the owner has now seen
@@ -21,10 +22,12 @@ comments=$HOME/projects/atw-cache/aa-gallery-comments.tsv
 mkdir -p "$out"
 rm -rf "$out/images" "$out/index.html"
 mkdir -p "$out/images"
-python3 -I - "$shots" "$tag" "$out" "$comments" <<'PY'
+python3 -I - "$shots" "$tag" "$out" "$comments" "$PWD/scripts/lib" <<'PY'
 import html, os, subprocess, sys
 
-shots, tag, out, comments_file = sys.argv[1:]
+shots, tag, out, comments_file, lib = sys.argv[1:]
+sys.path.insert(0, lib)
+from shotdiff import changed_boxes, size
 comments = {}
 if os.path.exists(comments_file):
     for line in open(comments_file):
@@ -42,7 +45,7 @@ reviewed = git("rev-parse", "--short", tag).strip()
 changed = set(git("diff", "--name-only", tag, "HEAD", "--", shots).split())
 seen = set(git("ls-tree", "-r", "--name-only", tag, "--", shots).split())
 
-items = []
+items, same_pixels = [], 0
 for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     if not line.strip():
         continue
@@ -58,9 +61,18 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     image = f"images/{number.zfill(3)}-{os.path.basename(shot)}"
     with open(os.path.join(out, image), "wb") as f:
         f.write(png)
-    status = "new" if path not in seen else "changed" if path in changed or caption_path in changed else ""
+    status, regions = ("new" if path not in seen else "changed" if path in changed or caption_path in changed else ""), []
+    if status == "changed":
+        # Boxes around the changed pixels against the reviewed picture; same pixels with only a caption change says so,
+        # and a picture re-recorded with the same pixels and caption is no change to review
+        if path in changed:
+            regions = changed_boxes(git("show", f"{tag}:{path}", text=False), png)
+        if not regions:
+            status = "caption" if caption_path in changed else ""
+            same_pixels += status == ""
     items.append(dict(number=int(number), name=name, shot=shot, ids=ids.split(), decisions=decisions.replace(",", " ").split(),
-                      caption=caption, image=image, status=status, comment=comments.get(shot, "")))
+                      caption=caption, image=image, status=status, comment=comments.get(shot, ""), regions=regions,
+                      size=size(png)))
 
 for i in items:
     i["review"] = bool(i["status"] or i["comment"])
@@ -68,10 +80,15 @@ items.sort(key=lambda i: i["number"])
 review = [i for i in items if i["review"]]
 rest = [i for i in items if not i["review"]]
 count = lambda status: sum(i["status"] == status for i in items)
-summary = f'{len(review)} to review ({count("new")} new, {count("changed")} changed, {sum(bool(i["comment"]) for i in items)} commented)'
+summary = (f'{len(review)} to review ({count("new")} new, {count("changed")} changed, {count("caption")} caption only, '
+           f'{sum(bool(i["comment"]) for i in items)} commented)' + (f'; {same_pixels} re-recorded with the same pixels left out' if same_pixels else ""))
 
 def card(i):
-    badge = f'<span class="badge {i["status"]}">{i["status"]}</span>' if i["status"] else ""
+    label = {"caption": "caption only", "changed": f'changed · {len(i["regions"])} area{"s" if len(i["regions"]) != 1 else ""}'}.get(i["status"], i["status"])
+    badge = f'<span class="badge {i["status"]}">{label}</span>' if i["status"] else ""
+    w, h = i["size"]
+    marks = "".join(f'<span class="box" style="left:{100*x/w:.3f}%;top:{100*y/h:.3f}%;width:{100*bw/w:.3f}%;height:{100*bh/h:.3f}%"></span>'
+                    for x, y, bw, bh in i["regions"])
     if i["comment"]:
         badge += '<span class="badge commented">commented</span>'
     note = f'<p class="note">Your comment: {html.escape(i["comment"])}</p>' if i["comment"] else ""
@@ -79,7 +96,7 @@ def card(i):
     kinds = " ".join(f'<span class="kind">{html.escape(x)}</span>' for x in i["decisions"])
     return f'''<article class="item{' review' if i['review'] else ''}" id="item-{i['number']}">
   <h2><span class="num">{i['number']}</span> {html.escape(i['name'])} {badge}</h2>{note}
-  <a class="shot" href="{html.escape(i['image'])}"><img loading="lazy" src="{html.escape(i['image'])}" alt="{html.escape(i['name'])}"></a>
+  <a class="shot" href="{html.escape(i['image'])}"><span class="frame"><img loading="lazy" src="{html.escape(i['image'])}" alt="{html.escape(i['name'])}">{marks}</span></a>
   <p class="caption">{html.escape(i['caption'])}</p>
   <p class="meta">{ids} {kinds} <span class="file">{html.escape(i['shot'])}</span></p>
 </article>'''
@@ -110,7 +127,15 @@ page = f'''<!DOCTYPE html>
   summary {{ cursor: pointer; padding: 8px 0; color: var(--soft); font-weight: 600; }}
   details main {{ padding: 0; }}
   .shot {{ display: block; background: repeating-conic-gradient(#eef1f0 0 25%, #fff 0 50%) 0 0 / 16px 16px; border-radius: 6px; text-align: center; }}
-  .shot img {{ max-width: 100%; max-height: 70vh; display: inline-block; vertical-align: middle; }}
+  .shot img {{ max-width: 100%; max-height: 70vh; display: block; }}
+  .frame {{ position: relative; display: inline-block; vertical-align: middle; max-width: 100%; }}
+  .box {{ position: absolute; min-width: 4px; min-height: 4px; outline: 2px solid #ff3b3b; outline-offset: 2px;
+          box-shadow: 0 0 0 4px rgba(0,0,0,.35); pointer-events: none; }}
+  body.nobox .box {{ display: none; }}
+  header button {{ margin-top: 6px; font: inherit; font-size: 13px; padding: 3px 10px; border-radius: 999px;
+                   border: 1px solid #ff3b3b; background: #fff0f0; color: var(--ink); cursor: pointer; }}
+  body.nobox header button {{ border-color: var(--line); background: #fff; }}
+  .badge.caption {{ background: var(--soft); }}
   .caption {{ margin: 8px 0 6px; }}
   .meta {{ margin: 0; display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--soft); }}
   .id, .kind {{ padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); }}
@@ -121,6 +146,7 @@ page = f'''<!DOCTYPE html>
 <body>
 <header>
   <h1>Automatum screenshot gallery</h1>
+  <button type="button" onclick="document.body.classList.toggle('nobox');this.textContent=document.body.classList.contains('nobox')?'Show changed areas (H)':'Hide changed areas (H)'">Hide changed areas (H)</button>
   <p>{summary} since {html.escape(tag)} ({html.escape(reviewed)}) · {len(items)} items · commit {html.escape(head)} ({html.escape(date)}): {html.escape(subject)}</p>
 </header>
 <main>
@@ -131,6 +157,9 @@ page = f'''<!DOCTYPE html>
 {chr(10).join(card(i) for i in rest)}
 </main>
 </details>
+<script>
+document.addEventListener('keydown', e => {{ if ((e.key === 'h' || e.key === 'H') && !e.ctrlKey && !e.metaKey) document.querySelector('header button').click(); }});
+</script>
 </body>
 </html>
 '''

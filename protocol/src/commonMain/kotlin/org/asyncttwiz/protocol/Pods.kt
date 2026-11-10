@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
     val updatedAt: String,
     /** The pod's engine; turn-based engines read "Your pick" without a pack count. */
     val mode: DraftMode = DraftMode.BOOSTER,
+    /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
+    val chatUnread: Int = 0,
 )
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)

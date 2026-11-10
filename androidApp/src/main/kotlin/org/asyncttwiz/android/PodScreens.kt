@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.sp
@@ -56,6 +57,8 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) controller.refresh()
         }
     }
+    // DRF-170: an open pod's chat is read again every few seconds
+    state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen) }
     LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {
         if (state.setup != null) { delay(600); controller.flushSetup() }
     }
@@ -71,6 +74,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                     state.detail?.let {
                         if (it.phase == PodPhase.SETUP && it.creator.accountId == accountId && !state.choosingMember)
                             PodPresetsButton(controller.presets, enabled = !state.uncertain)
+                        PodChatButton(controller, it.id, accountId)
                         PodOverflow(controller, it.creator.accountId == accountId, it.phase,
                             startNow = it.pendingInvitations.isNotEmpty() && podCanStart(it))
                     }
@@ -103,6 +107,19 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
     }
     if (controller.presets.state.open) PodPresetsDialog(controller.presets)
+    // DRF-170: the pod's chat as a side panel, as the table's (LOB-066)
+    val chatPod = state.detail?.takeIf { state.chatOpen && it.id == state.selected }
+    if (chatPod != null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = controller::closeChat, properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            val landscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            Box(Modifier.fillMaxSize()) {
+                PodChatPanel(controller.chat, chatPod.id, accountId,
+                    chatPod.members.firstOrNull { it.account.accountId == accountId }?.account?.username ?: "You",
+                    controller::closeChat, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (landscape) .5f else 1f))
+            }
+        }
+    }
     if (controller.setPicker.state.open) PodSourcePickerDialog(controller, manageCubes)
     if (state.confirmation != null && state.detail != null) {
         val action = state.confirmation
@@ -175,6 +192,25 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
     }
 }
 
+/** DRF-170: the pod screens' chat button, a dot on it while the pod's chat holds messages of other members you haven't read. */
+@Composable
+private fun PodChatButton(controller: PodController, podId: String, accountId: String) {
+    val unread = controller.chat.views[podId]?.unread(accountId) ?: 0
+    Box {
+        HoldTip("Pod chat") {
+            IconButton(controller::openChat, Modifier.size(48.dp).testTag("pod-chat-button")
+                .semantics { stateDescription = if (unread > 0) "$unread unread messages" else "" }) { EntryIcon("Pod chat", "chat") }
+        }
+        if (unread > 0) UnreadDot(Modifier.align(Alignment.TopEnd).padding(10.dp).testTag("pod-chat-unread"))
+    }
+}
+
+/** A small dot in the other player's colour: unread chat messages (LOB-066, DRF-170). */
+@Composable
+internal fun UnreadDot(modifier: Modifier = Modifier) {
+    Box(modifier.size(6.dp).background(OpponentTableColor, CircleShape))
+}
+
 @Composable
 internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respond: (String, Boolean) -> Unit,
     refresh: () -> Unit) {
@@ -189,7 +225,8 @@ internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Uni
             }
             items(entries, key = { if (it.invitation != null) "invitation:${it.id}" else it.id }) { entry ->
                 val invitation = entry.invitation
-                if (invitation == null) PodRow(requireNotNull(entry.pod), accountId, { open(entry.id) }, stackWidth = stackWidth)
+                if (invitation == null) PodRow(requireNotNull(entry.pod), accountId, { open(entry.id) }, stackWidth = stackWidth,
+                    chatUnread = requireNotNull(entry.pod).chatUnread)
                 else OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(invitation.name, fontWeight = FontWeight.Bold)
@@ -209,7 +246,7 @@ internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Uni
 
 @Composable
 internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false,
-    stackWidth: Dp = podStackWidth(listOf(pod), accountId)) {
+    stackWidth: Dp = podStackWidth(listOf(pod), accountId), chatUnread: Int = 0) {
     val highlighted = pod.attention == PodAttention.YOUR_PICK
     val fill = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
     Surface(onClick = open, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = fill,
@@ -219,7 +256,12 @@ internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modif
             AvatarStack(podNavigationAvatars(pod.members, accountId), ring = fill, width = stackWidth)
             Column(Modifier.weight(1f)) {
                 Text(pod.name, fontWeight = FontWeight.SemiBold)
-                Text(if (quick) "Your pick" else podStatus(pod), style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (quick) "Your pick" else podStatus(pod), style = MaterialTheme.typography.bodySmall)
+                    // DRF-012: the pod's chat holds messages of other members you haven't read
+                    if (chatUnread > 0) UnreadDot(Modifier.testTag("pod-chat-unread-${pod.id}")
+                        .semantics { stateDescription = "$chatUnread unread chat messages" })
+                }
             }
             EntryIcon(null, "chevron")
         }
@@ -347,6 +389,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         PodPlayHeader(detail, navigation) {
             // DRF-165: on the Draft tab History is above the pack; on the others, while building and after, it is up here.
             if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, definitions, historyColumns)
+            PodChatButton(controller, detail.id, accountId)
             PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
                 historyColumns.takeIf { detail.settings.mode.packPassing })
         }

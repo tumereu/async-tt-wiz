@@ -1418,4 +1418,96 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setCode = "BON"))
         assertEquals("Bonus Sheet Set", f.get(f.a, pod).source.setName)
     }
+
+    private fun Fixture.chat(who: SessionCreated, pod: String, query: String = ""): PodChatPage {
+        val response = request(who, "GET", "/v1/pods/$pod/chat$query")
+        assertEquals(200, response.statusCode(), response.body())
+        return json.decodeFromString(response.body())
+    }
+    private fun Fixture.say(who: SessionCreated, pod: String, text: String, requestId: String = id(), status: Int = 200): String =
+        send(who, "POST", "/v1/pods/$pod/chat", SendPodChat(requestId, text), status)
+
+    // DRF-170, DRF-171: members write and read the pod's chat in order; the server keeps each member's read cursor (only
+    // forward), counts the other members' messages after it, and a retried send is stored once
+    @Test fun `pod chat keeps messages in order with private read cursors and once-only sends`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        assertEquals(PodChatPage(pod, emptyList(), emptyList(), PodChatRead(pod)), f.chat(f.a, pod))
+        val request = id()
+        val first = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "  Hello\n😀  ", request))
+        assertEquals("  Hello\n😀  ", first.text)
+        assertEquals("1", first.ordinal)
+        assertEquals(first, json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "  Hello\n😀  ", request)), "a retry is the same message")
+        assertEquals("request_conflict", json.decodeFromString<PodError>(f.say(f.a, pod, "Other", request, 409)).code)
+        f.say(f.b, pod, "Hi Alice")
+        f.say(f.a, pod, "Ready?")
+        val bob = f.chat(f.b, pod)
+        assertEquals(listOf("  Hello\n😀  ", "Hi Alice", "Ready?"), bob.messages.map { it.text })
+        assertEquals(listOf("1", "2", "3"), bob.messages.map { it.ordinal })
+        assertEquals(setOf(f.a.account.accountId, f.b.account.accountId), bob.authors.map { it.accountId }.toSet())
+        // His own message counts as read through it; Alice's later one is unread
+        assertEquals(PodChatRead(pod, "2", "3", 1), bob.read)
+        assertEquals(PodChatRead(pod, "3", "3", 0), f.chat(f.a, pod).read)
+        assertEquals(listOf("Ready?"), f.chat(f.b, pod, "?after=2").messages.map { it.text })
+        assertEquals(listOf("  Hello\n😀  "), f.chat(f.b, pod, "?before=2").messages.map { it.text })
+        assertEquals(1, f.list(f.b).pods.single().chatUnread)
+        val read = json.decodeFromString<PodChatRead>(f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(bob.messages.last().id)))
+        assertEquals(PodChatRead(pod, "3", "3", 0), read)
+        // The cursor never moves back
+        assertEquals(read, json.decodeFromString<PodChatRead>(f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(first.id))))
+        assertEquals(read, json.decodeFromString<PodChatRead>(f.request(f.b, "GET", "/v1/pods/$pod/chat/read").body()))
+        assertEquals(0, f.list(f.b).pods.single().chatUnread)
+        f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(id()), 404)
+        // A game chat's limits: no blank text, nothing above its size
+        f.say(f.a, pod, " \n ", status = 400)
+        f.say(f.a, pod, "x".repeat(DeckValidation.FIELD_BYTES + 1), status = 400)
+        f.say(f.a, pod, "x".repeat(DeckValidation.FIELD_BYTES))
+    }
+
+    // DRF-171: only members read, write or move a cursor; an invitee doesn't, a member who leaves loses the chat (their
+    // messages stay with their name), and the chat goes with the pod
+    @Test fun `pod chat is for members only and a member who leaves loses it`() = fixture { f ->
+        val pod = f.create().id
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.b.account.accountId))
+        val hello = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "Welcome"))
+        fun refused(who: SessionCreated) {
+            assertEquals(404, f.request(who, "GET", "/v1/pods/$pod/chat").statusCode())
+            assertEquals(404, f.request(who, "GET", "/v1/pods/$pod/chat/read").statusCode())
+            f.say(who, pod, "Let me in", status = 404)
+            f.send(who, "PUT", "/v1/pods/$pod/chat/read", ReadChat(hello.id), 404)
+        }
+        refused(f.b); refused(f.c)
+        assertEquals(401, f.request(null, "GET", "/v1/pods/$pod/chat").statusCode())
+        f.send(f.b, "POST", "/v1/pods/$pod/accept", PodRequest(id()))
+        assertEquals(listOf("Welcome"), f.chat(f.b, pod).messages.map { it.text })
+        f.say(f.b, pod, "Thanks")
+        f.send(f.b, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
+        refused(f.b)
+        val left = f.chat(f.a, pod)
+        assertEquals(listOf("Welcome", "Thanks"), left.messages.map { it.text })
+        assertTrue(left.authors.any { it.accountId == f.b.account.accountId })
+        f.send(f.a, "DELETE", "/v1/pods/$pod", PodRequest(id()))
+        assertEquals(404, f.request(f.a, "GET", "/v1/pods/$pod/chat").statusCode())
+        assertEquals(0, f.db.connection().use { connection ->
+            connection.createStatement().executeQuery("select count(*) from pod_chat").use { rows -> rows.next(); rows.getInt(1) }
+        })
+    }
+
+    // DRF-172: a message notifies every other member ("New message", Draft activity), never its author; once read, the
+    // notice is no longer in the feed
+    @Test fun `a pod chat message notifies the other members until they read it`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod); f.join(pod, f.c)
+        val message = json.decodeFromString<PodChatMessage>(f.say(f.a, pod, "Draft tonight?"))
+        assertEquals(0, f.count(ActivityKind.POD_MESSAGE, pod, f.a))
+        for (who in listOf(f.b, f.c)) {
+            assertEquals(1, f.count(ActivityKind.POD_MESSAGE, pod, who))
+            val notice = f.activity(who, "0").entries.single { it.kind == ActivityKind.POD_MESSAGE }
+            assertEquals(pod, notice.gameId); assertEquals(message.id, notice.identity); assertEquals(f.a.account.accountId, notice.authorId)
+            assertEquals(ActivityTarget(pod, ActivityDestination.POD), f.target(who, pod, ActivityKind.POD_MESSAGE))
+        }
+        f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(message.id))
+        assertTrue(f.activity(f.b, "0").entries.none { it.kind == ActivityKind.POD_MESSAGE })
+        assertEquals(1, f.activity(f.c, "0").entries.count { it.kind == ActivityKind.POD_MESSAGE })
+    }
 }

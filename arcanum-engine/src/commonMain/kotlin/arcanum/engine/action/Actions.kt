@@ -106,7 +106,7 @@ internal object Actions {
         }
         // D60: cards everyone is about to see are filled in first, so replacements and triggers see what they are
         Knowledge.fillRevealedByMoves(act, planned)
-        val final = planned.mapNotNull { pm ->
+        val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
             Replacements.apply(
                 act, cause, pm, affected = act.controllerOf(pm.id) ?: o.owner, about = pm.id,
@@ -120,6 +120,8 @@ internal object Actions {
                 skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
             )
         }
+        // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
+        val final = replaced.mapNotNull { auraEntering(act, it) }
         Knowledge.fillSeenAfterMoves(act, final)
         val result = commitMoves(act, cause, final, linked)
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
@@ -142,6 +144,36 @@ internal object Actions {
         // CR 610.3: "until" returns happen right after the event, without the Stack
         if (result.isNotEmpty()) arcanum.engine.trigger.Triggers.runOneShots(act)
         return result
+    }
+
+    /**
+     * CR 303.4f, g, i: an Aura entering the battlefield other than by resolving as an Aura spell. Attached to what the
+     * effect names when it can legally enchant that, else to the object or player its controller chooses as it enters,
+     * without targeting, among those it can legally enchant (CR 303.4f; its enchant abilities, protection, not what enters
+     * with it). With nothing legal it stays in its zone, null (CR 303.4g, i); from the Stack it goes to its owner's
+     * graveyard instead. A resolving Aura spell already names what it targeted (CR 608.3); other moves are kept as they are.
+     */
+    private fun auraEntering(act: Act, m: PlannedMove): PlannedMove? {
+        if (m.to != Zone.Battlefield) return m
+        val o = act.state.obj(m.id) ?: return m
+        if (o.zone == Zone.Stack && m.attachTo != null) return m
+        val face = enteringFace(act, o, m) ?: return m
+        if (CardType.Enchantment !in face.types || face.subtypes.none { it.name == "Aura" }) return m
+        val controller = m.controller ?: o.owner
+        val enchant = face.abilities.filterIsInstance<Keyword.Enchant>().map { it.what }
+        fun legal(host: TargetRef) = arcanum.engine.sba.StateBasedActions.canEnchant(act, m.id, controller, enchant, host)
+        val stays = if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
+        m.attachTo?.let { return if (legal(it)) m else stays }
+        val objects = act.state.battlefield.filter { legal(TargetRef.Object(it)) }
+        val players = act.state.players.map { it.id }.filter { legal(TargetRef.Player(it)) }
+        val chosen = when {
+            objects.isEmpty() && players.isEmpty() -> null
+            players.isEmpty() -> act.chooseObjects(controller, m.id, objects, 1, 1, "Enchant").firstOrNull()?.let { TargetRef.Object(it) }
+            objects.isEmpty() -> act.choosePlayer(controller, m.id, players)?.let { TargetRef.Player(it) }
+            else -> act.chooseTargets(controller, m.id, Keyword.Enchant.SLOT, objects.map { TargetRef.Object(it) } + players.map { TargetRef.Player(it) }, 1, 1)
+                .firstOrNull()
+        }
+        return chosen?.let { m.copy(attachTo = it) } ?: stays
     }
 
     /** Names a regeneration shield keeps its creature under (D26). */

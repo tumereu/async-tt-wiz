@@ -408,7 +408,9 @@ sealed interface Step {
      * If you can't, …". X is [cost] when it is something costs can say (sacrifice, discard, exile, tap, return, reveal,
      * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. A cost can be
      * chosen only if it can be paid in full (CR 601.2h, 118.3); a draw can always be chosen, even from an empty library
-     * (CR 121.3); mana abilities are allowed (CR 608.2g). [bind] names the outcome: paid, declined or couldn't pay, read
+     * (CR 121.3); mana abilities are allowed (CR 608.2g). [steps] chosen count as done only when they did something (an
+     * object moved, a card drawn, a counter put; "if you do" asks whether the action was performed, CR 608.2c), else
+     * the outcome is couldn't pay. [bind] names the outcome: paid, declined or couldn't pay, read
      * with [Condition.Did] and [Condition.CouldNot]. Any "you may X. If you do" is a Pay; [May] is for "you may X"
      * alone. "[Do Y] unless [player] pays [cost]" (CR 118.12a) and "you may pay [cost]. If you don't, [do Y]" are both
      * a Pay by that player followed by `If(Not(Did(bind)), then = [Y])`: one shape for both. */

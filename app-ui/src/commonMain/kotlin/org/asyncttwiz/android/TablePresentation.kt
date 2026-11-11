@@ -141,6 +141,9 @@ data class TableItem(
     val token: Boolean = false,
     val typeIcon: String = "", val artwork: ArtworkReference? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
+    /** CMB-001 (owner playtest 2026-11-11): a combat copy fading out where it was as the band closes: clipped to the table
+     * rather than the band, covering nothing beneath it, taking no touch. */
+    val leaving: Boolean = false,
     val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
@@ -272,7 +275,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
             return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
                 it.viewport == stack.viewport && it.visible.any { bounds -> bounds.contains(point) } } ?: stack
         }
-        return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true }
+        return items.asReversed().firstOrNull { item -> !item.leaving && (item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true) }
     }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
@@ -469,9 +472,11 @@ object TablePresentation {
             avatars = listOf(game.inviter, game.recipient)
                 .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap(), open = open,
             attackerSlots = open && attackerSlots, head = "${play.gameId}@${play.nodeId}")
-        // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height
+        // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height.
+        // Owner playtest 2026-11-11: it grows away from the viewer's battlefield (the lower one), which stays where it is with
+        // the collapsed band, so only the other player's moves (up) as it opens and back as it closes
         val bandHeight = if (open) combat.height + 2 * COMBAT_BAND_PAD else CombatStackPresentation.CHIP_ROW
-        val bandY = worldViewport.height / 2 - bandHeight / 2
+        val bandY = worldViewport.height / 2 + CombatStackPresentation.CHIP_ROW / 2 - bandHeight
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         // TBL-121: an untouched camera in landscape opens on the battlefields' whole height
@@ -725,7 +730,7 @@ object TablePresentation {
                 TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
                 projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
-        val combatY = worldViewport.height / 2 - combat.height / 2
+        val combatY = bandY + (bandHeight - combat.height) / 2
         // CMB-007: the band on the screen (the table's whole width), and the lanes it holds in its middle
         val band = world.screen(TableBounds(world.panBounds.x, bandY, world.panBounds.width, bandHeight), camera)
         val lanesBounds = if (combat.lanes.isEmpty()) null else world.screen(TableBounds(combatX, combatY, combat.width, combat.height), camera)
@@ -819,7 +824,8 @@ object TablePresentation {
             val viewport = viewports[i.viewport]
             // ZON-079: a raised hand card shows whole above its row
             val port = viewport?.bounds?.let { b -> if (i.raised && i.bounds.y < b.y) b.copy(y = i.bounds.y, height = b.bottom - i.bounds.y) else b }
-            val regions = listOfNotNull((if (i.inTransit) {
+            // CMB-001: a combat copy leaving a closing band fades out where it was, clipped to the table, not the band
+            val regions = listOfNotNull((if (i.inTransit || i.leaving) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else port)?.let(i.bounds::intersection)?.intersection(screen))
             val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
@@ -833,7 +839,8 @@ object TablePresentation {
             var portions = i.visible
             if (portions.isNotEmpty() && i.kind != TableItemKind.HAND) for (next in occlusion.candidates(n)) {
                 val cover = clipped[next]
-                if (cover.kind == TableItemKind.HAND ||
+                // A leaving combat copy (CMB-001) fades out: what lies beneath it shows through
+                if (cover.kind == TableItemKind.HAND || cover.leaving ||
                     i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
                     i.bounds.intersection(cover.bounds) == null) continue
                 for (part in cover.visible) if (portions.any { it.intersection(part) != null })

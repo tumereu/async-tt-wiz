@@ -25,8 +25,6 @@ Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client
 
 Playtest notes (owner, 2026-11-11 evening): before web step 3, after the client crash-safety pass. The web wireframes show the same changes.
 
-- Combat band closing (CMB-001, CMB-050): the band animates closed while what sits on it or by it (damage chips and splashes, the players' header chips, card copies) fades out where it is, instead of sliding with the band.
-- Combat band opening: it pushes the other player's side up rather than yours down, so your attacker selection stays where it was.
 - Bug, trigger target without its effect (STK-030, owner playtest): Blood Artist's trigger asked "choose target player" with no sentence saying what for; STK-030 says every question shows the sentence it asks about. Find why (a trigger's target chosen as it goes on the Stack?) and show it; e2e test failing first.
 - Plays shown pacing (HIS-112): with many triggers, each ability shown large waited a long pause before the next; wanted: shown large for the setting's time, shrinks onto the Stack, and the next one shows the moment it lands. Find and remove the extra pause; log the timings.
 - Repeated plays speed up (HIS-112, HIS-021): the same ability from the same kind of source shown again and again in one chain (a board wipe with "whenever a creature dies, gain 1 life") shows faster each time down to a short floor, so 30 of them don't take half a minute; the first one keeps the setting's full time.

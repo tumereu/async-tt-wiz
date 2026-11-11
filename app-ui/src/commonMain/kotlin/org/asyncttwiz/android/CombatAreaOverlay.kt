@@ -78,7 +78,10 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     dragged: () -> String? = { null },
     /** CMB-001 (owner playtest 2026-11-11): what sat on a band that just closed ([scene] and [play] from before it closed),
      * drawn where it was while it fades out: nothing on it takes a touch. */
-    leaving: Boolean = false, bounds: (TableItem) -> TableBounds) {
+    leaving: Boolean = false,
+    /** CMB-001 (owner playtest 2026-11-11): how far the battlefield above the band is drawn from its place now (dp, while the
+     * band opens or closes): the chips on the band's upper edge go with it. */
+    bandShift: () -> Float = { 0f }, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
@@ -294,7 +297,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     }
     TargetChips(scene, play, viewer, active, chooser = if (staging && writable && combat != null && viewer == choices.declaring)
         ({ target -> combat.chooseTarget(play, target) }) else null, bounds, changes, dealt?.targets.orEmpty(),
-        gain = dealt?.gained?.get(attacking)?.takeIf { it > 0 }, leaving = leaving)
+        gain = dealt?.gained?.get(attacking)?.takeIf { it > 0 }, leaving = leaving, shift = bandShift)
     if (area == null || port == null || scene.combatLabels.isEmpty()) return
     // Just right of the lanes' top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
     val panel = scene.combatPanel ?: return
@@ -400,7 +403,9 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
     gain: Int? = null,
     /** CMB-001 (owner playtest 2026-11-11): the chips of a band that just closed, fading out where they were: shown at once,
      * nothing to tap or hold. */
-    leaving: Boolean = false) {
+    leaving: Boolean = false,
+    /** CMB-001: how far the battlefield above the band is drawn from its place now; chips on the band's upper edge go with it. */
+    shift: () -> Float = { 0f }) {
     val lanes = scene.combatLabels
     // The table, short of the Stack where it lies over the chips (portrait: at the table's right edge), which keeps its taps
     val table = scene.world?.visibleViewport?.let { t ->
@@ -431,6 +436,10 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             }
         }
     }
+    // CMB-001 (owner playtest 2026-11-11): chips on the band's upper edge (the attacker's view, and the collapsed band) go
+    // with the battlefield above it while the band opens or closes; mirrored, they lie by the viewer's own, which stays
+    val upper = scene.combatPanel?.let { lanes.first().chip.center.y < it.center.y } ?: true
+    val chipShift = { if (upper) shift() else 0f }
     Box(Modifier.offset { IntOffset(table.x.dp.roundToPx(), table.y.dp.roundToPx()) }.size(table.width.dp, table.height.dp)
         .clipToBounds().graphicsLayer { alpha = appear.value }) {
         for (lane in lanes) key(lane.cardId) {
@@ -442,14 +451,14 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             val x = lane.chip.center.x - width / 2
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
-                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) }, interactive = !leaving)
+                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y + chipShift()).dp.roundToPx()) }, interactive = !leaving)
             // CMB-050 (owner playtest 2026-11-10, 2026-11-11): the net combat damage it took, a red splash at the chip's right
             // end; a net gain (a defender's lifelink blocker) the life-gain heart with "+N"
             val net = dealt[lane.cardId]
             val size = lane.chip.height * TARGET_SPLASH
             val badgeX = x + width - size * .3f
             if (net != null) {
-                val at = Modifier.offset { IntOffset((badgeX - table.x).dp.roundToPx(), (lane.chip.center.y - size / 2 - table.y).dp.roundToPx()) }
+                val at = Modifier.offset { IntOffset((badgeX - table.x).dp.roundToPx(), (lane.chip.center.y - size / 2 - table.y + chipShift()).dp.roundToPx()) }
                 if (net < 0) LifeGainBadge(-net, size, at, "${lane.label} gained ${-net} life with the combat damage")
                 else DamageBadge(net, false, size, at, description = "${lane.label} took $net combat damage")
             }

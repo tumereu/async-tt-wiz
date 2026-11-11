@@ -410,7 +410,53 @@ class CombatBandTest {
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Attack (1)"))
         compose.onNodeWithContentDescription("${bobName()}: ${lane.value}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/staged.png",
-            "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing them apart, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
+            "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing Bob's battlefield up while hers stayed where it was, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
+    }
+
+    // CMB-007, CMB-001 (owner playtest 2026-11-11): the band opens away from the viewer's battlefield: Alice's stays where it
+    // was with the collapsed band, her creatures with it, and Bob's goes up
+    @Test fun theBandOpensAwayFromYourBattlefield() {
+        val attacker = aliceDeclaring()
+        val collapsed = k.scene()
+        val before = k.item(attacker).bounds
+        k.tap(k.item(attacker))
+        k.settle()
+        val open = k.scene()
+        assertNotNull(open.combatPanel, "open")
+        assertEquals(collapsed.fields.last().gridBounds.y, open.fields.last().gridBounds.y, .01f, "Alice's battlefield stays")
+        assertEquals(before, k.item(attacker).bounds, "her creature where it was")
+        assertTrue(open.fields.first().gridBounds.y < collapsed.fields.first().gridBounds.y - 20f, "Bob's goes up")
+        // The band sits between them
+        assertEquals(open.fields.first().gridBounds.bottom, assertNotNull(open.combatPanel).y - 4f * open.camera.zoom, .01f)
+    }
+
+    // CMB-001 (owner playtest 2026-11-11): as the band closes the battlefields slide together with their cards (Bob's down,
+    // Alice's staying), and the copies on the band fade out where they were: drawn over what lies beneath them (covering
+    // nothing), clipped to the table rather than the closed band, taking no touch
+    @Test fun theBandClosesWithTheBattlefieldsAndItsCopiesFadeWhereTheyWere() {
+        val attacker = aliceDeclaring()
+        k.tap(k.item(attacker))
+        k.settle()
+        val open = k.scene()
+        val copy = open.items.single { it.viewport == "combat" && it.sourceId == attacker }
+        val play = k.alice.play()
+        val closed = TablePresentation.scene(k.f.game, play.copy(board = play.board.copy(combat = null)), k.f.a, 412f, 892f, false,
+            reviewing = true)
+        assertNull(closed.combatPanel, "closed")
+        val animation = HistorySceneAnimation(open)
+        assertTrue(animation.retarget(closed, 1f), "a scene change")
+        val top = { p: Float -> animation.fields(p, closed).first().gridBounds.y }
+        assertEquals(open.fields.first().gridBounds.y, top(0f), .01f, "Bob's battlefield starts where it was")
+        assertTrue(top(.05f) > open.fields.first().gridBounds.y && top(.05f) < closed.fields.first().gridBounds.y, "and slides down: ${top(.05f)}")
+        assertEquals(closed.fields.first().gridBounds.y, top(1f), .01f)
+        assertEquals(closed.fields.last().gridBounds.y, animation.fields(.3f, closed).last().gridBounds.y, .01f, "Alice's stays")
+        val mid = animation.frame(.3f, closed).single { it.item.cardId == copy.cardId }
+        assertTrue(mid.item.leaving && mid.bounds == copy.bounds && mid.alpha in .01f..0.99f, "fading where it was: $mid")
+        val drawn = TablePresentation.clip(closed.copy(items = animation.frame(.3f, closed).filter { it.alpha > 0f }
+            .map { it.item.copy(bounds = it.bounds) }), 412f, 892f)
+        val leaving = drawn.items.single { it.cardId == copy.cardId }
+        assertEquals(copy.visible, leaving.visible, "as it was, not clipped to the closed band")
+        assertTrue(drawn.hit(copy.bounds.center)?.cardId != copy.cardId, "takes no touch")
     }
 
     // CMB-044 (owner-reported 2026-11-11; CR 508.1h): Bob has an Ember Bulwark ("{X} for each creature attacking you, where X

@@ -376,8 +376,8 @@ class CardStatesTest {
         val at = bubble.fetchSemanticsNode().boundsInRoot
         assertTrue(compose.onAllNodes(hasTestTag(STATE_CHIP_TAG)).fetchSemanticsNodes().none { it.boundsInRoot.overlaps(at) }, "clear of the chips: $at")
         compose.onRoot().captureShot("$SCREENSHOTS/states/bubble-clear-of-chips.png",
-            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his hand, while his round chips " +
-                "(room, states and emblem) stay above it in his row right of the piles.")
+            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over the top of his battlefield, " +
+                "while his round chips (room, states and emblem) stay above it in his row right of his piles and his hand's fan.")
         bubble.performTouchInput { longClick() }
         compose.waitForIdle()
         assertEquals("m1", opened, "holding it opens the chat, no chip's explanation")

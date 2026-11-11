@@ -20,4 +20,10 @@ class SystemBarsTest {
         assertFalse(SystemBars.buttonNavigation(2))
         assertTrue(SystemBars.buttonNavigation(null as Int?))
     }
+
+    // SYS-085: the table edge to edge reaches into the camera's strip on the short edges; otherwise Android's default
+    @Test fun edgeToEdgeDrawsIntoTheCameraStrip() {
+        kotlin.test.assertEquals(android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES, SystemBars.cutoutMode(true))
+        kotlin.test.assertEquals(android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT, SystemBars.cutoutMode(false))
+    }
 }

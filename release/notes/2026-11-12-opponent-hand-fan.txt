@@ -1,0 +1,1 @@
+mod: On a phone held upright the other player's hand is now a small fan of cards next to their piles, and your life and pile row is slimmer, so the battlefields get more room.

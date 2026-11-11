@@ -25,6 +25,7 @@ import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import org.asyncttwiz.protocol.CombatRole
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
@@ -519,6 +520,28 @@ class CombatBandTest {
         render(landscape = true)
         captureShot("$SCREENSHOTS/combat-band/staged-landscape.png",
             "In landscape Alice tapped her ready Ember Cub: the band between the battlefields (across the whole width, the Stack at its right end) holds its copy in the lane aimed at Bob, zoomed with the battlefields, and the main button reads Attack (1).")
+    }
+
+    // CMB-007, ZON-001, TRN-034 (owner, 2026-11-11): on a smaller phone (393×851 dp) the open band pushes Bob's battlefield
+    // up; with his hand a fan in his life and pile row (no row of its own) and Alice's row trimmed, his land still shows whole
+    // under his row (on master it ended partly under his hand row)
+    @Config(qualifiers = "w393dp-h851dp-port-mdpi")
+    @Test fun onASmallPhoneTheOpenBandLeavesTheOtherPlayersLandsInView() {
+        val attacker = aliceDeclaring()
+        k.tap(k.item(attacker))
+        k.settle()
+        val scene = TablePresentation.scene(k.f.game, k.alice.play(), k.f.a, 393f, 851f, false, k.toolkit.layoutState.value)
+        assertNotNull(scene.combatPanel, "the band open")
+        val bobRow = scene.viewports.single { it.id == "dock/${k.f.b}" }.bounds
+        val land = scene.items.single { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == k.f.b &&
+            it.viewport != "combat" && it.typeLine.contains("Land") }
+        assertEquals(listOf(land.bounds), land.visible, "Bob's Mountain whole")
+        assertTrue(land.bounds.y >= bobRow.bottom, "under his row: ${land.bounds} / $bobRow")
+        val fan = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == k.f.b }
+        assertTrue(fan.isNotEmpty() && fan.all { it.bounds.center.y in bobRow.y..bobRow.bottom }, "his hand's fan in his row")
+        render()
+        captureShot("$SCREENSHOTS/combat-band/staged-small-phone.png",
+            "On a smaller phone (393×851) Alice tapped her ready Ember Cub: the band opened, pushing Bob's battlefield up, and his Mountain shows whole under his row, which holds his hand as a small fan of card backs with its count after his piles.")
     }
 
     // CMB-031, CMB-034 (owner, 2026-11-05): Bob arranges his blocks on the band's lanes: his Cub blocks Alice's attacker,

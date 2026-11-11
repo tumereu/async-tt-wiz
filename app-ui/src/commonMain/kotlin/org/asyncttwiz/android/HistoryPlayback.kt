@@ -164,8 +164,9 @@ class HistorySceneAnimation(initial: TableScene) {
                     typeIcon = "", label = "Covered card") else shown
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
+                // ZON-001: a card of a fanned hand turns with the hand's reflow, as it slides
                 TableCardTransform(mix(from.width, to.width), mix(from.height, to.height),
-                    from.rotation + (to.rotation - from.rotation) * rotationProgress)
+                    from.rotation + (to.rotation - from.rotation) * if (reflow) t else rotationProgress)
             } else null
             val bounds = when {
                 t == 0f -> a.bounds
@@ -193,7 +194,7 @@ class HistorySceneAnimation(initial: TableScene) {
             HistoryAnimatedItem(item.copy(cardTransform = face, leaving = leaving,
                 flipScale = if (flipping) kotlin.math.abs(1f - 2f * flipProgress).coerceAtLeast(.02f) else 1f,
                 inTransit = item.kind == TableItemKind.CARD && (t < 1f && a.bounds != b.bounds && !reflow ||
-                    rotationProgress < 1f && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation)), shuffledBounds,
+                    !reflow && rotationProgress < 1f && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation)), shuffledBounds,
                 a.alpha + (b.alpha - a.alpha) * alphaProgress)
         }.sortedBy { it.item.inTransit }
     }

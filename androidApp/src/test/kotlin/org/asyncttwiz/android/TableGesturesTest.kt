@@ -353,13 +353,14 @@ class TableGesturesTest {
         f.events.clear()
         f.gestures.down(point, 500); f.gestures.up(point, 520)
         f.gestures.down(point, 600); f.gestures.tick(1100) // Holding the second tap must not become a peek.
-        // A small vertical drag: three rows each (TBL-003) fill the screen at 1.4×, so the pan bounds stop a larger one
-        val end = TablePoint(point.x + 42, point.y - 14)
+        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001: taller without the other
+        // player's hand row), so the pan bounds stop a larger one
+        val end = TablePoint(point.x + 42, point.y - 7)
         f.gestures.move(end, 1120)
         f.gestures.up(end, 1140)
         val camera = f.events.filterIsInstance<TableIntent.Camera>().last().camera
         assertEquals(-30f, camera.x, .001f)
-        assertEquals(10f, camera.y, .001f)
+        assertEquals(5f, camera.y, .001f)
         assertEquals(1.4f, camera.zoom)
         assertEquals(1, f.events.count { it == TableIntent.EmptyTap }) // Only the immediate first tap.
         assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Peek })
@@ -371,12 +372,13 @@ class TableGesturesTest {
         val point = TablePoint(scene.world!!.viewport.center.x, scene.world!!.viewport.center.y)
         assertNull(scene.hit(point))
         val f = Fixture(scene)
-        // A small vertical drag: three rows each (TBL-003) fill the screen at 1.4×, so the pan bounds stop a larger one
-        val end = TablePoint(point.x + 42, point.y - 14)
+        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001: taller without the other
+        // player's hand row), so the pan bounds stop a larger one
+        val end = TablePoint(point.x + 42, point.y - 7)
         f.gestures.down(point, 0); f.gestures.move(end, 40); f.gestures.up(end, 60)
         val camera = f.events.filterIsInstance<TableIntent.Camera>().last().camera
         assertEquals(-30f, camera.x, .001f)
-        assertEquals(10f, camera.y, .001f)
+        assertEquals(5f, camera.y, .001f)
         assertEquals(1.4f, camera.zoom)
         assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Actions || it == TableIntent.EmptyTap })
     }
@@ -389,7 +391,8 @@ class TableGesturesTest {
         val f = Fixture(scene)
         val centroid = TablePoint(world.viewport.center.x - 60, world.viewport.center.y + 12)
         val pan = TablePoint(20f, -5f)
-        f.gestures.transform(pan, 1.5f, centroid)
+        // ZON-001: at 2× the battlefields overfill the taller viewport (no hand row of the other player's), so nothing clamps
+        f.gestures.transform(pan, 2f, centroid)
         val camera = f.events.filterIsInstance<TableIntent.Camera>().single().camera
         val anchor = TablePoint(world.viewport.width / 2 + centroid.x - pan.x - world.viewport.center.x,
             world.viewport.height / 2 + centroid.y - pan.y - world.viewport.center.y)

@@ -103,6 +103,16 @@ class MainActivity : ComponentActivity() {
         tableShown = shown
         fullscreen()
     }
+    /** SYS-085: whether the table is drawn into the camera's strip of the screen (Settings → Edge to edge). */
+    private var edgeToEdge = false
+    private fun tableEdgeToEdge(on: Boolean) {
+        if (on == edgeToEdge) return
+        edgeToEdge = on
+        AppLog.info("display", "Table edge to edge ${if (on) "on" else "off"}")
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = SystemBars.cutoutMode(on)
+        }
+    }
     private fun fullscreen() {
         // API29 can retain a visible status bar after rotation despite the decor FULLSCREEN bit.
         if (android.os.Build.VERSION.SDK_INT < 30)
@@ -235,7 +245,7 @@ class MainActivity : ComponentActivity() {
                         androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport,
                             LocalCardMarks provides auth.cardMarks) {
                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods,
-                            tableShown = ::tableShown)
+                            tableShown = ::tableShown, tableEdgeToEdge = ::tableEdgeToEdge)
                         }
                     }
                     else Column(

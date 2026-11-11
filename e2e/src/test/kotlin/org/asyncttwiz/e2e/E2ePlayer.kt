@@ -170,6 +170,9 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
      * skippable clock ran past.
      */
     val shownTexts = mutableListOf<String>()
+    /** SYS-085: whether the screen last asked for the table edge to edge (MainActivity's display cutout mode). */
+    var edgeToEdge = false
+        private set
 
     /** Whether the screen showed a short-lived text containing [text] ([shownTexts]). */
     fun told(text: String): Boolean = shownTexts.any { text in it }
@@ -230,7 +233,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text },
                     LocalCardListSupport provides cardListSupport) {
                     Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, catalog = catalog, lobby = lobby, pods = pods,
-                        deckImport = deckImport.takeIf { decksShown }, decks = decks.takeIf { decksShown }) }
+                        deckImport = deckImport.takeIf { decksShown }, decks = decks.takeIf { decksShown },
+                        tableEdgeToEdge = { edgeToEdge = it }) }
                 }
             }
         }

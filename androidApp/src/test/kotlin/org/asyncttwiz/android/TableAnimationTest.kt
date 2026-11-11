@@ -63,7 +63,8 @@ class TableAnimationTest {
                 assertTrue(animation.retarget(target, 1f))
                 fun at(millis: Float) = animation.frame(millis / animation.durationMillis).single { it.item.cardId == survivor }
                 assertEquals(start, at(0f).bounds)
-                assertEquals(start.x + (end.x - start.x) * .75f, at(110f).bounds.x, .001f)
+                // ZON-001: measured at the centre, as the other player's fanned cards turn as they slide
+                assertEquals(start.center.x + (end.center.x - start.center.x) * .75f, at(110f).bounds.center.x, .001f)
                 assertNotEquals(end, at(200f).bounds)
                 assertEquals(end, at(220f).bounds)
                 assertFalse(at(110f).item.inTransit, "Reflow stays clipped to its hand rail")

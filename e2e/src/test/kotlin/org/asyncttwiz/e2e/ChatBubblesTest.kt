@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -59,11 +60,25 @@ class ChatBubblesTest : E2e() {
         waitUntil("Bob's chat showing both messages read") { bob.nodes(hasText("Read")).fetchSemanticsNodes().size == 2 }
     }
 
-    // LOB-136, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square over his hand's cards on Alice's table, and
-    // a tap on it reads it without touching the card under it; Bob's own bubble lies above his square
-    @Test fun aBubbleOverAHandCardIsReadByATapThatTouchesNoCard() {
-        startGame()
+    // LOB-136, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square, over whatever card lies there on Alice's
+    // table, and a tap on it reads it without touching the card under it; Bob's own bubble lies above his square. ZON-001
+    // (owner, 2026-11-11): Bob's hand is a fan in his row now, so the card under the bubble is his Mountain, Alice's table
+    // panned to bring his land row up to his row
+    @Test fun aBubbleOverACardIsReadByATapThatTouchesNoCard() {
+        startGame(bobStarts = true, deal = { _, b -> "Mountain" in hand(b) })
         bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        bob.playFromHand("Mountain", this)
+        waitUntil("Bob's Mountain on Alice's table") { alice.showsOnBattlefield("Mountain", bob) }
+        // A one-finger drag up on the empty table pans it (TBL-011) as far as it goes: Bob's battlefield up to his row
+        alice.table().performTouchInput {
+            down(center)
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(0f, -40f)) }
+            up()
+        }
+        run(skip = java.time.Duration.ofMillis(1500))
         bob.described("Chat, ", substring = true).performClick()
         waitUntil("Bob's chat open") { bob.shows(hasContentDescription("Chat message draft")) }
         bob.described("Chat message draft").performTextInput("Give me a moment, I have a lot of triggers to order here")
@@ -76,8 +91,8 @@ class ChatBubblesTest : E2e() {
         assertTrue(bob.tagged("own-chat-bubble").fetchSemanticsNode().boundsInRoot.bottom <= square.top, bob.screen())
         waitUntil("Bob's bubble on Alice's table") { alice.shows(bubble) }
         val at = alice.node(bubble).fetchSemanticsNode().boundsInRoot
-        val cards = alice.nodes(hasContentDescription(", owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
-        assertTrue(cards.any { it.boundsInRoot.overlaps(at) }, "over Bob's hand: $at ${alice.screen()}")
+        val cards = alice.nodes(hasContentDescription("Mountain, owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
+        assertTrue(cards.any { it.boundsInRoot.overlaps(at) }, "over Bob's Mountain: $at ${cards.map { it.boundsInRoot }} ${alice.screen()}")
         alice.node(bubble).performClick()
         waitUntil("Alice read it") { !alice.shows(bubble) && alice.lobby.state.chat.unread == 0 }
         assertTrue(!alice.shows(hasContentDescription("Card action ring")), "no card's menu: ${alice.screen()}")

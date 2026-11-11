@@ -25,16 +25,16 @@ import arcanum.engine.state.ObjectId
  * panel's own title already says what the choice is ("Scry 2 · Carrot Cake") with its instruction, so its section
  * shows neither again.
  */
-internal data class ChoiceFrame(val viewer: String = "", val headed: Boolean = false)
+data class ChoiceFrame(val viewer: String = "", val headed: Boolean = false)
 
-internal val LocalChoiceFrame = compositionLocalOf { ChoiceFrame() }
+val LocalChoiceFrame = compositionLocalOf { ChoiceFrame() }
 
 /**
  * What a choice of cards ([Decision.ChooseObjects]) is, from the engine's sentence for it (I-D47, I-D48): a choice between
  * two places ([Shape.Places]: scry, surveil, piles, discarding, a mulligan's bottom), putting cards in order
  * ([Shape.Order]) or picking some ([Shape.Pick]).
  */
-internal data class ObjectsShape(
+data class ObjectsShape(
     val shape: Shape,
     /** What the choice is: "Scry 2", "Surveil 1", "Discard 1", "Sacrifice". */
     val title: String,
@@ -128,7 +128,7 @@ internal data class ObjectsShape(
 }
 
 /** What an open decision is, in a few words, for a choice's title (I-D47): "Scry 2", "Choose a colour", "Divide 3". */
-internal fun choiceWhat(decision: Decision): String = when (decision) {
+fun choiceWhat(decision: Decision): String = when (decision) {
     is Decision.Targets -> "Choose targets"
     is Decision.Modes -> when {
         decision.max == 1 -> "Choose one"
@@ -157,7 +157,7 @@ internal fun choiceWhat(decision: Decision): String = when (decision) {
 }
 
 /** A short instruction for an open decision (I-D47); null when its own sentence says it all. */
-internal fun choiceHint(decision: Decision): String? = when (decision) {
+fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.Modes -> if (decision.max == 1) "Tap a mode." else "Tap the modes, then OK."
     is Decision.Announce -> "Set the value, then OK."
     is Decision.ManaPayment -> "Tap the sources to pay with, then Pay."
@@ -180,7 +180,7 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
  * question shows what it asks without holding): its sentences that name what is chosen ("target", the X announced, a
  * colour, a number, a player, …), else the whole text; null without text.
  */
-internal fun askedSentence(text: String?, decision: Decision): String? {
+fun askedSentence(text: String?, decision: Decision): String? {
     val plain = text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(" ")?.takeIf { it.isNotEmpty() } ?: return null
     val words: List<String> = when (decision) {
         is Decision.Targets -> listOf("target")
@@ -202,7 +202,7 @@ internal fun askedSentence(text: String?, decision: Decision): String? {
 
 /** A cost in a few words with its mana and tap symbols ("{2}", "{T}", "Forage", "2 life"), for a question that asks to
  * pay it (STK-030); [CardText] draws the symbols. */
-internal fun costText(cost: arcanum.api.Cost): String = cost.parts.joinToString(", ") { part ->
+fun costText(cost: arcanum.api.Cost): String = cost.parts.joinToString(", ") { part ->
     when (part) {
         arcanum.api.CostPart.TapSelf -> "{T}"
         arcanum.api.CostPart.UntapSelf -> "{Q}"
@@ -211,7 +211,7 @@ internal fun costText(cost: arcanum.api.Cost): String = cost.parts.joinToString(
 }
 
 /** The icon of a choice area by its label. */
-internal fun areaIcon(label: String): ImageVector = when (label) {
+fun areaIcon(label: String): ImageVector = when (label) {
     "Top" -> Icons.Outlined.VerticalAlignTop
     "Bottom" -> Icons.Outlined.VerticalAlignBottom
     "Graveyard", "Discard" -> Icons.Outlined.Inventory2
@@ -221,7 +221,7 @@ internal fun areaIcon(label: String): ImageVector = when (label) {
 }
 
 /** The card of engine object [id] in a choice, as the viewer may see it. */
-internal fun choiceCardOf(flow: FlowQuestions, play: TableBoard, viewer: String, id: ObjectId, tapped: Boolean = false): ChoiceCardData =
+fun choiceCardOf(flow: FlowQuestions, play: TableBoard, viewer: String, id: ObjectId, tapped: Boolean = false): ChoiceCardData =
     choiceCard(play, viewer, id.toString(), flow.atwCard(id), flow.shown(id), objectName(flow, play, id), tapped)
 
 /**
@@ -230,7 +230,7 @@ internal fun choiceCardOf(flow: FlowQuestions, play: TableBoard, viewer: String,
  * ([FlowQuestions.answerWith]). Putting cards in order is one area; picking taps cards to choose them.
  */
 @Composable
-internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseObjects) {
+fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseObjects) {
     val shape = remember(decision) { ObjectsShape.of(decision) }
     val viewer = LocalChoiceFrame.current.viewer
     val cards = decision.options.associate { it.toString() to choiceCardOf(flow, play, viewer, it) }
@@ -287,7 +287,7 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
 
 /** STK-056: the cards of the zones a search looks through (the options' zones) that it can't find: the rest of [decision]'s
  * searched library (and any other searched zone). */
-internal fun searchedOthers(state: arcanum.engine.state.GameState, decision: Decision.ChooseObjects): List<ObjectId> {
+fun searchedOthers(state: arcanum.engine.state.GameState, decision: Decision.ChooseObjects): List<ObjectId> {
     val zones = decision.options.mapNotNull { id -> state.obj(id)?.let { it.zone to it.owner } }.distinct()
     return zones.flatMap { (zone, owner) -> state.zone(zone, owner) }.distinct() - decision.options.toSet()
 }
@@ -308,7 +308,7 @@ private fun OtherCards(cards: List<ChoiceCardData>, inspector: ChoiceInspector) 
 
 /** The legend rule (CR 704.5j) as cards: tap the one to keep, then Keep. */
 @Composable
-internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.LegendRule) {
+fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.LegendRule) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
     var kept by remember(decision.id) { mutableStateOf<String?>(null) }
@@ -324,7 +324,7 @@ internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: T
 /** Cards to pick from (I-D48): a tap chooses or unchooses one ([toggle]), the chosen ones ringed; holding inspects. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun CardPicks(cards: List<ChoiceCardData>, chosen: List<String>, inspector: ChoiceInspector, toggle: (String) -> Unit) {
+fun CardPicks(cards: List<ChoiceCardData>, chosen: List<String>, inspector: ChoiceInspector, toggle: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (card in cards) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { toggle(card.key) },
             hold = { inspector.hold(card, it) }, moved = inspector::moved), selected = card.key in chosen,
@@ -335,7 +335,7 @@ internal fun CardPicks(cards: List<ChoiceCardData>, chosen: List<String>, inspec
 /** A row of a choice about a card (a trigger, a replacement effect, a share of a division): its card, small, then
  * [content]; holding the card inspects it. */
 @Composable
-internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (card != null) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
         content()
@@ -343,14 +343,14 @@ internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier
 }
 
 /** A colour's swatch for "Choose a colour". */
-internal fun colorSwatch(symbol: Char): Color = when (symbol) {
+fun colorSwatch(symbol: Char): Color = when (symbol) {
     'W' -> Color(0xfff3edd2); 'U' -> Color(0xff2f6fb3); 'B' -> Color(0xff3a3335); 'R' -> Color(0xffc7412f)
     'G' -> Color(0xff2f7d4a); else -> Color(0xffa8a39a)
 }
 
 /** The hint under a section's title, when the panel's own title doesn't carry it ([ChoiceFrame.headed]). */
 @Composable
-internal fun ChoiceHintText(text: String) {
+fun ChoiceHintText(text: String) {
     CardText(text, Modifier.semantics { contentDescription = text }, color = Color(0xff4b5a5f),
         style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
 }

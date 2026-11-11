@@ -26,8 +26,8 @@ import androidx.compose.ui.semantics.stateDescription
 import kotlinx.coroutines.delay
 
 /** TRN-063: how long a pending own action waits before its working sign shows, and the least time a shown sign stays. */
-internal const val SLOW_ACTION_AFTER_MS = 150L
-internal const val SLOW_ACTION_LEAST_MS = 300L
+const val SLOW_ACTION_AFTER_MS = 150L
+const val SLOW_ACTION_LEAST_MS = 300L
 
 /**
  * TRN-063 (owner, 2026-11-06): whether the main button shows the "working" sign of the player's own action now. It
@@ -37,7 +37,7 @@ internal const val SLOW_ACTION_LEAST_MS = 300L
  * (the controlled test clock in tests).
  */
 @Composable
-internal fun rememberSlowActionSign(pending: () -> Boolean): Boolean {
+fun rememberSlowActionSign(pending: () -> Boolean): Boolean {
     val busy = pending()
     var shown by remember { mutableStateOf(false) }
     // Whether the shown sign has stayed its least time
@@ -57,7 +57,7 @@ internal fun rememberSlowActionSign(pending: () -> Boolean): Boolean {
  * bottom, over its content, with the state "Working" for accessibility. [modifier] sizes and clips it to the button.
  */
 @Composable
-internal fun SlowActionShimmer(modifier: Modifier, color: Color = AutomatumViolet) {
+fun SlowActionShimmer(modifier: Modifier, color: Color = AutomatumViolet) {
     val sweep by rememberInfiniteTransition(label = "slow action").animateFloat(-0.4f, 1.4f,
         infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "sweep")
     Box(modifier.testTag("main-button-working").semantics { stateDescription = "Working" }.drawBehind {

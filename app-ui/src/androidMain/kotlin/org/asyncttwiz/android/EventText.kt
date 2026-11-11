@@ -29,18 +29,18 @@ import java.util.concurrent.Executor
 import org.asyncttwiz.appui.AppPlatform
 
 /** The short text of the group whose last shown event is [cursorId]. [serial] tells repeated texts apart. */
-internal data class EventTextChip(val cursorId: String, val text: String, val serial: Long, val shownAt: Long)
+data class EventTextChip(val cursorId: String, val text: String, val serial: Long, val shownAt: Long)
 
-internal const val EVENT_TEXT_MIN_MILLIS = 2_000L
-internal fun eventTextLifetimeMillis(pauseMillis: Long) = maxOf(EVENT_TEXT_MIN_MILLIS, pauseMillis)
+const val EVENT_TEXT_MIN_MILLIS = 2_000L
+fun eventTextLifetimeMillis(pauseMillis: Long) = maxOf(EVENT_TEXT_MIN_MILLIS, pauseMillis)
 /** Only the final disappearance animates; showing and replacing are instant. */
-internal const val EVENT_TEXT_FADE_OUT_MILLIS = 450
+const val EVENT_TEXT_FADE_OUT_MILLIS = 450
 
 
 /** Personal presentation only: what the shown board's latest group was. Timeline mode shows every
  * group it shows (also the viewer's own); live mode only an opponent's new group. A chip always
  * belongs to the board currently shown: moving elsewhere drops it at once, before the next is ready. */
-internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) -> Unit,
+class EventTextFeed(worker: Executor, private val post: (() -> Unit) -> Unit,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 }) {
     var chip by mutableStateOf<EventTextChip?>(null); private set
     var enabled = true
@@ -72,7 +72,7 @@ internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) ->
 }
 
 /** Device-local, account-scoped like the other playback preferences. */
-internal class EventTextPreferences(platform: AppPlatform, accountId: String) {
+class EventTextPreferences(platform: AppPlatform, accountId: String) {
     private val preferences = platform.preferences("history-playback")
     private val key = "event-text/$accountId"
     var enabled: Boolean
@@ -84,7 +84,7 @@ internal class EventTextPreferences(platform: AppPlatform, accountId: String) {
 }
 
 @Composable
-internal fun rememberEventTextEnabled(accountId: String): Pair<State<Boolean>, EventTextPreferences> {
+fun rememberEventTextEnabled(accountId: String): Pair<State<Boolean>, EventTextPreferences> {
     val platform = AppPlatform.current
     val preferences = remember(platform, accountId) { EventTextPreferences(platform, accountId) }
     val state = remember(preferences) { mutableStateOf(preferences.enabled) }
@@ -97,7 +97,7 @@ internal fun rememberEventTextEnabled(accountId: String): Pair<State<Boolean>, E
 }
 
 @Composable
-internal fun EventTextSetting(accountId: String) {
+fun EventTextSetting(accountId: String) {
     val (state, preferences) = rememberEventTextEnabled(accountId)
     val enabled by state
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("event-text-setting")
@@ -110,7 +110,7 @@ internal fun EventTextSetting(accountId: String) {
 }
 
 /** How long the event text's warning flash takes to fade back (TBL-118: once, short). */
-internal const val EVENT_TEXT_FLASH_MILLIS = 450
+const val EVENT_TEXT_FLASH_MILLIS = 450
 
 /** The event text's own colour. */
 private val EventTextFill = Color(0xf0253d44)
@@ -122,7 +122,7 @@ private val EventTextFill = Color(0xf0253d44)
  * warning colour.
  */
 @Composable
-internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: Modifier = Modifier,
+fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: Modifier = Modifier,
     status: String? = null, flashes: Int = 0) {
     val chip = feed.chip
     LaunchedEffect(chip?.serial, pauseMillis) {
@@ -173,7 +173,7 @@ private const val STATUS_CURSOR = "status"
 /** Shows [value] at once and swaps a new value in at once; only its going away (to null) fades out.
  * Purely visual: no pointer handlers. */
 @Composable
-internal fun <T : Any> InstantShowFadeOut(value: T?, modifier: Modifier = Modifier,
+fun <T : Any> InstantShowFadeOut(value: T?, modifier: Modifier = Modifier,
     fadeMillis: Int = EVENT_TEXT_FADE_OUT_MILLIS, content: @Composable (T) -> Unit) {
     var leaving by remember { mutableStateOf<T?>(null) }
     val alpha = remember { Animatable(1f) }

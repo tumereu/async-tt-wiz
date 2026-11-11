@@ -25,7 +25,7 @@ import org.asyncttwiz.protocol.*
  * turn begins once both have kept (TRN-057). The engine asks for the cards a mulligan puts on the bottom right after it
  * (CR 103.5: from the second mulligan on), so keeping never owes anything.
  */
-internal object AutomatumOpening {
+object AutomatumOpening {
     val rules = GameRules.STANDARD
 
     /**
@@ -55,7 +55,7 @@ internal object AutomatumOpening {
 }
 
 /** TRN-062 (owner problem report 5DDSKK): why Mulligan and Keep are greyed while the bottom after a mulligan is open. */
-internal fun bottomFirst(owed: Int) = if (owed == 1) "Put the card on the bottom first." else "Put the $owed cards on the bottom first."
+fun bottomFirst(owed: Int) = if (owed == 1) "Put the card on the bottom first." else "Put the $owed cards on the bottom first."
 
 /**
  * The Keep / Bottom screen (I-D48, I-D49, STK-043) right after a mulligan that puts cards on the bottom (TRN-062, owner
@@ -64,7 +64,7 @@ internal fun bottomFirst(owed: Int) = if (owed == 1) "Put the card on the bottom
  * until then. Docked above the hand like every Automatum panel.
  */
 @Composable
-internal fun OpeningKeepHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
+fun OpeningKeepHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
     val viewer = toolkit.viewer
     val owed = if (AutomatumDrags.opening(play.board, viewer)) AutomatumOpening.bottomOwed(play) else 0
     if (owed <= 0) return

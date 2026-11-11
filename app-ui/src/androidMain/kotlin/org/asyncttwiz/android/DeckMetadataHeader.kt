@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.DeckCover
 import org.asyncttwiz.storage.ArtworkReference
 
 @Composable
-internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((String) -> Unit)? = null,
+fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((String) -> Unit)? = null,
     chooseCover: (() -> Unit)? = null, enabled: Boolean = true,
     padding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp), automatum: org.asyncttwiz.protocol.CardListSupport? = null,
     trailing: (@Composable () -> Unit)? = null) {

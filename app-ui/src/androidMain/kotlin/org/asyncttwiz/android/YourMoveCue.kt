@@ -11,7 +11,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 
 /** The record of the cue ([LocalShownTexts]: nothing in the app hears it; the e2e phones do). */
-internal const val YOUR_MOVE_CUE = "Your move cue"
+const val YOUR_MOVE_CUE = "Your move cue"
 
 /**
  * TRN-075 (owner, 2026-11-08): when the move passes to you from the other player, one cue, once per passing: [see] is told
@@ -21,7 +21,7 @@ internal const val YOUR_MOVE_CUE = "Your move cue"
  * brings none (nothing of theirs came), and neither does their answer within [JUST_ACTED_MILLIS] of your own action: you
  * have just acted and are still looking.
  */
-internal class YourMoveCue {
+class YourMoveCue {
     private var acting: Boolean? = null
     private var tip: String? = null
     private var theirInput = false
@@ -60,7 +60,7 @@ internal class YourMoveCue {
 
 /** TRN-075: the cue's one pulse of the main button in your colour; bumping [cue] starts it (0: none yet). */
 @Composable
-internal fun MoveCuePulse(cue: Int, modifier: Modifier = Modifier) {
+fun MoveCuePulse(cue: Int, modifier: Modifier = Modifier) {
     val level = remember { Animatable(0f) }
     LaunchedEffect(cue) {
         if (cue == 0) return@LaunchedEffect

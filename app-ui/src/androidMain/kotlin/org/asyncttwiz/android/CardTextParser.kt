@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-internal sealed interface CardTextPart {
+sealed interface CardTextPart {
     data class Plain(val text: String) : CardTextPart
     data class Symbol(val token: String) : CardTextPart
 }
@@ -12,7 +12,7 @@ private val manaColors = setOf("W", "U", "B", "R", "G")
 private val simpleSymbols = manaColors + setOf("C", "X", "Y", "Z", "T", "Q", "S", "E", "?") + (0..20).map(Int::toString)
 
 /** Presentation only: preserve every character outside the explicitly supported symbol vocabulary. */
-internal fun parseCardText(text: String): List<CardTextPart> = buildList {
+fun parseCardText(text: String): List<CardTextPart> = buildList {
     var start = 0
     for (match in cardTextToken.findAll(text)) {
         val token = match.groupValues[1]

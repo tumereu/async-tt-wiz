@@ -78,7 +78,7 @@ object PresenceText {
 
 /** The dot for the current moment; recomposes once when an online opponent turns idle. */
 @Composable
-internal fun rememberPresenceDot(received: ReceivedPresence?): PresenceDot? {
+fun rememberPresenceDot(received: ReceivedPresence?): PresenceDot? {
     if (received == null) return null
     // Reading tick (as the effect key) recomposes this once the wait is over.
     var tick by remember(received) { mutableIntStateOf(0) }
@@ -90,11 +90,11 @@ internal fun rememberPresenceDot(received: ReceivedPresence?): PresenceDot? {
 
 /** The info line, refreshed every 20 s while shown. */
 @Composable
-internal fun rememberPresenceLine(received: ReceivedPresence): String {
+fun rememberPresenceLine(received: ReceivedPresence): String {
     var now by remember { mutableLongStateOf(monotonicMillis()) }
     LaunchedEffect(received) { while (true) { now = monotonicMillis(); delay(20_000) } }
     return PresenceText.line(received, maxOf(now, received.receivedAt), ZonedDateTime.now(AppClock.clock()))
 }
 
 /** The opponent's presence for the table's player panels; null hides the line (unknown or old server). */
-internal val LocalOpponentPresence = compositionLocalOf<ReceivedPresence?> { null }
+val LocalOpponentPresence = compositionLocalOf<ReceivedPresence?> { null }

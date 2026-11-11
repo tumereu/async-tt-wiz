@@ -22,7 +22,7 @@ import org.asyncttwiz.protocol.SavedDeckSection
 import org.asyncttwiz.storage.DeckSection
 
 @Composable
-internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
+fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
     importer: DeckImportController?, landscape: Boolean, navigation: (() -> Unit)?, catalog: CatalogViewModel?,
     draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
     var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
@@ -87,7 +87,7 @@ private fun CubeCollection(controller: CubeController) {
 }
 
 @Composable
-internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null,
+fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null,
     landscape: Boolean = false) {
     val state = controller.state
     BackHandler { controller.back() }

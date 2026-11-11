@@ -7,9 +7,9 @@ import java.util.UUID
 import java.util.concurrent.ExecutorService
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
-internal fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
+fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
     listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS) else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
-internal fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
+fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
     phase == PodPhase.DRAFTING -> PodTab.DRAFT
     submitted -> PodTab.GAMES
     else -> PodTab.BUILD
@@ -45,17 +45,17 @@ data class PodState(
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
 fun interface PodMarksScheduler { fun schedule(delayMillis: Long, task: () -> Unit): () -> Unit }
 /** Local pick marks belong to one visit of a pack: the same pack can come back later with fewer cards. */
-internal data class PodMarksKey(val pod: String, val attempt: String, val pack: String, val pick: Int)
-internal const val PodMarksDelayMillis = 500L
+data class PodMarksKey(val pod: String, val attempt: String, val pack: String, val pick: Int)
+const val PodMarksDelayMillis = 500L
 /** Private deck notes belong to one draft attempt. */
-internal data class PodNotesKey(val pod: String, val attempt: String)
+data class PodNotesKey(val pod: String, val attempt: String)
 
 /** One reversible Build change: where a copy was before a move, or the basics before a tap. */
-internal sealed interface PodBuildStep {
+sealed interface PodBuildStep {
     data class Move(val copyId: String, val from: PodDeckCategory, val to: PodDeckCategory) : PodBuildStep
     data class Basics(val previous: PodDeckBasics, val side: Boolean = false) : PodBuildStep
 }
-internal const val PodBuildUndoLimit = 50
+const val PodBuildUndoLimit = 50
 private data class PodBuildHistory(val pod: String, val attempt: String, val steps: List<PodBuildStep>)
 
 /** All operations are serialized, including a read after each write. Setup edits, build edits and queued picks predict.
@@ -119,7 +119,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** Build undo for the open pod's current attempt; survives tab switches, not restarts. */
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     // DRF-169: a set goes to the pod by its code; the server builds its packs from its card catalog
-    internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post) { set, target ->
+    val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post) { set, target ->
         state = state.copy(sourcePreview = null, sourceHint = null)
         if (target != null) choosePackSet(target, set)
         else if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set, packSets = emptyList()))
@@ -166,7 +166,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         get() = cubePreparation.cardRecords
         set(value) { cubePreparation.cardRecords = value }
     /** Draft table presets for the New pod form and the creator's setup form. */
-    internal val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
+    val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
 
     fun clear() {
         epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
@@ -299,7 +299,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         return PodPresetForm(settings, cubeId = cube?.id, sourceName = cube?.name)
     }
     /** Fills the form from [preset]. A set is loaded from the catalog; a deleted cube leaves the source to choose. */
-    internal fun applyPreset(preset: PodPreset) {
+    fun applyPreset(preset: PodPreset) {
         val current = state.creating?.settings ?: state.setup?.settings ?: state.detail?.settings ?: DraftSettings()
         // A built-in preset is its mode's settings: like a mode chip it keeps the sideboard limit and Librarians (DRF-032).
         val settings = if (preset.builtIn) preset.settings.copy(sideboardLimit = current.sideboardLimit,
@@ -456,10 +456,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         return pack?.let { PodMarksKey(detail.id, attempt, it.id, it.pick) }
     }
     /** The marks shown for [pack] in the open pod. */
-    internal fun marks(pack: DraftPrivatePack?): PodPickMarks =
+    fun marks(pack: DraftPrivatePack?): PodPickMarks =
         marksKey(state.detail, pack)?.let { pickMarks[it] } ?: PodPickMarks(pack?.id)
     /** Local intent for the head pack; saved to the server ~[PodMarksDelayMillis] after the last change, latest wins. */
-    internal fun mark(pack: DraftPrivatePack?, marks: PodPickMarks) {
+    fun mark(pack: DraftPrivatePack?, marks: PodPickMarks) {
         val detail = state.detail ?: return
         if (pack == null || detail.draft?.head?.id != pack.id) return
         val key = marksKey(detail, pack) ?: return
@@ -516,9 +516,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private fun notesKey(detail: PodDetail?): PodNotesKey? =
         detail?.takeIf { it.phase != PodPhase.SETUP }?.draftAttemptId?.let { PodNotesKey(detail.id, it) }
     /** The open pod's notes for its current attempt; null when there is no attempt to keep notes for. */
-    internal fun notes(): PodDeckNotes? = notesKey(state.detail)?.let { deckNotes[it] ?: PodDeckNotes() }
+    fun notes(): PodDeckNotes? = notesKey(state.detail)?.let { deckNotes[it] ?: PodDeckNotes() }
     /** Relative, like basics taps; saved ~[PodMarksDelayMillis] after the last change, also after submitting. */
-    internal fun editNotes(change: (PodDeckNotes) -> PodDeckNotes) {
+    fun editNotes(change: (PodDeckNotes) -> PodDeckNotes) {
         val key = notesKey(state.detail) ?: return
         val current = deckNotes[key] ?: PodDeckNotes()
         val next = change(current).podNotesSanitized()
@@ -928,14 +928,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     override fun close() { closed = true; clear(); worker.execute { api.close(); cubes.close() }; worker.shutdown() }
 }
 
-internal fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&
+fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&
     detail.settings.validate(detail.members.size).isEmpty() && detail.supply.sufficient
 
 /**
  * Why Start (too many members) or auto-start (too many members plus invitations) is not offered for this engine's
  * player limit (DRF-035, DRF-036); null within the limit.
  */
-internal fun podPlayerLimitText(detail: PodDetail): String? {
+fun podPlayerLimitText(detail: PodDetail): String? {
     val most = detail.settings.mode.players.last
     val name = podModeName(detail.settings.mode)
     val members = detail.members.size
@@ -949,13 +949,13 @@ internal fun podPlayerLimitText(detail: PodDetail): String? {
 }
 
 /** Turn-based engines have one turn at a time, so "Your pick" has no pack count (Rochester counts its packs). */
-internal fun podStatus(pod: PodSummary): String = when (pod.attention) {
+fun podStatus(pod: PodSummary): String = when (pod.attention) {
     PodAttention.YOUR_PICK -> if (pod.mode.limited && pod.mode != DraftMode.ROCHESTER) "Your pick"
         else "Your pick · ${podPackCount(pod.packsWaiting)}"
     PodAttention.BUILD -> "Build your deck"
     PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
 }
-internal fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
+fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
     (mode == DraftMode.GRID || mode.limited) && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
@@ -963,8 +963,8 @@ internal fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode
     phase == PodPhase.DRAFTED || member.building -> "building"
     else -> "waiting"
 }
-internal fun podPackCount(count: Int) = "$count ${if (count == 1) "pack" else "packs"}"
-internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): String = when (action) {
+fun podPackCount(count: Int) = "$count ${if (count == 1) "pack" else "packs"}"
+fun podConfirmationText(action: PodConfirmation, detail: PodDetail): String = when (action) {
     PodConfirmation.DESTROY -> "Destroy this pod for everyone?"
     PodConfirmation.LEAVE -> if (detail.phase == PodPhase.DRAFTING)
         "This cancels the draft for all ${detail.members.size} players and discards all picks." else "Leave this pod?"
@@ -975,9 +975,9 @@ internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): St
 }
 private fun podPendingCount(count: Int) = if (count == 1) "The pending invitation" else "The $count pending invitations"
 /** The creator's Start control while invitations are pending: arm, or show progress and cancel. */
-internal fun podAutoStartLabel(detail: PodDetail): String =
+fun podAutoStartLabel(detail: PodDetail): String =
     if (detail.autoStart) "Starts when ${detail.pendingInvitations.size} more accept · Cancel" else "Start when everyone accepts"
-internal fun podAutoStartOffText(off: PodAutoStartOff, mode: DraftMode = DraftMode.BOOSTER): String = when (off.reason) {
+fun podAutoStartOffText(off: PodAutoStartOff, mode: DraftMode = DraftMode.BOOSTER): String = when (off.reason) {
     "declined" -> "${off.account?.username ?: "An invitee"} declined; auto-start is off"
     "too_many_players" -> "Too many players for ${podModeName(mode)} (at most ${mode.players.last}); auto-start is off"
     "too_many_members" -> "Could not start automatically: too many members for ${podModeName(mode)}. Auto-start is off"

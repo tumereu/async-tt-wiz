@@ -2,10 +2,10 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-internal fun lobbyLifecycleInterruption(failure: Throwable, interrupted: Boolean): Boolean = interrupted &&
+fun lobbyLifecycleInterruption(failure: Throwable, interrupted: Boolean): Boolean = interrupted &&
     (failure is kotlinx.coroutines.CancellationException || transientServiceFailure(failure))
 
-internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFailure)?.code) {
+fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFailure)?.code) {
     "invalid_search" -> "Use 1–64 username characters without control characters."
     "invalid_name" -> "Enter a game name."
     "contact_required" -> "Add this player to your contacts first."

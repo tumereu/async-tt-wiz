@@ -5,7 +5,7 @@ import org.asyncttwiz.protocol.*
 
 /** Persistent order-statistic treap: append/upsert and row/key lookup never copy the transcript.
  * Versions share unchanged pages. Changes are small indexed writes for personal unread tracking. */
-internal class IndexedChatMessages private constructor(private val root: Node?,
+class IndexedChatMessages private constructor(private val root: Node?,
     private val ids: PersistentMap<String, ChatMessage>, private val authors: PersistentMap<String, Int>,
     private val edits: Edits) : AbstractList<ChatMessage>() {
     constructor() : this(null, persistentMapOf(), persistentMapOf(), Edits(null, emptySet()))

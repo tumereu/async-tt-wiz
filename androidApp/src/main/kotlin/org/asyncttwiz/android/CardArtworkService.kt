@@ -84,7 +84,7 @@ open class CardArtworkService(context: Context, directory: File = File(context.c
     }
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     /** Downloads (no decode) into the disk cache at prefetch priority, one attempt per reference. */
-    internal override val prefetch = ArtworkPrefetchQueue(background) { reference ->
+    override val prefetch = ArtworkPrefetchQueue(background) { reference ->
         val bytes = runInterruptible { repository.load(reference, ArtworkPriority.PREFETCH) }
         currentCoroutineContext().ensureActive()
         attempted(reference, bytes != null)

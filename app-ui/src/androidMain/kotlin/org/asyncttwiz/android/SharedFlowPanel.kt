@@ -47,7 +47,7 @@ import org.asyncttwiz.protocol.*
  * The eye hides the panel to look at the board (I-D10). Nothing shows while a cast is open (its own panel does).
  */
 @Composable
-internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>,
+fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>,
     reviewing: Boolean = false) {
     val flows = toolkit.flows
     val shown = !toolkit.cast.open && AutomatumBoards.sharedFlowShown(play)
@@ -144,7 +144,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
 }
 
 /** The opening's mulligan decision (Keep or Mulligan, CR 103.5), which the quick actions answer (TRN-062). */
-internal fun openingDecision(decision: Decision?): Boolean =
+fun openingDecision(decision: Decision?): Boolean =
     decision is Decision.ChooseOption && decision.options.containsAll(listOf("Keep", "Mulligan"))
 
 /** What a prompt or choice is about: a card (drawn as a card) or a player (named). */
@@ -190,7 +190,7 @@ private fun WaitingBar(play: TableBoard, text: String, card: ChoiceCardData?, ac
 
 /** What the other player is choosing, in the observer's words (UI review round 2 #2): the card it comes from ("Fertile
  * Passing"), else what it is ("Order triggers", "Legend rule"), never the chooser's own "You may". */
-internal fun observerWhat(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
+fun observerWhat(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
     commonSource(decision)?.let { sourceName(flows, flow, play, decision, it) }
         ?: if (decision is Decision.May) "a choice" else choiceWhat(decision)
 
@@ -215,7 +215,7 @@ private fun decisionItem(flow: SharedFlow, decision: Decision): StackItem? =
  * spell or permanent as its card (covered when the viewer may not see it), the one source all the triggers to order share
  * (UI review round 2 N10); null when it has none (a discard to hand size, the legend rule).
  */
-internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
+fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
     if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
     val item = decisionItem(flow, decision)
     val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
@@ -301,7 +301,7 @@ private fun askedLine(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, 
  * the sentence it asks about ([line]), the cards it is about ([about]), a short instruction, then the choice itself.
  */
 @Composable
-internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden: () -> Unit, play: TableBoard,
+fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden: () -> Unit, play: TableBoard,
     names: Map<String, String>, decision: Decision, source: ChoiceCardData?, line: String?, about: List<ObjectId> = emptyList(),
     forOther: String? = null) {
     val viewer = LocalChoiceFrame.current.viewer
@@ -357,7 +357,7 @@ private fun payOnMain(questions: FlowQuestions, decision: Decision, payment: Dec
     })
 
 /** TRN-063: why Pay on the main button is greyed. */
-internal fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: tap sources on the table to pay ${payment.cost}."
+fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: tap sources on the table to pay ${payment.cost}."
 
 /**
  * STK-049 (owner playtest 2026-11-09): a mana payment while something resolves ("unless its controller pays {1}", "you may pay {1}",
@@ -427,11 +427,11 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: T
 
 /** The text of ability [item] (STK-046, STK-050): a keyword's trigger as its keyword's printed line on its source
  * ([org.asyncttwiz.automatum.StackAbilityText.of]). */
-internal fun itemText(flows: FlowQuestions, play: TableBoard, item: StackItem): String? =
+fun itemText(flows: FlowQuestions, play: TableBoard, item: StackItem): String? =
     org.asyncttwiz.automatum.StackAbilityText.of(item, item.source?.let { rulesTextOf(play, flows.atwCard(it)) })
 
 /** The printed rules text of ATW card [cardId]'s face on [play]'s board, when it has one. */
-internal fun rulesTextOf(play: TableBoard, cardId: String?): String? {
+fun rulesTextOf(play: TableBoard, cardId: String?): String? {
     val card = play.board.cards.firstOrNull { it.id == cardId } ?: return null
     return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
         ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.rulesText
@@ -472,4 +472,4 @@ private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: TableBoa
 }
 
 /** STK-049: the instruction of a cost one may pay or decline. */
-internal const val PAY_OR_DECLINE = "Tap the sources to pay with, then Pay; or Don't pay."
+const val PAY_OR_DECLINE = "Tap the sources to pay with, then Pay; or Don't pay."

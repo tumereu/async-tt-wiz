@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.*
  * "Prepare cube · <cube name>" with Done at the top right. Only this pod's cube changes.
  */
 @Composable
-internal fun PodCubePreparationScreen(preparation: PodCubePreparation) {
+fun PodCubePreparationScreen(preparation: PodCubePreparation) {
     val state = preparation.state
     BackHandler { preparation.close() }
     val sections = state.cube?.let { cube ->

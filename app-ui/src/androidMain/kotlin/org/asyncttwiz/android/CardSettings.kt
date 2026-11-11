@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 @Composable
-internal fun CardSettings(preferences: CardAppearancePreferences = rememberCardAppearancePreferences()) {
+fun CardSettings(preferences: CardAppearancePreferences = rememberCardAppearancePreferences()) {
     val appearance by preferences.state()
     Column(Modifier.fillMaxWidth().testTag("cards-settings")) {
         // One sample card shows both card size and text size; per-area sizes each show their own area's card.
@@ -77,13 +77,13 @@ private fun CardSample(appearance: CardAppearance, scale: Float, tag: String) {
 }
 
 @Composable
-internal fun CardScaleInput(label: String, value: Float, dismiss: () -> Unit, save: (Float) -> Unit) {
+fun CardScaleInput(label: String, value: Float, dismiss: () -> Unit, save: (Float) -> Unit) {
     ScaleValueInput(label, value, MIN_CARD_SCALE..MAX_CARD_SCALE, dismiss, save)
 }
 
 /** Tap-to-type multiplier editor shared by card appearance and movement speed. */
 @Composable
-internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingPointRange<Float>,
+fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingPointRange<Float>,
     dismiss: () -> Unit, save: (Float) -> Unit) {
     val input = rememberDialogField(value.toString())
     val parsed = input.text.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)

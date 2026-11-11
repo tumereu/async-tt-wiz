@@ -31,24 +31,24 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         ?.takeIf { TableActionScope(it.gameId, it.playId) == identity }
     fun enabled() = connected() && current() != null
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
-    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
+    val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
         automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send },
         revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
-    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
+    val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
         { if (it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send },
         takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
     private val automatumWork = automatumWork
     /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
-    internal val mainSlot = MainSlot()
+    val mainSlot = MainSlot()
 
     /**
      * Runs [work] for the table's shown board as [automatumWork] says: off the main thread on [dispatcher] in the app
      * (SYS-025), at once with [AutomatumWork.Inline] (tests: what the board shows is worked out before the screen is idle).
      */
-    internal suspend fun <T> boardWork(dispatcher: kotlinx.coroutines.CoroutineDispatcher, work: () -> T): T =
+    suspend fun <T> boardWork(dispatcher: kotlinx.coroutines.CoroutineDispatcher, work: () -> T): T =
         if (automatumWork === AutomatumWork.Inline) work() else kotlinx.coroutines.withContext(dispatcher) { work() }
 
     init {
@@ -59,14 +59,14 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own, with the viewer's response mode. */
     private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play, engine?.control() == true)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
-    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
+    val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
         { error }, { error = it }, board = { current() })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
 
     /** What the viewer may cast or play from their hand on [play] (I-D28), or null while it is being worked out off the
      * main thread (SYS-025); the hand menu recomposes once it is ready. */
-    internal fun handPlays(play: TableBoard): org.asyncttwiz.automatum.HandPlays? {
+    fun handPlays(play: TableBoard): org.asyncttwiz.automatum.HandPlays? {
         handPlaysReady
         AutomatumBoards.cachedHandPlays(play, viewer)?.let { return it }
         if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.handPlays(play, viewer)
@@ -80,7 +80,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** What the engine offers the viewer for each card on [play] (§3 I4: the card menus), or null while it is being
      * worked out off the main thread (SYS-025); the menus recompose once it is ready. */
-    internal fun cardPlays(play: TableBoard): org.asyncttwiz.automatum.CardPlays? {
+    fun cardPlays(play: TableBoard): org.asyncttwiz.automatum.CardPlays? {
         handPlaysReady
         AutomatumBoards.cachedCardPlays(play, viewer)?.let { return it }
         if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.cardPlays(play, viewer)
@@ -98,10 +98,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * ([org.asyncttwiz.automatum.CardPlays], worked out off the main thread and kept per board). Empty with Automatum
      * off, while a cast or an Automatum choice is open, while the viewer can't act, and until it is worked out.
      */
-    internal fun playable(play: TableBoard): Set<String> = playableOrNull(play).orEmpty()
+    fun playable(play: TableBoard): Set<String> = playableOrNull(play).orEmpty()
 
     /** [playable], or null while Automatum still works the board out (the glow keeps what it showed meanwhile, TBL-117). */
-    internal fun playableOrNull(play: TableBoard): Set<String>? {
+    fun playableOrNull(play: TableBoard): Set<String>? {
         if (!enabled() || cast.open || play.flowOpen || revealing()) return emptySet()
         // The game begins only once both players are Ready (TRN-062)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
@@ -125,7 +125,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** Begins what a card menu offers through Automatum ([CastController.begin]): the cast panel's flow. */
-    internal fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
+    fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
         val input = play.input ?: return false
         error = null
         return cast.begin(cardId, input, play.text)
@@ -139,7 +139,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** TBL-122: the abilities of the battlefield card [cardId] the viewer can activate on [play] now (mana abilities and
      * special actions included), in printed order; empty while a cast or an Automatum choice is open, null while
      * Automatum still works the board out. */
-    internal fun activatable(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
+    fun activatable(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
         if (!enabled() || cast.open || play.flowOpen || revealing()) return emptyList()
         val plays = cardPlays(play) ?: return null
         return plays.of(cardId).filter { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Cast &&
@@ -148,7 +148,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** TBL-124 (owner, 2026-11-09): every activated ability of the battlefield card [cardId] (mana abilities too, and its
      * special actions), usable now or not, in printed order: what its chips show. Empty and null as [activatable]. */
-    internal fun abilities(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
+    fun abilities(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
         if (!enabled() || cast.open || play.flowOpen || revealing()) return emptyList()
         val plays = cardPlays(play) ?: return null
         return plays.of(cardId).filter { it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Cast && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Play }
@@ -161,7 +161,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * above it when it has two or more, even with one usable now: the unusable ones greyed with why, so the tap never picks
      * one for them. False when none is usable (or Automatum still works the board out): the tap opens the card's menu as before.
      */
-    internal fun tapPermanent(cardId: String): Boolean {
+    fun tapPermanent(cardId: String): Boolean {
         val play = current() ?: return false
         // TBL-124 (owner playtest 2026-11-10): never while targets are picked, whose ever the permanent is
         if (cast.targeting || flows.targeting) {
@@ -178,7 +178,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability; greyed, it does nothing. */
-    internal fun activateChip(index: Int): Boolean {
+    fun activateChip(index: Int): Boolean {
         val card = abilityCard ?: return false
         val play = current() ?: return false
         val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: run {
@@ -195,7 +195,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * would: be picked while a cast or choice picks targets, be staged as an attacker or picked as a blocker while those are
      * declared, else activate an ability (a mana ability or special action too).
      */
-    internal fun tapUsable(play: TableBoard, cardId: String): Boolean {
+    fun tapUsable(play: TableBoard, cardId: String): Boolean {
         if (cast.targeting || flows.targeting) return cardId in cast.glow(play) + flows.glow(play)
         // STK-024 (owner 2026-11-07): while the cast panel is open a tap adds a mana source to its payment
         if (paying) return cardId in payableSources()
@@ -215,7 +215,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** TBL-122: what a tap on the collapsed battlefield [group] does on [play] now ([GroupTap.of]); TBL-130 (owner
      * 2026-11-07): while targets are picked a group of several with a legal target in it always opens. */
-    internal fun groupTap(play: TableBoard, group: BattlefieldGroup): GroupTap =
+    fun groupTap(play: TableBoard, group: BattlefieldGroup): GroupTap =
         GroupTap.of(group, { tapUsable(play, it) }, { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true },
             alwaysOpen = cast.targeting || flows.targeting)
 
@@ -263,19 +263,19 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** STK-024, STK-049 (owner playtest 2026-11-09): a payment is made on the table now: the open cast's, or one the viewer makes
      * while something resolves; its sources are tapped there. */
-    internal val paying: Boolean get() = cast.paying || flows.paying
+    val paying: Boolean get() = cast.paying || flows.paying
     /** The table cards paying the open payment (outlined in amber, in a pile of their own). */
-    internal fun paySources(): Set<String> = cast.paySources() + flows.paySources()
+    fun paySources(): Set<String> = cast.paySources() + flows.paySources()
     /** The table cards a tap adds to the open payment (or takes out). */
-    internal fun payableSources(): Set<String> = cast.payableSources() + flows.payableSources()
+    fun payableSources(): Set<String> = cast.payableSources() + flows.payableSources()
     /** A tap on the table card [cardId] while a payment is made there: added or taken out; false when it isn't a source of it. */
-    internal fun tapSource(cardId: String): Boolean = if (cast.paying) cast.tapSource(cardId) else flows.tapSource(cardId)
+    fun tapSource(cardId: String): Boolean = if (cast.paying) cast.tapSource(cardId) else flows.tapSource(cardId)
     /** STK-024: the ways the table card [cardId] can pay the open payment ([CastController.waysOf]). */
-    internal fun waysOf(cardId: String): List<arcanum.engine.decision.ManaUse> = if (cast.paying) cast.waysOf(cardId) else flows.waysOf(cardId)
+    fun waysOf(cardId: String): List<arcanum.engine.decision.ManaUse> = if (cast.paying) cast.waysOf(cardId) else flows.waysOf(cardId)
     /** STK-024: the way the table card [cardId] pays the open payment now, null when it doesn't. */
-    internal fun paidWith(cardId: String): arcanum.engine.decision.ManaUse? = cast.paidWith(cardId) ?: flows.paidWith(cardId)
+    fun paidWith(cardId: String): arcanum.engine.decision.ManaUse? = cast.paidWith(cardId) ?: flows.paidWith(cardId)
     /** STK-024: a way chosen with the table card [cardId]'s corner chip. */
-    internal fun chooseWay(cardId: String, way: arcanum.engine.decision.ManaUse) {
+    fun chooseWay(cardId: String, way: arcanum.engine.decision.ManaUse) {
         AppLog.info("cast", "Corner chip of $cardId: way ${org.asyncttwiz.automatum.ManaWays.label(way)} chosen")
         if (cast.paying) cast.chooseWay(cardId, way) else flows.chooseWay(cardId, way)
     }
@@ -293,7 +293,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun closeAbilities() { abilityCard = null; heldAbility = null }
     val layoutState = mutableStateOf(TableLayoutState())
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
-    internal val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
+    val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
         panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
@@ -345,7 +345,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun othersChoice(): Boolean = engine?.othersChoice() == true
     /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: game actions are refused as while a choice
      * is open (STK-032) until its OK. */
-    internal fun revealing(): Boolean = engine?.revealing() == true
+    fun revealing(): Boolean = engine?.revealing() == true
     /** UI review round 2 #4 (I-D46 b): an action refused because the viewer's own cast is open ("Finish or cancel the cast
      * first.") or Automatum's choice is open (STK-032) shakes what it was made on (the card or pile whose menu it came
      * from), else the card being cast, instead of a message. */
@@ -519,9 +519,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false; closeAbilities() }
     fun dismissTapUi() = dismiss()
-    internal val hasBackOverlay get() = peek != null || capture != null || player != null ||
+    val hasBackOverlay get() = peek != null || capture != null || player != null ||
         panel != null
-    internal fun dismissBackOverlay() {
+    fun dismissBackOverlay() {
         when {
             peek != null -> peek(null)
             capture != null || player != null || panel != null -> dismiss()
@@ -563,7 +563,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private var targetPile: String? = null
     /** TBL-130: the battlefield group opened to pick targets from ([tap]), closed again once the targets are chosen. */
     private var targetGroup: String? = null
-    internal fun targetingEnded() {
+    fun targetingEnded() {
         stackTargeting = false
         targetGroup?.let { key -> targetGroup = null; if (expandedGroup == key) collapse() }
         val pile = targetPile ?: return
@@ -912,7 +912,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * viewer places blocks to assume. Before their declare blockers step the defender's creatures can't be dragged as
      * blockers: a drag on one pans the table. True while what combat allows isn't worked out yet (the drop then says so).
      */
-    internal fun combatDraggable(item: TableItem): Boolean {
+    fun combatDraggable(item: TableItem): Boolean {
         val card = item.sourceId ?: item.cardId ?: return false
         val live = current() ?: return false
         val placed = engine?.assuming()
@@ -1085,7 +1085,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** CMB-028: stages [cards] as attackers of [target] (null: the defending player), each in a pair of its own at the end,
      * opening the combat area first when needed; one Undo step. Refused with Automatum's reason when one can't attack it. */
-    internal fun stage(play: TableBoard, cards: List<String>, target: String?): Boolean {
+    fun stage(play: TableBoard, cards: List<String>, target: String?): Boolean {
         if (cards.isEmpty()) return false
         combat.draftRefusal(play, cards, CombatRole.ATTACKER, null, target)?.let { error = it; return false }
         error = null
@@ -1114,7 +1114,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** CMB-034: [blocker] blocks the attackers of [pairId] too, or no longer when it does; one that can block one attacker
      * moves to it. Deselected once it blocks as many attackers as it can. */
-    internal fun block(play: TableBoard, blocker: String, pairId: String): Boolean {
+    fun block(play: TableBoard, blocker: String, pairId: String): Boolean {
         val area = play.board.combat ?: return false
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == blocker }
@@ -1135,7 +1135,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** CMB-028, CMB-034: the staged attackers, or the blocks, leave the lanes; one Undo step. */
-    internal fun clearCombatDraft(play: TableBoard): Boolean {
+    fun clearCombatDraft(play: TableBoard): Boolean {
         val area = play.board.combat ?: return false
         val attackers = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices.attackers
         val ids = area.pairs.flatMap { if (attackers) it.attackers else it.blockers }.map { it.id }

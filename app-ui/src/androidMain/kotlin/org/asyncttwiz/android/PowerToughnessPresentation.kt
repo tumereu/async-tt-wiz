@@ -9,25 +9,25 @@ import org.asyncttwiz.protocol.TableActions
 import java.math.BigInteger
 
 /** Current-face metadata also covers tokens and retained projection snapshots. No type/rules inference. */
-internal fun changedPowerToughness(displayed: String, face: DefinitionFace?): Boolean =
+fun changedPowerToughness(displayed: String, face: DefinitionFace?): Boolean =
     face != null && face.power.isNotEmpty() && face.toughness.isNotEmpty() &&
         displayed != "${face.power}/${face.toughness}"
 
-internal const val ChangedPowerToughnessColor = 0xffa0522d.toInt()
-internal const val EotPowerToughnessColor = 0xff007f80.toInt()
+const val ChangedPowerToughnessColor = 0xffa0522d.toInt()
+const val EotPowerToughnessColor = 0xff007f80.toInt()
 /** Automatum on (I1): a computed P/T above its printed value is green, below it red (the damage red); up in one value
  * and down in the other (a switch) brown as TBL-022; unchanged the default ink. */
-internal const val RaisedPowerToughnessColor = 0xff1b7f3a.toInt()
-internal const val LoweredPowerToughnessColor = 0xffb3261e.toInt()
+const val RaisedPowerToughnessColor = 0xff1b7f3a.toInt()
+const val LoweredPowerToughnessColor = 0xffb3261e.toInt()
 
-internal fun computedCornerColor(trend: Int?): Int? = when (trend) {
+fun computedCornerColor(trend: Int?): Int? = when (trend) {
     0 -> null
     1 -> RaisedPowerToughnessColor
     -1 -> LoweredPowerToughnessColor
     else -> ChangedPowerToughnessColor
 }
 
-internal fun effectiveCorner(card: PlayCard): String {
+fun effectiveCorner(card: PlayCard): String {
     if (card.eotCorner.isEmpty()) return card.corner
     val base = card.corner.split('/')
     val delta = card.eotCorner.split('/')
@@ -35,20 +35,20 @@ internal fun effectiveCorner(card: PlayCard): String {
     return base.indices.joinToString("/") { TableActions.addNumber(base[it], delta[it]) ?: base[it] }
 }
 
-internal fun damageIsLethal(damage: String, corner: String): Boolean {
+fun damageIsLethal(damage: String, corner: String): Boolean {
     val toughness = corner.split('/').takeIf { it.size == 2 }?.get(1) ?: return false
     if (!TableActions.numeric(damage) || !TableActions.numeric(toughness)) return false
     return BigInteger(damage) >= BigInteger(toughness)
 }
 
 /** Rules v23: a face-down Battlefield card (morph, manifest, disguise, cloak) has public values. */
-internal fun publicFaceDown(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
+fun publicFaceDown(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
     board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
 
 /** A card whose face the viewer cannot see shows no P/T, marks, notes or counters anywhere, except a public
  * face-down Battlefield card. Stored values may be printed defaults. Its values can still be edited blind. */
-internal fun cardValuesHidden(board: BoardState, card: PlayCard, viewer: String): Boolean =
+fun cardValuesHidden(board: BoardState, card: PlayCard, viewer: String): Boolean =
     !CardVisibility.isVisibleFaceUp(board, card, viewer) && !publicFaceDown(board, card)
 
 /** A face-down card is compared with its public 2/2, never with its hidden printed face. */
-internal fun changedFaceDownPowerToughness(displayed: String): Boolean = displayed != "2/2"
+fun changedFaceDownPowerToughness(displayed: String): Boolean = displayed != "2/2"

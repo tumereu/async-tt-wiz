@@ -15,10 +15,10 @@ import org.asyncttwiz.appui.postToMainDelayed
 typealias MainDelayed = (Long, () -> Unit) -> () -> Unit
 
 /** [MainDelayed] on the main looper's handler. */
-internal val mainLooperDelayed: MainDelayed = { millis, work -> postToMainDelayed(millis, work) }
+val mainLooperDelayed: MainDelayed = { millis, work -> postToMainDelayed(millis, work) }
 
 /** [work] every [everyMillis] on [delayed]'s clock, the first one interval from now, until the returned closer is called. */
-internal fun repeatEvery(everyMillis: Long, delayed: MainDelayed, work: () -> Unit): () -> Unit {
+fun repeatEvery(everyMillis: Long, delayed: MainDelayed, work: () -> Unit): () -> Unit {
     var active = true
     var cancel: () -> Unit = {}
     fun next() { cancel = delayed(everyMillis) { if (active) { work(); if (active) next() } } }
@@ -31,7 +31,7 @@ internal fun repeatEvery(everyMillis: Long, delayed: MainDelayed, work: () -> Un
  * background or this leaves composition; again on each return to the front. A change of [keys] closes and starts it again.
  */
 @Composable
-internal fun WhileInFront(vararg keys: Any?, start: () -> () -> Unit) {
+fun WhileInFront(vararg keys: Any?, start: () -> () -> Unit) {
     val owner = LocalLifecycleOwner.current
     DisposableEffect(*keys, owner) {
         var stop: (() -> Unit)? = null

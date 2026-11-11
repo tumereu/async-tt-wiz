@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
 
 /** Unknown-size content is withheld until its first accepted read. Refreshes keep it mounted. */
 @Composable
-internal fun InitialLoadArea(loaded: Boolean, modifier: Modifier = Modifier.fillMaxSize(),
+fun InitialLoadArea(loaded: Boolean, modifier: Modifier = Modifier.fillMaxSize(),
     failed: Boolean = false, retry: (() -> Unit)? = null, loading: Boolean = false, content: @Composable () -> Unit) {
     var hadFailure by remember { mutableStateOf(false) }
     LaunchedEffect(failed) { if (failed) hadFailure = true }

@@ -28,7 +28,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.PodGridView as GridViewData
 
 /** Selection is personal UI state; neither the board nor the pool predicts a pick. */
-internal class PodGridRules(val board: GridPublicBoard, mine: GridPrivateView) {
+class PodGridRules(val board: GridPublicBoard, mine: GridPrivateView) {
     val myTurn = board.currentPlayer == mine.player && board.id == mine.headGridId
 
     fun positions(line: GridLine): List<Int> = line.positions()
@@ -38,31 +38,31 @@ internal class PodGridRules(val board: GridPublicBoard, mine: GridPrivateView) {
 }
 
 /** Picker colours: yours as at the table, then one per other member in seating order. */
-internal fun podGridColors(seating: List<String>, me: String): Map<String, Color> {
+fun podGridColors(seating: List<String>, me: String): Map<String, Color> {
     val others = listOf(OpponentTableColor, Color(0xff3457b3), Color(0xffb7791f))
     return (listOf(me to OwnTableColor) + seating.filter { it != me }.mapIndexed { index, player -> player to others[index % others.size] })
         .toMap()
 }
 
 /** One grid card: shown in place as dealt, its picker, whether it was discarded, whether it is a refill card. */
-internal data class PodGridCell(val copy: DraftCopy?, val pickedBy: String?, val discarded: Boolean, val refill: Boolean)
+data class PodGridCell(val copy: DraftCopy?, val pickedBy: String?, val discarded: Boolean, val refill: Boolean)
 
 /**
  * [latest] is the grid's newest board (see [gridBoardStages]): only there are a finished grid's unpicked cards
  * discarded; a board before a refill had none.
  */
-internal fun podGridCells(board: GridPublicBoard, slots: List<GridPublicSlot> = board.slots, latest: Boolean = true): List<PodGridCell> =
+fun podGridCells(board: GridPublicBoard, slots: List<GridPublicSlot> = board.slots, latest: Boolean = true): List<PodGridCell> =
     slots.map { PodGridCell(it.copy, it.pickedBy, latest && board.finished && it.pickedBy == null && it.copy != null, it.refill) }
 
 /**
  * The picks whose line band passes under [position], in drawing order: the latest pick first, so each earlier pick's
  * band lies on top of later ones (where lines cross, the card went to the earlier pick, whose band frames it).
  */
-internal fun podGridBands(picks: List<GridPublicPickLog>, position: Int): List<GridPublicPickLog> =
+fun podGridBands(picks: List<GridPublicPickLog>, position: Int): List<GridPublicPickLog> =
     picks.filter { pick -> pick.line?.positions()?.contains(position) == true }.asReversed()
 
 /** Sub-label of one of a refilled grid's boards; null for a grid with one board. */
-internal fun podGridStageLabel(index: Int, count: Int): String? = when {
+fun podGridStageLabel(index: Int, count: Int): String? = when {
     count < 2 -> null
     index == 0 -> "Before refill"
     count == 2 -> "After refill"
@@ -70,12 +70,12 @@ internal fun podGridStageLabel(index: Int, count: Int): String? = when {
 }
 
 /** Your current pick first, then the other open grids in number order, then finished grids (as the server orders them). */
-internal fun podGridOrder(view: GridViewData): List<GridPublicBoard> {
+fun podGridOrder(view: GridViewData): List<GridPublicBoard> {
     val head = view.publicView.grids.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
     return listOfNotNull(head) + view.publicView.grids.filter { it != head }.sortedBy { it.number } + view.publicView.finishedGrids
 }
 
-internal fun podGridHeader(board: GridPublicBoard, view: GridViewData, totalGrids: Int, members: List<AccountIdentity>): String {
+fun podGridHeader(board: GridPublicBoard, view: GridViewData, totalGrids: Int, members: List<AccountIdentity>): String {
     val me = view.mine.player
     val status = when {
         board.finished -> "Finished"
@@ -156,16 +156,16 @@ fun PodGridView(
 }
 
 /** Opacity of the primary tint over the selected row's or column's cards. */
-internal const val PodGridHighlightTint = .28f
+const val PodGridHighlightTint = .28f
 
 /** Space around each card where the line bands of picks show: the visible band is this minus [PodGridBandGap]. */
-internal val PodGridBandWidth = 5.dp
+val PodGridBandWidth = 5.dp
 
 /** Bands stop this short of a cell's sides across their line, so two adjacent parallel bands stay apart. */
-internal val PodGridBandGap = 1.dp
+val PodGridBandGap = 1.dp
 
 /** Discarded cards fade most; while a line is selected the other live cards dim slightly so the selection stands out. */
-internal fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean) = when {
+fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean) = when {
     cell.discarded -> .35f
     selecting && live && !highlighted -> .7f
     else -> 1f
@@ -276,7 +276,7 @@ private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int
  * (DRF-085). Grid, Rotisserie and Rochester cards all use it.
  */
 @Composable
-internal fun BoxScope.PodPickerBadge(account: AccountIdentity?, color: Color, tag: String) {
+fun BoxScope.PodPickerBadge(account: AccountIdentity?, color: Color, tag: String) {
     Box(Modifier.align(Alignment.TopStart).testTag(tag).clearAndSetSemantics {}.size(18.dp)
         .background(color, CircleShape).padding(2.dp)) {
         if (account != null) Avatar(account, size = 14.dp)

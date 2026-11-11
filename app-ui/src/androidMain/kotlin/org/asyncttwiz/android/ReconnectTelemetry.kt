@@ -6,7 +6,7 @@ import java.time.Instant
 import java.util.UUID
 
 /** Record at episode start too: a stalled/failed recovery must not disappear from diagnostics. */
-internal class ReconnectRecorder(private val enabled: Boolean, private val now: () -> Long,
+class ReconnectRecorder(private val enabled: Boolean, private val now: () -> Long,
     private val timestamp: () -> String = { Instant.now().toString() },
     private val record: (ReconnectEpisode) -> Unit) {
     private data class Active(val start: Long, var last: Long, var value: ReconnectEpisode)
@@ -36,7 +36,7 @@ internal class ReconnectRecorder(private val enabled: Boolean, private val now: 
 }
 
 /** Version-aware acknowledgement retains any progress made during an in-flight upload. */
-internal class ReconnectBuffer(private val enabled: Boolean, private val capacity: Int = 200) {
+class ReconnectBuffer(private val enabled: Boolean, private val capacity: Int = 200) {
     private val entries = linkedMapOf<String, ReconnectEpisode>()
     @Synchronized fun record(value: ReconnectEpisode): Boolean {
         if (!enabled) return false

@@ -18,7 +18,7 @@ import org.asyncttwiz.appui.NativeColors
 import org.asyncttwiz.appui.drawNativeText
 
 /** Retained across tap endpoints: don't rebuild every text metric/path on the first rotation frame. */
-internal class TableDrawCache(density: Float) {
+class TableDrawCache(density: Float) {
     val paint = NativeTextPaint().apply { color = NativeColors.DKGRAY; textSize = 11 * density }
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
@@ -37,7 +37,7 @@ internal class TableDrawCache(density: Float) {
 }
 
 /** One drawTable pass: its paint, scaled text helpers and the card-face drawing every layer shares. */
-internal class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDrawCache,
+class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDrawCache,
     val artwork: Map<String, ImageBitmap>) {
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
@@ -277,9 +277,9 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
 }
 
 /** STK-046: an ability token's body, its art band while the art is missing, and the Inspect panel's text (STK-050). */
-internal val AbilityTokenColor = Color(0xff2e2838)
-internal val AbilityTokenArtColor = Color(0xff4a4259)
-internal val AbilityTokenTextColor = Color(0xffe8e2f0)
+val AbilityTokenColor = Color(0xff2e2838)
+val AbilityTokenArtColor = Color(0xff4a4259)
+val AbilityTokenTextColor = Color(0xffe8e2f0)
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f

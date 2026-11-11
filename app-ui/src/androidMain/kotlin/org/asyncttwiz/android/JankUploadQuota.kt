@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 /** Owned by DebugJank for the process lifetime. Failed uploads also consume an attempt. */
-internal class JankUploadQuota {
+class JankUploadQuota {
     private var attempts = 0
     private var lastAttempt: Long? = null
 

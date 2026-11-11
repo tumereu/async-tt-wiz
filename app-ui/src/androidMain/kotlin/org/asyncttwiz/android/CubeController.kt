@@ -23,7 +23,7 @@ data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boo
     val destination: DeckSection = DeckSection.MAINBOARD, val discard: Boolean = false)
 
 /** A cube has Main and Maybe only. */
-internal fun ResolvedDeckEntry.cubeSection() =
+fun ResolvedDeckEntry.cubeSection() =
     if (section == DeckSection.MAINBOARD) SavedDeckSection.MAINBOARD else SavedDeckSection.MAYBEBOARD
 
 /** Only accepted server data is collection state; editor, lookup and retry intent are volatile. */

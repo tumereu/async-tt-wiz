@@ -12,17 +12,17 @@ fun interface PodSetRepository {
 }
 
 /** The device's card records as the pickers' set list. */
-internal class StoredPodSets(private val repository: () -> CatalogRepository) : PodSetRepository {
+class StoredPodSets(private val repository: () -> CatalogRepository) : PodSetRepository {
     override fun sets() = repository().draftableSets()
 }
 
 /** A draft set chosen as a pod's source: the server builds its packs from its card catalog (DRF-169, section 3.7). */
 data class PodSetChoice(val code: String, val name: String)
 
-internal fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = code, setName = name, packSets = listOf(code))
+fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = code, setName = name, packSets = listOf(code))
 
 /** A set's support as a list's (LOB-115's icon and hold): its unsupported cards (DRF-161), from the card catalog's marks. */
-internal fun DraftableSet.support(): CardListSupport =
+fun DraftableSet.support(): CardListSupport =
     CardListSupport(CardDefinitions.parserVersion, unsupported, arcanum.engine.Engine.SUPPORT_VERSION)
 
 /** Which packs of the pack grid (DRF-178) a set is being chosen for: one cell, a round's row or a pack's column. */
@@ -36,26 +36,26 @@ sealed interface PodPackTarget {
 }
 
 /** The packs [this] target names, as the set picker's title says them: "Round 2 · Pack 1", "Round 2", "Pack 1". */
-internal fun PodPackTarget.label(settings: DraftSettings): String = when (this) {
+fun PodPackTarget.label(settings: DraftSettings): String = when (this) {
     is PodPackTarget.Cell -> if (PodPackGrid.rows(settings)?.size == 1) podPackColumnLabel(column)
         else "${podPackRowLabel(settings, row)} · ${podPackColumnLabel(column)}"
     is PodPackTarget.Row -> podPackRowLabel(settings, row)
     is PodPackTarget.Column -> podPackColumnLabel(column)
 }
 /** A row label: "Round 2"; a grid of one row (Sealed, Winston, Winchester) reads "All packs". */
-internal fun podPackRowLabel(settings: DraftSettings, row: Int) =
+fun podPackRowLabel(settings: DraftSettings, row: Int) =
     if (PodPackGrid.rows(settings)?.size == 1) "All packs" else "Round ${row + 1}"
 /** A column label: "Pack 1". */
-internal fun podPackColumnLabel(column: Int) = "Pack ${column + 1}"
+fun podPackColumnLabel(column: Int) = "Pack ${column + 1}"
 
 /** [packSets] with [target]'s packs set to [code] (DRF-178). */
-internal fun PodPackTarget.apply(packSets: List<String>, settings: DraftSettings, code: String): List<String> = when (this) {
+fun PodPackTarget.apply(packSets: List<String>, settings: DraftSettings, code: String): List<String> = when (this) {
     is PodPackTarget.Cell -> PodPackGrid.setCell(packSets, settings, index, code)
     is PodPackTarget.Row -> PodPackGrid.setRow(packSets, settings, row, code)
     is PodPackTarget.Column -> PodPackGrid.setColumn(packSets, settings, column, code)
 }
 
-internal data class PodSetPickerState(
+data class PodSetPickerState(
     val open: Boolean = false, val sets: List<DraftableSet> = emptyList(), val query: String = "",
     val loaded: Boolean = false, val busy: Boolean = false, val error: String? = null,
     /** The pack grid's packs the set is chosen for (DRF-178); null: the whole pod's source. */
@@ -78,7 +78,7 @@ internal data class PodSetPickerState(
  * (DRF-176). A set Automatum can't play every card of (the card catalog's marks, section 3.9) is greyed and can't be
  * chosen; a chosen set goes to the pod by its code ([selected], with the pack grid's packs it was chosen for, DRF-178).
  */
-internal class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
+class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
     private val post: (() -> Unit) -> Unit, private val selected: (PodSetChoice, PodPackTarget?) -> Unit) {
     var state by mutableStateOf(PodSetPickerState())
         private set

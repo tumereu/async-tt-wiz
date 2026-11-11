@@ -7,7 +7,7 @@ import java.util.concurrent.ExecutorService
 /** LobbyController's list refresh: contacts, games, invitations and the selected game's head read over
  * HTTP and merged with summaries accepted meanwhile, plus the foreground/background switch and quiet
  * background failures. Main thread; the reads run on [worker]. */
-internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
+class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit, private val session: GameSession?,
     clock: () -> Long) {
     private var state: LobbyState
@@ -182,11 +182,11 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
     private fun connectionState() = scope.connectionState()
 }
 
-internal fun updatedGameRows(rows: List<GameSummary>, game: GameSummary, included: Boolean): List<GameSummary> =
+fun updatedGameRows(rows: List<GameSummary>, game: GameSummary, included: Boolean): List<GameSummary> =
     if (!included) rows.filterNot { it.id == game.id }
     else if (rows.any { it.id == game.id }) rows.map { if (it.id == game.id) game else it }
     else rows + game
-internal fun stableGameRows(old: List<GameSummary>, incoming: List<GameSummary>): List<GameSummary> {
+fun stableGameRows(old: List<GameSummary>, incoming: List<GameSummary>): List<GameSummary> {
     val byId = incoming.associateBy { it.id }
     val retained = old.mapNotNull { byId[it.id] }
     val ids = old.map { it.id }.toSet()

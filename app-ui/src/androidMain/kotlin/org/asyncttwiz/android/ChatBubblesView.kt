@@ -52,7 +52,7 @@ private data class PlacedChatBubble(val bounds: TableBounds, val lines: List<Str
 
 /** LOB-136, LOB-137: both players' chat bubbles by their life squares on a [width]×[height] table. */
 @Composable
-internal fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubbles, width: Float, height: Float) {
+fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubbles, width: Float, height: Float) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     // dp-sized text, as the table's own drawings (the layout's line heights are dp)

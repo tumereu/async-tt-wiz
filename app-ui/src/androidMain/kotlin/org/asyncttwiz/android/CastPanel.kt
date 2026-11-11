@@ -69,7 +69,7 @@ import org.asyncttwiz.protocol.*
  * Undo drop the whole cast (STK-025); there is no Cancel.
  */
 @Composable
-internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>) {
+fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>) {
     val cast = toolkit.cast
     // Targets are chosen: a pile opened to pick them from closes again once they are (i12review #14)
     LaunchedEffect(cast.targeting || toolkit.flows.targeting) { if (!cast.targeting && !toolkit.flows.targeting) toolkit.targetingEnded() }
@@ -102,7 +102,7 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, sc
 
 /** The source of a cast (STK-044): the card cast, or for an activation ([abilityText] its text) the ability as its
  * Stack token would show it (STK-046), the source's art with the marker. */
-internal fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: String?): ChoiceCardData {
+fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: String?): ChoiceCardData {
     val card = choiceCard(play, viewer, "source/${flow.cardId}", flow.cardId, shown = true, fallback = CastController.cardName(play, flow.cardId))
     return if (abilityText == null) card else card.copy(ability = StackAbilityShown(triggered = false, source = card.name, text = abilityText))
 }
@@ -130,7 +130,7 @@ private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit)
  * payment, and whether the viewer may be shown an object (I-D27: hidden cards stay hidden, also to a player choosing
  * for the other one).
  */
-internal interface FlowQuestions {
+interface FlowQuestions {
     val engine: GameState
     fun atwCard(id: ObjectId): String?
     fun answer(answer: Answer): Boolean
@@ -173,7 +173,7 @@ internal interface FlowQuestions {
  * division) has no OK of its own: the panel's Cast answers it and goes on ([ChoiceOk]). [answer] answers the open
  * decision [decision], null while the choice isn't complete.
  */
-internal class CastOk(
+class CastOk(
     /** The panel's main button ("Cast", "Activate", "Play"), named in the choices' hints instead of OK. */
     val label: String = "Cast",
 ) {
@@ -184,10 +184,10 @@ internal class CastOk(
 }
 
 /** TRN-063: why a choice's OK on the main button is greyed. */
-internal const val CHOICE_INCOMPLETE = "Finish the choice first."
+const val CHOICE_INCOMPLETE = "Finish the choice first."
 
 /** The cast panel the composed choice sits in ([CastOk]), null elsewhere. */
-internal val LocalCastOk = compositionLocalOf<CastOk?> { null }
+val LocalCastOk = compositionLocalOf<CastOk?> { null }
 
 /**
  * A choice's OK: on the table the main button (TRN-063, owner playtest 2026-11-09: [MainButtonAction], greyed with why while not
@@ -195,7 +195,7 @@ internal val LocalCastOk = compositionLocalOf<CastOk?> { null }
  * answers it (STK-023). [label]: what it says ("OK", "Keep").
  */
 @Composable
-internal fun ChoiceOk(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
+fun ChoiceOk(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
     val ok = LocalCastOk.current
     if (ok == null) {
         val main = MainButtonAction(MainAction(label, Icons.Outlined.Check, refusal = CHOICE_INCOMPLETE.takeIf { !enabled },
@@ -214,7 +214,7 @@ internal fun ChoiceOk(decision: Decision, enabled: Boolean, label: String = "OK"
  * [dock] (the viewer's hand row, finalreview-combat #2): in portrait the content docks just above it instead, across
  * the table's middle, clear of the combat area's panel and its preview. */
 @Composable
-internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? = null, content: @Composable () -> Unit) {
+fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? = null, content: @Composable () -> Unit) {
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val margin = 8.dp.roundToPx()
         val docked = dock != null && constraints.maxHeight > constraints.maxWidth
@@ -264,11 +264,11 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
 }
 
 /** TRN-063: why Done on the main button is greyed while targets or permanents are picked. */
-internal const val PICK_INCOMPLETE = "Pick on the table first: what is picked can't be finished yet."
+const val PICK_INCOMPLETE = "Pick on the table first: what is picked can't be finished yet."
 
 /** STK-047 (owner playtest 2026-11-09): how many are picked of how many the bar asks ("1 of 2", "2 picked", "1 of up to 3"); null for a
  * single pick that a tap answers. */
-internal fun pickCount(pick: TablePick, picked: Int): String? = when {
+fun pickCount(pick: TablePick, picked: Int): String? = when {
     pick.max == 1 && pick.min <= 1 -> null
     pick.max == null -> if (pick.min > 0) "$picked picked, at least ${pick.min}" else "$picked picked"
     pick.min == pick.max -> "$picked of ${pick.max}"
@@ -277,7 +277,7 @@ internal fun pickCount(pick: TablePick, picked: Int): String? = when {
 
 /** I-D48: a button's icon beside its words. */
 @Composable
-internal fun IconText(icon: ImageVector, text: String) {
+fun IconText(icon: ImageVector, text: String) {
     Icon(icon, null, Modifier.size(18.dp))
     Spacer(Modifier.width(4.dp))
     Text(text)
@@ -388,14 +388,14 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
 }
 
 /** TRN-063: why Cast on the main button is greyed: Automatum works the last step out. */
-internal const val CAST_WORKING = "Automatum is working this out."
+const val CAST_WORKING = "Automatum is working this out."
 /** TRN-063, STK-024: why Cast on the main button is greyed: the mana chosen doesn't pay. */
-internal const val CAST_UNPAID = "The sources chosen don't pay the cost: tap sources on the table."
+const val CAST_UNPAID = "The sources chosen don't pay the cost: tap sources on the table."
 
 /** I-D48: an icon-only control without a hold action of its own says what it does on hold. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun HoldTip(description: String, content: @Composable () -> Unit) {
+fun HoldTip(description: String, content: @Composable () -> Unit) {
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { CardText(description) } }, state = rememberTooltipState()) { content() }
 }
@@ -403,7 +403,7 @@ internal fun HoldTip(description: String, content: @Composable () -> Unit) {
 /** A section of a choice: what it is ([title]) and a short instruction ([hint], I-D47); in a panel whose own title says
  * both already ([ChoiceFrame.headed]) only its content. */
 @Composable
-internal fun Section(title: String, hint: String? = null, content: @Composable ColumnScope.() -> Unit) {
+fun Section(title: String, hint: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val headed = LocalChoiceFrame.current.headed
     Column(verticalArrangement = Arrangement.spacedBy(if (headed) 6.dp else 2.dp)) {
         if (!headed) {
@@ -455,7 +455,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
 /** The open question (but targets, chosen on the table, and mana, [ManaSection]) of a cast or a shared flow. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
+fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
     // I-D47, I-D48: each section says what the choice is with a short instruction; cards are drawn as cards, buttons
     // carry icons
     val viewer = LocalChoiceFrame.current.viewer
@@ -554,7 +554,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
 
 /** A choice's OK alone ([ChoiceOk]): in a row of buttons of its own, or in the cast panel none (its Cast answers it). */
 @Composable
-internal fun OkRow(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
+fun OkRow(decision: Decision, enabled: Boolean, label: String = "OK", answer: () -> Unit) {
     if (LocalCastOk.current != null || LocalMainSlot.current != null) ChoiceOk(decision, enabled, label, answer)
     else DockButtons { ChoiceOk(decision, enabled, label, answer) }
 }
@@ -634,7 +634,7 @@ private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text ?: "M
 /** The mana section: the engine's suggested tapping shown tapped, the other sources untapped; a tap toggles one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ManaPayment) {
+fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ManaPayment) {
     Section("Mana · ${decision.cost}", choiceHint(decision)) {
         val groups = ManaPicks.groups(decision)
         val viewer = LocalChoiceFrame.current.viewer
@@ -708,7 +708,7 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
 
 /** STK-024: whether the battlefield card [card] can be seen on the table with an open panel's top at [top] (dp): at least half
  * of it inside its battlefield, above the panel. */
-internal fun TableScene.inView(card: String, top: Float): Boolean {
+fun TableScene.inView(card: String, top: Float): Boolean {
     val item = items.firstOrNull { it.cardId == card && it.zone == PlayZone.BATTLEFIELD } ?: return false
     val field = viewports.firstOrNull { it.id == item.viewport }?.bounds ?: item.bounds
     val seen = item.bounds.intersection(field) ?: return false
@@ -746,7 +746,7 @@ private fun TapGlyph(tapped: Boolean) {
 
 /** The eye (I-D10): hides the panel to look at the board, and shows it again. */
 @Composable
-internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") {
+fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") {
     IconButton(toggle, Modifier.size(40.dp).semantics { contentDescription = if (hidden) "Show $what" else "Hide $what" }) {
         Canvas(Modifier.size(22.dp)) {
             val stroke = Stroke(1.8f * density)
@@ -761,7 +761,7 @@ internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast
 
 /** The cast panel's title (STK-023, STK-044): what is done and the card it is done with, [name] ("Cast Storm Spark",
  * "Play Mountain", "Activate Ember Herald": an ability by its source's name), the card also at the panel's right. */
-internal fun castTitle(flow: CastFlow, name: String) = when {
+fun castTitle(flow: CastFlow, name: String) = when {
     flow.begin is Input.PlayLand -> "Play $name"
     flow.activation -> "Activate $name"
     else -> "Cast $name"
@@ -774,7 +774,7 @@ private fun actionLabel(flow: CastFlow) = when {
     else -> "Cast"
 }
 
-internal fun cardText(play: TableBoard, cardId: String): String? {
+fun cardText(play: TableBoard, cardId: String): String? {
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return null
     val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces ?: return null
     return faces.joinToString("\n") { it.rulesText }.trim().ifEmpty { null }
@@ -788,9 +788,9 @@ private fun wayLabel(play: TableBoard, flow: CastFlow, way: Input): String = whe
 }
 
 /** A target bar's title (STK-044, STK-047): only the choice, "Choose any target", "Choose up to 2 target creature". */
-internal fun targetTitle(d: Decision.Targets): String = targetPrompt(d).replaceFirstChar { it.uppercase() }
+fun targetTitle(d: Decision.Targets): String = targetPrompt(d).replaceFirstChar { it.uppercase() }
 
-internal fun targetPrompt(d: Decision.Targets): String {
+fun targetPrompt(d: Decision.Targets): String {
     val slot = d.slot.substringBefore(':').substringBefore('@')
     val what = if (slot == "any" || slot.isEmpty()) "any target" else "target $slot"
     return when {
@@ -805,7 +805,7 @@ private fun mayTitle(d: Decision.May) = choiceWhat(d)
 
 /** STK-030: "Cost" and the cost a question asks to pay, as a chip with its symbols ("{2}", "Forage"). */
 @Composable
-internal fun CostLine(cost: arcanum.api.Cost) {
+fun CostLine(cost: arcanum.api.Cost) {
     val text = costText(cost)
     Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "Cost: $text" }, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -849,13 +849,13 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
     else -> answer::class.simpleName ?: "Answer"
 }
 
-internal fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, target: TargetRef): String = when (target) {
+fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, target: TargetRef): String = when (target) {
     is TargetRef.Player -> names[target.id.value] ?: "A player"
     is TargetRef.Object -> objectName(flow, play, target.id)
 }
 
 /** An object's name, or "A hidden card" when the viewer mustn't see it (I-D27). */
-internal fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
+fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
     else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: arcanum.engine.Engine.lastKnown(flow.engine, id)?.characteristics?.name

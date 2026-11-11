@@ -66,7 +66,7 @@ interface AutomatumWork {
  * [current]: the board the player acts on, null while they can't act (the timeline reviewed, offline); the cast follows
  * only that board, never one shown in review. [fail]: a message for the player.
  */
-internal class CastController(
+class CastController(
     private val viewer: String,
     private val current: () -> TableBoard?,
     private val fail: (String?) -> Unit,
@@ -891,7 +891,7 @@ internal class CastController(
 /** The table items that glow for the legal targets [refs] (I-D6): cards by id, a Graveyard or Exile pile holding one
  * (tapped, it opens to pick from, i12review #14), Stack entries by id, and the Stack itself when an entry below the top
  * is one (tapped, Manage Stack opens to pick from), players by their life square. */
-internal fun targetGlow(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMap { ref ->
+fun targetGlow(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMap { ref ->
     // UI review round 2 #4 (decided for the owner): a spell on the Stack glows as its entry only, never as its real card
     // (in a hand, STK-001) or the pile holding it
     val entries = play.board.stackEffects.filter { it.item?.id == ref }.map { it.id }
@@ -907,7 +907,7 @@ internal fun targetGlow(play: TableBoard, refs: List<MtgRef>): Set<String> = ref
 
 /** STK-047: the table items drawn as picked for the picked targets [refs]: cards by id, Stack entries by id, players by
  * their life square (never the pile or the Stack holding one: it may hold other targets still to pick). */
-internal fun targetPicks(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMapTo(HashSet()) { ref ->
+fun targetPicks(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMapTo(HashSet()) { ref ->
     val entries = play.board.stackEffects.filter { it.item?.id == ref }.map { it.id }
     if (entries.isNotEmpty()) return@flatMapTo entries
     when (ref) {
@@ -919,7 +919,7 @@ internal fun targetPicks(play: TableBoard, refs: List<MtgRef>): Set<String> = re
 
 /** The Stack entries that are legal targets among [refs]: a spell by its card (its item's object), an ability by its
  * item (I-D6), top first. */
-internal fun targetEntries(play: TableBoard, refs: List<MtgRef>): List<String> {
+fun targetEntries(play: TableBoard, refs: List<MtgRef>): List<String> {
     val wanted = refs.filter { it !is MtgRef.Player }.toSet()
     val entries = play.board.stackEffects.associateBy { it.id }
     return CombatStackRules.stack(play.board).cards.filter { id -> entries[id]?.item?.id in wanted }

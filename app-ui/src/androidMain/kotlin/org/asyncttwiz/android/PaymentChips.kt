@@ -27,10 +27,10 @@ import arcanum.engine.decision.ManaUse
 import org.asyncttwiz.automatum.ManaWays
 
 /** The test tag of a paying source's corner chip (STK-024). */
-internal const val PAY_CHIP_TAG = "pay-chip"
+const val PAY_CHIP_TAG = "pay-chip"
 
 /** The amber of a payment's outlined sources and their corner chips (STK-024). */
-internal val PayAmber = Color(0xffd08a1e)
+val PayAmber = Color(0xffd08a1e)
 
 /**
  * STK-024 (owner playtest 2026-11-09): each source paying the open payment on the table (a cast's, or one made while something
@@ -40,7 +40,7 @@ internal val PayAmber = Color(0xffd08a1e)
  * [bounds]: where each item is drawn now (moving cards included).
  */
 @Composable
-internal fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bounds: (TableItem) -> TableBounds) {
+fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bounds: (TableItem) -> TableBounds) {
     if (!toolkit.paying) return
     var open by remember { mutableStateOf<String?>(null) }
     val paying = toolkit.paySources()

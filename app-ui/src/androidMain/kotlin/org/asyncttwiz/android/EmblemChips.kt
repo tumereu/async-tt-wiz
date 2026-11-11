@@ -4,7 +4,7 @@ package org.asyncttwiz.android
  * (an emblem icon when it has none), at most [SHOWN] of them and then a "+N" chip, in the player's row of round chips by
  * their life square, after their dungeon's room and their states ([PlayerChips], TRN-072, TRN-069). Holding any of them
  * inspects all that player's emblems ([EmblemInspect]). */
-internal object EmblemChips {
+object EmblemChips {
     /** A round chip's size, the smallest it gets where room is short, and the gap between chips (dp). */
     const val SIZE = 24f
     const val MIN_SIZE = 20f
@@ -31,7 +31,7 @@ internal object EmblemChips {
 }
 
 /** The text metrics of the chips beside a life square (EmblemChips). */
-internal object ChipText {
+object ChipText {
     const val TEXT = 11f
     const val PADDING = 6f
     const val HEIGHT = 18f

@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.JankEpisode
 import kotlin.math.ceil
 
-internal data class RenderFrame(val startNanos: Long, val durationNanos: Long, val isJank: Boolean,
+data class RenderFrame(val startNanos: Long, val durationNanos: Long, val isJank: Boolean,
     val refreshRate: Float, val states: Map<String, String> = emptyMap(), val actions: List<String> = emptyList(),
     val localApply: Boolean = false, val treeWork: Boolean = false) {
     val end get() = startNanos + durationNanos
@@ -13,7 +13,7 @@ internal data class RenderFrame(val startNanos: Long, val durationNanos: Long, v
 /** Sliding one-second trigger, coalesced until one quiet second (maximum five seconds).
  * Frozen frames flush immediately. Idle flushes use the same monotonic clock as frame starts.
  * No Android dependency, allocation-heavy sorting only when an episode actually ends. */
-internal class StutterDetector(private val timestamp: (Long) -> String,
+class StutterDetector(private val timestamp: (Long) -> String,
     private val record: (JankEpisode) -> Unit) {
     private val window = ArrayDeque<RenderFrame>()
     private val episode = ArrayList<RenderFrame>()
@@ -56,7 +56,7 @@ internal class StutterDetector(private val timestamp: (Long) -> String,
 }
 
 /** Bounded across process death by its owner; upload allowance is process-local. */
-internal class JankBuffer(private val capacity: Int = 30) {
+class JankBuffer(private val capacity: Int = 30) {
     private val episodes = ArrayDeque<JankEpisode>()
     fun restore(values: List<JankEpisode>) { values.takeLast(capacity).forEach(::add) }
     fun add(value: JankEpisode) { episodes.addLast(value); while (episodes.size > capacity) episodes.removeAt(0) }

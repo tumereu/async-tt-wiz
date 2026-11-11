@@ -34,7 +34,7 @@ import org.asyncttwiz.protocol.*
  * The engine work of each answer runs on [work] (off the main thread in the app, SYS-025); meanwhile [busy] is true and
  * further answers wait. [view] is the shown board's flow, set by the panel's host once worked out ([show]).
  */
-internal class SharedFlowController(
+class SharedFlowController(
     private val viewer: String,
     private val current: () -> TableBoard?,
     private val fail: (String?) -> Unit,

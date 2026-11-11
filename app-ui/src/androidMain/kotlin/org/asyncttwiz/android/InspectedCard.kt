@@ -15,5 +15,5 @@ data class InspectedCard(val definition: CardDefinition, val artwork: List<Artwo
 }
 
 /** A flip card currently on its flipped half: inspection shows it turned 180° so that half reads upright. */
-internal fun flippedOnTable(definition: CardDefinition, faceId: String): Boolean =
+fun flippedOnTable(definition: CardDefinition, faceId: String): Boolean =
     definition.layout == "flip" && definition.faces.indexOfFirst { it.faceId == faceId } > 0

@@ -47,12 +47,12 @@ import org.asyncttwiz.storage.CatalogCardSearch
  * Card names for "choose a card name" (CR 201.4, final cast review #1): every name of a card that contains what the player
  * typed and passes the effect's restriction ([filter]), by name. Blocking: called off the main thread.
  */
-internal fun interface CardNameSuggestions {
+fun interface CardNameSuggestions {
     fun names(text: String, filter: ObjectFilter): List<String>
 }
 
 /** The device's card catalog: names containing [text], by name. Nothing while the catalog isn't installed. */
-internal class CatalogCardNames(private val services: AppServices) : CardNameSuggestions {
+class CatalogCardNames(private val services: AppServices) : CardNameSuggestions {
     override fun names(text: String, filter: ObjectFilter): List<String> = searchedNames(text, filter) { query ->
         (services.catalogRepository().searchCards(query, limit = SUGGESTIONS, budget = 20_000) as? CatalogCardSearch.Page)?.cards.orEmpty()
     }
@@ -60,7 +60,7 @@ internal class CatalogCardNames(private val services: AppServices) : CardNameSug
 
 /** The names for [text] by [search], the card search: the cards with exactly that name too, as any number of cards before them by
  * name may contain it ("Fire" among the cards with "fire" in their names), and [catalogNames] puts their names first. */
-internal fun searchedNames(text: String, filter: ObjectFilter, search: (String) -> List<CatalogCard>): List<String> {
+fun searchedNames(text: String, filter: ObjectFilter, search: (String) -> List<CatalogCard>): List<String> {
     val quoted = "\"" + text.replace("\"", "") + "\""
     return catalogNames(search("!$quoted") + search(quoted), text, filter)
 }
@@ -72,7 +72,7 @@ internal fun searchedNames(text: String, filter: ObjectFilter, search: (String) 
  * by name. Accents don't count, as in the search (CR 201.4). The search can't take the restriction: it judges a whole card. No
  * token's name.
  */
-internal fun catalogNames(cards: List<CatalogCard>, text: String, filter: ObjectFilter): List<String> {
+fun catalogNames(cards: List<CatalogCard>, text: String, filter: ObjectFilter): List<String> {
     val typed = CardSearchRules.foldName(text)
     return cards.asSequence().filterNot { it.printing.token }.flatMap { card ->
         val parts = card.namedParts()
@@ -83,7 +83,7 @@ internal fun catalogNames(cards: List<CatalogCard>, text: String, filter: Object
 }
 
 /** Where the panel's card-name field takes its suggestions from; null: the device's card catalog. */
-internal val LocalCardNameSuggestions = staticCompositionLocalOf<CardNameSuggestions?> { null }
+val LocalCardNameSuggestions = staticCompositionLocalOf<CardNameSuggestions?> { null }
 
 /** Cards the search brings; each may give several names, and the restriction leaves out some. */
 private const val SUGGESTIONS = 40
@@ -92,7 +92,7 @@ private const val SUGGESTIONS = 40
  * The restriction of a card name to choose ("a nonland card name", CR 201.4) on cards themselves: by their printed card
  * types, supertypes and subtypes. A part of it that isn't about these (it can't be judged on a card) lets every card pass.
  */
-internal object CardNameFilter {
+object CardNameFilter {
     /** Whether [face] passes [filter]. */
     fun allows(filter: ObjectFilter, face: FaceDefinition): Boolean = when (filter) {
         ObjectFilter.Any -> true
@@ -118,14 +118,14 @@ internal object CardNameFilter {
 }
 
 /** Where a suggested name comes from (STK-041): the viewer's own library, the cards seen this game, or every card. */
-internal sealed interface NameSource {
+sealed interface NameSource {
     data object Library : NameSource
     data object Seen : NameSource
     data object Catalog : NameSource
 }
 
 /** A name to choose with where it comes from. */
-internal data class NameSuggestion(val name: String, val source: NameSource)
+data class NameSuggestion(val name: String, val source: NameSource)
 
 /**
  * STK-041 (owner gallery review, 2026-11-06): the game's names offered first for "choose a card name", those passing
@@ -134,7 +134,7 @@ internal data class NameSuggestion(val name: String, val source: NameSource)
  * name in each group. Each name of a card is apart, the restriction judged by its own part (CR 709.4a, 201.4b-f). Nothing of
  * the other player's hidden cards (I-D27), whoever is deciding.
  */
-internal fun gameNames(state: GameState, viewer: String, decision: Decision.ChooseCardName, typed: String): List<NameSuggestion> {
+fun gameNames(state: GameState, viewer: String, decision: Decision.ChooseCardName, typed: String): List<NameSuggestion> {
     fun faces(id: ObjectId) = state.obj(id)?.takeIf { !it.token }?.definition?.faces.orEmpty()
     val folded = CardSearchRules.foldName(typed)
     fun names(ids: Collection<ObjectId>) = ids.flatMap(::faces)
@@ -154,7 +154,7 @@ internal fun gameNames(state: GameState, viewer: String, decision: Decision.Choo
  * chooses it (written in the field); OK names it.
  */
 @Composable
-internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardName) {
+fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardName) {
     val services = AppServices.current
     val viewer = LocalChoiceFrame.current.viewer
     val source = LocalCardNameSuggestions.current ?: remember(services) { CatalogCardNames(services) }
@@ -220,7 +220,7 @@ private fun NameRow(suggestion: NameSuggestion, chosen: Boolean, choose: () -> U
 }
 
 /** Every creature type of the pinned rules (CR 205.3m), by name. */
-internal val creatureTypes: List<Subtype> by lazy {
+val creatureTypes: List<Subtype> by lazy {
     CardDefinitions.ruleSubtypes.map(::Subtype).filter { Subtypes.kindOf(it) == SubtypeKind.Creature }.sortedBy { it.name }
 }
 
@@ -230,7 +230,7 @@ internal val creatureTypes: List<Subtype> by lazy {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun CreatureTypeSection(cast: FlowQuestions, decision: Decision.ChooseSubtype) {
+fun CreatureTypeSection(cast: FlowQuestions, decision: Decision.ChooseSubtype) {
     var filter by remember(decision.id) { mutableStateOf("") }
     Section("Choose a creature type", "Find a type and tap it.") {
         OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), singleLine = true,

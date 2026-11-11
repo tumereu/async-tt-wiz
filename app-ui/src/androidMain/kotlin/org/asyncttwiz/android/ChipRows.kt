@@ -16,7 +16,7 @@ import kotlin.math.ceil
  * widths always give the same rows. Each row lists its chips' indices in card order; a chip wider than a row has one of
  * its own.
  */
-internal object ChipRows {
+object ChipRows {
     /** More chips than this (never seen on one card) keep card order: the search would take too long. */
     const val MOST_SEARCHED = 9
 
@@ -84,7 +84,7 @@ internal object ChipRows {
  * row centred, [gap] between neighbouring chips and between rows.
  */
 @Composable
-internal fun ChipRowsLayout(gap: Dp, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ChipRowsLayout(gap: Dp, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Layout(content, modifier) { measurables, constraints ->
         val space = gap.roundToPx()
         val placeables = measurables.map { it.measure(Constraints(maxWidth = constraints.maxWidth)) }

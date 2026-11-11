@@ -13,7 +13,7 @@ import org.asyncttwiz.protocol.game.GameRepro
  * Automatum log and reproduction bundle ([AutomatumLog.bundle]) as [ReproBundle.REPORT_HEADER] and gzip+base64, cut
  * down to fit [CrashReport.MAX_AUTOMATUM] ([ReproBundle.decode] reads it back).
  */
-internal object AutomatumReports {
+object AutomatumReports {
     /** Writes every Automatum log entry to the app log, which a report carries (a game on engine state's report carries its
      * [GameRepro], not [AutomatumLog.bundle]: report DH3QX6's refusals reached nobody), and so to the Android log. */
     fun install() {
@@ -40,7 +40,7 @@ internal object AutomatumReports {
     /** [repro] as report text ([GameRepro.REPORT_HEADER] and gzip+base64), dropping its least useful parts until it
      * fits [maxChars]: older log entries, then the oldest events (the base can't be replayed past them then), then the
      * base state. */
-    internal fun fitEngine(repro: GameRepro, maxChars: Int): String? {
+    fun fitEngine(repro: GameRepro, maxChars: Int): String? {
         var fitted = repro
         while (true) {
             val text = encode(fitted.encode())
@@ -57,7 +57,7 @@ internal object AutomatumReports {
     }
 
     /** [bundle] as report text, dropping its older log entries until it fits [maxChars]. */
-    internal fun fit(bundle: ReproBundle, maxChars: Int): String {
+    fun fit(bundle: ReproBundle, maxChars: Int): String {
         var fitted = bundle
         while (true) {
             val text = encode(fitted)
@@ -69,7 +69,7 @@ internal object AutomatumReports {
         }
     }
 
-    internal fun encode(bundle: ReproBundle): String = ReproBundle.REPORT_HEADER + "\n" + gzip(bundle.encode())
+    fun encode(bundle: ReproBundle): String = ReproBundle.REPORT_HEADER + "\n" + gzip(bundle.encode())
 
     private fun encode(engineBundle: String): String = GameRepro.REPORT_HEADER + "\n" + gzip(engineBundle)
 

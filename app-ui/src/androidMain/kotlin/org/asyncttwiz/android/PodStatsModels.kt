@@ -14,7 +14,7 @@ import kotlin.math.roundToInt
 import arcanum.api.CardDefinition as RulesCard
 import arcanum.api.Color as RulesColor
 
-internal data class PodStats(
+data class PodStats(
     val curve: Map<Double, PodStatsCurveBucket>,
     val creatures: Int,
     val noncreatures: Int,
@@ -40,11 +40,11 @@ internal data class PodStats(
     val curveColors: Map<Double, Map<PodStatsColor, Int>> = emptyMap(),
 )
 
-internal data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
+data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
     val total: Int get() = creatures + noncreatures
 }
 
-internal enum class PodStatsColor { W, U, B, R, G, MULTICOLOR, COLORLESS }
+enum class PodStatsColor { W, U, B, R, G, MULTICOLOR, COLORLESS }
 
 private val podStatsSymbols = Regex("\\{([^{}]+)\\}")
 private val podStatsLand = Regex("\\bLand\\b", RegexOption.IGNORE_CASE)
@@ -53,21 +53,21 @@ private val podStatsPermanent = Regex("\\b(Artifact|Creature|Enchantment|Planesw
 private val podStatsBasicTypes = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
 
 /** Each word of the front type line before the type/subtype dash: "Legendary Artifact Creature — Golem" gives three. */
-internal fun podStatsTypeWords(typeLine: String): List<String> =
+fun podStatsTypeWords(typeLine: String): List<String> =
     typeLine.substringBefore(" // ").substringBefore('—').substringBefore(" - ")
         .split(Regex("\\s+")).filter { it.isNotEmpty() }.distinct()
 
-internal fun podStatsIsLand(card: CardDefinition): Boolean =
+fun podStatsIsLand(card: CardDefinition): Boolean =
     card.faces.firstOrNull()?.let { podStatsLand.containsMatchIn(it.typeLine) } == true
 
 /** The front cost's symbols other than generic, X/Y/Z and snow, in printed order: "{R/W}{R/W}", "{C}", "{2/U}". */
-internal fun podStatsPipPattern(cost: String): String = podStatsSymbols.findAll(cost.substringBefore("//"))
+fun podStatsPipPattern(cost: String): String = podStatsSymbols.findAll(cost.substringBefore("//"))
     .map { it.groupValues[1].uppercase() }
     .filterNot { symbol -> symbol.all { it.isDigit() || it == '½' } || symbol in setOf("X", "Y", "Z", "S") }
     .joinToString("") { "{$it}" }
 
 /** Whole pips plainly, halves as "4½"; anything finer to one decimal. */
-internal fun podStatsPipText(value: Double): String {
+fun podStatsPipText(value: Double): String {
     val whole = kotlin.math.floor(value + 1e-9).toLong()
     val rest = value - whole
     return when {
@@ -78,7 +78,7 @@ internal fun podStatsPipText(value: Double): String {
 }
 
 /** Match the front-cost fallback used by PodDeckManaCost.front; never inspect the back face. */
-internal fun podStatsFrontCost(card: CardDefinition): String {
+fun podStatsFrontCost(card: CardDefinition): String {
     val face = card.faces.firstOrNull() ?: return ""
     return face.manaCost.ifEmpty {
         face.sourceData?.let { runCatching {
@@ -90,10 +90,10 @@ internal fun podStatsFrontCost(card: CardDefinition): String {
 /** The cost whose coloured symbols Stats counts (DRF-114, DRF-116): a split (fuse included) or aftermath card's two
  * halves together, as its mana cost is outside the Stack (CR 709.4); any other card's front cost as [podStatsFrontCost]
  * reads it (an adventurer or flip card's main part, never a back face). */
-internal fun podStatsPipCost(card: CardDefinition): String =
+fun podStatsPipCost(card: CardDefinition): String =
     PodDeckManaCost.splitHalfCosts(card).takeIf { it.isNotEmpty() }?.joinToString("") ?: podStatsFrontCost(card)
 
-internal fun podStatsPips(cost: String): Map<DraftColor, Double> {
+fun podStatsPips(cost: String): Map<DraftColor, Double> {
     val result = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
     for (symbol in podStatsSymbols.findAll(cost.substringBefore("//"))) {
         val parts = symbol.groupValues[1].uppercase().split('/')
@@ -116,7 +116,7 @@ internal fun podStatsPips(cost: String): Map<DraftColor, Double> {
  * One source per produced colour per land, not mana quantity (DRF-115): its front face's basic land types (CR 305.6) and
  * the colours its mana abilities can add ([manaColors], from its Automatum definition; none when that is missing).
  */
-internal fun podStatsLandColors(card: CardDefinition, manaColors: Set<DraftColor> = emptySet()): Set<DraftColor> {
+fun podStatsLandColors(card: CardDefinition, manaColors: Set<DraftColor> = emptySet()): Set<DraftColor> {
     val face = card.faces.firstOrNull() ?: return emptySet()
     if (!podStatsLand.containsMatchIn(face.typeLine)) return emptySet()
     val result = mutableSetOf<DraftColor>()
@@ -132,7 +132,7 @@ internal fun podStatsLandColors(card: CardDefinition, manaColors: Set<DraftColor
  * a time, "any color" or a colour chosen as it enters counts every colour it may make. A spell adding mana (a ritual)
  * has no mana ability, and the tokens a card creates (Treasure) are abilities of their own, so neither counts.
  */
-internal fun podStatsManaColors(card: RulesCard): Set<DraftColor> =
+fun podStatsManaColors(card: RulesCard): Set<DraftColor> =
     card.faces.firstOrNull()?.abilities.orEmpty().filter { it.isManaAbility() }.flatMap { ability ->
         val instructions = when (ability) {
             is Ability.Activated -> ability.instructions
@@ -194,11 +194,11 @@ private fun podStatsKindColors(kind: ManaKind): Set<DraftColor> = when (kind) {
 
 /** DRF-115: [podStatsManaColors] of every card the device could read, by definition digest; a card it couldn't read
  * makes no colour. */
-internal fun podStatsManaColors(parsed: Map<String, ParsedCard>): Map<String, Set<DraftColor>> =
+fun podStatsManaColors(parsed: Map<String, ParsedCard>): Map<String, Set<DraftColor>> =
     parsed.mapValues { (_, card) -> (card as? ParsedCard.Read)?.let { podStatsManaColors(it.definition) }.orEmpty() }
 
 /** Prefer catalog identity, which includes rules symbols and both faces, not just the cost. */
-internal fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor {
+fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor {
     val recorded = card.faces.mapNotNull { face ->
         face.sourceData?.let { data -> runCatching {
             val record = Json.parseToJsonElement(data).jsonObject
@@ -226,7 +226,7 @@ internal fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftCo
 
 /** [manaColors]: the colours each card's mana abilities can add, by definition digest ([podStatsManaColors]); a card
  * missing there makes no colour beyond its basic land types. */
-internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
+fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
     manaColors: Map<String, Set<DraftColor>> = emptyMap()): PodStats {
     val curve = sortedMapOf<Double, PodStatsCurveBucket>()
     val pips = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
@@ -285,20 +285,20 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
 
 private fun podStatsCurveLabel(slot: Int) = if (slot == 7) "7+" else "$slot"
 
-internal fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->
+fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->
     val entries = curve.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
     podStatsCurveLabel(bucket) to PodStatsCurveBucket(
         entries.sumOf { it.value.creatures }, entries.sumOf { it.value.noncreatures })
 }
 
 /** The curve's slots by colour (DRF-111): each slot holds a count for every [PodStatsColor], in its order. */
-internal fun PodStats.curveColorBuckets(): Map<String, Map<PodStatsColor, Int>> = (0..7).associate { bucket ->
+fun PodStats.curveColorBuckets(): Map<String, Map<PodStatsColor, Int>> = (0..7).associate { bucket ->
     val entries = curveColors.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
     podStatsCurveLabel(bucket) to PodStatsColor.entries.associateWith { color -> entries.sumOf { it.value[color] ?: 0 } }
 }
 
 /** A colour's name in the curve's Color view and its legend (DRF-111). */
-internal fun PodStatsColor.podStatsCurveName(): String = when (this) {
+fun PodStatsColor.podStatsCurveName(): String = when (this) {
     PodStatsColor.MULTICOLOR -> "Gold"
     PodStatsColor.COLORLESS -> "Colorless"
     else -> name
@@ -307,9 +307,9 @@ internal fun PodStatsColor.podStatsCurveName(): String = when (this) {
 /** A colour's bars in the mana table (DRF-114): its share of all coloured pips, of all sources, and the lands' part of
  * that sources share. A dual land counts for both its colours, so the source shares add up to 100% as the pip shares do;
  * a bar's width is its share of the full width, nothing scaled, so what is drawn sums to one whole. */
-internal data class PodStatsManaShare(val pips: Double, val sources: Double, val lands: Double)
+data class PodStatsManaShare(val pips: Double, val sources: Double, val lands: Double)
 
-internal fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
+fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
     val pipShares = podStatsShares(pips)
     val sourceTotal = DraftColor.entries.sumOf { sources.getValue(it) + otherSources.getValue(it) }
     fun share(count: Long) = if (sourceTotal == 0L) 0.0 else count.toDouble() / sourceTotal
@@ -320,23 +320,23 @@ internal fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
 }
 
 /** A colour's pip line in the mana table (DRF-114): "9 pips · 34%", "½ pip · 2%", "0 pips · 0%". */
-internal fun podStatsPipLine(pips: Double, share: Double): String =
+fun podStatsPipLine(pips: Double, share: Double): String =
     "${podStatsPipText(pips)} ${if (pips > 0.0 && pips <= 1.0) "pip" else "pips"} · ${podStatsPercent(share)}"
 
 /** A colour's source line: "8 sources · 30%", "1 source · 4%", lands and other producers added up. */
-internal fun podStatsSourceLine(sources: Long, share: Double): String =
+fun podStatsSourceLine(sources: Long, share: Double): String =
     "$sources ${if (sources == 1L) "source" else "sources"} · ${podStatsPercent(share)}"
 
 private fun podStatsPercent(share: Double) = "${(share * 100).roundToInt()}%"
 
 /** Empty donuts have zero shares, never NaN; each chart normalizes independently. */
-internal fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {
+fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {
     val total = values.values.sumOf { it.toDouble() }
     return values.mapValues { (_, count) -> if (total == 0.0) 0.0 else count.toDouble() / total }
 }
 
 /** Drops control characters other than line breaks and keeps the limits, so edits never become unsaveable. */
-internal fun PodDeckNotes.podNotesSanitized(): PodDeckNotes {
+fun PodDeckNotes.podNotesSanitized(): PodDeckNotes {
     var cleaned = text.replace("\r\n", "\n").filter { !it.isISOControl() || it == '\n' }.take(PodDeckNotes.MAX_TEXT)
     if (cleaned.lastOrNull()?.isHighSurrogate() == true) cleaned = cleaned.dropLast(1)
     val values = (counters + List(PodDeckNotes.COUNTERS) { 0 }).take(PodDeckNotes.COUNTERS)
@@ -344,5 +344,5 @@ internal fun PodDeckNotes.podNotesSanitized(): PodDeckNotes {
     return PodDeckNotes(cleaned, values)
 }
 
-internal fun PodDeckNotes.podNotesAdjust(index: Int, delta: Int): PodDeckNotes =
+fun PodDeckNotes.podNotesAdjust(index: Int, delta: Int): PodDeckNotes =
     copy(counters = counters.mapIndexed { i, value -> if (i == index) (value + delta).coerceIn(0, PodDeckNotes.MAX_COUNTER) else value })

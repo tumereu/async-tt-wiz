@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
-internal enum class PodSetting(val label: String) {
+enum class PodSetting(val label: String) {
     PACKS("Packs"), PACK_SIZE("Pack size"), KEEP("Keep"), BURN("Burn"), DISCARD("Discard"),
     OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard"), LIBRARIANS("Librarians"),
     /** Rochester: packs open at once across the table; empty = one per player. */
@@ -112,7 +112,7 @@ internal enum class PodSetting(val label: String) {
 }
 
 /** The tiles a mode shows (DRF-022), Sideboard last; the pack size only where the source doesn't fix it (DRF-024). */
-internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSetting> {
+fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSetting> {
     val packSize = source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE
     return when (settings.mode) {
         DraftMode.GRID -> listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
@@ -126,9 +126,9 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
-internal val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
+val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
-internal fun podModeName(mode: DraftMode): String = when (mode) {
+fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
     DraftMode.GRID -> "Grid"
     DraftMode.ROCHESTER -> "Rochester"
@@ -138,18 +138,18 @@ internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.SEALED -> "Sealed"
 }
 /** The listed mode a pod's mode is: a Glimpse pod is a Booster pod. */
-internal fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
+fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
 /** A mode with its engine's player range (DRF-150), e.g. "Winston · 2–4 players". */
-internal fun podModeOption(mode: DraftMode): String = "${podModeName(mode)} · ${mode.players.first}–${mode.players.last} players"
+fun podModeOption(mode: DraftMode): String = "${podModeName(mode)} · ${mode.players.first}–${mode.players.last} players"
 
-internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
+fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
     .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
     librarians = if (mode.packPassing) current.librarians else 0,
     librarianDefinition = if (mode.packPassing) current.librarianDefinition else null)
 
 /** The same complete form is used before and after creation. */
 @Composable
-internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, members: Int,
+fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, members: Int,
     editable: Boolean, rename: (String) -> Unit, chooseSource: () -> Unit,
     change: ((DraftSettings) -> DraftSettings) -> Unit, reroll: (() -> Unit)? = null, automatum: CardListSupport? = null,
     grid: PodPackGridUi? = null) {
@@ -171,7 +171,7 @@ internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodS
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
+fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
     source: PodSource = PodSource(), change: ((DraftSettings) -> DraftSettings) -> Unit) {
     PodModeButton(settings.mode, enabled) { mode -> change { podModeSettings(mode, it) } }
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -197,7 +197,7 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,
  * each with its player range, the current one checked. */
 @Composable
-internal fun PodModeButton(mode: DraftMode, enabled: Boolean, choose: (DraftMode) -> Unit) {
+fun PodModeButton(mode: DraftMode, enabled: Boolean, choose: (DraftMode) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         ScreenOutlinedButton({ open = true }, Modifier.fillMaxWidth().testTag("pod-mode"), enabled = enabled) {
@@ -249,7 +249,7 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
 }
 
 @Composable
-internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> Unit, save: (Int?) -> Unit) {
+fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> Unit, save: (Int?) -> Unit) {
     val input = rememberDialogField((field.value(settings) ?: if (field == PodSetting.TABLE_OPEN) 1 else 0).toString())
     // Sideboard's ∞ and Rochester's "1 each" are the setting left empty.
     var unlimited by remember { mutableStateOf(field.emptyText != null && field.value(settings) == null) }

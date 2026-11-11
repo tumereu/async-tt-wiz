@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.*
 import java.util.concurrent.ExecutorService
 
 /** What a preset stores from the New pod form (or pod setup): everything except the pod name and invitees. */
-internal data class PodPresetForm(val settings: DraftSettings, val cubeId: String? = null,
+data class PodPresetForm(val settings: DraftSettings, val cubeId: String? = null,
     val setCode: String? = null, val setName: String? = null,
     /** Display only: the chosen cube's or set's name. */
     val sourceName: String? = null,
@@ -14,10 +14,10 @@ internal data class PodPresetForm(val settings: DraftSettings, val cubeId: Strin
     val packSets: List<String> = emptyList())
 
 /** A mixed pack grid's name (DRF-032): its sets' codes in the order its packs first name them, "RTR, GTC, DGM". */
-internal fun podMixedSetsName(packSets: List<String>) = packSets.distinct().joinToString(", ")
+fun podMixedSetsName(packSets: List<String>) = packSets.distinct().joinToString(", ")
 
 /** The preset list's open sub-dialog. */
-internal sealed interface PodPresetPrompt {
+sealed interface PodPresetPrompt {
     /** Asks a name for a new preset, or a new name for [renaming]. */
     data class Name(val renaming: PodPreset? = null) : PodPresetPrompt
     /** [name] is what to save as; [existing] the spelling of the preset it would replace. */
@@ -25,7 +25,7 @@ internal sealed interface PodPresetPrompt {
     data class Delete(val preset: PodPreset) : PodPresetPrompt
 }
 
-internal data class PodPresetState(
+data class PodPresetState(
     val open: Boolean = false, val presets: List<PodPreset> = emptyList(), val loaded: Boolean = false,
     val query: String = "", val busy: String? = null, val error: String? = null, val prompt: PodPresetPrompt? = null,
 ) {
@@ -34,10 +34,10 @@ internal data class PodPresetState(
     /** Few presets fit on screen without searching. */
     val searchable: Boolean get() = presets.size > PodPresetSearchThreshold || query.isNotEmpty()
 }
-internal const val PodPresetSearchThreshold = 6
+const val PodPresetSearchThreshold = 6
 
 /** Every word must appear in the name, the summary or the set code, ignoring case. */
-internal fun podPresetFilter(presets: List<PodPreset>, query: String): List<PodPreset> {
+fun podPresetFilter(presets: List<PodPreset>, query: String): List<PodPreset> {
     val words = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     if (words.isEmpty()) return presets
     return presets.filter { preset ->
@@ -50,15 +50,15 @@ internal fun podPresetFilter(presets: List<PodPreset>, query: String): List<PodP
  * Built-in presets (DRF-031): listed before the account's own, settings only (choosing one keeps the current source),
  * never renamed, replaced or deleted. Only on the device; the server never stores them.
  */
-internal val PodBuiltInPresets = listOf(
+val PodBuiltInPresets = listOf(
     PodPreset("builtin-glimpse", "Glimpse", DraftSettings.glimpse(), updatedAt = ""),
 )
-internal val PodPreset.builtIn: Boolean get() = PodBuiltInPresets.any { it.id == id }
+val PodPreset.builtIn: Boolean get() = PodBuiltInPresets.any { it.id == id }
 /** A saved preset may not take a built-in's name (DRF-033): built-ins can't be replaced. */
-internal fun podBuiltInName(name: String) = PodBuiltInPresets.any { PodPresetValidation.key(it.name) == PodPresetValidation.key(name) }
+fun podBuiltInName(name: String) = PodBuiltInPresets.any { PodPresetValidation.key(it.name) == PodPresetValidation.key(name) }
 
 /** "Booster · My cube · 3×15", "Grid · Dominaria United · 18 grids"; built-ins "Glimpse · Built-in · 9×15". */
-internal fun podPresetSummary(preset: PodPreset): String {
+fun podPresetSummary(preset: PodPreset): String {
     if (preset.builtIn) return listOf(preset.name, "Built-in", "${preset.settings.packsPerPlayer}×${preset.settings.cardsPerPack}").joinToString(" · ")
     val source = when {
         preset.cubeMissing -> "Cube missing"
@@ -69,7 +69,7 @@ internal fun podPresetSummary(preset: PodPreset): String {
     }
     return podPresetSummary(preset.settings, source, set = preset.setCode != null)
 }
-internal fun podPresetSummary(settings: DraftSettings, source: String, set: Boolean): String {
+fun podPresetSummary(settings: DraftSettings, source: String, set: Boolean): String {
     val size = when {
         settings.mode == DraftMode.GRID -> "${settings.grids} grids"
         settings.mode == DraftMode.ROTISSERIE || settings.mode == DraftMode.SEALED && !set -> "${settings.cardsPerPlayer} cards each"
@@ -84,7 +84,7 @@ internal fun podPresetSummary(settings: DraftSettings, source: String, set: Bool
  * The account's presets, kept on the server. Each change is sent on its own and then the list is read again;
  * nothing is predicted. [form] snapshots the form being edited (null when there is nothing to save); [apply] loads a preset.
  */
-internal class PodPresetController(private val api: Pods, private val credential: () -> String?,
+class PodPresetController(private val api: Pods, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val form: () -> PodPresetForm?, private val apply: (PodPreset) -> Unit) {
     var state by mutableStateOf(PodPresetState())
@@ -182,7 +182,7 @@ internal class PodPresetController(private val api: Pods, private val credential
     }
 }
 
-internal fun podPresetError(code: String?, renaming: Boolean = false): String = when (code) {
+fun podPresetError(code: String?, renaming: Boolean = false): String = when (code) {
     "preset_exists" -> if (renaming) "Another preset already has that name." else "A preset with that name already exists."
     "too_many_presets" -> "You can keep up to ${PodPresetValidation.MAX_PRESETS} presets. Delete one first."
     "cube_not_found" -> "The chosen cube no longer exists. Choose another source first."

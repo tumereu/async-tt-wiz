@@ -28,7 +28,7 @@ import org.asyncttwiz.protocol.*
 
 /** The production overlay tree, mounted once alongside the Canvas and using its captured IDs. */
 @Composable
-internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
+fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
     peekScroll: ScrollState? = null, scene: TableScene? = null, peekSwipe: InspectSwipe? = null,
     onTimeline: (() -> Unit)? = null, reviewing: Boolean = false, gameActionsBlocked: Boolean = false) {
@@ -89,7 +89,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     HostedInspectionView(inspectHost)
 }
 
-internal fun toolkitQuickContext(play: TableBoard, viewer: String? = null): QuickContext =
+fun toolkitQuickContext(play: TableBoard, viewer: String? = null): QuickContext =
     QuickContext(combatAreaId = play.board.combat?.id, viewer = viewer)
 
 /**
@@ -98,7 +98,7 @@ internal fun toolkitQuickContext(play: TableBoard, viewer: String? = null): Quic
  * those it doesn't allow now greyed with the reason on tap. A card in the other player's hand shows only a greyed Cast
  * (I-D27: nothing about it is read). Until Automatum has worked the board out (SYS-025) one greyed row says so.
  */
-internal fun automatumRows(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
+fun automatumRows(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
     enabled: Boolean): List<EngineRow> {
     val cardId = CombatStackRules.liveSource(play.board, bound.contextViewId)?.id ?: bound.contextViewId
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
@@ -115,7 +115,7 @@ internal fun automatumRows(toolkit: TableToolkitController, play: TableBoard, bo
  * or play it from the top, Seer of Harvestide-like), as the Library menu's rows; none when it offers
  * nothing, or for a top card the viewer may not see (CardPlays lists nothing of hidden cards, I-D27).
  */
-internal fun libraryTopRows(toolkit: TableToolkitController, play: TableBoard, libraryId: String, names: Map<String, String>,
+fun libraryTopRows(toolkit: TableToolkitController, play: TableBoard, libraryId: String, names: Map<String, String>,
     enabled: Boolean): List<EngineRow> {
     val top = play.board.containers.singleOrNull { it.id == libraryId && it.zone == PlayZone.LIBRARY }?.cards?.firstOrNull()
         ?: return emptyList()
@@ -147,10 +147,10 @@ private fun engineRows(toolkit: TableToolkitController, play: TableBoard, cardId
     }
 }
 
-internal const val WORKING_OUT = "Automatum is working out what this card can do…"
+const val WORKING_OUT = "Automatum is working out what this card can do…"
 
 /** The reason shown for something the engine doesn't allow now (§3 I4), in plain words. */
-internal fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind,
+fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind,
     name: String, names: Map<String, String>): String = when (refusal) {
     is org.asyncttwiz.automatum.CardPlay.Refusal.Priority ->
         refusal.holder?.let { "${names[it] ?: "The other player"} holds priority now." } ?: "Nobody holds priority now."
@@ -182,7 +182,7 @@ private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kin
  * played from the top, ZON-078) and what has no game effect ([kept], looking).
  */
 @Composable
-internal fun ZoneMenu(kept: @Composable () -> Unit = {}, rows: List<EngineRow> = emptyList()) {
+fun ZoneMenu(kept: @Composable () -> Unit = {}, rows: List<EngineRow> = emptyList()) {
     Column(verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
         for (row in rows) EngineActionRow(row, LocalInlinePopupColor.current)
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { kept() }

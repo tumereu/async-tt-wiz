@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.first
 
 /** Focuses the field this requester is attached to when its dialog opens (or [keys] change), and shows the soft keyboard. */
 @Composable
-internal fun rememberOpenFocus(vararg keys: Any?): FocusRequester {
+fun rememberOpenFocus(vararg keys: Any?): FocusRequester {
     val requester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
@@ -35,7 +35,7 @@ internal fun rememberOpenFocus(vararg keys: Any?): FocusRequester {
 
 /** An input dialog's text field: it opens focused, its whole text selected, with the soft keyboard shown. */
 @Stable
-internal class DialogFieldState(text: String, internal val focus: FocusRequester) {
+class DialogFieldState(text: String, val focus: FocusRequester) {
     var value by mutableStateOf(TextFieldValue(text, TextRange(0, text.length)))
     val text: String get() = value.text
 }
@@ -43,11 +43,11 @@ internal class DialogFieldState(text: String, internal val focus: FocusRequester
 /** [text] is the initial value; later outside changes (e.g. a controller's normalization) are adopted.
  * [focusOnOpen] false keeps the keyboard closed for dialogs whose main content is not the field. */
 @Composable
-internal fun rememberDialogField(text: String, vararg keys: Any?, focusOnOpen: Boolean = true): DialogFieldState {
+fun rememberDialogField(text: String, vararg keys: Any?, focusOnOpen: Boolean = true): DialogFieldState {
     val focus = if (focusOnOpen) rememberOpenFocus() else remember { FocusRequester() }
     val state = remember(*keys) { DialogFieldState(text, focus) }
     LaunchedEffect(state, text) { if (state.value.text != text) state.value = TextFieldValue(text, TextRange(text.length)) }
     return state
 }
 
-internal fun Modifier.dialogField(state: DialogFieldState): Modifier = focusRequester(state.focus)
+fun Modifier.dialogField(state: DialogFieldState): Modifier = focusRequester(state.focus)

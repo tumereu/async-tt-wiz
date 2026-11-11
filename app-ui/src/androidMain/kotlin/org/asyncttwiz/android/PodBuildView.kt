@@ -66,23 +66,23 @@ import org.asyncttwiz.appui.passThroughPopupProperties
 
 private val PodBuildSidePadding = 48.dp
 /** Vertical gap between whole cards in one column. */
-internal val PodBuildCardGap = 1.dp
-internal val PodBuildBlue = Color(0xFF1F5FAF)
+val PodBuildCardGap = 1.dp
+val PodBuildBlue = Color(0xFF1F5FAF)
 private const val PodBuildSettleMillis = 250
 
 /** Section colours, shared by the headers, buttons and review: Main green, Side blue, Maybe amber (SYS-054, the card list
  * sections' colours). */
-internal fun PodDeckCategory.podBuildColor(): Color = when (this) {
+fun PodDeckCategory.podBuildColor(): Color = when (this) {
     PodDeckCategory.MAIN -> PodPickGreen
     PodDeckCategory.SIDE -> PodBuildBlue
     PodDeckCategory.MAYBE -> SectionMaybeAmber
 }
 
 /** Translucent tints (the swipe copy) use Maybe's brighter yellow, as the card list sections do. */
-internal fun PodDeckCategory.podBuildFill(): Color = if (this == PodDeckCategory.MAYBE) SectionMaybeYellow else podBuildColor()
+fun PodDeckCategory.podBuildFill(): Color = if (this == PodDeckCategory.MAYBE) SectionMaybeYellow else podBuildColor()
 
 /** Where a horizontal drag of [dragX] px would move a card of [category]; null before any movement. */
-internal fun podBuildSwipeTarget(category: PodDeckCategory, dragX: Float): PodDeckCategory? = when {
+fun podBuildSwipeTarget(category: PodDeckCategory, dragX: Float): PodDeckCategory? = when {
     dragX > 0f -> PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
     dragX < 0f -> PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
     else -> null
@@ -429,7 +429,7 @@ private fun PodBuildBasics(basics: PodDeckBasics, countLine: String, editable: B
 }
 
 @Composable
-internal fun PodBuildCard(
+fun PodBuildCard(
     tile: PodBuildTile,
     category: PodDeckCategory,
     editable: Boolean,
@@ -517,7 +517,7 @@ internal fun PodBuildCard(
 
 /** A non-touchable window escapes the list's clipping, like the pick screen's swipe copy. */
 @Composable
-internal fun PodBuildSwipeCopy(
+fun PodBuildSwipeCopy(
     key: String, reference: ArtworkReference?, name: String, width: Int, drag: Float, progress: Float,
     target: PodDeckCategory, tint: Color = target.podBuildFill(), label: String = target.podBuildLabel(),
 ) {

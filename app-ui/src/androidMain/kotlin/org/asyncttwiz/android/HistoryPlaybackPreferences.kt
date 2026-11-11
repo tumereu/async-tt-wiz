@@ -6,7 +6,7 @@ import org.asyncttwiz.appui.AppPlatform
 /** Device-local, account-scoped presentation preference; never part of game state. */
 class HistoryPlaybackPreferences(platform: AppPlatform, accountId: String) {
     private val preferences = platform.preferences("history-playback")
-    internal val key = "pause/$accountId"
+    val key = "pause/$accountId"
     private val rewindKey = "rewind-pause/$accountId"
     private val showPlaysKey = "show-plays/$accountId"
     private val seenPrefix = "last-seen/$accountId/"
@@ -62,13 +62,13 @@ class HistoryPlaybackPreferences(platform: AppPlatform, accountId: String) {
 }
 
 @Composable
-internal fun rememberHistoryPlaybackPreferences(accountId: String): HistoryPlaybackPreferences {
+fun rememberHistoryPlaybackPreferences(accountId: String): HistoryPlaybackPreferences {
     val platform = AppPlatform.current
     return remember(platform, accountId) { HistoryPlaybackPreferences(platform, accountId) }
 }
 
 @Composable
-internal fun HistoryPlaybackPreferences.pauseState(): State<Long> {
+fun HistoryPlaybackPreferences.pauseState(): State<Long> {
     val state = remember(this) { mutableLongStateOf(pauseMillis) }
     DisposableEffect(this) {
         val stop = observe { state.longValue = pauseMillis }
@@ -79,7 +79,7 @@ internal fun HistoryPlaybackPreferences.pauseState(): State<Long> {
 }
 
 @Composable
-internal fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
+fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
     val state = remember(this) { mutableLongStateOf(rewindPauseMillis) }
     DisposableEffect(this) {
         val stop = observe { state.longValue = rewindPauseMillis }
@@ -90,7 +90,7 @@ internal fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
 }
 
 @Composable
-internal fun HistoryPlaybackPreferences.showPlaysState(): State<Long> {
+fun HistoryPlaybackPreferences.showPlaysState(): State<Long> {
     val state = remember(this) { mutableLongStateOf(showPlaysMillis) }
     DisposableEffect(this) {
         val stop = observe { state.longValue = showPlaysMillis }

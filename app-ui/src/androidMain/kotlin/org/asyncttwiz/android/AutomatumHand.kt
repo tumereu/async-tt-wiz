@@ -49,7 +49,7 @@ import org.asyncttwiz.protocol.PlayZone
  * (I-D46 (b); Inspect says why). The raised card is personal UI ([TableLayoutState.raised]); its chips are worked out on
  * [work] (the Automatum worker in the app) for the board the player acts on ([current]).
  */
-internal class HandController(
+class HandController(
     private val viewer: String,
     private val current: () -> TableBoard?,
     private val layout: MutableState<TableLayoutState>,
@@ -203,7 +203,7 @@ internal class HandController(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
+fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
     val hand = toolkit.hand
     LaunchedEffect(IdentityKey(play.board)) { hand.follow() }
     // Owner playtest 2026-11-04 #9: the chips come and go with a short fade and rise, as long as the card's own rise at
@@ -242,7 +242,7 @@ internal fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, 
 }
 
 /** How long the chips' flash lasts (ZON-080). */
-internal const val CHIP_FLASH_MILLIS = 450
+const val CHIP_FLASH_MILLIS = 450
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -275,7 +275,7 @@ private fun RaisedChipsRow(hand: HandController, play: TableBoard, raised: Strin
 }
 
 /** A chip's tap and hold: [hold] true while it is held (its details shown), false on release. */
-internal fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = pointerInput(tap, hold) {
+fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = pointerInput(tap, hold) {
     detectTapGestures(onTap = { tap() }, onLongPress = { hold(true) }, onPress = {
         tryAwaitRelease()
         hold(false)
@@ -285,7 +285,7 @@ internal fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = p
 /** A way chip (ZON-080): its name and cost, violet-outlined (filled when [chosen], the cast panel's way), greyed when it
  * can't be paid now; [flash] (0-1) tints it violet for the raised card's flash. */
 @Composable
-internal fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (Boolean) -> Unit, flash: Float = 0f) {
+fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (Boolean) -> Unit, flash: Float = 0f) {
     val ink = if (chosen) Color.White else AutomatumViolet
     Surface(shape = RoundedCornerShape(14.dp), color = if (chosen) AutomatumViolet else
             androidx.compose.ui.graphics.lerp(Color.White, Color(0xffd9ccff), flash.coerceIn(0f, 1f)),
@@ -333,11 +333,11 @@ private fun MoreChip(cost: String?, affordable: Boolean, tap: () -> Unit, hold: 
 }
 
 /** The "Cast…" chip's name (ZON-080). */
-internal const val MORE_NAME = "Cast…"
+const val MORE_NAME = "Cast…"
 
 /** An extra chip of the cast panel (ZON-082): amber-outlined, "+" and a check box; a repeatable one counts "×N" with "−". */
 @Composable
-internal fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: () -> Unit, hold: (Boolean) -> Unit) {
+fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: () -> Unit, hold: (Boolean) -> Unit) {
     val on = times > 0
     val ink = if (chip.affordable || on) Color(0xff7a4a00) else Color(0xff59656a)
     Surface(shape = RoundedCornerShape(14.dp), color = if (on) Color(0xfffff3dc) else Color.White,

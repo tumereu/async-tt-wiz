@@ -21,14 +21,14 @@ import org.asyncttwiz.appui.AppPlatform
 
 /** What the setup form shows of a set pod's pack grid (DRF-177): each pack's set read row by row (normalized), the card
  * records' sets for names and symbols, and [choose] (null: read-only) to pick a set for some of its packs (DRF-178). */
-internal class PodPackGridUi(val packs: List<String>, val set: (String) -> DraftableSet?, val choose: ((PodPackTarget) -> Unit)?)
+class PodPackGridUi(val packs: List<String>, val set: (String) -> DraftableSet?, val choose: ((PodPackTarget) -> Unit)?)
 
 /**
  * DRF-177: by default one set for the whole pod, with a "Mix sets" button that opens the pod's pack grid; a grid that mixes
  * sets is always shown (read-only for members). Modes without a grid (Rotisserie) show nothing.
  */
 @Composable
-internal fun PodPackGridSection(settings: DraftSettings, grid: PodPackGridUi) {
+fun PodPackGridSection(settings: DraftSettings, grid: PodPackGridUi) {
     val rows = PodPackGrid.rows(settings) ?: return
     var open by rememberSaveable { mutableStateOf(false) }
     val mixed = PodPackGrid.mixed(grid.packs)

@@ -148,7 +148,7 @@ class AssumedBlocks(val tip: String) {
 }
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
-internal class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?, private val sent: () -> Unit,
+class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?, private val sent: () -> Unit,
     private val shown: () -> TableBoard?, private val acknowledge: () -> Unit = {}) : EngineRoutes {
     /** TRN-065: the player tapped OK on a final result (the game is back in its lobby). */
     fun acknowledgeResult() = acknowledge()
@@ -460,11 +460,11 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 }
 
 /** TRN-063 (owner, 2026-11-10): the icon of every Assume on the main button, the Assume setting's own (TRN-059). */
-internal val AssumeIcon = Icons.Outlined.FastForward
+val AssumeIcon = Icons.Outlined.FastForward
 
 /** TRN-063 (owner, 2026-11-10): whether the main button draws [action] in the Assume violet: an Assume that can act now (a
  * greyed one stays greyed; Cancel is the viewer's own action, drawn as the others). */
-internal fun assumeLook(action: EngineTableRoutes.WaitAction): Boolean = action.assumption && action.refusal == null
+fun assumeLook(action: EngineTableRoutes.WaitAction): Boolean = action.assumption && action.refusal == null
 
 /**
  * The wait's control on the main button (TRN-066, TRN-070, MTG Arena-like): the same shape and size; an Assume filled with
@@ -472,7 +472,7 @@ internal fun assumeLook(action: EngineTableRoutes.WaitAction): Boolean = action.
  * glance (TRN-063, owner 2026-11-10); Cancel request in the own actions' look; holding it says what it does.
  */
 @Composable
-internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
+fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
     // TRN-071: a refused Assume is greyed; a tap shakes it, holding it says why
     var shakes by remember { mutableIntStateOf(0) }
     val refused = action.refusal != null
@@ -496,7 +496,7 @@ internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Mod
  * player to see them (only you see it). A tap or hold says what it means.
  */
 @Composable
-internal fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifier) {
+fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifier) {
     var tip by remember { mutableStateOf(false) }
     val words = "$opponent hasn't seen your last moves yet; if $opponent answers differently, they'll be taken back"
     Box(modifier.size(24.dp).semantics { contentDescription = words }.testTag("engine-unconfirmed")
@@ -508,11 +508,11 @@ internal fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifi
     }
 }
 
-internal val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
+val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
 
 /** The note for a refusal of the player's own action (SYS-012: never dropped silently), or null when it shakes instead
  * (any other refusal: what it was made on, or the main button, [TableToolkitController.refusedShake]). */
-internal fun refusedText(reason: String): String? = when (reason) {
+fun refusedText(reason: String): String? = when (reason) {
     GameDevice.REVEALS_HIDDEN -> CastController.WAIT_TO_CATCH_UP
     "stale", "newLine" -> NOT_TAKEN
     GameDevice.DRAFT_DROPPED -> NOT_TAKEN
@@ -520,13 +520,13 @@ internal fun refusedText(reason: String): String? = when (reason) {
 }
 
 /** The record of a refusal shown by a shake ([LocalShownTexts]: nothing in the app hears it; the e2e phones do). */
-internal const val REFUSAL_SHAKEN = "Refusal shaken:"
+const val REFUSAL_SHAKEN = "Refusal shaken:"
 
 /** A player's own action the game moved on from before it reached the server (SYS-012). */
-internal const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
+const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
 
 /** The waiting bar's words (§14) for [wait]. */
-internal fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
+fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
     is GameDevice.Wait.Respond -> "$opponent may respond to ${engineName(play, wait.to) ?: "your spell"}"
     is GameDevice.Wait.MayAct -> "$opponent may act · ${org.asyncttwiz.automatum.EngineProjection.position(wait.step).label}"
     GameDevice.Wait.Blockers -> "$opponent is declaring blockers"
@@ -541,7 +541,7 @@ internal fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: Stri
 
 /** TRN-066 (owner, 2026-11-09): where the other player [opponent] is when they are behind [viewer]: "Bob is at turn 5 · their
  * combat" (a combat step as "combat", any other step by its name; "your" in the viewer's own turn). */
-internal fun behindText(at: GameDevice.OpponentAt, viewer: String, opponent: String): String {
+fun behindText(at: GameDevice.OpponentAt, viewer: String, opponent: String): String {
     val whose = if (at.active.value == viewer) "your" else "their"
     val position = org.asyncttwiz.automatum.EngineProjection.position(at.step)
     val step = if (position.phase == "COMBAT") "combat" else position.label.lowercase()
@@ -569,14 +569,14 @@ private fun sourceName(play: TableBoard, id: ObjectId): String? {
 }
 
 /** The response mode's name and what it means (§2), for the toggle and the response mode dialog. */
-internal fun ResponseMode.label(): String = when (this) {
+fun ResponseMode.label(): String = when (this) {
     ResponseMode.FullControl -> "Control"
     ResponseMode.Normal -> "Normal"
     ResponseMode.AutoSkip -> "Quick"
 }
 
 /** TRN-059: the colour the response mode's cell fills with, by how much control you keep. */
-internal fun ResponseMode.color(): Color = when (this) {
+fun ResponseMode.color(): Color = when (this) {
     ResponseMode.FullControl -> ControlBlue
     ResponseMode.Normal -> AutomatumViolet
     ResponseMode.AutoSkip -> QuickAmber
@@ -584,14 +584,14 @@ internal fun ResponseMode.color(): Color = when (this) {
 
 /** TRN-059: the colour the Assume resolves cell fills with, by how much control you keep: Never as Control, Normal as
  * Normal, No mana (Normal going on where they can't respond, as Quick) as Quick, and Always its own red-orange. */
-internal fun AssumeResolves.color(): Color = when (this) {
+fun AssumeResolves.color(): Color = when (this) {
     AssumeResolves.Never -> ControlBlue
     AssumeResolves.Normal -> AutomatumViolet
     AssumeResolves.WhenNoMana -> QuickAmber
     AssumeResolves.Always -> AssumeAlwaysRed
 }
 
-internal fun ResponseMode.meaning(): String = when (this) {
+fun ResponseMode.meaning(): String = when (this) {
     ResponseMode.FullControl -> "Stop wherever you get priority, also after your own spells."
     ResponseMode.Normal -> "Stop in your main phases and where the other player's spell, attack, blocks or end step lets you respond."
     ResponseMode.AutoSkip -> "As Normal, but go on by itself where you can't respond, and answer questions with only one answer."
@@ -600,21 +600,21 @@ internal fun ResponseMode.meaning(): String = when (this) {
 private val MODES = listOf(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
 /** "Assume resolves" (HIS-096): the choice's name, its short form for the quick action, and what it means. */
-internal fun AssumeResolves.label(): String = when (this) {
+fun AssumeResolves.label(): String = when (this) {
     AssumeResolves.Never -> "Never"
     AssumeResolves.Normal -> "Normal"
     AssumeResolves.WhenNoMana -> "When they have no mana"
     AssumeResolves.Always -> "Always"
 }
 
-internal fun AssumeResolves.short(): String = when (this) {
+fun AssumeResolves.short(): String = when (this) {
     AssumeResolves.Never -> "Never"
     AssumeResolves.Normal -> "Normal"
     AssumeResolves.WhenNoMana -> "No mana"
     AssumeResolves.Always -> "Always"
 }
 
-internal fun AssumeResolves.meaning(): String = when (this) {
+fun AssumeResolves.meaning(): String = when (this) {
     AssumeResolves.Never -> "Wait wherever the other player gets priority, with Assume on the main button, as Control stops."
     AssumeResolves.Normal -> "Go on at once where Normal mode would, and at their pause in your end step and right after your " +
         "attack; wait with Assume where Normal mode stops. After something they did, their own mode decides."
@@ -631,7 +631,7 @@ internal fun AssumeResolves.meaning(): String = when (this) {
  * A new response mode applies from the next point on: the stop the player stands at stays ([GameDevice.settings]).
  */
 @Composable
-internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
+fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     val game = routes.engine ?: return
     val shown = game.shown ?: return
     val settings = shown.settings
@@ -695,7 +695,7 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
  * result line, the assumer's indicator, the notes, and the undo dialogs.
  */
 @Composable
-internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, play: TableBoard, scene: TableScene?,
+fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, play: TableBoard, scene: TableScene?,
     names: Map<String, String>, presence: ReceivedPresence?, summary: GameSummary, peekScroll: androidx.compose.foundation.ScrollState? = null,
     peekSwipe: InspectSwipe? = null) {
     val game = routes.engine ?: return
@@ -856,18 +856,18 @@ private const val PREVIEW_HEIGHT_LANDSCAPE = 120f
 private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 /** HIS-099: how long the Undo dialog's choice rests before its board is worked out (dragging through events works out none). */
-internal const val UNDO_PREVIEW_DELAY_MS = 250L
+const val UNDO_PREVIEW_DELAY_MS = 250L
 /** HIS-111, HIS-099 (owner 2026-11-07): how close to the oldest event held the timeline's cursor (or the Undo dialog's
  * choice) comes before the next older page of history is asked for. */
-internal const val OLDER_HISTORY_MARGIN = 12
+const val OLDER_HISTORY_MARGIN = 12
 
 private const val QUICK_PLAYBACK_MS = 120L
 
 /** HIS-021 (§29.3): the playback delay at Card move speed 1×: about a third of the old 1 s default. */
-internal const val PLAYBACK_DELAY_MS = 330L
+const val PLAYBACK_DELAY_MS = 330L
 
 /** HIS-021 (§29.3): the playback delay at the Card move speed [multiplier] (TBL-038): faster moves, shorter delay. */
-internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardMoveMultiplier(multiplier)).toLong()
+fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardMoveMultiplier(multiplier)).toLong()
 
 /**
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
@@ -875,7 +875,7 @@ internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardM
  * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
  * short moment after the other player's staging and early answers, else the playback [delay].
  */
-internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
+fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
     shown == null -> 0L
     EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
     shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft ||
@@ -915,7 +915,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
  * card moved, tapped, turned or changed, no life, counters or damage, no Stack entry added or resolved, no attacker or
  * block (an empty combat beginning or ending is nothing), no new turn; only the step indicator moves.
  */
-internal object EnginePlaybackPace {
+object EnginePlaybackPace {
     fun quiet(event: GameEvent): Boolean {
         val part = event.engine ?: return false
         if (event.table.isNotEmpty()) return false
@@ -983,7 +983,7 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
 
 /** One point of the Undo dialog (HIS-099): the timeline [event] ([shown] as the timeline shows it); choosing it goes back
  * to just before it, [target]. */
-internal class UndoPoint(val event: GameEvent, val shown: HistoryTimelineEvent) {
+class UndoPoint(val event: GameEvent, val shown: HistoryTimelineEvent) {
     val target: String get() = requireNotNull(event.parentId)
 }
 
@@ -993,7 +993,7 @@ internal class UndoPoint(val event: GameEvent, val shown: HistoryTimelineEvent) 
  * back to the game's first event), oldest first; the game's first event (the server's start, nothing before it) is no
  * point.
  */
-internal fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineEvent>): List<UndoPoint> {
+fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineEvent>): List<UndoPoint> {
     val held = HashMap<String, GameEvent>(shown.older.size + shown.held.size)
     shown.older.associateByTo(held) { it.id }
     shown.held.associateByTo(held) { it.id }

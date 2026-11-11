@@ -36,35 +36,35 @@ data class TableCardTransform(val width: Float, val height: Float, val rotation:
     }
 }
 
-internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTransform ?: TableCardTransform(
+fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTransform ?: TableCardTransform(
     if (tapped) bounds.height else bounds.width, if (tapped) bounds.width else bounds.height,
     if (tapped) 90f else 0f)
 
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. A dock pile's members are:
  * they have no drawing of their own, so a move between two piles changes nothing else in the scene. */
-internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
-internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
+val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
+val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
     listOf(it.bounds, it.tapped, it.covered, it.faceId, it.cards.takeIf { _ -> it.dockPile }) }
 private val TableItem.dockPile get() = kind == TableItemKind.PILE && zone in DOCK_PILE_ZONES
 
-internal const val CARD_ROTATION_DURATION_MILLIS = 90
-internal const val CARD_FLIP_DURATION_MILLIS = 350
-internal const val CARD_FADE_DURATION_MILLIS = 350
-internal const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
-internal const val HAND_REFLOW_DURATION_MILLIS = 220
+const val CARD_ROTATION_DURATION_MILLIS = 90
+const val CARD_FLIP_DURATION_MILLIS = 350
+const val CARD_FADE_DURATION_MILLIS = 350
+const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
+const val HAND_REFLOW_DURATION_MILLIS = 220
 private val DOCK_PILE_ZONES = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
-    internal var cardMoveSpeedDpPerMs: Float = DEFAULT_CARD_MOVE_SPEED
+    var cardMoveSpeedDpPerMs: Float = DEFAULT_CARD_MOVE_SPEED
     private var sceneMoveSpeed = DEFAULT_CARD_MOVE_SPEED
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
     var durationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS; private set
-    internal fun remainingDurationMillis(progress: Float) =
+    fun remainingDurationMillis(progress: Float) =
         (durationMillis * (1f - progress.coerceIn(0f, 1f))).toInt().coerceAtLeast(1)
-    internal var rotatingCardIds: Set<String> = emptySet(); private set
+    var rotatingCardIds: Set<String> = emptySet(); private set
     private var flippingCardIds: Set<String> = emptySet()
     private var stackFlightIds: Set<String> = emptySet()
     private var shufflingPileIds: Set<String> = emptySet()

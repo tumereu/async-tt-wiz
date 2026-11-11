@@ -11,7 +11,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Bounded, oldest-first queue. A frame/result can update a sample already awaiting upload. */
-internal class LatencyBuffer(private val enabled: Boolean, private val capacity: Int = 200) {
+class LatencyBuffer(private val enabled: Boolean, private val capacity: Int = 200) {
     data class Entry(val id: String, val value: ActionLatency)
     private val entries = linkedMapOf<String, ActionLatency>()
     private var lastAttempt: Long? = null
@@ -42,13 +42,13 @@ internal class LatencyBuffer(private val enabled: Boolean, private val capacity:
 }
 
 /** No Android dependencies in the clock/measurement logic; no server time is called local latency. */
-internal class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long = System::nanoTime,
+class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long = System::nanoTime,
     private val timestamp: () -> String = { Instant.now().toString() },
     private val log: (ActionLatency) -> Unit, private val record: (String, ActionLatency) -> Unit) {
     private val frames = linkedMapOf<String, Trace>()
     private val results = linkedMapOf<String, Trace>()
 
-    inner class Trace internal constructor(gameId: String, action: String, nodes: Int) {
+    inner class Trace constructor(gameId: String, action: String, nodes: Int) {
         private val start = now()
         private val workStart = DebugJank.beginWork("apply")
         private val id = UUID.randomUUID().toString()
@@ -73,10 +73,10 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
             emit()
         }
         private fun elapsed() = ((now() - start).coerceAtLeast(0)) / 1_000_000.0
-        internal fun drawn() { sample = sample.copy(firstFrameMs = elapsed()); emit() }
+        fun drawn() { sample = sample.copy(firstFrameMs = elapsed()); emit() }
         /** An own action's parts (SYS-030, [OwnActionTiming]), in milliseconds by their labels, once they are in. */
         fun parts(parts: Map<String, Double>) { sample = sample.copy(parts = parts); emit() }
-        internal fun result() { sample = sample.copy(serverResultMs = elapsed()); emit() }
+        fun result() { sample = sample.copy(serverResultMs = elapsed()); emit() }
         private fun emit() { log(sample); record(id, sample) }
     }
 
@@ -87,7 +87,7 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
 }
 
 /** Installed only behind the same [Diagnostics] gate as crashes. All serialization/disk/network work is IO. */
-internal object DebugLatency {
+object DebugLatency {
     private var recorder: LatencyRecorder? = null
     @Volatile private var token: String? = null
     // Runtime gate: entry points check Diagnostics.enabled; the upload loop empties these when reports are off.

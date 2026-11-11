@@ -18,9 +18,9 @@ import org.asyncttwiz.appui.AppBuild
 class DeckFailure(val code: String) : Exception("Deck request failed")
 
 /** A deck's card as the phone makes it from its card records, the card the server builds for the same printing. */
-internal fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition = catalogDefinition(catalog)
+fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition = catalogDefinition(catalog)
 
-internal fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
+fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
     "not_found" -> "This saved deck is no longer available. Return to your collection to refresh."
     "invalid_cover" -> "Choose a card that is still in this deck."
     "invalid_deck" -> "Enter a deck name and check the quantities. Your pasted list is kept."

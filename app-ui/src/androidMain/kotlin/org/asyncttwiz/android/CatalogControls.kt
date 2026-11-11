@@ -10,7 +10,7 @@ import java.util.Locale
 
 /** LOB-093: Settings → Card records: what is installed, how far an installation is, Retry after a failure. */
 @Composable
-internal fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
+fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
     Column(Modifier.fillMaxWidth().testTag("catalog-controls")) {
         SettingsSectionHeader("Card records")
         val installed = state.installed?.takeIf { state.ready }

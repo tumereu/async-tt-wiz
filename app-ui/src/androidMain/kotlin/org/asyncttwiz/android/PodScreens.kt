@@ -33,7 +33,7 @@ import org.asyncttwiz.appui.ScreenOrientation
 import org.asyncttwiz.appui.AppPlatform
 
 @Composable
-internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
+fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
     lobby: LobbyController?, manageCubes: () -> Unit, mainMenu: (() -> Unit)? = null) {
     val state = controller.state
     // DRF-141: Prepare cube covers the pod screen until Done or Back.
@@ -157,7 +157,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
 
 /** Available even when the original pod or opponent can no longer be opened. */
 @Composable
-internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier) {
         if (state.retryPodChallengeName != null) {
             HoldTip("Retry challenge", Modifier.align(Alignment.TopEnd).padding(12.dp)) {
@@ -205,12 +205,12 @@ private fun PodChatButton(controller: PodController, podId: String, accountId: S
 
 /** A small dot in the other player's colour: unread chat messages (LOB-066, DRF-170). */
 @Composable
-internal fun UnreadDot(modifier: Modifier = Modifier) {
+fun UnreadDot(modifier: Modifier = Modifier) {
     Box(modifier.size(6.dp).background(OpponentTableColor, CircleShape))
 }
 
 @Composable
-internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respond: (String, Boolean) -> Unit,
+fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respond: (String, Boolean) -> Unit,
     refresh: () -> Unit) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = refresh, loading = state.loading) {
         // DRF-012: one list in the shared pod order (DRF-013), invitations answered in place.
@@ -243,7 +243,7 @@ internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Uni
 }
 
 @Composable
-internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false,
+fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false,
     stackWidth: Dp = podStackWidth(listOf(pod), accountId), chatUnread: Int = 0) {
     val highlighted = pod.attention == PodAttention.YOUR_PICK
     val fill = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
@@ -372,7 +372,7 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
 }
 
 /** "360 main · 12 maybe": the prepared cube's sections. */
-internal fun podCubeSections(source: PodSource) = "${source.totalCopies} main · ${source.maybeCopies} maybe"
+fun podCubeSections(source: PodSource) = "${source.totalCopies} main · ${source.maybeCopies} maybe"
 
 @Composable
 private fun PodChooseMember(controller: PodController, lobby: LobbyController, detail: PodDetail) {
@@ -444,7 +444,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-internal fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, overflow: @Composable () -> Unit) {
+fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, overflow: @Composable () -> Unit) {
     Surface {
         Row(Modifier.fillMaxWidth().testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
             TabRow(tabs.indexOf(selected), Modifier.weight(1f)) {
@@ -459,11 +459,11 @@ internal fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab)
     }
 }
 
-internal val PodPlayHeaderHeight = 48.dp
+val PodPlayHeaderHeight = 48.dp
 
 /** Hamburger (modal drawer), a very small pod title, the readiness avatars under it and a trailing view settings cog. */
 @Composable
-internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
+fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
     Surface {
         Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
             verticalAlignment = Alignment.CenterVertically) {
@@ -481,7 +481,7 @@ internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailin
 
 /** Readiness badges only while drafting; afterwards the avatars just show who is in the pod. */
 @Composable
-internal fun PodDraftMemberRow(detail: PodDetail) {
+fun PodDraftMemberRow(detail: PodDetail) {
     val drafting = detail.phase == PodPhase.DRAFTING
     Row(Modifier.fillMaxWidth().height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -504,10 +504,10 @@ internal fun PodDraftMemberRow(detail: PodDetail) {
     }
 }
 
-internal fun podBadgeText(waiting: Int) = when { waiting <= 0 -> "✓"; waiting > 9 -> "9+"; else -> "$waiting" }
+fun podBadgeText(waiting: Int) = when { waiting <= 0 -> "✓"; waiting > 9 -> "9+"; else -> "$waiting" }
 
 /** Who still holds packs (or grid turns), plus the caller's round. */
-internal fun podWaitingText(detail: PodDetail, accountId: String): String {
+fun podWaitingText(detail: PodDetail, accountId: String): String {
     detail.limited?.let { return podLimitedWaitingText(detail, it, accountId) }
     val grid = detail.grid?.publicView?.takeIf { detail.settings.mode == DraftMode.GRID }
     val busy = detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
@@ -527,7 +527,7 @@ internal fun podWaitingText(detail: PodDetail, accountId: String): String {
 }
 
 /** The pick screen's orientation line: "Round 2/6 · Pick 2 · from Matti", or "… · your pack" before its first pick. */
-internal fun podPickOrientationText(detail: PodDetail): String? {
+fun podPickOrientationText(detail: PodDetail): String? {
     val draft = detail.draft ?: return null
     val head = draft.head ?: return null
     val from = head.passedBy?.let { id ->
@@ -539,7 +539,7 @@ internal fun podPickOrientationText(detail: PodDetail): String? {
 
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */
 @Composable
-internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
+fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val mine = detail.members.firstOrNull { it.account.accountId == accountId }
     val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -591,11 +591,11 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
 }
 
 /** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
-internal fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
+fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
     detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId
 
 @Composable
-internal fun MemberLine(account: AccountIdentity, status: String, trailing: @Composable RowScope.() -> Unit = {}) {
+fun MemberLine(account: AccountIdentity, status: String, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Avatar(account)
         Column(Modifier.weight(1f)) { Text(account.username); Text(status, style = MaterialTheme.typography.bodySmall) }

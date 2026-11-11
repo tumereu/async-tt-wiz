@@ -12,7 +12,7 @@ import org.asyncttwiz.automatum.ManaWays
  * sources they took out ([outs]: not used again while Autotap fills in the rest). Immutable: worked out off the main thread and
  * applied when still current.
  */
-internal data class ManaTaps(
+data class ManaTaps(
     val tapped: List<ManaUse> = emptyList(),
     val chosen: List<ManaUse> = emptyList(),
     val outs: List<ManaUse> = emptyList(),

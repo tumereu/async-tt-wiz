@@ -24,7 +24,7 @@ object AppLog {
     }
 }
 
-internal class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
+class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
     private val now: () -> Instant = Instant::now) {
     private val lines = ArrayDeque<String>()
     private var bytes = 0
@@ -84,4 +84,4 @@ private val redactions = listOf(
     Regex("(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])") to "[redacted]")
 
 /** Last line of defence: callers never pass secrets, but exception messages and logcat may contain them. */
-internal fun redactLog(text: String): String = redactions.fold(text) { value, (pattern, replacement) -> pattern.replace(value, replacement) }
+fun redactLog(text: String): String = redactions.fold(text) { value, (pattern, replacement) -> pattern.replace(value, replacement) }

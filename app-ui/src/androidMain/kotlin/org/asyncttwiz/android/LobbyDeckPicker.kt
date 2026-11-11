@@ -11,7 +11,7 @@ data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> =
 /** LobbyController's deck picker: lists saved and draft decks over HTTP, keeps the highlighted deck and
  * a deck import started from it, and selects the confirmed deck for the game once its connection is
  * ready. Main thread; reads run on [worker]. */
-internal class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?, private val credential: () -> String?,
+class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?, private val credential: () -> String?,
     private val accountId: () -> String?, private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val session: GameSession?, private val queue: LobbyActionQueue,
     /** The phone's card records, which a chosen deck's cards are built from (owner 2026-11-10). */

@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 
 /** Observe only: custom recognizers keep ownership of clicks, holds, scrolling and cancellation. */
-internal fun Modifier.pressFeedback(enabled: Boolean = true): Modifier = composed {
+fun Modifier.pressFeedback(enabled: Boolean = true): Modifier = composed {
     var pressed by remember { mutableStateOf(false) }
     drawWithContent {
         drawContent()

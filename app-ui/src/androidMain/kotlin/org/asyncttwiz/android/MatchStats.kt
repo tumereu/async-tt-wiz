@@ -12,7 +12,7 @@ import org.asyncttwiz.protocol.*
  * from the viewer's records. Unfinished records are listed but never count (§1.3): every figure here reads finished
  * matches only, oldest first where order matters.
  */
-internal object MatchStats {
+object MatchStats {
     const val COLOURLESS = "Colourless"
 
     /** A share of matches: [wins] of [matches]; [percent] null when there were none. */

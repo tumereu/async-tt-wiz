@@ -17,7 +17,7 @@ import org.asyncttwiz.protocol.*
 
 /** Header button that opens the preset list. */
 @Composable
-internal fun PodPresetsButton(controller: PodPresetController, enabled: Boolean = true) {
+fun PodPresetsButton(controller: PodPresetController, enabled: Boolean = true) {
     ScreenOutlinedButton(controller::open, Modifier.testTag("pod-presets"), enabled) {
         EntryIcon(null, "presets"); Spacer(Modifier.width(6.dp)); Text("Presets", maxLines = 1)
     }
@@ -25,7 +25,7 @@ internal fun PodPresetsButton(controller: PodPresetController, enabled: Boolean 
 
 /** The account's presets: search, tap to load, rename/delete per row, and save the current form as a preset. */
 @Composable
-internal fun PodPresetsDialog(controller: PodPresetController) {
+fun PodPresetsDialog(controller: PodPresetController) {
     val state = controller.state
     val prompt = state.prompt
     ScreenDialog(controller::dismiss, title = "Presets", close = "Close presets",

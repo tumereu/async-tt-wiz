@@ -2,13 +2,13 @@ package org.asyncttwiz.android
 
 
 /** Personal layout data; action identifiers are independent of their short visual labels. */
-internal data class CardRingPage(val name: String, val actions: List<String>)
-internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
+data class CardRingPage(val name: String, val actions: List<String>)
+data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 
 /** One fixed layout per context. A layout applies fully: every cell is always shown (disabled when it does not apply). */
-internal enum class CardMenuLayout { CARD, HAND, PANEL }
+enum class CardMenuLayout { CARD, HAND, PANEL }
 
-internal object CardRingPages {
+object CardRingPages {
     const val columns = 5
     const val capacity = 25
 
@@ -59,15 +59,15 @@ internal object CardRingPages {
 }
 
 /** A press that began during the guard stays inert, even if released after the deadline. */
-internal class CardRingInputGuard(val openedAt: Long, val duration: Long = 280L) {
+class CardRingInputGuard(val openedAt: Long, val duration: Long = 280L) {
     fun accepts(downAt: Long) = downAt - openedAt >= duration
 }
 
-internal enum class CardRingSide { ABOVE, BELOW, LEFT, RIGHT }
-internal data class CardRingPlacement(val square: TableBounds, val side: CardRingSide)
+enum class CardRingSide { ABOVE, BELOW, LEFT, RIGHT }
+data class CardRingPlacement(val square: TableBounds, val side: CardRingSide)
 
 /** Pure dp geometry, independent of page contents and font scale. */
-internal object CardRingGeometry {
+object CardRingGeometry {
     const val cell = 48f
     const val gridSide = CardRingPages.columns * cell
     const val squareSide = gridSide + 24f

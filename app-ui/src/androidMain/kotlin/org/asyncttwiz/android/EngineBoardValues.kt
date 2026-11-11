@@ -27,7 +27,7 @@ import org.asyncttwiz.automatum.SharedFlow
  *
  * [state] is the game's own state the board shows (full information, never changed); [board] the board itself.
  */
-class EngineBoardValues internal constructor(
+class EngineBoardValues constructor(
     val viewer: String,
     val computed: ComputedBoard,
     private val board: EngineProjection.Board,

@@ -33,7 +33,7 @@ import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.DraftCopy
 
 @Composable
-internal fun PodCardPlaceholder(name: String) {
+fun PodCardPlaceholder(name: String) {
     Surface(Modifier.fillMaxSize(), shape = MaterialTheme.shapes.extraSmall,
         color = MaterialTheme.colorScheme.surfaceVariant,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -46,7 +46,7 @@ internal fun PodCardPlaceholder(name: String) {
 
 /** Physical sides only: split/adventure/flip/room parts still use their single printed image.
  * Used by the Build feed, which flips between them on tap, and by Inspect, which shows them all ([inspectFaces]). */
-internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
+fun podPreviewFaces(definition: CardDefinition): List<Int> {
     if (definition.faces.isEmpty()) return emptyList()
     return if (definition.layout in setOf("transform", "modal_dfc", "meld", "reversible_card", "double_faced_token") ||
         definition.faces.any { "Battle" in it.typeLine } || definition.token && definition.faces.size > 1) {
@@ -56,7 +56,7 @@ internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
 }
 
 @Composable
-internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: ScrollState = rememberScrollState()) {
+fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: ScrollState = rememberScrollState()) {
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
@@ -65,20 +65,20 @@ internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scr
 
 /** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data). */
 @Composable
-internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
+fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
     // Shown only while a finger holds a card; that finger's release closes it.
     InspectPopup(inspectTiles(card, fallback), scroll)
 }
 
 /** Screen-wide owner of the single open card menu: simultaneous taps leave only the latest open. */
 @Stable
-internal class PodCardMenuOwner {
+class PodCardMenuOwner {
     var open by mutableStateOf<Any?>(null)
 }
 
 /** Keep a card action menu at the card's top edge, rather than below its full height. */
 @Composable
-internal fun PodCardMenu(expanded: Boolean, dismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun PodCardMenu(expanded: Boolean, dismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     if (!expanded) return
     val margin = with(LocalDensity.current) { 8.dp.roundToPx() }
     val position = remember(margin) { object : PopupPositionProvider {
@@ -100,7 +100,7 @@ internal fun PodCardMenu(expanded: Boolean, dismiss: () -> Unit, content: @Compo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PodColumnControl(label: String, description: String, value: Int, range: IntRange, change: (Int) -> Unit) {
+fun PodColumnControl(label: String, description: String, value: Int, range: IntRange, change: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
         contentDescription = description
         text = AnnotatedString(label)
@@ -133,7 +133,7 @@ private fun PodColumnButton(description: String, add: Boolean, enabled: Boolean,
 }
 
 @Composable
-internal fun PodSmallButton(description: String, text: String, enabled: Boolean, width: Dp = 32.dp, action: () -> Unit) {
+fun PodSmallButton(description: String, text: String, enabled: Boolean, width: Dp = 32.dp, action: () -> Unit) {
     // I-D48: a symbol-only button says what it does on hold
     HoldTip(description) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {

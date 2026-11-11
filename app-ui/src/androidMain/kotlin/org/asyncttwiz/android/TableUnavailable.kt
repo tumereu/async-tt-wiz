@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.sp
 
 /** No fabricated cards, values or actionable board while the accepted boundary is unavailable. */
 @Composable
-internal fun TableUnavailable(title: String, landscape: Boolean, modifier: Modifier = Modifier,
+fun TableUnavailable(title: String, landscape: Boolean, modifier: Modifier = Modifier,
     navigation: (() -> Unit)? = null, message: String? = null, loading: Boolean = true,
     retry: () -> Unit, returnCurrent: (() -> Unit)? = null) {
     BoxWithConstraints(modifier.fillMaxSize().background(Color(0xfff5f8f7))) {

@@ -129,7 +129,7 @@ class TablePerformanceTest {
             val parts = if (item.viewport.startsWith("cardPanel/") || item.inTransit) regions else
                 scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             item.copy(visible = if (item.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
-                parts.flatMap { it.subtract(scene.stackRegion) } else parts)
+                parts.flatMap { it.subtract(scene.stackRegion!!) } else parts)
         }
         return scene.copy(items = clipped.mapIndexed { index, item ->
             var parts = item.visible

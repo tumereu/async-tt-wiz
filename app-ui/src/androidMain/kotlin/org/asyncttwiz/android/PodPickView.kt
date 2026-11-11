@@ -58,12 +58,12 @@ import org.asyncttwiz.appui.ScreenOrientation
 import org.asyncttwiz.appui.screenOrientation
 import org.asyncttwiz.appui.passThroughPopupProperties
 
-internal val PodPickGreen = Color(0xFF237A38)
-internal val PodPickRed = Color(0xFFB3261E)
+val PodPickGreen = Color(0xFF237A38)
+val PodPickRed = Color(0xFFB3261E)
 
 /** Without [onMarks] the marks live only in this composition (previews and tests). */
 @Composable
-internal fun PodPickView(
+fun PodPickView(
     pack: DraftPrivatePack?,
     settings: DraftSettings,
     definitions: Map<String, CardDefinition>,
@@ -167,7 +167,7 @@ private fun rememberPodPickPreferences() = AppPlatform.current.let { platform ->
 
 /** Personal per-orientation cards-per-row choice, hoisted so the header's view settings panel can change it. */
 @Stable
-class PodPickColumns internal constructor(private val preferences: Preferences, private val key: String, default: Int) {
+class PodPickColumns constructor(private val preferences: Preferences, private val key: String, default: Int) {
     var preferred by mutableIntStateOf(preferences.getInt(key, default))
         private set
     fun choose(value: Int) { preferred = value.coerceIn(PodPickColumnRange); preferences.edit().putInt(key, preferred).apply() }
@@ -175,22 +175,22 @@ class PodPickColumns internal constructor(private val preferences: Preferences, 
 }
 
 @Composable
-internal fun rememberPodPickColumns(): PodPickColumns {
+fun rememberPodPickColumns(): PodPickColumns {
     val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
     val preferences = rememberPodPickPreferences()
     val key = if (landscape) "columns-landscape" else "columns-portrait"
     return remember(preferences, key) { PodPickColumns(preferences, key, if (landscape) 5 else 3) }
 }
 
-internal const val PodHoldMillis = 150L
-internal const val PodHoldSettleMillis = 300L
+const val PodHoldMillis = 150L
+const val PodHoldSettleMillis = 300L
 
 /** One recognizer owns tap, horizontal swipe and the short, release-to-close hold.
  * For [PodHoldSettleMillis] after the preview appears, movement past slop closes it and is
  * left to the swipe or the underlying scroll; a settled hold pans the preview and only lifting
  * the finger closes it (DRF-063, owner playtest 2026-11-09: a drag back past where the hold
  * began closed it). */
-internal suspend fun PointerInputScope.podPickGestures(
+suspend fun PointerInputScope.podPickGestures(
     onTap: () -> Unit,
     onInspect: (Boolean) -> Unit,
     onInspectScroll: (Float) -> Unit = {},
@@ -254,7 +254,7 @@ internal suspend fun PointerInputScope.podPickGestures(
 }
 
 @Composable
-internal fun PodPickWaiting(text: String = "Waiting for other players", onMainMenu: (() -> Unit)? = null) {
+fun PodPickWaiting(text: String = "Waiting for other players", onMainMenu: (() -> Unit)? = null) {
     Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text, Modifier.testTag("pod-waiting"), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f),
             textAlign = TextAlign.Center)

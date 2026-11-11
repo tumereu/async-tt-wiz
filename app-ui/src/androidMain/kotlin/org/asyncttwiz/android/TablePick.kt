@@ -11,7 +11,7 @@ import arcanum.engine.state.TargetRef
  * edict, "choose a creature"), so the cards are picked where their auras, counters and tapped state show. Its candidates
  * are [options] as targets are, so glowing, picking, groups and Done work the same for both.
  */
-internal sealed interface TablePick {
+sealed interface TablePick {
     val decision: Decision
     /** The candidates, as targets (a card as its object). */
     val options: List<TargetRef>

@@ -49,14 +49,14 @@ import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.storage.definition as catalogDefinition
 import org.asyncttwiz.appui.screenWidthDp
 
-internal enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text") }
+enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text") }
 
 /**
  * The one editor of decks and cubes: name (and a deck's cover) on top, Cards | Text tabs, one full-width Save at the
  * bottom. Changes in either tab are kept only by Save. A Cards tab section header's + opens the full-screen [search] page.
  */
 @Composable
-internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean, editor: CardListEditor,
+fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean, editor: CardListEditor,
     search: CardListSearch, tab: CardListTab, onTab: (CardListTab) -> Unit, openLink: () -> Unit, linkEnabled: Boolean,
     canSave: Boolean, saving: Boolean, save: () -> Unit, saveTag: String, lookupPending: Boolean, error: String?,
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
@@ -142,7 +142,7 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
 
 /** Leaving an editor with unsaved changes (LOB-064). */
 @Composable
-internal fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) {
+fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) {
     ScreenDialog(keepEditing) {
         Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
@@ -154,7 +154,7 @@ internal fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) 
 
 /** The tab an editor opens on: an existing list on its cards, a new one on its text to paste into. */
 @Composable
-internal fun rememberCardListTab(existing: Boolean) = rememberSaveable { mutableStateOf(if (existing) CardListTab.CARDS else CardListTab.TEXT) }
+fun rememberCardListTab(existing: Boolean) = rememberSaveable { mutableStateOf(if (existing) CardListTab.CARDS else CardListTab.TEXT) }
 
 @Composable
 private fun Modifier.verticalScrollable() = this.then(Modifier.verticalScroll(rememberScrollState()))
@@ -299,7 +299,7 @@ private fun CardListSummary(editor: CardListEditor, entries: List<ResolvedDeckEn
 }
 
 /** "60 main · 15 side · 2 maybe" (cubes "540 main · 12 maybe"); sections without cards other than Main are left out. */
-internal fun cardListSummary(kind: CardListKind, entries: List<ResolvedDeckEntry>): String = kind.sections.mapNotNull { section ->
+fun cardListSummary(kind: CardListKind, entries: List<ResolvedDeckEntry>): String = kind.sections.mapNotNull { section ->
     val count = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     if (count == 0L && section != DeckSection.MAINBOARD) null else "$count ${section.saved().shortLabel().lowercase()}"
 }.joinToString(" · ")
@@ -423,7 +423,7 @@ private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, lands
 }
 
 /** "Done · +3 cards", "Done · −1 card", or "Done" when nothing changed in this visit. */
-internal fun cardSearchDoneLabel(added: Long): String = when {
+fun cardSearchDoneLabel(added: Long): String = when {
     added == 0L -> "Done"
     else -> "Done · ${if (added > 0) "+" else "−"}${kotlin.math.abs(added)} ${if (kotlin.math.abs(added) == 1L) "card" else "cards"}"
 }

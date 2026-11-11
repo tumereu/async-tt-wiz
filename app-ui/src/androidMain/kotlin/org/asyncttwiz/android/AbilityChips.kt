@@ -33,7 +33,7 @@ import org.asyncttwiz.protocol.PlayZone
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String> = emptyMap()) {
+fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String> = emptyMap()) {
     val cardId = toolkit.abilityCard ?: return
     // TBL-124 (owner playtest 2026-11-10): never while targets are picked: picking them closes the chips
     if (toolkit.cast.targeting || toolkit.flows.targeting) {
@@ -76,21 +76,21 @@ internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableB
 
 /** An ability's printed text split into what it does and its cost ("{2}{G}, {T}: Draw a card." → "Draw a card", "{2}{G},
  * {T}"); text without a cost (a special action's) is all effect. A chip shows the cost first ([AbilityChipText]). */
-internal fun abilityParts(text: String): Pair<String, String?> {
+fun abilityParts(text: String): Pair<String, String?> {
     val colon = text.indexOf(": ")
     val effect = (if (colon > 0) text.substring(colon + 2) else text).trim().removeSuffix(".")
     return effect to (if (colon > 0) text.substring(0, colon).trim() else null)
 }
 
 /** TBL-124: why an ability's chip is greyed: the menu's words (TBL-123), its catch-all shorter on a chip. */
-internal fun chipRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String,
+fun chipRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String,
     names: Map<String, String>): String =
     if (refusal == org.asyncttwiz.automatum.CardPlay.Refusal.Other) "Not now: a cost it can't pay, or nothing to target."
     else engineRefusal(refusal, kind, name, names)
 
 /** An ability's chip; with [refusal] greyed, saying why under its words: a tap only shakes it. */
 @Composable
-internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit, refusal: String? = null) {
+fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit, refusal: String? = null) {
     val (effect, cost) = abilityParts(text)
     var shakes by remember { mutableIntStateOf(0) }
     val press: () -> Unit = { if (refusal != null) shakes++ else tap() }
@@ -116,15 +116,15 @@ internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit,
 /** An ability chip's words as on a card, cost first, then the effect (owner playtest 2026-11-06): "{2}{G}, {T}:" in
  * symbols and "Draw a card" in [ink] after it, each wrapping onto more rows rather than being cut. */
 @Composable
-internal fun RowScope.AbilityChipText(effect: String, cost: String?, ink: Color) {
+fun RowScope.AbilityChipText(effect: String, cost: String?, ink: Color) {
     cost?.let { CardText("$it:", Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)); Spacer(Modifier.width(4.dp)) }
     CardText(effect, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH),
         style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = ink))
 }
 
 /** The most a chip's words take before they wrap (TBL-124, ZON-080), and its cost's. */
-internal val CHIP_TEXT_WIDTH = 170.dp
-internal val CHIP_COST_WIDTH = 120.dp
+val CHIP_TEXT_WIDTH = 170.dp
+val CHIP_COST_WIDTH = 120.dp
 
 /** The held ability chip's details, card-like: the card's name and the ability's whole printed text. */
 @Composable

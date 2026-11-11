@@ -51,19 +51,19 @@ import org.asyncttwiz.protocol.MatchEnding
 import org.asyncttwiz.protocol.ResultNotice
 
 /** TRN-065: why Ready is greyed while the last result waits for your OK. */
-internal const val RESULT_FIRST = "Tap OK on the last game's result first."
+const val RESULT_FIRST = "Tap OK on the last game's result first."
 
 /** The test tag of the game end dialog (TRN-065). */
-internal const val GAME_END_DIALOG_TAG = "game-end-dialog"
+const val GAME_END_DIALOG_TAG = "game-end-dialog"
 /** The test tag of the game end dialog's OK (TRN-065). */
-internal const val GAME_END_OK_TAG = "game-end-ok"
+const val GAME_END_OK_TAG = "game-end-ok"
 
 /**
  * TRN-065 (owner 2026-11-07): the words of a game's end for [viewer]: [title] "You won", "You lost" or "Draw", and
  * [reason], how it ended in a few plain words ("Bob's life reached 0", "Bob conceded", "Agreed: Infinite combo"), empty
  * when nothing more can be said.
  */
-internal data class GameEndText(val title: String, val reason: String) {
+data class GameEndText(val title: String, val reason: String) {
     companion object {
         /** [winner] (null: a draw), how it [ending]ed, why each loser lost by the rules ([causes], by account); [names]:
          * the players' names by account. */
@@ -95,14 +95,14 @@ internal data class GameEndText(val title: String, val reason: String) {
 }
 
 /** TRN-065, TRN-047 (owner, 2026-11-09): how long an ending's OK or a suggestion's Accept stays greyed when it first shows. */
-internal const val OK_GREY_MILLIS = 2_000L
+const val OK_GREY_MILLIS = 2_000L
 
 /**
  * TRN-065, TRN-047 (owner, 2026-11-09): whether the OK or Accept of a dialog that has just come up may be pressed: greyed for
  * its first [OK_GREY_MILLIS], so a tap meant for the table can't accept it. On the composition's clock, which tests move on.
  */
 @Composable
-internal fun rememberOkArmed(): Boolean {
+fun rememberOkArmed(): Boolean {
     var armed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(OK_GREY_MILLIS); armed = true }
     return armed
@@ -117,7 +117,7 @@ internal fun rememberOkArmed(): Boolean {
  * [waiting] and no button.
  */
 @Composable
-internal fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: Boolean = true, takeBack: (() -> Unit)? = null,
+fun GameEndDialog(text: GameEndText, waiting: String? = null, enabled: Boolean = true, takeBack: (() -> Unit)? = null,
     ok: (() -> Unit)?) {
     var hidden by remember { mutableStateOf(false) }
     val armed = rememberOkArmed()

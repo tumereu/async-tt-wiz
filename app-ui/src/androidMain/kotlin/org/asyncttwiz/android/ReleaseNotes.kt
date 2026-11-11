@@ -16,15 +16,15 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.appui.AppPlatform
 
-internal enum class ReleaseNoteKind(val prefix: String, val title: String) {
+enum class ReleaseNoteKind(val prefix: String, val title: String) {
     // LOB-087 (owner 2026-11-10): sets Automatum newly supports come first, under their own heading
     SET("set", "New sets"), ADD("add", "New"), MOD("mod", "Changed"), FIX("fix", "Fixed")
 }
 
 /** One packaged `release/notes/<id>.txt` line; [id] starts with its `YYYY-MM-DD` date. */
-internal data class ReleaseNote(val id: String, val kind: ReleaseNoteKind, val text: String)
+data class ReleaseNote(val id: String, val kind: ReleaseNoteKind, val text: String)
 
-internal object ReleaseNotes {
+object ReleaseNotes {
     const val ASSET = "release-notes.json"
     /** Phones updating from before release notes existed already know the initial release. */
     const val INITIAL_RELEASE = "2026-10-27-initial-release"
@@ -62,7 +62,7 @@ internal object ReleaseNotes {
 }
 
 /** Seen note ids per installation (not per account). */
-internal class ReleaseNotePreferences(private val platform: AppPlatform) {
+class ReleaseNotePreferences(private val platform: AppPlatform) {
     private val preferences = platform.preferences("release-notes")
 
     private fun freshInstall(): Boolean = platform.freshInstall()
@@ -84,7 +84,7 @@ internal class ReleaseNotePreferences(private val platform: AppPlatform) {
 }
 
 @Composable
-internal fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
+fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
     ScreenDialog(dismiss, title = "What's new",
         actions = { DialogMainButton("OK", dismiss, Modifier.testTag("whats-new-ok")) }) {
         Column(Modifier.testTag("whats-new-notes"),

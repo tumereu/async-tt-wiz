@@ -30,7 +30,7 @@ import org.asyncttwiz.protocol.SavedDeckSection
  * the battlefield, in a graveyard or face up in exile: what you can see now outside your library). Both are card data
  * digests with counts; the view sorts them by type and name, so the library's order never shows.
  */
-internal object DeckView {
+object DeckView {
     private val zones = setOf(PlayZone.LIBRARY, PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)
 
     /** [viewer]'s deck as played: their own cards (no tokens) in any zone, by digest. */
@@ -65,7 +65,7 @@ internal object DeckView {
  * name, ×N badges), "All" or "Still in library"; holding a card inspects it. Looking only: nothing in the game changes.
  */
 @Composable
-internal fun DeckViewPanel(play: TableBoard, viewer: String, dismiss: () -> Unit) {
+fun DeckViewPanel(play: TableBoard, viewer: String, dismiss: () -> Unit) {
     var remaining by rememberSaveable(play.gameId) { mutableStateOf(false) }
     val definitions = remember(play.definitions) { play.definitions.associate { it.digest to it.definition } }
     val all = remember(IdentityKey(play.board), viewer) { DeckView.deck(play, viewer) }

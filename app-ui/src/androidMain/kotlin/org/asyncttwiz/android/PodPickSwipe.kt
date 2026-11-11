@@ -2,10 +2,10 @@ package org.asyncttwiz.android
 
 import kotlin.math.abs
 
-internal enum class PodPickSwipePhase { IDLE, DRAGGING, FADING }
+enum class PodPickSwipePhase { IDLE, DRAGGING, FADING }
 
 /** The lifted copy keeps its final offset throughout dismissal, including cancellation. */
-internal data class PodPickSwipeState(
+data class PodPickSwipeState(
     val offset: Float = 0f,
     val phase: PodPickSwipePhase = PodPickSwipePhase.IDLE,
     val decision: PodPickMark? = null,

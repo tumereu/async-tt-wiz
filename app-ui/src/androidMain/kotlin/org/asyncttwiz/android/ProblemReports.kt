@@ -18,10 +18,10 @@ import org.asyncttwiz.appui.osVersion
 import org.asyncttwiz.appui.ownPlatformLog
 
 /** Client margin below the server limit for request framing. */
-internal const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
+const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
 
 /** [automatum]: the latest game's Automatum log and bundle (I-D43, [AutomatumReports.text]), already within its bound. */
-internal fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now(),
+fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now(),
     automatum: String = "") =
     ProblemReport(now.toString(), AppBuild.VERSION_NAME, AppBuild.VERSION_CODE, AppBuild.BUILD_TYPE,
         deviceModel().take(200), osVersion().take(100),
@@ -29,7 +29,7 @@ internal fun problemReport(description: String, problem: String?, log: String, l
         automatum.takeIf { it.length <= ProblemReport.MAX_AUTOMATUM }.orEmpty())
 
 /** Drops the oldest logcat lines first, then the oldest app log lines, until the encoded report fits. */
-internal fun fitProblemReport(report: ProblemReport, maxBytes: Int = PROBLEM_REPORT_BYTES): ProblemReport {
+fun fitProblemReport(report: ProblemReport, maxBytes: Int = PROBLEM_REPORT_BYTES): ProblemReport {
     var fitted = report
     while (true) {
         val over = AccountJson.format.encodeToString(fitted).toByteArray(Charsets.UTF_8).size - maxBytes
@@ -54,7 +54,7 @@ private fun dropOldestLines(text: String, bytes: Int): String {
 }
 
 /** The app may read its own process's logcat without extra permissions; anything else yields nothing. */
-internal fun ownLogcat(lines: Int = 2_000, maxBytes: Int = 400_000): String = redactLog(ownPlatformLog(lines, maxBytes))
+fun ownLogcat(lines: Int = 2_000, maxBytes: Int = 400_000): String = redactLog(ownPlatformLog(lines, maxBytes))
 
 sealed interface ProblemReportState {
     data object Idle : ProblemReportState
@@ -98,7 +98,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
     fun reset() { if (state != ProblemReportState.Sending) state = ProblemReportState.Idle }
 }
 
-internal fun problemReportFailure(failure: Throwable): String = when ((failure as? AccountFailure)?.code) {
+fun problemReportFailure(failure: Throwable): String = when ((failure as? AccountFailure)?.code) {
     "network" -> "Couldn't reach the server. Check your connection and try again."
     "try_later" -> "Too many reports right now. Try again later."
     "not_configured" -> "Problem reports aren't available in this build."

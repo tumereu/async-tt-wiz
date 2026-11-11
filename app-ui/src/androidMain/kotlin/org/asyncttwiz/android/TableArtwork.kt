@@ -12,15 +12,15 @@ import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.protocol.DeckJson
 import kotlinx.serialization.json.*
 
-internal fun ArtworkReference.forTable() = copy(size = if (customUrl != null) "normal" else "art_crop")
+fun ArtworkReference.forTable() = copy(size = if (customUrl != null) "normal" else "art_crop")
 
 /** Server definitions support more faces than the artwork provider. Keep the ordinary fallback. */
-internal fun DefinitionFace.tableArtwork(index: Int): ArtworkReference? =
+fun DefinitionFace.tableArtwork(index: Int): ArtworkReference? =
     if (scryfallId == null && imageUri == null) null else artwork(index)
 
 /** MTGJSON side letters describe provider rows, not necessarily physical image sides. Retain
  * the exact provider face name as well, notably for meld and separately printed token sides. */
-internal fun DefinitionFace.artwork(index: Int, size: String = "normal"): ArtworkReference? {
+fun DefinitionFace.artwork(index: Int, size: String = "normal"): ArtworkReference? {
     if (index !in 0..15) return null
     val source = sourceData?.let { runCatching { DeckJson.format.parseToJsonElement(it).jsonObject }.getOrNull() }
     val side = (source?.get("side") as? JsonPrimitive)?.contentOrNull
@@ -32,10 +32,10 @@ internal fun DefinitionFace.artwork(index: Int, size: String = "normal"): Artwor
     }
 }
 
-internal enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
+enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
 
 /** A failed or pending custom image keeps the ordinary name/icon/corner fallback. */
-internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Boolean): TableArtworkMode = when {
+fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Boolean): TableArtworkMode = when {
     reference == null || !imageAvailable -> TableArtworkMode.TYPE_ICON
     reference.customUrl != null -> TableArtworkMode.CUSTOM_CARD
     else -> TableArtworkMode.ART_CROP
@@ -43,7 +43,7 @@ internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Bool
 
 /** Exactly what the table (art crop, or a custom full card) and then the inspector (large) request for
  * every face, in definition order: all table images first, since they are what a player sees first. */
-internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> {
+fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> {
     val faces = definitions.flatMap { submitted ->
         submitted.definition.faces.mapIndexedNotNull { index, face -> face.tableArtwork(index) }
     }
@@ -51,7 +51,7 @@ internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List
 }
 
 /** The viewer's hand, then their battlefield, then the shared battlefield/Stack, then everything else. */
-internal fun gameArtworkReferences(play: TableBoard, viewer: String): List<ArtworkReference> {
+fun gameArtworkReferences(play: TableBoard, viewer: String): List<ArtworkReference> {
     val byDigest = play.definitions.associateBy { it.digest }
     val cards = play.board.cards.associateBy { it.id }
     fun rank(container: PlayContainer) = when {
@@ -67,7 +67,7 @@ internal fun gameArtworkReferences(play: TableBoard, viewer: String): List<Artwo
 
 /** Warm the retained game definitions in the background queue while this game is open. */
 @Composable
-internal fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
+fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
     val context = LocalPlatformContext.current
     // Ordered by the board when the game opens (or its definitions change), not on every move.
     val references = remember(play.gameId, viewer, play.definitions) { gameArtworkReferences(play, viewer) }
@@ -79,6 +79,6 @@ internal fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
 }
 
 /** Saved deck cards in the sizes the table and the inspector use, downloaded ahead of any game. */
-internal fun prefetchDeckArtwork(context: coil3.PlatformContext, deckId: String, definitions: List<SubmittedDefinition>) {
+fun prefetchDeckArtwork(context: coil3.PlatformContext, deckId: String, definitions: List<SubmittedDefinition>) {
     PublicArtwork.prefetch(context, "deck:$deckId", gameArtworkReferences(definitions))
 }

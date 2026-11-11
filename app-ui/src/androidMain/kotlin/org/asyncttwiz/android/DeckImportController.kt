@@ -61,7 +61,7 @@ data class DeckSave(val name: String, val entries: List<CardListEntry>, val cove
 }
 
 /** A card's printing id ([CardDefinition.printingId]): what a deck names its cover by. */
-internal val SubmittedDefinition.printing: String? get() = definition.printingId
+val SubmittedDefinition.printing: String? get() = definition.printingId
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,

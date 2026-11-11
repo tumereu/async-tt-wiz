@@ -15,16 +15,16 @@ import org.asyncttwiz.appui.Preferences
 import org.asyncttwiz.appui.ScreenOrientation
 import org.asyncttwiz.appui.screenOrientation
 
-internal val PodPickColumnRange = 1..15
-internal val PodBuildColumnRange = 2..10
-internal val PodBuildSideBySideRange = 1..3
+val PodPickColumnRange = 1..15
+val PodBuildColumnRange = 2..10
+val PodBuildSideBySideRange = 1..3
 
 /** Personal per-orientation Build count setting (columns, or cards side by side within a column);
  * shared by the view settings panel and the Build view. */
 @Stable
-class PodBuildColumns internal constructor(
+class PodBuildColumns constructor(
     private val preferences: Preferences, private val key: String,
-    internal val range: IntRange = PodBuildColumnRange, default: Int = 7,
+    val range: IntRange = PodBuildColumnRange, default: Int = 7,
 ) {
     var count by mutableIntStateOf(preferences.getInt(key, default).coerceIn(range))
         private set
@@ -32,7 +32,7 @@ class PodBuildColumns internal constructor(
 }
 
 @Composable
-internal fun rememberPodBuildColumns(): PodBuildColumns {
+fun rememberPodBuildColumns(): PodBuildColumns {
     val platform = AppPlatform.current
     val orientation = screenOrientation()
     val preferences = remember(platform) { platform.preferences("pod-build") }
@@ -41,7 +41,7 @@ internal fun rememberPodBuildColumns(): PodBuildColumns {
 
 /** How many cards sit side by side inside each Build column; 1 by default in both orientations. */
 @Composable
-internal fun rememberPodBuildSideBySide(): PodBuildColumns {
+fun rememberPodBuildSideBySide(): PodBuildColumns {
     val platform = AppPlatform.current
     val orientation = screenOrientation()
     val preferences = remember(platform) { platform.preferences("pod-build") }
@@ -52,7 +52,7 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
 
 /** The Stats mana curve's view (DRF-111), Type or Color: personal, per device, Type until the player chooses. */
 @Stable
-class PodStatsCurveChoice internal constructor(private val preferences: Preferences) {
+class PodStatsCurveChoice constructor(private val preferences: Preferences) {
     var byColor by mutableStateOf(preferences.getBoolean(KEY, false))
         private set
     fun choose(value: Boolean) { byColor = value; preferences.edit().putBoolean(KEY, value).apply() }
@@ -60,7 +60,7 @@ class PodStatsCurveChoice internal constructor(private val preferences: Preferen
 }
 
 @Composable
-internal fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
+fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
     val platform = AppPlatform.current
     return remember(platform) { PodStatsCurveChoice(platform.preferences("pod-build")) }
 }
@@ -70,7 +70,7 @@ internal fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
  * portrait and 15 in landscape, capped at the pack size.
  */
 @Composable
-internal fun rememberPodHistoryColumns(packSize: Int): PodBuildColumns {
+fun rememberPodHistoryColumns(packSize: Int): PodBuildColumns {
     val platform = AppPlatform.current
     val orientation = screenOrientation()
     val preferences = remember(platform) { platform.preferences("pod-pick") }
@@ -81,12 +81,12 @@ internal fun rememberPodHistoryColumns(packSize: Int): PodBuildColumns {
     }
 }
 
-internal val DeckViewColumnRange = 1..10
+val DeckViewColumnRange = 1..10
 
 /** Personal per-orientation tile columns of a visual deck view. Game preparation ([DeckViewScreen.PREPARATION]),
  * saved-deck viewing ([DeckViewScreen.SAVED]) and saved-cube viewing ([DeckViewScreen.CUBE]) keep separate counts,
  * as the draft's pick and Build views do. Decks start at 3 columns; cubes (360–540 cards) at 5 in portrait, 8 in landscape. */
-internal enum class DeckViewScreen(internal val key: String, private val portrait: Int, private val landscape: Int) {
+enum class DeckViewScreen(val key: String, private val portrait: Int, private val landscape: Int) {
     PREPARATION("preparation", 3, 3), SAVED("saved", 3, 3), CUBE("cube", 5, 8),
     /** The card list editor's Cards tab (decks, cubes), Prepare cube and the editor's search results. */
     EDITOR("editor", 3, 3), CUBE_EDITOR("cube-editor", 5, 8), CUBE_PREPARATION("cube-preparation", 5, 8), SEARCH("search", 3, 5);
@@ -94,7 +94,7 @@ internal enum class DeckViewScreen(internal val key: String, private val portrai
 }
 
 @Composable
-internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
+fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
     val platform = AppPlatform.current
     val orientation = screenOrientation()
     val preferences = remember(platform) { platform.preferences("deck-view") }
@@ -103,16 +103,16 @@ internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
     }
 }
 
-internal fun deckViewColumnsKey(screen: DeckViewScreen, orientation: Int) = "${screen.key}-columns-$orientation"
+fun deckViewColumnsKey(screen: DeckViewScreen, orientation: Int) = "${screen.key}-columns-$orientation"
 
 /** The Build view's columns control, inline: fewer, the count, more. */
 @Composable
-internal fun DeckViewColumnsControl(columns: PodBuildColumns) =
+fun DeckViewColumnsControl(columns: PodBuildColumns) =
     PodColumnControl("${columns.count}", "Columns", columns.count, columns.range, columns::choose)
 
 /** Header cog opening a small floating panel with every pod view's layout setting; values apply live. */
 @Composable
-internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns,
+fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns,
     sideBySide: PodBuildColumns = rememberPodBuildSideBySide(), history: PodBuildColumns? = null) {
     var open by remember { mutableStateOf(false) }
     Box {

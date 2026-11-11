@@ -20,36 +20,36 @@ enum class CardListKind(val sections: List<DeckSection>, val maxCards: Int, val 
     fun swipe(from: DeckSection, right: Boolean): DeckSection = SectionSwipe.target(sections, from, right)
 }
 
-internal fun DeckSection.saved() = SavedDeckSection.valueOf(name)
-internal fun SavedDeckSection.list() = DeckSection.valueOf(name)
+fun DeckSection.saved() = SavedDeckSection.valueOf(name)
+fun SavedDeckSection.list() = DeckSection.valueOf(name)
 
 /** SYS-054: section colours used everywhere a section appears: Main green, Side blue, Maybe yellow. */
-internal val SectionMaybeYellow = Color(0xFFE0B000)
+val SectionMaybeYellow = Color(0xFFE0B000)
 /** The Maybe colour for text, outlines and chips behind white text, where plain yellow would be hard to read. */
-internal val SectionMaybeAmber = Color(0xFF9A6B00)
-internal fun SavedDeckSection.sectionColor(): Color = when (this) {
+val SectionMaybeAmber = Color(0xFF9A6B00)
+fun SavedDeckSection.sectionColor(): Color = when (this) {
     SavedDeckSection.MAINBOARD -> PodPickGreen
     SavedDeckSection.SIDEBOARD -> PodBuildBlue
     SavedDeckSection.MAYBEBOARD -> SectionMaybeAmber
 }
 /** Translucent tints (the swipe copy) use the brighter yellow. */
-internal fun SavedDeckSection.sectionFill(): Color = if (this == SavedDeckSection.MAYBEBOARD) SectionMaybeYellow else sectionColor()
-internal fun SavedDeckSection.sectionLabel() = when (this) {
+fun SavedDeckSection.sectionFill(): Color = if (this == SavedDeckSection.MAYBEBOARD) SectionMaybeYellow else sectionColor()
+fun SavedDeckSection.sectionLabel() = when (this) {
     SavedDeckSection.MAINBOARD -> "Mainboard"; SavedDeckSection.SIDEBOARD -> "Sideboard"; SavedDeckSection.MAYBEBOARD -> "Maybeboard"
 }
 /** Short names for the destination buttons. */
-internal fun SavedDeckSection.shortLabel() = when (this) {
+fun SavedDeckSection.shortLabel() = when (this) {
     SavedDeckSection.MAINBOARD -> "Main"; SavedDeckSection.SIDEBOARD -> "Side"; SavedDeckSection.MAYBEBOARD -> "Maybe"
 }
 
 /** Why an edit was refused, in player words; null when it was applied. */
-internal class CardListEditResult(val entries: List<ResolvedDeckEntry>, val refused: String? = null)
+class CardListEditResult(val entries: List<ResolvedDeckEntry>, val refused: String? = null)
 
 /**
  * Pure edits of a resolved card list. Every entry keeps its printing (and retained definition) when it moves;
  * one entry per card and section. Cards are matched by name, so another printing of a listed card adds to it.
  */
-internal object CardListEdits {
+object CardListEdits {
     fun key(entry: ResolvedDeckEntry) = entry.printing.id
     private fun sameCard(entry: ResolvedDeckEntry, name: String) = entry.printing.name.equals(name, ignoreCase = true)
 
@@ -143,7 +143,7 @@ interface CardListEditor {
  * Personal undo of Cards tab and search changes (LOB-105): each step is what the list was before one change, newest last,
  * at most [PreparationUndo.LIMIT] as in preparation. Text tab edits, link imports and a new edit session start it over.
  */
-internal class CardListUndo<T> {
+class CardListUndo<T> {
     var steps by mutableStateOf<List<T>>(emptyList(), referentialEqualityPolicy())
         private set
     fun push(step: T) { steps = (steps + step).takeLast(PreparationUndo.LIMIT) }

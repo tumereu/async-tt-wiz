@@ -31,7 +31,7 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ReplacementOption
 
 /** [list] with the item at [from] moved to [to]. */
-internal fun <T> List<T>.moved(from: Int, to: Int): List<T> =
+fun <T> List<T>.moved(from: Int, to: Int): List<T> =
     if (from == to || from !in indices || to !in indices) this else toMutableList().also { it.add(to, it.removeAt(from)) }
 
 /**
@@ -39,10 +39,10 @@ internal fun <T> List<T>.moved(from: Int, to: Int): List<T> =
  * engine's suggested order ([Decision.OrderTriggers.triggers], put on the Stack in that order, CR 603.3b) reversed. The
  * answer is the order they go on the Stack ([triggerAnswer]).
  */
-internal fun suggestedTriggerOrder(decision: Decision.OrderTriggers): List<Int> = decision.triggers.map { it.index }.reversed()
+fun suggestedTriggerOrder(decision: Decision.OrderTriggers): List<Int> = decision.triggers.map { it.index }.reversed()
 
 /** The order [shown] (top first: resolves first) as the engine takes it: the first goes on the Stack first (CR 603.3b). */
-internal fun triggerAnswer(shown: List<Int>): Answer.Order = Answer.Order(shown.reversed())
+fun triggerAnswer(shown: List<Int>): Answer.Order = Answer.Order(shown.reversed())
 
 /**
  * A drag-to-reorder list (STK-030, owner gallery review 2026-11-06): one row per key in [keys]' order, each with a handle at
@@ -51,7 +51,7 @@ internal fun triggerAnswer(shown: List<Int>): Answer.Order = Answer.Order(shown.
  * handle.
  */
 @Composable
-internal fun DragOrderList(keys: List<String>, move: (Int, Int) -> Unit, describe: (String) -> String,
+fun DragOrderList(keys: List<String>, move: (Int, Int) -> Unit, describe: (String) -> String,
     row: @Composable RowScope.(key: String, index: Int) -> Unit) {
     val heights = remember { mutableStateMapOf<String, Int>() }
     var dragging by remember { mutableStateOf<String?>(null) }
@@ -113,7 +113,7 @@ private fun RowScope.OrderRowContent(card: ChoiceCardData, line: String, inspect
  * card with its own line, opening in the suggested order with the one that resolves first at the top; OK puts them on.
  */
 @Composable
-internal fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.OrderTriggers) {
+fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.OrderTriggers) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
     var order by remember(decision.id) { mutableStateOf(suggestedTriggerOrder(decision)) }
@@ -149,7 +149,7 @@ internal fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play
  * order, skipping those no longer applicable, and asks again only when a new one appears ([FlowQuestions.answerReplacements]).
  */
 @Composable
-internal fun ReplacementOrderSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseReplacement) {
+fun ReplacementOrderSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseReplacement) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
     var order by remember(decision.id) { mutableStateOf(decision.options.map { it.index }) }

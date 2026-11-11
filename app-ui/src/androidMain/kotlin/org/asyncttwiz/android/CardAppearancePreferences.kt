@@ -20,14 +20,14 @@ data class CardAppearance(
     fun text(part: CardTextScalePart) = cardScale(if (customizeText) text[part] ?: textSize else textSize)
 }
 
-internal const val MIN_CARD_SCALE = .5f
-internal const val MAX_CARD_SCALE = 3f
-internal fun cardScale(value: Float) = if (value.isFinite()) value.coerceIn(MIN_CARD_SCALE, MAX_CARD_SCALE) else 1f
-internal fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
+const val MIN_CARD_SCALE = .5f
+const val MAX_CARD_SCALE = 3f
+fun cardScale(value: Float) = if (value.isFinite()) value.coerceIn(MIN_CARD_SCALE, MAX_CARD_SCALE) else 1f
+fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
     ?.takeIf { it.isFinite() }?.let(::cardScale)
 
 /** One file for the device, intentionally independent of account IDs and logout cleanup. */
-internal class CardAppearancePreferences(platform: AppPlatform) {
+class CardAppearancePreferences(platform: AppPlatform) {
     private val store = platform.preferences("card-appearance")
     fun read() = CardAppearance(
         cardScale(store.getFloat("size", 1f)), store.getBoolean("custom-areas", false),
@@ -55,13 +55,13 @@ internal class CardAppearancePreferences(platform: AppPlatform) {
 }
 
 @Composable
-internal fun rememberCardAppearancePreferences(): CardAppearancePreferences {
+fun rememberCardAppearancePreferences(): CardAppearancePreferences {
     val platform = AppPlatform.current
     return remember(platform) { CardAppearancePreferences(platform) }
 }
 
 @Composable
-internal fun CardAppearancePreferences.state(): State<CardAppearance> {
+fun CardAppearancePreferences.state(): State<CardAppearance> {
     val state = remember(this) { mutableStateOf(read()) }
     DisposableEffect(this) {
         val stop = observe { state.value = read() }
@@ -72,4 +72,4 @@ internal fun CardAppearancePreferences.state(): State<CardAppearance> {
 }
 
 @Composable
-internal fun rememberCardAppearance(): CardAppearance = rememberCardAppearancePreferences().state().value
+fun rememberCardAppearance(): CardAppearance = rememberCardAppearancePreferences().state().value

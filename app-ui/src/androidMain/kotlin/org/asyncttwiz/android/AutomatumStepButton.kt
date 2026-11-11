@@ -76,7 +76,7 @@ sealed class AutomatumStep(val label: String) {
 
 /** The step arrow's icon (I-D46 d): crossed swords for going to combat and attacking, as the combat quick actions use
  * ([AutomatumStep.swords]); Pass and Next differ. */
-internal val AutomatumStep.icon: ImageVector get() = when (this) {
+val AutomatumStep.icon: ImageVector get() = when (this) {
     AutomatumStep.Pass -> Icons.Outlined.SkipNext
     AutomatumStep.Next, AutomatumStep.Waiting -> Icons.AutoMirrored.Outlined.ArrowForward
     AutomatumStep.ToCombat -> Icons.Outlined.Shield
@@ -88,11 +88,11 @@ internal val AutomatumStep.icon: ImageVector get() = when (this) {
 }
 
 /** Whether the arrow draws the attack's crossed swords (To combat, Attack (N)) instead of [icon]. */
-internal val AutomatumStep.swords: Boolean get() = this == AutomatumStep.ToCombat || this is AutomatumStep.Attack && count > 0
+val AutomatumStep.swords: Boolean get() = this == AutomatumStep.ToCombat || this is AutomatumStep.Attack && count > 0
 
 /** The neutral step arrow's colours (I-D46 d): white with a dark ink and a grey outline, whoever's turn it is. */
-internal val AutomatumStepInk = MenuInk
-internal val AutomatumStepOutline = Color(0xff9aa7a3)
+val AutomatumStepInk = MenuInk
+val AutomatumStepOutline = Color(0xff9aa7a3)
 
 /**
  * Why the step arrow can't act on [play] now (UI review round 2 #3, I-D46 b), or null when it can: the viewer's own cast
@@ -100,7 +100,7 @@ internal val AutomatumStepOutline = Color(0xff9aa7a3)
  * ([AutomatumStep.Waiting]), or the declaration the lanes hold isn't one Automatum allows ([combat]: what it worked out).
  * HIS-110 (owner, 2026-11-07): the other player's reveal panel is open ([revealOpen]) until its OK.
  */
-internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?,
+fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?,
     revealOpen: Boolean = false): String? {
     if (revealOpen) return REVEAL_BUSY
     if (castOpen) return CastController.BUSY
@@ -123,7 +123,7 @@ internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asynct
  * act (their move, their blockers, a choice of theirs: they act on the board shown), in either player's turn; while the
  * other player must act its place stays empty, in the viewer's own turn too.
  */
-internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
+fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
     val board = play.board
     if (viewer == null) return true
     return board.priority?.holder == viewer || board.effectiveAttentionHolder == viewer
@@ -138,7 +138,7 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
  * a tap shakes it and holding it says why (I-D46 b).
  */
 @Composable
-internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
+fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
     blocked: String? = null, resolveTip: String? = null,
     /** TRN-017, STK-029 (owner 2026-11-07): holding Resolve, the Resolve chain (null: holding it says [resolveTip]). */
     onResolveHold: (() -> Unit)? = null,
@@ -163,7 +163,7 @@ internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Mo
 }
 
 /** TRN-017 (owner 2026-11-07): the name of the hold of Resolve or of a Stack wait's Assume, the Resolve chain. */
-internal const val RESOLVE_CHAIN = "Resolve the whole Stack"
+const val RESOLVE_CHAIN = "Resolve the whole Stack"
 
 /**
  * A go-on action of an open choice on the main button (TRN-063, owner 2026-11-05): [label] under [icon]; [refusal] greys
@@ -173,7 +173,7 @@ class MainAction(val label: String, val icon: ImageVector, val refusal: String? 
     val run: () -> Unit)
 
 /** TRN-063 (owner playtest 2026-11-09): a quick second tap on the main button is ignored. */
-internal object MainButtonGuard {
+object MainButtonGuard {
     /** A press this soon (ms) after the last one taken is the second tap of a double tap. */
     const val MILLIS = 300L
 }
@@ -183,7 +183,7 @@ internal object MainButtonGuard {
  * choice's OK, Pay), which the main button holds while it is open instead of the panel having a button of its own. The panel
  * puts it here while it is composed ([MainButtonAction]); the latest one put wins.
  */
-internal class MainSlot {
+class MainSlot {
     private var owner: Any? = null
     var action by androidx.compose.runtime.mutableStateOf<MainAction?>(null); private set
     fun set(key: Any, action: MainAction?) {
@@ -194,12 +194,12 @@ internal class MainSlot {
 }
 
 /** The table's [MainSlot], null where there is no main button (a panel then keeps its own button). */
-internal val LocalMainSlot = androidx.compose.runtime.compositionLocalOf<MainSlot?> { null }
+val LocalMainSlot = androidx.compose.runtime.compositionLocalOf<MainSlot?> { null }
 
 /** Puts [action] on the main button while this is composed ([MainSlot]); false where there is no main button ([LocalMainSlot]),
  * so the caller shows a button of its own. */
 @Composable
-internal fun MainButtonAction(action: MainAction): Boolean {
+fun MainButtonAction(action: MainAction): Boolean {
     val slot = LocalMainSlot.current ?: return false
     val key = remember { Any() }
     androidx.compose.runtime.SideEffect { slot.set(key, action) }
@@ -209,7 +209,7 @@ internal fun MainButtonAction(action: MainAction): Boolean {
 
 /** The main button holding [action] ([MainAction]): the step arrow's look, no hold command. */
 @Composable
-internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
+fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
     /** TRN-063: whether a press is taken at all (false: a quick second tap, ignored before anything else). */
     guard: ((String) -> Boolean)? = null) {
     var shakes by remember { mutableIntStateOf(0) }
@@ -228,7 +228,7 @@ internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Mod
  * don't fit under the icon (large system text) or a word is wider than the button, they are drawn smaller rather than cut.
  */
 @Composable
-internal fun MainButtonContent(icon: @Composable () -> Unit, label: String) {
+fun MainButtonContent(icon: @Composable () -> Unit, label: String) {
     Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         icon()
         BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max = MAIN_LABEL_ROOM), contentAlignment = Alignment.Center) {

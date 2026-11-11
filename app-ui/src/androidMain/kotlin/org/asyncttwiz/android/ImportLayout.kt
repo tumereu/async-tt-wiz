@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.ImportIssue
 
-internal const val IMPORT_FROM_LINK = "Import from link"
+const val IMPORT_FROM_LINK = "Import from link"
 
 /**
  * The link dialog: a link field with a paste icon inside it, progress and errors, and Cancel /
@@ -37,7 +37,7 @@ internal const val IMPORT_FROM_LINK = "Import from link"
  * keyboard-pasted text waits for Import. A successful import closes the dialog and fills the editor.
  */
 @Composable
-internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placeholder: String, tag: String,
+fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placeholder: String, tag: String,
     pasteDescription: String, pasteAndImport: (String?) -> Unit, import: () -> Unit,
     importEnabled: Boolean, fetching: Boolean, error: String?, dismiss: () -> Unit) {
     val clipboard = LocalClipboardManager.current
@@ -71,7 +71,7 @@ internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placehol
 /** The pasted list fills the free height; its corner paste icon only replaces the text with the clipboard. Lines in
  * [problemLines] (numbered from 1) are underlined in red (LOB-059). */
 @Composable
-internal fun ColumnScope.ImportListField(text: String, onText: (String) -> Unit, description: String, tag: String,
+fun ColumnScope.ImportListField(text: String, onText: (String) -> Unit, description: String, tag: String,
     problemLines: Set<Int> = emptySet()) {
     val clipboard = LocalClipboardManager.current
     val error = MaterialTheme.colorScheme.error
@@ -89,11 +89,11 @@ internal fun ColumnScope.ImportListField(text: String, onText: (String) -> Unit,
 }
 
 /** The lines of the list a lookup found problems in, numbered from 1; none once the text changed since that lookup. */
-internal fun problemLines(text: String, result: DeckImportResult?): Set<Int> =
+fun problemLines(text: String, result: DeckImportResult?): Set<Int> =
     result?.takeIf { it.text == text }?.issues?.map { it.line }?.filter { it > 0 }?.toSet().orEmpty()
 
 /** Draws the [lines] (numbered from 1, split as the list parser splits them) red and underlined; the text is unchanged. */
-internal class ProblemLines(private val lines: Set<Int>, private val color: Color) : VisualTransformation {
+class ProblemLines(private val lines: Set<Int>, private val color: Color) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         if (lines.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
         val styled = AnnotatedString.Builder(text)
@@ -117,13 +117,13 @@ internal class ProblemLines(private val lines: Set<Int>, private val color: Colo
 }
 
 @Composable
-internal fun ImportError(message: String?) {
+fun ImportError(message: String?) {
     if (message != null) Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
 }
 
 /** Substitutions and the problems that block saving (LOB-059: no counts; the Cards tab has them). */
 @Composable
-internal fun ImportResultSummary(result: DeckImportResult?, lineNumbers: Boolean) {
+fun ImportResultSummary(result: DeckImportResult?, lineNumbers: Boolean) {
     result ?: return
     fun line(issue: ImportIssue) = (if (lineNumbers && issue.line > 0) "Line ${issue.line}: " else "") + issue.message
     result.substitutions.forEach {

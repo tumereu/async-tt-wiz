@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.screenWidthDp
 import org.asyncttwiz.appui.screenHeightDp
 
-internal fun phaseColor(phase: String) = when (phase) {
+fun phaseColor(phase: String) = when (phase) {
     "BEGINNING" -> Color(0xffdcebf8)
     "PRECOMBAT_MAIN" -> Color(0xffe9dff6)
     "COMBAT" -> Color(0xffffe5ce)
@@ -31,7 +31,7 @@ internal fun phaseColor(phase: String) = when (phase) {
     else -> Color(0xffe5e7e9)
 }
 
-internal fun phaseName(phase: String) = when (phase) {
+fun phaseName(phase: String) = when (phase) {
     "BEGINNING" -> "Beginning"
     "PRECOMBAT_MAIN" -> "Precombat main"
     "COMBAT" -> "Combat"
@@ -40,7 +40,7 @@ internal fun phaseName(phase: String) = when (phase) {
     else -> phase
 }
 
-internal val TurnPosition.shortCode: String get() = when (this) {
+val TurnPosition.shortCode: String get() = when (this) {
     TurnPosition.UNTAP -> "UNT"
     TurnPosition.UPKEEP -> "UPK"
     TurnPosition.DRAW -> "DRW"
@@ -56,7 +56,7 @@ internal val TurnPosition.shortCode: String get() = when (this) {
     TurnPosition.CLEANUP -> "CLN"
 }
 
-internal fun turnStepName(turn: TurnState): String {
+fun turnStepName(turn: TurnState): String {
     val position = TurnPosition.of(turn) ?: return "${phaseName(turn.phase)} · ${turn.step}"
     val phase = phaseName(turn.phase)
     return if (position.label == phase) phase else "$phase · ${position.label}"
@@ -64,7 +64,7 @@ internal fun turnStepName(turn: TurnState): String {
 
 /** The one short, one-line step vocabulary shared by the step button (TRN-007), the phase dialog's step squares
  *  (TRN-008) and the step arrow (TRN-017); the phase label or dialog title gives the rest. */
-internal fun stepLabel(position: TurnPosition): String = when (position) {
+fun stepLabel(position: TurnPosition): String = when (position) {
     TurnPosition.PRECOMBAT_MAIN -> "Main 1"
     TurnPosition.BEGIN_COMBAT -> "Begin"
     TurnPosition.DECLARE_ATTACKERS -> "Attackers"
@@ -78,18 +78,18 @@ internal fun stepLabel(position: TurnPosition): String = when (position) {
 
 /** The phase dialog's steps (TRN-008): the twelve, and the first-strike damage step while the turn is in it or its
  * combat had one (TRN-056). */
-internal fun pickerSteps(board: BoardState): List<TurnPosition> =
+fun pickerSteps(board: BoardState): List<TurnPosition> =
     if (TurnPosition.of(board.turn) == TurnPosition.FIRST_STRIKE_DAMAGE ||
         AutomatumBoards.hadFirstStrikeStep(board)) TurnPosition.entries
     else TurnPosition.MANUAL
 
 @Composable
-internal fun TurnStepIcon(turn: TurnState) {
+fun TurnStepIcon(turn: TurnState) {
     StepIcon(TurnPosition.of(turn))
 }
 
 @Composable
-internal fun StepIcon(position: TurnPosition?) {
+fun StepIcon(position: TurnPosition?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp).semantics { hideFromAccessibility() }) {
         MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(20.dp), tint = LocalContentColor.current)
         Text(position?.let(::stepLabel) ?: "?", Modifier.fillMaxWidth(), fontSize = 9.sp, lineHeight = 10.sp,

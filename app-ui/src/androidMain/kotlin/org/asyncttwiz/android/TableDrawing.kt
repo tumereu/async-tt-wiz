@@ -25,9 +25,9 @@ import org.asyncttwiz.appui.nativeSaveCount
 import org.asyncttwiz.appui.nativeRestoreToCount
 
 /** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
-internal val AutotapAmber = Color(0xffe09a1c)
+val AutotapAmber = Color(0xffe09a1c)
 
-internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, preview: TableGesturePreview,
+fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, preview: TableGesturePreview,
     alphas: Map<String, Float> = emptyMap(), artwork: Map<String, ImageBitmap> = emptyMap(),
     cache: TableDrawCache, presenceDot: PresenceDot? = null,
     /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
@@ -319,7 +319,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
  * count, ZON-092's counter mark, the revealed top's eye), for drawing over the table's overlays: the Stack's target
  * arrows and highlights never cover them.
  */
-internal fun DrawScope.drawPileBadges(scene: TableScene, cache: TableDrawCache) =
+fun DrawScope.drawPileBadges(scene: TableScene, cache: TableDrawCache) =
     pileBadges(TableCardPainter(density, scene, cache, emptyMap()), scene)
 
 private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) = with(painter) {
@@ -360,7 +360,7 @@ private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) =
 
 /** Uses the production renderer: size and text are not a separately maintained approximation. */
 @Composable
-internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier: Modifier = Modifier) {
+fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier: Modifier = Modifier) {
     val bounds = TableBounds(0f, 0f, 28f * scale, 40f * scale)
     val sample = TableItem("sample", bounds, "Sample card: Sprite, 2/3", "Sprite",
         owner = "sample", kind = TableItemKind.CARD, corner = "2/3", typeIcon = "♙")

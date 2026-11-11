@@ -12,7 +12,7 @@ import org.asyncttwiz.storage.ParsedCard
  * 2b; they join [org.asyncttwiz.appui.AppPlatform] when the code moves, docs/specs/web-client.md §11 step 2). Android:
  * [AndroidAppServices], installed by the Application before anything else runs.
  */
-internal interface AppServices {
+interface AppServices {
     /** The card catalog's database on this device. */
     fun catalogRepository(): CatalogRepository
 

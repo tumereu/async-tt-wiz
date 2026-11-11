@@ -14,7 +14,7 @@ import arcanum.engine.state.PlayerId
  * battlefields, graveyards, exile and the Stack, life) and the whole board when the game opens and at each new turn. Only what
  * the player sees: of the other player's hand and of libraries, only how many cards.
  */
-internal class GameLog(gameId: String, private val me: PlayerId) {
+class GameLog(gameId: String, private val me: PlayerId) {
     private val game = "Game ${gameId.take(8)} seat ${me.value.take(8)}"
     private var last: Map<String, List<String>>? = null
     private var lastTurn: Int? = null

@@ -48,13 +48,13 @@ abstract class ArtworkService : AutoCloseable {
     /** Reference keys whose latest attempt failed; their own loads keep retrying in the background. */
     abstract val unavailable: StateFlow<Set<String>>
     /** Downloads (no decode) into the disk cache at prefetch priority, one attempt per reference. */
-    internal abstract val prefetch: ArtworkPrefetchQueue
+    abstract val prefetch: ArtworkPrefetchQueue
     /** Waiting artwork retries run now, over fresh connections. */
     abstract fun wake(reason: String)
 }
 
 /** [create]: a new service with its files where the context keeps them (the platform's, [AppServices.artworkService]). */
-internal class ArtworkServiceProvider(
+class ArtworkServiceProvider(
     private val create: (PlatformContext) -> ArtworkService = { AppServices.current.artworkService(it) }) {
     @Volatile private var service: ArtworkService? = null
     fun current(): ArtworkService? = service
@@ -72,10 +72,10 @@ object PublicArtwork {
     private val starting = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val wanted = HashMap<String, List<ArtworkReference>>()
     suspend fun get(context: PlatformContext): ArtworkService = provider.get(context)
-    internal fun current(): ArtworkService? = provider.current()
+    fun current(): ArtworkService? = provider.current()
 
     /** Non-blocking: replaces the batch [tag] in the process-wide background queue. */
-    internal fun prefetch(context: PlatformContext, tag: String, references: List<ArtworkReference>) {
+    fun prefetch(context: PlatformContext, tag: String, references: List<ArtworkReference>) {
         val ready = synchronized(this) {
             current()?.also { wanted.remove(tag); it.prefetch.submit(tag, references) }
                 ?: run { wanted[tag] = references; null }
@@ -87,7 +87,7 @@ object PublicArtwork {
     }
 
     /** Queued work of [tag] is dropped; at most the bounded in-flight attempts finish. */
-    internal fun cancelPrefetch(tag: String) = synchronized(this) {
+    fun cancelPrefetch(tag: String) = synchronized(this) {
         wanted.remove(tag)
         current()?.prefetch?.cancel(tag)
     }
@@ -95,7 +95,7 @@ object PublicArtwork {
 
 /** Same bounded, pannable viewport for gameplay inspection and draft face stacks. */
 @Composable
-internal fun ArtworkViewport(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
+fun ArtworkViewport(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
     content: @Composable () -> Unit) {
     // Separate nodes keep each axis's accessibility ScrollBy action intact. Combining both
     // modifiers on one node replaces that action and can make bring-into-view loop forever.
@@ -154,7 +154,7 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
 }
 
 /** Turns content clockwise by a multiple of 90°; a quarter turn lays it out in the swapped box. */
-internal fun Modifier.turned(degrees: Int): Modifier = when {
+fun Modifier.turned(degrees: Int): Modifier = when {
     degrees % 360 == 0 -> this
     degrees % 180 == 0 -> graphicsLayer { rotationZ = degrees.toFloat() }
     else -> layout { measurable, constraints ->

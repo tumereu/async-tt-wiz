@@ -51,8 +51,8 @@ class InfiniteBattlefieldTest {
                 world.clamp(TableCamera(zoom = TablePresentation.MIN_ZOOM)), world.clamp(TableCamera(x = -1e5f, zoom = TablePresentation.MAX_ZOOM)))
             for (camera in cameras) {
                 val scene = scene(play, width, height, landscape, camera)
-                val pan = scene.world!!.screen(scene.world.panBounds, scene.camera)
-                val viewport = scene.world.viewport
+                val pan = scene.world!!.screen(scene.world!!.panBounds, scene.camera)
+                val viewport = scene.world!!.viewport
                 for (field in scene.fields) {
                     val label = "$name, landscape=$landscape, $camera, ${field.owner}"
                     assertTrue(field.gridBounds.x <= pan.x + .001f && field.gridBounds.right >= pan.right - .001f, label)
@@ -63,7 +63,7 @@ class InfiniteBattlefieldTest {
                         assertEquals(viewport.width, field.bounds.width, .001f, label)
                     }
                     // The rows' left end is still the world origin under every camera.
-                    assertEquals(scene.world.screen(TablePoint(0f, 0f), scene.camera).x, field.originX, .001f, label)
+                    assertEquals(scene.world!!.screen(TablePoint(0f, 0f), scene.camera).x, field.originX, .001f, label)
                 }
             }
         }
@@ -79,8 +79,8 @@ class InfiniteBattlefieldTest {
             val wide = scene(wideRow(base, 61), width, height, landscape)
             assertEquals(-3 * pitch, wide.world!!.panBounds.x, .001f)
             // Three creatures and 61 more, each in a slot of its own, from the left in two-slot columns (TBL-004)
-            assertEquals(32 * pitch + 32f + 3 * pitch, wide.world.panBounds.right, .001f)
-            assertTrue(wide.world.panBounds.right > plain.world!!.panBounds.right)
+            assertEquals(32 * pitch + 32f + 3 * pitch, wide.world!!.panBounds.right, .001f)
+            assertTrue(wide.world!!.panBounds.right > plain.world!!.panBounds.right)
             val last = wide.items.single { it.cardId == "a/BATTLEFIELD/x60" }
             assertEquals(plain.items.single { it.cardId == "a/BATTLEFIELD/2" }.bounds.width, last.bounds.width, "nothing shrinks to fit")
         }

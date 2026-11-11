@@ -2,9 +2,9 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-internal val ownerOnlyZones = setOf(PlayZone.HAND, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
+val ownerOnlyZones = setOf(PlayZone.HAND, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
 
-internal fun moveZoneLabel(zone: PlayZone, bottom: Boolean = false): String = when (zone) {
+fun moveZoneLabel(zone: PlayZone, bottom: Boolean = false): String = when (zone) {
     PlayZone.HAND -> "Hand"
     PlayZone.BATTLEFIELD -> "Battlefield"
     PlayZone.LIBRARY -> if (bottom) "Library bottom" else "Library top"
@@ -14,7 +14,7 @@ internal fun moveZoneLabel(zone: PlayZone, bottom: Boolean = false): String = wh
 }
 
 /** Client input policy only; historical moves remain valid in the shared processor. */
-internal fun ownerMoveDestination(board: BoardState, id: String, destination: TableDestination, playId: String? = null): TableDestination {
+fun ownerMoveDestination(board: BoardState, id: String, destination: TableDestination, playId: String? = null): TableDestination {
     val owner = CombatStackRules.liveSource(board, id)?.owner ?: return destination
     return when (destination) {
         is TableDestination.Container -> if (destination.zone in ownerOnlyZones) {
@@ -30,7 +30,7 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Ta
     }
 }
 
-internal fun ownerMoveDestination(board: BoardState, id: String, destination: MoveDestination, playId: String? = null): MoveDestination {
+fun ownerMoveDestination(board: BoardState, id: String, destination: MoveDestination, playId: String? = null): MoveDestination {
     val zone = board.containers.singleOrNull { it.id == destination.containerId }?.zone ?: return destination
     if (zone !in ownerOnlyZones) return destination
     val redirected = ownerMoveDestination(board, id, TableDestination.Container(destination.containerId, zone), playId) as TableDestination.Container
@@ -41,7 +41,7 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Mo
 }
 
 /** The scene carries owners even for a captured Library top that has no individual drawing. */
-internal fun TableScene.ownerMoveDestination(id: String, destination: TableDestination): TableDestination {
+fun TableScene.ownerMoveDestination(id: String, destination: TableDestination): TableDestination {
     if (destination !is TableDestination.Container || destination.zone !in ownerOnlyZones) return destination
     val owner = cardOwners[id] ?: items.firstOrNull { it.cardId == id }?.owner ?: return destination
     val target = items.firstOrNull { it.zone == destination.zone && it.owner == owner && !it.temp &&

@@ -26,7 +26,7 @@ data class PodCubePreparationState(val pod: String? = null, val cube: PodCube? =
 }
 
 /** The prepared cube with [move] applied; copies join the target section's entry of the same card. */
-internal fun PodCube.moved(move: PodCubeMove): PodCube? {
+fun PodCube.moved(move: PodCubeMove): PodCube? {
     val source = entries.firstOrNull { it.definition == move.definition && it.section == move.from } ?: return null
     if (source.quantity < move.quantity) return null
     val result = entries.mapNotNull {

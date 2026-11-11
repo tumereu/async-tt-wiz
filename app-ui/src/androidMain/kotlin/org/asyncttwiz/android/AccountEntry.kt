@@ -290,7 +290,7 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
 }
 
 @Composable
-internal fun WizardLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
+fun WizardLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Image(AppPlatform.current.atwLogo(), "Wizard hat", Modifier.size(if (compact) 36.dp else 112.dp, if (compact) 28.dp else 86.dp))
         Text("ATW", fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp,
@@ -300,6 +300,6 @@ internal fun WizardLogo(modifier: Modifier = Modifier, compact: Boolean = false)
 
 /** Shared Material glyphs; decorative icons leave the button's text as its accessible name. */
 @Composable
-internal fun EntryIcon(description: String?, kind: String) {
+fun EntryIcon(description: String?, kind: String) {
     Icon(screenIcon(kind), description, Modifier.size(22.dp))
 }

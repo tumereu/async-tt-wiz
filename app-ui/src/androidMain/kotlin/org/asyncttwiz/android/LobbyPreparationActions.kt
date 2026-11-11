@@ -5,7 +5,7 @@ import org.asyncttwiz.protocol.*
 
 /** LobbyController's own deck preparation in a lobby game: start settings and readiness, the
  * preparation view's card transfers and their personal undo. Main thread. */
-internal class LobbyPreparationActions(private val scope: LobbyScope, private val accountId: () -> String?,
+class LobbyPreparationActions(private val scope: LobbyScope, private val accountId: () -> String?,
     private val session: GameSession?, private val queue: LobbyActionQueue) {
     private var state: LobbyState
         get() = scope.state
@@ -19,9 +19,9 @@ internal class LobbyPreparationActions(private val scope: LobbyScope, private va
     fun ready() = readiness(GameAction.Ready)
     fun withdrawReady() = readiness(GameAction.WithdrawReady)
     /** Personal, last 50 transfers of the shown preparation round; each undo is an ordinary request. */
-    internal var preparationUndo by mutableStateOf(PreparationUndo())
+    var preparationUndo by mutableStateOf(PreparationUndo())
         private set
-    internal fun preparationUndoStep(): PreparationStep? = preparationUndo.last(state.preparation, accountId())
+    fun preparationUndoStep(): PreparationStep? = preparationUndo.last(state.preparation, accountId())
     fun undoPreparation(): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false

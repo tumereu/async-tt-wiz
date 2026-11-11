@@ -15,7 +15,7 @@ import kotlin.math.abs
  * once started takes every movement (nothing scrolls). Distances are in the caller's units (dp).
  */
 @Stable
-internal class InspectSwipe {
+class InspectSwipe {
     /** What closing the pinned Inspect does (its host's close). */
     var onClose: () -> Unit = {}
     var progress by mutableFloatStateOf(0f); private set

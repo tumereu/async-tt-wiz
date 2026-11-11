@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.coilImageBitmap
 
 @Composable
-internal fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
+fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     val images = mutableMapOf<String, ImageBitmap>()
     val context = LocalPlatformContext.current
     val extents = mutableMapOf<org.asyncttwiz.storage.ArtworkReference, Float>()
@@ -35,7 +35,7 @@ internal fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
 }
 
 /** Uniform scale and centered clipping, never independent width/height stretching. */
-internal fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) {
+fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) {
     val left = bounds.x * density; val top = bounds.y * density
     val width = bounds.width * density; val height = bounds.height * density
     val factor = maxOf(width / image.width, height / image.height)

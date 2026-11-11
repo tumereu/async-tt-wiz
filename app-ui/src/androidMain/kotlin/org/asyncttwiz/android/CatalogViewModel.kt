@@ -28,7 +28,7 @@ data class CatalogUiState(val installed: CatalogMetadata? = null, val ready: Boo
  * differ, downloads and installs the catalog while the app stays usable. A failed attempt is tried once more by itself,
  * then the screens say so with Retry ([retry]). Public data only: no account or session enters this worker.
  */
-internal class CatalogController(private val directory: File, val repository: CatalogRepository,
+class CatalogController(private val directory: File, val repository: CatalogRepository,
     private val source: () -> CatalogSource, private val expected: String?, private val worker: ExecutorService,
     private val post: (() -> Unit) -> Unit, private val retryPause: Long = 2_000) {
     var state by mutableStateOf(CatalogUiState())
@@ -47,7 +47,7 @@ internal class CatalogController(private val directory: File, val repository: Ca
     fun retry() = start()
 
     /** Tests: shows [value] as the state. */
-    internal fun seed(value: CatalogUiState) { state = value }
+    fun seed(value: CatalogUiState) { state = value }
 
     fun close() { closed = true; worker.shutdownNow() }
 
@@ -102,13 +102,13 @@ internal class CatalogController(private val directory: File, val repository: Ca
 
 /** The app's [CatalogController] (MainActivity starts it on resume, [foreground]): the platform's
  * ([AppServices.catalogController]), or another one (end-to-end tests: a phone's own directory and the test server). */
-class CatalogViewModel internal constructor(internal val controller: CatalogController) : ViewModel() {
-    internal val repository = controller.repository
+class CatalogViewModel constructor(val controller: CatalogController) : ViewModel() {
+    val repository = controller.repository
     val state: CatalogUiState get() = controller.state
 
     fun foreground() = controller.start()
     fun retry() = controller.retry()
-    internal fun seed(value: CatalogUiState) = controller.seed(value)
+    fun seed(value: CatalogUiState) = controller.seed(value)
 
     override fun onCleared() = controller.close()
 }

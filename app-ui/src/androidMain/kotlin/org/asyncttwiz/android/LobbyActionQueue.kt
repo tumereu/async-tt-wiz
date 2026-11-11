@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 /** LobbyController's waiting lobby taps: a tap made while the game connection (re)opens, or while an
  * earlier request of that game is in flight, runs once the game can send. Main thread. */
-internal class LobbyActionQueue(private val scope: LobbyScope, private val session: GameSession?) {
+class LobbyActionQueue(private val scope: LobbyScope, private val session: GameSession?) {
     private var state: LobbyState
         get() = scope.state
         set(value) { scope.state = value }

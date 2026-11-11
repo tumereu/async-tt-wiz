@@ -50,7 +50,7 @@ import kotlin.math.roundToInt
  * a covered card when the viewer may not see it (I-D27). [key] names it in the choice; [cardId] is the ATW card, for
  * Inspect.
  */
-internal data class ChoiceCardData(val key: String, val cardId: String?, val name: String, val art: ArtworkReference?,
+data class ChoiceCardData(val key: String, val cardId: String?, val name: String, val art: ArtworkReference?,
     val shown: Boolean, val token: Boolean = false, val own: Boolean = true, val tapped: Boolean = false,
     /** The battlefield's type glyph, shown while the art is missing. */
     val typeIcon: String = "",
@@ -59,7 +59,7 @@ internal data class ChoiceCardData(val key: String, val cardId: String?, val nam
 
 /** The [ChoiceCardData] of ATW card [cardId] on [play]'s board as [viewer] may see it ([shown]); [fallback] names an
  * object that is no card. */
-internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: String?, shown: Boolean, fallback: String,
+fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: String?, shown: Boolean, fallback: String,
     tapped: Boolean = false): ChoiceCardData {
     val card = cardId?.let { id -> play.board.cards.firstOrNull { it.id == id } }
         ?: return ChoiceCardData(key, null, if (shown) fallback else "Hidden card", null, shown, tapped = tapped)
@@ -74,7 +74,7 @@ internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: S
  * Stack use, scaled by the Panels card size ([area]: another area's size, as the reveal panel's cards use the Hand's,
  * HIS-110). */
 @Composable
-internal fun choiceCardSize(area: CardArea = CardArea.PANELS): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
+fun choiceCardSize(area: CardArea = CardArea.PANELS): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
     val scale = rememberCardAppearance().size(area)
     return 28.dp * scale to 40.dp * scale
 }
@@ -84,7 +84,7 @@ internal fun choiceCardSize(area: CardArea = CardArea.PANELS): Pair<androidx.com
  * panel's source, the cards a choice is about) draws its name smaller; every panel card has the same size, the Panels
  * card size, except the reveal panel's revealed cards, [area] Hand (HIS-110). */
 @Composable
-internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier, selected: Boolean = false, badge: String? = null,
+fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier, selected: Boolean = false, badge: String? = null,
     small: Boolean = false, area: CardArea = CardArea.PANELS) {
     val (width, height) = choiceCardSize(area)
     val owner = if (card.own) OwnTableColor else OpponentTableColor
@@ -124,7 +124,7 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
  * Holding a choice's card inspects it (I-D48), as on the table: the large card shows while held. Only cards the viewer
  * may see ([ChoiceCardData.shown]) open; a covered one doesn't.
  */
-internal class ChoiceInspector {
+class ChoiceInspector {
     var held by mutableStateOf<ChoiceCardData?>(null); private set
     /** TBL-127: the held card's Inspect scrolls with the holding finger. */
     val scroll = ScrollState(0)
@@ -163,29 +163,29 @@ internal class ChoiceInspector {
  * opening it never moves anything in the panel (owner playtest 2026-11-06: holding a revealed card made the panel jump).
  */
 @Stable
-internal class InspectHost {
+class InspectHost {
     var shown by mutableStateOf<HostedInspection?>(null); private set
     fun show(inspection: HostedInspection) { shown = inspection }
     fun hide(inspection: HostedInspection) { if (shown == inspection) shown = null }
 }
 
 /** One panel's Inspect for [InspectHost]. */
-internal data class HostedInspection(val play: TableBoard, val viewer: String, val inspection: ManualInspection,
+data class HostedInspection(val play: TableBoard, val viewer: String, val inspection: ManualInspection,
     val inspector: ChoiceInspector)
 
 /** The table screen's [InspectHost]; null outside it (a panel then draws its Inspect itself). */
-internal val LocalInspectHost = staticCompositionLocalOf<InspectHost?> { null }
+val LocalInspectHost = staticCompositionLocalOf<InspectHost?> { null }
 
 /** Draws what [host] shows. */
 @Composable
-internal fun HostedInspectionView(host: InspectHost) {
+fun HostedInspectionView(host: InspectHost) {
     val shown = host.shown ?: return
     GameplayCardInspection(shown.play, shown.viewer, shown.inspection, shown.inspector::close,
         scroll = shown.inspector.scroll, swipe = shown.inspector.swipe)
 }
 
 @Composable
-internal fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, viewer: String) {
+fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, viewer: String) {
     val screenHeight = holdPreviewScreenHeight()
     SideEffect { inspector.screenHeight = screenHeight }
     val card = inspector.held
@@ -214,7 +214,7 @@ internal fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, view
  * Hold wins after [CardPeekHoldMillis] without moving; moving past the touch slop first drags. While held, the finger's
  * movement goes to [moved] (TBL-127's scroll, the pinned swipe: [ChoiceInspector.moved]).
  */
-internal fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Unit,
+fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Unit,
     drag: ((DragPhase, Offset) -> Unit)? = null,
     moved: ((dx: Float, dy: Float, step: Float) -> Unit)? = null): Modifier = composed {
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -284,7 +284,7 @@ internal fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boole
     }.semantics { onClick { currentTap(); true } }
 }
 
-internal enum class DragPhase { Start, Move, End, Cancel }
+enum class DragPhase { Start, Move, End, Cancel }
 
 private enum class Gesture { Hold, Tap, Drag, Cancel }
 
@@ -293,14 +293,14 @@ private val EaseOutQuadratic = Easing { 1f - (1f - it) * (1f - it) }
 
 /** One area of a choice between two places (I-D48): its [label], its [icon] (on "All to …"), and whether the order
  * of its cards matters ([ordered]: a number on each card, first = top). */
-internal data class ChoiceArea(val label: String, val icon: ImageVector, val ordered: Boolean = false)
+data class ChoiceArea(val label: String, val icon: ImageVector, val ordered: Boolean = false)
 
 /**
  * The cards of a choice between two places (I-D48), by key: they start in the first area; [tap] moves a card at once to
  * the end of the other area (and back), [place] puts it at a position; with one area only, a tap moves it to the end.
  */
 @Stable
-internal class TwoAreas(first: List<String>, second: List<String> = emptyList()) {
+class TwoAreas(first: List<String>, second: List<String> = emptyList()) {
     var first by mutableStateOf(first); private set
     var second by mutableStateOf(second); private set
 
@@ -335,7 +335,7 @@ internal class TwoAreas(first: List<String>, second: List<String> = emptyList())
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, first: ChoiceArea, second: ChoiceArea?,
+fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, first: ChoiceArea, second: ChoiceArea?,
     inspector: ChoiceInspector, modifier: Modifier = Modifier) {
     val bounds = remember { mutableStateMapOf<String, Rect>() }
     val areas = remember { mutableStateMapOf<Boolean, Rect>() }
@@ -433,7 +433,7 @@ internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, 
 
 /** An icon-only button (I-D48): holding it shows what it does in a tooltip. */
 @Composable
-internal fun TipIconButton(icon: ImageVector, tip: String, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun TipIconButton(icon: ImageVector, tip: String, modifier: Modifier = Modifier, enabled: Boolean = true,
     tint: Color = AutomatumViolet, onClick: () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
@@ -452,7 +452,7 @@ internal fun TipIconButton(icon: ImageVector, tip: String, modifier: Modifier = 
 
 /** A light button with an icon and its text (I-D48), for slim bars and secondary actions. */
 @Composable
-internal fun BarButton(text: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+fun BarButton(text: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     TextButton(onClick, modifier, enabled = enabled, contentPadding = PaddingValues(horizontal = 8.dp)) {
         Icon(icon, null, Modifier.size(18.dp))
         Spacer(Modifier.width(4.dp))
@@ -462,7 +462,7 @@ internal fun BarButton(text: String, icon: ImageVector, modifier: Modifier = Mod
 
 /** A choice's button with an icon and its text (I-D48); [primary]: filled violet. */
 @Composable
-internal fun ChoiceButton(text: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun ChoiceButton(text: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true,
     primary: Boolean = false, onClick: () -> Unit) {
     val content: @Composable RowScope.() -> Unit = {
         Icon(icon, null, Modifier.size(18.dp))
@@ -477,11 +477,11 @@ internal fun ChoiceButton(text: String, icon: ImageVector, modifier: Modifier = 
 }
 
 /** The players of the game shown, by account id, for their avatars in Automatum's panels (a player choice). */
-internal val LocalPlayerAccounts = staticCompositionLocalOf<Map<String, org.asyncttwiz.protocol.AccountIdentity>> { emptyMap() }
+val LocalPlayerAccounts = staticCompositionLocalOf<Map<String, org.asyncttwiz.protocol.AccountIdentity>> { emptyMap() }
 
 /** A player to choose: their round avatar (their initial on their colour without one) and their [name]. */
 @Composable
-internal fun PlayerChoiceButton(accountId: String, name: String, onClick: () -> Unit) {
+fun PlayerChoiceButton(accountId: String, name: String, onClick: () -> Unit) {
     val account = LocalPlayerAccounts.current[accountId] ?: org.asyncttwiz.protocol.AccountIdentity(accountId, name)
     OutlinedButton(onClick, Modifier.heightIn(min = 44.dp),
         contentPadding = PaddingValues(start = 6.dp, end = 16.dp),

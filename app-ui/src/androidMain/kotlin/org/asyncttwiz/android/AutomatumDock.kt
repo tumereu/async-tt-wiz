@@ -51,7 +51,7 @@ import org.asyncttwiz.appui.screenHeightDp
  * its damage preview in the middle of the wide table stay visible (CMB-029).
  */
 @Composable
-internal fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
     val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
@@ -67,28 +67,28 @@ internal fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
  * D2 (SYS-041): the heights of the Automatum panels and bars open over the table's bottom, read by the table's pan
  * bounds when a pan starts (personal UI, never state that recomposes anything).
  */
-internal class DockedPanels {
+class DockedPanels {
     private val heights = mutableMapOf<Any, Float>()
     /** The tallest open panel's height (dp); 0 with none open. */
     val height: Float get() = heights.values.maxOrNull() ?: 0f
     fun report(key: Any, height: Float) { if (height > 0f) heights[key] = height else heights.remove(key) }
 }
 
-internal val LocalDockedPanels = compositionLocalOf<DockedPanels?> { null }
+val LocalDockedPanels = compositionLocalOf<DockedPanels?> { null }
 
 /** Reports this docked panel's measured height (dp) to the table's [DockedPanels] while it is open. */
 @Composable
-internal fun dockedPanelReporter(): (Float) -> Unit {
+fun dockedPanelReporter(): (Float) -> Unit {
     val panels = LocalDockedPanels.current ?: return {}
     val key = remember { Any() }
     DisposableEffect(panels, key) { onDispose { panels.report(key, 0f) } }
     return remember(panels, key) { { height: Float -> panels.report(key, height) } }
 }
 
-internal val LANDSCAPE_WIDTH = 420.dp
+val LANDSCAPE_WIDTH = 420.dp
 
 /** The viewer's hand row on [scene], where Automatum's panels dock ([AboveHand]). */
-internal fun handRow(scene: TableScene?, viewer: String): TableBounds? =
+fun handRow(scene: TableScene?, viewer: String): TableBounds? =
     scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
 
 /**
@@ -98,7 +98,7 @@ internal fun handRow(scene: TableScene?, viewer: String): TableBounds? =
  * [what] names the panel for the eye's description and hold tip.
  */
 @Composable
-internal fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () -> Unit, what: String,
+fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () -> Unit, what: String,
     buttons: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
     Column(Modifier.fillMaxWidth()
@@ -140,7 +140,7 @@ private fun DockButtonRow(hidden: Boolean, shown: Float, toggleHidden: () -> Uni
  * dock's look. A choice's bar ([eye], the target bars) has the eye at its left (STK-044, owner playtest 2026-11-04 #4:
  * every choice can be hidden to look at the board, and shown again); hidden, only the eye stays, at the same spot. */
 @Composable
-internal fun AutomatumDockBar(description: String, eye: Boolean = false, content: @Composable RowScope.() -> Unit) {
+fun AutomatumDockBar(description: String, eye: Boolean = false, content: @Composable RowScope.() -> Unit) {
     if (!eye) {
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).pointerInput(Unit) {}.semantics { contentDescription = description }
             .drawBehind {
@@ -169,17 +169,17 @@ internal fun AutomatumDockBar(description: String, eye: Boolean = false, content
 
 /** UI review round 2 N3: where an open choice in a dock panel puts its own buttons (OK, Yes / No, Keep): the panel's
  * bottom row beside the eye, as in the cast and respond panels ([DockButtons]). */
-internal class DockSlot {
+class DockSlot {
     var buttons by mutableStateOf<(@Composable RowScope.() -> Unit)?>(null)
 }
 
 /** The dock panel the composed choice sits in, null outside one. */
-internal val LocalDockSlot = compositionLocalOf<DockSlot?> { null }
+val LocalDockSlot = compositionLocalOf<DockSlot?> { null }
 
 /** A choice's own buttons: in its dock panel's bottom row ([LocalDockSlot]); elsewhere (the cast panel) right-aligned
  * under the choice. The main button last. */
 @Composable
-internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
+fun DockButtons(content: @Composable RowScope.() -> Unit) {
     val slot = LocalDockSlot.current
     if (slot == null) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -193,7 +193,7 @@ internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
 /** A target bar's title ("Choose any target") over the sentence it asks about ([line], STK-047), in the bar's room; [count]: how
  * many are picked of how many (owner playtest 2026-11-09), beside the title. */
 @Composable
-internal fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null) {
+fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null) {
     Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CardText(title, Modifier.weight(1f, fill = false).semantics { heading() }, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
@@ -221,14 +221,14 @@ private fun TargetBarLine(line: String) {
 }
 
 /** The test tag of a choice's source card ([ChoiceSource]). */
-internal const val CHOICE_SOURCE_TAG = "choice-source"
+const val CHOICE_SOURCE_TAG = "choice-source"
 
 /**
  * STK-044 (owner 2026-11-05): where the choice comes from, at the right of every Automatum panel and target bar: its card,
  * small (an ability as its Stack ability token, STK-046); holding it inspects it (TBL-104) through [inspector].
  */
 @Composable
-internal fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modifier: Modifier = Modifier) {
+fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modifier: Modifier = Modifier) {
     ChoiceCardFace(card, modifier.testTag(CHOICE_SOURCE_TAG)
         .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
 }
@@ -238,7 +238,7 @@ internal fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modi
  * the lines [below] it, then at the right [trailing] (a count) and the choice's [source] ([ChoiceSource]), when it has one.
  */
 @Composable
-internal fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: ChoiceInspector,
+fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: ChoiceInspector,
     trailing: @Composable RowScope.() -> Unit = {}, titleLines: Int = Int.MAX_VALUE, below: @Composable ColumnScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

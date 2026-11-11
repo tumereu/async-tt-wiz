@@ -12,13 +12,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.AppPlatform
 
-internal const val REPORTS_PROMPT_TEXT = "When the app crashes, runs slowly, stutters or loses its connection, it can send a short " +
+const val REPORTS_PROMPT_TEXT = "When the app crashes, runs slowly, stutters or loses its connection, it can send a short " +
     "report so the problem gets fixed. Reports include your device model and what the app was doing, but no passwords " +
     "or email addresses. You can change this any time in Settings."
 
 /** LOB-104: the one-time question. Closing the dialog answers "No thanks". */
 @Composable
-internal fun ReportsPromptDialog(answer: (Boolean) -> Unit) {
+fun ReportsPromptDialog(answer: (Boolean) -> Unit) {
     ScreenDialog({ answer(false) }, Modifier.testTag("reports-prompt"), title = "Send error reports?", actions = {
         DialogCancelButton("No thanks", { answer(false) }, Modifier.testTag("reports-prompt-no"))
         DialogMainButton("Send reports", { answer(true) }, Modifier.testTag("reports-prompt-yes"), icon = "send")
@@ -29,7 +29,7 @@ internal fun ReportsPromptDialog(answer: (Boolean) -> Unit) {
 
 /** LOB-104: Settings → About & account. Test builds always report, so the switch shows on and can't change. */
 @Composable
-internal fun ReportsSetting(alwaysOn: Boolean = Diagnostics.alwaysOn) {
+fun ReportsSetting(alwaysOn: Boolean = Diagnostics.alwaysOn) {
     val platform = AppPlatform.current
     val store = remember(platform) { ReportChoiceStore(platform) }
     var choice by remember(store) { mutableStateOf(store.choice) }

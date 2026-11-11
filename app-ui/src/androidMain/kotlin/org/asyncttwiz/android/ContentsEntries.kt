@@ -14,7 +14,7 @@ data class PileContents(val containerId: String, val title: String, val cardIds:
 private fun contentsCategory(type: String) = cardTypeGroup(type).singular
 
 /** Type headers follow the shared order (SYS-051); hidden "Cards" come last. */
-internal fun contentsCategoryRank(category: String): Int =
+fun contentsCategoryRank(category: String): Int =
     CardTypeGroup.entries.indexOfFirst { it.singular == category }.let { if (it < 0) CardTypeGroup.entries.size else it }
 
 private val contentsOrder = compareBy<ContentsEntry>({ contentsCategoryRank(it.category) }, { it.name.lowercase() }, { it.cardId })

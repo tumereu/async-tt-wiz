@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-internal val ScreenBackground = Color(0xfff7f8f9)
-internal val ScreenBorder = Color(0xffcdd3dc)
+val ScreenBackground = Color(0xfff7f8f9)
+val ScreenBorder = Color(0xffcdd3dc)
 
 // The extended Material set predates Symbols' crossed-swords glyph. Keep the same game motif,
 // rather than substituting a video-game controller, alongside the standard outlined icons.
@@ -57,7 +57,7 @@ private val GameSwords by lazy {
 
 /** Non-table chrome deliberately has its own density; table controls keep their own theme. */
 @Composable
-internal fun ScreenTheme(content: @Composable () -> Unit) {
+fun ScreenTheme(content: @Composable () -> Unit) {
     fun type(size: Int, line: Int, bold: Boolean = false) = TextStyle(fontSize = size.sp, lineHeight = line.sp,
         fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
     MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xff087f7b), onPrimary = Color.White,
@@ -76,14 +76,14 @@ internal fun ScreenTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun ScreenButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun ScreenButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     colors: ButtonColors = ButtonDefaults.buttonColors(), content: @Composable RowScope.() -> Unit) {
     Button(onClick, modifier.heightIn(min = 48.dp), enabled, shape = RoundedCornerShape(6.dp), colors = colors,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp), content = content)
 }
 
 @Composable
-internal fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     colors: ButtonColors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
     content: @Composable RowScope.() -> Unit) {
     OutlinedButton(onClick, modifier.heightIn(min = 48.dp), enabled, shape = RoundedCornerShape(6.dp), colors = colors,
@@ -92,7 +92,7 @@ internal fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
+fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false) {
     TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
@@ -109,7 +109,7 @@ internal fun ScreenIconButton(description: String, kind: String, onClick: () -> 
 /** An icon- or symbol-only control (I-D48): holding it shows [description], what it does, in a plain tooltip. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun HoldTip(description: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun HoldTip(description: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     // The outer Box takes the caller's layout modifiers (weight, align), which the tooltip's own layout doesn't pass on
     Box(modifier, propagateMinConstraints = true) {
         TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
@@ -119,7 +119,7 @@ internal fun HoldTip(description: String, modifier: Modifier = Modifier, content
 
 /** Busy feedback is always an overlay: showing it never remeasures or moves screen content. */
 @Composable
-internal fun ScreenBusyOverlay(message: String?, modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
+fun ScreenBusyOverlay(message: String?, modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
     Box(modifier) {
         content()
         FloatingBusyPill(message, Modifier.align(Alignment.BottomCenter))
@@ -127,7 +127,7 @@ internal fun ScreenBusyOverlay(message: String?, modifier: Modifier = Modifier.f
 }
 
 @Composable
-internal fun FloatingBusyPill(message: String?, modifier: Modifier = Modifier) {
+fun FloatingBusyPill(message: String?, modifier: Modifier = Modifier) {
     var lastMessage by remember { mutableStateOf(message.orEmpty()) }
     if (message != null) SideEffect { lastMessage = message }
     AnimatedVisibility(message != null, modifier.padding(16.dp).widthIn(max = 540.dp),
@@ -145,7 +145,7 @@ internal fun FloatingBusyPill(message: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: String,
+fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: String,
     width: Dp = 28.dp, height: Dp = 40.dp) {
     Surface(Modifier.size(width, height), color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(2.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
@@ -162,7 +162,7 @@ internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, 
 
 /** The one title row of every regular screen: optional hamburger, title, trailing actions. */
 @Composable
-internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
+fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {}) {
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
     Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
@@ -176,7 +176,7 @@ internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, title
 
 /** A list screen's single create action at the top right ("New game", "New pod", "Import deck", …). */
 @Composable
-internal fun ScreenCreateAction(label: String, icon: String, onClick: () -> Unit, modifier: Modifier = Modifier,
+fun ScreenCreateAction(label: String, icon: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true) {
     FilledTonalButton(onClick, modifier.heightIn(min = 40.dp), enabled, shape = RoundedCornerShape(6.dp),
         colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -188,7 +188,7 @@ internal fun ScreenCreateAction(label: String, icon: String, onClick: () -> Unit
 
 /** A 48dp field, with external labels, matching the compact mock forms without scaling text. */
 @Composable
-internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier,
+fun ScreenTextField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None, trailingIcon: (@Composable () -> Unit)? = null,
     placeholder: String? = null, maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
@@ -201,7 +201,7 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
 
 /** [ScreenTextField] with selection control, e.g. for a dialog field that opens with its text selected. */
 @Composable
-internal fun ScreenTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier,
+fun ScreenTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge, keyboardActions: KeyboardActions = KeyboardActions.Default) {
     BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
@@ -231,7 +231,7 @@ private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, place
  * right aligned, main action last: use [DialogCancelButton] and [DialogMainButton].
  */
 @Composable
-internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
+fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
     error: String? = null, dismissError: () -> Unit = {}, title: String? = null, close: String? = null,
     actions: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit = {}) {
@@ -265,14 +265,14 @@ internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, bu
 
 /** One bottom row of dialog actions, right aligned; the main action goes last. */
 @Composable
-internal fun DialogActionsRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+fun DialogActionsRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically, content = content)
 }
 
 /** A button's content (I-D48, LOB-101): the [screenIcon] of [kind] and the label, never the text alone. */
 @Composable
-internal fun RowScope.ButtonLabel(kind: String, label: String) {
+fun RowScope.ButtonLabel(kind: String, label: String) {
     Icon(screenIcon(kind), null, Modifier.size(18.dp))
     Spacer(Modifier.width(6.dp))
     Text(label)
@@ -280,7 +280,7 @@ internal fun RowScope.ButtonLabel(kind: String, label: String) {
 
 /** Dialog dismiss action: outlined, left of the main action; a cross before its text unless [icon] says otherwise. */
 @Composable
-internal fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     icon: String = "close") {
     ScreenOutlinedButton(onClick, modifier, enabled) { ButtonLabel(icon, label) }
 }
@@ -288,13 +288,13 @@ internal fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Mo
 /** Dialog main action: filled, rightmost; red when it destroys or removes something. Its [icon] (a [screenIcon] kind)
  * is a check, or a bin when [danger], unless the call names a better one. */
 @Composable
-internal fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     danger: Boolean = false, icon: String = if (danger) "delete" else "ready") {
     ScreenButton(onClick, modifier, enabled, colors = if (danger) ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { ButtonLabel(icon, label) }
 }
 
-internal fun screenIcon(kind: String): ImageVector = when (kind) {
+fun screenIcon(kind: String): ImageVector = when (kind) {
     "menu" -> Icons.Outlined.Menu
     "close" -> Icons.Outlined.Close
     "rotate" -> Icons.Outlined.Rotate90DegreesCw

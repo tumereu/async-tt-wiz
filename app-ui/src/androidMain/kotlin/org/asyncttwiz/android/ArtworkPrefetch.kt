@@ -18,7 +18,7 @@ data class ArtworkPrefetchProgress(val done: Int, val total: Int)
 /** Process-wide background artwork downloads. Each tagged batch (a saved deck, an open game)
  * replaces its previous version; the newest batch runs first. Bounded parallelism, one attempt per
  * reference: on-screen requests keep their own retry loop and network priority. */
-internal class ArtworkPrefetchQueue(private val scope: CoroutineScope, private val parallelism: Int = 3,
+class ArtworkPrefetchQueue(private val scope: CoroutineScope, private val parallelism: Int = 3,
     private val load: suspend (ArtworkReference) -> Boolean) {
     private class Batch(val tag: String, references: List<ArtworkReference>) {
         val queue = ArrayDeque(references)
@@ -70,7 +70,7 @@ internal class ArtworkPrefetchQueue(private val scope: CoroutineScope, private v
 }
 
 /** The inspector's text while its artwork is not shown. */
-internal fun inspectorArtworkStatus(failed: Boolean, progress: ArtworkPrefetchProgress?): String = when {
+fun inspectorArtworkStatus(failed: Boolean, progress: ArtworkPrefetchProgress?): String = when {
     failed -> "Artwork unavailable"
     progress != null -> "Downloading artwork ${minOf(progress.done + 1, progress.total)} of ${progress.total}"
     else -> "Downloading artwork…"
@@ -78,7 +78,7 @@ internal fun inspectorArtworkStatus(failed: Boolean, progress: ArtworkPrefetchPr
 
 /** Inspector placeholder: a card without any artwork source keeps its plain fallback text. */
 @Composable
-internal fun InspectorArtworkPlaceholder(reference: ArtworkReference?, fallback: String) {
+fun InspectorArtworkPlaceholder(reference: ArtworkReference?, fallback: String) {
     if (reference == null || (reference.printing == null && reference.customUrl == null)) { Text(fallback); return }
     val context = LocalPlatformContext.current
     val service by produceState(PublicArtwork.current(), context) { value = PublicArtwork.get(context) }

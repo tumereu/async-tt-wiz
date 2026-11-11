@@ -108,7 +108,7 @@ interface EngineWorker {
 /** Tests: every [EngineGame.Shown] an engine game publishes (whole boards, not an own action's early one), with its
  * player's account id, on the main thread as it is published: what the table is given, also when several arrive between
  * two frames. */
-internal object EngineShownProbe {
+object EngineShownProbe {
     @Volatile var listener: ((me: String, shown: EngineGame.Shown) -> Unit)? = null
 }
 
@@ -126,7 +126,7 @@ internal object EngineShownProbe {
  * [base] is the play as it started (its ids, containers, players and card data), which the server still sends with
  * every head.
  */
-internal class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: EngineSnapshot,
+class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: EngineSnapshot,
     private val ids: () -> String = { UUID.randomUUID().toString() },
     private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {},
     /** The own-action probe's clock (SYS-030), in nanoseconds. */

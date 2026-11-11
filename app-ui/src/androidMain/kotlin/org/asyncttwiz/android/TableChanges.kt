@@ -22,8 +22,8 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
     val active = mutableStateMapOf<TableChangeKey, ActiveTableChange>()
     private var motionCursor: String? = null
     private var shuffledLibraries: Set<String> = emptySet()
-    internal fun shuffles(cursor: String): Set<String> = if (animates(cursor)) shuffledLibraries else emptySet()
-    internal fun animates(cursor: String): Boolean = motionCursor == cursor
+    fun shuffles(cursor: String): Set<String> = if (animates(cursor)) shuffledLibraries else emptySet()
+    fun animates(cursor: String): Boolean = motionCursor == cursor
     private var serial = 0L
     /** On engine state (I-D56 step D): [changes] the shown events made, worked out from the engine's own changes; the
      * board at [cursor] animates (its card motion, and the [shuffled] libraries); a [jump] (a load) clears instead. */

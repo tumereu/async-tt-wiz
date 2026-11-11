@@ -8,7 +8,7 @@ import arcanum.engine.state.ObjectId
  * topmost (front-drawn) member able to. The engine's mana suggestion (Autotap, STK-024) picks among identical sources by
  * its own order; these swap each pick for the topmost member of its stack that can make the same use.
  */
-internal object TopmostSources {
+object TopmostSources {
     /**
      * [uses] (Autotap's suggestion for a payment offering [options]) with each mana ability of a card in a stack of
      * [groups] made by the topmost members of that stack able to make the same use (the same ability and colour, offered in

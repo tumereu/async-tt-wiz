@@ -15,7 +15,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 
 /** Keep the label off the pressed target, falling below only when there is no room above. */
-internal class HoldTooltipPosition(private val gap: Int) : PopupPositionProvider {
+class HoldTooltipPosition(private val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection,
         popupContentSize: IntSize): IntOffset {
         val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
@@ -27,7 +27,7 @@ internal class HoldTooltipPosition(private val gap: Int) : PopupPositionProvider
 }
 
 @Composable
-internal fun HoldTooltip(name: String) {
+fun HoldTooltip(name: String) {
     val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
     Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) {
         Surface(color = MenuInk, contentColor = Color.White, shadowElevation = 4.dp,

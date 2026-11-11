@@ -47,7 +47,7 @@ data class CardListSearchState(val open: Boolean = false, val text: String = "",
     val baseline: Long = 0)
 
 /** The typed text plus the chosen quick filters as one Scryfall-style query (CardSearchQuery syntax). */
-internal fun cardSearchQuery(text: String, colors: Set<SearchColor>, types: Set<SearchType>, values: Set<SearchManaValue>): String {
+fun cardSearchQuery(text: String, colors: Set<SearchColor>, types: Set<SearchType>, values: Set<SearchManaValue>): String {
     fun any(terms: List<String>) = when (terms.size) { 0 -> null; 1 -> terms.single(); else -> terms.joinToString(" or ", "(", ")") }
     return listOfNotNull(text.trim().takeIf { it.isNotEmpty() }?.let { if (" or " in it.lowercase()) "($it)" else it },
         any(SearchColor.entries.filter { it in colors }.map { it.term }),
@@ -71,7 +71,7 @@ private fun DefinitionFace.searchColors(): Int {
  * [entry]'s card for the search matcher (LOB-108): the catalog's ([known]), down to the entry's own printing where the
  * catalog has it; a card the catalog doesn't know is read from its definition, which has no rarity or legalities.
  */
-internal fun listSearchCard(entry: ResolvedDeckEntry, definition: CardDefinition, known: CardSearchCard?): CardSearchCard {
+fun listSearchCard(entry: ResolvedDeckEntry, definition: CardDefinition, known: CardSearchCard?): CardSearchCard {
     val set = entry.printing.set.lowercase()
     if (known != null) return known.copy(printings = known.printings.filter { it.set == set }.ifEmpty { known.printings })
     val faces = definition.faces.map { face ->

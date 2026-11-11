@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
  * ([CatalogRepository.tokenArt]). Answers are kept per catalog generation, so planning looks each kind up once.
  * Without card records, or when reading them fails, a token keeps the plain frame.
  */
-internal class CatalogTokenArt(private val repository: () -> CatalogRepository) : TokenArt {
+class CatalogTokenArt(private val repository: () -> CatalogRepository) : TokenArt {
     private val found = ConcurrentHashMap<Pair<String, TokenArtQuery>, String>()
     override fun find(token: TokenArtQuery): String? = try {
         val catalog = repository()
@@ -25,7 +25,7 @@ internal class CatalogTokenArt(private val repository: () -> CatalogRepository) 
 }
 
 /** One [CatalogTokenArt] per process, on the app's catalog. */
-internal object AndroidTokenArt {
+object AndroidTokenArt {
     @Volatile private var instance: Pair<AppServices, CatalogTokenArt>? = null
     @Synchronized fun of(services: AppServices): TokenArt {
         instance?.takeIf { it.first === services }?.let { return it.second }

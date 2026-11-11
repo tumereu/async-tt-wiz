@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import java.util.concurrent.Executor
 
 /** At most one running and one pending review per consumer. Superseded work is never executed. */
-internal class LatestReview(private val executor: Executor) {
+class LatestReview(private val executor: Executor) {
     private val pending = linkedMapOf<String, () -> Unit>()
     private var scheduled = false
 

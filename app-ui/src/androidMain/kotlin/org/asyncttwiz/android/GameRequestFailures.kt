@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 /** Player-facing text for a refused original request, by its GameResult reason. */
-internal fun refusalText(reason: String?): String = when (reason) {
+fun refusalText(reason: String?): String = when (reason) {
     "sourceChanged" -> "This saved deck changed. Choose it again to use the current version."
     "sourceUnavailable" -> "This saved deck is no longer available. Choose another deck."
     "deckRequired" -> "Select your deck to get ready."

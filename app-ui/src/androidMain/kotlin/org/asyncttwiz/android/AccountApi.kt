@@ -77,13 +77,13 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity =
         decode(call(HttpMethod.Put, "/account/avatar", AccountJson.format.encodeToString(org.asyncttwiz.protocol.ChangeAvatar(avatar)), token))
 
-    internal suspend fun accountSettings(token: String): org.asyncttwiz.protocol.AccountSettings =
+    suspend fun accountSettings(token: String): org.asyncttwiz.protocol.AccountSettings =
         decode(call(HttpMethod.Get, "/account/settings", token = token))
 
-    internal suspend fun setAccountSettings(token: String, settings: org.asyncttwiz.protocol.AccountSettings): org.asyncttwiz.protocol.AccountSettings =
+    suspend fun setAccountSettings(token: String, settings: org.asyncttwiz.protocol.AccountSettings): org.asyncttwiz.protocol.AccountSettings =
         decode(call(HttpMethod.Put, "/account/settings", AccountJson.format.encodeToString(settings), token))
 
-    internal suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
+    suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
         if (!Diagnostics.enabled) return false
         // Keep the complete trace locally, but don't send bodies the server would discard anyway.
         val bytes = report.body.toByteArray(Charsets.UTF_8)
@@ -95,7 +95,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     }
 
     /** Public: also works before login. A session, when there is one, only attaches the account. */
-    internal suspend fun sendProblemReport(report: org.asyncttwiz.protocol.ProblemReport, token: String?): String =
+    suspend fun sendProblemReport(report: org.asyncttwiz.protocol.ProblemReport, token: String?): String =
         decode<org.asyncttwiz.protocol.ProblemReportReceipt>(call(HttpMethod.Post, "/app/problem-reports",
             AccountJson.format.encodeToString(report), token?.takeIf(::validToken))).code
 

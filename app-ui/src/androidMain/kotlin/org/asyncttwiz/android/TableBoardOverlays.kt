@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.*
 /** What lies over the board below the chrome: each player's mana pool, the review dim, the playback flash, change and
  * event feedback, and a pending result. Inline, so it stays part of TableSurface's own recomposition scope. */
 @Composable
-internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: String, runtime: TableRuntimeHooks,
+inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: String, runtime: TableRuntimeHooks,
     scene: TableScene, rendered: State<TableRenderFrame>) {
     ManaPoolRows(play, scene)
     if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
@@ -85,22 +85,22 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
 }
 
 /** TRN-066, STK-057 (owner, 2026-11-09): the band's main line, a little bigger than before. */
-internal val WaitBandText = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium,
+val WaitBandText = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium,
     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 
 /** STK-057 (owner, 2026-11-09): the ability's or effect's text under the band's main line, small. */
-internal val WaitBandDetailText = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp,
+val WaitBandDetailText = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp,
     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 
 /** How dark the band is in its middle, fading out toward both sides. */
 private val WaitBandShade = Color.Black.copy(alpha = .62f)
 
 /** TRN-066 (owner gallery review 2026-11-10, gallery 79): how wide each side's fade is, the same on every width. */
-internal const val WAIT_BAND_FADE = 28f
+const val WAIT_BAND_FADE = 28f
 
 /** TRN-066 (owner gallery review 2026-11-10, gallery 79): the words' inset from each side, past the fade, so every line sits
  * on the band's solid middle. */
-internal const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
+const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
 
 /**
  * TRN-066, STK-057 (owner, 2026-11-09): the one place the wait and the other player's top Stack entry say what goes on: a
@@ -108,7 +108,7 @@ internal const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
  * in its dark middle. Purely visual: it has no pointer handlers, so touches go through to the table under it.
  */
 @Composable
-internal fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
+fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
     val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer }?.bounds ?: return
     WaitBandStrip(Modifier.offset(0.dp, hand.bottom.dp), content)
 }
@@ -119,7 +119,7 @@ internal fun WaitBand(scene: TableScene, viewer: String, content: @Composable ()
  * a faded part, however wide the screen.
  */
 @Composable
-internal fun WaitBandStrip(modifier: Modifier, content: @Composable () -> Unit) {
+fun WaitBandStrip(modifier: Modifier, content: @Composable () -> Unit) {
     Box(modifier.fillMaxWidth()
         .drawBehind {
             val fade = (WAIT_BAND_FADE.dp.toPx() / size.width).coerceAtMost(.5f)
@@ -131,18 +131,18 @@ internal fun WaitBandStrip(modifier: Modifier, content: @Composable () -> Unit) 
 }
 
 /** The game's players' names by account id. */
-internal fun gameNames(game: GameSummary): Map<String, String> =
+fun gameNames(game: GameSummary): Map<String, String> =
     mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
 
 /** The order a mana pool lists its mana in: the colours in WUBRG order, then colourless. */
 private val POOL_ORDER = listOf("W", "U", "B", "R", "G", "C")
 
 /** The most mana a pool shows symbol by symbol; a bigger pool shows each kind once with its count ("×4"). */
-internal const val POOL_SYMBOLS = 8
+const val POOL_SYMBOLS = 8
 
 /** Where the mana pool row of [field] sits (the line between its land row and the next row, TBL-004; the viewer's
  * field, the last of [fields], has its land row at the bottom), or null when that line is out of view. */
-internal fun manaPoolLine(fields: List<TableField>, field: TableField): Float? {
+fun manaPoolLine(fields: List<TableField>, field: TableField): Float? {
     val line = if (field === fields.last()) field.gridBounds.bottom - field.rowHeight else field.gridBounds.y + field.rowHeight
     return line.takeIf { it >= field.bounds.y && it <= field.bounds.bottom }
 }
@@ -153,7 +153,7 @@ internal fun manaPoolLine(fields: List<TableField>, field: TableField): Float? {
  * nothing while the pool is empty. Purely visual: no pointer handlers.
  */
 @Composable
-internal fun ManaPoolRows(play: TableBoard, scene: TableScene) {
+fun ManaPoolRows(play: TableBoard, scene: TableScene) {
     for (field in scene.fields) {
         val pool = play.board.players.firstOrNull { it.accountId == field.owner }?.manaPool.orEmpty()
         if (pool.isEmpty()) continue
@@ -181,7 +181,7 @@ internal fun ManaPoolRows(play: TableBoard, scene: TableScene) {
  * icon, white over the board.
  */
 @Composable
-internal fun TableCentreButton(action: TableCentreAction) {
+fun TableCentreButton(action: TableCentreAction) {
     val shape = RoundedCornerShape(14.dp)
     androidx.compose.material3.Surface(onClick = action.run, shape = shape, color = Color.White.copy(alpha = .94f), shadowElevation = 6.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffb7bcbf)),

@@ -41,18 +41,18 @@ import org.asyncttwiz.storage.ArtworkReference
 import kotlin.math.roundToInt
 
 /** The test tag of the play shown in the middle of the table (HIS-112). */
-internal const val PLAY_SHOW_TAG = "play-show"
+const val PLAY_SHOW_TAG = "play-show"
 
 /**
  * HIS-112: what the table shows of a play: [description] says it in words (its content description), [caption] the line
  * under it (as the Stack line names it, STK-057); a spell as its card [face] ([covered]: a face-down spell, a card back),
  * an ability as its token ([ability], with its source's [art] or [typeIcon]); [own] colours its outline.
  */
-internal data class PlayShown(val description: String, val caption: List<StackTextPiece>, val own: Boolean,
+data class PlayShown(val description: String, val caption: List<StackTextPiece>, val own: Boolean,
     val face: InspectTile.Face? = null, val covered: Boolean = false, val ability: StackAbilityShown? = null,
     val art: ArtworkReference? = null, val typeIcon: String = "")
 
-internal object PlayShows {
+object PlayShows {
     /** What [viewer]'s table shows of [show] on [play] (the board at its event); [names]: the players' names by account. */
     fun of(play: TableBoard, show: GameDevice.PlayShow, viewer: String, names: Map<String, String>): PlayShown {
         val entry = "entry:${show.entry}"
@@ -92,14 +92,14 @@ internal object PlayShows {
 private const val PLAY_SHOW_MAX_HEIGHT = 300f
 
 /** HIS-112 (owner playtest 2026-11-07): the flight to the Stack at Card move speed 1×. */
-internal const val PLAY_SHOW_FLIGHT_MILLIS = 250
+const val PLAY_SHOW_FLIGHT_MILLIS = 250
 
 /** HIS-112: how long the flight to the Stack takes at the Card move speed [multiplier] (TBL-038). */
-internal fun playShowFlightMillis(multiplier: Float): Int =
+fun playShowFlightMillis(multiplier: Float): Int =
     (PLAY_SHOW_FLIGHT_MILLIS / cardMoveMultiplier(multiplier)).roundToInt().coerceAtLeast(1)
 
 /** HIS-112: the shown card's opacity at [progress] of its flight: whole over the first half, fading out over the second. */
-internal fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).coerceIn(0f, 1f)
+fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).coerceIn(0f, 1f)
 
 /**
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis], then it
@@ -111,7 +111,7 @@ internal fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).
  * take touches.
  */
 @Composable
-internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
+fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
     names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() }, inspect: (Boolean) -> Unit = {},
     moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
     /** Outlives this play: a tap's double-tap time goes on after it has gone. */
@@ -184,7 +184,7 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
 }
 
 /** HIS-112: where the shown play lands: the Stack's top card (its place and size), else the Stack. */
-internal fun playShowTarget(scene: TableScene): TableBounds? {
+fun playShowTarget(scene: TableScene): TableBounds? {
     val pile = scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
     return pile?.let { p -> scene.items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.viewport == p.viewport } }?.bounds
         ?: pile?.bounds ?: scene.stackRegion

@@ -9,7 +9,7 @@ data class ManualInspection(val gameId: String, val playId: String, val cardId: 
     val group: List<String> = emptyList())
 
 /** Shared gesture decision used by the production square; a recognized hold always consumes click. */
-internal class ManualActionPress {
+class ManualActionPress {
     var consumed = false
         private set
     var tooltip = false
@@ -31,5 +31,5 @@ internal class ManualActionPress {
 
 /** Source-compatible no-argument factory for the original manual-control callers/tests.
  * The quick/turn ActionPress(Boolean) retains its distinct terminal-result API. */
-internal fun ActionPress(): ManualActionPress = ManualActionPress()
+fun ActionPress(): ManualActionPress = ManualActionPress()
 

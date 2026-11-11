@@ -10,11 +10,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * nobody in the app. The end-to-end tests' phones record them, so a text shown for a few seconds, or a bottom bar shown
  * for a frame, is never missed by a test whose clock skips ahead (they read the record instead of the screen).
  */
-internal val LocalShownTexts = staticCompositionLocalOf<(String) -> Unit> { {} }
+val LocalShownTexts = staticCompositionLocalOf<(String) -> Unit> { {} }
 
 /** Tells [LocalShownTexts] that [text] shows now: once per [key] (by default the text itself) while it stays. */
 @Composable
-internal fun RecordShown(text: String?, key: Any? = text) {
+fun RecordShown(text: String?, key: Any? = text) {
     val record = LocalShownTexts.current
     DisposableEffect(key) {
         text?.let(record)

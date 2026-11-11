@@ -167,9 +167,9 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
 }
 
 /** HIS-005: the test tag of a separator's line; its content description is its label. */
-internal const val TimelineSeparatorTag = "timeline-separator"
+const val TimelineSeparatorTag = "timeline-separator"
 /** HIS-005: the test tag of the strip's spinner while older events load. */
-internal const val TimelineLoadingTag = "timeline-loading"
+const val TimelineLoadingTag = "timeline-loading"
 private val SeparatorInk = Color(0xff59656a)
 private val SeparatorLabelStyle = TextStyle(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Medium)
 
@@ -198,13 +198,13 @@ private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selecte
     }
 }
 
-internal fun historyAuthorColor(author: String?, viewer: String) = when (author) {
+fun historyAuthorColor(author: String?, viewer: String) = when (author) {
     null -> Color(0xff59656a); viewer -> Color(0xff287f85); else -> Color(0xffa84f58)
 }
 
 /** Same 20dp glyph and 24dp pitch vocabulary in the path and full-tree views. */
 @Composable
-internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier = Modifier,
+fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier = Modifier,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     Box(modifier.size(20.dp).semantics { contentDescription = event.description; this.selected = selected },
         contentAlignment = Alignment.Center) {
@@ -225,7 +225,7 @@ fun HistoryEventIcon(icon: HistoryIcon) {
 }
 
 /** Null only for [HistoryIcon.SWORDS], drawn from the swords_outlined drawable. */
-internal fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.vector.ImageVector? = when (icon) {
+fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.vector.ImageVector? = when (icon) {
     HistoryIcon.FLAG -> Icons.Outlined.Flag
     HistoryIcon.ROTATE_90_DEGREES_CW -> Icons.Outlined.Rotate90DegreesCw
     HistoryIcon.FAVORITE -> Icons.Outlined.FavoriteBorder
@@ -280,7 +280,7 @@ internal fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.
     HistoryIcon.SWORDS -> null
     HistoryIcon.UNKNOWN -> Icons.Outlined.FiberManualRecord
 }
-internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
+fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.FLAG -> "⚑"; HistoryIcon.ROTATE_90_DEGREES_CW -> "↻"; HistoryIcon.FAVORITE -> "♥"; HistoryIcon.OPEN_WITH -> "↔"
     HistoryIcon.CHAT_BUBBLE -> "▤"; HistoryIcon.ADS_CLICK -> "◎"; HistoryIcon.DOWNLOAD -> "⇩"; HistoryIcon.LAYERS -> "▱"
     HistoryIcon.VISIBILITY -> "◉"; HistoryIcon.ADD_BOX -> "⊞"; HistoryIcon.CONTROL_POINT_DUPLICATE -> "⊕"; HistoryIcon.SWORDS -> "⚔"
@@ -346,5 +346,5 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
 }
 
 /** HIS-015: what the Auto button reads at the last event. */
-internal const val EXIT_TIMELINE = "Exit timeline"
+const val EXIT_TIMELINE = "Exit timeline"
 private val EXIT_TIMELINE_ONE_LINE = 150.dp

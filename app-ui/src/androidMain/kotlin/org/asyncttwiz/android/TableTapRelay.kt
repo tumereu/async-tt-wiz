@@ -10,7 +10,7 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 
 /** A newly opened local menu must not steal the second tap from its originating surface. */
-internal class TableTapRelay(val accepts: (Offset, Long) -> Boolean,
+class TableTapRelay(val accepts: (Offset, Long) -> Boolean,
     val down: (Offset, Long) -> Unit, val up: (Offset, Long) -> Unit, val cancel: () -> Unit,
     val dismiss: () -> Unit = {},
     val ringDown: (Offset, Long, String) -> Unit = { p, t, _ -> down(p, t) },
@@ -20,12 +20,12 @@ internal class TableTapRelay(val accepts: (Offset, Long) -> Boolean,
     var ring: TableRingInput? = null
 }
 
-internal class TableRingInput(val cardId: String, val outside: (Offset) -> Boolean, val dismiss: () -> Unit)
+class TableRingInput(val cardId: String, val outside: (Offset) -> Boolean, val dismiss: () -> Unit)
 
-internal val LocalTableTapRelay = compositionLocalOf<TableTapRelay?> { null }
+val LocalTableTapRelay = compositionLocalOf<TableTapRelay?> { null }
 
 /** Lives on the table host, not the disposable ring: dismissal cannot cancel a drag or pinch. */
-internal fun Modifier.tableRingRelay(relay: TableTapRelay): Modifier = composed {
+fun Modifier.tableRingRelay(relay: TableTapRelay): Modifier = composed {
     var origin by remember { mutableStateOf(Offset.Zero) }
     onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }.pointerInput(relay) {
         awaitEachGesture {
@@ -69,7 +69,7 @@ internal fun Modifier.tableRingRelay(relay: TableTapRelay): Modifier = composed 
     }
 }
 
-internal fun Modifier.tableTapRelay(): Modifier = composed {
+fun Modifier.tableTapRelay(): Modifier = composed {
     val relay by rememberUpdatedState(LocalTableTapRelay.current)
     var origin by remember { mutableStateOf(Offset.Zero) }
     onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }.pointerInput(Unit) {

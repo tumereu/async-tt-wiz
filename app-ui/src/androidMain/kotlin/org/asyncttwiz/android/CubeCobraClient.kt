@@ -11,10 +11,10 @@ import org.asyncttwiz.storage.CubeCobraImport
 import org.asyncttwiz.storage.ParsedDeck
 
 /** A Cube Cobra import failure whose message is shown as is. */
-internal class CubeCobraFailure(message: String) : Exception(message)
+class CubeCobraFailure(message: String) : Exception(message)
 
 /** Public provider request: no account credentials, fixed HTTPS origin, no redirects or shared cache. */
-internal fun fetchCubeCobra(id: String): ParsedDeck {
+fun fetchCubeCobra(id: String): ParsedDeck {
     require(CubeCobraImport.cubeId(id) == id)
     val body = try {
         runBlocking {
@@ -43,7 +43,7 @@ internal fun fetchCubeCobra(id: String): ParsedDeck {
 }
 
 /** Executed on the import worker on the phone, without account credentials. */
-internal fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlocking {
+fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlocking {
     AccountApi.client().use { client ->
         suspend fun read(url: String, accept: String): String {
             val response = client.get(url) { header("Accept", accept) }

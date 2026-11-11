@@ -62,7 +62,7 @@ data class TableCentreAction(val text: String, val run: () -> Unit)
 /** The table route: a game played on engine state has its table ([EngineTableScreen], I-D56); until it first loads on
  * this device, a placeholder without cards that says it is loading (or why it can't). */
 @Composable
-internal fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
+fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     // Never the whole lobby state: its games-list refresh would recompose the table every few seconds.
     val state = controller.table.value
     val game = state.detail ?: return
@@ -91,11 +91,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
 }
 
 /** Absence of an accepted head is normal during socket admission and initial catch-up, not failure. */
-internal fun tableIsLoading(state: LobbyTableView, gameId: String, historyError: String?, timedOut: Boolean = false) =
+fun tableIsLoading(state: LobbyTableView, gameId: String, historyError: String?, timedOut: Boolean = false) =
     historyError == null && state.connectionMessage == null && gameId !in state.reconnectingGames && !timedOut
 
 
-internal val OwnTableColor = Color(0xff237d68)
-internal val OpponentTableColor = Color(0xffb44853)
+val OwnTableColor = Color(0xff237d68)
+val OpponentTableColor = Color(0xffb44853)
 /** Emblem chips (I-D25): the Automatum violet of the switch (integration spec §5). */
-internal val EmblemChipColor = Color(0xff7a4fc4)
+val EmblemChipColor = Color(0xff7a4fc4)

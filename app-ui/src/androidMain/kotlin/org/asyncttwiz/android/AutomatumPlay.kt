@@ -25,25 +25,25 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 /** I-D46 (b): how long a refusal's shake runs (owner, playtest 2026-11-03: short and subtle). */
-internal const val SHAKE_MILLIS = 160
+const val SHAKE_MILLIS = 160
 
 /** I-D46 (b): the shake's sideways offsets in dp, evenly spaced before it settles back at 0. */
-internal val SHAKE_OFFSETS = listOf(3f, -2f, 1f)
+val SHAKE_OFFSETS = listOf(3f, -2f, 1f)
 
 /** I-D46 (b): a small horizontal shake (dp offsets), for a card, pile or control Automatum doesn't allow; the one spec
  * every shake uses (the table's items and the controls, [shaken]). */
-internal fun shakeKeyframes(): KeyframesSpec<Float> = keyframes {
+fun shakeKeyframes(): KeyframesSpec<Float> = keyframes {
     durationMillis = SHAKE_MILLIS
     for ((n, at) in SHAKE_OFFSETS.withIndex()) at at (n + 1) * SHAKE_MILLIS / (SHAKE_OFFSETS.size + 1)
 }
 
 /** TBL-118, HIS-075: told of each refused control's shake ([shaken]); the game table's makes the event text flash while
  * the other player's choice is open ([TableToolkitController.refusedTap]). */
-internal val LocalRefusedTap = staticCompositionLocalOf<() -> Unit> { {} }
+val LocalRefusedTap = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Shakes the element each time [shakes] goes up (I-D46: a refused control says why on hold, never by a message). */
 @Composable
-internal fun Modifier.shaken(shakes: Int): Modifier {
+fun Modifier.shaken(shakes: Int): Modifier {
     val offset = remember { Animatable(0f) }
     val refused by rememberUpdatedState(LocalRefusedTap.current)
     val start = remember { shakes }
@@ -57,7 +57,7 @@ internal fun Modifier.shaken(shakes: Int): Modifier {
 }
 
 
-internal object AutomatumToggles {
+object AutomatumToggles {
     const val CONTROL = "Control"
     const val SKIP = "Skip if no choice"
     const val AUTOTAP = "Autotap mana"

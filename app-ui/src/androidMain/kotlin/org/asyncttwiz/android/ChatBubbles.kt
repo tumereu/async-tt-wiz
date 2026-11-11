@@ -16,9 +16,9 @@ data class IncomingChatBubble(val messageId: String, val text: String, val index
 data class SentChat(val key: Long, val text: String)
 
 /** LOB-139 (owner, 2026-11-07): the quick messages of your own Life panel, each sent with one tap. */
-internal val QuickChatMessages = listOf("Thinking…", "One sec", "Your move?", "Got a response", "No responses", "GG")
+val QuickChatMessages = listOf("Thinking…", "One sec", "Your move?", "Got a response", "No responses", "GG")
 
-internal object ChatBubbleRules {
+object ChatBubbleRules {
     /** LOB-137: how long the viewer's own sent message stays before it fades, and the fade (ms). */
     const val OWN_SHOWN_MILLIS = 3_000L
     const val OWN_FADE_MILLIS = 400
@@ -53,7 +53,7 @@ internal object ChatBubbleRules {
  * the player's colour as outline and tail, text wrapped over up to [MAX_LINES] lines and cut with "…", each line centred,
  * never narrower than the life square). Only the screen's edges move it.
  */
-internal object ChatBubbleLayout {
+object ChatBubbleLayout {
     const val TEXT = 11f
     const val COUNTER_TEXT = 10f
     const val PADDING = 6f

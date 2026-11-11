@@ -107,12 +107,12 @@ data class TablePlacement(val column: Float, val row: Float, val pileIndex: Int 
 
 /** A battlefield card centred in its [footprint] (tapped cards rotate in place), [dy] lower (an attached card peeking out
  * above its host is higher, TBL-053). */
-internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, dy: Float = 0f): TableBounds =
+fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, dy: Float = 0f): TableBounds =
     TableBounds(footprint.center.x - width / 2, footprint.center.y - height / 2 + dy, width, height)
 
 /** TBL-003: ten percent above/below every face, plus room for the attached cards peeking out above their hosts ([lifts]
  * peek steps, at least one). */
-internal fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 1) =
+fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 1) =
     cardHeight * 1.2f + maxOf(1, lifts) * BattlefieldLayout.PEEK * scale
 /** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
@@ -190,7 +190,7 @@ data class TableItem(
  * from the scene's own board, so it takes no part in scene equality. [built] counts drawings made (tests). */
 class PileCardDrawings(private val build: (String) -> TableItem?) {
     private val made = HashMap<String, TableItem?>()
-    internal var built = 0; private set
+    var built = 0; private set
     operator fun get(cardId: String): TableItem? = if (cardId in made) made[cardId]
         else build(cardId).also { made[cardId] = it; if (it != null) built++ }
     override fun equals(other: Any?) = other is PileCardDrawings
@@ -199,10 +199,10 @@ class PileCardDrawings(private val build: (String) -> TableItem?) {
 }
 
 /** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
-internal const val FACE_DOWN_TITLE = "?"
+const val FACE_DOWN_TITLE = "?"
 
 /** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
-internal const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
+const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
 /** [gridBounds] spans the whole pannable width (the battlefield feels infinite); [originX] is the screen x of column 0. */
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -217,7 +217,7 @@ data class TableViewport(val id: String, val bounds: TableBounds, val contentWid
     val maxScroll get() = (contentWidth - bounds.width).coerceAtLeast(0f)
     val maxScrollY get() = (contentHeight - bounds.height).coerceAtLeast(0f)
 }
-internal const val WORLD_PAN_REGION = "world/camera"
+const val WORLD_PAN_REGION = "world/camera"
 data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val viewports: List<TableViewport> = emptyList(), val cardWidth: Float = 28f, val cardHeight: Float = 40f,
     val footprint: Float = 56f, val camera: TableCamera = TableCamera(),
@@ -228,7 +228,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val dayNightChip: PlacedStateChip? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
     val cardOwners: Map<String, String> = emptyMap(),
-    internal val cardPanels: List<CardPanelGeometry> = emptyList(),
+    val cardPanels: List<CardPanelGeometry> = emptyList(),
     val appearance: CardAppearance = CardAppearance(),
     val combatLabels: List<CombatLaneLabel> = emptyList(),
     val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
@@ -291,11 +291,11 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         item.cardId != null && item.cardId == stackTopId)
 }
 
-internal val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
+val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
 /** The smaller special-pile bubble straddles the card's top-left corner in either layout. */
-internal val TableItem.pileCountBubble get() = TableBounds(bounds.x - 8f, bounds.y - 8f, 16f, 16f)
-internal val TableScene.columnPitch get() = TablePresentation.COLUMN_PITCH * cardWidth / 28f
-internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
+val TableItem.pileCountBubble get() = TableBounds(bounds.x - 8f, bounds.y - 8f, 16f, 16f)
+val TableScene.columnPitch get() = TablePresentation.COLUMN_PITCH * cardWidth / 28f
+val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
     else visible.maxByOrNull { it.width * it.height }?.center
 
 object TablePresentation {
@@ -317,11 +317,11 @@ object TablePresentation {
     private const val PILE_START = 76f
     /** The counters' room may be squeezed this far before it scrolls. */
     private const val MIN_SHRUNK_COUNTER_GRID = 60f
-    internal fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
+    fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
 
     /** TBL-009 (owner, 2026-11-07): in landscape each player's life square, piles and emblems sit in a bar row (the
      * opponent's in the top bar, yours in the bottom bar), so the battlefield takes the whole width. */
-    internal object Landscape {
+    object Landscape {
         /** The turn header's room in the top bar (TableChromeHeader), before the opponent's row; narrower on narrow
          * screens. */
         fun title(width: Float) = (width - 764f).coerceIn(80f, 128f)
@@ -832,7 +832,7 @@ object TablePresentation {
     }
     fun nonzero(value: String): Boolean = value.trim().let { s -> s.isNotEmpty() &&
         (!Regex("[+-]?[0-9]+").matches(s) || s.removePrefix("+").removePrefix("-").any { it != '0' }) }
-    internal fun cardTypeIcon(type: String) = when {
+    fun cardTypeIcon(type: String) = when {
         "Land" in type -> "♧"; "Creature" in type -> "♙"; "Instant" in type -> "ϟ"
         "Sorcery" in type -> "◇"; "Artifact" in type -> "⚙"; "Enchantment" in type -> "☆"; else -> "◇"
     }
@@ -873,13 +873,13 @@ object TablePresentation {
 }
 
 /** The cards whose spell Automatum has on the Stack (UI review round 2 #9: not drawn in their hand meanwhile). */
-internal fun castSpellSources(board: BoardState): Set<String> =
+fun castSpellSources(board: BoardState): Set<String> =
     board.stackEffects.filter { it.item?.kind == MtgStackKind.Spell }.mapTo(HashSet()) { it.sourceId }
 
 /** CMB-001 (owner playtest 2026-11-06): whether [viewer] declares attackers on [board]: the collapsed band then shows a
  * chip for every target they may attack. */
-internal fun combatChipStep(board: BoardState, viewer: String): Boolean =
+fun combatChipStep(board: BoardState, viewer: String): Boolean =
     board.turn.accountId == viewer && board.priority?.holder == null && TurnPosition.of(board.turn) == TurnPosition.DECLARE_ATTACKERS
 
 /** The declare attackers step of [board] (its chips fade in once per step, CMB-001). */
-internal fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}/${board.turn.step}"
+fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}/${board.turn.step}"

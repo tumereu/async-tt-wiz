@@ -4,7 +4,7 @@ import org.asyncttwiz.protocol.*
 import java.util.UUID
 
 /** One watched game's server stream: its open/resume state and the authorized generation. */
-internal data class SessionStream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
+data class SessionStream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
     var head: Boolean = false, var opening: Boolean = false, var opened: Boolean = false,
     var lastGeneration: String? = null, var recoveryIds: List<String> = emptyList(), var awaitingReady: Boolean = false)
 
@@ -160,7 +160,7 @@ class GameSession(private val connection: GameConnection, private val credential
     fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
     fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
     /** The board the table draws of [game] played on engine state (engine-responsiveness R4a), once it first loaded. */
-    internal fun board(game: GameSummary): TableBoard? = engineGame(game)?.play()
+    fun board(game: GameSummary): TableBoard? = engineGame(game)?.play()
 
     // ---- I-D56: games played on engine state
     private val engineGames = mutableMapOf<String, EngineGame>()
@@ -170,7 +170,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val reloadAsked = mutableMapOf<String, String?>()
     /** The game [game] played on engine state on this device, while it is its current active play (once it first loaded
      * on the engine thread). */
-    internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
+    fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
         game.id in endHeld || current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
     /**
      * TRN-065 (owner, 2026-11-09): the games whose play a concession or an accepted suggestion ended while this player
@@ -180,10 +180,10 @@ class GameSession(private val connection: GameConnection, private val credential
      */
     private val endHeld = mutableSetOf<String>()
     /** TRN-065: whether [gameId]'s table stays on after its play ended ([endHeld]). */
-    internal fun tableHeldAtEnd(gameId: String): Boolean = gameId in endHeld
+    fun tableHeldAtEnd(gameId: String): Boolean = gameId in endHeld
     /** TRN-065: both OKs stand on [gameId]'s result (the player's own last, here or on another device, or the other player's):
      * the held table goes, and the lobby shows. */
-    internal fun releaseEnd(gameId: String, why: String) {
+    fun releaseEnd(gameId: String, why: String) {
         if (!endHeld.remove(gameId)) return
         AppLog.info("game", "End of game: table let go, to the lobby: $why")
         engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
@@ -211,7 +211,7 @@ class GameSession(private val connection: GameConnection, private val credential
         install(message.summary, message.resultRevision, message.preparation)
         return true
     }
-    internal fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
+    fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
 
     /** The newest engine head of a game that isn't loaded, kept until it opens (switchreview #11: only the open game loads
      * on the engine thread; the list needs only the summary). */
@@ -836,6 +836,6 @@ class GameSession(private val connection: GameConnection, private val credential
         /** The longest wait between background socket attempts after failures ([poll]). */
         const val MAX_RECONNECT_DELAY_MS = 10_000L
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)
-        internal fun ended(game: GameSummary) = game.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)
+        fun ended(game: GameSummary) = game.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)
     }
 }

@@ -44,14 +44,14 @@ fun InspectedCard.orientation(face: Int): InspectionOrientation =
     definition.faces.getOrNull(face)?.let { InspectionOrientation.of(definition, it) } ?: InspectionOrientation.UPRIGHT
 
 /** Widest an upright card's artwork is shown in an inspection view. */
-internal val InspectedArtworkMaxWidth = 320.dp
+val InspectedArtworkMaxWidth = 320.dp
 
 /**
  * On-screen size of inspected artwork filling [maxWidth] and fitting [maxHeight]. An upright card is at
  * most [InspectedArtworkMaxWidth] wide; a card shown sideways is at most as tall as that capped upright
  * card, so wide screens do not blow it up past the upright size.
  */
-internal fun inspectedArtworkSize(sideways: Boolean, maxWidth: Dp, maxHeight: Dp = Dp.Infinity): DpSize {
+fun inspectedArtworkSize(sideways: Boolean, maxWidth: Dp, maxHeight: Dp = Dp.Infinity): DpSize {
     val capHeight = InspectedArtworkMaxWidth * 1.4f
     return if (sideways) {
         val height = minOf(maxWidth / 1.4f, maxHeight, capHeight)

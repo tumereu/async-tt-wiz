@@ -126,7 +126,7 @@ private fun PodStatsTypes(types: List<Pair<String, Long>>) {
 }
 
 /** The sources' total line: "Sources: 17 lands, 3 others" ("1 land", "1 other"). */
-internal fun podStatsSourcesLine(lands: Long, others: Int): String =
+fun podStatsSourcesLine(lands: Long, others: Int): String =
     "Sources: $lands ${if (lands == 1L) "land" else "lands"}, $others ${if (others == 1) "other" else "others"}"
 
 private val PodStatsPipBarHeight = 5.dp
@@ -307,7 +307,7 @@ private fun PodStatsCurveColorLegend() {
 
 /** DRF-111 (owner playtest 2026-11-09): a bar's number: in Type view "creatures · noncreatures" ([counts] creature first),
  * in Color view its total. */
-internal fun podStatsCurveBarLabel(counts: List<Int>, byColor: Boolean): String =
+fun podStatsCurveBarLabel(counts: List<Int>, byColor: Boolean): String =
     if (byColor || counts.size != 2) "${counts.sum()}" else "${counts[0]} · ${counts[1]}"
 
 /** The mana curve: the same slots, scale and totals in both views, stacked creature/noncreature or by colour (DRF-111). */

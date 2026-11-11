@@ -49,9 +49,9 @@ data class StackAbilityShown(val triggered: Boolean, val source: String, val tex
 
 /** STK-018, STK-050: a Stack entry's whole text as shown ([pieces], target names in place) and the targets it doesn't
  * name ([unplaced]), which its "Target:" line lists. */
-internal data class StackEntryText(val pieces: List<StackTextPiece>, val unplaced: List<MtgRef>)
+data class StackEntryText(val pieces: List<StackTextPiece>, val unplaced: List<MtgRef>)
 
-internal object StackAbilities {
+object StackAbilities {
     private val texts = object : java.util.LinkedHashMap<String, String>(64, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
     }
@@ -153,7 +153,7 @@ internal object StackAbilities {
      * A chosen [target] as [viewer] may see it (HIS-062): [you] for themselves, the other player's name in [names], a card's
      * or Stack entry's name, [hidden] for a card they can't see face up.
      */
-    internal fun targetName(play: TableBoard, target: MtgRef, viewer: String, names: Map<String, String>, you: String = "You",
+    fun targetName(play: TableBoard, target: MtgRef, viewer: String, names: Map<String, String>, you: String = "You",
         hidden: String = "a hidden card"): String = when (target) {
         is MtgRef.Player -> if (target.accountId == viewer) you else names[target.accountId] ?: "Opponent"
         is MtgRef.Card -> visibleName(play, target.cardId, viewer, hidden)
@@ -161,7 +161,7 @@ internal object StackAbilities {
     }
 
     /** The name of the card (or Stack entry) [id] as [viewer] sees it: [hidden] when they can't see it face up. */
-    internal fun visibleName(play: TableBoard, id: String, viewer: String, hidden: String = "a hidden card"): String {
+    fun visibleName(play: TableBoard, id: String, viewer: String, hidden: String = "a hidden card"): String {
         val card = CombatStackRules.inspection(play.board, id) ?: return hidden
         if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return hidden
         return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
@@ -172,7 +172,7 @@ internal object StackAbilities {
 /** STK-046: the kind chip of an ability: "T" for a triggered ability, "A" for an activated one, white on violet; it
  * reads as [StackAbilityShown.kind]. [height] sets its size. */
 @Composable
-internal fun AbilityKindChip(ability: StackAbilityShown, height: Dp, modifier: Modifier = Modifier) {
+fun AbilityKindChip(ability: StackAbilityShown, height: Dp, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(height * .28f)
     Box(modifier.size(height * 1.15f, height).background(AutomatumViolet, shape).border(1.dp, Color.White, shape)
         .semantics { contentDescription = ability.kind }, contentAlignment = Alignment.Center) {
@@ -187,7 +187,7 @@ internal fun AbilityKindChip(ability: StackAbilityShown, height: Dp, modifier: M
  * filling it (its type glyph [typeIcon] while there is none) and the kind chip at its bottom; no name or text.
  */
 @Composable
-internal fun AbilityTokenFace(ability: StackAbilityShown, art: ArtworkReference?, own: Boolean, modifier: Modifier = Modifier,
+fun AbilityTokenFace(ability: StackAbilityShown, art: ArtworkReference?, own: Boolean, modifier: Modifier = Modifier,
     typeIcon: String = "") {
     val owner = if (own) OwnTableColor else OpponentTableColor
     val shape = RoundedCornerShape(5.dp)

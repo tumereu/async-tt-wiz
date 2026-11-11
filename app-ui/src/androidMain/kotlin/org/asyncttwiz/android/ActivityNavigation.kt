@@ -38,8 +38,8 @@ data class ActivityScreen(val game: String? = null, val pod: String? = null, val
     }
 }
 
-internal fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
-internal fun ActivityHint.notificationKey(): String = when {
+fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
+fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.GAME || kind == ActivityKind.GAME_REMOVAL -> "game:$gameId"
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
@@ -51,7 +51,7 @@ internal fun ActivityHint.notificationKey(): String = when {
  * you", while it waits for your deck with " · submit your deck to accept"; a pod invitation "<name> invited you to <pod>"
  * ([podName]: the pod's name when the hint has none). Without the inviter's name, "New invitation" or "New pod invitation".
  */
-internal fun invitationText(hint: ActivityHint, podName: String? = null): String {
+fun invitationText(hint: ActivityHint, podName: String? = null): String {
     val name = hint.opponentName
     return when {
         hint.kind == ActivityKind.POD_INVITATION -> name?.let { who -> (hint.resourceName ?: podName)?.let { "$who invited you to $it" } }
@@ -62,7 +62,7 @@ internal fun invitationText(hint: ActivityHint, podName: String? = null): String
     }
 }
 
-internal fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {
+fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {
     ActivityKind.POD_INVITATION -> "New pod invitation"
     ActivityKind.POD_YOUR_PICK -> name?.let { "Your pick — $it" } ?: "Your pick"
     ActivityKind.POD_DECKS_READY -> name?.let { "Decks ready — $it" } ?: "Decks ready"

@@ -49,7 +49,7 @@ import org.asyncttwiz.storage.ParsedCard
  * supported when its printing is ([unsupported]: of the printing ids asked for, those the card records don't mark as
  * supported; null without card records). A card without a printing counts as unsupported. Blocking: a worker only.
  */
-internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
+class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
     private val unsupported: (Collection<String>) -> Set<String>?,
     val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
 
@@ -66,11 +66,11 @@ internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefi
 }
 
 /** The app's support check, null where there is none (previews and most tests: no icon is shown). */
-internal val LocalCardListSupport = staticCompositionLocalOf<CardListSupportCheck?> { null }
+val LocalCardListSupport = staticCompositionLocalOf<CardListSupportCheck?> { null }
 
 /** [definitions]' support, worked out off the main thread; null until known (or without a check). */
 @Composable
-internal fun rememberCardListSupport(definitions: List<SubmittedDefinition>?): CardListSupport? {
+fun rememberCardListSupport(definitions: List<SubmittedDefinition>?): CardListSupport? {
     val check = LocalCardListSupport.current ?: return null
     val key = definitions?.map { it.digest }?.sorted()
     val support by produceState<CardListSupport?>(null, check, key) {
@@ -83,32 +83,32 @@ internal fun rememberCardListSupport(definitions: List<SubmittedDefinition>?): C
 
 /** LOB-115 (owner gallery review, 2026-11-06): "Automatum can't play 3 cards yet: A, B, C" (at most [shown] names, then
  * "and N more"). */
-internal fun automatumSupportTip(support: CardListSupport, shown: Int = 12): String {
+fun automatumSupportTip(support: CardListSupport, shown: Int = 12): String {
     val names = support.byHand
     val count = if (names.size == 1) "1 card" else "${names.size} cards"
     val listed = names.take(shown).joinToString(", ") + if (names.size > shown) " and ${names.size - shown} more" else ""
     return "Automatum can't play $count yet: $listed"
 }
 
-internal val AutomatumWarning = Color(0xffc77700)
+val AutomatumWarning = Color(0xffc77700)
 
 /** I-D52: why an unsupported list can't be used (hold the warning icon for its cards). */
-internal const val AUTOMATUM_DECK_BLOCKED = "Automatum can't play every card of this deck yet. Hold the warning sign to see which."
-internal const val AUTOMATUM_SOURCE_BLOCKED = "Automatum can't play every card of this source yet. Hold the warning sign to see which."
+const val AUTOMATUM_DECK_BLOCKED = "Automatum can't play every card of this deck yet. Hold the warning sign to see which."
+const val AUTOMATUM_SOURCE_BLOCKED = "Automatum can't play every card of this source yet. Hold the warning sign to see which."
 
 /**
  * I-D51 (LOB-115, DRF-161): an amber warning icon when [support] names cards Automatum plays by hand; nothing when it
  * plays every card or isn't known yet. Holding it names the cards (I-D48); a tap does [onTap] (the row's own action).
  */
 @Composable
-internal fun AutomatumSupportIcon(support: CardListSupport?, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
+fun AutomatumSupportIcon(support: CardListSupport?, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
     if (support == null || support.supported) return
     HoldWarningIcon(automatumSupportTip(support), modifier, onTap)
 }
 
 /** An amber warning icon: holding it says [tip] (I-D48); a tap does [onTap] (the row's own action). */
 @Composable
-internal fun HoldWarningIcon(tip: String, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
+fun HoldWarningIcon(tip: String, modifier: Modifier = Modifier, onTap: (() -> Unit)? = null) {
     var tooltip by remember { mutableStateOf(false) }
     val tap by rememberUpdatedState(onTap)
     Box(modifier.sizeIn(minWidth = 32.dp, minHeight = 32.dp).semantics { contentDescription = tip }
@@ -122,21 +122,21 @@ internal fun HoldWarningIcon(tip: String, modifier: Modifier = Modifier, onTap: 
 }
 
 /** Section 3.9: what holding a card's warning sign says. */
-internal const val AUTOMATUM_CARD_UNSUPPORTED = "Automatum can't play this card yet"
+const val AUTOMATUM_CARD_UNSUPPORTED = "Automatum can't play this card yet"
 
 /**
  * Section 3.9: which cards Automatum can't play yet, by their pictures' printing (Scryfall id), as the card catalog marks
  * them ([unsupported]: of the ids asked for, those of no supported printing; null without card records). Answers are
  * kept for the app's run (the records change only with a new app). Blocking: a worker only.
  */
-internal class CardMarks(private val unsupported: (Collection<String>) -> Set<String>?) {
+class CardMarks(private val unsupported: (Collection<String>) -> Set<String>?) {
     private val known = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     fun unsupported(scryfallId: String): Boolean? = known[scryfallId]
         ?: unsupported(listOf(scryfallId))?.let { (scryfallId in it).also { value -> known[scryfallId] = value } }
 }
 
 /** The app's card marks, null where there are none (previews, most tests: no sign is shown). */
-internal val LocalCardMarks = staticCompositionLocalOf<CardMarks?> { null }
+val LocalCardMarks = staticCompositionLocalOf<CardMarks?> { null }
 
 /**
  * LOB-144 (owner gallery review 2026-11-10, gallery 188): a card Automatum can't play yet ([scryfallId]: its picture's printing)
@@ -146,7 +146,7 @@ internal val LocalCardMarks = staticCompositionLocalOf<CardMarks?> { null }
  * still reach the card under it. Nothing while unknown or for a supported card.
  */
 @Composable
-internal fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
+fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
     val marks = LocalCardMarks.current ?: return
     if (scryfallId.isNullOrEmpty()) return
     val unsupported by produceState(false, marks, scryfallId) {
@@ -160,7 +160,7 @@ internal fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier)
 }
 
 /** LOB-144: where a printed card's art box lies in its picture (a modern frame's, as fractions of the card's size). */
-internal object CardArtBox {
+object CardArtBox {
     const val LEFT = .08f
     const val TOP = .11f
     const val RIGHT = .92f
@@ -175,7 +175,7 @@ private val StampEdge = Color(0xff2b1d00)
 
 /** LOB-144: the warning triangle stamp (see [CardSupportMark]); holding it says [AUTOMATUM_CARD_UNSUPPORTED]. */
 @Composable
-internal fun UnsupportedStamp(modifier: Modifier) {
+fun UnsupportedStamp(modifier: Modifier) {
     var tooltip by remember { mutableStateOf(false) }
     Box(modifier.semantics { contentDescription = AUTOMATUM_CARD_UNSUPPORTED }.then(SharedHoldElement { tooltip = it })) {
         Canvas(Modifier.matchParentSize()) {

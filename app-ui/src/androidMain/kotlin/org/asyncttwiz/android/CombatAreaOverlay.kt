@@ -52,11 +52,11 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.drawCentredText
 
-internal val ArrowColor = Color(0xff5f7a87)
-internal val FightsColor = Color(0xffe8890c)
-internal val PreviewRed = Color(0xffb3261e)
+val ArrowColor = Color(0xff5f7a87)
+val FightsColor = Color(0xffe8890c)
+val PreviewRed = Color(0xffb3261e)
 /** Life gained (CMB-029's preview, CMB-050's lifelink). */
-internal val LifeGainGreen = Color(0xff237d68)
+val LifeGainGreen = Color(0xff237d68)
 
 /** The keywords whose badges combat copies show with Automatum on (CMB-035), lowercase, in this order. */
 private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "First strike", "Double strike", "Deathtouch",
@@ -71,7 +71,7 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  * while staging, the attacking player's own staging chips, held chips and the eye.
  */
 @Composable
-internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
+fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
     /** TBL-117, CMB-034 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1). */
     pressed: () -> Pair<String, Float>? = { null },
     /** CMB-028, CMB-034: the card (or combat copy) a finger is dragging now. */
@@ -311,7 +311,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
 }
 
 /** The test tag of a combat slot (CMB-028, CMB-034). */
-internal const val COMBAT_SLOT_TAG = "combat-slot"
+const val COMBAT_SLOT_TAG = "combat-slot"
 
 /**
  * CMB-028, CMB-034, CMB-040 (owner, 2026-11-08): the dashed places for the next [role]: over each attacker no blocker sits on,
@@ -361,18 +361,18 @@ private fun ChooseBlockersLabel(scene: TableScene) {
 }
 
 /** CMB-034: the band's words until the first block. */
-internal const val CHOOSE_BLOCKERS = "Choose blockers"
+const val CHOOSE_BLOCKERS = "Choose blockers"
 
 /** The colour of the creatures that may attack (CMB-028, owner 2026-11-05) or block (CMB-034, owner 2026-11-08). */
-internal val AttackOrange = Color(0xffe8590c)
+val AttackOrange = Color(0xffe8590c)
 /** CMB-007 (owner playtest 2026-11-06): the combat band's colour, the old combat area's cream. */
-internal val CombatBandColor = Color(0xfff5f1df)
+val CombatBandColor = Color(0xfff5f1df)
 /** The ink of a target's value on its chip (CMB-013). */
 private val CombatValueInk = Color(0xff4a4636)
 
 /** What a target chip shows after the name (CMB-013, CMB-029): the target's value, or "20 → 17" when the damage preview
  * would change it by [change]; empty for a target without one. */
-internal fun chipValue(lane: CombatLaneLabel, change: Int): String {
+fun chipValue(lane: CombatLaneLabel, change: Int): String {
     val now = lane.value.toIntOrNull()
     return if (change == 0 || now == null) lane.value else "$now → ${signedValue(now + change)}"
 }
@@ -460,7 +460,7 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
 private const val TARGET_SPLASH = 1.25f
 
 /** How long the target chips take to fade in (CMB-001). */
-internal const val CHIP_FADE_MILLIS = 300
+const val CHIP_FADE_MILLIS = 300
 
 /** One target chip at its place in the band, [width] wide: crossed swords, the round avatar, the name cut to the chip's
  * letters, then the target's value, or what the damage preview would make of it ([change], CMB-029). */
@@ -537,11 +537,11 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
 }
 
 /** How fast a pressed glow grows and shrinks back (TBL-117, owner playtest 2026-11-06). */
-internal const val PRESS_GLOW_MILLIS = 90
+const val PRESS_GLOW_MILLIS = 90
 
 /** A chip of a staged attacker or drafted blocker (CMB-036–CMB-038): [onTap] null when the viewer can't change it (the
  * other player sees the choices); [cost] an amber cost to pay (CMB-037). Holding it says [hold]. */
-internal class StagingChip(val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?, val on: Boolean, val picking: Boolean,
+class StagingChip(val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?, val on: Boolean, val picking: Boolean,
     val hold: String, val description: String, val cost: Boolean = false, val onTap: (() -> Unit)? = null)
 
 /** The chips of the staged attacker [card] (CMB-036–CMB-038): its optional costs to attack as toggles ("Exert"),
@@ -638,7 +638,7 @@ private fun DrawScope.arrow(start: Offset, end: Offset, color: Color, d: Float) 
 }
 
 @Composable
-internal fun PreviewChip(text: String, color: Color, modifier: Modifier, description: String, filled: Boolean = false) {
+fun PreviewChip(text: String, color: Color, modifier: Modifier, description: String, filled: Boolean = false) {
     // Wider than a small card when it has to be: one line, never wrapped. Drawn only, so taps reach the card beneath.
     Box(modifier.wrapContentSize(unbounded = true).semantics { contentDescription = description }
         .background(if (filled) color else Color.White, RoundedCornerShape(6.dp))
@@ -656,7 +656,7 @@ internal fun PreviewChip(text: String, color: Color, modifier: Modifier, descrip
  * gallery review 2026-11-07).
  */
 @Composable
-internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Modifier = Modifier,
+fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Modifier = Modifier,
     /** What the badge says instead of the preview's words (CMB-050: damage dealt, not damage that would be). */
     description: String? = null, text: String = dealt?.toString().orEmpty()) {
     val said = description ?: when {
@@ -674,7 +674,7 @@ internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Mod
 }
 
 /** CMB-029, CMB-050: the red splash with [text] in it (the damage, no minus), filling [size] at [topLeft] (px). */
-internal fun DrawScope.damageSplash(topLeft: Offset, size: Size, text: String) {
+fun DrawScope.damageSplash(topLeft: Offset, size: Size, text: String) {
     splash(topLeft, size)
     if (text.isNotEmpty()) drawCentredText(text, Offset(topLeft.x + size.width * SplashNumberCentre.x, topLeft.y + size.height * SplashNumberCentre.y),
         size.height * .44f, Color.White, 900, maxWidth = size.width * SplashNumberWidth)
@@ -682,12 +682,12 @@ internal fun DrawScope.damageSplash(topLeft: Offset, size: Size, text: String) {
 
 /** The widest a damage badge's number is drawn, as a share of the badge: inside the splash's core and the cranium, so
  * one or two digits keep their full size and three are drawn smaller. */
-internal const val SplashNumberWidth = .54f
-internal const val SkullNumberWidth = .6f
+const val SplashNumberWidth = .54f
+const val SkullNumberWidth = .6f
 /** Where a splash's number is centred, as shares of the badge: the middle of the splash's area (its spikes are uneven). */
-internal val SplashNumberCentre = Offset(.499f, .498f)
+val SplashNumberCentre = Offset(.499f, .498f)
 /** Where a skull's number is centred, as shares of the badge: the middle of the round cranium above the jaw. */
-internal val SkullNumberCentre = Offset(.5f, .37f)
+val SkullNumberCentre = Offset(.5f, .37f)
 
 /** A red splash filling [size] at [topLeft] (px): a ragged star with a thin white edge. */
 private fun DrawScope.splash(topLeft: Offset, size: Size) {

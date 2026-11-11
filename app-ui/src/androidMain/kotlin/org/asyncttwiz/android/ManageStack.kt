@@ -24,7 +24,7 @@ import org.asyncttwiz.protocol.*
  * the rules (I-D52). While a target is picked on the Stack (STK-048), [targets] are the legal entries: they glow violet and a
  * tap picks one ([pick]); the others are dimmed. */
 @Composable
-internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
+fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
     pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
@@ -106,7 +106,7 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
 
 /** STK-018, STK-058: for each of the Stack entries [order] (top first) that another entry targets, the entries targeting
  * it, top first. */
-internal fun stackTargetedBy(state: TableBoard, order: List<String>): Map<String, List<String>> {
+fun stackTargetedBy(state: TableBoard, order: List<String>): Map<String, List<String>> {
     val effects = state.board.stackEffects.associateBy { it.id }
     val byItem = order.mapNotNull { id -> effects[id]?.item?.id?.let { it to id } }.toMap()
     return order.flatMap { id ->

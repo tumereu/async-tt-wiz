@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
 @Composable
-internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () -> Unit) {
+fun PodSourcePickerDialog(controller: PodController, manageCubes: () -> Unit) {
     val picker = controller.setPicker
     var tab by remember { mutableIntStateOf(0) }
     var cubeQuery by remember { mutableStateOf("") }
@@ -53,7 +53,7 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
 /** DRF-178: the set list for some packs of the pack grid, titled by them ("Set for Round 2"); only draftable sets can be
  * chosen, as in the Source dialog. */
 @Composable
-internal fun PodPackSetDialog(controller: PodController, target: PodPackTarget, settings: DraftSettings) {
+fun PodPackSetDialog(controller: PodController, target: PodPackTarget, settings: DraftSettings) {
     val picker = controller.setPicker
     ScreenDialog(picker::dismiss) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -66,7 +66,7 @@ internal fun PodPackSetDialog(controller: PodController, target: PodPackTarget, 
 }
 
 @Composable
-internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
+fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
     retry: () -> Unit) {
     OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true,
         keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())

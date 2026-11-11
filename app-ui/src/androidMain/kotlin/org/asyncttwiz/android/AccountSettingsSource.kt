@@ -19,7 +19,7 @@ interface AccountSettingsSource {
 }
 
 /** Failed writes stay dirty locally and are sent again on the next refresh. */
-internal class AccountSettingsStore(platform: AppPlatform, account: String,
+class AccountSettingsStore(platform: AppPlatform, account: String,
     private val token: () -> String?, private val origin: String = AppBuild.ACCOUNT_ORIGIN) : AccountSettingsSource {
     private val preferences = platform.preferences("account-settings")
     private val key = "$origin/$account"
@@ -51,17 +51,17 @@ internal class AccountSettingsStore(platform: AppPlatform, account: String,
 }
 
 @Composable
-internal fun rememberAccountSettingsSource(accountId: String, auth: AuthController?): AccountSettingsSource? {
+fun rememberAccountSettingsSource(accountId: String, auth: AuthController?): AccountSettingsSource? {
     val platform = AppPlatform.current
     return remember(platform, accountId, auth) { auth?.let { AccountSettingsStore(platform, accountId, it::sessionToken) } }
 }
 
-internal val DeckVisibility.label get() = when (this) {
+val DeckVisibility.label get() = when (this) {
     DeckVisibility.VISIBLE -> "Visible"
     DeckVisibility.HIDDEN -> "Hidden"
     DeckVisibility.AFTER_FIRST_GAME -> "Show after first game"
 }
-internal val DeckVisibility.explanation get() = when (this) {
+val DeckVisibility.explanation get() = when (this) {
     DeckVisibility.VISIBLE -> "Opponents see your deck's name and art"
     DeckVisibility.HIDDEN -> "Opponents don't see your deck's name or art"
     DeckVisibility.AFTER_FIRST_GAME -> "Hidden until you've finished a game with that deck against that opponent"
@@ -69,7 +69,7 @@ internal val DeckVisibility.explanation get() = when (this) {
 
 /** UI state for the account settings: cached value first, then the server's; changes save at once. */
 @Stable
-internal class AccountSettingsState(private val source: AccountSettingsSource, private val scope: kotlinx.coroutines.CoroutineScope) {
+class AccountSettingsState(private val source: AccountSettingsSource, private val scope: kotlinx.coroutines.CoroutineScope) {
     var settings by mutableStateOf<AccountSettings?>(null); private set
     var error by mutableStateOf<String?>(null); private set
     fun load() = scope.launch {

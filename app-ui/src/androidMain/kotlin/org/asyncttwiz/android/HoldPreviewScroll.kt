@@ -7,7 +7,7 @@ import org.asyncttwiz.appui.screenHeightDp
 
 /** TBL-104, SYS-049: every hold preview scrolls by at least as much as the finger moves, sped up so that a drag over
  * [SCREEN_SHARE] of the screen height scrolls the whole preview; movement past either end is not stored. */
-internal object HoldPreviewScroll {
+object HoldPreviewScroll {
     const val SCREEN_SHARE = .9f
 
     /** Content scroll per finger pixel for a preview that scrolls [range] px on a screen [screenHeight] px tall. */
@@ -20,7 +20,7 @@ internal object HoldPreviewScroll {
 }
 
 /** Scrolls this hold preview by a finger movement of [delta] px on a screen [screenHeight] px tall. */
-internal fun ScrollState.holdPreviewScroll(delta: Float, screenHeight: Float) {
+fun ScrollState.holdPreviewScroll(delta: Float, screenHeight: Float) {
     // Not measured yet: there is nothing to scroll.
     if (maxValue == Int.MAX_VALUE) return
     dispatchRawDelta(HoldPreviewScroll.target(value.toFloat(), maxValue.toFloat(), delta, screenHeight) - value)
@@ -28,4 +28,4 @@ internal fun ScrollState.holdPreviewScroll(delta: Float, screenHeight: Float) {
 
 /** The screen height in px that [holdPreviewScroll] measures the finger against. */
 @Composable
-internal fun holdPreviewScreenHeight(): Float = screenHeightDp() * LocalDensity.current.density
+fun holdPreviewScreenHeight(): Float = screenHeightDp() * LocalDensity.current.density

@@ -26,24 +26,24 @@ sealed interface CardRecords {
 }
 
 /** The line a greyed control and a placeholder say; null when the records are ready. */
-internal fun CardRecords.line(): String? = when (this) {
+fun CardRecords.line(): String? = when (this) {
     CardRecords.Ready -> null
     is CardRecords.Updating -> "Card records updating · $percent%"
     CardRecords.Failed -> "Card records couldn't be downloaded"
 }
 
 /** The screens' card records (Ready where nothing installs them: previews, most tests). */
-internal val LocalCardRecords = compositionLocalOf<CardRecords> { CardRecords.Ready }
+val LocalCardRecords = compositionLocalOf<CardRecords> { CardRecords.Ready }
 /** Retry for [CardRecords.Failed]. */
-internal val LocalCardRecordsRetry = compositionLocalOf<(() -> Unit)?> { null }
+val LocalCardRecordsRetry = compositionLocalOf<(() -> Unit)?> { null }
 
 /** Whether controls that read card records can be used. */
 @Composable
-internal fun cardRecordsReady(): Boolean = LocalCardRecords.current == CardRecords.Ready
+fun cardRecordsReady(): Boolean = LocalCardRecords.current == CardRecords.Ready
 
 /** The line under greyed controls ("Card records updating · 43%"), with Retry after a failure; nothing when ready. */
 @Composable
-internal fun CardRecordsNote(modifier: Modifier = Modifier) {
+fun CardRecordsNote(modifier: Modifier = Modifier) {
     val records = LocalCardRecords.current
     val line = records.line() ?: return
     val retry = LocalCardRecordsRetry.current
@@ -57,7 +57,7 @@ internal fun CardRecordsNote(modifier: Modifier = Modifier) {
 
 /** In place of content that needs card records (a deck's cards, a game's table) while they install. */
 @Composable
-internal fun CardRecordsPlaceholder(modifier: Modifier = Modifier) {
+fun CardRecordsPlaceholder(modifier: Modifier = Modifier) {
     val records = LocalCardRecords.current
     val retry = LocalCardRecordsRetry.current
     Box(modifier.testTag("card-records-placeholder"), contentAlignment = Alignment.Center) {
@@ -74,14 +74,14 @@ internal fun CardRecordsPlaceholder(modifier: Modifier = Modifier) {
 
 /** [content] once card records are ready, else [CardRecordsPlaceholder] in its place. */
 @Composable
-internal fun NeedsCardRecords(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun NeedsCardRecords(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     if (cardRecordsReady()) content() else CardRecordsPlaceholder(modifier)
 }
 
 /** A screen whose content needs card records (a saved deck's or cube's cards) while they install: its header and the
  * placeholder; Back leaves it ([back]). */
 @Composable
-internal fun CardRecordsScreen(title: String, navigation: (() -> Unit)?, back: () -> Unit) {
+fun CardRecordsScreen(title: String, navigation: (() -> Unit)?, back: () -> Unit) {
     org.asyncttwiz.appui.BackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(title, navigation)

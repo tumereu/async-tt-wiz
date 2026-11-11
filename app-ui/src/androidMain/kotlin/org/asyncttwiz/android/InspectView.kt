@@ -56,7 +56,7 @@ import androidx.compose.ui.window.PopupProperties
 import org.asyncttwiz.storage.ArtworkReference
 
 /** One picture of a hold-to-inspect view (TBL-104): a card's face, a covered card, or a Stack ability's tile. */
-internal sealed interface InspectTile {
+sealed interface InspectTile {
     val key: String
 
     /** One physical picture of a card: [reference] (null: the placeholder card), turned [degrees] clockwise; game cards
@@ -85,7 +85,7 @@ internal sealed interface InspectTile {
  * (transform, modal, meld, battle, double-faced token), one for a card whose parts share one printed image (split,
  * adventure, flip, aftermath, Room). A flip card on its flipped half ([flipped]) is turned upside down.
  */
-internal fun inspectFaces(card: InspectedCard, shown: Int = 0, flipped: Boolean = false, key: String = "",
+fun inspectFaces(card: InspectedCard, shown: Int = 0, flipped: Boolean = false, key: String = "",
     owner: Color? = null, token: Boolean = false, projection: Boolean = false, faceDown: Boolean = false): List<InspectTile.Face> {
     val physical = podPreviewFaces(card.definition)
     val start = shown.takeIf { it in physical } ?: physical.firstOrNull() ?: return emptyList()
@@ -100,11 +100,11 @@ internal fun inspectFaces(card: InspectedCard, shown: Int = 0, flipped: Boolean 
 /** Every hold-to-inspect view (TBL-104, SYS-049): shown while a finger holds a card, closed by its release. It covers
  * the whole window wherever it is opened from (a card on the table, in a panel or in a list). */
 @Composable
-internal fun InspectPopup(tiles: List<InspectTile>, scroll: ScrollState) = InspectPopup(listOf(InspectGroup("card", tiles)), scroll)
+fun InspectPopup(tiles: List<InspectTile>, scroll: ScrollState) = InspectPopup(listOf(InspectGroup("card", tiles)), scroll)
 
 /** [InspectPopup] of several cards ([groups]), each with what changed on it; [swipe]: its pinned mode, when it has one. */
 @Composable
-internal fun InspectPopup(groups: List<InspectGroup>, scroll: ScrollState, swipe: InspectSwipe? = null) {
+fun InspectPopup(groups: List<InspectGroup>, scroll: ScrollState, swipe: InspectSwipe? = null) {
     Popup(WindowOrigin, properties = PopupProperties(focusable = false)) { InspectContent(groups, scroll, swipe) }
 }
 
@@ -119,13 +119,13 @@ private object WindowOrigin : PopupPositionProvider {
  * added to it ("+1/+1 counter ×2", "+3/+3 until end of turn", "Attached to Ember Cub", "Target: Bob"); [source] names
  * what an effect comes from, shown only on request in pinned mode.
  */
-internal data class InspectChange(val text: String, val source: String? = null)
+data class InspectChange(val text: String, val source: String? = null)
 
 /** One card in Inspect: its pictures ([tiles]: a card's faces, or an ability's tile) kept together, then its [changes]. */
-internal data class InspectGroup(val key: String, val tiles: List<InspectTile>, val changes: List<InspectChange> = emptyList())
+data class InspectGroup(val key: String, val tiles: List<InspectTile>, val changes: List<InspectChange> = emptyList())
 
 @Composable
-internal fun InspectContent(tiles: List<InspectTile>, scroll: ScrollState) = InspectContent(listOf(InspectGroup("card", tiles)), scroll)
+fun InspectContent(tiles: List<InspectTile>, scroll: ScrollState) = InspectContent(listOf(InspectGroup("card", tiles)), scroll)
 
 /**
  * Inspect (TBL-104): the cards' pictures over the dimmed screen, each the size of a card filling the screen, in portrait
@@ -134,7 +134,7 @@ internal fun InspectContent(tiles: List<InspectTile>, scroll: ScrollState) = Ins
  * to the left shrinks the cards and slides the changes next to them, and a close button comes in at the top right.
  */
 @Composable
-internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: InspectSwipe? = null) {
+fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: InspectSwipe? = null) {
     val pinned = swipe?.pinned == true
     val progress by animateFloatAsState(swipe?.let { if (it.pinned) 1f else it.progress } ?: 0f,
         if (pinned) tween(200) else snap(), label = "inspect pin")
@@ -185,7 +185,7 @@ internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swi
 }
 
 /** The test tag of pinned Inspect's side hints (TBL-131). */
-internal const val INSPECT_PIN_HINT_TAG = "inspect-pin-hint"
+const val INSPECT_PIN_HINT_TAG = "inspect-pin-hint"
 
 /** One of the faint marks at the side edges of an Inspect that can be pinned (TBL-131). */
 @Composable
@@ -197,10 +197,10 @@ private fun PinHint(text: String, modifier: Modifier) {
 private val CLOSE_BUTTON_ROOM = 60.dp
 
 /** The test tag of a change's block in pinned Inspect (TBL-131). */
-internal const val INSPECT_CHANGE_BLOCK_TAG = "inspect-change-block"
+const val INSPECT_CHANGE_BLOCK_TAG = "inspect-change-block"
 
 /** The test tag of the line between two cards in Inspect. */
-internal const val INSPECT_SEPARATOR_TAG = "inspect-separator"
+const val INSPECT_SEPARATOR_TAG = "inspect-separator"
 
 /** The thin line between two cards in Inspect (owner 2026-11-06). */
 @Composable
@@ -221,7 +221,7 @@ private val MIN_SIDE_CHANGES_WIDTH = 120.dp
  * lines wrap rather than run off the screen); never wider than [SIDE_CHANGES_WIDTH] or narrower than
  * [MIN_SIDE_CHANGES_WIDTH] (then the row scrolls).
  */
-internal fun pinnedChangesWidth(groups: List<InspectGroup>, room: DpSize, width: Dp): Dp {
+fun pinnedChangesWidth(groups: List<InspectGroup>, room: DpSize, width: Dp): Dp {
     val panels = groups.count { it.changes.isNotEmpty() }
     if (panels == 0) return SIDE_CHANGES_WIDTH
     val gap = 8.dp
@@ -371,7 +371,7 @@ private val InspectSourceColor = Color(0xffc9b8ff)
 
 /** A tile's size within [room]: an upright card as large as fits; a card printed sideways turned and no taller than
  * an upright inspected card (TBL-108). */
-internal fun inspectTileSize(tile: InspectTile, room: DpSize): DpSize =
+fun inspectTileSize(tile: InspectTile, room: DpSize): DpSize =
     if (tile is InspectTile.Face && tile.degrees % 180 != 0) inspectedArtworkSize(true, room.width, room.height)
     else minOf(room.width, room.height / 1.4f).let { DpSize(it, it * 1.4f) }
 
@@ -422,7 +422,7 @@ private fun EmblemTile(tile: InspectTile.Emblem, size: DpSize, fit: Boolean, mod
 }
 
 @Composable
-internal fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = Modifier) {
+fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val (width, height) = size
     Box(modifier.size(width, height).semantics { contentDescription = "Card image: ${tile.name}" }) {
@@ -500,8 +500,8 @@ private const val EMBLEM_ART_RATIO = 2.6f
 private const val ABILITY_ART_RATIO = 1.37f
 
 /** The fallback tile of a card without card data: its [name] on the placeholder card. */
-internal fun placeholderFace(key: String, name: String): InspectTile.Face = InspectTile.Face(key, null, name)
+fun placeholderFace(key: String, name: String): InspectTile.Face = InspectTile.Face(key, null, name)
 
 /** Hold-to-inspect of a card outside a game ([card] null: no card data, [fallback] names it). */
-internal fun inspectTiles(card: InspectedCard?, fallback: String): List<InspectTile> =
+fun inspectTiles(card: InspectedCard?, fallback: String): List<InspectTile> =
     card?.let { inspectFaces(it) }?.takeIf { it.isNotEmpty() } ?: listOf(placeholderFace("card", fallback))

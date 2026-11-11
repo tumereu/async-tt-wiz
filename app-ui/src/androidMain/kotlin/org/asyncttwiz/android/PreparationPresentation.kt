@@ -6,15 +6,15 @@ data class TransferFeedback(val serial: Long, val text: String)
 
 /** Another player's game deck title stays "Deck" unless that player shows it ([PlayerPreparation.deckShown]).
  * A shown pod deck uses its private name, which the server sends only while the deck is shown. */
-internal fun gameDeckName(owner: String, viewer: String?, name: String, shown: Boolean = false, shownPodName: String? = null): String =
+fun gameDeckName(owner: String, viewer: String?, name: String, shown: Boolean = false, shownPodName: String? = null): String =
     if (owner == viewer) name else if (shown) shownPodName ?: name else "Deck"
 
 /** The cover art identifies a deck as much as its title: another player's stays a neutral placeholder unless shown. */
-internal fun gameDeckCover(owner: String, viewer: String?, cover: String?, shown: Boolean = false): String? =
+fun gameDeckCover(owner: String, viewer: String?, cover: String?, shown: Boolean = false): String? =
     cover?.takeIf { owner == viewer || shown }
 
 /** Compare displayed membership, not submitted quantity or receipt counts. Includes reconciliation. */
-internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, actor: String?,
+fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, actor: String?,
     previous: TransferFeedback?): TransferFeedback? {
     val old = before?.players?.find { it.accountId == actor }?.deck ?: return previous
     val next = after?.players?.find { it.accountId == actor }?.deck ?: return previous
@@ -32,12 +32,12 @@ internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparat
 }
 
 /** One undoable preparation tap: the exact copies a transfer moved. */
-internal sealed interface PreparationStep {
+sealed interface PreparationStep {
     data class Moved(val transfer: PreparedTransfer) : PreparationStep
 }
 
 /** Personal undo for one game's preparation round and deck. Undo sends the inverse as an ordinary request. */
-internal data class PreparationUndo(val gameId: String = "", val roundId: String = "", val deckId: String = "",
+data class PreparationUndo(val gameId: String = "", val roundId: String = "", val deckId: String = "",
     val steps: List<PreparationStep> = emptyList()) {
     private fun matches(gameId: String, roundId: String, deckId: String) =
         gameId == this.gameId && roundId == this.roundId && deckId == this.deckId
@@ -54,39 +54,39 @@ internal data class PreparationUndo(val gameId: String = "", val roundId: String
 }
 
 /** The same copies back to where they came from. */
-internal fun PreparedTransfer.inverse(): PreparedTransfer {
+fun PreparedTransfer.inverse(): PreparedTransfer {
     val target = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
     return copy(source = target, entries = entries.map { it.copy(section = target) })
 }
 
 /** A tile swipe moves one copy once it travels [threshold] in either direction; shorter swipes spring back. */
-internal fun preparationSwipeCommits(offset: Float, threshold: Float): Boolean = threshold > 0f && kotlin.math.abs(offset) >= threshold
-internal fun preparationSwipeProgress(offset: Float, threshold: Float): Float =
+fun preparationSwipeCommits(offset: Float, threshold: Float): Boolean = threshold > 0f && kotlin.math.abs(offset) >= threshold
+fun preparationSwipeProgress(offset: Float, threshold: Float): Float =
     if (threshold <= 0f) 0f else (kotlin.math.abs(offset) / threshold).coerceIn(0f, 1f)
 
 /** One tile: every copy of one card in one section. */
-internal data class PreparationTile(val digest: String, val definition: CardDefinition?, val quantity: Long) {
+data class PreparationTile(val digest: String, val definition: CardDefinition?, val quantity: Long) {
     val name get() = definition?.name ?: "Card"
 }
-internal data class PreparationGroup(val type: CardTypeGroup, val tiles: List<PreparationTile>) {
+data class PreparationGroup(val type: CardTypeGroup, val tiles: List<PreparationTile>) {
     val count get() = tiles.sumOf { it.quantity }
 }
 
 /** A section's cards, a pod game's supplied basics included, by type group; empty groups are left out, tiles by name. */
-internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
+fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
     definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
     deck.entries.filter { it.section == section }.map { it.definition to it.quantity.toLong() }, definitions)
 
 /** A saved deck's section in the same type groups as game preparation; every entry, basics included, is a tile. */
-internal fun preparationGroups(deck: SavedDeck, section: SavedDeckSection,
+fun preparationGroups(deck: SavedDeck, section: SavedDeckSection,
     definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
     deck.entries.filter { it.section == section }.map { it.card to it.quantity.toLong() }, definitions)
 
 /** A saved cube's section in the same type groups as saved decks. */
-internal fun preparationGroups(cube: SavedCube, section: SavedDeckSection, definitions: Map<String, CardDefinition>): List<PreparationGroup> =
+fun preparationGroups(cube: SavedCube, section: SavedDeckSection, definitions: Map<String, CardDefinition>): List<PreparationGroup> =
     preparationGroups(cube.entries.filter { it.section == section }.map { it.card to it.quantity.toLong() }, definitions)
 
-internal fun preparationGroups(cards: List<Pair<String, Long>>, definitions: Map<String, CardDefinition>): List<PreparationGroup> {
+fun preparationGroups(cards: List<Pair<String, Long>>, definitions: Map<String, CardDefinition>): List<PreparationGroup> {
     val tiles = cards.groupBy({ it.first }, { it.second })
         .map { (digest, quantities) -> PreparationTile(digest, definitions[digest], quantities.sum()) }
         .filter { it.quantity > 0 }

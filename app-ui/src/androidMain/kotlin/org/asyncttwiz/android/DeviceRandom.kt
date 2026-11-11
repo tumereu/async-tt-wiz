@@ -10,7 +10,7 @@ import java.util.UUID
  * secure random. Tests that simulate whole games install a seeded [source] ([seeded]) so a game plays the same on every
  * run.
  */
-internal object DeviceRandom {
+object DeviceRandom {
     private val secure = SecureRandom()
     @Volatile private var source: Random? = null
 

@@ -15,7 +15,7 @@ import kotlinx.coroutines.delay
 
 /** Overlay in the caller's Box, above table controls; never consumes table layout space. */
 @Composable
-internal fun FloatingTransientError(message: String?, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun FloatingTransientError(message: String?, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     val onDismiss by rememberUpdatedState(dismiss)
     LaunchedEffect(message) { if (message != null) { delay(7_000); onDismiss() } }
     RecordShown(message)
@@ -30,7 +30,7 @@ internal fun FloatingTransientError(message: String?, dismiss: () -> Unit, modif
 /** Calm, non-dismissable status while automatic refreshes keep failing; it disappears on the next success.
  * Drawn without a Surface so taps reach the controls underneath (e.g. a draft's Confirm). */
 @Composable
-internal fun ServerUnreachableNote(visible: Boolean, modifier: Modifier = Modifier) {
+fun ServerUnreachableNote(visible: Boolean, modifier: Modifier = Modifier) {
     if (visible) Row(modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         .shadow(2.dp, MaterialTheme.shapes.extraLarge)
         .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraLarge)

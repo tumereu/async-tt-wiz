@@ -4,7 +4,7 @@ import kotlin.math.floor
 
 /** Visible fragments only, bucketed in screen dp. Candidates retain painter order so subtraction
  * produces exactly the same fragments as the full scene scan (including Stack pile exceptions). */
-internal class TableOcclusionIndex(private val items: List<TableItem>) {
+class TableOcclusionIndex(private val items: List<TableItem>) {
     private val cells = HashMap<Long, MutableList<Int>>()
 
     init {

@@ -7,7 +7,7 @@ import java.util.concurrent.ExecutorService
 /** LobbyController's notification hand-off: opens the game a notification (activity) points to, or
  * explains that it is gone, and keeps its target current as the game changes. Main thread; the read
  * runs on [worker]. */
-internal class LobbyActivityRoutes(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
+class LobbyActivityRoutes(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
     private val accountId: () -> String?, private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val session: GameSession?, private val openGame: () -> Unit,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)?) {

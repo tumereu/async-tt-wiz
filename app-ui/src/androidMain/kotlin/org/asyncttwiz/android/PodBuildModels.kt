@@ -2,14 +2,14 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-internal data class PodBuildTile(
+data class PodBuildTile(
     val digest: String,
     val copyIds: List<String>,
     val definition: CardDefinition?,
     val colors: Set<DraftColor>,
 )
 
-internal fun podBuildColumns(
+fun podBuildColumns(
     build: PodDeckBuild,
     category: PodDeckCategory,
     copies: Map<String, DraftCopy>,
@@ -35,15 +35,15 @@ internal fun podBuildColumns(
     }
 }
 
-internal fun podBuildCount(build: PodDeckBuild, category: PodDeckCategory): Int =
+fun podBuildCount(build: PodDeckBuild, category: PodDeckCategory): Int =
     build.copies.count { it.category == category }
 
 /** "Main X + Y = Z": X nonland pool cards, Y every land in Main (drafted lands and basics). */
-internal fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
+fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
     podBuildLandTitle("Main", build, PodDeckCategory.MAIN, build.basics, copies, definitions)
 
 /** Same nonland + lands split as Main; a plain count while Side has no lands at all. */
-internal fun podBuildSideTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
+fun podBuildSideTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
     podBuildLandTitle("Side", build, PodDeckCategory.SIDE, build.sideBasics, copies, definitions)
 
 /** The section's drafted lands, basics apart. */
@@ -52,7 +52,7 @@ private fun podBuildDraftedLands(build: PodDeckBuild, category: PodDeckCategory,
     .count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
 
 /** DRF-103: the basics dialog's "Basics N · Lands M" of the section it edits, every land of the section in M. */
-internal fun podBuildBasicsLine(build: PodDeckBuild, category: PodDeckCategory, copies: Map<String, DraftCopy>,
+fun podBuildBasicsLine(build: PodDeckBuild, category: PodDeckCategory, copies: Map<String, DraftCopy>,
     definitions: Map<String, CardDefinition>): String {
     val basics = if (category == PodDeckCategory.SIDE) build.sideBasics else build.basics
     return "Basics ${basics.total} · Lands ${podBuildDraftedLands(build, category, copies, definitions) + basics.total}"
@@ -68,15 +68,15 @@ private fun podBuildLandTitle(label: String, build: PodDeckBuild, category: PodD
 }
 
 /** DRF-166: the card showing as the deck's cover: the chosen one while it is in Main or Side, else the first of them. */
-internal fun podBuildCover(choices: List<String>, chosen: String?): String? = chosen?.takeIf { it in choices } ?: choices.firstOrNull()
+fun podBuildCover(choices: List<String>, chosen: String?): String? = chosen?.takeIf { it in choices } ?: choices.firstOrNull()
 
-internal fun podBuildSubmitEnabled(
+fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()
 
 /** DRF-094: why a section's header warns, by the very rules Submit goes by ([podBuildSubmitEnabled], DRF-119); null when it
  * doesn't. Main warns under its minimum, Side over its limit. */
-internal fun podBuildHeaderWarning(category: PodDeckCategory, build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?): String? {
+fun podBuildHeaderWarning(category: PodDeckCategory, build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?): String? {
     val issue = when (category) {
         PodDeckCategory.MAIN -> PodDeckIssue.MAIN_TOO_SMALL
         PodDeckCategory.SIDE -> PodDeckIssue.SIDEBOARD_LIMIT
@@ -85,7 +85,7 @@ internal fun podBuildHeaderWarning(category: PodDeckCategory, build: PodDeckBuil
     return issue.takeIf { it in PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit) }?.let { podBuildIssueText(it, sideboardLimit) }
 }
 
-internal fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): String = when (issue) {
+fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): String = when (issue) {
     PodDeckIssue.MAIN_TOO_SMALL -> "Main needs 40 cards"
     PodDeckIssue.DECK_TOO_LARGE -> "Main + Side including basics exceeds ${DeckValidation.MAX_CARDS} cards"
     PodDeckIssue.SIDEBOARD_LIMIT -> "Side exceeds its limit of $sideboardLimit cards"
@@ -95,15 +95,15 @@ internal fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): Strin
     PodDeckIssue.MISSING_COPY -> "Every pool copy needs a category"
 }
 
-internal fun PodDeckCategory.podBuildLabel(): String = when (this) {
+fun PodDeckCategory.podBuildLabel(): String = when (this) {
     PodDeckCategory.MAIN -> "Main"
     PodDeckCategory.SIDE -> "Side"
     PodDeckCategory.MAYBE -> "Maybe"
 }
 
-internal fun PodDeckBasics.podBuildValues(): List<Int> = listOf(plains, island, swamp, mountain, forest)
+fun PodDeckBasics.podBuildValues(): List<Int> = listOf(plains, island, swamp, mountain, forest)
 
-internal fun PodDeckBasics.podBuildAdjust(index: Int, delta: Int): PodDeckBasics {
+fun PodDeckBasics.podBuildAdjust(index: Int, delta: Int): PodDeckBasics {
     val values = podBuildValues().toMutableList()
     values[index] = (values[index].toLong() + delta).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
     return PodDeckBasics(values[0], values[1], values[2], values[3], values[4])

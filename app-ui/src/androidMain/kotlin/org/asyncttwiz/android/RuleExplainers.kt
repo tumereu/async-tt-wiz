@@ -32,7 +32,7 @@ import arcanum.api.RulesGlossary
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun RuleTip(text: String, modifier: Modifier = Modifier, lead: String? = null, content: @Composable () -> Unit) {
+fun RuleTip(text: String, modifier: Modifier = Modifier, lead: String? = null, content: @Composable () -> Unit) {
     val entries = remember(text) { RulesGlossary.named(text) }
     if (entries.isEmpty() && lead == null) { Box(modifier) { content() }; return }
     Box(modifier, propagateMinConstraints = true) {
@@ -46,7 +46,7 @@ internal fun RuleTip(text: String, modifier: Modifier = Modifier, lead: String? 
 /** The explanations of [entries] as a dark card-like popup: [lead] first when given, then each keyword's name in bold and
  * what it means. */
 @Composable
-internal fun RuleExplanation(entries: List<RulesGlossary.Entry>, lead: String? = null, modifier: Modifier = Modifier) {
+fun RuleExplanation(entries: List<RulesGlossary.Entry>, lead: String? = null, modifier: Modifier = Modifier) {
     Surface(modifier.widthIn(max = 280.dp).semantics { if (entries.isNotEmpty()) contentDescription = "Rule explanation" },
         color = MenuInk, contentColor = Color.White, shadowElevation = 6.dp,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
@@ -59,7 +59,7 @@ internal fun RuleExplanation(entries: List<RulesGlossary.Entry>, lead: String? =
 
 /** One keyword's name in bold over its explanation, in [ink]. */
 @Composable
-internal fun RuleExplanationText(entry: RulesGlossary.Entry, ink: Color = Color.White) {
+fun RuleExplanationText(entry: RulesGlossary.Entry, ink: Color = Color.White) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(entry.name, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 16.sp)
         CardText(entry.text, color = ink, style = TextStyle(fontSize = 13.sp, lineHeight = 17.sp))

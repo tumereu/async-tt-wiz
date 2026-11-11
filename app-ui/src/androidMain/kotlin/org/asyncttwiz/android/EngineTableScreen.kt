@@ -37,7 +37,7 @@ import org.asyncttwiz.appui.rememberShortNote
  * chip come from the shown events ([EngineGame.Transition], HIS-031, HIS-075).
  */
 @Composable
-internal fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
+fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     val state = controller.table.value
     val detail = state.detail ?: return
     val live = state.board ?: return
@@ -318,7 +318,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
  * returns to play mode. View-only: no branching (HIS-019).
  */
 @Composable
-internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean,
+fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean,
     pauseMillis: Long, onSettings: () -> Unit = {}) {
     val cursor = routes.review ?: return
     val at = events.indexOfFirst { it.id == cursor }.takeIf { it >= 0 } ?: return
@@ -372,7 +372,7 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
  * mode's height and without the controls (no event strip, HIS-001).
  */
 @Composable
-internal fun EngineRewindPanel(landscape: Boolean) {
+fun EngineRewindPanel(landscape: Boolean) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = if (landscape) Alignment.BottomEnd else Alignment.BottomCenter) {
         // TBL-009: in landscape the controls' fixed-width place at the bar's right end
         Box(Modifier.then(if (landscape) Modifier.width(TablePresentation.Landscape.controls(maxWidth.value).dp) else Modifier.fillMaxWidth())
@@ -390,7 +390,7 @@ private class AppliedMarks { var transition = 0L; var reviewed: String? = null; 
 /** Tests: what the engine table did with the boards it was given (main thread, after composition), with its player's
  * account id: each transition it applied, and whether it opened on it ([applied]'s `opened`: no board of the game drawn
  * before, so nothing animates); and each composition drawing a step of a branch's take-back (HIS-106, [rewinding]). */
-internal object EngineTableProbe {
+object EngineTableProbe {
     @Volatile var applied: ((me: String, transition: EngineGame.Transition, opened: Boolean) -> Unit)? = null
     @Volatile var rewinding: ((me: String) -> Unit)? = null
 }

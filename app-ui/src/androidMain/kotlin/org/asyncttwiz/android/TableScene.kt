@@ -29,7 +29,7 @@ import org.asyncttwiz.appui.displayRefreshRate
 
 /** Normal production surface. One pointer arbiter, one Actions host, and no authoritative local board. */
 @Composable
-internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
+fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
     runtime: TableRuntimeHooks = TableRuntimeHooks()) {
@@ -408,12 +408,12 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     }
 }
 
-internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
+fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
     intent is TableIntent.Overscroll ||
     intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.SearchPile
 
 /** TBL-117: the playable glow of each card, fading between boards (read while drawing, so only the canvas redraws). */
-internal class PlayableGlow {
+class PlayableGlow {
     val levels = androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>>()
     var shown: Set<String> = emptySet()
     var containers: Map<String, String> = emptyMap()
@@ -425,7 +425,7 @@ internal class PlayableGlow {
  * growing in and shrinking back after the release; null when nothing is pressed.
  */
 @Composable
-internal fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
+fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
     var last by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pressed) { if (pressed != null) last = pressed }
     val current = rememberUpdatedState(pressed)
@@ -434,7 +434,7 @@ internal fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
 }
 
 /** How long a card's playable glow takes to fade in or out (TBL-117). */
-internal const val GLOW_FADE_MILLIS = 220
+const val GLOW_FADE_MILLIS = 220
 
 /** How opaque an opened group's members that aren't legal targets are drawn while targets are picked (TBL-130). */
 private const val TARGET_DIMMED = .4f
@@ -444,7 +444,7 @@ private const val TARGET_DIMMED = .4f
  * still in the container they glowed in keep glowing until it is known). Each card's glow fades to its new strength.
  */
 @Composable
-internal fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
+fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
     val glow = remember(play.playId) { PlayableGlow() }
     val containers = remember(IdentityKey(play.board)) { play.board.cards.associate { it.id to it.containerId } }
     val next = target ?: remember(IdentityKey(play.board), glow.shown) {

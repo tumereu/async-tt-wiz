@@ -20,7 +20,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  * attacker's choices and early divisions, I-D33). The same checks and ids as the gameplay change of today's model; the
  * device shares the result as table changes ([EngineTableRoutes]). Anything else is left to the routes, which refuse it.
  */
-internal object EngineStaging {
+object EngineStaging {
     /**
      * [board] (with its card data [definitions]) after [action] made by [actor] as the request [requestId] (a batch's
      * member: its own request id, which names what it makes); [board] itself when nothing changes or the action is none
@@ -116,7 +116,7 @@ internal object EngineStaging {
  * member sees the board the ones before it made; one that changes nothing isn't kept. [requestId] is the batch's: a
  * member's own request id is derived from it as the batch's members are ([org.asyncttwiz.protocol.PlayBatches]).
  */
-internal class EngineDraft(val initial: TableBoard, private val actor: String, val requestId: String = DeviceRandom.uuid()) {
+class EngineDraft(val initial: TableBoard, private val actor: String, val requestId: String = DeviceRandom.uuid()) {
     var state = initial
         private set
     val actions = mutableListOf<PlayAction>()

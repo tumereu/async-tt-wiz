@@ -22,17 +22,17 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
 /** Game history's result colours (spec §3.3): Win green, Loss red, Draw grey; Unfinished is outlined. */
-internal val WinGreen = Color(0xff2e7d32)
-internal val LossRed = Color(0xffc62828)
-internal val DrawGrey = Color(0xff6b7280)
+val WinGreen = Color(0xff2e7d32)
+val LossRed = Color(0xffc62828)
+val DrawGrey = Color(0xff6b7280)
 
 /** A record's date, "7 Nov 2026" (the device's zone). */
-internal fun matchDate(record: MatchRecord): String = runCatching {
+fun matchDate(record: MatchRecord): String = runCatching {
     DateTimeFormatter.ofPattern("d MMM uuuu").withZone(AppClock.clock().zone).format(Instant.parse(record.endedAt))
 }.getOrDefault("")
 
 /** How a match ended, short (a row): the loser's reason by the rules, Conceded, Agreed, the draw's kind, or Unfinished. */
-internal fun matchEndText(record: MatchRecord): String = when (val ending = record.ending) {
+fun matchEndText(record: MatchRecord): String = when (val ending = record.ending) {
     MatchEnding.ByRules -> record.players.firstNotNullOfOrNull { it.lossCause }?.let(::lossCauseText) ?: "By the rules"
     is MatchEnding.Conceded -> "Conceded"
     is MatchEnding.Agreed -> "Agreed"
@@ -41,7 +41,7 @@ internal fun matchEndText(record: MatchRecord): String = when (val ending = reco
 }
 
 /** Why a player lost by the rules. */
-internal fun lossCauseText(cause: LossCause): String = when (cause) {
+fun lossCauseText(cause: LossCause): String = when (cause) {
     LossCause.ZeroLife -> "Life 0"
     LossCause.EmptyLibrary -> "Empty library"
     LossCause.Poison -> "10 poison"
@@ -49,7 +49,7 @@ internal fun lossCauseText(cause: LossCause): String = when (cause) {
 }
 
 /** How a match ended, in full (its details): who, why, and an agreement's reason. */
-internal fun matchEndDetail(record: MatchRecord, me: String): String {
+fun matchEndDetail(record: MatchRecord, me: String): String {
     fun name(accountId: String) = if (accountId == me) "You" else record.player(accountId)?.account?.username ?: "Opponent"
     return when (val ending = record.ending) {
         MatchEnding.ByRules -> record.players.filter { it.lossCause != null }.joinToString("; ") { loser ->
@@ -70,7 +70,7 @@ internal fun matchEndDetail(record: MatchRecord, me: String): String {
 
 /** A result chip: Win green, Loss red, Draw grey, Unfinished outlined (§3.3). */
 @Composable
-internal fun ResultChip(result: SuggestedResult?, finished: Boolean, modifier: Modifier = Modifier) {
+fun ResultChip(result: SuggestedResult?, finished: Boolean, modifier: Modifier = Modifier) {
     val (text, color) = when {
         !finished -> "Unfinished" to null
         result == SuggestedResult.WIN -> "Win" to WinGreen
@@ -86,7 +86,7 @@ internal fun ResultChip(result: SuggestedResult?, finished: Boolean, modifier: M
 
 /** A deck in a record: its cover and name, or "Deck" with the placeholder picture while hidden (LOB-042). */
 @Composable
-internal fun MatchDeckLine(deck: MatchDeck?, modifier: Modifier = Modifier) {
+fun MatchDeckLine(deck: MatchDeck?, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         DeckThumbnail(deck?.cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, deck?.name ?: "Deck", 20.dp, 28.dp)
         Text(deck?.name ?: "Deck", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -96,7 +96,7 @@ internal fun MatchDeckLine(deck: MatchDeck?, modifier: Modifier = Modifier) {
 /** One record as a row (§3.3): date, the opponent's avatar and name, the result chip, turns, how it ended, both decks,
  * and the pod's name for pod matches. */
 @Composable
-internal fun MatchRow(record: MatchRecord, me: String, open: () -> Unit) {
+fun MatchRow(record: MatchRecord, me: String, open: () -> Unit) {
     val opponent = record.opponent(me)
     OutlinedCard(onClick = open, modifier = Modifier.fillMaxWidth().testTag("match-${record.id}")) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -120,7 +120,7 @@ internal fun MatchRow(record: MatchRecord, me: String, open: () -> Unit) {
 }
 
 /** How long a match took, "2 d 3 h", "3 h 5 min" or "12 min". */
-internal fun matchDuration(record: MatchRecord): String = runCatching {
+fun matchDuration(record: MatchRecord): String = runCatching {
     val minutes = Duration.between(Instant.parse(record.startedAt), Instant.parse(record.endedAt)).toMinutes().coerceAtLeast(0)
     when {
         minutes >= 24 * 60 -> "${minutes / (24 * 60)} d ${minutes % (24 * 60) / 60} h"
@@ -132,7 +132,7 @@ internal fun matchDuration(record: MatchRecord): String = runCatching {
 /** A record's details (§3.3): everything it holds, including mulligans, final life, duration, play/draw, the reason, and
  * Open deck for the viewer's own deck while it is saved ([openDeck]). */
 @Composable
-internal fun MatchDetailsDialog(record: MatchRecord, me: String, openDeck: ((String) -> Unit)?, dismiss: () -> Unit) {
+fun MatchDetailsDialog(record: MatchRecord, me: String, openDeck: ((String) -> Unit)?, dismiss: () -> Unit) {
     AlertDialog(onDismissRequest = dismiss, modifier = Modifier.testTag("match-details"),
         confirmButton = { TextButton(dismiss) { Text("Close") } },
         title = { Text(record.gameName, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -169,7 +169,7 @@ internal fun MatchDetailsDialog(record: MatchRecord, me: String, openDeck: ((Str
 
 /** A game lobby's History tab (§3.1): this game's matches newest first, or "No finished matches yet." */
 @Composable
-internal fun GameHistoryList(list: HistoryList<List<MatchRecord>>?, me: String, open: (MatchRecord) -> Unit, modifier: Modifier = Modifier) {
+fun GameHistoryList(list: HistoryList<List<MatchRecord>>?, me: String, open: (MatchRecord) -> Unit, modifier: Modifier = Modifier) {
     val records = list?.value
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when {
@@ -184,7 +184,7 @@ internal fun GameHistoryList(list: HistoryList<List<MatchRecord>>?, me: String, 
 
 /** A pod's standings (§3.2): each member's W–L–D in this pod's matches, best record first. */
 @Composable
-internal fun PodStandings(standings: List<MatchStats.Standing>) {
+fun PodStandings(standings: List<MatchStats.Standing>) {
     OutlinedCard(Modifier.fillMaxWidth().testTag("pod-standings")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row { Text("Player", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
@@ -203,7 +203,7 @@ internal fun PodStandings(standings: List<MatchStats.Standing>) {
 
 /** A pod's match (§3.2): "<name> vs <name>", the result or its status, turns and how it ended; no deck information. */
 @Composable
-internal fun PodMatchRow(players: List<AccountIdentity>, status: String, detail: String, tag: String) {
+fun PodMatchRow(players: List<AccountIdentity>, status: String, detail: String, tag: String) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f)) {
@@ -215,14 +215,14 @@ internal fun PodMatchRow(players: List<AccountIdentity>, status: String, detail:
 }
 
 /** A finished pod match's status: "<name> won", "Draw" or "Unfinished". */
-internal fun podMatchStatus(record: MatchRecord): String = when {
+fun podMatchStatus(record: MatchRecord): String = when {
     !record.finished -> "Unfinished"
     else -> record.players.firstOrNull { it.result == SuggestedResult.WIN }?.let { "${it.account.username} won" } ?: "Draw"
 }
 
 /** The pod's standings and matches under its members (DRF-121; spec §3.2). */
 @Composable
-internal fun PodMatchesSection(detail: PodDetail, matches: HistoryList<PodMatches>?) {
+fun PodMatchesSection(detail: PodDetail, matches: HistoryList<PodMatches>?) {
     val value = matches?.value ?: return
     Text("Standings", style = MaterialTheme.typography.titleMedium)
     PodStandings(MatchStats.standings(value.records, detail.members.map { it.account }))

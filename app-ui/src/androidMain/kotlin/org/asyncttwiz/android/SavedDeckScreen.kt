@@ -26,7 +26,7 @@ import org.asyncttwiz.appui.screenWidthDp
 import org.asyncttwiz.appui.screenHeightDp
 
 @Composable
-internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
+fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
     importDeck: ((DeckDetail) -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
@@ -118,7 +118,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
 }
 
 /** A saved list's sections: [always] shown (empty ones say "Empty"), then Maybe only when it holds cards. */
-internal fun savedListSections(always: List<SavedDeckSection>, present: List<SavedDeckSection>): List<SavedDeckSection> =
+fun savedListSections(always: List<SavedDeckSection>, present: List<SavedDeckSection>): List<SavedDeckSection> =
     always + listOf(SavedDeckSection.MAYBEBOARD).filter { it !in always && it in present }
 
 @Composable
@@ -195,7 +195,7 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-internal fun SavedDeckCollection(controller: DeckLibraryController) {
+fun SavedDeckCollection(controller: DeckLibraryController) {
     val state = controller.state
     Box(Modifier.fillMaxSize()) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {

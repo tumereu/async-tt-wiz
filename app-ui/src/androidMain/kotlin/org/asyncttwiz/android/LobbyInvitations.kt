@@ -10,7 +10,7 @@ data class GameNameDraft(val recipient: AccountIdentity, val name: String)
 
 /** LobbyController's invitations: naming and creating a new game with a contact, challenging from a
  * pod, and answering or repeating an invitation. Main thread; requests run on [worker]. */
-internal class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
+class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
     private val credential: () -> String?, private val accountId: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val session: GameSession?, private val queue: LobbyActionQueue, private val suggest: () -> String) {
@@ -118,12 +118,12 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
     private fun refresh() = scope.refresh()
 }
 
-internal val gameNameAdjectives = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering",
+val gameNameAdjectives = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering",
     "Ancient", "Astral", "Amber", "Bewitched", "Celestial", "Crimson", "Crystal", "Duskborn", "Eldritch", "Enchanted",
     "Fabled", "Frosted", "Gilded", "Glimmering", "Hallowed", "Hidden", "Iridescent", "Jade", "Luminous", "Misty",
     "Mystic", "Obsidian", "Opal", "Radiant", "Runic", "Sapphire", "Shimmering", "Silent", "Starlit", "Twilight", "Verdant", "Whispering")
-internal val gameNameNouns = listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern",
+val gameNameNouns = listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern",
     "Amulet", "Beacon", "Chalice", "Citadel", "Comet", "Crown", "Dawn", "Echo", "Familiar", "Flame", "Gale", "Gate",
     "Grimoire", "Haven", "Hydra", "Isle", "Labyrinth", "Lotus", "Moon", "Oracle", "Phoenix", "Portal", "Relic", "Sanctum",
     "Scepter", "Sigil", "Spire", "Star", "Tempest", "Thicket", "Tower", "Wisp")
-internal fun gameNameSuggestion(): String = gameNameAdjectives.random() + " " + gameNameNouns.random()
+fun gameNameSuggestion(): String = gameNameAdjectives.random() + " " + gameNameNouns.random()

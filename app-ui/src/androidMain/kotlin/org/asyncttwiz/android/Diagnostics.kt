@@ -5,9 +5,9 @@ import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.Preferences
 
 /** The player's answer to "Send error reports?", stored on this device (LOB-104). */
-internal enum class ReportChoice { UNASKED, ON, OFF }
+enum class ReportChoice { UNASKED, ON, OFF }
 
-internal class ReportChoiceStore(private val preferences: Preferences) {
+class ReportChoiceStore(private val preferences: Preferences) {
     constructor(platform: AppPlatform) : this(platform.preferences("diagnostics"))
     var choice: ReportChoice
         get() = when (preferences.getString(KEY, null)) { "on" -> ReportChoice.ON; "off" -> ReportChoice.OFF; else -> ReportChoice.UNASKED }
@@ -19,7 +19,7 @@ internal class ReportChoiceStore(private val preferences: Preferences) {
 
 /** One switch for crash, slow-action, stutter and reconnect reports (SYS-030, LOB-090). Test builds always
  * report; production builds only after the player opts in on this device (LOB-104). */
-internal object Diagnostics {
+object Diagnostics {
     /** Test and debug builds: always on, no question asked. */
     val alwaysOn: Boolean get() = AppBuild.DIAGNOSTICS
     @Volatile var enabled: Boolean = AppBuild.DIAGNOSTICS
@@ -45,7 +45,7 @@ internal object Diagnostics {
 }
 
 /** What recording reports needs from the platform (Android: [AndroidReportHooks], from the Application). */
-internal interface ReportHooks {
+interface ReportHooks {
     /** Where reports wait to be sent. */
     val directory: java.io.File
     /** Starts the platform's own watchers once reports are recorded: [DebugLatency.appBackgrounded] when the app goes to
@@ -54,7 +54,7 @@ internal interface ReportHooks {
 }
 
 /** Asked once, on the main menu or the Games list after sign-in: never over a game, pod or another prompt. */
-internal object ReportPrompt {
+object ReportPrompt {
     fun shouldPrompt(alwaysOn: Boolean, choice: ReportChoice, signedIn: Boolean, destination: ShellDestination,
         selectedGame: String?, blocked: Boolean): Boolean =
         !alwaysOn && choice == ReportChoice.UNASKED && signedIn && !blocked &&

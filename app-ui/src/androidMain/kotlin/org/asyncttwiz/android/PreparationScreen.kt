@@ -42,7 +42,7 @@ private val PreparationBadge = Color(0xE6202A2E)
 private fun SavedDeckSection.preparationColor() = sectionColor()
 
 @Composable
-internal fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boolean, hamburger: (() -> Unit)? = null) {
+fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boolean, hamburger: (() -> Unit)? = null) {
     val state = controller.state
     val preparation = state.preparation ?: return
     val deck = preparation.players.find { it.accountId == actor }?.deck ?: return
@@ -63,7 +63,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
 }
 
 /** One section of a preparation screen: its cards and the section a swipe moves them to. */
-internal class PreparationSection(val source: SavedDeckSection, val opposite: SavedDeckSection, val count: Long,
+class PreparationSection(val source: SavedDeckSection, val opposite: SavedDeckSection, val count: Long,
     val groups: List<PreparationGroup>) {
     companion object {
         /** [source] among the screen's two [sections]: a swipe either way moves its cards to the other (the shared rule,
@@ -75,13 +75,13 @@ internal class PreparationSection(val source: SavedDeckSection, val opposite: Sa
 
 /** What a preparation card does: [capture] the one-copy move a swipe commits on release, [move] one or all copies
  * across from the menu. */
-internal interface PreparationMoves {
+interface PreparationMoves {
     fun capture(digest: String, source: SavedDeckSection): (() -> Boolean)?
     fun move(digest: String, source: SavedDeckSection, all: Boolean): Boolean
 }
 
 /** Withholds a preparation's cards until their first read, with a retry after a failure (see [InitialLoadArea]). */
-internal class PreparationLoad(val loaded: Boolean, val failed: Boolean, val retry: () -> Unit, val loading: Boolean)
+class PreparationLoad(val loaded: Boolean, val failed: Boolean, val retry: () -> Unit, val loading: Boolean)
 
 /**
  * The preparation screen (LOB-047–LOB-051) shared by game deck preparation and Prepare cube (DRF-142): [title] with
@@ -91,7 +91,7 @@ internal class PreparationLoad(val loaded: Boolean, val failed: Boolean, val ret
  * names the list ("preparation"), its cards ("preparation-card-…") and the Undo button ("preparation-undo").
  */
 @Composable
-internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckViewScreen, connected: Boolean,
+fun PreparationLayout(title: String, tag: String, columnsScreen: DeckViewScreen, connected: Boolean,
     feedback: TransferFeedback?, sections: List<PreparationSection>?, moves: PreparationMoves, undo: (() -> Unit)?,
     undoEnabled: Boolean, navigation: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}, load: PreparationLoad? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
@@ -163,7 +163,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
  * [header] (a cube has no sections) with an optional [headerAction] at its right end, then type
  * groups of card tiles [columns] wide drawn by [tile], or, with [cellWidth], tiles that wide, as many per row as fit. */
-internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
+fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
     header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null, empty: String = "Empty",
     tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
@@ -200,7 +200,7 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
 
 /** A read-only deck tile: a short hold inspects the card until release (a tap does nothing). Nothing moves. */
 @Composable
-internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String,
+fun VisualDeckCard(tile: PreparationTile, key: String, title: String,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val currentHold by rememberUpdatedState(onHold)
     val currentHoldScroll by rememberUpdatedState(onHoldScroll)
@@ -284,7 +284,7 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
  * gesture never moves. Shared by game preparation, the card list editor and Prepare cube.
  */
 @Composable
-internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: (right: Boolean) -> SavedDeckSection,
+fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: (right: Boolean) -> SavedDeckSection,
     enabled: Boolean, menus: PodCardMenuOwner, capture: (right: Boolean) -> (() -> Boolean)?,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit, actions: List<CustomAccessibilityAction> = emptyList(),
     menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {

@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.PlayZone
  * suspended card's time counters, ZON-091); a spell on the Stack what effects tell it (TBL-134); other cards off the
  * battlefield have none.
  */
-internal object InspectChanges {
+object InspectChanges {
     fun of(play: TableBoard, viewer: String, cards: List<PlayCard>, names: Map<String, String>): Map<String, List<InspectChange>> {
         val battlefield = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
         val exile = play.board.containers.filter { it.zone == PlayZone.EXILE }.flatMap { it.cards }.toSet()

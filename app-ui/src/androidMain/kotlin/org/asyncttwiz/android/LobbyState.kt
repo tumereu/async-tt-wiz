@@ -4,7 +4,7 @@ import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 
 /** TRN-065: names one match's result of [game] (a game's lobby round changes with each match's end). */
-internal fun resultKey(game: GameSummary) = "${game.id}/${game.preparationRound}"
+fun resultKey(game: GameSummary) = "${game.id}/${game.preparationRound}"
 
 data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val query: String = "",
     val results: List<AccountIdentity> = emptyList(), val searched: Boolean = false, val searching: Boolean = false,
@@ -41,7 +41,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
     val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
-    internal fun tableView() = LobbyTableView(selected, detail, board, connectedGames, reconnectingGames,
+    fun tableView() = LobbyTableView(selected, detail, board, connectedGames, reconnectingGames,
         syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence,
         chat.bubble, chat.sent)
 }
@@ -49,7 +49,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
 /** The [LobbyState] fields an open table reads. Games-list refreshes flip busy/loading flags in the whole
  * state every few seconds; the table reads this narrow view ([LobbyController.table]) instead, so only a
  * change to one of these fields recomposes it. */
-internal data class LobbyTableView(val selected: String?, val detail: GameSummary?, val board: TableBoard?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
+data class LobbyTableView(val selected: String?, val detail: GameSummary?, val board: TableBoard?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
     val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
     val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?,
     val chatBubble: IncomingChatBubble? = null, val chatSent: SentChat? = null)
@@ -57,7 +57,7 @@ internal data class LobbyTableView(val selected: String?, val detail: GameSummar
 /** [LobbyController.state] and its narrow table view, written together. An equal view is not written, so
  * the busy/loading flips of a list refresh never invalidate the table. (Not derivedStateOf: a pending
  * derived invalidation still recomposes a child whose parent recomposes in the same frame.) */
-internal class LobbyStateHolder : MutableState<LobbyState> {
+class LobbyStateHolder : MutableState<LobbyState> {
     private val whole = mutableStateOf(LobbyState())
     val table = mutableStateOf(LobbyState().tableView(), structuralEqualityPolicy())
     override var value: LobbyState

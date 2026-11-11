@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.AccountIdentity
 
 /** Shared contacts/search surface for pod membership and game opponents. */
 @Composable
-internal fun PlayerPicker(controller: LobbyController, select: ((AccountIdentity) -> Unit)? = null,
+fun PlayerPicker(controller: LobbyController, select: ((AccountIdentity) -> Unit)? = null,
     actions: @Composable RowScope.(AccountIdentity) -> Unit) {
     val state = controller.state
     val contacts = state.contactsTab == ContactsTab.CONTACTS

@@ -22,7 +22,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.NativeTextPaint
 import org.asyncttwiz.appui.drawNativeText
 
-internal val LocalTableChanges = staticCompositionLocalOf<TableChanges?> { null }
+val LocalTableChanges = staticCompositionLocalOf<TableChanges?> { null }
 
 @Composable
 private fun changeProgress(changes: TableChanges, active: ActiveTableChange): State<Float> {
@@ -37,7 +37,7 @@ private fun changeProgress(changes: TableChanges, active: ActiveTableChange): St
 
 /** The small affected control observes its own clock only in draw, not in parent composition. */
 @Composable
-internal fun Modifier.tableChangeFlash(changes: TableChanges?, key: TableChangeKey): Modifier {
+fun Modifier.tableChangeFlash(changes: TableChanges?, key: TableChangeKey): Modifier {
     val active = changes?.active?.get(key) ?: return this
     val progress = changeProgress(changes, active)
     return drawWithContent {
@@ -48,12 +48,12 @@ internal fun Modifier.tableChangeFlash(changes: TableChanges?, key: TableChangeK
 
 private fun flashAlpha(progress: Float) = ((1f - progress * 3f).coerceAtLeast(0f) * .65f)
 
-internal fun tableChangeTagAlpha(progress: Float): Float =
+fun tableChangeTagAlpha(progress: Float): Float =
     ((1f - progress) * TableChanges.WINDOW_MS / (TableChanges.WINDOW_MS - TableChanges.HOLD_MS)).coerceIn(0f, 1f)
 
-internal val TableChangeTagFill = Color(0xff202a2e)
+val TableChangeTagFill = Color(0xff202a2e)
 
-internal fun tableChangeTagInk(fill: Color): Color =
+fun tableChangeTagInk(fill: Color): Color =
     if ((fill.luminance() + .05f) / .05f > 1.05f / (fill.luminance() + .05f)) Color.Black else Color.White
 
 /** Resolve the recorded card/occurrence identity, not its source or a container's top card.
@@ -61,7 +61,7 @@ internal fun tableChangeTagInk(fill: Color): Color =
 private fun changeCard(id: String, item: (String) -> TableItem?) =
     item("card/$id") ?: item("stackDrawing/$id")
 
-internal fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableItem? {
+fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableItem? {
     val shown = when (key.kind) {
         TableChangeKind.LIFE -> item("life/${key.target}")
         // Every counter keeps its slot (an outline when empty) in both orientations.
@@ -71,7 +71,7 @@ internal fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?
     return shown.takeIf { it.visible.isNotEmpty() && (!it.covered || key.kind == TableChangeKind.OWNER) }
 }
 
-internal fun tableChangeLinkAnchors(change: TableChange, item: (String) -> TableItem?): Pair<TablePoint, TablePoint>? {
+fun tableChangeLinkAnchors(change: TableChange, item: (String) -> TableItem?): Pair<TablePoint, TablePoint>? {
     fun endpoint(e: LinkEndpoint) = (if (e.kind == LinkEndpointKind.CARD) changeCard(e.id, item)
         else item("life/${e.id}"))?.visibleAnchor
     val first = change.link?.first?.let(::endpoint)
@@ -83,7 +83,7 @@ internal fun tableChangeLinkAnchors(change: TableChange, item: (String) -> Table
 
 /** Independent clocks per changed value. No input modifiers and no board/frame diff. */
 @Composable
-internal fun TableChangeOverlay(changes: TableChanges?, viewer: String, appearance: CardAppearance,
+fun TableChangeOverlay(changes: TableChanges?, viewer: String, appearance: CardAppearance,
     item: (String) -> TableItem?) {
     if (changes == null) return
     val effects = changes.active.values.filter { it.change.key.kind != TableChangeKind.STEP }.map { active ->

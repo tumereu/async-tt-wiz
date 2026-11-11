@@ -42,7 +42,7 @@ private const val FIXED_DIGITS = 4
  * [max] (null: no most). [set] takes the new value.
  */
 @Composable
-internal fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
+fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
     var typing by remember { mutableStateOf(false) }
     if (typing) { NumberEntry(value, min, max, cancel = { typing = false }) { typing = false; set(it) }; return }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -63,7 +63,7 @@ internal fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
 }
 
 /** Why [text] can't be a value from [min] to [max] (null [max]: no most), or null when it can. */
-internal fun numberProblem(text: String, min: Int, max: Int?): String? {
+fun numberProblem(text: String, min: Int, max: Int?): String? {
     val n = text.trim().toIntOrNull() ?: return if (text.isBlank()) "Write a number." else "Only whole numbers."
     return when {
         n < min -> "At least $min."
@@ -73,7 +73,7 @@ internal fun numberProblem(text: String, min: Int, max: Int?): String? {
 }
 
 /** The range [min] to [max] in words: "From 0 to 5", "0 or more". */
-internal fun numberRange(min: Int, max: Int?): String = if (max == null) "$min or more" else "From $min to $max"
+fun numberRange(min: Int, max: Int?): String = if (max == null) "$min or more" else "From $min to $max"
 
 /**
  * STK-023, STK-030 (owner gallery review, 2026-11-06): the numeric input for any value of a number, in − value +'s place:
@@ -81,7 +81,7 @@ internal fun numberRange(min: Int, max: Int?): String = if (max == null) "$min o
  * was; under it the range, or in red why what is written can't be taken (the check greyed).
  */
 @Composable
-internal fun NumberEntry(value: Int, min: Int, max: Int?, cancel: () -> Unit, set: (Int) -> Unit) {
+fun NumberEntry(value: Int, min: Int, max: Int?, cancel: () -> Unit, set: (Int) -> Unit) {
     val start = value.toString()
     var text by remember { mutableStateOf(TextFieldValue(start, TextRange(0, start.length))) }
     val problem = numberProblem(text.text, min, max)

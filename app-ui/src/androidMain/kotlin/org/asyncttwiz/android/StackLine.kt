@@ -30,7 +30,7 @@ import org.asyncttwiz.protocol.PlayZone
  * (owner 2026-11-07: "Bob cast Storm Spark · deals 3 damage to Ember Cub", the name in its controller's colour), else after
  * it ("… → Ember Herald"). Hidden cards are never named (HIS-062: "a card").
  */
-internal object StackLine {
+object StackLine {
     /** The line's words for [viewer] on [play] ([pieces]), or null. */
     fun text(play: TableBoard, viewer: String, names: Map<String, String>): String? = pieces(play, viewer, names)?.plain()
 
@@ -109,9 +109,9 @@ internal object StackLine {
  * when one is another Stack entry; [own] whether the viewer controls it. Lower entries' targets show only in the Stack
  * list (STK-018).
  */
-internal data class StackTargetMarks(val entry: String, val own: Boolean, val items: List<String>, val stack: Boolean, val label: String)
+data class StackTargetMarks(val entry: String, val own: Boolean, val items: List<String>, val stack: Boolean, val label: String)
 
-internal object StackTargets {
+object StackTargets {
     /** The marks of [play]'s top Stack entry on [scene] for [viewer], or null when it has no targets. */
     fun of(play: TableBoard, scene: TableScene, viewer: String, names: Map<String, String>): StackTargetMarks? {
         val top = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return null
@@ -138,7 +138,7 @@ internal object StackTargets {
 }
 
 /** The point where the line from [this] rectangle's centre towards [toward] leaves it, [gap] beyond its edge. */
-internal fun TableBounds.edgeToward(toward: TablePoint, gap: Float = 0f): TablePoint {
+fun TableBounds.edgeToward(toward: TablePoint, gap: Float = 0f): TablePoint {
     val c = center
     val dx = toward.x - c.x; val dy = toward.y - c.y
     if (dx == 0f && dy == 0f) return c
@@ -154,7 +154,7 @@ internal fun TableBounds.edgeToward(toward: TablePoint, gap: Float = 0f): TableP
  * targets, STK-047); a target that is another Stack entry rings the Stack itself. Drawn only: taps reach the table.
  */
 @Composable
-internal fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names: Map<String, String>,
+fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names: Map<String, String>,
     bounds: (TableItem) -> TableBounds) {
     val marks = StackTargets.of(play, scene, viewer, names) ?: return
     val stack = scene.stackRegion ?: scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds ?: return

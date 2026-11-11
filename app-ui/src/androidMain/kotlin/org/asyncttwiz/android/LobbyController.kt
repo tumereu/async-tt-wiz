@@ -22,11 +22,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     var state by holder
         private set
     /** Narrow read of [state] for table composition; see [LobbyTableView]. */
-    internal val table: State<LobbyTableView> get() = holder.table
+    val table: State<LobbyTableView> get() = holder.table
     @Volatile private var epoch = 0L
     private var closed = false
     private val latest = mutableMapOf<String, GameSummary>()
-    internal val setupCancellation = SetupCancellation()
+    val setupCancellation = SetupCancellation()
     private val personalChat = GameChat()
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
         changed = ::accepted, settled = { command, result ->
@@ -174,30 +174,30 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     // Game menu, deletion and setup cancellation: LobbyGameRemoval.
     fun gameContext(game: GameSummary) = removal.gameContext(game)
     fun dismissGameContext() = removal.dismissGameContext()
-    internal fun offersGameDeletion(game: GameSummary): Boolean = removal.offersGameDeletion(game)
+    fun offersGameDeletion(game: GameSummary): Boolean = removal.offersGameDeletion(game)
     fun requestGameDeletion(game: GameSummary) = removal.requestGameDeletion(game)
     fun dismissGameDeletion() = removal.dismissGameDeletion()
     fun confirmGameDeletion(): Boolean = removal.confirmGameDeletion()
     fun deleteGame(game: GameSummary): Boolean = removal.deleteGame(game)
-    internal fun offersSetupCancellation(game: GameSummary): Boolean = removal.offersSetupCancellation(game)
-    internal fun showGameContext(game: GameSummary) = removal.showGameContext(game)
-    internal fun requestCancelSetup(game: GameSummary) = removal.requestCancelSetup(game)
-    internal fun confirmCancelSetup() = removal.confirmCancelSetup()
+    fun offersSetupCancellation(game: GameSummary): Boolean = removal.offersSetupCancellation(game)
+    fun showGameContext(game: GameSummary) = removal.showGameContext(game)
+    fun requestCancelSetup(game: GameSummary) = removal.requestCancelSetup(game)
+    fun confirmCancelSetup() = removal.confirmCancelSetup()
     fun cancelSetup(game: GameSummary): Boolean = removal.cancelSetup(game)
     /** I-D56: the open game, when it is played on engine state. */
-    internal fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
+    fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
     /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
-    internal fun engineTick() { state.selected?.let { session?.engineTick(it) } }
+    fun engineTick() { state.selected?.let { session?.engineTick(it) } }
     /** [engineTick] every second on the main thread's clock while [gameId]'s table is shown, until the returned closer is
      * called: not on a composition's frame clock, which stands still in the e2e harness while nothing animates. */
-    internal fun engineTicks(gameId: String): () -> Unit {
+    fun engineTicks(gameId: String): () -> Unit {
         var active = true
         AppLog.info("game", "Game ${gameId.take(8)}: engine ticks every 1 s")
         val cancel = repeatEvery(1_000, delayed) { if (!closed) engineTick() }
         return { if (active) { active = false; cancel(); AppLog.info("game", "Game ${gameId.take(8)}: engine ticks stopped") } }
     }
     /** After an action on the open engine game: what it sends goes out and the table shows its new board. */
-    internal fun engineSent() { state.selected?.let { session?.pumpEngine(it) }; connectionState() }
+    fun engineSent() { state.selected?.let { session?.pumpEngine(it) }; connectionState() }
     // Start settings, readiness and deck preparation: LobbyPreparationActions.
     fun starter(choice: StarterChoice) = preparationActions.starter(choice)
     fun alternateStarter(enabled: Boolean) = preparationActions.alternateStarter(enabled)
@@ -241,8 +241,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         unseen.joinToString { if (it == accountId()) "this player" else "the other player" }.ifEmpty { "nobody" }
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
-    internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo
-    internal fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
+    val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo
+    fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
     fun undoPreparation(): Boolean = preparationActions.undoPreparation()
     fun prepareDeck() = preparationActions.prepareDeck()
     fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? =

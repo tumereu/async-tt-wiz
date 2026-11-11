@@ -20,7 +20,7 @@ import java.math.BigInteger
  * who did what, from the viewer's side (HIS-091), never naming what the viewer can't see in [state] (HIS-062: hidden
  * cards read "a card").
  */
-internal object EngineEventText {
+object EngineEventText {
     fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
         fun who(player: PlayerId) = if (player.value == viewer) "You" else names[player.value] ?: "The other player"
         fun author() = if (event.author == viewer) "You" else names[event.author] ?: "A player"
@@ -300,7 +300,7 @@ internal object EngineEventText {
  * changed, a labelled separator (HIS-005). Texts are worked out once per event, with the state shown when they are first
  * asked for; the whole list once per published line.
  */
-internal class EngineTimeline {
+class EngineTimeline {
     private val texts = HashMap<String, String>()
     private var last: Pair<Triple<List<GameEvent>, List<GameEvent>, Map<String, String>>, List<HistoryTimelineEvent>>? = null
     /** HIS-005: the timeline's part of the older history ([EngineGame.Shown.older]), worked out once per page loaded. */
@@ -372,7 +372,7 @@ internal class EngineTimeline {
  * that led from one to the other (live, playback, the player's own actions, take-backs): life, P/T, step and turn, face
  * and control; library shuffles for their animation. Never on a load (a jump).
  */
-internal object EngineChanges {
+object EngineChanges {
     /** P/T of the battlefield's creatures by card id, as the table shows them: from [model]'s view (worked out once per
      * state, engine-responsiveness R2). */
     fun powerToughness(model: org.asyncttwiz.protocol.game.GameModel): Map<String, Pair<Int, Int>> {

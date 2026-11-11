@@ -22,7 +22,7 @@ import org.asyncttwiz.appui.AppPlatform
  * beside it) draws a set's symbol offline from the card catalog's MTGJSON `keyruneCode`; keyrune-codes.txt says which
  * character of the font each code is. A code the font has no symbol for shows the set's code as text instead.
  */
-internal object Keyrune {
+object Keyrune {
     private const val FONT = "fonts/keyrune.ttf"
     private const val CODES = "fonts/keyrune-codes.txt"
     @Volatile private var codes: Map<String, Char>? = null
@@ -52,7 +52,7 @@ internal object Keyrune {
  * card records give none). Announced as "<code> symbol" either way.
  */
 @Composable
-internal fun SetSymbol(keyrune: String, code: String, modifier: Modifier = Modifier, size: TextUnit = 20.sp) {
+fun SetSymbol(keyrune: String, code: String, modifier: Modifier = Modifier, size: TextUnit = 20.sp) {
     val platform = AppPlatform.current
     val glyph = remember(keyrune) { keyrune.takeIf { it.isNotEmpty() }?.let { Keyrune.glyph(platform, it) } }
     Box(modifier.semantics { contentDescription = "$code symbol" }, contentAlignment = Alignment.Center) {

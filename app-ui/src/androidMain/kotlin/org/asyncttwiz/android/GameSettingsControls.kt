@@ -13,7 +13,7 @@ import org.asyncttwiz.protocol.AssumeReveals
 import org.asyncttwiz.protocol.GameSummary
 
 /** LOB-135: the switch texts of the game's assume reveal settings. */
-internal object GameSettingsText {
+object GameSettingsText {
     const val LIBRARY = "Allow assumes that reveal the opponent's library"
     const val LIBRARY_MEANING = "A card of the other player's library never makes you wait: each line of play reshuffles the libraries"
     const val HANDS = "Allow assumes that reveal hands"
@@ -26,7 +26,7 @@ internal object GameSettingsText {
  * (its inviter) changes them ([change]); the other player's are greyed with who can.
  */
 @Composable
-internal fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit) {
+fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit) {
     val reveals = game.assumeReveals
     val host = game.inviter.accountId == accountId
     Column {
@@ -53,7 +53,7 @@ private fun RevealSwitch(label: String, meaning: String, on: Boolean, enabled: B
 
 /** LOB-135: the lobby's Game settings card, below Starting player. */
 @Composable
-internal fun GameSettingsCard(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit) {
+fun GameSettingsCard(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Game settings", style = MaterialTheme.typography.titleSmall)
@@ -67,7 +67,7 @@ class GameSettingsAccess(val game: GameSummary, val accountId: String, val chang
 
 /** LOB-135: Table actions → Game settings: the same switches in the game. */
 @Composable
-internal fun GameSettingsPanel(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit, onDismiss: () -> Unit) {
+fun GameSettingsPanel(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit, onDismiss: () -> Unit) {
     TableMenuPanel(onDismiss, width = 400.dp, title = "Game settings") {
         AssumeRevealSwitches(game, accountId, change)
     }

@@ -13,7 +13,7 @@ import org.asyncttwiz.protocol.BoardState
  * its [EngineGame.Transition.steps] are the boards in between, which the table plays one after another, each as long as
  * its own animation (the card move speed, TBL-038) and no playback pause, so every card goes to its place in its turn.
  */
-internal object EngineMotion {
+object EngineMotion {
     /** At most this many boards in between (the last ones): a long chain shows its end. */
     const val MAX_STEPS = 8
     /** Steps are looked for in the last this many events only (each pass is an event of its own). */
@@ -82,7 +82,7 @@ internal object EngineMotion {
  * table goes on from wherever its cards are; except a branch's take-back (HIS-106), which plays to its end when its board
  * is published again unchanged (its status, a note, the app's return).
  */
-internal class EngineMotionQueue {
+class EngineMotionQueue {
     private var version = -1L
     private var serial = 0L
     private var steps: List<TableBoard> = emptyList()

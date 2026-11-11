@@ -13,13 +13,13 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
 /** One opponent's picks, newest first; a card the viewer never saw is null (a card back). */
-internal data class PodOpponentPicks(val account: AccountIdentity, val cards: List<DraftCopy?>)
+data class PodOpponentPicks(val account: AccountIdentity, val cards: List<DraftCopy?>)
 
 /** Engines with a Picks view (DRF-160): Winston, Winchester and Grid. */
-internal fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER || mode == DraftMode.GRID
+fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER || mode == DraftMode.GRID
 
 /** Every other member's picks, in seat order, each newest first (a take's own cards keep their order). */
-internal fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPicks> {
+fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPicks> {
     val takes: List<Pair<String, List<DraftCopy?>>> = detail.limited?.picks?.map { it.player to it.cards }
         ?: detail.grid?.publicView?.log?.filter { it.line != null }?.map { it.player to it.kept }
         ?: emptyList()
@@ -31,11 +31,11 @@ internal fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpp
 }
 
 /** DRF-070: the Picks view's face-up cards, opponent by opponent as the chips list them; never a card back. */
-internal fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
+fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
 
 /** The "Picks" button above a Winston, Winchester or Grid board; it opens [PodPicksDialog]. */
 @Composable
-internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
+fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
     var open by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
         TextButton({ open = true }, Modifier.testTag("pod-picks")) { ButtonLabel("decks", "Picks") }
@@ -46,7 +46,7 @@ internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: M
 /** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, dismiss: () -> Unit) {
+fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, dismiss: () -> Unit) {
     var chosen by remember { mutableStateOf(picks.firstOrNull()?.account?.accountId) }
     val preview = remember { PodLimitedPreview() }
     PodArtPrefetch(remember(picks) { podPicksPrefetchCards(picks) }, definitions, preview.tileSize)

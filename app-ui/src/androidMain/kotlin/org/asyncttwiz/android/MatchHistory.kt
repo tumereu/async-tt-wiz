@@ -22,13 +22,13 @@ data class StatsChoice(val opponent: String? = null, val graphs: Boolean = false
 class HistoryController(private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit) {
     var stats by mutableStateOf(HistoryList<List<MatchRecord>>())
-        internal set // tests seed it
+        public set // tests seed it
     var choice by mutableStateOf(StatsChoice())
-        internal set // tests seed it
+        public set // tests seed it
     var games by mutableStateOf(mapOf<String, HistoryList<List<MatchRecord>>>())
-        internal set // tests seed it
+        public set // tests seed it
     var pods by mutableStateOf(mapOf<String, HistoryList<PodMatches>>())
-        internal set // tests seed it
+        public set // tests seed it
     @Volatile private var epoch = 0L
 
     fun clear() { epoch++; stats = HistoryList(); games = emptyMap(); pods = emptyMap(); choice = StatsChoice() }

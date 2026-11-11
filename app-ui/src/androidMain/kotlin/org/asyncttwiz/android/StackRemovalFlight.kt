@@ -2,11 +2,11 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.PlayZone
 
-internal data class StackRemovalFlight(val entry: TableItem, val destination: TableItem)
+data class StackRemovalFlight(val entry: TableItem, val destination: TableItem)
 
 /** Compare only the two already-materialized scenes, never the history tree. A plain effect
  * removal still uses the existing return-home animation; this plan is for accompanying moves. */
-internal fun stackRemovalFlights(from: TableScene, to: TableScene): List<StackRemovalFlight> {
+fun stackRemovalFlights(from: TableScene, to: TableScene): List<StackRemovalFlight> {
     val remaining = to.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.cards.orEmpty().toSet()
     val destinations = buildMap {
         for (item in to.items) if (!item.projection && item.zone in setOf(PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD, PlayZone.EXILE)) {

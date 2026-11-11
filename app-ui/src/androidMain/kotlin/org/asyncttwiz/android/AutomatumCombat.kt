@@ -41,7 +41,7 @@ import org.asyncttwiz.protocol.*
  * - what the table shows ([shown]): the damage preview, "+N" on a blocker blocking several attackers, and divisions
  *   still to come, which their player may give early ([giveEarly], a pre-event, I-D33).
  */
-internal class CombatController(
+class CombatController(
     private val current: () -> TableBoard?,
     private val submit: (PlayAction) -> Boolean,
     /** Where the engine's reasons for refused drafts are worked out (SYS-025): off the main thread in the app. */
@@ -138,7 +138,7 @@ internal class CombatController(
 
     /** The event that sets [card]'s choice to [change] of it on [play]'s board (the record withdrawn once nothing is
      * chosen), or null when nothing changes. */
-    internal fun choiceAction(play: TableBoard, card: String, change: (AttackChoice) -> AttackChoice): PlayAction? {
+    fun choiceAction(play: TableBoard, card: String, change: (AttackChoice) -> AttackChoice): PlayAction? {
         val given = CombatFlow.attackChoices(play.board)
         val before = given[card] ?: AttackChoice(card)
         val after = change(before)
@@ -337,7 +337,7 @@ internal class CombatController(
 /** Works out what combat allows and would do on the shown board, off the main thread (SYS-025), for the quick actions,
  * the drags, the damage preview and early divisions ([CombatController.show]). */
 @Composable
-internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
+fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
     LaunchedEffect(IdentityKey(play.board)) {
         val shown = AutomatumBoards.cachedCombat(play)
             ?: toolkit.boardWork(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
@@ -352,7 +352,7 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoa
  */
 /** CMB-048: the defending player's name (the player whose turn it isn't) for "Rest → <name>", from the game's players,
  * so it is there before any lane is drawn; null when the board names no such player. */
-internal fun defendingPlayerName(game: GameSummary, play: TableBoard): String? {
+fun defendingPlayerName(game: GameSummary, play: TableBoard): String? {
     val defender = play.board.players.firstOrNull { it.accountId != play.board.turn.accountId }?.accountId ?: return null
     return when (defender) {
         game.inviter.accountId -> game.inviter.username
@@ -363,13 +363,13 @@ internal fun defendingPlayerName(game: GameSummary, play: TableBoard): String? {
 
 /** CMB-028: [this] context with the viewer's active attack target lane and its name ([playerName]: the defending
  * player's). */
-internal fun QuickContext.withCombatTarget(combat: CombatController, play: TableBoard, playerName: String?): QuickContext {
+fun QuickContext.withCombatTarget(combat: CombatController, play: TableBoard, playerName: String?): QuickContext {
     if (play.board.combat == null && TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS) return this
     val target = combat.activeTarget(play)
     return copy(combatTarget = target, combatTargetName = if (target == null) playerName ?: "the player" else CastController.cardName(play, target))
 }
 
-internal fun automatumCombatQuickActions(play: TableBoard, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
+fun automatumCombatQuickActions(play: TableBoard, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
     val position = TurnPosition.of(play.board.turn)
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     // CMB-040 (owner, 2026-11-05): while the attacker waits for the defender's blocks they place assumed ones on the lanes,
@@ -412,11 +412,11 @@ internal fun automatumCombatQuickActions(play: TableBoard, context: QuickContext
 
 /** A card in combat as everyone may see it named in combat's messages (I-D27, combat review #6): a face-down card stays
  * hidden. */
-internal fun combatName(play: TableBoard, cardId: String): String =
+fun combatName(play: TableBoard, cardId: String): String =
     if (play.board.cards.singleOrNull { it.id == cardId }?.isFaceDown == true) "A face-down creature" else CastController.cardName(play, cardId)
 
 /** A card or player as the viewer may see it named (I-D27: a face-down card stays hidden). */
-internal fun refName(play: TableBoard, names: Map<String, String>, ref: MtgRef): String = when (ref) {
+fun refName(play: TableBoard, names: Map<String, String>, ref: MtgRef): String = when (ref) {
     is MtgRef.Player -> names[ref.accountId] ?: "A player"
     is MtgRef.Card -> play.board.cards.singleOrNull { it.id == ref.cardId }?.let { card ->
         if (card.isFaceDown) "A face-down creature" else CastController.cardName(play, card.id) } ?: "A card"

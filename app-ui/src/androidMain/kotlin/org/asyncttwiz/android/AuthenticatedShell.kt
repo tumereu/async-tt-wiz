@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
+fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null, pods: PodController? = null) {
     val state = controller.state
@@ -146,7 +146,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
 }
 
 @Composable
-internal fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?, pods: PodController? = null) {
+fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?, pods: PodController? = null) {
     Column(Modifier.fillMaxSize()) {
         if (close) HoldTip("Close navigation", Modifier.align(Alignment.End)) {
             IconButton(onClick = { controller.drawer(false) }) { EntryIcon("Close navigation", "close") }
@@ -273,7 +273,7 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 }
 
 @Composable
-internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
+fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
     logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null,
     push: (ShellDestination) -> Unit = navigate) {

@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
  * definitions are parsed on the device from the game's own card data (I-D2) by [definitionSource], which the app
  * installs (its [org.asyncttwiz.storage.CardDefinitions] on the account's storage), and kept in memory by digest.
  */
-internal object AutomatumBoards {
+object AutomatumBoards {
     /** [play]'s computed board as [viewer] sees it when already worked out (the engine thread's). */
     fun cached(play: TableBoard, viewer: String): ComputedBoard? = play.values?.takeIf { it.viewer == viewer }?.computed
 
@@ -112,19 +112,19 @@ internal object AutomatumBoards {
 
     /** One worker for the shown boards' engine views, so a board shown only in passing (catch-up playback) is skipped
      * when a newer one replaced it before the worker got to it (SYS-025). */
-    internal val boardWorker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "automatum-board").apply { isDaemon = true } }
+    val boardWorker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "automatum-board").apply { isDaemon = true } }
         .asCoroutineDispatcher()
 }
 
 /** The engine's view of the shown board; [ComputedBoard.NONE] without one. */
-internal val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE }
+val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE }
 
 /**
  * [play]'s board as Automatum computes it for [viewer]: a board of a game on engine state comes with its computed values
  * (and, once worked out, the hand plays) from the engine thread (R3), shown at once, nothing worked out here.
  */
 @Composable
-internal fun rememberComputedBoard(play: TableBoard, viewer: String): ComputedBoard {
+fun rememberComputedBoard(play: TableBoard, viewer: String): ComputedBoard {
     val values = play.values?.takeIf { it.viewer == viewer } ?: return ComputedBoard.NONE
     SideEffect { drawnForProbe(play, viewer) }
     return values.computed
@@ -132,7 +132,7 @@ internal fun rememberComputedBoard(play: TableBoard, viewer: String): ComputedBo
 
 /** SYS-030: the table drew [play] for [viewer]: an own action's probe counts its board's computed values and hand plays
  * (once worked out) arriving. */
-internal fun drawnForProbe(play: TableBoard, viewer: String) {
+fun drawnForProbe(play: TableBoard, viewer: String) {
     val values = play.values?.takeIf { it.viewer == viewer } ?: return
     OwnActionProbes.computed(play.board)
     if (values.handPlays != null) OwnActionProbes.plays(play.board)

@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
 @Composable
-internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultControls?, modifier: Modifier = Modifier) {
+fun ResultTablePanel(model: ResultPresentation, controls: TableResultControls?, modifier: Modifier = Modifier) {
     // TRN-047 (owner, 2026-11-09): Accept stays greyed for the panel's first moments: a misplaced tap can't accept it
     val armed = rememberOkArmed()
     Surface(modifier.widthIn(max = 320.dp), shape = MaterialTheme.shapes.small,

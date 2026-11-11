@@ -198,9 +198,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
 }
 
 /** TRN-017: the main button's one width, whatever quick actions show beside it. */
-internal val MainButtonWidth = 112.dp
+val MainButtonWidth = 112.dp
 
-internal val AdvanceArrowShape = GenericShape { size, _ ->
+val AdvanceArrowShape = GenericShape { size, _ ->
     val tip = size.height / 4f
     moveTo(0f, 0f)
     lineTo(size.width - tip, 0f)
@@ -210,19 +210,19 @@ internal val AdvanceArrowShape = GenericShape { size, _ ->
     close()
 }
 
-internal fun quickActionLabel(name: String) = ringShortLabel(name)
+fun quickActionLabel(name: String) = ringShortLabel(name)
 
 /** What the bottom bar shows, for the record of shown texts ([LocalShownTexts], the e2e tests' phones): the main button's
  * words ([main]; null: none) and the quick actions besides the settings toggles ([actions]; null: the toggles). */
-internal fun bottomBarRecord(main: String?, actions: List<String>?): String =
+fun bottomBarRecord(main: String?, actions: List<String>?): String =
     "$BOTTOM_BAR${main ?: "none"} · quick actions: ${actions?.joinToString(", ") ?: "settings"}"
 
 /** The start of every [bottomBarRecord]. */
-internal const val BOTTOM_BAR = "Bottom bar: main button "
+const val BOTTOM_BAR = "Bottom bar: main button "
 
 /** Name-only hold tooltip, unless a real hold command is assigned. Never invokes click on release. */
 @Composable
-internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifier = Modifier,
+fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifier = Modifier,
     fill: Color = Color.Transparent, badge: String? = null, selected: Boolean = false,
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
     gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, compactContent: Boolean = false,

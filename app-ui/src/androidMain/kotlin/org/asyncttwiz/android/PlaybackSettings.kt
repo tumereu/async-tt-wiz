@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
 /** Shared by Settings and the timeline dialog; both edit the same account-local preferences. [plays]: the time a play
  * shows (HIS-112), in Settings only (HIS-028). */
 @Composable
-internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId: String, heading: Boolean = true,
+fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId: String, heading: Boolean = true,
     moveSpeed: Boolean = true, plays: Boolean = false) {
     val pause by preferences.pauseState()
     val rewind by preferences.rewindPauseState()
@@ -36,7 +36,7 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
 /** HIS-112, HIS-113, LOB-082: how long the other player's plays (and the player's own triggers) show large on the table and a
  * combat holds the view on its attackers and on its damage, 0 (Off) to 3 s in 0.1 s steps. */
 @Composable
-internal fun ShowPlaysSetting(preferences: HistoryPlaybackPreferences) {
+fun ShowPlaysSetting(preferences: HistoryPlaybackPreferences) {
     val millis by preferences.showPlaysState()
     SettingsLabel("Show plays and combat", if (millis == 0L) "Off" else "${millis / 1000.0} s each")
     Slider(value = millis.toFloat(), onValueChange = { preferences.showPlaysMillis = (it / 100).roundToInt() * 100L },
@@ -46,7 +46,7 @@ internal fun ShowPlaysSetting(preferences: HistoryPlaybackPreferences) {
 
 /** Multiplier for card flight animations; tap the value to type an exact one. */
 @Composable
-internal fun CardMoveSpeedSetting(accountId: String) {
+fun CardMoveSpeedSetting(accountId: String) {
     val movePreferences = rememberCardMovePreferences(accountId)
     val multiplier by movePreferences.multiplierState()
     var exact by remember { mutableStateOf(false) }
@@ -66,7 +66,7 @@ internal fun CardMoveSpeedSetting(accountId: String) {
 }
 
 @Composable
-internal fun PlaybackSettingsDialog(preferences: HistoryPlaybackPreferences, accountId: String, dismiss: () -> Unit) {
+fun PlaybackSettingsDialog(preferences: HistoryPlaybackPreferences, accountId: String, dismiss: () -> Unit) {
     ScreenDialog(dismiss) {
         PlaybackSettings(preferences, accountId)
         TextButton(onClick = dismiss, modifier = Modifier.fillMaxWidth()) { Text("Done") }

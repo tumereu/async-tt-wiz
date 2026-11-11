@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.PodDeckRules
 import org.asyncttwiz.protocol.PodDeckSwipe
 
 /** One pool copy in a feed; a ×N stack yields N consecutive feed cards. */
-internal data class PodBuildFeedCard(val copyId: String, val digest: String, val definition: CardDefinition?, val column: Int)
+data class PodBuildFeedCard(val copyId: String, val digest: String, val definition: CardDefinition?, val column: Int)
 
 /**
  * Reviewing one Build column (or a whole section, Maybe too) one copy at a time. [cards] is a snapshot taken when
@@ -14,7 +14,7 @@ internal data class PodBuildFeedCard(val copyId: String, val digest: String, val
  * where a swipe in the columns would ([right], [left]: DRF-099); [moved] records the decisions made so far, in order
  * (null: kept).
  */
-internal data class PodBuildFeed(
+data class PodBuildFeed(
     val category: PodDeckCategory,
     /** The reviewed column, or null for the whole section. */
     val column: Int?,
@@ -60,11 +60,11 @@ internal data class PodBuildFeed(
 }
 
 /** Bucket labels read as "Lands", "MV 0" … "MV 5+". */
-internal fun podBuildFeedColumnLabel(label: String): String =
+fun podBuildFeedColumnLabel(label: String): String =
     if (label.firstOrNull()?.isDigit() == true) "MV $label" else label
 
 /** A snapshot of [column] (or all columns, in display order) of [buckets]; null when there is nothing to review. */
-internal fun podBuildFeed(
+fun podBuildFeed(
     category: PodDeckCategory, buckets: List<List<PodBuildTile>>, labels: List<String>, column: Int?,
 ): PodBuildFeed? {
     val cards = buckets.withIndex().filter { column == null || it.index == column }.flatMap { (index, tiles) ->
@@ -75,8 +75,8 @@ internal fun podBuildFeed(
 }
 
 /** Width of each of [perRow] equal cards across [columnWidth], with [gap] between neighbours. */
-internal fun podBuildCardWidth(columnWidth: Int, perRow: Int, gap: Int): Int =
+fun podBuildCardWidth(columnWidth: Int, perRow: Int, gap: Int): Int =
     ((columnWidth - gap * (perRow - 1)) / perRow.coerceAtLeast(1)).coerceAtLeast(1)
 
 /** Row-major (row, column) slot of the card at [index] when [perRow] cards sit side by side. */
-internal fun podBuildGridSlot(index: Int, perRow: Int): Pair<Int, Int> = index / perRow to index % perRow
+fun podBuildGridSlot(index: Int, perRow: Int): Pair<Int, Int> = index / perRow to index % perRow

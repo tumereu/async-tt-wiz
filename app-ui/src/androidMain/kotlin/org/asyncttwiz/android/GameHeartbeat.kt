@@ -10,10 +10,10 @@ import org.asyncttwiz.appui.AppBuild
 /** Dialogs have their own Window and bypass the activity's input: what is done there counts just like the table
  * (the platform's [AppPlatform.ObserveDialogInput]). */
 @Composable
-internal fun TrackGameDialogInput() { AppPlatform.current.ObserveDialogInput() }
+fun TrackGameDialogInput() { AppPlatform.current.ObserveDialogInput() }
 
 /** Any input (not just commands) sets one bit, consumed once per heartbeat. */
-internal class GameHeartbeatTracker(private val presenceId: String = UUID.randomUUID().toString()) {
+class GameHeartbeatTracker(private val presenceId: String = UUID.randomUUID().toString()) {
     private var game: String? = null
     private var didSomething = false
     fun input() { if (game != null) didSomething = true }
@@ -29,7 +29,7 @@ internal class GameHeartbeatTracker(private val presenceId: String = UUID.random
 /** Main-thread lifecycle owner; socket first, bounded authenticated HTTP fallback off the UI thread.
  * Leaving always goes over HTTP too: a socket send only queues, and on a dead or soon frozen socket the
  * "left" mark is lost while the app sits in the background. */
-internal class GameHeartbeatController(
+class GameHeartbeatController(
     private val http: (String, GamePresence) -> Unit = { token, presence -> kotlinx.coroutines.runBlocking {
         ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
     private val socket: (String, GamePresence) -> Boolean,

@@ -56,7 +56,7 @@ private data class PodBuildFeedFlick(val sequence: Int, val card: PodBuildFeedCa
  * Once the last card's flick has played, [onFinish] gets the finished feed (the caller closes it).
  */
 @Composable
-internal fun PodBuildFeedDialog(
+fun PodBuildFeedDialog(
     feed: PodBuildFeed,
     mainCount: Long,
     editable: Boolean,

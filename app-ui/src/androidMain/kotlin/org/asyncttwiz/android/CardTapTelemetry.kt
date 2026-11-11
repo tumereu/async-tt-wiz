@@ -5,7 +5,7 @@ import java.time.Instant
 import kotlin.math.roundToInt
 
 /** Fixed-size debug observations, independent of the gameplay/history queue. */
-internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
+class CardTapRecorder(private val now: () -> Long = System::nanoTime,
     private val record: (CardTapDiagnostic) -> Unit) {
     private data class Rotation(val game: String, val up: Long, var sample: CardTapDiagnostic,
         var cardId: String? = null, var started: Boolean = false, var first: Long? = null, var last: Long? = null)
@@ -66,7 +66,7 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
     }
 }
 
-internal class CardTapBuffer(private val capacity: Int = 100) {
+class CardTapBuffer(private val capacity: Int = 100) {
     private val values = ArrayDeque<CardTapDiagnostic>()
     @Synchronized fun add(value: CardTapDiagnostic) { values.addLast(value); while (values.size > capacity) values.removeAt(0) }
     @Synchronized fun snapshot() = values.toList()

@@ -5,7 +5,7 @@ import org.asyncttwiz.protocol.*
 /** GameSession's lobby preparation: the accepted preparation per game plus this device's own
  * unsettled intents (deck selection, start settings/readiness, captured and sent card transfers),
  * overlaid on it for display until an accepted revision covers them. Main thread. */
-internal class PreparationIntents {
+class PreparationIntents {
     private data class PreparationReplica(val revision: String, val state: LobbyPreparation)
     private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
         val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)

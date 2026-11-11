@@ -4,7 +4,7 @@ import org.asyncttwiz.protocol.*
 
 /** GameSession's per-game chat: accepted messages (head snapshot or paged catch-up, then live
  * deliveries), older pages, outgoing submissions and syncing the personal read cursor. Main thread. */
-internal class SessionChat(private val scope: SessionScope, private val connection: GameConnection,
+class SessionChat(private val scope: SessionScope, private val connection: GameConnection,
     private val personalChat: GameChat, private val now: () -> Long, private val openedGame: () -> String?,
     /** Session is ready, the game is available and it is watched (has a stream). */
     private val syncable: (String) -> Boolean, private val available: (String) -> Boolean) {

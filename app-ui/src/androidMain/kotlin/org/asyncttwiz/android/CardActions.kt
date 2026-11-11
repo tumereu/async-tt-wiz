@@ -26,7 +26,7 @@ import org.asyncttwiz.protocol.*
  * picked in the combat area's lanes only (CMB-028). A hand card (ZON-079) and a combat copy (CMB-003) have no menu.
  */
 @Composable
-internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
+fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
     enabled: Boolean) {
     val view = bound.contextViewId
     if (CardRingPages.combatCopy(play.board, view)) return
@@ -51,7 +51,7 @@ internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, b
 
 /** One pointer recognizer owns click/assigned hold/name tooltip. Sync updates callbacks, not the gesture. */
 @Composable
-internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean = true, fill: Color? = null,
+fun ManualActionSquare(name: String, symbol: String, enabled: Boolean = true, fill: Color? = null,
     selected: Boolean = false, circle: Boolean = false, tooltipName: String = name,
     assignedHold: (() -> Unit)? = null, holdName: String? = null, iconTint: Color? = null,
     bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false,

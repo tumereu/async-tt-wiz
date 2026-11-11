@@ -42,13 +42,13 @@ import kotlin.math.abs
 import org.asyncttwiz.protocol.TableActions
 import org.asyncttwiz.appui.uptimeMillis
 
-internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
+val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
 /** TBL-067: the areas table popups keep off when they fit elsewhere (both hands). */
-internal val LocalPopupAvoid = compositionLocalOf<List<TableBounds>> { emptyList() }
+val LocalPopupAvoid = compositionLocalOf<List<TableBounds>> { emptyList() }
 private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
 /** Register controls (or a list's scroll viewport), never a button grid's container or gaps. */
-internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
+fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
     val register = LocalRingInputTargets.current
     val key = remember { Any() }
     DisposableEffect(register, key) { onDispose { register(key, null, draggable) } }
@@ -58,19 +58,19 @@ internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = co
         register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height), draggable)
     }
 }
-internal data class RingEntry(val id: String, val label: String, val control: MenuControl, val fill: Color? = null)
+data class RingEntry(val id: String, val label: String, val control: MenuControl, val fill: Color? = null)
 
-internal fun ringShortLabel(name: String): String = name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
+fun ringShortLabel(name: String): String = name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 
 /** A layout cell nobody supplied stays visible and disabled; a layout never shows a hole. */
-internal fun ringPlaceholder(id: String): RingEntry = RingEntry(id, ringShortLabel(id), MenuControl(id, false) {})
+fun ringPlaceholder(id: String): RingEntry = RingEntry(id, ringShortLabel(id), MenuControl(id, false) {})
 
 /** One thing the engine offers for the card (§3 I4): a full-width row above the menu's cells, its [icon] by kind. */
-internal data class EngineRow(val control: MenuControl, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+data class EngineRow(val control: MenuControl, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 /** A card's menu (TBL-063, TBL-064): [rows], the engine's actions (§3 I4), above the one [page]'s cells. */
 @Composable
-internal fun CardActionRing(identity: String, viewId: String,
+fun CardActionRing(identity: String, viewId: String,
     entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit,
     page: CardRingPage, rows: List<EngineRow> = emptyList()) {
     val slots = CardRingPages.layout(page.actions)
@@ -120,7 +120,7 @@ private const val EngineRowHeight = 40f
 /** An engine action of the card (§3 I4): its icon and its text (an ability's printed text), greyed with its reason
  * when Automatum doesn't allow it now. */
 @Composable
-internal fun EngineActionRow(row: EngineRow, color: Color) {
+fun EngineActionRow(row: EngineRow, color: Color) {
     val control = row.control
     RingPress(control, Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
         .heightIn(min = EngineRowHeight.dp), AutomatumViolet) {
@@ -137,29 +137,29 @@ internal fun EngineActionRow(row: EngineRow, color: Color) {
 private val InlinePopupFocusLine = HorizontalAlignmentLine(::minOf)
 
 /** Marks the part of a panel that a popup opened beside its anchor lines up with (e.g. the life row by the life square). */
-internal fun Modifier.inlinePopupFocus() = layout { measurable, constraints ->
+fun Modifier.inlinePopupFocus() = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints)
     layout(placeable.width, placeable.height, mapOf(InlinePopupFocusLine to placeable.height / 2)) { placeable.place(0, 0) }
 }
 
-internal data class InlinePopupAnchor(val id: String, val bounds: TableBounds?, val own: Boolean)
-internal val LocalInlinePopupAnchor = compositionLocalOf { InlinePopupAnchor("table", null, true) }
-internal val LocalInlinePopupColor = compositionLocalOf { OwnTableColor }
+data class InlinePopupAnchor(val id: String, val bounds: TableBounds?, val own: Boolean)
+val LocalInlinePopupAnchor = compositionLocalOf { InlinePopupAnchor("table", null, true) }
+val LocalInlinePopupColor = compositionLocalOf { OwnTableColor }
 private val LocalInlinePopupDismiss = compositionLocalOf<(() -> Unit)?> { null }
-internal object InlinePopupStyle {
+object InlinePopupStyle {
     const val cellGap = 2f
     const val enterMillis = 90
     const val exitMillis = 70
     const val initialScale = .88f
 }
 
-internal fun inlinePopupGridRows(slots: List<CardRingSlot>): Int =
+fun inlinePopupGridRows(slots: List<CardRingSlot>): Int =
     slots.maxOfOrNull { (it.cell + it.span + CardRingPages.columns - 1) / CardRingPages.columns } ?: 0
 
 /** All on-table context panels share placement, animation, input guard, relay and visual chrome.
  * The table host owns outside gestures, so a second tap can dismiss and draw/rotate immediately. */
 @Composable
-internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
+fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
     ownerColor: Color, dismiss: () -> Unit, width: Dp = CardRingGeometry.squareSide.dp,
     height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
     title: String = description, switchPage: (Int) -> Unit = {}, sheet: Boolean = false,
@@ -266,7 +266,7 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
 }
 
 /** Prefer a free region beside the captured anchor; clamp measured content on tight screens. */
-internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
+fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
     desiredWidth: Float, desiredHeight: Float, focusY: Float = desiredHeight / 2,
     avoid: List<TableBounds> = emptyList()): TableBounds {
     CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight, focusY, avoid)?.let { return it.square }
@@ -278,7 +278,7 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 }
 
 @Composable
-internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
+fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
     key: String = title, sheet: Boolean = false,
     /** A sheet's close as a borderless X icon (the Source dialog's, ZON-093) instead of its Close cell. */
     closeIcon: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
@@ -306,7 +306,7 @@ internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 36
 }
 
 @Composable
-internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = LocalInlinePopupColor.current,
+fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = LocalInlinePopupColor.current,
     modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null) {
     val entry = RingEntry(control.name, label, control, fill = fill)
     RingPress(entry.control, modifier, entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
@@ -328,7 +328,7 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
  * breaking a word ("Graveyar d") or being cut off.
  */
 @Composable
-internal fun CellLabel(text: String, color: Color, modifier: Modifier = Modifier, textModifier: Modifier = Modifier) {
+fun CellLabel(text: String, color: Color, modifier: Modifier = Modifier, textModifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val style = LocalTextStyle.current.merge(CellLabelStyle)
@@ -343,7 +343,7 @@ private val CellLabelStyle = TextStyle(fontSize = 8.sp, lineHeight = 9.sp, lette
 
 /** The factor (at most 1, at least about .5) [text] is drawn at so its widest word fits one line of [constraints]' width
  * and its at most two lines fit their height. */
-internal fun cellLabelScale(measurer: TextMeasurer, text: String, style: TextStyle, constraints: Constraints): Float {
+fun cellLabelScale(measurer: TextMeasurer, text: String, style: TextStyle, constraints: Constraints): Float {
     if (!constraints.hasBoundedWidth || text.isBlank()) return 1f
     val width = constraints.maxWidth
     fun at(scale: Float) = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale)
@@ -361,7 +361,7 @@ internal fun cellLabelScale(measurer: TextMeasurer, text: String, style: TextSty
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
+fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
     fill: Color = Color.White, role: Role = Role.Button, bordered: Boolean = true, tooltip: String = control.name,
     content: @Composable () -> Unit) {
     var holding by remember { mutableStateOf(false) }

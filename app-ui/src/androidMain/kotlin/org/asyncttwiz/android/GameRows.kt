@@ -18,7 +18,7 @@ import org.asyncttwiz.protocol.GameSummary
 
 /** Games screen list, already in the shared order; an invitation to answer carries Accept/Decline like the Menu. */
 @Composable
-internal fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: String,
+fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: String,
     modifier: Modifier = Modifier) {
     if (games.isEmpty()) return
     Surface(modifier, color = Color.White, shape = RoundedCornerShape(8.dp),
@@ -41,7 +41,7 @@ internal fun GameRows(games: List<GameSummary>, controller: LobbyController, acc
 }
 
 @Composable
-internal fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
+fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
     trailing: (@Composable () -> Unit)? = null) {
     val move = gameRowMove(game, accountId)
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -70,7 +70,7 @@ internal fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
 
 /** Bare content for the shared menu panel; pod-screen cards keep their own presentation. */
 @Composable
-internal fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, respond: (Boolean) -> Unit,
+fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, respond: (Boolean) -> Unit,
     responseEnabled: Boolean, open: () -> Unit) {
     val pod = entry.pod
     val invite = entry.invitation
@@ -90,7 +90,7 @@ internal fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth:
 }
 
 @Composable
-internal fun MenuInvitationActions(enabled: Boolean, acceptEnabled: Boolean = true, respond: (Boolean) -> Unit) {
+fun MenuInvitationActions(enabled: Boolean, acceptEnabled: Boolean = true, respond: (Boolean) -> Unit) {
     Row {
         HoldTip("Accept invitation") {
             FilledTonalIconButton(onClick = { respond(true) }, enabled = enabled && acceptEnabled) { EntryIcon("Accept invitation", "ready") }
@@ -105,7 +105,7 @@ internal fun MenuInvitationActions(enabled: Boolean, acceptEnabled: Boolean = tr
 }
 
 @Composable
-internal fun MenuActivityPanel(content: @Composable ColumnScope.() -> Unit) {
+fun MenuActivityPanel(content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(horizontal = 12.dp),
         color = Color.White, shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
         border = BorderStroke(1.dp, ScreenBorder)) {

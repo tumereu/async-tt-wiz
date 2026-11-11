@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 
 @Composable
-internal fun JankTableState(reviewing: Boolean, popup: String?, dragging: Boolean,
+fun JankTableState(reviewing: Boolean, popup: String?, dragging: Boolean,
     animating: () -> Boolean, visibleCards: () -> Int) {
     if (!Diagnostics.enabled) return
     SideEffect {

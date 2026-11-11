@@ -24,7 +24,7 @@ class CombatDragGeometryTest {
         val source = scene.items.single { it.cardId == first.blockers.single().id }
         val row = scene.combatDrops.single { it.destination.pairId == first.id &&
             it.destination.role == CombatRole.BLOCKER && it.destination.insertion == CombatInsertion.APPEND }
-        val scope = TableScope(source.cardId!!, listOf(source.cardId))
+        val scope = TableScope(source.cardId!!, listOf(source.cardId!!))
         val destination = assertNotNull(scene.combatDestination(row.bounds.center))
         assertEquals(first.id, destination.pairId)
         val prediction = predict(play, scope.cardIds, destination)

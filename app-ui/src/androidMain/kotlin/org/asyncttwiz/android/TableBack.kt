@@ -1,9 +1,9 @@
 package org.asyncttwiz.android
 
-internal enum class TableBackAction { CLOSE_OVERLAY, EXIT_REVIEW, PROMPT, LEAVE }
+enum class TableBackAction { CLOSE_OVERLAY, EXIT_REVIEW, PROMPT, LEAVE }
 
 /** Personal navigation only. A dismissed layer never also arms leaving the table. */
-internal class TableBackStateMachine {
+class TableBackStateMachine {
     private var promptedAt: Long? = null
     fun reset() { promptedAt = null }
     fun back(now: Long, overlay: Boolean, reviewing: Boolean): TableBackAction {

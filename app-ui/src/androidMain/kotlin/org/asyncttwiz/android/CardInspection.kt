@@ -13,7 +13,7 @@ import org.asyncttwiz.protocol.*
  * hidden from the opponent (TBL-109). [swipe]: its pinned mode, when the hold can pin it.
  */
 @Composable
-internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
+fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
     names: Map<String, String> = emptyMap(), scroll: ScrollState? = null, swipe: InspectSwipe? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.playId) return
     BackHandler(onBack = { if (swipe?.pinned == true) swipe.close() else close() })
@@ -27,11 +27,11 @@ internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspectio
 }
 
 /** The pictures [GameplayCardInspection] shows of [card], held as [inspection] says. */
-internal fun gameInspectTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
+fun gameInspectTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
     names: Map<String, String>): List<InspectTile> = gameInspectGroups(state, viewer, inspection, card, names).flatMap { it.tiles }
 
 /** What [GameplayCardInspection] shows of [card], held as [inspection] says: one group per card, with its changes. */
-internal fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
+fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
     names: Map<String, String>): List<InspectGroup> {
     val entry = inspection.stackEntryId ?: inspection.cardId
     // STK-050 (owner playtest 2026-11-06): an ability on the Stack is its panel alone (the source's art crop, the

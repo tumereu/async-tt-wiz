@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.*
 /** The screen-fixed controls: quick actions and Undo, or the timeline panel, and transient errors. Inline,
  * so it stays part of TableSurface's own recomposition scope. */
 @Composable
-internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
+inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
     connected: Boolean, runtime: TableRuntimeHooks, toolkit: TableToolkitController?, scene: TableScene) {
     val playControls: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) {

@@ -79,7 +79,7 @@ object DeckUrlImport {
     }
 }
 
-internal object ImportClipboard {
+object ImportClipboard {
     fun cube(text: String?): String? = CubeCobraImport.link(text) ?: text?.trim()?.takeIf { value ->
         runCatching { CubeCobraImport.cubeId(value) }.isSuccess
     }

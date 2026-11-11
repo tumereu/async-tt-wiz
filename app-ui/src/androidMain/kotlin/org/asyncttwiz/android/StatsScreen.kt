@@ -26,8 +26,8 @@ import org.asyncttwiz.storage.ArtworkReference
 
 /** The two series of a record over time (the dataviz palette's first two categorical slots): you, and the opponent (or
  * your losses, with All). */
-internal val SeriesYou = Color(0xff2a78d6)
-internal val SeriesThem = Color(0xffeb6834)
+val SeriesYou = Color(0xff2a78d6)
+val SeriesThem = Color(0xffeb6834)
 
 /**
  * The Stats screen (game history spec §3.3): opponent chips (All, then each opponent by number of matches) filtering
@@ -35,7 +35,7 @@ internal val SeriesThem = Color(0xffeb6834)
  * and graphs drawn in the app).
  */
 @Composable
-internal fun StatsContent(history: HistoryController, me: String, openDeck: ((String) -> Unit)?) {
+fun StatsContent(history: HistoryController, me: String, openDeck: ((String) -> Unit)?) {
     LaunchedEffect(Unit) { history.loadStats() }
     val list = history.stats
     val choice = history.choice

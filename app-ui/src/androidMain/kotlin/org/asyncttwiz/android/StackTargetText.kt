@@ -10,25 +10,25 @@ import org.asyncttwiz.protocol.MtgStackItem
  * A piece of a Stack entry's text as shown (owner 2026-11-07): [text], and for a target's name the account id of the
  * target's controller ([controller]; a player is their own controller), which colours it.
  */
-internal data class StackTextPiece(val text: String, val controller: String? = null)
+data class StackTextPiece(val text: String, val controller: String? = null)
 
 /** The pieces' words, as one plain string (semantics, tests). */
-internal fun List<StackTextPiece>.plain(): String = joinToString("") { it.text }
+fun List<StackTextPiece>.plain(): String = joinToString("") { it.text }
 
 /** The pieces for [CardText], each target name in its controller's colour as [viewer] sees it: theirs green, the other
  * player's red (OwnTableColor, OpponentTableColor). */
-internal fun List<StackTextPiece>.tinted(viewer: String): List<Pair<String, Color?>> =
+fun List<StackTextPiece>.tinted(viewer: String): List<Pair<String, Color?>> =
     map { it.text to it.controller?.let { c -> if (c == viewer) OwnTableColor else OpponentTableColor } }
 
 /** [tinted] on the dark wait band (STK-057): the same green and red, lightened to read on it. */
-internal fun List<StackTextPiece>.tintedOnDark(viewer: String): List<Pair<String, Color?>> =
+fun List<StackTextPiece>.tintedOnDark(viewer: String): List<Pair<String, Color?>> =
     map { it.text to it.controller?.let { c -> if (c == viewer) Color(0xff8ae6cf) else Color(0xffffa8b0) } }
 
 /**
  * STK-057, STK-018, STK-050 (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves"): a Stack entry's text
  * with its chosen targets named where the text names them, each coloured by its controller.
  */
-internal object StackTargetText {
+object StackTargetText {
     /**
      * [text] of [item] as pieces for [viewer]: each target phrase as the names of the targets chosen for it ("Ember Cub",
      * "Bob", "Ember Cub and Ash Pup"), as far as [viewer] may see them ([StackAbilities.targetName]: [you] for themselves,

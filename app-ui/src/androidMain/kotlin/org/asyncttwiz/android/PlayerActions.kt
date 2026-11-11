@@ -29,7 +29,7 @@ import org.asyncttwiz.protocol.*
  * ([write], opening the chat); the chips are greyed unless [enabled] (a message could go now). */
 data class TableQuickChat(val enabled: Boolean, val send: (String) -> Unit, val write: () -> Unit)
 
-internal val LocalTableQuickChat = compositionLocalOf<TableQuickChat?> { null }
+val LocalTableQuickChat = compositionLocalOf<TableQuickChat?> { null }
 
 /**
  * The Life panel of [accountId] (TRN-030), opened by tapping their life square: their life, which only the rules
@@ -37,7 +37,7 @@ internal val LocalTableQuickChat = compositionLocalOf<TableQuickChat?> { null }
  * (LOB-139).
  */
 @Composable
-internal fun PlayerPanel(state: TableBoard, accountId: String, viewer: String, close: () -> Unit) {
+fun PlayerPanel(state: TableBoard, accountId: String, viewer: String, close: () -> Unit) {
     val player = state.board.players.singleOrNull { it.accountId == accountId } ?: return
     val own = player.accountId == viewer
     val quick = LocalTableQuickChat.current

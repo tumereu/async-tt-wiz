@@ -29,17 +29,17 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 
 /** The test tag of the turn banner (TRN-074). */
-internal const val TURN_BANNER_TAG = "turn-banner"
+const val TURN_BANNER_TAG = "turn-banner"
 
 /** TRN-074: how long the banner stays whole, and its fade after that: about 1.2 s in all. */
-internal const val TURN_BANNER_WHOLE_MILLIS = 300L
-internal const val TURN_BANNER_FADE_MILLIS = 900
+const val TURN_BANNER_WHOLE_MILLIS = 300L
+const val TURN_BANNER_FADE_MILLIS = 900
 
 /** TRN-074: the newest turn change among what the transition [serial] brought: [player]'s turn began in [event], at [at] among
  * its changes; [forward]: the ids of the events the transition showed, in order. */
-internal class TurnChange(val serial: Long, val player: String, val event: GameEvent, val at: Int, val forward: List<String>)
+class TurnChange(val serial: Long, val player: String, val event: GameEvent, val at: Int, val forward: List<String>)
 
-internal object TurnBanners {
+object TurnBanners {
     /**
      * TRN-074: the newest turn change [transition] shows going forward, or null: none on a jump (opening a game, loading it
      * again), a take-back or an undo.
@@ -68,7 +68,7 @@ internal object TurnBanners {
  * another and never overlap, holding nothing: a banner whose play came first waits for it ([Banner.afterPlays]), and a play
  * waits for the banner showing ([holdsPlays]).
  */
-internal class TurnBannerQueue {
+class TurnBannerQueue {
     class Banner(val key: Long, val player: String, val afterPlays: Boolean)
 
     var current by mutableStateOf<Banner?>(null)
@@ -99,7 +99,7 @@ internal class TurnBannerQueue {
  * banner that comes after it.
  */
 @Composable
-internal fun TurnBannerOverlay(queue: TurnBannerQueue, playOpen: Boolean, viewer: String, names: Map<String, String>, modifier: Modifier = Modifier) {
+fun TurnBannerOverlay(queue: TurnBannerQueue, playOpen: Boolean, viewer: String, names: Map<String, String>, modifier: Modifier = Modifier) {
     val banner = queue.current ?: return
     if (banner.afterPlays && playOpen) return
     key(banner.key) {

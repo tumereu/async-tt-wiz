@@ -14,7 +14,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** App-private pending queue. An interrupted write is never mistaken for a complete report. */
-internal class CrashReportStore(private val directory: File) {
+class CrashReportStore(private val directory: File) {
     init {
         // A killed process may leave its temporary write, but never an uploadable partial report.
         directory.listFiles()?.filter { it.isFile && it.extension == "part" }?.forEach { it.delete() }
@@ -80,7 +80,7 @@ internal class CrashReportStore(private val directory: File) {
     }
 }
 
-internal class CrashExceptionHandler(private val store: CrashReportStore,
+class CrashExceptionHandler(private val store: CrashReportStore,
     private val previous: Thread.UncaughtExceptionHandler?, private val version: String, private val device: String,
     private val enabled: () -> Boolean = { true },
     /** I-D43: the latest game's Automatum log and bundle ([AutomatumReports.text]); never throws. */
@@ -101,7 +101,7 @@ internal class CrashExceptionHandler(private val store: CrashReportStore,
 }
 
 /** Process lifetime, not Activity lifetime: rotations or repeated sign-ins cannot retry a batch. */
-internal object DebugCrashes {
+object DebugCrashes {
     private var store: CrashReportStore? = null
     private var pending: List<File> = emptyList()
     private val started = AtomicBoolean()

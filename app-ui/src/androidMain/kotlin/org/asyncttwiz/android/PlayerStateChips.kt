@@ -52,7 +52,7 @@ data class PlayerChipRow(val states: List<PlacedStateChip> = emptyList(), val em
  * shrink (to [EmblemChips.MIN_SIZE]) and then the states' last chip reads "+N" for the states left out, as the emblems' does
  * for theirs. TRN-073: the game's day or night, a chip alike, sits above the Stack.
  */
-internal object PlayerChips {
+object PlayerChips {
     /** The room a row of [chips] round chips wants (landscape: the bar row widens for them as far as the hand allows). */
     fun wanted(chips: Int): Float = EmblemChips.rowWidth(chips)
 
@@ -116,7 +116,7 @@ private fun PlacedStateChip.explained(): Pair<List<arcanum.api.RulesGlossary.Ent
  * the finger lifts.
  */
 @Composable
-internal fun StateChipsOverlay(scene: TableScene) {
+fun StateChipsOverlay(scene: TableScene) {
     for (life in scene.items.filter { it.kind == TableItemKind.LIFE && it.stateChips.isNotEmpty() && it.visible.isNotEmpty() }) key(life.id) {
         for (placed in life.stateChips) key(placed.label) { StateChipView(placed) }
     }
@@ -124,7 +124,7 @@ internal fun StateChipsOverlay(scene: TableScene) {
 }
 
 /** The test tag of a state chip (TRN-072, TRN-073). */
-internal const val STATE_CHIP_TAG = "state-chip"
+const val STATE_CHIP_TAG = "state-chip"
 
 @Composable
 private fun StateChipView(placed: PlacedStateChip) {
@@ -164,7 +164,7 @@ private fun glyphSize(text: String): Float = when (text.length) {
 }
 
 /** TRN-069 (TRN-072): the room of a player's dungeon as their first state chip, its name said by a hold. */
-internal fun roomChip(room: String) = StateChip("Room: $room", null, StateGlyph.Room)
+fun roomChip(room: String) = StateChip("Room: $room", null, StateGlyph.Room)
 
 /** The state chips' colours (TRN-072): a pale violet fill, dark violet ink. */
 private val StateChipFill = Color(0xfff3effb)

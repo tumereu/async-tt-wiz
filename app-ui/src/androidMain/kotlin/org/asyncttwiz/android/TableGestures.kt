@@ -10,7 +10,7 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
     val point: TablePoint? = null, val destination: TableDestination? = null)
 
 /** TBL-042: two taps within this long (and 32 dp) are a double tap. */
-internal const val DOUBLE_TAP_MILLIS = 400L
+const val DOUBLE_TAP_MILLIS = 400L
 
 /** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
@@ -492,12 +492,12 @@ class TableGestureCoordinator(
 
 private val String?.isCardPanel get() = this?.startsWith("cardPanel/") == true
 /** A real card on a battlefield (not a combat copy, a Stack drawing or a panel card). */
-internal val TableItem.battlefieldCard get() = kind == TableItemKind.CARD && zone == PlayZone.BATTLEFIELD && !projection &&
+val TableItem.battlefieldCard get() = kind == TableItemKind.CARD && zone == PlayZone.BATTLEFIELD && !projection &&
     viewport != "combat" && !viewport.startsWith("cardPanel/")
 /** A Graveyard or Exile pile control (not a card inside a panel). */
-internal val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
+val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */
-internal fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {
+fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {
     if (item.zone != PlayZone.HAND) return null
     if ("Land" !in StackContexts.types(item.frontTypeLine)) return scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         ?.let { TableDestination.Container(it.id, PlayZone.STACK) }

@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap
  * emblems with their full text ([EmblemInspect]) until the finger lifts.
  */
 @Composable
-internal fun EmblemChipsOverlay(scene: TableScene, viewer: String) {
+fun EmblemChipsOverlay(scene: TableScene, viewer: String) {
     var holding by remember { mutableStateOf<String?>(null) }
     val lives = scene.items.filter { it.kind == TableItemKind.LIFE && it.emblemChips.isNotEmpty() && it.visible.isNotEmpty() && it.owner != null }
     for (life in lives) key(life.id) {
@@ -87,7 +87,7 @@ private fun EmblemChip(text: String?, plus: String?, description: String, modifi
 
 /** The emblem icon of an emblem without art (a rosette). */
 @Composable
-internal fun EmblemIcon(modifier: Modifier, tint: Color = Color.White) {
+fun EmblemIcon(modifier: Modifier, tint: Color = Color.White) {
     Icon(Icons.Outlined.WorkspacePremium, null, modifier, tint = tint)
 }
 
@@ -100,7 +100,7 @@ private val EmblemArtBackground = Color(0xff6c4fbf)
  * release.
  */
 @Composable
-internal fun EmblemInspect(texts: List<String>, own: Boolean) {
+fun EmblemInspect(texts: List<String>, own: Boolean) {
     val arts = texts.map { rememberEmblemArt(it) }
     InspectPopup(texts.mapIndexed { n, text -> InspectGroup("emblem/$n", listOf(InspectTile.Emblem("emblem/$n", text, arts[n], own))) },
         rememberScrollState())
@@ -108,7 +108,7 @@ internal fun EmblemInspect(texts: List<String>, own: Boolean) {
 
 /** The picture of the emblem with rules [text] ([AndroidEmblemArt]), null while it is looked up or when there is none. */
 @Composable
-internal fun rememberEmblemArt(text: String): ArtworkReference? {
+fun rememberEmblemArt(text: String): ArtworkReference? {
     val services = AppServices.current
     val art by produceState(AndroidEmblemArt.known(text), text) {
         value = withContext(Dispatchers.IO) { AndroidEmblemArt.find(services, text) }
@@ -120,7 +120,7 @@ internal fun rememberEmblemArt(text: String): ArtworkReference? {
  * TRN-053: an emblem's picture from the installed card records ([org.asyncttwiz.storage.CatalogRepository.emblemArt]),
  * looked up once per card records generation and text; none without card records or when reading them fails.
  */
-internal object AndroidEmblemArt {
+object AndroidEmblemArt {
     private val found = ConcurrentHashMap<Pair<String, String>, String>()
     @Volatile private var generation: String? = null
 

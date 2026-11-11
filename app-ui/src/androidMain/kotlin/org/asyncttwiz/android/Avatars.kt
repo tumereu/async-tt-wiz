@@ -36,10 +36,10 @@ import org.asyncttwiz.storage.CatalogPhase
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.BackHandler
 
-internal fun avatarInitial(username: String): String = username.trim().let {
+fun avatarInitial(username: String): String = username.trim().let {
     if (it.isEmpty()) "?" else String(Character.toChars(it.codePointAt(0))).uppercase(java.util.Locale.ROOT)
 }
-internal fun avatarColor(accountId: String): Color = Color.hsv(Math.floorMod(accountId.hashCode(), 360).toFloat(), .5f, .65f)
+fun avatarColor(accountId: String): Color = Color.hsv(Math.floorMod(accountId.hashCode(), 360).toFloat(), .5f, .65f)
 
 @Composable
 fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 32.dp) {
@@ -54,24 +54,24 @@ fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 3
 }
 
 /** Who a pod row shows: up to two other members plus how many more; only yourself when nobody else is there. */
-internal data class AvatarStackContent(val shown: List<AccountIdentity>, val more: Int) {
+data class AvatarStackContent(val shown: List<AccountIdentity>, val more: Int) {
     /** One 32dp avatar, each further avatar adds 20dp, a "+N" badge ends at 60dp. */
     val width: Dp get() = if (more > 0) 60.dp else 32.dp + 20.dp * (shown.size - 1).coerceAtLeast(0)
 }
 
-internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String?): AvatarStackContent {
+fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String?): AvatarStackContent {
     val others = members.filter { it.accountId != selfId }
     if (others.isEmpty()) return AvatarStackContent(members.take(1), 0)
     return AvatarStackContent(others.take(2), (others.size - 2).coerceAtLeast(0))
 }
 
 /** One stack width for every row of a pod list (DRF-012, LOB-017, LOB-018), so the names line up. */
-internal fun podStackWidth(pods: List<PodSummary>, selfId: String?): Dp =
+fun podStackWidth(pods: List<PodSummary>, selfId: String?): Dp =
     pods.maxOfOrNull { podNavigationAvatars(it.members, selfId).width } ?: 32.dp
 
 /** [width] is shared by every row so names line up; later circles overlap earlier ones by 12dp with a [ring] edge. */
 @Composable
-internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Modifier = Modifier, width: Dp = content.width) {
+fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Modifier = Modifier, width: Dp = content.width) {
     val step = 20.dp
     Box(modifier.width(width).height(32.dp), contentAlignment = Alignment.CenterStart) {
         content.shown.forEachIndexed { index, account ->
@@ -89,7 +89,7 @@ internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Mod
     }
 }
 
-internal class AvatarPromptMemory(platform: AppPlatform) {
+class AvatarPromptMemory(platform: AppPlatform) {
     private val preferences = platform.preferences("avatar-chooser")
     fun shouldShow(account: AccountIdentity) = account.avatar == null && !preferences.getBoolean(account.accountId, false)
     fun shown(accountId: String) { preferences.edit().putBoolean(accountId, true).apply() }
@@ -97,7 +97,7 @@ internal class AvatarPromptMemory(platform: AppPlatform) {
 
 /** LOB-091: before sign-in, how far the card records' installation is (sign-in works meanwhile). */
 @Composable
-internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
+fun CatalogDownloadStatus(catalog: CatalogViewModel) {
     val state = catalog.state
     if (!state.ready) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog::retry) {
@@ -110,7 +110,7 @@ internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
 }
 
 @Composable
-internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel) {
+fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel) {
     val account = controller.state.account ?: return
     BackHandler { controller.chooseAvatar(false) }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -178,7 +178,7 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
 }
 
 @Composable
-internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewModel?) {
+fun ProfileSettings(controller: AuthController, catalog: CatalogViewModel?) {
     val state = controller.state
     val account = state.account ?: return
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,

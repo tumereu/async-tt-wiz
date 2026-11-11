@@ -45,7 +45,7 @@ import org.asyncttwiz.protocol.*
  * or "Free" (any [free] shares), starting from [start] (Automatum's suggestion or an early answer given). A start no order
  * gives opens in Free.
  */
-internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, Int>,
+class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, Int>,
     /** Opens in Free whatever the start: a division whose order can't matter, asked only because its player wants to be
      * asked (combat review B). */
     free: Boolean = false) {
@@ -89,7 +89,7 @@ internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, In
  * over shows as a chip on the panel's bottom line ([TrampleChip]).
  */
 @Composable
-internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
+fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
     val division = draft.division
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -170,7 +170,7 @@ internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<Str
  * (deathtouch makes 1 lethal, CR 702.2c); for the player at least their life; for a planeswalker or battle at least its
  * loyalty or defense.
  */
-internal fun lethal(play: TableBoard, division: DamageDivision, ref: MtgRef, amount: Int): Boolean {
+fun lethal(play: TableBoard, division: DamageDivision, ref: MtgRef, amount: Int): Boolean {
     if (amount <= 0) return false
     division.lethal[ref]?.let { return it in 1..amount }
     return when (ref) {
@@ -187,7 +187,7 @@ internal fun lethal(play: TableBoard, division: DamageDivision, ref: MtgRef, amo
  * lethal to them, grey when not. Nothing to choose: it is what the creatures don't get.
  */
 @Composable
-internal fun TrampleChip(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
+fun TrampleChip(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
     val division = draft.division
     val target = division.trampleTo ?: return
     val amount = draft.shares[target] ?: 0
@@ -243,7 +243,7 @@ private val DAMAGE_KEYWORDS = listOf("First strike", "Double strike", "Trample",
  * for its [keywords] that change what the damage does.
  */
 @Composable
-internal fun DivisionHead(division: DamageDivision, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+fun DivisionHead(division: DamageDivision, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
     power: Int?, keywords: List<String>, inspector: ChoiceInspector) {
     val viewer = LocalChoiceFrame.current.viewer
     val source = choiceCard(play, viewer, "source/${division.source}", division.source, shown = true, fallback = "Attacker")
@@ -276,7 +276,7 @@ internal fun DivisionHead(division: DamageDivision, play: TableBoard, names: Map
 }
 
 /** The engine's shares of [shares] for the open [decision] (its targets in the same order as the division's). */
-internal fun engineShares(decision: Decision.Divide, division: DamageDivision, shares: Map<MtgRef, Int>): List<Share> =
+fun engineShares(decision: Decision.Divide, division: DamageDivision, shares: Map<MtgRef, Int>): List<Share> =
     division.among.zip(decision.among).map { (ref, target) -> Share(target, shares[ref] ?: 0) }
 
 /**
@@ -285,7 +285,7 @@ internal fun engineShares(decision: Decision.Divide, division: DamageDivision, s
  * ([SharedFlowController.divisionAction]); the eye hides it to look at the table.
  */
 @Composable
-internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, names: Map<String, String>,
+fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, names: Map<String, String>,
     decision: Decision.Divide, division: DamageDivision, count: Pair<Int, Int>?) {
     // The decision's suggestion: Automatum's, or an early answer given just as it opened (I-D33)
     val start = division.among.zip(decision.among).associate { (ref, target) ->
@@ -301,7 +301,7 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
 
 /** The division panel in the dock's look (CMB-033): its content, and on the bottom line by the eye what tramples over. */
 @Composable
-internal fun DivisionDock(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+fun DivisionDock(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
     power: Int?, keywords: List<String>, hidden: Boolean, toggleHidden: () -> Unit) {
     AutomatumDockPanel("Division of combat damage", hidden, toggleHidden, "division",
         buttons = { TrampleChip(draft, play, names) }) {
@@ -312,7 +312,7 @@ internal fun DivisionDock(draft: DivisionDraft, play: TableBoard, names: Map<Str
 /** A division panel's content (CMB-033): its head (the dealing creature at the top left, STK-033: only its controller
  * divides) and its rows. */
 @Composable
-internal fun DivisionContent(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+fun DivisionContent(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
     power: Int?, keywords: List<String>) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(draft) { ChoiceInspector() }
@@ -328,7 +328,7 @@ internal fun DivisionContent(draft: DivisionDraft, play: TableBoard, names: Map<
  * docked above the hand.
  */
 @Composable
-internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
+fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
     androidx.compose.ui.layout.Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val table = scene?.world?.visibleViewport
         val band = scene?.combatPanel ?: table?.let { TableBounds(it.x, it.center.y, it.width, 0f) }
@@ -356,7 +356,7 @@ internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
 
 
 /** The widest a panel attached to the combat band is ([BandAttached]). */
-internal val BAND_PANEL_WIDTH = 400.dp
+val BAND_PANEL_WIDTH = 400.dp
 
 /**
  * The viewer's division still to come in this damage step (I-D29, I-D33, STK-034): while another division is open, they
@@ -364,7 +364,7 @@ internal val BAND_PANEL_WIDTH = 400.dp
  * back.
  */
 @Composable
-internal fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, division: DamageDivision, names: Map<String, String>,
+fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, division: DamageDivision, names: Map<String, String>,
     enabled: Boolean) {
     val given = combat.early(play, division)
     val start = given?.shares?.associate { it.target to it.amount } ?: division.suggested
@@ -399,7 +399,7 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, divi
 
 /** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog (not one Automatum's
  * table makes by itself, CMB-033). */
-internal fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Decision.Divide &&
+fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Decision.Divide &&
     flow.division?.let { askedInDialog(flow.board, it) } == true
 
 /**
@@ -407,5 +407,5 @@ internal fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Deci
  * when it can't but its player has "Skip when I have no choice" off (combat review B: then it opens in Free, where the
  * player still has choices). Else the table makes it with the suggestion by itself.
  */
-internal fun askedInDialog(board: BoardState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
+fun askedInDialog(board: BoardState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
     board.players.firstOrNull { it.accountId == division.player }?.skipWhenNoChoice == false

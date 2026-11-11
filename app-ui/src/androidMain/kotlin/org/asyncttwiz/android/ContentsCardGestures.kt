@@ -15,10 +15,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.PlayZone
 
-internal const val CardPeekHoldMillis = 350L
+const val CardPeekHoldMillis = 350L
 
 /** Rows share the table's taps and release-bound peek; row scrolling wins on slop BEFORE the hold. */
-internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Unit,
+fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Unit,
     double: (() -> Unit)?, peek: (Boolean) -> Unit,
     scrollPeek: (Float) -> Unit = {}): Modifier = composed {
     val parent = LocalTableTapRelay.current

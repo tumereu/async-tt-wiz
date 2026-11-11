@@ -47,19 +47,19 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-internal fun gameDate(game: GameSummary): String = runCatching {
+fun gameDate(game: GameSummary): String = runCatching {
     DateTimeFormatter.ofPattern("d MMM uuuu").withZone(ZoneId.systemDefault()).format(Instant.parse(game.createdAt))
 }.getOrDefault("")
 /** With [accountId], a held pod challenge reads from the recipient's side: they see it but must submit first. */
-internal fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
+fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
     else if (game.invitationHeld && accountId != null && accountId == game.recipient.accountId) "Challenged you · submit your deck to accept"
     else if (game.invitationHeld) "Waiting for ${game.recipient.username}'s deck" else when (game.invitationState) {
     InvitationState.PENDING -> "Invitation pending"
     InvitationState.DECLINED -> "Invitation declined"
     InvitationState.ACCEPTED -> "Preparing"
 }
-internal fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
-internal fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
+fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
+fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
     preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
     PodGamePreparation.readyProblem(preparation, accountId) == "mainTooSmall" -> "Main must contain at least 40 cards including basics."
     PodGamePreparation.readyProblem(preparation, accountId) == "sideboardLimit" -> "Side exceeds this pod's sideboard limit (${preparation?.podRules?.sideboardLimit}). Move cards to Main."
@@ -67,7 +67,7 @@ internal fun readyReason(preparation: LobbyPreparation?, accountId: String): Str
 }
 
 @Composable
-internal fun ContactsContent(controller: LobbyController) {
+fun ContactsContent(controller: LobbyController) {
     val state = controller.state
     Box(Modifier.fillMaxSize()) {
         PlayerPicker(controller, select = if (state.choosingOpponent) ({ controller.invite(it) }) else null) { contact ->
@@ -103,7 +103,7 @@ private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when
 }
 
 @Composable
-internal fun GamesContent(controller: LobbyController, accountId: String) {
+fun GamesContent(controller: LobbyController, accountId: String) {
     val state = controller.state
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
@@ -126,7 +126,7 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
 }
 
 @Composable
-internal fun GameDeletionDialogs(controller: LobbyController) {
+fun GameDeletionDialogs(controller: LobbyController) {
     controller.state.gameContext?.let { game ->
         // A context menu without a cancel button keeps its ✕; its one action sits at the right.
         ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
@@ -145,7 +145,7 @@ internal fun GameDeletionDialogs(controller: LobbyController) {
 }
 
 @Composable
-internal fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
+fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
@@ -296,7 +296,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
 }
 
 @Composable
-internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: Boolean,
+fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: Boolean,
     alternate: Boolean = true, setAlternate: ((Boolean) -> Unit)? = null, choose: (StarterChoice) -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -327,7 +327,7 @@ internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, e
 
 /** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
 @OptIn(ExperimentalFoundationApi::class)
-internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
+fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
     val cancel = controller.offersSetupCancellation(game)
     val delete = controller.offersGameDeletion(game)
     // Section 3.6: opening a game reads card records; greyed while they install
@@ -349,7 +349,7 @@ internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSumm
 }
 
 @Composable
-internal fun SetupCancellationDialogs(controller: LobbyController) {
+fun SetupCancellationDialogs(controller: LobbyController) {
     val cancellation = controller.setupCancellation
     cancellation.context?.let { game ->
         ScreenDialog(cancellation::dismissContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
@@ -387,7 +387,7 @@ private fun PlayerReadiness(account: AccountIdentity, ready: Boolean) {
 
 /** Own deck only: on, the opponent sees this game's deck name and cover instead of the neutral placeholder. */
 @Composable
-internal fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
     FilterChip(selected = shown, onClick = { onChange(!shown) }, enabled = enabled,
         label = { Text("Show deck name & art") },
         modifier = Modifier.semantics { contentDescription = "Show deck name and art to opponent" },
@@ -395,7 +395,7 @@ internal fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) 
 }
 
 @Composable
-internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
+fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
     val player = preparation?.players?.find { it.accountId == accountId }
     val deck = player?.deck
     Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {

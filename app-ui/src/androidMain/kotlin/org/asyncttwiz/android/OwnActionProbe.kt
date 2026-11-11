@@ -14,7 +14,7 @@ package org.asyncttwiz.android
  * Times are nanoseconds of the game's clock. The engine thread writes the parts up to [AFTER]; the main thread the rest
  * and reads them all once the action is [complete] (or a newer action's board comes first).
  */
-internal class OwnActionTiming(val what: String, private val clock: () -> Long, val trace: LatencyRecorder.Trace?) {
+class OwnActionTiming(val what: String, private val clock: () -> Long, val trace: LatencyRecorder.Trace?) {
     val asked: Long = clock()
 
     // ---- Engine thread
@@ -100,7 +100,7 @@ internal class OwnActionTiming(val what: String, private val clock: () -> Long, 
  * The own actions still waiting for their computed board and hand plays (main thread): the table tells of each board's
  * computed values and plays as they arrive ([rememberComputedBoard]). Nothing is done while no action waits.
  */
-internal object OwnActionProbes {
+object OwnActionProbes {
     private val waiting = ArrayList<Pair<OwnActionTiming, (OwnActionTiming) -> Unit>>()
 
     /** [timing] waits; [arrived] is told on each part that arrives. */

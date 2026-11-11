@@ -30,36 +30,36 @@ import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.protocol.*
 
 /** "Pack 1 · Pick 3", "· given automatically" for an automatic award (DRF-165). */
-internal fun podHistoryHeader(pick: DraftHistoryPick): String =
+fun podHistoryHeader(pick: DraftHistoryPick): String =
     "Pack ${pick.pack} · Pick ${pick.pick}" + if (pick.automatic) " · given automatically" else ""
 
 /** DRF-165 (owner, 2026-11-10): a round's header, "Round 2 · passed right": round 1 passes left, the direction flipping
  * each round (DRF-043; [DraftEngine.direction]: the next seat is the left one). */
-internal fun podHistoryRoundHeader(round: Int): String =
+fun podHistoryRoundHeader(round: Int): String =
     "Round $round · passed " + if (DraftEngine.direction(round - 1) == DraftDirection.NEXT_SEAT) "left" else "right"
 
 /** DRF-165: the picks shown, round by round, in order within each round, each with its place in [picks] (a round's last
  * card given automatically may come after you opened the next round); [returningOnly]: only packs that came back to you a
  * second or later time in their round, a round without any left out. */
-internal fun podHistoryRounds(picks: List<DraftHistoryPick>, returningOnly: Boolean): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
+fun podHistoryRounds(picks: List<DraftHistoryPick>, returningOnly: Boolean): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
     picks.withIndex().filter { !returningOnly || it.value.returning }.groupBy { it.value.round }.toSortedMap().toList()
 
 /** A history pack's cards sorted like Build columns: W U B R G, multicolour, colourless, then name (DRF-165). */
-internal fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<DraftCopy> =
+fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<DraftCopy> =
     podRotisserieOrder(cards.map { LimitedSlot(it) }, definitions).map { it.copy }
 
 /** The history view's largest pack: the pack size setting, 15 for sets whose booster recipe fixes the size (DRF-165). */
-internal fun podHistoryPackSize(detail: PodDetail): Int =
+fun podHistoryPackSize(detail: PodDetail): Int =
     if (detail.source.kind == PodSourceKind.SET && detail.source.boosterKind == SetBoosterKind.RECIPE_BASED) PodPickColumnRange.last
     else detail.settings.cardsPerPack.coerceAtLeast(1)
 
 /** DRF-070: every card the history shows, pick by pick. */
-internal fun podHistoryPrefetchCards(history: PodDraftHistory?): List<DraftCopy> =
+fun podHistoryPrefetchCards(history: PodDraftHistory?): List<DraftCopy> =
     history?.picks.orEmpty().flatMap { it.cards + it.takenSince }
 
 /** The icon in the pod's header on every tab but Draft (DRF-165), which has [PodHistoryButton]: the history while building and after. */
 @Composable
-internal fun PodHistoryHeaderButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
+fun PodHistoryHeaderButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
     var open by remember { mutableStateOf(false) }
     HoldTip("History") {
         IconButton({ controller.loadHistory(); open = true }, Modifier.size(48.dp).testTag("pod-history")) { EntryIcon("History", "history") }
@@ -70,7 +70,7 @@ internal fun PodHistoryHeaderButton(controller: PodController, definitions: Map<
 
 /** The "History" button above a Booster or Glimpse pick screen (DRF-165); it loads and opens [PodHistoryDialog]. */
 @Composable
-internal fun PodHistoryButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
+fun PodHistoryButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
     var open by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
         TextButton({ controller.loadHistory(); open = true }, Modifier.testTag("pod-history")) { ButtonLabel("history", "History") }
@@ -86,7 +86,7 @@ internal fun PodHistoryButton(controller: PodController, definitions: Map<String
  * came back to you (owner, 2026-11-10).
  */
 @Composable
-internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
+fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
     columns: Int, retry: () -> Unit, dismiss: () -> Unit) {
     val known = remember(definitions, history) { definitions + history?.definitions.orEmpty().associate { it.digest to it.definition } }
     val preview = remember { PodLimitedPreview() }

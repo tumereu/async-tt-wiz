@@ -19,18 +19,18 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.game.GameDevice
 
 /** The test tag of the reveal panel's dismiss button (HIS-110). */
-internal const val REVEAL_OK_TAG = "reveal-ok"
+const val REVEAL_OK_TAG = "reveal-ok"
 
 /** HIS-110, TRN-063 (owner, 2026-11-07): why the main button is greyed and game actions are refused while a reveal panel
  * is open, until its OK. */
-internal const val REVEAL_BUSY = "Dismiss the reveal first: tap OK."
+const val REVEAL_BUSY = "Dismiss the reveal first: tap OK."
 
 /**
  * HIS-114 (owner playtest 2026-11-09): the reveal panel's title for cards that left a public pile for a hidden zone, moved
  * by [name]: "Bob returned Storm Spark from their graveyard to their hand", "… put 2 cards from exile into their library";
  * [ownerIsViewer]: the pile and the zone are the viewer's ("your").
  */
-internal fun pileTitle(name: String, cards: List<String>, left: GameDevice.LeftPile, ownerIsViewer: Boolean): String {
+fun pileTitle(name: String, cards: List<String>, left: GameDevice.LeftPile, ownerIsViewer: Boolean): String {
     val their = if (ownerIsViewer) "your" else "their"
     val what = cards.singleOrNull() ?: "${cards.size} cards"
     val pile = if (left.from == arcanum.api.Zone.Exile) "exile" else "$their graveyard"
@@ -48,7 +48,7 @@ internal fun pileTitle(name: String, cards: List<String>, left: GameDevice.LeftP
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RevealPanel(play: TableBoard, viewer: String, reveal: GameDevice.Reveal, name: String, dismiss: () -> Unit) {
+fun RevealPanel(play: TableBoard, viewer: String, reveal: GameDevice.Reveal, name: String, dismiss: () -> Unit) {
     var hidden by remember(reveal) { mutableStateOf(false) }
     val inspector = remember(reveal) { ChoiceInspector() }
     val source = reveal.source?.let { choiceCard(play, viewer, "reveal-source/${it.value}", it.value, true, reveal.sourceName ?: "") }

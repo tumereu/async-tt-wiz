@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.*
 
 @Composable
-internal fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
+fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
     openNavigation: (() -> Unit)?, catalog: CatalogViewModel?) {
     val state = controller.state
     val keyboard = LocalSoftwareKeyboardController.current

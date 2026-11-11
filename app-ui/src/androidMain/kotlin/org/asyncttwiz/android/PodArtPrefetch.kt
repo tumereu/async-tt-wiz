@@ -19,25 +19,25 @@ import org.asyncttwiz.protocol.DraftPrivatePack
 import org.asyncttwiz.storage.ArtworkPriority
 import org.asyncttwiz.storage.ArtworkReference
 
-internal const val PodArtPrefetchParallelism = 4
+const val PodArtPrefetchParallelism = 4
 
 /** The tile image of a draft card: the retained printing's first face at normal size. */
-internal fun podTileArtwork(definition: CardDefinition?): ArtworkReference? =
+fun podTileArtwork(definition: CardDefinition?): ArtworkReference? =
     definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         ?.artwork?.firstOrNull()?.takeIf { it.printing != null || it.customUrl != null }?.copy(size = "normal")
 
 /** Every given card, in order, without duplicates. */
-internal fun podCardPrefetchArtwork(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
+fun podCardPrefetchArtwork(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
     cards.mapNotNull { podTileArtwork(definitions[it.definition]) }.distinct()
 
 /** Every card of the given packs, in pack order, without duplicates. */
-internal fun podPrefetchArtwork(packs: List<DraftPrivatePack>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
+fun podPrefetchArtwork(packs: List<DraftPrivatePack>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
     podCardPrefetchArtwork(packs.flatMap { it.cards }, definitions)
 
 /** Bounded parallel prefetch. Each load keeps the artwork service's own retry loop until it
  * succeeds; a reference is cancelled only when it leaves the wanted set, so a pack that moves
  * from "next" to "shown" keeps its downloads running. Call from one thread. */
-internal class ArtworkPrefetcher(private val scope: CoroutineScope, parallelism: Int = PodArtPrefetchParallelism,
+class ArtworkPrefetcher(private val scope: CoroutineScope, parallelism: Int = PodArtPrefetchParallelism,
     private val load: suspend (ArtworkReference) -> Unit) {
     private val permits = Semaphore(parallelism)
     private val jobs = LinkedHashMap<ArtworkReference, Job>()
@@ -56,7 +56,7 @@ internal class ArtworkPrefetcher(private val scope: CoroutineScope, parallelism:
 /** Starts tile-sized downloads for every card a draft screen shows (DRF-070), in screen order, not only the tiles
  * the lazy grid has composed. The decode size matches the tiles, so a composed tile reuses the memory-cached image. */
 @Composable
-internal fun PodArtPrefetch(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>, tileSize: IntSize) {
+fun PodArtPrefetch(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>, tileSize: IntSize) {
     val context = LocalPlatformContext.current
     val scope = rememberCoroutineScope()
     val references = remember(cards, definitions) { podCardPrefetchArtwork(cards, definitions) }

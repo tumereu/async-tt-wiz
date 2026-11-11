@@ -14,7 +14,7 @@ import org.asyncttwiz.appui.AppPlatform
 
 /** The play settings new games start with (LOB-113), device-local and account-scoped like the other table and playback
  * preferences (the server keeps them per account; this is the device's copy for when it is signed out). */
-internal class PausePreferences(platform: AppPlatform, private val accountId: String) {
+class PausePreferences(platform: AppPlatform, private val accountId: String) {
     private val preferences = platform.preferences("automatum-pauses")
     private val autotapKey = "autotap/$accountId"
     private val assumeKey = "engine-assume-resolves/$accountId"
@@ -49,7 +49,7 @@ private fun org.asyncttwiz.protocol.game.AssumeResolves.key() = when (this) {
 
 /** Settings → Automatum (LOB-113): the play settings new games start with, kept on the server per account. */
 @Composable
-internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsState? = null) {
+fun AutomatumPauseSettings(accountId: String, account: AccountSettingsState? = null) {
     val platform = AppPlatform.current
     val preferences = remember(platform, accountId) { PausePreferences(platform, accountId) }
     Column(Modifier.fillMaxWidth().testTag("automatum-settings")) { EngineDefaultSettings(preferences, account) }

@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-internal val MultipleSelectionIcon = ImageVector.Builder("Multiple selection", 24.dp, 24.dp, 24f, 24f).apply {
+val MultipleSelectionIcon = ImageVector.Builder("Multiple selection", 24.dp, 24.dp, 24f, 24f).apply {
     path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
         strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
         moveTo(3f, 17f); lineTo(3f, 2f); lineTo(17f, 2f); lineTo(17f, 4f)
@@ -17,7 +17,7 @@ internal val MultipleSelectionIcon = ImageVector.Builder("Multiple selection", 2
     }
 }.build()
 
-internal val HandCardsIcon = ImageVector.Builder("Hand of cards", 24.dp, 24.dp, 24f, 24f).apply {
+val HandCardsIcon = ImageVector.Builder("Hand of cards", 24.dp, 24.dp, 24f, 24f).apply {
     path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.5f,
         strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
         moveTo(7f, 5f); lineTo(1f, 8f); lineTo(7f, 22f); lineTo(10f, 21f)

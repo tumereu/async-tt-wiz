@@ -7,6 +7,6 @@ import org.asyncttwiz.protocol.CombatDestination
  * dropped blocker blocks, its target a dropped attacker attacks); elsewhere in a lane (an empty lane, the collapsed band's
  * chips, beside the lanes at the band's ends, CMB-007), that lane's target.
  */
-internal fun TableScene.combatDestination(point: TablePoint): CombatDestination? =
+fun TableScene.combatDestination(point: TablePoint): CombatDestination? =
     combatDrops.firstOrNull { it.destination.pairId != null && it.contains(point) }?.destination
         ?: combatDrops.asReversed().firstOrNull { it.destination.pairId == null && it.contains(point) }?.destination

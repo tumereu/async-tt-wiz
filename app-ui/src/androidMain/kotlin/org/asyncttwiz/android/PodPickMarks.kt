@@ -4,10 +4,10 @@ import org.asyncttwiz.protocol.DraftCopy
 import org.asyncttwiz.protocol.DraftPrivatePack
 import org.asyncttwiz.protocol.DraftSettings
 
-internal enum class PodPickMark { KEEP, BURN }
+enum class PodPickMark { KEEP, BURN }
 
 /** Ordered local intent only; the server still validates and applies the confirmed pick. */
-internal data class PodPickMarks(
+data class PodPickMarks(
     val packId: String? = null,
     val keeps: List<String> = emptyList(),
     val burns: List<String> = emptyList(),
@@ -50,7 +50,7 @@ internal data class PodPickMarks(
 }
 
 /** The pack as shown for this pick: its cards followed by the spent [librarians], which are ordinary cards here. */
-internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val librarians: List<String> = emptyList()) {
+class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val librarians: List<String> = emptyList()) {
     val ids = pack.cards.map { it.id } + librarians
     val spentLibrarians get() = librarians.size
     val requiredKeeps = minOf(settings.keep + librarians.size, ids.size)
@@ -72,7 +72,7 @@ internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val
 }
 
 /** [this] pack with the spent Librarians (in spend order) added as cards, as the picker sees it before confirming. */
-internal fun DraftPrivatePack.withSpentLibrarians(spent: List<String>, owned: List<DraftCopy>): DraftPrivatePack {
+fun DraftPrivatePack.withSpentLibrarians(spent: List<String>, owned: List<DraftCopy>): DraftPrivatePack {
     if (spent.isEmpty()) return this
     val copies = owned.associateBy { it.id }
     return copy(cards = cards + spent.mapNotNull(copies::get))

@@ -12,7 +12,7 @@ import java.util.concurrent.Executors
 import kotlin.reflect.KClass
 
 /** The app's controllers for the signed-in shell, kept across configuration changes; [services]: the platform's. */
-class AuthViewModel internal constructor(services: AppServices) : ViewModel() {
+class AuthViewModel constructor(services: AppServices) : ViewModel() {
     private val catalogStore = ViewModelStore()
     val catalog = ViewModelProvider.create(catalogStore, object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -33,9 +33,9 @@ class AuthViewModel internal constructor(services: AppServices) : ViewModel() {
         AutomatumBoards.definitionSource = local::cardDefinitions
     }
     /** LOB-115: which cards of a deck or cube Automatum can't play yet, from the card catalog's marks (section 3.8). */
-    internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, catalog.repository::unsupported)
+    val cardListSupport = CardListSupportCheck(local::cardDefinitions, catalog.repository::unsupported)
     /** Section 3.9: the warning sign on cards Automatum can't play yet. */
-    internal val cardMarks = CardMarks(catalog.repository::unsupportedPictures)
+    val cardMarks = CardMarks(catalog.repository::unsupportedPictures)
     val activity = services.activityDelivery
     fun openActivity(route: ActivityRoute) {
         val heldInPod = route.heldInPod
@@ -118,7 +118,7 @@ class AuthViewModel internal constructor(services: AppServices) : ViewModel() {
                 throw failure
             }
         })
-    internal val heartbeat = GameHeartbeatController { token, presence ->
+    val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)
     }
     private val gameMaintenance = GameConnectionMaintenance({ true }, {

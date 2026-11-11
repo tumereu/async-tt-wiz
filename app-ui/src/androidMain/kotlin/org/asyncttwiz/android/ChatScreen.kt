@@ -30,7 +30,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.asyncttwiz.protocol.*
 
 /** Only intersecting laid-out rows count as presented; lazy prefetch is not viewing. */
-internal fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any>, panelVisible: Boolean): Set<String> =
+fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any>, panelVisible: Boolean): Set<String> =
     if (!panelVisible) emptySet() else visibleKeys.filterIsInstance<String>().filter { id ->
         if (messages is IndexedChatMessages) messages.byId(id) != null else messages.any { it.id == id }
     }.toSet()
@@ -44,7 +44,7 @@ private const val WRITE_FOCUS_WAIT_MS = 500L
 enum class ChatTab { GAME, POD }
 
 /** LOB-145: which tab the table's chat opens on, which tab is highlighted, and the chat button's count. */
-internal object ChatTabs {
+object ChatTabs {
     /** The tab last used in this game ([last], owner 2026-11-10); before any, Game, or Pod when only the pod's chat holds
      * unread messages ([pod]: the game has a pod chat to show). */
     fun opening(pod: Boolean, gameUnread: Int, podUnread: Int, last: ChatTab? = null): ChatTab = when {
@@ -61,17 +61,17 @@ internal object ChatTabs {
 }
 
 /** The pod chat of the open pod screens and pod games (null in previews and tests without one). */
-internal val LocalPodChat = staticCompositionLocalOf<PodChatController?> { null }
+val LocalPodChat = staticCompositionLocalOf<PodChatController?> { null }
 
 /** Reads [podId]'s chat again every few seconds while composed and the app is in front, for [where] (the pod screen, a pod
  * game's table): every 3 s while it is [open], else every 10 s ([PodChatController.watch]: on the main thread's clock). */
 @Composable
-internal fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean, where: String) {
+fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean, where: String) {
     WhileInFront(chat, podId, open) { chat.watch(podId, if (open) 3_000 else 10_000, if (open) "$where, chat open" else where) }
 }
 
 @Composable
-internal fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
+fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
     contentInsets: WindowInsets = WindowInsets.safeDrawing) {
     val state = controller.state
     val game = state.detail ?: return
@@ -200,7 +200,7 @@ private fun GameChatBody(controller: LobbyController, game: GameSummary, account
 
 /** DRF-170, LOB-145: a pod's chat: its messages with their authors' names, sends on their way and the composer; no "Read" marks. */
 @Composable
-internal fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, ownName: String, visible: Boolean,
+fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, ownName: String, visible: Boolean,
     modifier: Modifier = Modifier) {
     val podId = view.podId
     val list = rememberLazyListState()
@@ -237,7 +237,7 @@ internal fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: 
 
 /** DRF-170: the pod screens' "Pod chat" side panel. */
 @Composable
-internal fun PodChatPanel(chat: PodChatController, podId: String, accountId: String, ownName: String, close: () -> Unit,
+fun PodChatPanel(chat: PodChatController, podId: String, accountId: String, ownName: String, close: () -> Unit,
     modifier: Modifier = Modifier, contentInsets: WindowInsets = WindowInsets.safeDrawing) {
     val view = chat.views[podId] ?: PodChatView(podId)
     BackHandler { close() }

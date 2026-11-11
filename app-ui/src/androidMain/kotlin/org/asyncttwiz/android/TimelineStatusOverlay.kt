@@ -25,15 +25,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import kotlinx.coroutines.delay
 
-internal val TimelineFaintInk = Color(0xff253d44).copy(alpha = .38f)
-internal const val PLAYBACK_FLASH_HOLD_MILLIS = 300L
+val TimelineFaintInk = Color(0xff253d44).copy(alpha = .38f)
+const val PLAYBACK_FLASH_HOLD_MILLIS = 300L
 
-internal fun TimelinePlaybackStatus.icon(): ImageVector = when (this) {
+fun TimelinePlaybackStatus.icon(): ImageVector = when (this) {
     TimelinePlaybackStatus.PLAYING -> Icons.Outlined.PlayArrow
     TimelinePlaybackStatus.PAUSED -> Icons.Outlined.Pause
     TimelinePlaybackStatus.REWINDING -> Icons.Outlined.FastRewind
 }
-internal fun TimelinePlaybackStatus.label() = when (this) {
+fun TimelinePlaybackStatus.label() = when (this) {
     TimelinePlaybackStatus.PLAYING -> "Playing"
     TimelinePlaybackStatus.PAUSED -> "Paused"
     TimelinePlaybackStatus.REWINDING -> "Rewinding"
@@ -41,7 +41,7 @@ internal fun TimelinePlaybackStatus.label() = when (this) {
 
 /** The board centre while in timeline mode. Purely visual: no pointer handlers. */
 @Composable
-internal fun TimelineCentreText(status: TimelinePlaybackStatus) {
+fun TimelineCentreText(status: TimelinePlaybackStatus) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             CompositionLocalProvider(LocalContentColor provides TimelineFaintInk) {
@@ -58,7 +58,7 @@ internal fun TimelineCentreText(status: TimelinePlaybackStatus) {
 
 /** What the corner shows for a change of [TimelinePlaybackStatus] (null: not in timeline mode).
  * A rewind stays shown; play/pause only flash; entering or leaving while paused shows nothing. */
-internal fun playbackFlashFor(before: TimelinePlaybackStatus?, now: TimelinePlaybackStatus?): TimelinePlaybackStatus? = when (now) {
+fun playbackFlashFor(before: TimelinePlaybackStatus?, now: TimelinePlaybackStatus?): TimelinePlaybackStatus? = when (now) {
     before -> null
     TimelinePlaybackStatus.REWINDING, TimelinePlaybackStatus.PLAYING -> now
     TimelinePlaybackStatus.PAUSED, null ->
@@ -68,7 +68,7 @@ internal fun playbackFlashFor(before: TimelinePlaybackStatus?, now: TimelinePlay
 /** A large play/pause icon flashed in the board's top-right corner whenever playback starts or stops
  * (manual, auto-pause, end of playback); a running rewind shows constantly. Purely visual. */
 @Composable
-internal fun PlaybackStatusFlash(status: TimelinePlaybackStatus?, modifier: Modifier = Modifier) {
+fun PlaybackStatusFlash(status: TimelinePlaybackStatus?, modifier: Modifier = Modifier) {
     var before by remember { mutableStateOf(status) }
     var shown by remember { mutableStateOf<TimelinePlaybackStatus?>(null) }
     LaunchedEffect(status) {
@@ -89,7 +89,7 @@ internal fun PlaybackStatusFlash(status: TimelinePlaybackStatus?, modifier: Modi
 }
 
 /** The test tag of the icon saying a held finger pauses the view. */
-internal const val VIEW_PAUSED_TAG = "view-paused"
+const val VIEW_PAUSED_TAG = "view-paused"
 
 /** How quickly that icon fades in and out. */
 private const val VIEW_PAUSED_FADE_MILLIS = 120
@@ -97,7 +97,7 @@ private const val VIEW_PAUSED_FADE_MILLIS = 120
 /** HIS-021, HIS-112, HIS-113: the pause icon in the board's top-right corner, where timeline mode's flash shows, while a held
  * finger pauses what the view is waiting on; a quick fade in and out. Purely visual. */
 @Composable
-internal fun ViewPausedIcon(paused: Boolean, modifier: Modifier = Modifier) {
+fun ViewPausedIcon(paused: Boolean, modifier: Modifier = Modifier) {
     Box(modifier, contentAlignment = Alignment.TopEnd) {
         AnimatedVisibility(paused, Modifier.padding(8.dp), androidx.compose.animation.fadeIn(tween(VIEW_PAUSED_FADE_MILLIS)),
             androidx.compose.animation.fadeOut(tween(VIEW_PAUSED_FADE_MILLIS))) {

@@ -7,7 +7,7 @@ import org.asyncttwiz.protocol.*
  * reason. Life and zone moves by hand are refused. Nothing is placed by hand: a hand is never reordered (I-D50, ZON-081)
  * and the battlefield lays itself out (ZON-077, TBL-004).
  */
-internal object AutomatumDrags {
+object AutomatumDrags {
     sealed interface Route {
         /** A hand card onto the Battlefield or the Stack: played (a land) or cast through the engine (ZON-004). */
         data object Cast : Route

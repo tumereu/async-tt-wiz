@@ -25,8 +25,8 @@ data class SavedCard(val section: SavedDeckSection, val printingId: String?, val
     val key get() = SavedCards.key(printingId, name)
 }
 
-internal fun SavedDeck.cards() = entries.map { SavedCard(it.section, it.printingId, it.name, it.quantity) }
-internal fun SavedCube.cards() = entries.map { SavedCard(it.section, it.printingId, it.name, it.quantity) }
+fun SavedDeck.cards() = entries.map { SavedCard(it.section, it.printingId, it.name, it.quantity) }
+fun SavedCube.cards() = entries.map { SavedCard(it.section, it.printingId, it.name, it.quantity) }
 
 /**
  * The card records' faces of a saved list's printings ([faces]) and the records' version ([catalog]). A card without a
@@ -69,6 +69,6 @@ data class SavedCardFaces(val faces: Map<String, List<CatalogPrinting>>, val cat
 }
 
 /** [entry]'s card as a save names it: its printing, or for a card without one its name ([SavedCards.unprinted]). */
-internal fun ResolvedDeckEntry.listEntry(section: SavedDeckSection, quantity: Int = this.quantity): CardListEntry =
+fun ResolvedDeckEntry.listEntry(section: SavedDeckSection, quantity: Int = this.quantity): CardListEntry =
     SavedCards.unprinted(printing.id)?.let { name -> CardListEntry(section, null, quantity, name) }
         ?: CardListEntry(section, printing.id, quantity)

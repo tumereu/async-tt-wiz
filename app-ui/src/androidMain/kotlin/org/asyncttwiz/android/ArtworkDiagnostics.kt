@@ -8,7 +8,7 @@ import java.net.URI
 /** Artwork download diagnostics for problem reports. A draft downloads hundreds of images, so
  * every failure reason is written once per minute with its URL and the rest are counted into a
  * minute summary; a success after failures is written as a recovery. */
-internal class ArtworkDiagnostics(private val now: () -> Long = System::currentTimeMillis,
+class ArtworkDiagnostics(private val now: () -> Long = System::currentTimeMillis,
     private val write: (warning: Boolean, message: String) -> Unit = { warning, message ->
         if (warning) AppLog.warn("art", message) else AppLog.info("art", message)
     }) : ArtworkLog {

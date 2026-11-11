@@ -31,13 +31,13 @@ import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.DialogDim
 
-internal val MenuInk = Color(0xff263e39)
-internal val MenuBorder = Color(0xffbaccc7)
+val MenuInk = Color(0xff263e39)
+val MenuBorder = Color(0xffbaccc7)
 
 private val tempPileName = Regex("temp [1-4]")
 
 /** Semantic names, not font-dependent unicode. Values and P/T arithmetic remain actual text. */
-internal fun menuIcon(name: String): ImageVector {
+fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
@@ -138,7 +138,7 @@ internal fun menuIcon(name: String): ImageVector {
 }
 
 @Composable
-internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color = MenuInk) {
+fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color = MenuInk) {
     if (name in listOf("Reveal+Hand", "Reveal+Top", "Battlefield tapped")) Box(modifier.size(24.dp)) {
         Icon(when (name) {
             "Reveal+Hand" -> HandCardsIcon
@@ -161,14 +161,14 @@ internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color =
 }
 
 /** Attack-making names drawn as crossed swords: Declare …, and Automatum's "Rest → <target>" (CMB-028). */
-internal fun swordsIcon(name: String): Boolean {
+fun swordsIcon(name: String): Boolean {
     val n = name.lowercase()
     return n.startsWith("rest →") || "declare" in n && n != "declare blockers"
 }
 
 /** Bounded context panel: wrap content, never reserve an empty fullscreen sheet. */
 @Composable
-internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: String? = null,
+fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: String? = null,
     border: Color? = null, titleDescription: String? = title, titleColor: Color? = null,
     gap: Dp = 4.dp, contentPadding: Dp = 12.dp, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -202,20 +202,20 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
 }
 
 @Composable
-internal fun MenuWindowDimming() {
+fun MenuWindowDimming() {
     TrackGameDialogInput()
     DialogDim(.28f)
 }
 
 @Composable
-internal fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Boolean = true,
+fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Boolean = true,
     fill: Color? = null, refused: String? = null, onClick: () -> Unit) {
     ManualActionSquare(name, "", enabled, fill = fill, modifier = modifier, labelled = true, refused = refused, onClick = onClick)
 }
 
 /** [refused]: a greyed control Automatum doesn't allow now (I-D28, SYS-040: shown and greyed, never hidden): a tap
  * shakes it and holding it shows [refused], the reason (I-D46). */
-internal data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
+data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
     val color: Color? = null, val refused: String? = null, val click: () -> Unit)
 
 

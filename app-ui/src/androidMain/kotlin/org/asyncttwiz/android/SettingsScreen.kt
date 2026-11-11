@@ -22,12 +22,12 @@ import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.AppPlatform
 import androidx.compose.ui.text.style.TextAlign
 
-internal fun appVersionText(versionName: String = AppBuild.VERSION_NAME, versionCode: Int = AppBuild.VERSION_CODE,
+fun appVersionText(versionName: String = AppBuild.VERSION_NAME, versionCode: Int = AppBuild.VERSION_CODE,
     buildType: String = AppBuild.BUILD_TYPE, commit: String = AppBuild.GIT_COMMIT): String =
     "Version $versionName ($versionCode) $buildType · commit $commit"
 
 @Composable
-internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () -> Unit, auth: AuthController?,
+fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () -> Unit, auth: AuthController?,
     accountSettings: AccountSettingsSource? = rememberAccountSettingsSource(accountId, auth),
     versionText: String = appVersionText()) {
     val preferences = rememberHistoryPlaybackPreferences(accountId)
@@ -77,21 +77,21 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
 }
 
 @Composable
-internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "", logout: () -> Unit) =
+fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "", logout: () -> Unit) =
     SettingsContent(catalog, accountId, logout, null)
 
 /** Tap-to-type values end on the same gutter as switches. */
-internal val SettingsValuePadding = PaddingValues(horizontal = 4.dp)
+val SettingsValuePadding = PaddingValues(horizontal = 4.dp)
 
 /** One consistent heading style for every Settings group. */
 @Composable
-internal fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier) {
+fun SettingsSectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(title, modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp).semantics { heading() },
         style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
-internal fun SettingsSection(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun SettingsSection(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
         SettingsSectionHeader(title)
         content()
@@ -100,7 +100,7 @@ internal fun SettingsSection(title: String, modifier: Modifier = Modifier, conte
 
 /** Full-width list row for an action: icon + label, at least 48dp tall. */
 @Composable
-internal fun SettingsActionRow(label: String, icon: String, onClick: () -> Unit, modifier: Modifier = Modifier,
+fun SettingsActionRow(label: String, icon: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, color: Color? = null) {
     val alpha = if (enabled) 1f else .38f
     Row(modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick),
@@ -112,7 +112,7 @@ internal fun SettingsActionRow(label: String, icon: String, onClick: () -> Unit,
 
 /** Label with an optional one-line explanation, the shared text style of Settings rows. */
 @Composable
-internal fun SettingsLabel(label: String, supporting: String? = null, modifier: Modifier = Modifier) {
+fun SettingsLabel(label: String, supporting: String? = null, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         if (supporting != null) Text(supporting, style = MaterialTheme.typography.bodySmall,
@@ -121,7 +121,7 @@ internal fun SettingsLabel(label: String, supporting: String? = null, modifier: 
 }
 
 @Composable
-internal fun DeckVisibilitySetting(state: AccountSettingsState) {
+fun DeckVisibilitySetting(state: AccountSettingsState) {
     val current = state.settings?.deckVisibility
     Column(Modifier.fillMaxWidth().selectableGroup().testTag("deck-visibility")) {
         SettingsLabel("Deck visibility", "Default for \"Show deck name & art\" in new games. Each game's setup can still change it.",
@@ -153,7 +153,7 @@ private fun ProblemReportEntry(token: () -> String?) {
 }
 
 @Composable
-internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
+fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val reports = remember { ProblemReportSender(scope) }
     var description by remember { mutableStateOf("") }
@@ -177,7 +177,7 @@ internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
 }
 
 @Composable
-internal fun ProblemReportStatus(state: ProblemReportState) {
+fun ProblemReportStatus(state: ProblemReportState) {
     when (state) {
         ProblemReportState.Idle -> Unit
         ProblemReportState.Sending -> Text("Sending report…", style = MaterialTheme.typography.bodySmall)

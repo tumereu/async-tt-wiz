@@ -13,10 +13,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /** A screen's frame tracking (Android: JankStats on an activity's window): [stop] ends it, [state] labels its frames. */
-internal class JankTracking(val stop: () -> Unit, val state: (String, String) -> Unit)
+class JankTracking(val stop: () -> Unit, val state: (String, String) -> Unit)
 
 /** Only while reports are on ([Diagnostics]). Frame callbacks copy bounded labels; persistence, percentiles and uploads run on IO. */
-internal object DebugJank {
+object DebugJank {
     @Volatile private var token: String? = null
     private var installed = false
     private val discarding = java.util.concurrent.atomic.AtomicBoolean()

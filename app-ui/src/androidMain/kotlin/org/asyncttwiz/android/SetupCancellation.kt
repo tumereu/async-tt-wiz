@@ -4,12 +4,12 @@ import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 
 /** LOB-039; TRN-065 (owner, 2026-11-09): not while an OK on the last result is still owed (both are still at its table). */
-internal fun setupCancellationAllowed(game: GameSummary, actor: String?): Boolean =
+fun setupCancellationAllowed(game: GameSummary, actor: String?): Boolean =
     game.lifecycle == GameLifecycle.LOBBY && game.resultNotice == null && (game.inviter.accountId == actor ||
         (game.recipient.accountId == actor && game.invitationState == InvitationState.ACCEPTED))
 
 /** Personal, captured UI intent only. No lifecycle prediction or outcome-as-state. */
-internal class SetupCancellation {
+class SetupCancellation {
     var context by mutableStateOf<GameSummary?>(null)
         private set
     var confirmation by mutableStateOf<GameSummary?>(null)

@@ -9,7 +9,7 @@ enum class ContactsTab { CONTACTS, SEARCH }
 
 /** LobbyController's contacts: the contacts screen's tab and filter, username search, and adding and
  * removing contacts over HTTP. Main thread; requests run on [worker]. */
-internal class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
+class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     /** Fences a list refresh in flight, so it cannot undo this change. */
     private val fenceRefresh: () -> Unit,

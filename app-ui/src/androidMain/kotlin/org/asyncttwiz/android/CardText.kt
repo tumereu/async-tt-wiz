@@ -40,7 +40,7 @@ import org.asyncttwiz.appui.drawCentredText
  * untap, not Magic artwork, a symbol font, or official symbol shapes. Its text (semantics, tests) stays the printed words with their braces.
  */
 @Composable
-internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
+fun CardText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
     maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified,
     onTextLayout: (androidx.compose.ui.text.TextLayoutResult) -> Unit = {}) {
     val parts = remember(text) { parseCardText(text) }
@@ -62,7 +62,7 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
  * STK-057, owner 2026-11-07); the others in [color]. Its text (semantics, tests) is the pieces' words joined.
  */
 @Composable
-internal fun CardText(pieces: List<Pair<String, Color?>>, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
+fun CardText(pieces: List<Pair<String, Color?>>, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
     maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified) {
     val parsed = remember(pieces) { pieces.map { (text, tint) -> parseCardText(text) to tint } }
     val annotated = remember(parsed) { buildAnnotatedString {
@@ -87,7 +87,7 @@ internal fun CardText(pieces: List<Pair<String, Color?>>, modifier: Modifier = M
  * mirrored on a purple badge, so it can't be taken for {T} (owner gallery review 2026-11-06); the others are letter badges,
  * their letters optically centred: the letters' own outline sits in the middle of the badge (owner gallery review). */
 @Composable
-internal fun CardSymbol(token: String) {
+fun CardSymbol(token: String) {
     val parts = token.split('/')
     val arrow = token == "T" || token == "Q"
     Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
@@ -105,7 +105,7 @@ internal fun CardSymbol(token: String) {
 }
 
 /** The untap symbol's badge (owner gallery review 2026-11-06): purple, unlike {T}'s grey and black mana's. */
-internal val UntapSymbolColor = Color(0xffb79cf2)
+val UntapSymbolColor = Color(0xffb79cf2)
 
 /** A clockwise arrow around the circle's centre: from the left, over the top, its head pointing down at the lower right. */
 private fun DrawScope.turningArrow(radius: Float) {

@@ -90,26 +90,6 @@ internal class LimitedInput(input: InputStream, private val maximum: Long) : Fil
     private fun add(size: Int) { count += size; check(count <= maximum) { "Catalog size limit" } }
 }
 
-enum class CatalogPhase { DOWNLOADING, INDEXING, FINISHING }
-
-/** Downloading and indexing count the compressed file's bytes; finishing counts printings (its card search goes through
- * every one). */
-data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?) {
-    /** How much of the whole installation is done, 0 to 99 ("Card records updating · 43%", section 3.6): the download is
-     * the first [DOWNLOAD_SHARE] percent, indexing up to [FINISHING_FROM], finishing (the card search) the rest to 99. */
-    val percent: Int get() {
-        val fraction = total?.takeIf { it > 0 }?.let { (done.toDouble() / it).coerceIn(0.0, 1.0) } ?: 0.0
-        return when (phase) {
-            CatalogPhase.DOWNLOADING -> (fraction * DOWNLOAD_SHARE).toInt()
-            CatalogPhase.INDEXING -> (DOWNLOAD_SHARE + fraction * (FINISHING_FROM - DOWNLOAD_SHARE)).toInt()
-            CatalogPhase.FINISHING -> (FINISHING_FROM + fraction * (99 - FINISHING_FROM)).toInt()
-        }
-    }
-
-    // After the download, the records and finishing took about as long each on an API 29 emulator (2026-11-10)
-    private companion object { const val DOWNLOAD_SHARE = 20; const val FINISHING_FROM = 60 }
-}
-
 internal class CountingInput(input: InputStream) : FilterInputStream(input) {
     var count: Long = 0
         private set

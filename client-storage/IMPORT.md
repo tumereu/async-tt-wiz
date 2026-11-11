@@ -27,6 +27,6 @@ Logout clears private memory and fences queued callbacks. No authoritative local
 deck or crash-durable outgoing journal is created.
 
 ```sh
-./scripts/gradle.sh :client-storage:testDebugUnitTest --tests '*DeckImportTest' \
+./scripts/gradle.sh :client-storage:testAndroidHostTest --tests '*DeckImportTest' \
   :androidApp:testDebugUnitTest --tests '*DeckImportControllerTest'
 ```

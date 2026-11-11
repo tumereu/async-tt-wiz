@@ -4,20 +4,6 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import org.asyncttwiz.storage.internaldb.ClientDatabase
 
-/** Opaque versioned wire data, not Java serialization or an authoritative local game. */
-data class StoredPayload(val version: Long, val json: String) {
-    init { require(version > 0) }
-}
-
-data class RecordKey(val kind: String, val id: String) {
-    init { require(kind.isNotEmpty() && id.isNotEmpty()) }
-}
-
-data class AcceptedRecord(val key: RecordKey, val payload: StoredPayload)
-data class AcceptedSnapshot(val revision: Long, val records: List<AcceptedRecord>)
-
-enum class StorageOpenFailure { OPEN_FAILED, UNSUPPORTED_VERSION, INVALID_SCHEMA, MIGRATION_FAILED }
-
 sealed interface StorageOpenResult {
     data class Opened(val storage: ClientStorage) : StorageOpenResult
     /** No writable handle escapes. Retain the file for retry/recovery, never delete it. */

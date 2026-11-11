@@ -41,5 +41,5 @@ before real provider use. Debug synthetic artwork uses `atwCatalogTestOrigin` an
 responsible for provider terms and artwork rights.
 
 ```sh
-./scripts/gradle.sh :client-storage:testDebugUnitTest --tests '*Artwork*'
+./scripts/gradle.sh :client-storage:testAndroidHostTest --tests '*Artwork*'
 ```

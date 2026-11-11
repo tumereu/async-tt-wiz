@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.storage.*
 import java.io.File
 
@@ -58,15 +59,15 @@ object ArtworkDecoder {
 /** One public artwork service per process; no account token or Activity is retained.
  * Open only so Robolectric tests can serve placeholder art through [loader] (test PlaceholderArtwork). */
 open class CardArtworkService(context: Context, directory: File = File(context.cacheDir, "public-artwork"),
-    policy: ArtworkUrlPolicy = ArtworkUrlPolicy(BuildConfig.ART_TEST_ORIGIN.takeIf { BuildConfig.DEBUG && it.isNotEmpty() }),
-    apiBase: String = BuildConfig.ART_BASE) : ArtworkService(), ComponentCallbacks2 {
+    policy: ArtworkUrlPolicy = ArtworkUrlPolicy(AppBuild.ART_TEST_ORIGIN.takeIf { AppBuild.DEBUG && it.isNotEmpty() }),
+    apiBase: String = AppBuild.ART_BASE) : ArtworkService(), ComponentCallbacks2 {
     val memoryBudget = minOf(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 8)
     val disk = ArtworkDiskCache(directory)
     private val application = context.applicationContext
     // Only provider API metadata is spaced (also when a debug mirror serves it); image bytes are
     // bounded by the repository's download gate, separately from the decode permits below.
     private val transport = HttpArtworkTransport(policy,
-        "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})",
+        "AsyncTabletopWizards/${AppBuild.VERSION_NAME} (artwork; contact: ${AppBuild.ART_CONTACT.ifEmpty { "not configured" }})",
         throttled = { scryfallApiRequest(it) || it.toString().startsWith(apiBase) })
     private val diagnostics = ArtworkDiagnostics()
     val repository = HttpArtworkRepository(disk, transport, policy, apiBase,

@@ -273,7 +273,7 @@ android {
     // server's card catalog (docs/specs/web-client.md section 3.5).
     sourceSets.getByName("test").kotlin.directories.add("../catalog/src/mtgjson/kotlin")
     // One retained fixture shared with host migration verification; never packaged in the app.
-    sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
+    sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/commonMain/sqldelight/databases")
 }
 
 kotlin {

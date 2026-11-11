@@ -15,7 +15,7 @@ build anything outside the task you were given.
 | Path | What |
 | --- | --- |
 | `core/`, `protocol/` | Kotlin Multiplatform shared model, game commands/state, wire types |
-| `client-storage/` | Android SQLDelight storage, catalog/art download |
+| `client-storage/` | Client storage: shared models and logic, the Android SQLDelight implementation, catalog/art download |
 | `androidApp/` | Compose app (`org.asyncttwiz.android`) |
 | `server/` | Spring Boot server, Flyway migrations, jOOQ |
 | `e2e/` | End-to-end tests: feature flows and every owner-reported app bug (see Rules) |

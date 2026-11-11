@@ -4,8 +4,6 @@ import com.google.gson.JsonParser
 import org.asyncttwiz.protocol.Avatar
 import org.asyncttwiz.protocol.DeckValidation
 
-data class CatalogAvatar(val name: String, val avatar: Avatar)
-
 /** MTGJSON printings with a Scryfall reference can resolve art independently of the catalog. */
 fun CatalogPrinting.avatarChoice(legendaryOnly: Boolean): CatalogAvatar? {
     val id = scryfallId?.takeIf(DeckValidation::uuid) ?: return null

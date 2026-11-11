@@ -42,6 +42,7 @@ import org.asyncttwiz.protocol.CardSearchRules
 import org.asyncttwiz.storage.CardDefinitions
 import org.asyncttwiz.storage.CatalogCard
 import org.asyncttwiz.storage.CatalogCardSearch
+import org.asyncttwiz.storage.namedParts
 
 /**
  * Card names for "choose a card name" (CR 201.4, final cast review #1): every name of a card that contains what the player

@@ -17,15 +17,6 @@ import java.util.logging.Logger
 internal const val CATALOG_INDEX_VERSION = 6
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
-/** A draft set of the card records (DRF-088): [keyrune] its Keyrune set symbol (MTGJSON's keyruneCode, empty without
- * one), [automatum] whether Automatum can play every card its packs can hold, and
- * the names of those it can't ([unsupported], DRF-161), as the card catalog marks them (section 3.8). */
-data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
-    val automatum: Boolean = false, val unsupported: List<String> = emptyList(), val keyrune: String = "")
-
-class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
-class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
-
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
 class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
     init { check(directory.isDirectory || directory.mkdirs()) }

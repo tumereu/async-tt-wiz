@@ -28,9 +28,9 @@ object CatalogSetSources {
         val recipe = catalog.recipe[code]
         val referenced = recipe?.sheets?.values?.flatMap { it.cards.keys }?.toSet().orEmpty()
         val sources = LinkedHashMap<String, CatalogPrintingRecord>()
-        catalog.bySet[code].orEmpty().filter { !it.token }.forEach { sources.putIfAbsent(it.id, it) }
+        catalog.bySet[code].orEmpty().filter { !it.token }.forEach { sources.getOrPut(it.id) { it } }
         recipe?.sourceSetCodes.orEmpty().filter { it != code }.forEach { dependency ->
-            catalog.bySet[dependency].orEmpty().filter { !it.token && it.id in referenced }.forEach { sources.putIfAbsent(it.id, it) }
+            catalog.bySet[dependency].orEmpty().filter { !it.token && it.id in referenced }.forEach { sources.getOrPut(it.id) { it } }
         }
         val definitions = LinkedHashMap<String, SubmittedDefinition>()
         val byPrinting = HashMap<String, SubmittedDefinition>()

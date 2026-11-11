@@ -61,12 +61,6 @@ class ArtworkUrlPolicy(val syntheticOrigin: String? = null,
     }
 }
 
-data class ArtworkResponse(val status: Int, val bytes: ByteArray = byteArrayOf(), val type: String = "", val retryAt: Long = 0)
-
-fun interface ArtworkTransport {
-    fun get(url: String, maximum: Long): ArtworkResponse
-}
-
 /** One installation-wide spacing for provider API (metadata) requests, including their redirects:
  * Scryfall asks for 50-100 ms between api.scryfall.com calls. No bursts. A provider Retry-After
  * cools down every artwork request, throttled or not. */
@@ -83,8 +77,6 @@ class ArtworkThrottle(private val now: () -> Long = System::currentTimeMillis,
     @Synchronized fun cooling() = check(now() >= blocked) { "Artwork provider cooling down" }
     @Synchronized fun retryAfter(until: Long) { blocked = maxOf(blocked, until) }
 }
-
-enum class ArtworkPriority { VISIBLE, PREFETCH }
 
 /** Bounded concurrent artwork downloads. Waiting visible requests are always admitted before
  * waiting prefetch; a prefetch ticket is promoted when a visible request joins its download. */

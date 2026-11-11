@@ -13,19 +13,6 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.GameCards
 import org.asyncttwiz.protocol.CardDefinition as GameCard
 
-/** What the device knows about one game card's rules (docs/specs/arcanum-atw-integration.md I-D2). */
-sealed interface ParsedCard {
-    /** The card parsed: [definition] keeps every ability the parser couldn't read as [Ability.Unparsed] (played by
-     * hand); [manualAbilities] counts them over all faces. */
-    data class Read(val definition: CardDefinition, val manualAbilities: Int) : ParsedCard {
-        val fullyParsed: Boolean get() = manualAbilities == 0
-    }
-
-    /** The card's printed values (type line, mana cost, P/T, faces) couldn't be read, so the whole card stays
-     * manual; [problem] says why. */
-    data class Unreadable(val problem: String) : ParsedCard
-}
-
 /**
  * Arcanum card definitions of a game's cards, parsed on the device with [OracleParser] from the game's own card data
  * (its [SubmittedDefinition]s, I-D2) and cached in [ClientStorage] by definition digest and parser version.

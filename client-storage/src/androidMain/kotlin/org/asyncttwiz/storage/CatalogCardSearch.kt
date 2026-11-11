@@ -10,33 +10,13 @@ import java.io.File
 import java.util.Locale
 
 
-/** One search result: a card (oracle identity) shown with its preferred matching printing; faces front first. */
-data class CatalogCard(val key: String, val name: String, val faces: List<CatalogPrinting>) {
-    val printing: CatalogPrinting get() = faces.first()
-
-    /** Each name a player can choose for this card with its own type line (CR 201.4b-f): a split card's halves, a
-     * double-faced card's sides, an alternative name, each apart from the others. */
-    fun namedParts(): List<CatalogNamedPart> = faces.map { face ->
-        val raw = JsonParser.parseString(face.json).asJsonObject
-        fun field(key: String) = raw.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-        CatalogNamedPart(field("faceName").ifBlank { face.name }, field("type"))
-    }
+/** Each name a player can choose for this card with its own type line (CR 201.4b-f): a split card's halves, a
+ * double-faced card's sides, an alternative name, each apart from the others. */
+fun CatalogCard.namedParts(): List<CatalogNamedPart> = faces.map { face ->
+    val raw = JsonParser.parseString(face.json).asJsonObject
+    fun field(key: String) = raw.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+    CatalogNamedPart(field("faceName").ifBlank { face.name }, field("type"))
 }
-/** A name of a card ([CatalogCard.namedParts]) with the type line of the part that has it. */
-data class CatalogNamedPart(val name: String, val typeLine: String)
-data class CatalogCardCursor(val generation: String, val query: String, val nameKey: String, val key: String)
-
-sealed interface CatalogCardSearch {
-    /** Cards sorted by name. [examined] counts card rows the matcher evaluated for this page (the work done).
-     * A page may hold fewer than the limit and still have [next] when the work budget ran out first. */
-    data class Page(val generation: String, val metadata: CatalogMetadata, val cards: List<CatalogCard>,
-        val next: CatalogCardCursor?, val examined: Int) : CatalogCardSearch
-    /** The query text cannot be searched; [error] says why and where. */
-    data class Invalid(val error: CardSearchError) : CatalogCardSearch
-}
-
-/** Installed card records predate search; the regular catalog update replaces them. */
-class CatalogSearchNotReadyException : IllegalStateException("Card search needs updated card records. Update card records, then retry.")
 
 /** Grouping identity of a printing: Scryfall's oracle id, or the name for records without one. */
 internal fun cardSearchKey(record: CatalogPrinting, json: JsonObject): String =

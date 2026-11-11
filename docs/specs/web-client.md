@@ -45,7 +45,7 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 11. The site is installable as an app (home screen / desktop window).
 12. An open tab left on an old version reloads itself at a safe moment, with a short note.
 13. Once the web client is live, every feature works in both clients before it is released.
-14. Desktop mouse: **left click acts like a tap** (for now); **right-click toggles Inspect**, shown the desktop way:
+14. Desktop mouse: **left click acts like a tap** (for now); **right-click toggles Inspect**, shown the desktop way: **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
     the card with its changes beside it and a close button (desktop has the room), open until right-clicked again,
     closed or Esc. Desktop has no press-and-hold.
 15. Desktop table: phase track in the top row instead of the step button and dialog; a right dock with the full Stack
@@ -58,7 +58,7 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
     by testing.
 20. No phone-browser benchmark before building (round 3): the web client is for desktop; phone web is secondary and gets
     optimised only if people end up playing on it.
-21. Right-click Inspect dims the table behind it, so it reads as a layer on top that scrolls on its own. How a large pile
+21. Right-click Inspect dims the table behind it, so it reads as a layer on top that scrolls on its own. How a large pile **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
     (a creature with many Equipment) looks is tuned by real testing.
 22. Hovering a usable card already shows its chips, faded, and the sources Autotap would tap (ZON-079's amber outlines).
 23. Keyboard shortcuts are rebindable and kept on the player's account.
@@ -197,7 +197,7 @@ server and both phones all read one pinned file.
    desktop when the window is at least 1024 × 600 CSS px and the main pointer is a mouse or trackpad (it can hover);
    otherwise phone. Settings → Table → "Layout": Automatic (default), Phone, Desktop; kept per browser, applied at once.
 2. **Input is judged per pointer, not per layout** (proposal, also to confirm in review): a finger on a touchscreen laptop works as on the phone
-   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover gives a quick look, right-click toggles Inspect).
+   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover gives a quick look, right-click toggles Inspect). **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
 3. The Android app keeps the phone layout; a desktop layout for Android tablets or Chromebooks is out of scope.
 
 ## 5. Desktop: mouse
@@ -206,7 +206,7 @@ server and both phones all read one pinned file.
 | --- | --- |
 | Tap (acts at once, TBL-041) | Left click, also at once |
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
-| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. |
+| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]** |
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
 | A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
 | Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
@@ -273,7 +273,7 @@ action without a key and says so on its row; Esc, Enter and the mouse can't be r
 4. **Lobby screens** (D7): the same screens with the side menu; game rows wider.
 5. **Deck and cube editor** (D8): the list on the left and search on the right (owner), instead of a full-screen
    search page (LOB-106): a click on a result adds a copy to the section chosen at the top of the search pane, a drag
-   drops it into any section, right-click inspects. List cards move by their edge zones (section 5).
+   drops it into any section, right-click inspects. List cards move by their edge zones (section 5). **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
 6. **Draft** (D9): the pick view with the keep/burn trays in a column at the right, and under the pack a
    compact strip of your picks so far (the Build columns at small size, Arena-style); click keeps, right-click burns
    (section 5). Build with edge zones and no one-by-one review; Stats and Games tabs unchanged; more columns by default.
@@ -408,7 +408,7 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 ### Step 5: desktop table
 
 - Layout choice and the Layout setting (section 4); the desktop table: top row with phase track, right dock (Stack list,
-  chat), larger hand, panels as in landscape; mouse (section 5: click = tap, right-click toggles Inspect with changes
+  chat), larger hand, panels as in landscape; mouse (section 5: click = tap, right-click toggles Inspect with changes **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
   over a dimmed table, right-click on controls = hold action, hover quick look, hover chips with Autotap outlines, wheel
   zoom, drags); hotkeys, the "?" sheet and rebinding in Settings, kept on the account (server: a key-bindings field in
   the account settings LOB-113 uses; section 6); card sizes per layout.

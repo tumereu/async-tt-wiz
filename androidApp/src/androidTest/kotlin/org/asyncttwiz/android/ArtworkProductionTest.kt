@@ -94,16 +94,17 @@ class ArtworkProductionTest {
     }
 
     @Test fun actualCatalogFacesCacheDecoderAndPresentationLifecycle() {
-        check(BuildConfig.DEBUG && BuildConfig.ART_TEST_ORIGIN.isNotEmpty())
+        check(BuildConfig.DEBUG && BuildConfig.ART_TEST_ORIGIN.isNotEmpty() && BuildConfig.ACCOUNT_ORIGIN.isNotEmpty())
         assertNotEquals(Looper.getMainLooper(), Looper.myLooper())
         val owned = File(original.noBackupFilesDir, "artwork-test-${UUID.randomUUID()}").apply { check(mkdirs()) }
         val context = object : ContextWrapper(original) {
             override fun getApplicationContext(): Context = this
             override fun getNoBackupFilesDir(): File = owned
         }
-        val source = HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
+        // The server's current card catalog (web-client step 1b), from the debug build's API origin.
+        val source = HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN)
         val catalog = AndroidCatalogStorage.repository(context)
-        val metadata = CatalogInstaller(AndroidCatalogStorage.directory(context), catalog, source).install(source.metadata(), source.size())
+        val metadata = CatalogInstaller(AndroidCatalogStorage.directory(context), catalog, source).install(null)
         // Query ordinary name/printing identities from this synthetic source; no runtime fixture roles.
         val records = catalog.find("Dayglass Loom // Nightglass Weave")
         assertEquals(2, records.size)

@@ -12,7 +12,7 @@ import java.util.UUID
 /** Real provider network/parser/AndroidSqliteDriver in isolated PUBLIC test files, not game/action injection. */
 class CatalogProductionTest {
     @Test fun actualAndroidCatalogInstallQueryAndReopen() {
-        check(BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
+        check(BuildConfig.DEBUG && BuildConfig.ACCOUNT_ORIGIN.isNotEmpty())
         val original = InstrumentationRegistry.getInstrumentation().targetContext
         val owned = File(original.noBackupFilesDir, "catalog-test-${UUID.randomUUID()}").apply { check(mkdirs()) }
         val context = object : ContextWrapper(original) {
@@ -21,9 +21,9 @@ class CatalogProductionTest {
         }
         try {
             val repository = AndroidCatalogStorage.repository(context)
-            val source = HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
-            val metadata = source.metadata()
-            val installed = CatalogInstaller(AndroidCatalogStorage.directory(context), repository, source).install(metadata, source.size())
+            // The server's current card catalog (web-client step 1b), from the debug build's API origin.
+            val source = HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN)
+            val installed = CatalogInstaller(AndroidCatalogStorage.directory(context), repository, source).install(null)
             assertTrue(installed.records > 0)
             assertEquals(installed, AndroidCatalogStorage.repository(context).metadata())
             println("PASS actual Android catalog driver/network install, atomic publication, exact metadata reopen: $installed")

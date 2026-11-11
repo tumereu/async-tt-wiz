@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.kmp.library) apply false
@@ -71,7 +72,9 @@ tasks.register("verifyModuleBoundaries") {
             // I-D54: a game's state is the Arcanum engine's state, so protocol and the server use the engine.
             ":protocol" to setOf(":core", ":arcanum-engine", ":arcanum-parser"),
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser", ":catalog"),
-            ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum"),
+            ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":app-ui"),
+            // The shared Compose UI for Android and the web (docs/specs/web-client.md §1).
+            ":app-ui" to setOf(":core", ":protocol", ":automatum"),
             ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine", ":catalog"),
             // The card catalog: its format and reader, the MTGJSON import, and the build with Automatum's support marks.
             ":catalog" to setOf(":protocol", ":automatum"),

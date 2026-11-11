@@ -303,6 +303,13 @@ if (!fcmEnabled) {
     }
 }
 
+// Compose Multiplatform 1.11 (app-ui, and Coil through it) asks for androidx savedstate 1.4.0, though its Android
+// artifacts carry no code, only pointers to androidx Compose; the app keeps the savedstate its androidx Compose brings
+// (web client step 2: nothing changes on Android). Compile classpaths never had the 1.4.0 request.
+configurations.matching { !it.name.contains("CompileClasspath") }.configureEach {
+    resolutionStrategy.eachDependency { if (requested.group == "androidx.savedstate") useVersion("1.3.3") }
+}
+
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
     implementation(project(":core"))
@@ -310,6 +317,8 @@ dependencies {
     implementation(project(":client-storage"))
     // Arcanum Automatum in ATW (integration spec §3): the engine's view of the board (I1).
     implementation(project(":automatum"))
+    // The shared Compose UI (docs/specs/web-client.md §11 step 2); compose-bom below keeps androidx Compose's versions.
+    implementation(project(":app-ui"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
     implementation(libs.compose.ui)

@@ -84,14 +84,14 @@ object StackAbilityText {
         val instructions = instructions(item.ability)
         val options = instructions?.modes?.options
         val chosen = item.modes.withIndex().mapNotNull { (position, index) ->
-            options?.getOrNull(index)?.takeIf { !it.text.isNullOrBlank() }?.let { position to it }
+            options?.getOrNull(index)?.let { mode -> mode.text?.takeIf { it.isNotBlank() }?.let { Triple(position, mode, it) } }
         }
         if (instructions != null && chosen.isNotEmpty()) {
             val marks = Marks(item)
-            val texts = chosen.map { (position, mode) ->
-                val text = mode.text!!.trim()
+            val texts = chosen.map { (position, mode, modeText) ->
+                val text = modeText.trim()
                 short(marks.mark(text, mode.instructions.targets.mapNotNull { slot ->
-                    slot.span?.takeIf { mode.text == text }?.let { it to slotKey(instructions, item.modes, position, slot.name) } }), source, x)
+                    slot.span?.takeIf { modeText == text }?.let { it to slotKey(instructions, item.modes, position, slot.name) } }), source, x)
             }
             return marks.parts(texts.joinToString("; "))
         }
@@ -230,7 +230,7 @@ object StackAbilityText {
         val bare = REMINDER.replace(t, "").trim()
         val reminder = REMINDER_TEXT.find(t)?.groupValues?.get(1)?.trim()
         val fromReminder = reminder != null && bare.none { it == '.' || it == ':' }
-        t = if (fromReminder) reminder!! else bare
+        t = if (fromReminder && reminder != null) reminder else bare
         if (activated || fromReminder) t.indexOf(':').takeIf { it >= 0 }?.let { t = t.substring(it + 1).trim() }
         if (triggered) t = TRIGGER_WORDS.replace(t, "")
         if (source != null && t.startsWith("$source ")) t = t.removePrefix("$source ")

@@ -124,11 +124,13 @@ object EngineProjection {
         val controllerOf = { obj: GameObject -> view?.get(obj.id)?.controller ?: obj.controller ?: obj.owner }
         // Dungeon cards (CR 309.2): the card data their player brought, found by name, else made from the engine's definition
         for (obj in state.objects.values) {
-            if ((obj.zone != Zone.Outside && obj.zone != Zone.Command) || !isDungeon(obj)) continue
-            val name = obj.definition?.faces?.firstOrNull()?.name
+            // A dungeon has a definition ([isDungeon]).
+            val definition = obj.definition
+            if ((obj.zone != Zone.Outside && obj.zone != Zone.Command) || definition == null || !isDungeon(obj)) continue
+            val name = definition.faces.firstOrNull()?.name
             val digest = base.definitions.firstOrNull { d -> d.definition.name == name &&
                 d.definition.faces.firstOrNull()?.typeLine?.startsWith("Dungeon") == true }?.digest
-                ?: AtwTokens.submitted(obj.definition!!, token = false).also { definitions[it.digest] = it }.digest
+                ?: AtwTokens.submitted(definition, token = false).also { definitions[it.digest] = it }.digest
             cards += PlayCard(id = obj.card.value, definition = digest, owner = obj.owner.value, containerId = stackContainer.id,
                 faceId = faceIdOf(obj, digest), covered = obj.id !in visible, timestamp = obj.timestamp)
         }

@@ -24,6 +24,7 @@ import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatArea
 import org.asyncttwiz.protocol.CombatStackRules
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.TurnPosition
 
@@ -468,12 +469,14 @@ object CombatFlow {
             Engine.attackCosts(s, offered.map { (_, o, ms) -> Attack(o, TargetRef.Player(defender), paying = ms.mapNotNull { it.origin }.distinct()) }, view)
         }
         return offered.associate { (atw, o, ms) ->
-            atw to ms.map { m ->
+            // [offered] keeps only mechanics with an origin.
+            atw to ms.mapNotNull { m ->
+                val origin = m.origin ?: return@mapNotNull null
                 val cost = worked?.let { costs -> costs.firstOrNull { it.creature == o && it.ability.origin == m.origin }?.cost ?: run {
                     AutomatumLog.error(call.gameId, "combat costs", "No optional cost to attack worked out for $atw's ${m.origin}: shown as printed")
                     null
                 } }
-                CombatCostShown(label(call, atw, m, cost), abilityText(s, m.source ?: o, m.origin), m.origin!!.key)
+                CombatCostShown(label(call, atw, m, cost), abilityText(s, m.source ?: o, origin), origin.key)
             }
         }
     }
@@ -637,11 +640,19 @@ object CombatFlow {
         repeat(400) {
             val input: Input = when (val d = s.pending?.decision) {
                 is Decision.Divide -> {
-                    val division = division(s, ids)!!
-                    val wanted = divisions[division.source]?.map { (ref, n) -> Share(ids.target(ref), n) }
-                    val shares = wanted?.takeIf { w -> runCatching { Engine.perform(s, Input.Answer(d.id, Answer.Division(w))) }.isSuccess } ?: d.suggested
-                    asked += division to shares.associate { ids.ref(it.target) to it.amount }
-                    Input.Answer(d.id, Answer.Division(shares))
+                    val division = division(s, ids)
+                    if (division == null) {
+                        // Not a card's division: answered with its suggestion, like another decision on the way.
+                        Faults.report("CombatFlow.preview", "division without a card source", mapOf("game" to call.gameId,
+                            "source" to d.source.toString(), "player" to d.player.value))
+                        assumed = true
+                        Input.Answer(d.id, Answer.Division(d.suggested))
+                    } else {
+                        val wanted = divisions[division.source]?.map { (ref, n) -> Share(ids.target(ref), n) }
+                        val shares = wanted?.takeIf { w -> runCatching { Engine.perform(s, Input.Answer(d.id, Answer.Division(w))) }.isSuccess } ?: d.suggested
+                        asked += division to shares.associate { ids.ref(it.target) to it.amount }
+                        Input.Answer(d.id, Answer.Division(shares))
+                    }
                 }
                 null -> {
                     val holder = s.priority.holder

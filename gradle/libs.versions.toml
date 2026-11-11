@@ -3,6 +3,11 @@ kotlin = "2.4.21"
 agp = "9.3.3"
 serialization = "1.12.0"
 compose-bom = "2026.06.01"
+# Compose Multiplatform (app-ui, docs/specs/web-client.md step 2). On Android its artifacts only point at androidx
+# Compose, at or below compose-bom's versions, so Android keeps the BOM's Compose. Material3 stays at 1.9.0, the last CMP
+# Material3 built on androidx Material3 1.4.0 (the BOM's); the later ones are built on 1.5.0 alphas.
+compose-multiplatform = "1.11.1"
+compose-multiplatform-material3 = "1.9.0"
 activity = "1.13.0"
 androidx-test-runner = "1.7.0"
 androidx-test-junit = "1.3.0"
@@ -41,6 +46,10 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
@@ -83,6 +92,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

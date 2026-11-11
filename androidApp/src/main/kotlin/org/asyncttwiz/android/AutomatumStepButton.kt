@@ -14,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * What the step arrow does (I-D46 d), said MTG Arena-style by its label: the priority holder passes ("Pass" when it isn't
@@ -157,7 +157,7 @@ internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Mo
         onHold = if (endTurn) onHold else chain, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
         gestureKey = step.label to blocked,
         icon = { MainButtonContent(icon = {
-            if (step.swords) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp), tint = LocalContentColor.current)
+            if (step.swords) Icon(AppPlatform.current.swordsOutlined(), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
         }, label = step.label) }, onClick = { if (blocked != null) shakes++ else onClick() })
 }

@@ -1,12 +1,11 @@
 package org.asyncttwiz.android
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.asyncttwiz.appui.postToMainDelayed
 
 /**
  * Runs the work after the milliseconds on the main thread, by its clock, and gives what cancels it. The app's periodic
@@ -15,14 +14,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  */
 typealias MainDelayed = (Long, () -> Unit) -> () -> Unit
 
-private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
-
 /** [MainDelayed] on the main looper's handler. */
-internal val mainLooperDelayed: MainDelayed = { millis, work ->
-    val runnable = Runnable(work)
-    mainHandler.postDelayed(runnable, millis)
-    ({ mainHandler.removeCallbacks(runnable) })
-}
+internal val mainLooperDelayed: MainDelayed = { millis, work -> postToMainDelayed(millis, work) }
 
 /** [work] every [everyMillis] on [delayed]'s clock, the first one interval from now, until the returned closer is called. */
 internal fun repeatEvery(everyMillis: Long, delayed: MainDelayed, work: () -> Unit): () -> Unit {

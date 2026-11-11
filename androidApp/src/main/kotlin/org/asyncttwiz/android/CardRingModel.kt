@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 
 /** Personal layout data; action identifiers are independent of their short visual labels. */
 internal data class CardRingPage(val name: String, val actions: List<String>)

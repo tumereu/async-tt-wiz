@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +39,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.automatum.PrintedCards
 import org.asyncttwiz.protocol.CardSearchRules
-import org.asyncttwiz.storage.AndroidCatalogStorage
 import org.asyncttwiz.storage.CardDefinitions
 import org.asyncttwiz.storage.CatalogCard
 import org.asyncttwiz.storage.CatalogCardSearch
@@ -55,9 +52,9 @@ internal fun interface CardNameSuggestions {
 }
 
 /** The device's card catalog: names containing [text], by name. Nothing while the catalog isn't installed. */
-internal class CatalogCardNames(private val context: Context) : CardNameSuggestions {
+internal class CatalogCardNames(private val services: AppServices) : CardNameSuggestions {
     override fun names(text: String, filter: ObjectFilter): List<String> = searchedNames(text, filter) { query ->
-        (AndroidCatalogStorage.repository(context).searchCards(query, limit = SUGGESTIONS, budget = 20_000) as? CatalogCardSearch.Page)?.cards.orEmpty()
+        (services.catalogRepository().searchCards(query, limit = SUGGESTIONS, budget = 20_000) as? CatalogCardSearch.Page)?.cards.orEmpty()
     }
 }
 
@@ -158,9 +155,9 @@ internal fun gameNames(state: GameState, viewer: String, decision: Decision.Choo
  */
 @Composable
 internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardName) {
-    val context = LocalContext.current
+    val services = AppServices.current
     val viewer = LocalChoiceFrame.current.viewer
-    val source = LocalCardNameSuggestions.current ?: remember(context) { CatalogCardNames(context.applicationContext) }
+    val source = LocalCardNameSuggestions.current ?: remember(services) { CatalogCardNames(services) }
     var text by remember(decision.id) { mutableStateOf("") }
     var chosen by remember(decision.id) { mutableStateOf<String?>(null) }
     var catalog by remember(decision.id) { mutableStateOf(emptyList<String>()) }

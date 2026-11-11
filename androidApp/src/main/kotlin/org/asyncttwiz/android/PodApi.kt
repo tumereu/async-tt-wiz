@@ -10,6 +10,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import java.io.Closeable
 import java.net.URI
+import org.asyncttwiz.appui.AppBuild
 
 class PodFailure(val code: String) : Exception("Pod request failed: $code")
 
@@ -61,7 +62,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     private val authenticationRequired: (String) -> Unit = {}) : Pods {
     init { require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
         it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
-        (it.scheme == "https" || (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
+        (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
     private fun path(id: String, action: String = ""): String {
         if (!DeckValidation.uuid(id)) throw PodFailure("invalid_request")
         return "/v1/pods/$id$action"

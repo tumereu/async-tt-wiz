@@ -1,13 +1,11 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import org.asyncttwiz.appui.AppPlatform
 
 /** Device-local, account-scoped presentation preference; never part of game state. */
-class HistoryPlaybackPreferences(context: Context, accountId: String) {
-    private val preferences = context.applicationContext.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+class HistoryPlaybackPreferences(platform: AppPlatform, accountId: String) {
+    private val preferences = platform.preferences("history-playback")
     internal val key = "pause/$accountId"
     private val rewindKey = "rewind-pause/$accountId"
     private val showPlaysKey = "show-plays/$accountId"
@@ -46,11 +44,9 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         set(value) { preferences.edit().putLong(showPlaysKey, value.coerceIn(0L, MAX_SHOW_PLAYS_MILLIS)).apply() }
 
     fun observe(onChange: () -> Unit): () -> Unit {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+        return preferences.observe { changed ->
             if (changed == null || changed == key || changed == rewindKey || changed == showPlaysKey) onChange()
         }
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
     companion object {
@@ -67,8 +63,8 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
 
 @Composable
 internal fun rememberHistoryPlaybackPreferences(accountId: String): HistoryPlaybackPreferences {
-    val context = LocalContext.current
-    return remember(context, accountId) { HistoryPlaybackPreferences(context, accountId) }
+    val platform = AppPlatform.current
+    return remember(platform, accountId) { HistoryPlaybackPreferences(platform, accountId) }
 }
 
 @Composable

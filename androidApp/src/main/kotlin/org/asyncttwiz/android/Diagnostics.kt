@@ -1,14 +1,14 @@
 package org.asyncttwiz.android
 
-import android.app.Application
-import android.content.Context
-import android.content.SharedPreferences
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.Preferences
 
 /** The player's answer to "Send error reports?", stored on this device (LOB-104). */
 internal enum class ReportChoice { UNASKED, ON, OFF }
 
-internal class ReportChoiceStore(private val preferences: SharedPreferences) {
-    constructor(context: Context) : this(context.applicationContext.getSharedPreferences("diagnostics", Context.MODE_PRIVATE))
+internal class ReportChoiceStore(private val preferences: Preferences) {
+    constructor(platform: AppPlatform) : this(platform.preferences("diagnostics"))
     var choice: ReportChoice
         get() = when (preferences.getString(KEY, null)) { "on" -> ReportChoice.ON; "off" -> ReportChoice.OFF; else -> ReportChoice.UNASKED }
         set(value) { preferences.edit().apply {
@@ -21,25 +21,36 @@ internal class ReportChoiceStore(private val preferences: SharedPreferences) {
  * report; production builds only after the player opts in on this device (LOB-104). */
 internal object Diagnostics {
     /** Test and debug builds: always on, no question asked. */
-    val alwaysOn: Boolean get() = BuildConfig.DIAGNOSTICS
-    @Volatile var enabled: Boolean = BuildConfig.DIAGNOSTICS
+    val alwaysOn: Boolean get() = AppBuild.DIAGNOSTICS
+    @Volatile var enabled: Boolean = AppBuild.DIAGNOSTICS
         private set
+    /** What recording reports needs from the platform, from [start]. */
+    private var hooks: ReportHooks? = null
 
     fun enabledFor(alwaysOn: Boolean, choice: ReportChoice) = alwaysOn || choice == ReportChoice.ON
 
-    fun start(application: Application) {
-        enabled = enabledFor(alwaysOn, ReportChoiceStore(application).choice)
-        if (enabled) DebugCrashes.install(application)
+    fun start(hooks: ReportHooks) {
+        this.hooks = hooks
+        enabled = enabledFor(alwaysOn, ReportChoiceStore(AppPlatform.current).choice)
+        if (enabled) DebugCrashes.install(hooks)
     }
 
     /** Takes effect at once: turning on starts recording; turning off stops it and deletes reports not yet sent. */
-    fun choose(context: Context, on: Boolean) {
-        ReportChoiceStore(context).choice = if (on) ReportChoice.ON else ReportChoice.OFF
-        val now = enabledFor(alwaysOn, ReportChoiceStore(context).choice)
+    fun choose(on: Boolean) {
+        ReportChoiceStore(AppPlatform.current).choice = if (on) ReportChoice.ON else ReportChoice.OFF
+        val now = enabledFor(alwaysOn, ReportChoiceStore(AppPlatform.current).choice)
         enabled = now
-        val application = context.applicationContext as? Application
-        if (now) application?.let(DebugCrashes::install) else DebugCrashes.discard()
+        if (now) hooks?.let(DebugCrashes::install) else DebugCrashes.discard()
     }
+}
+
+/** What recording reports needs from the platform (Android: [AndroidReportHooks], from the Application). */
+internal interface ReportHooks {
+    /** Where reports wait to be sent. */
+    val directory: java.io.File
+    /** Starts the platform's own watchers once reports are recorded: [DebugLatency.appBackgrounded] when the app goes to
+     * the background, and the screens' frames for [DebugJank] ([DebugJank.track], [DebugJank.frame]). */
+    fun start()
 }
 
 /** Asked once, on the main menu or the Games list after sign-in: never over a game, pod or another prompt. */

@@ -27,9 +27,15 @@ import androidx.compose.material3.TextButton
 import org.asyncttwiz.protocol.DeckValidation
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.storage.StorageOpenFailure
+import org.asyncttwiz.appui.AppPlatform
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    /** Makes the app's [AuthViewModel] on the platform's services. */
+    private val authFactory = object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = AuthViewModel(AppServices.current) as T
+    }
     private val updates get() = ViewModelProvider(this)[AppUpdateViewModel::class.java]
     // ComponentActivity result APIs; the old Fragment that Firebase pulls in transitively is never used here.
     @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
@@ -55,7 +61,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (failure: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed(failure) }
     }
-    internal fun gameInput() = ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.input()
+    internal fun gameInput() = ViewModelProvider(this, authFactory)[AuthViewModel::class.java].heartbeat.input()
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
         gameInput()
         return super.dispatchTouchEvent(event)
@@ -82,7 +88,7 @@ class MainActivity : ComponentActivity() {
         val link = intent.dataString
         // Retain only the parsed volatile controller secret, never the raw URI/extras in Activity state.
         setIntent(android.content.Intent(android.content.Intent.ACTION_MAIN).setClass(this, MainActivity::class.java))
-        ViewModelProvider(this)[AuthViewModel::class.java].reset.open(link)
+        ViewModelProvider(this, authFactory)[AuthViewModel::class.java].reset.open(link)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -123,8 +129,8 @@ class MainActivity : ComponentActivity() {
         fullscreen()
         updates.foreground()
         updates.resumePermission(packageManager.canRequestPackageInstalls())
-        ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
-        val auth = ViewModelProvider(this)[AuthViewModel::class.java]
+        ViewModelProvider(this, authFactory)[AuthViewModel::class.java].catalog.foreground()
+        val auth = ViewModelProvider(this, authFactory)[AuthViewModel::class.java]
         auth.controller.foreground()
         // AuthViewModel owns socket/reconnect maintenance across configuration changes.
         // Resume only nudges that owner; it must never create a UI-owned connection.
@@ -135,9 +141,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         resumed = false
-        ViewModelProvider(this)[AuthViewModel::class.java].lobby.background()
+        ViewModelProvider(this, authFactory)[AuthViewModel::class.java].lobby.background()
         AndroidActivityDelivery.get(this).display(ActivityScreen.NONE, false)
-        ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.display(null, null)
+        ViewModelProvider(this, authFactory)[AuthViewModel::class.java].heartbeat.display(null, null)
         super.onPause()
     }
 
@@ -150,7 +156,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
-        val auth = ViewModelProvider(this)[AuthViewModel::class.java]
+        val auth = ViewModelProvider(this, authFactory)[AuthViewModel::class.java]
         val catalog = auth.catalog
         consumeActivityIntent(intent)
         consumeResetIntent(intent)
@@ -192,7 +198,7 @@ class MainActivity : ComponentActivity() {
                 }
                 // Prompts wait while the card records install (section 3.6), not after a failure
                 val catalogBlocked = !catalog.state.ready && !catalog.state.failed
-                val releaseNotes = remember { ReleaseNotePreferences(this@MainActivity) }
+                val releaseNotes = remember { ReleaseNotePreferences(AppPlatform.current) }
                 var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
                 // From the first frame (even over sign-in); catalog and permission prompts wait for it instead.
                 if (ReleaseNotes.showDialog(whatsNew, notificationRoute != null, activityScreen))
@@ -203,7 +209,7 @@ class MainActivity : ComponentActivity() {
                 val alertsPrompt = whatsNew.isEmpty() && ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
                     state.destination, auth.lobby.state.selected, asked, catalogBlocked,
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
-                val reportChoices = remember { ReportChoiceStore(this@MainActivity) }
+                val reportChoices = remember { ReportChoiceStore(AppPlatform.current) }
                 var reportChoice by remember { mutableStateOf(reportChoices.choice) }
                 if (alertsPrompt) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
@@ -216,7 +222,7 @@ class MainActivity : ComponentActivity() {
                 } else if (ReportPrompt.shouldPrompt(Diagnostics.alwaysOn, reportChoice, state.account != null, state.destination,
                         auth.lobby.state.selected, whatsNew.isNotEmpty() || catalogBlocked || notificationRoute != null)) {
                     // LOB-104: asked once; closing the dialog counts as "No thanks".
-                    ReportsPromptDialog { on -> Diagnostics.choose(this@MainActivity, on); reportChoice = reportChoices.choice }
+                    ReportsPromptDialog { on -> Diagnostics.choose(on); reportChoice = reportChoices.choice }
                 }
                 // Always attached: reports can be turned on at any time; drawn() records only while they are on.
                 Surface(Modifier.fillMaxSize().drawWithContent {

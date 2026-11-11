@@ -1,11 +1,12 @@
 package org.asyncttwiz.android
 
-import android.app.Application
-import android.os.Build
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.deviceModel
+import org.asyncttwiz.appui.osVersion
 import java.io.File
 import java.io.FileOutputStream
 import java.time.Instant
@@ -99,23 +100,6 @@ internal class CrashExceptionHandler(private val store: CrashReportStore,
     }
 }
 
-/** Open only for Robolectric's TestTabletopApplication (test sources). */
-open class TabletopApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        AppLog.install(File(filesDir, "app-log.txt"))
-        val previous = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, failure ->
-            // Logging must never replace Android's crash handling.
-            try { AppLog.error("crash", "Uncaught exception on thread ${thread.name}", failure) } catch (_: Throwable) {
-            } finally { previous?.uncaughtException(thread, failure) }
-        }
-        AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
-        AutomatumReports.install()
-        Diagnostics.start(this)
-    }
-}
-
 /** Process lifetime, not Activity lifetime: rotations or repeated sign-ins cannot retry a batch. */
 internal object DebugCrashes {
     private var store: CrashReportStore? = null
@@ -127,18 +111,19 @@ internal object DebugCrashes {
      * that doesn't hold the account (the table's Send problem report). */
     fun sessionToken(): String? = token
 
-    @Synchronized fun install(application: Application) {
+    @Synchronized fun install(hooks: ReportHooks) {
         if (!Diagnostics.enabled || store != null) return
-        val reports = CrashReportStore(File(application.filesDir, "debug-crashes"))
+        val reports = CrashReportStore(hooks.directory)
         store = reports
         pending = reports.pending()
-        val version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.BUILD_TYPE}; commit ${BuildConfig.GIT_COMMIT}"
-        val device = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+        val version = "${AppBuild.VERSION_NAME} (${AppBuild.VERSION_CODE}) ${AppBuild.BUILD_TYPE}; commit ${AppBuild.GIT_COMMIT}"
+        val device = "${deviceModel()}; ${osVersion()}"
         Thread.setDefaultUncaughtExceptionHandler(CrashExceptionHandler(reports,
             Thread.getDefaultUncaughtExceptionHandler(), version, device, enabled = { Diagnostics.enabled },
             automatum = { AutomatumReports.text() }))
-        DebugLatency.install(application, reports, version, device)
-        DebugJank.install(application, reports, version, device)
+        DebugLatency.install(reports, version, device)
+        DebugJank.install(reports, version, device)
+        hooks.start()
         // Opting in after sign-in: start with the session the app already has.
         token?.let(::authenticated)
     }
@@ -162,7 +147,7 @@ internal object DebugCrashes {
         if (files.isEmpty()) return
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api -> reports.upload(files) { api.uploadCrashReport(token, it) } }
+                AccountApi(AppBuild.ACCOUNT_ORIGIN).use { api -> reports.upload(files) { api.uploadCrashReport(token, it) } }
             } catch (_: Exception) { /* No UI, logs, or immediate retry. */ }
         }
     }

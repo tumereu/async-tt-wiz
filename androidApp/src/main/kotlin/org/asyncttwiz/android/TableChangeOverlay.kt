@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.graphics.Paint
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -17,10 +16,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.NativeTextPaint
+import org.asyncttwiz.appui.drawNativeText
 
 internal val LocalTableChanges = staticCompositionLocalOf<TableChanges?> { null }
 
@@ -101,7 +101,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
     appearance: CardAppearance, item: (String) -> TableItem?, tagsOnly: Boolean) {
         val key = active.change.key
         if (key.kind == TableChangeKind.FACE) return // Existing scene flip owns the transform.
-        val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true } }
+        val paint = remember { NativeTextPaint().apply { isFakeBoldText = true } }
         Canvas(Modifier.fillMaxSize()) {
             val t = progress.value
             val fade = (1f - t).coerceIn(0f, 1f)
@@ -156,7 +156,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                  // Keep the anchor attached to the value when the card is tapped, but the tag upright.
                  paint.textSize = maxOf(11.sp.toPx(), if (card) 7f * z * valueScale * density else 0f)
                  val width = paint.measureText(active.tag) / density + 10f
-                 val height = (paint.fontMetrics.bottom - paint.fontMetrics.top) / density + 4f
+                 val height = (paint.fontMetrics().bottom - paint.fontMetrics().top) / density + 4f
                  val radians = Math.toRadians(transform.rotation.toDouble())
                  val dx = slot.right - b.center.x
                  val dy = (if (key.kind == TableChangeKind.CORNER) slot.bottom else slot.center.y) - b.center.y
@@ -177,8 +177,8 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                  drawRoundRect(fill.copy(alpha = alpha), point(TablePoint(tag.x, tag.y)),
                      Size(tag.width * density, tag.height * density), CornerRadius(height * density / 2))
                  paint.color = tableChangeTagInk(fill).toArgb(); paint.alpha = (alpha * 255).toInt()
-                 drawContext.canvas.nativeCanvas.drawText(active.tag, (x + 5f) * density,
-                    (y + height / 2) * density - (paint.fontMetrics.top + paint.fontMetrics.bottom) / 2, paint)
+                 drawNativeText(active.tag, (x + 5f) * density,
+                    (y + height / 2) * density - (paint.fontMetrics().top + paint.fontMetrics().bottom) / 2, paint)
             }
         }
 }

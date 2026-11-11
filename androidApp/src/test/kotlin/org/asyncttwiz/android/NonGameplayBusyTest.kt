@@ -54,7 +54,7 @@ class NonGameplayBusyTest {
     @Test fun whileCardRecordsInstallTheirControlsAreGreyedWithTheLine() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.GAMES))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
         catalog.seed(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)))
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, lobby = fixtures.lobby) } }
         compose.onNodeWithText("Card records updating · 40%").assertIsDisplayed()

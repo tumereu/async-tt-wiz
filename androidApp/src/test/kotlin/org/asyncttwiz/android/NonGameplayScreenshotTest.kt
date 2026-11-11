@@ -94,7 +94,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 "records-downloading" -> CatalogProgress(CatalogPhase.DOWNLOADING, 5_000_000, 13_000_000)
                 else -> null
             }
-            CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
+            CatalogViewModel(AppServices.current.catalogController()).also {
                 viewModels.put("catalog", it)
                 it.seed(CatalogUiState(progress = progress, failed = screen == "records-failed"))
             }

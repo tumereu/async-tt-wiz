@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.drawCentredText
 
 internal val ArrowColor = Color(0xff5f7a87)
 internal val FightsColor = Color(0xffe8890c)
@@ -502,7 +504,7 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
         },
         verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.width((CombatStackPresentation.CHIP_SIDE * zoom).dp))
-        Icon(androidx.compose.ui.res.painterResource(R.drawable.swords_outlined), null,
+        Icon(AppPlatform.current.swordsOutlined(), null,
             Modifier.size((CombatStackPresentation.CHIP_ICON * zoom).dp), tint = if (active) Color.White else tint)
         Spacer(Modifier.width((CombatStackPresentation.CHIP_GAP * zoom).dp))
         val avatar = (CombatStackPresentation.CHIP_AVATAR * zoom).dp

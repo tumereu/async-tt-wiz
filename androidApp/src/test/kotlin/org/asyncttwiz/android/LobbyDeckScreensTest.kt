@@ -180,7 +180,7 @@ class LobbyDeckScreensTest {
 
     private fun assertCatalogRecovery(landscape: Boolean) {
         val models = ViewModelStore()
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { models.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { models.put("catalog", it) }
         val metadata = CatalogMetadata("2026-10-26", "test")
         catalog.seed(CatalogUiState())
         val worker = Worker()

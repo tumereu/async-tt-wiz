@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.request
@@ -23,6 +22,8 @@ import org.asyncttwiz.protocol.ResetPassword
 import org.asyncttwiz.protocol.CheckPasswordResetLink
 import java.io.Closeable
 import java.net.URI
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.platformHttpClient
 
 /** Fixed, local error vocabulary. Never display a response body/exception or log credentials. */
 class AccountFailure(val code: String, val field: String? = null) : Exception("Account request failed")
@@ -47,7 +48,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
                 it.rawPath.isNullOrEmpty() && (it.scheme == "https" ||
-                    (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
+                    (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
         })
     }
 
@@ -149,7 +150,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override fun close() = client.close()
 
     companion object {
-        fun client(requestTimeout: Long = 20_000) = HttpClient(Android) {
+        fun client(requestTimeout: Long = 20_000) = platformHttpClient {
             followRedirects = false // Never forward credentials to another origin.
             expectSuccess = false
             install(HttpTimeout) { requestTimeoutMillis = requestTimeout; connectTimeoutMillis = 8_000; socketTimeoutMillis = 15_000 }

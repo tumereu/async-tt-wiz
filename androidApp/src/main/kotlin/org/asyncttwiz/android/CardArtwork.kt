@@ -1,13 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.ComponentCallbacks2
-import android.content.Context
-import android.content.res.Configuration
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -23,36 +15,23 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
 import coil3.ImageLoader
-import coil3.asImage
+import coil3.PlatformContext
+import coil3.compose.LocalPlatformContext
 import coil3.compose.asPainter
-import coil3.decode.DataSource
-import coil3.fetch.Fetcher
-import coil3.fetch.ImageFetchResult
-import coil3.key.Keyer
-import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import org.asyncttwiz.storage.*
-import java.io.File
 
 /** Explicit decode target participates in the key: a small thumbnail cannot substitute for inspection.
  * Priority only orders downloads; a prefetched decode is the same memory-cache entry. */
@@ -62,151 +41,28 @@ data class CardArtworkRequest(val reference: ArtworkReference, val width: Int, v
     val key get() = "${reference.key}|${width}x$height"
 }
 
-object ArtworkDecoder {
-    fun bounds(bytes: ByteArray): Pair<Int, Int>? {
-        if (bytes.size > HttpArtworkRepository.MAX_IMAGE) return null
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-        val width = options.outWidth; val height = options.outHeight
-        return if (width in 1..4096 && height in 1..4096 && width.toLong() * height <= 16_000_000)
-            width to height else null
-    }
-    fun decode(bytes: ByteArray, width: Int, height: Int, memoryBudget: Long): Bitmap? {
-        val (sourceWidth, sourceHeight) = bounds(bytes) ?: return null
-        var sample = 1
-        // Decode at scene resolution, and never allocate a bitmap larger than the cache budget.
-        while ((sourceWidth / (sample * 2) >= width && sourceHeight / (sample * 2) >= height) ||
-            ((sourceWidth.toLong() / sample) * (sourceHeight / sample) * 4 > memoryBudget)) sample *= 2
-        val options = BitmapFactory.Options().apply { inSampleSize = sample; inPreferredConfig = Bitmap.Config.ARGB_8888 }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.takeIf { it.allocationByteCount <= memoryBudget }
-    }
-}
-
-/** One public artwork service per process; no account token or Activity is retained.
- * Open only so Robolectric tests can serve placeholder art through [loader] (test PlaceholderArtwork). */
-open class CardArtworkService(context: Context, directory: File = File(context.cacheDir, "public-artwork"),
-    policy: ArtworkUrlPolicy = ArtworkUrlPolicy(BuildConfig.ART_TEST_ORIGIN.takeIf { BuildConfig.DEBUG && it.isNotEmpty() }),
-    apiBase: String = BuildConfig.ART_BASE) : AutoCloseable, ComponentCallbacks2 {
-    val memoryBudget = minOf(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 8)
-    val disk = ArtworkDiskCache(directory)
-    private val application = context.applicationContext
-    // Only provider API metadata is spaced (also when a debug mirror serves it); image bytes are
-    // bounded by the repository's download gate, separately from the decode permits below.
-    private val transport = HttpArtworkTransport(policy,
-        "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})",
-        throttled = { scryfallApiRequest(it) || it.toString().startsWith(apiBase) })
-    private val diagnostics = ArtworkDiagnostics()
-    val repository = HttpArtworkRepository(disk, transport, policy, apiBase,
-        imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null }, gate = ArtworkGate(DOWNLOADS), log = diagnostics)
-    private val failed = MutableStateFlow<Set<String>>(emptySet())
+/** The process's artwork service as the UI uses it (Android: [CardArtworkService]): pictures through [loader], downloads
+ * ahead through [prefetch]. */
+abstract class ArtworkService : AutoCloseable {
+    abstract val loader: ImageLoader
     /** Reference keys whose latest attempt failed; their own loads keep retrying in the background. */
-    val unavailable: StateFlow<Set<String>> = failed
-    private fun attempted(reference: ArtworkReference, loaded: Boolean) = failed.update { keys ->
-        when {
-            loaded -> if (reference.key in keys) keys - reference.key else keys
-            reference.key in keys -> keys
-            keys.size >= 1024 -> setOf(reference.key)
-            else -> keys + reference.key
-        }
-    }
-    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    abstract val unavailable: StateFlow<Set<String>>
     /** Downloads (no decode) into the disk cache at prefetch priority, one attempt per reference. */
-    internal val prefetch = ArtworkPrefetchQueue(background) { reference ->
-        val bytes = runInterruptible { repository.load(reference, ArtworkPriority.PREFETCH) }
-        currentCoroutineContext().ensureActive()
-        attempted(reference, bytes != null)
-        bytes != null
-    }
-    private val connectivity = application.getSystemService(ConnectivityManager::class.java)
-    private val connection = MutableStateFlow(0L)
-    private var online = false
-    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            val available = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            if (available && !online) wake("network back")
-            online = available
-        }
-        override fun onLost(network: Network) { online = false }
-        // A background app's network can be cut off while the device itself stays online.
-        override fun onBlockedStatusChanged(network: Network, blocked: Boolean) { if (!blocked) wake("network allowed again") }
-    }
-
-    /** Waiting artwork retries run now, over fresh connections: after the app's network was cut
-     * off (app in background, network change) pooled connections can be dead. Callers include
-     * onResume, so the work runs off the main thread (closing a connection writes to the network). */
-    fun wake(reason: String) {
-        background.launch {
-            transport.evictConnections()
-            repository.connectivityRestored()
-            connection.value += 1
-            diagnostics.woke(reason)
-        }
-    }
-    private val decodes = Semaphore(2)
-    open val loader: ImageLoader = ImageLoader.Builder(application)
-        .memoryCache { MemoryCache.Builder().maxSizeBytes(memoryBudget).weakReferencesEnabled(false).build() }
-        .diskCache(null) // Our encoded cache owns the kept pictures and the retry windows.
-        .components {
-            add(Keyer<CardArtworkRequest> { data, _ -> data.key })
-            add(Fetcher.Factory<CardArtworkRequest> { data, _, _ -> Fetcher {
-                val retry = ArtworkRetrySchedule(connectivityGeneration = { connection.value })
-                var image: Bitmap? = null
-                while (image == null) {
-                    currentCoroutineContext().ensureActive()
-                    // Network waits never hold a decode permit.
-                    val bytes = withContext(Dispatchers.IO) { runInterruptible { repository.load(data.reference, data.priority) } }
-                    currentCoroutineContext().ensureActive()
-                    image = bytes?.let { decodes.withPermit { withContext(Dispatchers.IO) {
-                        ArtworkDecoder.decode(it, data.width, data.height, memoryBudget).also { bitmap ->
-                            if (bitmap == null) repository.rejectDecoded(data.reference)
-                            else repository.decoded(data.reference)
-                        }
-                    } } }
-                    currentCoroutineContext().ensureActive()
-                    attempted(data.reference, image != null)
-                    if (image == null) {
-                        retry.failed()
-                        val generation = connection.value
-                        val wait = retry.remainingMillis()
-                        if (wait > 0) withTimeoutOrNull(wait) { connection.first { it != generation } }
-                    }
-                }
-                currentCoroutineContext().ensureActive()
-                ImageFetchResult(image.asImage(), true, DataSource.DISK)
-            } })
-        }.build()
-    init {
-        application.registerComponentCallbacks(this)
-        connectivity.registerDefaultNetworkCallback(networkCallback)
-        background.launch { while (true) { delay(ArtworkDiagnostics.WINDOW); diagnostics.roll() } }
-    }
-    override fun onConfigurationChanged(newConfig: Configuration) = Unit
-    override fun onLowMemory() { loader.memoryCache?.clear() }
-    override fun onTrimMemory(level: Int) {
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) loader.memoryCache?.clear()
-        else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) loader.memoryCache?.trimToSize(memoryBudget / 2)
-    }
-    override fun close() {
-        background.cancel()
-        connectivity.unregisterNetworkCallback(networkCallback)
-        application.unregisterComponentCallbacks(this)
-        loader.shutdown()
-        transport.close()
-    }
-    companion object {
-        /** Concurrent image/metadata downloads; Scryfall's CDN is unthrottled, its API is spaced. */
-        const val DOWNLOADS = 6
-    }
+    internal abstract val prefetch: ArtworkPrefetchQueue
+    /** Waiting artwork retries run now, over fresh connections. */
+    abstract fun wake(reason: String)
 }
 
-internal class ArtworkServiceProvider {
-    @Volatile private var service: CardArtworkService? = null
-    fun current(): CardArtworkService? = service
+/** [create]: a new service with its files where the context keeps them (the platform's, [AppServices.artworkService]). */
+internal class ArtworkServiceProvider(
+    private val create: (PlatformContext) -> ArtworkService = { AppServices.current.artworkService(it) }) {
+    @Volatile private var service: ArtworkService? = null
+    fun current(): ArtworkService? = service
     // Construction scans, repairs and trims the disk cache. Publish only the fully ready service;
     // even a caller waiting for the first request must never acquire this lock on the UI thread.
-    suspend fun get(context: Context): CardArtworkService = service ?: withContext(Dispatchers.IO) {
+    suspend fun get(context: PlatformContext): ArtworkService = service ?: withContext(Dispatchers.IO) {
         synchronized(this@ArtworkServiceProvider) {
-            service ?: CardArtworkService(context.applicationContext).also { service = it }
+            service ?: create(context).also { service = it }
         }
     }
 }
@@ -215,17 +71,17 @@ object PublicArtwork {
     private val provider = ArtworkServiceProvider()
     private val starting = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val wanted = HashMap<String, List<ArtworkReference>>()
-    suspend fun get(context: Context): CardArtworkService = provider.get(context)
-    internal fun current(): CardArtworkService? = provider.current()
+    suspend fun get(context: PlatformContext): ArtworkService = provider.get(context)
+    internal fun current(): ArtworkService? = provider.current()
 
     /** Non-blocking: replaces the batch [tag] in the process-wide background queue. */
-    internal fun prefetch(context: Context, tag: String, references: List<ArtworkReference>) {
+    internal fun prefetch(context: PlatformContext, tag: String, references: List<ArtworkReference>) {
         val ready = synchronized(this) {
             current()?.also { wanted.remove(tag); it.prefetch.submit(tag, references) }
                 ?: run { wanted[tag] = references; null }
         }
         if (ready == null) starting.launch {
-            val service = get(context.applicationContext)
+            val service = get(context)
             synchronized(this@PublicArtwork) { wanted.remove(tag)?.let { service.prefetch.submit(tag, it) } }
         }
     }
@@ -253,9 +109,9 @@ internal fun ArtworkViewport(modifier: Modifier = Modifier, scroll: ScrollState 
  * cannot display a late previous face. No HTML, name guessing, retries per frame or saved secrets. */
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
-    modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false,
+    modifier: Modifier = Modifier, service: ArtworkService? = null, crop: Boolean = false,
     placeholder: (@Composable () -> Unit)? = null, previewReference: ArtworkReference? = null, degrees: Int = 0) {
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     // A quarter-turned image is printed upright: decode it at the box's swapped size.
     val quarter = degrees % 180 != 0
     val decodeWidth = if (quarter) height else width

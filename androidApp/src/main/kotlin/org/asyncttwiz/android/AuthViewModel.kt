@@ -1,36 +1,42 @@
 package org.asyncttwiz.android
 
-import android.app.Application
-import android.os.Handler
-import android.os.Looper
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.CreationExtras
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.postToMain
 import org.asyncttwiz.storage.DeckImportResolver
 import java.util.concurrent.Executors
+import kotlin.reflect.KClass
 
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val main = Handler(Looper.getMainLooper())
+/** The app's controllers for the signed-in shell, kept across configuration changes; [services]: the platform's. */
+class AuthViewModel internal constructor(services: AppServices) : ViewModel() {
     private val catalogStore = ViewModelStore()
-    val catalog = ViewModelProvider(catalogStore, ViewModelProvider.AndroidViewModelFactory(application))[CatalogViewModel::class.java]
+    val catalog = ViewModelProvider.create(catalogStore, object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T =
+            CatalogViewModel(services.catalogController()) as T
+    })[CatalogViewModel::class]
     /** Saved decks' and cubes' cards come from the phone's card records by printing (owner 2026-11-10). */
     private val cardRecords = SavedCardRecords { ids -> SavedCardFaces(catalog.repository.cards(ids), catalog.repository.metadata()) }
     val deckImport = DeckImportController(DeckImportResolver(catalog.repository)::resolve,
-        Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } }).apply {
+        Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> postToMain(action) }).apply {
         connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
-        acceptedDefinitions = { deck, definitions -> prefetchDeckArtwork(application, deck, definitions) }
+        acceptedDefinitions = { deck, definitions -> prefetchDeckArtwork(services.artworkContext, deck, definitions) }
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
         search.cardData = { this@AuthViewModel.catalog.repository.searchData(it) }
     }
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
-    private val local = AndroidAccountLocalData(application).also { local ->
+    private val local = services.accountLocalData().also { local ->
         AutomatumBoards.definitionSource = local::cardDefinitions
     }
     /** LOB-115: which cards of a deck or cube Automatum can't play yet, from the card catalog's marks (section 3.8). */
     internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, catalog.repository::unsupported)
     /** Section 3.9: the warning sign on cards Automatum can't play yet. */
     internal val cardMarks = CardMarks(catalog.repository::unsupportedPictures)
-    val activity = AndroidActivityDelivery.get(application)
+    val activity = services.activityDelivery
     fun openActivity(route: ActivityRoute) {
         val heldInPod = route.heldInPod
         if (heldInPod != null) {
@@ -61,31 +67,31 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         activity.rejected(token)
         controller.authenticationRequired(token)
     }
-    val controller = AuthController(AccountApi(BuildConfig.ACCOUNT_ORIGIN),
-        ProtectedSessionStore(application, BuildConfig.ACCOUNT_ORIGIN),
+    val controller = AuthController(AccountApi(AppBuild.ACCOUNT_ORIGIN),
+        services.sessionStore(),
         Executors.newSingleThreadExecutor { Thread(it, "account-entry") },
         local = local,
-        accountSwitcher = BuildConfig.ACCOUNT_SWITCHER,
+        accountSwitcher = AppBuild.ACCOUNT_SWITCHER,
         revoke = { token -> revocations.execute {
             runCatching { kotlinx.coroutines.runBlocking {
-                AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { it.revoke(token) }
+                AccountApi(AppBuild.ACCOUNT_ORIGIN).use { it.revoke(token) }
             } }
         } },
-        post = { action -> main.post { action() } }, clearPrivateWork = ::clearDeckWork)
+        post = { action -> postToMain(action) }, clearPrivateWork = ::clearDeckWork)
 
-    val decks = DeckLibraryController(DeckApi(BuildConfig.ACCOUNT_ORIGIN,
+    val decks = DeckLibraryController(DeckApi(AppBuild.ACCOUNT_ORIGIN,
         authenticationRequired = ::authenticationRequired), controller::sessionToken,
-        Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> main.post { action() } })
+        Executors.newSingleThreadExecutor { Thread(it, "saved-decks") }, { action -> postToMain(action) })
     private val cubeResolver = org.asyncttwiz.storage.CubeImportResolver(catalog.repository)
-    val cubes = CubeController(DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+    val cubes = CubeController(DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, cubeResolver::resolve, cubeResolver::resolve,
-        Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } }).apply {
+        Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> postToMain(action) }).apply {
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
         search.cardData = { this@AuthViewModel.catalog.repository.searchData(it) }
     }
-    val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
-        DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
-        Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } },
+    val pods = PodController(PodApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+        DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
+        Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> postToMain(action) },
         marksScheduler = Executors.newSingleThreadScheduledExecutor { Thread(it, "pod-marks").apply { isDaemon = true } }.let { marks ->
             PodMarksScheduler { delay, task ->
                 val scheduled = marks.schedule(Runnable(task), delay, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -94,19 +100,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         }, setRepository = StoredPodSets { catalog.repository },
         chatWorker = Executors.newSingleThreadExecutor { Thread(it, "pod-chat") })
-    private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
-    val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+    private val saveApi = DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
+    val lobby = LobbyController(LobbyApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
-        { action -> main.post { action() } }, openGame = { controller.push(ShellDestination.GAMES) },
-        gameConnection = SocketGameConnection(BuildConfig.ACCOUNT_ORIGIN), accountId = { controller.state.account?.accountId },
+        { action -> postToMain(action) }, openGame = { controller.push(ShellDestination.GAMES) },
+        gameConnection = SocketGameConnection(AppBuild.ACCOUNT_ORIGIN), accountId = { controller.state.account?.accountId },
         authenticationRequired = ::authenticationRequired,
-        installationId = application.getSharedPreferences("installation", 0).let { preferences ->
+        installationId = AppPlatform.current.preferences("installation").let { preferences ->
             preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().also {
                 preferences.edit().putString("id", it).apply()
             }
-        }, deckApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+        }, deckApi = DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         activityTarget = { token, route ->
-            try { ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.target(token, route) } }
+            try { ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.target(token, route) } }
             catch (failure: ActivityFetchFailure) {
                 if (failure.status == 401) authenticationRequired(token)
                 throw failure
@@ -120,7 +126,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         if (controller.state.account != null) {
             lobby.sync()
         }
-    }, main, lobby::tick)
+    }, mainLooperDelayed, lobby::tick)
 
     init {
         deckImport.cardRecords = cardRecords; decks.cardRecords = cardRecords; cubes.cardRecords = cardRecords
@@ -129,7 +135,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         activity.authenticationRequired = ::authenticationRequired
         activity.activityHints = { hints ->
             val token = controller.sessionToken()
-            main.post { if (token != null && token == controller.sessionToken()) hints.forEach(pods::hint) }
+            postToMain { if (token != null && token == controller.sessionToken()) hints.forEach(pods::hint) }
         }
         deckImport.connectSave(saveApi, controller::sessionToken, saved = {
             // An import started from a lobby's Choose deck returns there with the new deck highlighted.
@@ -145,9 +151,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
     private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); cubes.clear(); pods.clear(); lobby.clear() }
 
-    val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
+    val reset = ResetController(AccountApi(AppBuild.ACCOUNT_ORIGIN), AppBuild.RESET_ORIGIN,
         Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
-        succeeded = controller::passwordResetCompleted, post = { action -> main.post { action() } })
+        succeeded = controller::passwordResetCompleted, post = { action -> postToMain(action) })
 
     override fun onCleared() {
         heartbeat.close()

@@ -5,7 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.platform.LocalContext
+import coil3.compose.LocalPlatformContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +80,7 @@ internal fun inspectorArtworkStatus(failed: Boolean, progress: ArtworkPrefetchPr
 @Composable
 internal fun InspectorArtworkPlaceholder(reference: ArtworkReference?, fallback: String) {
     if (reference == null || (reference.printing == null && reference.customUrl == null)) { Text(fallback); return }
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     val service by produceState(PublicArtwork.current(), context) { value = PublicArtwork.get(context) }
     val failed = service?.unavailable?.collectAsState()?.value?.contains(reference.key) == true
     val progress = service?.prefetch?.progress?.collectAsState()?.value

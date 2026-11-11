@@ -2,8 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import org.asyncttwiz.appui.screenHeightDp
 
 /** TBL-104, SYS-049: every hold preview scrolls by at least as much as the finger moves, sped up so that a drag over
  * [SCREEN_SHARE] of the screen height scrolls the whole preview; movement past either end is not stored. */
@@ -28,4 +28,4 @@ internal fun ScrollState.holdPreviewScroll(delta: Float, screenHeight: Float) {
 
 /** The screen height in px that [holdPreviewScroll] measures the finger against. */
 @Composable
-internal fun holdPreviewScreenHeight(): Float = LocalConfiguration.current.screenHeightDp * LocalDensity.current.density
+internal fun holdPreviewScreenHeight(): Float = screenHeightDp() * LocalDensity.current.density

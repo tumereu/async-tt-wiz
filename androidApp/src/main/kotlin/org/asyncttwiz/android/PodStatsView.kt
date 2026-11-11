@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +17,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -35,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import kotlin.math.roundToInt
+import org.asyncttwiz.appui.NativeTextPaint
+import org.asyncttwiz.appui.drawNativeText
 
 // Same W/U/B/R/G, gold and neutral palette as CardText's mana badges.
 private val podStatsPalette = listOf(
@@ -318,8 +318,8 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
     val outline = MaterialTheme.colorScheme.outline
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSize = with(LocalDensity.current) { 11.sp.toPx() }
-    val paint = remember(textColor, textSize) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = textColor.toArgb(); this.textSize = textSize; textAlign = Paint.Align.CENTER
+    val paint = remember(textColor, textSize) { NativeTextPaint().apply {
+        color = textColor.toArgb(); this.textSize = textSize; textAlign = NativeTextPaint.TextAlign.Center
     } }
     // Per slot its label and its stack from the bottom up.
     val slots: List<Pair<String, List<Pair<Color, Int>>>> = if (byColor) stats.curveColorBuckets().map { (label, counts) ->
@@ -351,10 +351,10 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
             val total = parts.sumOf { it.second }
             if (total > 0) {
                 drawRect(outline, Offset(left, top), Size(slot * .7f, baseline - top), style = Stroke(1.dp.toPx()))
-                drawContext.canvas.nativeCanvas.drawText(podStatsCurveBarLabel(parts.map { it.second }, byColor),
+                drawNativeText(podStatsCurveBarLabel(parts.map { it.second }, byColor),
                     slot * (index + .5f), top - textSize * .3f, paint)
             }
-            drawContext.canvas.nativeCanvas.drawText(label, slot * (index + .5f), size.height - textSize * .25f, paint)
+            drawNativeText(label, slot * (index + .5f), size.height - textSize * .25f, paint)
         }
     }
 }

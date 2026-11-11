@@ -263,7 +263,7 @@ class AuthController(
         worker.execute {
             if (generation.get() != epoch) return@execute
             val next = try { runBlocking { action()?.let(::withRemembered) } } catch (failure: Exception) {
-                storageFailure(permanentSessionFailure(failure))
+                storageFailure(store.permanentFailure(failure))
             } ?: return@execute
             post { if (!closed && generation.get() == epoch) {
                 val context = reauthenticationContext
@@ -371,13 +371,13 @@ class AuthController(
                     }
                     outgoing?.let { value ->
                         try { forget(value) } catch (failure: Exception) {
-                            if (!permanentSessionFailure(failure)) throw failure
+                            if (!store.permanentFailure(failure)) throw failure
                             reset = true
                         }
                     }
                 }
                 if (accountSwitcher && !reset) try { store.remembered() } catch (failure: Exception) {
-                    if (!permanentSessionFailure(failure)) throw failure
+                    if (!store.permanentFailure(failure)) throw failure
                     reset = true
                 }
                 val cleanupStore = if (reset) object : SessionStore by store {

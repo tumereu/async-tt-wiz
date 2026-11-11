@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import org.asyncttwiz.appui.drawCentredText
 
 /**
  * Text with its mana and tap symbols ({G}, {T}, {X}, hybrid, Phyrexian, snow, energy) drawn as symbols (TBL-124, owner

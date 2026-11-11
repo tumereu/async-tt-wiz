@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -17,11 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +28,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.screenOrientation
+import org.asyncttwiz.appui.ScreenOrientation
+import org.asyncttwiz.appui.AppPlatform
 
 @Composable
 internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
@@ -105,7 +106,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
     if (chatPod != null) {
         androidx.compose.ui.window.Dialog(onDismissRequest = controller::closeChat, properties = androidx.compose.ui.window.DialogProperties(
             usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-            val landscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
             Box(Modifier.fillMaxSize()) {
                 PodChatPanel(controller.chat, chatPod.id, accountId,
                     chatPod.members.firstOrNull { it.account.accountId == accountId }?.account?.username ?: "You",
@@ -549,7 +550,7 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
                     HoldTip("Challenge") {
                     FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
                         enabled = mine?.submitted == true && !lobby.state.mutating) {
-                        Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
+                        Icon(AppPlatform.current.swordsOutlined(), contentDescription = "Challenge")
                     }
                     }
             }

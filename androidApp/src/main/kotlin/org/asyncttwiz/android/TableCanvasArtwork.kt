@@ -3,19 +3,19 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.platform.LocalContext
+import coil3.compose.LocalPlatformContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.appui.coilImageBitmap
 
 @Composable
 internal fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     val images = mutableMapOf<String, ImageBitmap>()
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     val extents = mutableMapOf<org.asyncttwiz.storage.ArtworkReference, Float>()
     for (item in scene.items) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
          extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
@@ -27,7 +27,7 @@ internal fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
             val request = CardArtworkRequest(reference, width, height)
             val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
                 .data(request).size(width, height).build()) as? coil3.request.SuccessResult
-            value = (result?.image as? coil3.BitmapImage)?.bitmap?.asImageBitmap()
+            value = result?.image?.let(::coilImageBitmap)
         }
         image?.let { images[reference.key] = it }
     }

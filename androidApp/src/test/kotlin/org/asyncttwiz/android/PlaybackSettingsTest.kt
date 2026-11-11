@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -29,18 +30,18 @@ class PlaybackSettingsTest {
     @Test fun defaultMigrationPreservesNonDefaultsAndFutureExplicitOldDefault() {
         val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
         stored.edit().clear().putLong("pause/old-default", 1_500).putLong("pause/custom", 2_300).commit()
-        assertEquals(1_000L, HistoryPlaybackPreferences(context, "new").pauseMillis)
-        val migrated = HistoryPlaybackPreferences(context, "old-default")
+        assertEquals(1_000L, HistoryPlaybackPreferences(AppPlatform.current, "new").pauseMillis)
+        val migrated = HistoryPlaybackPreferences(AppPlatform.current, "old-default")
         assertEquals(1_000L, migrated.pauseMillis)
-        assertEquals(2_300L, HistoryPlaybackPreferences(context, "custom").pauseMillis)
+        assertEquals(2_300L, HistoryPlaybackPreferences(AppPlatform.current, "custom").pauseMillis)
         migrated.pauseMillis = 1_500
-        assertEquals(1_500L, HistoryPlaybackPreferences(context, "old-default").pauseMillis)
+        assertEquals(1_500L, HistoryPlaybackPreferences(AppPlatform.current, "old-default").pauseMillis)
     }
 
     // LOB-081
     @Test fun pausesPersistAndNotifyOnlyTheirAccountAndAnimationSpeedIsAccountScoped() {
-        val a = HistoryPlaybackPreferences(context, "options-a")
-        val b = HistoryPlaybackPreferences(context, "options-b")
+        val a = HistoryPlaybackPreferences(AppPlatform.current, "options-a")
+        val b = HistoryPlaybackPreferences(AppPlatform.current, "options-b")
         assertEquals(HistoryPlaybackPreferences.DEFAULT_PAUSE_MILLIS, a.pauseMillis)
         var aChanges = 0
         var bChanges = 0
@@ -48,20 +49,20 @@ class PlaybackSettingsTest {
         val stopB = b.observe { bChanges++ }
         a.pauseMillis = 2_000
         a.rewindPauseMillis = 500
-        assertEquals(2_000L, HistoryPlaybackPreferences(context, "options-a").pauseMillis)
+        assertEquals(2_000L, HistoryPlaybackPreferences(AppPlatform.current, "options-a").pauseMillis)
         assertEquals(500L, a.rewindPauseMillis)
         assertEquals(HistoryPlaybackPreferences.DEFAULT_PAUSE_MILLIS, b.pauseMillis)
         assertEquals(HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS, b.rewindPauseMillis)
         assertEquals(2, aChanges)
         assertEquals(0, bChanges)
         stopA(); stopB()
-        CardMovePreferences(context, "options-a").multiplier = 2f
-        assertEquals(2f, CardMovePreferences(context, "options-a").multiplier)
-        assertEquals(DEFAULT_CARD_MOVE_SPEED * 2f, CardMovePreferences(context, "options-a").speed)
-        assertEquals(DEFAULT_CARD_MOVE_SPEED, CardMovePreferences(context, "options-b").speed)
-        val moves = CardMovePreferences(context, "options-a")
+        CardMovePreferences(AppPlatform.current, "options-a").multiplier = 2f
+        assertEquals(2f, CardMovePreferences(AppPlatform.current, "options-a").multiplier)
+        assertEquals(DEFAULT_CARD_MOVE_SPEED * 2f, CardMovePreferences(AppPlatform.current, "options-a").speed)
+        assertEquals(DEFAULT_CARD_MOVE_SPEED, CardMovePreferences(AppPlatform.current, "options-b").speed)
+        val moves = CardMovePreferences(AppPlatform.current, "options-a")
         moves.multiplier = 10f
-        assertEquals(3f, CardMovePreferences(context, "options-a").multiplier)
+        assertEquals(3f, CardMovePreferences(AppPlatform.current, "options-a").multiplier)
         moves.multiplier = -1f
         assertEquals(.25f, moves.multiplier)
         moves.multiplier = Float.NaN
@@ -72,7 +73,7 @@ class PlaybackSettingsTest {
     // HIS-028, LOB-082, HIS-112, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
     // "Off"); there are no auto-pause switches
     @Test fun settingsShowsThePlaybackPausesAndThePlaysTime() {
-        HistoryPlaybackPreferences(context, "settings")
+        HistoryPlaybackPreferences(AppPlatform.current, "settings")
         compose.setContent { MaterialTheme { SettingsContent(null, "settings") {} } }
         compose.onNodeWithText("Timeline playback").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Stop Auto after an opponent’s matching action").assertDoesNotExist()
@@ -86,9 +87,9 @@ class PlaybackSettingsTest {
         compose.onNodeWithTag("show-plays-time").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Show plays and combat").assertExists()
         compose.onNodeWithText("1.2 s each").assertExists()
-        compose.runOnIdle { HistoryPlaybackPreferences(context, "settings").showPlaysMillis = 0 }
+        compose.runOnIdle { HistoryPlaybackPreferences(AppPlatform.current, "settings").showPlaysMillis = 0 }
         compose.onNode(hasText("Off") and hasAnyAncestor(hasTestTag("playback-settings"))).assertExists()
-        compose.runOnIdle { HistoryPlaybackPreferences(context, "settings").showPlaysMillis = 9_000 }
+        compose.runOnIdle { HistoryPlaybackPreferences(AppPlatform.current, "settings").showPlaysMillis = 9_000 }
         compose.onNodeWithText("3.0 s each").assertExists()
     }
 
@@ -101,7 +102,7 @@ class PlaybackSettingsTest {
 
     private fun assertCatalogGeometry() {
         val models = ViewModelStore()
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also {
             models.put("catalog", it)
             it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100), ready = true))
         }

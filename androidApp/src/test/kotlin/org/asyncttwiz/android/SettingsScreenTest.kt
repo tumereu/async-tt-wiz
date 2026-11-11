@@ -16,6 +16,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -79,7 +80,7 @@ class SettingsScreenTest {
     private fun capture(name: String, view: String) {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also {
             models.put("catalog", it)
             it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-26", "1", records = 124_555), ready = true))
         }
@@ -113,19 +114,19 @@ class SettingsScreenTest {
         compose.onNodeWithTag("autotap").performClick()
         compose.waitForIdle()
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(org.asyncttwiz.protocol.game.ResponseMode.FullControl,
-            assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false), PausePreferences(context, "pauses").engineDefaults)
-        assertEquals(org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES, PausePreferences(context, "someone else").engineDefaults)
+            assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false), PausePreferences(AppPlatform.current, "pauses").engineDefaults)
+        assertEquals(org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES, PausePreferences(AppPlatform.current, "someone else").engineDefaults)
         compose.onNodeWithTag("response-mode-Control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()
         // "When they have no mana" is the third choice, Never the first; one choice at a time
         compose.onNodeWithTag("assume-resolves-no-mana").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("assume-resolves-always").assertIsNotSelected()
-        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, PausePreferences(context, "pauses").engineDefaults.assume)
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, PausePreferences(AppPlatform.current, "pauses").engineDefaults.assume)
         compose.onNodeWithTag("assume-resolves-never").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("assume-resolves-no-mana").assertIsNotSelected()
-        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Never, PausePreferences(context, "pauses").engineDefaults.assume)
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Never, PausePreferences(AppPlatform.current, "pauses").engineDefaults.assume)
     }
 
     // LOB-079, LOB-113

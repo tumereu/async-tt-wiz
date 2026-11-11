@@ -7,10 +7,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.appui.AppPlatform
 
 internal const val REPORTS_PROMPT_TEXT = "When the app crashes, runs slowly, stutters or loses its connection, it can send a short " +
     "report so the problem gets fixed. Reports include your device model and what the app was doing, but no passwords " +
@@ -30,13 +30,13 @@ internal fun ReportsPromptDialog(answer: (Boolean) -> Unit) {
 /** LOB-104: Settings → About & account. Test builds always report, so the switch shows on and can't change. */
 @Composable
 internal fun ReportsSetting(alwaysOn: Boolean = Diagnostics.alwaysOn) {
-    val context = LocalContext.current
-    val store = remember(context) { ReportChoiceStore(context) }
+    val platform = AppPlatform.current
+    val store = remember(platform) { ReportChoiceStore(platform) }
     var choice by remember(store) { mutableStateOf(store.choice) }
     val on = Diagnostics.enabledFor(alwaysOn, choice)
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("reports-setting")
         .toggleable(on, enabled = !alwaysOn, role = Role.Switch, onValueChange = { value ->
-            Diagnostics.choose(context, value)
+            Diagnostics.choose(value)
             choice = store.choice
         }),
         verticalAlignment = Alignment.CenterVertically) {

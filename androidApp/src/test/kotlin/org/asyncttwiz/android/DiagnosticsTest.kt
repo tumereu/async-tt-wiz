@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -22,7 +23,7 @@ class DiagnosticsTest {
     @get:Rule val compose = createComposeRule()
     @get:Rule val temporary = TemporaryFolder()
     private val context: Context get() = ApplicationProvider.getApplicationContext()
-    private val store get() = ReportChoiceStore(context)
+    private val store get() = ReportChoiceStore(AppPlatform.current)
 
     @Before fun unasked() { store.choice = ReportChoice.UNASKED }
 
@@ -41,9 +42,9 @@ class DiagnosticsTest {
     @Test fun theChoiceIsStoredOnTheDeviceAndStartsUnasked() {
         assertEquals(ReportChoice.UNASKED, store.choice)
         store.choice = ReportChoice.ON
-        assertEquals(ReportChoice.ON, ReportChoiceStore(context).choice)
+        assertEquals(ReportChoice.ON, ReportChoiceStore(AppPlatform.current).choice)
         store.choice = ReportChoice.OFF
-        assertEquals(ReportChoice.OFF, ReportChoiceStore(context).choice)
+        assertEquals(ReportChoice.OFF, ReportChoiceStore(AppPlatform.current).choice)
     }
 
     // LOB-104

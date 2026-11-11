@@ -24,6 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
@@ -198,7 +199,7 @@ class PlayShowTest {
         val kit = EngineTableKit()
         val cub = kit.toReadyCub()
         kit.alice.showPlays(true)
-        HistoryPlaybackPreferences(context, kit.f.a).showPlaysMillis = 0
+        HistoryPlaybackPreferences(AppPlatform.current, kit.f.a).showPlaysMillis = 0
         render(kit)
         compose.runOnIdle { }
         kit.scenario.confirmStops[kit.f.a] = false

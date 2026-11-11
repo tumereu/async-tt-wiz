@@ -26,6 +26,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import org.asyncttwiz.appui.AppPlatform
 
 /** The limited engines' pick screens with (fake, card-proportioned) artwork. */
 @RunWith(RobolectricTestRunner::class)
@@ -52,7 +53,7 @@ class PodLimitedScreenshotTest {
         0xff3b4f8a, 0xff4f6b2e, 0xff8a6b2e, 0xff2e4f6b).map { it.toInt() }
     private val service by lazy { CardArtworkService(RuntimeEnvironment.getApplication(), temporary.newFolder()) }
     private val columns by lazy {
-        PodPickColumns(RuntimeEnvironment.getApplication().getSharedPreferences("limited-shots", Context.MODE_PRIVATE), "columns", 4)
+        PodPickColumns(AppPlatform.current.preferences("limited-shots"), "columns", 4)
     }
 
     @After fun uninstall() { installArtwork(null); service.close() }

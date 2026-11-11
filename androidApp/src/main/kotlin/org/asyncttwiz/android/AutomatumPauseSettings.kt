@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -9,15 +7,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.appui.AppPlatform
 
 /** The play settings new games start with (LOB-113), device-local and account-scoped like the other table and playback
  * preferences (the server keeps them per account; this is the device's copy for when it is signed out). */
-internal class PausePreferences(context: Context, private val accountId: String) {
-    private val preferences = context.applicationContext.getSharedPreferences("automatum-pauses", Context.MODE_PRIVATE)
+internal class PausePreferences(platform: AppPlatform, private val accountId: String) {
+    private val preferences = platform.preferences("automatum-pauses")
     private val autotapKey = "autotap/$accountId"
     private val assumeKey = "engine-assume-resolves/$accountId"
 
@@ -52,8 +50,8 @@ private fun org.asyncttwiz.protocol.game.AssumeResolves.key() = when (this) {
 /** Settings → Automatum (LOB-113): the play settings new games start with, kept on the server per account. */
 @Composable
 internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsState? = null) {
-    val context = LocalContext.current
-    val preferences = remember(context, accountId) { PausePreferences(context, accountId) }
+    val platform = AppPlatform.current
+    val preferences = remember(platform, accountId) { PausePreferences(platform, accountId) }
     Column(Modifier.fillMaxWidth().testTag("automatum-settings")) { EngineDefaultSettings(preferences, account) }
 }
 

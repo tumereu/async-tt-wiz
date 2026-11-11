@@ -1,8 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.res.Configuration
-import android.content.SharedPreferences
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.IconButton
@@ -11,10 +8,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.Preferences
+import org.asyncttwiz.appui.ScreenOrientation
+import org.asyncttwiz.appui.screenOrientation
 
 internal val PodPickColumnRange = 1..15
 internal val PodBuildColumnRange = 2..10
@@ -24,7 +23,7 @@ internal val PodBuildSideBySideRange = 1..3
  * shared by the view settings panel and the Build view. */
 @Stable
 class PodBuildColumns internal constructor(
-    private val preferences: SharedPreferences, private val key: String,
+    private val preferences: Preferences, private val key: String,
     internal val range: IntRange = PodBuildColumnRange, default: Int = 7,
 ) {
     var count by mutableIntStateOf(preferences.getInt(key, default).coerceIn(range))
@@ -34,18 +33,18 @@ class PodBuildColumns internal constructor(
 
 @Composable
 internal fun rememberPodBuildColumns(): PodBuildColumns {
-    val context = LocalContext.current.applicationContext
-    val orientation = LocalConfiguration.current.orientation
-    val preferences = remember(context) { context.getSharedPreferences("pod-build", Context.MODE_PRIVATE) }
+    val platform = AppPlatform.current
+    val orientation = screenOrientation()
+    val preferences = remember(platform) { platform.preferences("pod-build") }
     return remember(preferences, orientation) { PodBuildColumns(preferences, "columns-$orientation") }
 }
 
 /** How many cards sit side by side inside each Build column; 1 by default in both orientations. */
 @Composable
 internal fun rememberPodBuildSideBySide(): PodBuildColumns {
-    val context = LocalContext.current.applicationContext
-    val orientation = LocalConfiguration.current.orientation
-    val preferences = remember(context) { context.getSharedPreferences("pod-build", Context.MODE_PRIVATE) }
+    val platform = AppPlatform.current
+    val orientation = screenOrientation()
+    val preferences = remember(platform) { platform.preferences("pod-build") }
     return remember(preferences, orientation) {
         PodBuildColumns(preferences, "side-by-side-$orientation", PodBuildSideBySideRange, 1)
     }
@@ -53,7 +52,7 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
 
 /** The Stats mana curve's view (DRF-111), Type or Color: personal, per device, Type until the player chooses. */
 @Stable
-class PodStatsCurveChoice internal constructor(private val preferences: SharedPreferences) {
+class PodStatsCurveChoice internal constructor(private val preferences: Preferences) {
     var byColor by mutableStateOf(preferences.getBoolean(KEY, false))
         private set
     fun choose(value: Boolean) { byColor = value; preferences.edit().putBoolean(KEY, value).apply() }
@@ -62,8 +61,8 @@ class PodStatsCurveChoice internal constructor(private val preferences: SharedPr
 
 @Composable
 internal fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
-    val context = LocalContext.current.applicationContext
-    return remember(context) { PodStatsCurveChoice(context.getSharedPreferences("pod-build", Context.MODE_PRIVATE)) }
+    val platform = AppPlatform.current
+    return remember(platform) { PodStatsCurveChoice(platform.preferences("pod-build")) }
 }
 
 /**
@@ -72,13 +71,13 @@ internal fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
  */
 @Composable
 internal fun rememberPodHistoryColumns(packSize: Int): PodBuildColumns {
-    val context = LocalContext.current.applicationContext
-    val orientation = LocalConfiguration.current.orientation
-    val preferences = remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
+    val platform = AppPlatform.current
+    val orientation = screenOrientation()
+    val preferences = remember(platform) { platform.preferences("pod-pick") }
     val size = packSize.coerceAtLeast(1)
     return remember(preferences, orientation, size) {
         PodBuildColumns(preferences, "history-columns-$orientation", 1..size,
-            (if (orientation == Configuration.ORIENTATION_LANDSCAPE) 15 else 8).coerceAtMost(size))
+            (if (orientation == ScreenOrientation.LANDSCAPE) 15 else 8).coerceAtMost(size))
     }
 }
 
@@ -91,14 +90,14 @@ internal enum class DeckViewScreen(internal val key: String, private val portrai
     PREPARATION("preparation", 3, 3), SAVED("saved", 3, 3), CUBE("cube", 5, 8),
     /** The card list editor's Cards tab (decks, cubes), Prepare cube and the editor's search results. */
     EDITOR("editor", 3, 3), CUBE_EDITOR("cube-editor", 5, 8), CUBE_PREPARATION("cube-preparation", 5, 8), SEARCH("search", 3, 5);
-    fun defaultColumns(orientation: Int) = if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscape else portrait
+    fun defaultColumns(orientation: Int) = if (orientation == ScreenOrientation.LANDSCAPE) landscape else portrait
 }
 
 @Composable
 internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
-    val context = LocalContext.current.applicationContext
-    val orientation = LocalConfiguration.current.orientation
-    val preferences = remember(context) { context.getSharedPreferences("deck-view", Context.MODE_PRIVATE) }
+    val platform = AppPlatform.current
+    val orientation = screenOrientation()
+    val preferences = remember(platform) { platform.preferences("deck-view") }
     return remember(preferences, orientation, screen) {
         PodBuildColumns(preferences, deckViewColumnsKey(screen, orientation), DeckViewColumnRange, screen.defaultColumns(orientation))
     }

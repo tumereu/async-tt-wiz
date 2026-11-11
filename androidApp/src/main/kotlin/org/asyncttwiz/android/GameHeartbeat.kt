@@ -3,36 +3,14 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.GamePresence
 import java.util.UUID
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.window.DialogWindowProvider
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.postToMainDelayed
+import org.asyncttwiz.appui.AppBuild
 
-/** Dialogs have their own Window and bypass Activity.dispatchTouchEvent. Observe,
- * never consume, so scrolling/holds/typing there count just like the table. */
+/** Dialogs have their own Window and bypass the activity's input: what is done there counts just like the table
+ * (the platform's [AppPlatform.ObserveDialogInput]). */
 @Composable
-internal fun TrackGameDialogInput() {
-    var context = LocalContext.current
-    while (context is android.content.ContextWrapper && context !is MainActivity) context = context.baseContext
-    val host = context as? MainActivity ?: return
-    val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
-    DisposableEffect(host, window) {
-        val original = window.callback
-        val observer = object : android.view.Window.Callback by original {
-            override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
-                host.gameInput(); return original.dispatchTouchEvent(event)
-            }
-            override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
-                host.gameInput(); return original.dispatchGenericMotionEvent(event)
-            }
-            override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-                host.gameInput(); return original.dispatchKeyEvent(event)
-            }
-        }
-        window.callback = observer
-        onDispose { if (window.callback === observer) window.callback = original }
-    }
-}
+internal fun TrackGameDialogInput() { AppPlatform.current.ObserveDialogInput() }
 
 /** Any input (not just commands) sets one bit, consumed once per heartbeat. */
 internal class GameHeartbeatTracker(private val presenceId: String = UUID.randomUUID().toString()) {
@@ -53,21 +31,19 @@ internal class GameHeartbeatTracker(private val presenceId: String = UUID.random
  * "left" mark is lost while the app sits in the background. */
 internal class GameHeartbeatController(
     private val http: (String, GamePresence) -> Unit = { token, presence -> kotlinx.coroutines.runBlocking {
-        ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
+        ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
     private val socket: (String, GamePresence) -> Boolean,
 ) : AutoCloseable {
     private val tracker = GameHeartbeatTracker()
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private val worker = java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS,
         java.util.concurrent.ArrayBlockingQueue<Runnable>(2), { Thread(it, "game-presence") },
         java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy())
     private var token: String? = null
     private var game: String? = null
-    private val pulse = object : Runnable {
-        override fun run() {
-            tracker.heartbeat()?.let { send(token, it) }
-            if (game != null) main.postDelayed(this, 5_000)
-        }
+    private var cancelPulse: () -> Unit = {}
+    private fun pulse() {
+        tracker.heartbeat()?.let { send(token, it) }
+        if (game != null) cancelPulse = postToMainDelayed(5_000, ::pulse)
     }
     fun display(game: String?, token: String?) {
         val next = game?.takeIf { token != null }
@@ -75,13 +51,13 @@ internal class GameHeartbeatController(
         if (this.token != token) tracker.display(null).forEach { send(this.token, it) }
         this.token = token; this.game = next
         tracker.display(next).forEach { send(token, it) }
-        main.removeCallbacks(pulse)
-        if (next != null) main.postDelayed(pulse, 5_000)
+        cancelPulse()
+        if (next != null) cancelPulse = postToMainDelayed(5_000, ::pulse)
     }
     fun input() = tracker.input()
     private fun send(token: String?, presence: GamePresence) {
         if (token == null || socket(token, presence) && !presence.left) return
         worker.execute { runCatching { http(token, presence) } }
     }
-    override fun close() { display(null, token); main.removeCallbacks(pulse); worker.shutdown() }
+    override fun close() { display(null, token); cancelPulse(); worker.shutdown() }
 }

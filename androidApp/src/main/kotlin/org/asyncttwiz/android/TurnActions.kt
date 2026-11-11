@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
@@ -21,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
 
 internal fun phaseColor(phase: String) = when (phase) {
     "BEGINNING" -> Color(0xffdcebf8)
@@ -117,7 +118,7 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
 @Composable
 fun PhaseStepPicker(play: TableBoard, viewerId: String, endingPlayerColor: Color, onDismiss: () -> Unit,
     names: Map<String, String> = emptyMap()) {
-    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    val landscape = screenWidthDp() > screenHeightDp()
     val turn = play.board.turn
     val player = names[turn.accountId]?.let { "$it's turn" } ?: if (turn.accountId == viewerId) "Your turn" else "Opponent's turn"
     TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = turnStepName(turn),

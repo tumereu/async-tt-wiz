@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -20,6 +18,7 @@ import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.ManaWays
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executors
+import org.asyncttwiz.appui.postToMain
 
 /**
  * Where Automatum's engine work for the player's own actions runs (SYS-025): [Background] on one worker thread with
@@ -40,17 +39,16 @@ interface AutomatumWork {
 
     object Background : AutomatumWork {
         private val worker = Executors.newSingleThreadExecutor { Thread(it, "automatum").apply { isDaemon = true } }
-        private val main by lazy { Handler(Looper.getMainLooper()) }
         override fun <T> run(work: () -> T, done: (T) -> Unit) {
-            worker.execute { val result = work(); main.post { done(result) } }
+            worker.execute { val result = work(); postToMain { done(result) } }
         }
         override fun <A, B> staged(first: () -> A, shown: (A) -> Unit, next: (A) -> (() -> B)?, done: (B) -> Unit) {
             worker.execute {
                 val a = first()
-                main.post { shown(a) }
+                postToMain { shown(a) }
                 val second = next(a) ?: return@execute
                 val b = second()
-                main.post { done(b) }
+                postToMain { done(b) }
             }
         }
     }

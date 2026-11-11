@@ -17,6 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner, 2026-11-08: a finger held on the table pauses whatever the view is waiting on. It goes on when lifted, with the time
@@ -29,7 +30,7 @@ class HoldToPauseTest : E2e() {
     private fun start() {
         startGame(TestDeck.thirds(), glints, bobStarts = true, bobSettings = PlaySettings(assume = AssumeResolves.Always),
             deal = { _, b -> hand(b).count { it == "Ember Glint" } >= 2 })
-        HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext<Context>(), alice.id).showPlaysMillis =
+        HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis =
             HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
         bothOpen()
         alice.tap("Keep")

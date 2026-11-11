@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,8 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -28,6 +26,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
+import org.asyncttwiz.appui.AppPlatform
 
 private val Teal = Color(0xff107e7a)
 
@@ -38,14 +39,14 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     /** Told whether the game table is shown, which keeps the navigation bar hidden (SYS-079). */
     tableShown: (Boolean) -> Unit = {}) {
     val state = controller.state
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val avatarMemory = remember { AvatarPromptMemory(context) }
+    val platform = AppPlatform.current
+    val avatarMemory = remember { AvatarPromptMemory(platform) }
     LaunchedEffect(state.account?.accountId, catalog != null) {
         if (catalog != null) state.account?.let {
             if (avatarMemory.shouldShow(it)) { avatarMemory.shown(it.accountId); controller.chooseAvatar() }
         }
     }
-    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    val landscape = screenWidthDp() > screenHeightDp()
     val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
     SideEffect { tableShown(tabletop) }
@@ -204,7 +205,7 @@ private fun ResetEntry(controller: ResetController) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+            val landscape = screenWidthDp() > screenHeightDp()
             val title: @Composable () -> Unit = {
                 Text("Reset password", Modifier.padding(bottom = 16.dp), style = MaterialTheme.typography.titleLarge)
             }
@@ -291,7 +292,7 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
 @Composable
 internal fun WizardLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painterResource(R.drawable.atw_logo), "Wizard hat", Modifier.size(if (compact) 36.dp else 112.dp, if (compact) 28.dp else 86.dp))
+        Image(AppPlatform.current.atwLogo(), "Wizard hat", Modifier.size(if (compact) 36.dp else 112.dp, if (compact) 28.dp else 86.dp))
         Text("ATW", fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp,
             color = Color(0xff244c46), style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.titleLarge)
     }

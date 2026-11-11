@@ -20,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -30,7 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.DialogDim
 
 internal val MenuInk = Color(0xff263e39)
 internal val MenuBorder = Color(0xffbaccc7)
@@ -150,7 +149,7 @@ internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color =
             null, Modifier.size(11.dp).align(Alignment.BottomEnd), tint = tint)
     } else if (swordsIcon(name)) Box(modifier.size(24.dp)) {
         val n = name.lowercase()
-        Icon(painterResource(R.drawable.swords_outlined), name, Modifier.fillMaxSize(), tint = tint)
+        Icon(AppPlatform.current.swordsOutlined(), name, Modifier.fillMaxSize(), tint = tint)
         // The attack's own swords, badged: "+ tap" taps, "Rest →" adds every other creature
         val badge = when {
             "+ tap" in n -> Icons.Outlined.Rotate90DegreesCw
@@ -205,8 +204,7 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
 @Composable
 internal fun MenuWindowDimming() {
     TrackGameDialogInput()
-    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-    SideEffect { window?.setDimAmount(.28f) }
+    DialogDim(.28f)
 }
 
 @Composable

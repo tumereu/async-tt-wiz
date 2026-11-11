@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.asyncttwiz.storage.AndroidCatalogStorage
 import org.asyncttwiz.storage.ArtworkReference
 import java.util.concurrent.ConcurrentHashMap
 
@@ -111,9 +109,9 @@ internal fun EmblemInspect(texts: List<String>, own: Boolean) {
 /** The picture of the emblem with rules [text] ([AndroidEmblemArt]), null while it is looked up or when there is none. */
 @Composable
 internal fun rememberEmblemArt(text: String): ArtworkReference? {
-    val context = LocalContext.current.applicationContext
+    val services = AppServices.current
     val art by produceState(AndroidEmblemArt.known(text), text) {
-        value = withContext(Dispatchers.IO) { AndroidEmblemArt.find(context, text) }
+        value = withContext(Dispatchers.IO) { AndroidEmblemArt.find(services, text) }
     }
     return art?.let { ArtworkReference(it, 0, "art_crop") }
 }
@@ -129,8 +127,8 @@ internal object AndroidEmblemArt {
     /** What is already known of [text] in the last generation looked at (no reading). */
     fun known(text: String): String? = generation?.let { found[it to text] }?.ifEmpty { null }
 
-    fun find(context: android.content.Context, text: String): String? = try {
-        val catalog = AndroidCatalogStorage.repository(context)
+    fun find(services: AppServices, text: String): String? = try {
+        val catalog = services.catalogRepository()
         val current = catalog.tokenGeneration()
         generation = current
         if (current == null) null else found.getOrPut(current to text) { catalog.emblemArt(text).orEmpty() }.ifEmpty { null }

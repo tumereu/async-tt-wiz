@@ -1,8 +1,8 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.AppPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -19,9 +19,9 @@ interface AccountSettingsSource {
 }
 
 /** Failed writes stay dirty locally and are sent again on the next refresh. */
-internal class AccountSettingsStore(context: Context, account: String,
-    private val token: () -> String?, private val origin: String = BuildConfig.ACCOUNT_ORIGIN) : AccountSettingsSource {
-    private val preferences = context.applicationContext.getSharedPreferences("account-settings", Context.MODE_PRIVATE)
+internal class AccountSettingsStore(platform: AppPlatform, account: String,
+    private val token: () -> String?, private val origin: String = AppBuild.ACCOUNT_ORIGIN) : AccountSettingsSource {
+    private val preferences = platform.preferences("account-settings")
     private val key = "$origin/$account"
     private val mutex = Mutex()
     private fun read() = preferences.getString(key, null)?.let {
@@ -52,8 +52,8 @@ internal class AccountSettingsStore(context: Context, account: String,
 
 @Composable
 internal fun rememberAccountSettingsSource(accountId: String, auth: AuthController?): AccountSettingsSource? {
-    val context = LocalContext.current
-    return remember(context, accountId, auth) { auth?.let { AccountSettingsStore(context, accountId, it::sessionToken) } }
+    val platform = AppPlatform.current
+    return remember(platform, accountId, auth) { auth?.let { AccountSettingsStore(platform, accountId, it::sessionToken) } }
 }
 
 internal val DeckVisibility.label get() = when (this) {

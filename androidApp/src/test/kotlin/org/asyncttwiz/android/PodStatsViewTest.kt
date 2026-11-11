@@ -135,8 +135,7 @@ class PodStatsViewTest {
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
     fun curveToggleStacksByColorKeepingTheChartAndRemembersTheChoice() {
         showDeck()
-        val preferences = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-            .getSharedPreferences("pod-build", 0)
+        val preferences = org.asyncttwiz.appui.AppPlatform.current.preferences("pod-build")
         compose.onNodeWithTag("pod-stats-curve-type").assertIsSelected()
         compose.onNodeWithTag("pod-stats-curve-color").assertIsNotSelected()
         compose.onNodeWithTag("pod-stats-curve-legend").assertDoesNotExist()

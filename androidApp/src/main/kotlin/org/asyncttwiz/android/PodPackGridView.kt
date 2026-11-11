@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
+import org.asyncttwiz.appui.AppPlatform
 
 /** What the setup form shows of a set pod's pack grid (DRF-177): each pack's set read row by row (normalized), the card
  * records' sets for names and symbols, and [choose] (null: read-only) to pick a set for some of its packs (DRF-178). */
@@ -94,7 +95,7 @@ private fun PodPackCell(code: String, set: DraftableSet?, modifier: Modifier, on
         Column(Modifier.fillMaxSize().padding(2.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
             val keyrune = set?.keyrune.orEmpty()
-            val glyph = keyrune.isNotEmpty() && Keyrune.glyph(androidx.compose.ui.platform.LocalContext.current.assets, keyrune) != null
+            val glyph = keyrune.isNotEmpty() && Keyrune.glyph(AppPlatform.current, keyrune) != null
             if (glyph) {
                 SetSymbol(keyrune, code, size = 22.sp)
                 Text(code, style = MaterialTheme.typography.labelSmall, maxLines = 1)

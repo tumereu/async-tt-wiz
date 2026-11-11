@@ -38,7 +38,7 @@ class ActivityWorker(context: Context, parameters: WorkerParameters) : Coroutine
 
 /** Process-wide owner fence shared by UI, WorkManager and optional FCM callbacks.
  * Persist no credential here; workers load the existing Keystore-protected session. */
-class AndroidActivityDelivery private constructor(private val context: Context) {
+class AndroidActivityDelivery private constructor(private val context: Context) : PlatformActivityDelivery {
     private val lock = Any()
     private val fetchLock = Any()
     private val preferences = context.getSharedPreferences("activity-delivery", Context.MODE_PRIVATE)
@@ -74,12 +74,12 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
                     mark.yourMove?.let { putBoolean("move:$key", it) }; putBoolean("alert:$key", mark.alertNext) }
             }.commit()
     }) { notice -> owner?.let { notifications.post(it, notice) } }
-    @Volatile var authenticationRequired: ((String) -> Unit)? = null
-    @Volatile var activityHints: ((List<ActivityHint>) -> Unit)? = null
-    fun rememberPods(pods: List<PodSummary>) { pods.forEach { podNames[it.id] = it.name } }
+    @Volatile override var authenticationRequired: ((String) -> Unit)? = null
+    @Volatile override var activityHints: ((List<ActivityHint>) -> Unit)? = null
+    override fun rememberPods(pods: List<PodSummary>) { pods.forEach { podNames[it.id] = it.name } }
     init { delivery.bind(owner); notifications.channels() }
 
-    fun session(account: String?, token: String?): Boolean = synchronized(lock) {
+    override fun session(account: String?, token: String?): Boolean = synchronized(lock) {
         if (account == null || token == null) { clear(); return false }
         val fingerprint = fingerprint(token)
         if (owner?.accountId == account && ownerFingerprint == fingerprint) return false
@@ -92,7 +92,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         ActivityPushConfiguration.configure(context) // A no-op in the normal non-FCM configuration.
         true
     }
-    fun clear(expectedBinding: String? = null): Unit = synchronized(lock) {
+    override fun clear(expectedBinding: String?): Unit = synchronized(lock) {
         if (expectedBinding != null && expectedBinding != owner?.binding) return
         // Fence already-running callbacks first, not just scheduler cancellation.
         delivery.bind(null); owner = null; ownerFingerprint = null
@@ -100,14 +100,14 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         notifications.cancelAll(); jobs.cancelAllWorkByTag(TAG)
         check(preferences.edit().clear().commit())
     }
-    fun display(screen: ActivityScreen, foreground: Boolean) = synchronized(lock) {
+    override fun display(screen: ActivityScreen, foreground: Boolean) { synchronized(lock) {
         delivery.display(screen, foreground)
         if (foreground) owner?.let { notifications.cancelShown(it, screen) }
-    }
-    fun foreground() = synchronized(lock) {
+    } }
+    override fun foreground() { synchronized(lock) {
         opened = true; jobs.cancelAllWorkByTag(WAITING_TAG) // Opening the app resets the waiting-check backoff.
         owner?.let { enqueue(it.binding) }
-    }
+    } }
     /** The app went to the background or closed: check for games and pods waiting for this account on [WaitingChecks]' schedule. */
     fun background(): Unit = synchronized(lock) {
         opened = false
@@ -151,8 +151,8 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         if (owner?.binding != binding || !DeckValidation.uuid(game)) return
         preferences.edit().putString(if (pod) "dismissed-pod:$game" else "dismissed:$game", mark.encode()).apply()
     }
-    fun accepts(account: String?, binding: String?) = synchronized(lock) { account != null && binding != null && owner == ActivityOwner(account, binding) }
-    fun rejected(token: String) = synchronized(lock) { if (ownerFingerprint == fingerprint(token)) clear() }
+    override fun accepts(account: String?, binding: String?) = synchronized(lock) { account != null && binding != null && owner == ActivityOwner(account, binding) }
+    override fun rejected(token: String) = synchronized(lock) { if (ownerFingerprint == fingerprint(token)) clear() }
     fun push(hint: ActivityPushHint): Unit = synchronized(lock) {
         if (!ActivityWire.valid(hint) || hint.generation != preferences.getString("registration", null)) return
         owner?.let { enqueue(it.binding, hint.generation) }

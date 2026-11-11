@@ -18,6 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner-approved feature 2026-11-07 (MTG Arena as the reference): when Bob casts a spell while Alice is live, her phone
@@ -32,7 +33,7 @@ class PlayShowTest : E2e() {
         startGame(TestDeck.thirds(), glints, bobStarts = true, bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { _, b -> hand(b).count { it == "Ember Glint" } >= 2 })
         // The longest time (3 s): Bob's phone has long resolved the Glint while hers still shows it
-        HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext<Context>(), alice.id).showPlaysMillis =
+        HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis =
             HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
         bothOpen()
         alice.tap("Keep")

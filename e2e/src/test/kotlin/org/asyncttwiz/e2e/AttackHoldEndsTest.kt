@@ -11,6 +11,7 @@ import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner problem report QVERHX (2026-11-09): "On my opponent's end step it says that it is my move but I have no button in
@@ -35,9 +36,9 @@ class AttackHoldEndsTest : E2e() {
     @Test fun anAttackHoldEndsAndTheDefendersTurnComes() {
         startGame(thoughts, pups, bobStarts = true, deal = { a, b -> "Empty Thoughts" in hand(a) && "Ash Pup" in hand(b) })
         // Alice's phone shows plays and combat as a new account's does; Bob's doesn't (his own hold isn't this test's)
-        HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext<Context>(), alice.id).showPlaysMillis =
+        HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis =
             HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS
-        CardMovePreferences(alice.activity, alice.id).multiplier = .25f
+        CardMovePreferences(AppPlatform.current, alice.id).multiplier = .25f
         bothOpen()
         alice.tap("Keep")
         bob.tap("Keep")

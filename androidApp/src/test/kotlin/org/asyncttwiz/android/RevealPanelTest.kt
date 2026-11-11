@@ -30,6 +30,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * HIS-110 (owner playtest 2026-11-07): Alice casts an Ember Insight ("Reveal the top card of your library and put that
@@ -194,7 +195,7 @@ class RevealPanelTest {
         assertNotNull(bob.shown?.reveal, "Alice's reveal open on Bob's table")
         assertEquals(1, bob.shown?.engine?.stack?.size, "his Glint waits on the Stack")
         // The hand card size at 2x for the shot: the revealed card drawn at it (owner, 2026-11-07)
-        CardAppearancePreferences(ApplicationProvider.getApplicationContext()).apply { customizeAreas(true); setSize(2f, CardArea.HAND) }
+        CardAppearancePreferences(AppPlatform.current).apply { customizeAreas(true); setSize(2f, CardArea.HAND) }
         render(bob, g.b) { settle() }
         revealOk().assertExists()
         captureShot("$SCREENSHOTS/engine/reveal-panel-greyed.png",
@@ -214,7 +215,7 @@ class RevealPanelTest {
     // HIS-110, TBL-034 (owner, 2026-11-07): the revealed cards use the Hand card size (28 x 40 dp times it), not the Panels
     // size; the source's card stays at the Panels size
     @Test fun revealedCardsFollowTheHandCardSize() {
-        val preferences = CardAppearancePreferences(ApplicationProvider.getApplicationContext())
+        val preferences = CardAppearancePreferences(AppPlatform.current)
         preferences.customizeAreas(true)
         preferences.setSize(2f, CardArea.HAND)
         preferences.setSize(1f, CardArea.PANELS)

@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -26,6 +25,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.displayRefreshRate
 
 /** Normal production surface. One pointer arbiter, one Actions host, and no authoritative local board. */
 @Composable
@@ -263,7 +263,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         }
         val artwork = tableArtwork(scene.copy(items = semanticItems))
         val drawCache = remember(density, play.playId) { TableDrawCache(density) }
-        val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
+        val refreshRate = displayRefreshRate()
         SideEffect { previousLayout = laid; previousSize = maxWidth to maxHeight }
         val tableWidth = maxWidth.value; val tableHeight = maxHeight.value
         SideEffect {

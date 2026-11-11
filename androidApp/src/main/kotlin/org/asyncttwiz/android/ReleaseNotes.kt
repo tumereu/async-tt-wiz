@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,6 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.asyncttwiz.appui.AppPlatform
 
 internal enum class ReleaseNoteKind(val prefix: String, val title: String) {
     // LOB-087 (owner 2026-11-10): sets Automatum newly supports come first, under their own heading
@@ -56,22 +56,19 @@ internal object ReleaseNotes {
         unseen.isNotEmpty() && !pendingNotificationRoute && screen.game == null && screen.pod == null
 
     @Volatile private var loaded: List<ReleaseNote>? = null
-    fun load(context: Context): List<ReleaseNote> = loaded ?: runCatching {
-        parse(context.assets.open(ASSET).use { it.readBytes().decodeToString() })
+    fun load(platform: AppPlatform): List<ReleaseNote> = loaded ?: runCatching {
+        parse(platform.readAsset(ASSET).decodeToString())
     }.getOrDefault(emptyList()).also { loaded = it }
 }
 
 /** Seen note ids per installation (not per account). */
-internal class ReleaseNotePreferences(private val context: Context) {
-    private val preferences = context.getSharedPreferences("release-notes", Context.MODE_PRIVATE)
+internal class ReleaseNotePreferences(private val platform: AppPlatform) {
+    private val preferences = platform.preferences("release-notes")
 
-    private fun freshInstall(): Boolean = runCatching {
-        val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        info.firstInstallTime == info.lastUpdateTime
-    }.getOrDefault(false)
+    private fun freshInstall(): Boolean = platform.freshInstall()
 
     /** Settles the record on first run so a later update cannot be mistaken for a fresh install. */
-    fun unseen(all: List<ReleaseNote> = ReleaseNotes.load(context)): List<ReleaseNote> {
+    fun unseen(all: List<ReleaseNote> = ReleaseNotes.load(platform)): List<ReleaseNote> {
         val stored = preferences.getStringSet(SEEN, null)?.toSet()
         val seen = ReleaseNotes.seenRecord(stored, all, if (stored == null) freshInstall() else false)
         if (stored == null) preferences.edit().putStringSet(SEEN, seen).apply()

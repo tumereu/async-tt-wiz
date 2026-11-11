@@ -1,8 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
-import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.selection.selectable
@@ -35,6 +33,8 @@ import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.storage.CatalogAvatar
 import org.asyncttwiz.storage.CatalogPhase
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.BackHandler
 
 internal fun avatarInitial(username: String): String = username.trim().let {
     if (it.isEmpty()) "?" else String(Character.toChars(it.codePointAt(0))).uppercase(java.util.Locale.ROOT)
@@ -89,8 +89,8 @@ internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Mod
     }
 }
 
-internal class AvatarPromptMemory(context: Context) {
-    private val preferences = context.getSharedPreferences("avatar-chooser", Context.MODE_PRIVATE)
+internal class AvatarPromptMemory(platform: AppPlatform) {
+    private val preferences = platform.preferences("avatar-chooser")
     fun shouldShow(account: AccountIdentity) = account.avatar == null && !preferences.getBoolean(account.accountId, false)
     fun shown(accountId: String) { preferences.edit().putBoolean(accountId, true).apply() }
 }

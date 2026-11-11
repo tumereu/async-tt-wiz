@@ -1,17 +1,12 @@
 package org.asyncttwiz.android
 
-
-import android.app.Application
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import org.asyncttwiz.storage.*
 import java.io.File
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 /**
  * The card records (docs/specs/web-client.md sections 3.5, 3.6): [installed] the records in use once they are the app's
@@ -105,15 +100,10 @@ internal class CatalogController(private val directory: File, val repository: Ca
     }
 }
 
-/** The app's [CatalogController] (MainActivity starts it on resume, [foreground]); [custom]: another one (end-to-end
- * tests: a phone's own directory and the test server). */
-class CatalogViewModel internal constructor(application: Application, custom: CatalogController?) : AndroidViewModel(application) {
-    constructor(application: Application) : this(application, null)
-    private val main = Handler(Looper.getMainLooper())
-    internal val repository = custom?.repository ?: AndroidCatalogStorage.repository(application)
-    internal val controller = custom ?: CatalogController(AndroidCatalogStorage.directory(application), repository,
-        { HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN) }, BuildConfig.CATALOG_CHECKSUM.ifEmpty { null },
-        Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }, { action -> main.post { action() } })
+/** The app's [CatalogController] (MainActivity starts it on resume, [foreground]): the platform's
+ * ([AppServices.catalogController]), or another one (end-to-end tests: a phone's own directory and the test server). */
+class CatalogViewModel internal constructor(internal val controller: CatalogController) : ViewModel() {
+    internal val repository = controller.repository
     val state: CatalogUiState get() = controller.state
 
     fun foreground() = controller.start()

@@ -34,10 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.asyncttwiz.protocol.HistoryIcon
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * One event of the timeline (HIS-005): its icon, text and author (its colour); [separator] is the turn and step change
@@ -220,7 +220,7 @@ internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selecte
 @Composable
 fun HistoryEventIcon(icon: HistoryIcon) {
     val vector = historyIconVector(icon)
-    if (vector == null) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp))
+    if (vector == null) Icon(AppPlatform.current.swordsOutlined(), null, Modifier.size(20.dp))
     else Icon(vector, null, Modifier.size(20.dp))
 }
 

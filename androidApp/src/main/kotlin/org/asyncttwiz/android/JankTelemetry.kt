@@ -1,20 +1,19 @@
 package org.asyncttwiz.android
 
-import android.app.Activity
-import android.app.Application
-import android.os.Bundle
-import android.os.SystemClock
-import androidx.metrics.performance.JankStats
-import androidx.metrics.performance.PerformanceMetricsState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.uptimeMillis
 import java.time.Instant
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+
+/** A screen's frame tracking (Android: JankStats on an activity's window): [stop] ends it, [state] labels its frames. */
+internal class JankTracking(val stop: () -> Unit, val state: (String, String) -> Unit)
 
 /** Only while reports are on ([Diagnostics]). Frame callbacks copy bounded labels; persistence, percentiles and uploads run on IO. */
 internal object DebugJank {
@@ -28,7 +27,7 @@ internal object DebugJank {
     private val treeWork = AtomicInteger()
     private val actions = ArrayDeque<String>()
     private val work = ArrayDeque<Triple<Long, Long, String>>()
-    private val metrics = mutableMapOf<Activity, Pair<JankStats, PerformanceMetricsState.Holder>>()
+    private val metrics = mutableMapOf<Any, JankTracking>()
     private val tags = mutableMapOf("screen" to "entry", "table_mode" to "play", "animation" to "false",
         "dragging" to "false", "popup" to "none", "history_nodes" to "0", "visible_cards" to "0")
     private val animations = mutableSetOf<String>()
@@ -50,7 +49,7 @@ internal object DebugJank {
         for ((key, value) in values) {
             if (tags[key] == value) continue
             tags[key] = value.take(100)
-            metrics.values.forEach { it.second.state?.putState(key, value.take(100)) }
+            metrics.values.forEach { it.state(key, value.take(100)) }
         }
     }
 
@@ -88,7 +87,8 @@ internal object DebugJank {
         return Triple(actions.toList(), localApply.get() > 0 || overlaps("apply"), treeWork.get() > 0 || overlaps("tree"))
     }
 
-    fun install(application: Application, store: CrashReportStore, version: String, device: String) {
+    /** The platform's [ReportHooks.start] tracks the screens' frames ([track], [frame], [untrack]). */
+    fun install(store: CrashReportStore, version: String, device: String) {
         if (!Diagnostics.enabled || installed) return
         installed = true
         discarding.set(false)
@@ -97,7 +97,7 @@ internal object DebugJank {
         fun report(values: List<JankEpisode>) = CrashReport(Instant.now().toString(), version, device,
             AccountJson.format.encodeToString(JankBatch(values)), "jank")
         // Frame timestamps use the uptime clock, not elapsedRealtime (which includes deep sleep).
-        val wallOrigin = System.currentTimeMillis() - SystemClock.uptimeMillis()
+        val wallOrigin = System.currentTimeMillis() - uptimeMillis()
         var dirty = false
         val detector = StutterDetector({ Instant.ofEpochMilli(wallOrigin + it / 1_000_000).toString() }) {
             buffer.add(it); dirty = true; wake.trySend(Unit)
@@ -123,7 +123,7 @@ internal object DebugJank {
                         val credential = token
                         val batch = buffer.batch()
                         if (credential != null && batch.isNotEmpty() && uploadQuota.tryAcquire(System.nanoTime())) {
-                            AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api ->
+                            AccountApi(AppBuild.ACCOUNT_ORIGIN).use { api ->
                                 if (api.uploadCrashReport(credential, report(batch))) { buffer.acknowledge(batch); persist() }
                             }
                         }
@@ -132,36 +132,24 @@ internal object DebugJank {
                 }
             }
         }
-        application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityResumed(activity: Activity) {
-                activity.window.decorView.post {
-                    if (activity.isFinishing || activity.isDestroyed) return@post
-                    val holder = PerformanceMetricsState.getHolderForHierarchy(activity.window.decorView)
-                    val stats = JankStats.createAndTrack(activity.window) { frame ->
-                        if (!Diagnostics.enabled) return@createAndTrack
-                        val end = frame.frameStartNanos + frame.frameDurationUiNanos
-                        val context = context(frame.frameStartNanos, end)
-                        frames.trySend(RenderFrame(frame.frameStartNanos, frame.frameDurationUiNanos, frame.isJank,
-                            activity.window.decorView.display?.refreshRate ?: 60f,
-                            frame.states.take(16).associate { it.key to it.value }, context.first, context.second, context.third))
-                        wake.trySend(Unit)
-                    }.apply { jankHeuristicMultiplier = 1f }
-                    synchronized(this@DebugJank) {
-                        metrics.remove(activity)?.first?.isTrackingEnabled = false
-                        metrics[activity] = stats to holder
-                        tags.forEach { (key, value) -> holder.state?.putState(key, value) }
-                    }
-                }
-            }
-            override fun onActivityPaused(activity: Activity) {
-                synchronized(this@DebugJank) { metrics.remove(activity)?.first?.isTrackingEnabled = false }
-            }
-            override fun onActivityCreated(activity: Activity, state: Bundle?) = Unit
-            override fun onActivityStarted(activity: Activity) = Unit
-            override fun onActivityStopped(activity: Activity) = Unit
-            override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) = Unit
-            override fun onActivityDestroyed(activity: Activity) = onActivityPaused(activity)
-        })
+    }
+
+    /** A screen ([owner]) starts its frame tracking: an earlier one of it stops; the labels so far are set on it. */
+    @Synchronized fun track(owner: Any, tracking: JankTracking) {
+        metrics.remove(owner)?.stop?.invoke()
+        metrics[owner] = tracking
+        tags.forEach { (key, value) -> tracking.state(key, value) }
+    }
+
+    /** [owner]'s frame tracking stops. */
+    @Synchronized fun untrack(owner: Any) { metrics.remove(owner)?.stop?.invoke() }
+
+    /** A frame the platform drew (only while reports are on), with the labels ([state]) it was drawn under. */
+    fun frame(startNanos: Long, durationNanos: Long, isJank: Boolean, refreshRate: Float, states: Map<String, String>) {
+        val end = startNanos + durationNanos
+        val context = context(startNanos, end)
+        frames.trySend(RenderFrame(startNanos, durationNanos, isJank, refreshRate, states, context.first, context.second, context.third))
+        wake.trySend(Unit)
     }
 
     fun authenticated(value: String?) { if (Diagnostics.enabled) { token = value; wake.trySend(Unit) } }

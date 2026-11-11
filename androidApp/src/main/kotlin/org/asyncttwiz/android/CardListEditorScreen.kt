@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -47,6 +47,7 @@ import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.storage.DeckSection
 import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.storage.definition as catalogDefinition
+import org.asyncttwiz.appui.screenWidthDp
 
 internal enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text") }
 
@@ -93,7 +94,7 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
         // LOB-057: a saved list's editor also has a red Delete at the top right; in portrait the link then shows as its icon.
         val link: @Composable () -> Unit = {
             val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
-            if (landscape || (deleteLabel == null && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 400))
+            if (landscape || (deleteLabel == null && screenWidthDp() >= 400))
                 ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
                     EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text(IMPORT_FROM_LINK)
                 }

@@ -14,6 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner, 2026-11-08: a combat that goes by itself went by too fast to read. It now holds the view, never the game, once when
@@ -28,7 +29,7 @@ class CombatHoldTest : E2e() {
         startGame(pups, pups, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),
             deal = { a, _ -> "Ash Pup" in hand(a) && "Mountain" in hand(a) })
         val context = ApplicationProvider.getApplicationContext<Context>()
-        for (player in listOf(alice, bob)) HistoryPlaybackPreferences(context, player.id).showPlaysMillis = millis
+        for (player in listOf(alice, bob)) HistoryPlaybackPreferences(AppPlatform.current, player.id).showPlaysMillis = millis
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Ash Pup", this)
@@ -98,7 +99,7 @@ class CombatHoldTest : E2e() {
         startGame(pups, pups, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),
             deal = { a, b -> hand(a).count { it == "Ash Pup" } >= 2 && "Ash Pup" in hand(b) })
         val context = ApplicationProvider.getApplicationContext<Context>()
-        for (player in listOf(alice, bob)) HistoryPlaybackPreferences(context, player.id).showPlaysMillis = HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
+        for (player in listOf(alice, bob)) HistoryPlaybackPreferences(AppPlatform.current, player.id).showPlaysMillis = HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
         bothOpen()
         bothKeep(bobAway = false)
         repeat(2) { n ->

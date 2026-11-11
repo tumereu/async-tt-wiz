@@ -10,6 +10,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import java.io.Closeable
 import java.net.URI
+import org.asyncttwiz.appui.AppBuild
 
 class ActivityFetchFailure(val status: Int, val retryAfter: Long = 0) : Exception("Activity unavailable") {
     val transient get() = status == 0 || status == 429 || status >= 500
@@ -17,7 +18,7 @@ class ActivityFetchFailure(val status: Int, val retryAfter: Long = 0) : Exceptio
 class ActivityApi(private val origin: String, private val client: HttpClient = AccountApi.client()) : Closeable {
     init { require(origin.isEmpty() || URI(origin).let {
         it.host != null && it.rawUserInfo == null && it.rawPath.isNullOrEmpty() && it.rawQuery == null && it.rawFragment == null &&
-            (it.scheme == "https" || (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
+            (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
     }) }
     suspend fun register(token: String, input: RegisterInstallation): ActivityRegistration =
         ActivityWire.json.decodeFromString(call(token, HttpMethod.Put, "/activity/installations", ActivityWire.json.encodeToString(input)))

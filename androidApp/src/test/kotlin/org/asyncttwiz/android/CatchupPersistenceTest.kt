@@ -9,6 +9,7 @@ import org.robolectric.annotation.Config
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -27,17 +28,17 @@ class CatchupPersistenceTest {
         }
         try {
             worker.submit { local.activate("alice") }.get(5, TimeUnit.SECONDS)
-            HistoryPlaybackPreferences(context, "alice").shown("game", "seen-a")
+            HistoryPlaybackPreferences(AppPlatform.current, "alice").shown("game", "seen-a")
             worker.submit { local.logout(store); local.activate("bob") }.get(5, TimeUnit.SECONDS)
             assertEquals(StoredSession.Empty, store.load())
-            val bob = HistoryPlaybackPreferences(context, "bob")
+            val bob = HistoryPlaybackPreferences(AppPlatform.current, "bob")
             assertNull(bob.lastSeen("game"))
             bob.shown("game", "seen-b")
             worker.submit { local.activate("alice") }.get(5, TimeUnit.SECONDS)
-            val aliceAgain = HistoryPlaybackPreferences(context, "alice")
+            val aliceAgain = HistoryPlaybackPreferences(AppPlatform.current, "alice")
             assertEquals("seen-a", aliceAgain.lastSeen("game"))
             assertNull(aliceAgain.lastSeen("other-game"))
-            assertEquals("seen-b", HistoryPlaybackPreferences(context, "bob").lastSeen("game"))
+            assertEquals("seen-b", HistoryPlaybackPreferences(AppPlatform.current, "bob").lastSeen("game"))
         } finally {
             worker.submit { local.close() }.get(5, TimeUnit.SECONDS)
             worker.shutdown()

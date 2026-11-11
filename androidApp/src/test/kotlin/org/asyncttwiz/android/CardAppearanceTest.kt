@@ -9,6 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -18,7 +19,7 @@ class CardAppearanceTest {
 
     // TBL-034, TBL-035
     @Test fun defaultsPersistAcrossInstancesAndCustomizationStartsAtMaster() {
-        val preferences = CardAppearancePreferences(context)
+        val preferences = CardAppearancePreferences(AppPlatform.current)
         for (area in CardArea.entries) assertEquals(1f, preferences.read().size(area))
         for (part in CardTextScalePart.entries) assertEquals(1f, preferences.read().text(part))
         assertFalse(preferences.read().customizeAreas)
@@ -28,7 +29,7 @@ class CardAppearanceTest {
         for (area in CardArea.entries) assertEquals(1.4f, preferences.read().size(area))
         for (part in CardTextScalePart.entries) assertEquals(1.2f, preferences.read().text(part))
         preferences.setSize(2f, CardArea.HAND); preferences.setText(.75f, CardTextScalePart.TITLE)
-        val reopened = CardAppearancePreferences(context)
+        val reopened = CardAppearancePreferences(AppPlatform.current)
         assertEquals(2f, reopened.read().size(CardArea.HAND))
         assertEquals(1.4f, reopened.read().size(CardArea.STACK))
         assertEquals(.75f, reopened.read().text(CardTextScalePart.TITLE))
@@ -39,8 +40,8 @@ class CardAppearanceTest {
 
     // TBL-036
     @Test fun changesNotifyOtherInstancesAndBoundsRejectNonfiniteInput() {
-        val a = CardAppearancePreferences(context)
-        val b = CardAppearancePreferences(context)
+        val a = CardAppearancePreferences(AppPlatform.current)
+        val b = CardAppearancePreferences(AppPlatform.current)
         var observed = b.read()
         val stop = b.observe { observed = b.read() }
         a.setSize(9f)

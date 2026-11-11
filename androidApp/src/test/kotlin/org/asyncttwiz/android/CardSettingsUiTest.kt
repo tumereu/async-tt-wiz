@@ -25,6 +25,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -36,7 +37,7 @@ class CardSettingsUiTest {
 
     // LOB-081, TBL-034, TBL-036
     @Test fun typedValuesValidateLimitsAndLiveSampleTracksSliderAndCustomization() {
-        val preferences = CardAppearancePreferences(context)
+        val preferences = CardAppearancePreferences(AppPlatform.current)
         compose.setContent { MaterialTheme { Column(Modifier.verticalScroll(rememberScrollState())) { CardSettings(preferences) } } }
         compose.onNodeWithTag("card-size-value").performClick()
         compose.onNodeWithTag("card-scale-input").performTextReplacement("9")
@@ -63,7 +64,7 @@ class CardSettingsUiTest {
     private fun screenshots(landscape: Boolean) {
         val f = TableStatesFixture
         val play = f.combat()
-        val preferences = CardAppearancePreferences(context)
+        val preferences = CardAppearancePreferences(AppPlatform.current)
         val toolkit = TableToolkitController(f.a, { engineTableBoard(play, f.a) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { EngineFixtureTable(play, f.a) { TableSurface(f.game, engineTableBoard(play, f.a), f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit) } } }
         for (scale in listOf(.5f, 3f)) for (zoom in listOf(.65f, 1f, 2f)) {

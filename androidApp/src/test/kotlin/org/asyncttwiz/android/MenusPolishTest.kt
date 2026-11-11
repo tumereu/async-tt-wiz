@@ -25,7 +25,7 @@ class MenusPolishTest {
     @Test fun settingsIsReachableFromMainMenuAndDrawerAndOwnsCardRecordsAndLogout() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also {
             viewModels.put("catalog", it)
             it.seed(CatalogUiState(ready = true))
         }

@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import coil3.compose.LocalPlatformContext
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PlayContainer
@@ -68,7 +68,7 @@ internal fun gameArtworkReferences(play: TableBoard, viewer: String): List<Artwo
 /** Warm the retained game definitions in the background queue while this game is open. */
 @Composable
 internal fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     // Ordered by the board when the game opens (or its definitions change), not on every move.
     val references = remember(play.gameId, viewer, play.definitions) { gameArtworkReferences(play, viewer) }
     DisposableEffect(play.gameId, references) {
@@ -79,6 +79,6 @@ internal fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
 }
 
 /** Saved deck cards in the sizes the table and the inspector use, downloaded ahead of any game. */
-internal fun prefetchDeckArtwork(context: android.content.Context, deckId: String, definitions: List<SubmittedDefinition>) {
+internal fun prefetchDeckArtwork(context: coil3.PlatformContext, deckId: String, definitions: List<SubmittedDefinition>) {
     PublicArtwork.prefetch(context, "deck:$deckId", gameArtworkReferences(definitions))
 }

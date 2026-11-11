@@ -18,9 +18,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.DeckVisibility
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.AppPlatform
+import androidx.compose.ui.text.style.TextAlign
 
-internal fun appVersionText(versionName: String = BuildConfig.VERSION_NAME, versionCode: Int = BuildConfig.VERSION_CODE,
-    buildType: String = BuildConfig.BUILD_TYPE, commit: String = BuildConfig.GIT_COMMIT): String =
+internal fun appVersionText(versionName: String = AppBuild.VERSION_NAME, versionCode: Int = AppBuild.VERSION_CODE,
+    buildType: String = AppBuild.BUILD_TYPE, commit: String = AppBuild.GIT_COMMIT): String =
     "Version $versionName ($versionCode) $buildType · commit $commit"
 
 @Composable
@@ -136,10 +139,10 @@ internal fun DeckVisibilitySetting(state: AccountSettingsState) {
 
 @Composable
 private fun WhatsNewEntry() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val platform = AppPlatform.current
     var open by remember { mutableStateOf(false) }
     SettingsActionRow("What's new", "news", { open = true }, Modifier.testTag("whats-new"))
-    if (open) WhatsNewDialog(remember { ReleaseNotes.load(context) }) { open = false }
+    if (open) WhatsNewDialog(remember { ReleaseNotes.load(platform) }) { open = false }
 }
 
 @Composable
@@ -170,5 +173,18 @@ internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
             Modifier.fillMaxWidth().heightIn(min = 120.dp).testTag("report-description"), singleLine = false,
             enabled = state == ProblemReportState.Idle || state is ProblemReportState.Failed, placeholder = "What happened?")
         ProblemReportStatus(state)
+    }
+}
+
+@Composable
+internal fun ProblemReportStatus(state: ProblemReportState) {
+    when (state) {
+        ProblemReportState.Idle -> Unit
+        ProblemReportState.Sending -> Text("Sending report…", style = MaterialTheme.typography.bodySmall)
+        is ProblemReportState.Sent -> SelectionContainer {
+            Text("Report sent — code ${state.code}", Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center)
+        }
+        is ProblemReportState.Failed -> Text(state.message, Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }

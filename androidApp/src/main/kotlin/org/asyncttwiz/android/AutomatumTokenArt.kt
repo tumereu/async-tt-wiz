@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.automatum.TokenArt
 import org.asyncttwiz.automatum.TokenArtQuery
-import org.asyncttwiz.storage.AndroidCatalogStorage
 import org.asyncttwiz.storage.CatalogRepository
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,10 +26,9 @@ internal class CatalogTokenArt(private val repository: () -> CatalogRepository) 
 
 /** One [CatalogTokenArt] per process, on the app's catalog. */
 internal object AndroidTokenArt {
-    @Volatile private var instance: Pair<android.content.Context, CatalogTokenArt>? = null
-    @Synchronized fun of(context: android.content.Context): TokenArt {
-        val app = context.applicationContext
-        instance?.takeIf { it.first === app }?.let { return it.second }
-        return CatalogTokenArt { AndroidCatalogStorage.repository(app) }.also { instance = app to it }
+    @Volatile private var instance: Pair<AppServices, CatalogTokenArt>? = null
+    @Synchronized fun of(services: AppServices): TokenArt {
+        instance?.takeIf { it.first === services }?.let { return it.second }
+        return CatalogTokenArt { services.catalogRepository() }.also { instance = services to it }
     }
 }

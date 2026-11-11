@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
-import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
@@ -56,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.Job
 import org.asyncttwiz.storage.ArtworkReference
 import kotlinx.coroutines.delay
@@ -64,6 +62,7 @@ import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import org.asyncttwiz.appui.passThroughPopupProperties
 
 private val PodBuildSidePadding = 48.dp
 /** Vertical gap between whole cards in one column. */
@@ -533,11 +532,7 @@ internal fun PodBuildSwipeCopy(
             layoutDirection: LayoutDirection, popupContentSize: IntSize) =
             anchorBounds.topLeft + IntOffset(drag.roundToInt() - paddingPx, -paddingPx)
     } }
-    Popup(position, properties = PopupProperties(
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        dismissOnBackPress = false, dismissOnClickOutside = false, excludeFromSystemGesture = false,
-    )) {
+    Popup(position, properties = passThroughPopupProperties()) {
         Box(Modifier.requiredSize(cardWidth + padding * 2, cardHeight + padding * 2).padding(padding)) {
             Box(Modifier.fillMaxSize().testTag("pod-build-swipe-copy-$key")
                 .clearAndSetSemantics { stateDescription = label }

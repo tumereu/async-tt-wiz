@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -78,14 +79,14 @@ class ReleaseNotesTest {
     }
 
     @Test fun preferencesSettleTheRecordOnceAndMarkSeen() {
-        val preferences = ReleaseNotePreferences(context)
+        val preferences = ReleaseNotePreferences(AppPlatform.current)
         val first = preferences.unseen(notes)
         // The record is now stored, so later runs never re-decide fresh install vs update.
-        assertEquals(first, ReleaseNotePreferences(context).unseen(notes))
+        assertEquals(first, ReleaseNotePreferences(AppPlatform.current).unseen(notes))
         val later = notes + ReleaseNote("2026-10-29-later", ReleaseNoteKind.MOD, "Later.")
-        assertEquals(first + later.last(), ReleaseNotePreferences(context).unseen(later))
+        assertEquals(first + later.last(), ReleaseNotePreferences(AppPlatform.current).unseen(later))
         preferences.markSeen(later)
-        assertEquals(emptyList(), ReleaseNotePreferences(context).unseen(later))
+        assertEquals(emptyList(), ReleaseNotePreferences(AppPlatform.current).unseen(later))
     }
 
     @Test fun packagedAssetHoldsTheRepositoryNotes() {

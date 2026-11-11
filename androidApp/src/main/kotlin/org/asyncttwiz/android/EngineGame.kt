@@ -25,6 +25,10 @@ import org.asyncttwiz.protocol.game.TableChange
 import java.util.UUID
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
+import org.asyncttwiz.appui.uptimeMillis
+import org.asyncttwiz.appui.isMainThread
+import org.asyncttwiz.appui.postToMain
+import org.asyncttwiz.appui.postFrameCallback
 
 /**
  * Where a game's engine work runs (I-D56 step D2, engine-state-architecture §12 item 11): one engine thread owns every
@@ -64,7 +68,6 @@ interface EngineWorker {
         private val executor by lazy {
             Executors.newSingleThreadExecutor { work -> Thread(work, "atw-engine").apply { isDaemon = true; thread = this } }
         }
-        private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
 
         override fun run(work: () -> Unit) {
             executor.execute {
@@ -81,13 +84,13 @@ interface EngineWorker {
         }
 
         override fun main(work: () -> Unit) {
-            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) work() else handler.post(work)
+            if (isMainThread()) work() else postToMain(work)
         }
 
         /** The next frame's callback posts [work], which runs once that frame's main-thread work (the recomposition and
          * the drawing it brings) is done. */
         override fun frame(work: () -> Unit) = main {
-            android.view.Choreographer.getInstance().postFrameCallback { handler.post(work) }
+            postFrameCallback { postToMain(work) }
         }
 
         override fun early(work: (release: (() -> Unit)?) -> Unit) {
@@ -980,7 +983,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** TRN-063 (owner playtest 2026-11-09): whether a main button press at [now] is taken: not when it comes within
      * [MainButtonGuard.MILLIS] of the last one taken (a quick second tap of a double tap; the button may already say something else). */
-    fun pressTaken(now: Long = android.os.SystemClock.uptimeMillis()): Boolean {
+    fun pressTaken(now: Long = uptimeMillis()): Boolean {
         if (now - lastPressAt < MainButtonGuard.MILLIS) return false
         lastPressAt = now
         return true

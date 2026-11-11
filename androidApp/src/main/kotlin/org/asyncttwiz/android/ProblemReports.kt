@@ -1,11 +1,9 @@
 package org.asyncttwiz.android
 
-import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +12,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.ProblemReport
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.deviceModel
+import org.asyncttwiz.appui.osVersion
+import org.asyncttwiz.appui.ownPlatformLog
 
 /** Client margin below the server limit for request framing. */
 internal const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
@@ -21,8 +23,8 @@ internal const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
 /** [automatum]: the latest game's Automatum log and bundle (I-D43, [AutomatumReports.text]), already within its bound. */
 internal fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now(),
     automatum: String = "") =
-    ProblemReport(now.toString(), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_TYPE,
-        "${Build.MANUFACTURER} ${Build.MODEL}".take(200), "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})".take(100),
+    ProblemReport(now.toString(), AppBuild.VERSION_NAME, AppBuild.VERSION_CODE, AppBuild.BUILD_TYPE,
+        deviceModel().take(200), osVersion().take(100),
         description.trim().take(ProblemReport.MAX_DESCRIPTION), problem.orEmpty().take(ProblemReport.MAX_PROBLEM), log, logcat,
         automatum.takeIf { it.length <= ProblemReport.MAX_AUTOMATUM }.orEmpty())
 
@@ -52,22 +54,7 @@ private fun dropOldestLines(text: String, bytes: Int): String {
 }
 
 /** The app may read its own process's logcat without extra permissions; anything else yields nothing. */
-internal fun ownLogcat(lines: Int = 2_000, maxBytes: Int = 400_000): String = try {
-    val process = ProcessBuilder("logcat", "-d", "-v", "threadtime", "-v", "UTC", "-t", lines.toString(),
-        "--pid=${android.os.Process.myPid()}").redirectErrorStream(true).start()
-    try {
-        val output = java.io.ByteArrayOutputStream()
-        process.inputStream.use { input ->
-            val buffer = ByteArray(16_384)
-            while (output.size() < maxBytes) {
-                val count = input.read(buffer)
-                if (count == -1) break
-                output.write(buffer, 0, count)
-            }
-        }
-        if (process.waitFor(3, TimeUnit.SECONDS) && process.exitValue() == 0) redactLog(output.toString(Charsets.UTF_8.name())) else ""
-    } finally { process.destroy() }
-} catch (_: Exception) { "" }
+internal fun ownLogcat(lines: Int = 2_000, maxBytes: Int = 400_000): String = redactLog(ownPlatformLog(lines, maxBytes))
 
 sealed interface ProblemReportState {
     data object Idle : ProblemReportState
@@ -82,7 +69,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
     private val automatum: () -> String = { AutomatumReports.text() },
     private val upload: suspend (ProblemReport, String?) -> String = { report, token ->
         // A large log over a slow connection needs longer than ordinary account calls.
-        AccountApi(BuildConfig.ACCOUNT_ORIGIN, AccountApi.client(requestTimeout = 90_000)).use { it.sendProblemReport(report, token) }
+        AccountApi(AppBuild.ACCOUNT_ORIGIN, AccountApi.client(requestTimeout = 90_000)).use { it.sendProblemReport(report, token) }
     }) {
     var state by mutableStateOf<ProblemReportState>(ProblemReportState.Idle)
         private set

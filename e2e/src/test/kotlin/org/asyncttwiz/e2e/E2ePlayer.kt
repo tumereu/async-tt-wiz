@@ -57,6 +57,7 @@ import org.robolectric.android.controller.ActivityController
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * One player's phone: the app's own code for a signed-in account, wired as [org.asyncttwiz.android.AuthViewModel] and
@@ -113,7 +114,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 real.download(checksum, output, progress)
             }
         }
-        org.asyncttwiz.android.CatalogViewModel(androidx.test.core.app.ApplicationProvider.getApplicationContext(),
+        org.asyncttwiz.android.CatalogViewModel(
             org.asyncttwiz.android.CatalogController(directory, repository, { source }, E2eStack.catalogChecksum, worker("catalog"), post,
                 retryPause = 0))
     }
@@ -149,7 +150,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     private val maintenance = GameConnectionMaintenance({ true }, {
         auth.foreground()
         if (auth.state.account != null) lobby.sync()
-    }, main, lobby::tick)
+    }, org.asyncttwiz.android.mainLooperDelayed, lobby::tick)
 
     /** Whether the app is in the foreground (MainActivity resumed): away, it says it left the game, as onPause does. */
     var foreground by mutableStateOf(true)
@@ -215,7 +216,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** Starts the app's screen: signed in (the saved session), on the main menu. */
     fun launch() {
         // With card records the app offers the avatar chooser at a first sign-in (LOB-011): these accounts had theirs
-        if (catalog != null) org.asyncttwiz.android.AvatarPromptMemory(androidx.test.core.app.ApplicationProvider.getApplicationContext()).shown(account.id)
+        if (catalog != null) org.asyncttwiz.android.AvatarPromptMemory(AppPlatform.current).shown(account.id)
         catalog?.foreground()
         controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         activity.setContent {

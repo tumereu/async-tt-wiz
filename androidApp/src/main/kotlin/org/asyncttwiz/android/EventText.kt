@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -29,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executor
+import org.asyncttwiz.appui.AppPlatform
 
 /** The short text of the group whose last shown event is [cursorId]. [serial] tells repeated texts apart. */
 internal data class EventTextChip(val cursorId: String, val text: String, val serial: Long, val shownAt: Long)
@@ -74,23 +72,21 @@ internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) ->
 }
 
 /** Device-local, account-scoped like the other playback preferences. */
-internal class EventTextPreferences(context: Context, accountId: String) {
-    private val preferences = context.applicationContext.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+internal class EventTextPreferences(platform: AppPlatform, accountId: String) {
+    private val preferences = platform.preferences("history-playback")
     private val key = "event-text/$accountId"
     var enabled: Boolean
         get() = preferences.getBoolean(key, true)
         set(value) { preferences.edit().putBoolean(key, value).apply() }
     fun observe(onChange: () -> Unit): () -> Unit {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed -> if (changed == null || changed == key) onChange() }
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+        return preferences.observe { changed -> if (changed == null || changed == key) onChange() }
     }
 }
 
 @Composable
 internal fun rememberEventTextEnabled(accountId: String): Pair<State<Boolean>, EventTextPreferences> {
-    val context = LocalContext.current
-    val preferences = remember(context, accountId) { EventTextPreferences(context, accountId) }
+    val platform = AppPlatform.current
+    val preferences = remember(platform, accountId) { EventTextPreferences(platform, accountId) }
     val state = remember(preferences) { mutableStateOf(preferences.enabled) }
     DisposableEffect(preferences) {
         val stop = preferences.observe { state.value = preferences.enabled }

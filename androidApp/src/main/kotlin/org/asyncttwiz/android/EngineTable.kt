@@ -10,7 +10,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -58,6 +57,8 @@ import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.asyncttwiz.protocol.game.TableChange
 import org.asyncttwiz.automatum.EngineDrafts
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
 
 /**
  * The table's routes into a game played on engine state (I-D56 step C): the player's own inputs ([send]: a cast, an
@@ -1045,7 +1046,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     }
     val current = preview?.takeIf { it.first == target && !it.second.loading }?.second
     val needsRequest = (current ?: preview?.second?.takeIf { !it.loading })?.needsRequest
-    val landscape = LocalConfiguration.current.let { it.screenWidthDp > it.screenHeightDp }
+    val landscape = screenWidthDp() > screenHeightDp()
     ScreenDialog({ AppLog.info("undo", "Undo dialog dismissed"); routes.rewind = null }, title = "Undo", actions = {
         DialogCancelButton("Cancel", { AppLog.info("undo", "Undo dialog cancelled"); routes.rewind = null })
         DialogMainButton(if (needsRequest == true) "Ask $opponent" else "Undo", {

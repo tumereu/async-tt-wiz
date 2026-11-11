@@ -1,9 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
-import android.content.res.Configuration
-import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
@@ -41,8 +37,6 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
@@ -55,10 +49,14 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import org.asyncttwiz.protocol.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.Preferences
+import org.asyncttwiz.appui.ScreenOrientation
+import org.asyncttwiz.appui.screenOrientation
+import org.asyncttwiz.appui.passThroughPopupProperties
 
 internal val PodPickGreen = Color(0xFF237A38)
 internal val PodPickRed = Color(0xFFB3261E)
@@ -163,13 +161,13 @@ internal fun PodPickView(
 }
 
 @Composable
-private fun rememberPodPickPreferences() = LocalContext.current.applicationContext.let { context ->
-    remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
+private fun rememberPodPickPreferences() = AppPlatform.current.let { platform ->
+    remember(platform) { platform.preferences("pod-pick") }
 }
 
 /** Personal per-orientation cards-per-row choice, hoisted so the header's view settings panel can change it. */
 @Stable
-class PodPickColumns internal constructor(private val preferences: SharedPreferences, private val key: String, default: Int) {
+class PodPickColumns internal constructor(private val preferences: Preferences, private val key: String, default: Int) {
     var preferred by mutableIntStateOf(preferences.getInt(key, default))
         private set
     fun choose(value: Int) { preferred = value.coerceIn(PodPickColumnRange); preferences.edit().putInt(key, preferred).apply() }
@@ -178,7 +176,7 @@ class PodPickColumns internal constructor(private val preferences: SharedPrefere
 
 @Composable
 internal fun rememberPodPickColumns(): PodPickColumns {
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
     val preferences = rememberPodPickPreferences()
     val key = if (landscape) "columns-landscape" else "columns-portrait"
     return remember(preferences, key) { PodPickColumns(preferences, key, if (landscape) 5 else 3) }
@@ -483,11 +481,7 @@ private fun PodPickSwipeCopy(
         burnEnabled -> PodPickRed
         else -> Color.Transparent
     }.copy(alpha = if (swipe.offset > 0f || burnEnabled) .35f * progress else 0f)
-    Popup(position, properties = PopupProperties(
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        dismissOnBackPress = false, dismissOnClickOutside = false, excludeFromSystemGesture = false,
-    )) {
+    Popup(position, properties = passThroughPopupProperties()) {
         Box(Modifier.requiredSize(cardWidth + padding * 2, cardHeight + padding * 2).padding(padding)) {
             Box(Modifier.fillMaxSize().testTag("pod-pick-swipe-copy-${copy.id}").clearAndSetSemantics {}
                 .graphicsLayer {

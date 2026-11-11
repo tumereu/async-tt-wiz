@@ -1,9 +1,8 @@
 package org.asyncttwiz.android
 
-import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,7 +27,6 @@ import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.HorizontalAlignmentLine
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -42,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import org.asyncttwiz.protocol.TableActions
+import org.asyncttwiz.appui.uptimeMillis
 
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
 /** TBL-067: the areas table popups keep off when they fit elsewhere (both hands). */
@@ -165,7 +164,7 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
     height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
     title: String = description, switchPage: (Int) -> Unit = {}, sheet: Boolean = false,
     placement: TableBounds? = null, content: @Composable () -> Unit) {
-    val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
+    val guard = remember(identity, viewId) { CardRingInputGuard(uptimeMillis()) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
     val inputTargets = remember { mutableMapOf<Any, TableBounds>() }

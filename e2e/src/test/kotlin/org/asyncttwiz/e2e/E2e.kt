@@ -22,6 +22,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.LockSupport
 import kotlin.test.fail
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * The two phones' Compose test environment (one for both: one recomposer and frame clock, both phones' windows), with
@@ -141,7 +142,7 @@ abstract class E2e {
      */
     private fun showPlays(vararg accounts: TestAccount) {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        for (account in accounts) org.asyncttwiz.android.HistoryPlaybackPreferences(context, account.id).showPlaysMillis = 0
+        for (account in accounts) org.asyncttwiz.android.HistoryPlaybackPreferences(AppPlatform.current, account.id).showPlaysMillis = 0
     }
 
     /**

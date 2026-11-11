@@ -25,6 +25,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner playtest 2026-11-06 (Bushy Bodyguard): a creature with offspring and "When this creature enters, you may forage. If
@@ -49,7 +50,7 @@ class OffspringForageWalkthroughTest {
 
     private fun render() {
         // HIS-112: no plays shown (Alice's own triggers would hold her table a moment each): this walks through the questions
-        HistoryPlaybackPreferences(androidx.test.core.app.ApplicationProvider.getApplicationContext(), kit.f.a).showPlaysMillis = 0
+        HistoryPlaybackPreferences(AppPlatform.current, kit.f.a).showPlaysMillis = 0
         compose.setContent {
             MaterialTheme {
                 NoRipples {

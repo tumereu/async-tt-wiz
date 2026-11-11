@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -27,7 +28,7 @@ class AvatarTest {
     @Test fun catalogDownloadHasVisibleProgressWithoutBlockingLoginOrRegistration() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 50, 100)
         catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { AccountEntry(fixture.auth, fixture.reset, catalog) }
@@ -47,7 +48,7 @@ class AvatarTest {
         context.getSharedPreferences("avatar-chooser", 0).edit().clear().commit()
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
         catalog.seed(CatalogUiState())
         compose.setContent { AccountEntry(fixture.auth, fixture.reset, catalog) }
         compose.onNodeWithText("Choose your avatar").assertIsDisplayed()
@@ -57,7 +58,7 @@ class AvatarTest {
         compose.runOnIdle { fixture.auth.seed(AuthState(restoring = false)) }
         compose.runOnIdle { fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex)) }
         compose.onNodeWithText("Choose your avatar").assertDoesNotExist()
-        assertFalse(AvatarPromptMemory(context).shouldShow(ScreenFixtures.alex))
+        assertFalse(AvatarPromptMemory(AppPlatform.current).shouldShow(ScreenFixtures.alex))
     }
 
     // LOB-013
@@ -65,7 +66,7 @@ class AvatarTest {
     fun compactProfileFitsWithoutScrollingAndCancelKeepsName() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 43, 100)
         catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { MaterialTheme { ProfileSettings(fixture.auth, catalog) } }
@@ -87,7 +88,7 @@ class AvatarTest {
     @Test fun waitingChooserBecomesAvailableInPlaceWhenCatalogIsInstalled() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, avatarChooser = true))
-        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
         val progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.INDEXING, 50, 100)
         catalog.seed(CatalogUiState(progress = progress))
         compose.setContent { MaterialTheme { AvatarChooser(fixture.auth, catalog) } }
@@ -104,10 +105,10 @@ class AvatarTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context.getSharedPreferences("avatar-chooser", 0).edit().clear().commit()
         val account = AccountIdentity("first", "Alice")
-        val memory = AvatarPromptMemory(context)
+        val memory = AvatarPromptMemory(AppPlatform.current)
         assertTrue(memory.shouldShow(account))
         memory.shown(account.accountId)
-        assertFalse(AvatarPromptMemory(context).shouldShow(account))
+        assertFalse(AvatarPromptMemory(AppPlatform.current).shouldShow(account))
         assertTrue(memory.shouldShow(account.copy(accountId = "second")))
         assertFalse(memory.shouldShow(account.copy(avatar = AvatarIdentity(java.util.UUID.randomUUID().toString()))))
     }

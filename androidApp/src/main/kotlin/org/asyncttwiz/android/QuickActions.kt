@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.uptimeMillis
 
 data class QuickContext(val combatAreaId: String? = null,
     val playable: Boolean = true, val viewer: String? = null,
@@ -158,7 +159,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // says by then (a double tap on Cast never also passes)
             val fallbackPress = remember { longArrayOf(Long.MIN_VALUE / 2) }
             fun taken(label: String): Boolean {
-                val now = android.os.SystemClock.uptimeMillis()
+                val now = uptimeMillis()
                 val game = engine?.engine
                 val ok = game?.pressTaken(now) ?: (now - fallbackPress[0] >= MainButtonGuard.MILLIS).also { if (it) fallbackPress[0] = now }
                 if (!ok) AppLog.info("game", "Main button: a quick second tap on \"$label\" ignored (within ${MainButtonGuard.MILLIS} ms of the last press)")

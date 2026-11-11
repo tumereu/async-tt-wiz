@@ -14,13 +14,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.NativeColors
+import org.asyncttwiz.appui.nativeSaveCount
+import org.asyncttwiz.appui.nativeRestoreToCount
 
 /** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
 internal val AutotapAmber = Color(0xffe09a1c)
@@ -181,7 +183,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         // Playtest crash 2026-11-03 ("Underflow in restore" on Keep): the fade's layer and the shake's offset are undone
         // by restoring to the save count from before them, never by counting restores (a layer the renderer didn't push
         // must not pop a save of the nodes around the table).
-        val saved = drawContext.canvas.nativeCanvas.saveCount
+        val saved = nativeSaveCount()
         // Opaque cards need only the existing clip, not a separate GPU render target per fragment.
         if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(left * density, top * density,
             right * density, bottom * density), cache.layerPaint.apply { this.alpha = alpha })
@@ -193,9 +195,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
              TableItemKind.HAND -> Unit
             TableItemKind.LIFE -> {
                 drawRect(color, xy(b.x, b.y), size(b.width, b.height))
-                paint.color = android.graphics.Color.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
+                paint.color = NativeColors.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
                 centeredText(i.value, b, 24f)
-                paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
+                paint.color = NativeColors.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
                 if (presenceDot != null && i.owner != viewer) {
                     // Opponent presence: inside the top-right corner, clear of the status dot/bubble below the square.
                     val center = xy(b.right - 7f, b.y + 7f)
@@ -210,9 +212,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                     cardFace(i, b.x, b.y, color, i.faceTitle)
                     if (i.covered) {
                          val z = b.width / 28f
-                         paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * z * density
+                         paint.color = NativeColors.WHITE; paint.textSize = 17 * z * density
                          text("✧", b.x + 8 * z, b.y + 26 * z, 1)
-                        paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
+                        paint.color = NativeColors.DKGRAY; paint.textSize = 11 * density
                     }
                     if (i.temp) {
                         // A small order number keeps several face-down Temp piles apart.
@@ -221,7 +223,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                         drawRoundRect(Color.White, xy(tag.x, tag.y), size(tag.width, tag.height), CornerRadius(2 * z * density))
                         paint.color = color.toArgb(); paint.isFakeBoldText = true
                         centeredText(i.tempNumber.toString(), tag.copy(x = tag.x - 4f, width = tag.width + 8f), 8f * z)
-                        paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
+                        paint.color = NativeColors.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
                     }
                 }
             }
@@ -275,9 +277,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                           paint.textSize = 11 * s * density
                           val badgeWidth = cache.measure(label) / density + 6f * s
                           drawRoundRect(color, xy(x, y + cardHeight - 16f * s), size(badgeWidth, 16f * s), CornerRadius(3 * s * density))
-                          paint.color = android.graphics.Color.WHITE
+                          paint.color = NativeColors.WHITE
                           text(label, x + 3f * s, y + cardHeight - 4f * s, label.length)
-                          paint.color = android.graphics.Color.DKGRAY
+                          paint.color = NativeColors.DKGRAY
                       }
                      paint.textSize = 11 * density
                      outlines(i, TableBounds(x, y, cardWidth, cardHeight), card = true)
@@ -286,7 +288,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         }
         if (i.kind != TableItemKind.CARD) outlines(i, b)
         } finally {
-            drawContext.canvas.nativeCanvas.restoreToCount(saved)
+            nativeRestoreToCount(saved)
         }
     }
     }
@@ -330,12 +332,12 @@ private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) =
         if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
             drawCircle(Color(0xff345451), badge.width / 2 * density, xy(badge.center.x, badge.center.y))
             drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
-            paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
+            paint.color = NativeColors.WHITE; paint.isFakeBoldText = true
             val previousSize = paint.textSize
             paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f) * density
             text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
             paint.textSize = previousSize
-            paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
+            paint.color = NativeColors.DKGRAY; paint.isFakeBoldText = false
             if (i.countersInside) {
                 // ZON-092: a card in the pile carries counters: a small violet counter (the colour of the counter chips,
                 // TBL-113) ringed in white like the count bubble, at the corner opposite it

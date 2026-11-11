@@ -39,9 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.compose.ui.platform.LocalView
-import android.view.ViewGroup
+import org.asyncttwiz.appui.DialogFillsScreen
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.PodDeckCategory
 import kotlin.math.abs
@@ -89,8 +87,7 @@ internal fun PodBuildFeedDialog(
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
         // A wrap-content dialog window can flip between neighbouring pixel widths; pin it to the screen.
-        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        SideEffect { window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
+        DialogFillsScreen()
         ScreenTheme {
             Surface(Modifier.fillMaxSize().testTag("pod-build-feed"), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxSize()) {

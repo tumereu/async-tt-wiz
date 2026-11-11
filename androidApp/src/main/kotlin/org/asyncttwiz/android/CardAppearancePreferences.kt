@@ -1,9 +1,7 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import org.asyncttwiz.appui.AppPlatform
 
 enum class CardArea(val label: String) { HAND("Hand"), PILES("Piles"), STACK("Stack"), PANELS("Panels") }
 /** TBL-035: the per-text sizes (notes are gone with the tabletop controls, I-D52). */
@@ -29,8 +27,8 @@ internal fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull(
     ?.takeIf { it.isFinite() }?.let(::cardScale)
 
 /** One file for the device, intentionally independent of account IDs and logout cleanup. */
-internal class CardAppearancePreferences(context: Context) {
-    private val store = context.applicationContext.getSharedPreferences("card-appearance", Context.MODE_PRIVATE)
+internal class CardAppearancePreferences(platform: AppPlatform) {
+    private val store = platform.preferences("card-appearance")
     fun read() = CardAppearance(
         cardScale(store.getFloat("size", 1f)), store.getBoolean("custom-areas", false),
         CardArea.entries.associateWith { cardScale(store.getFloat("area/${it.name}", store.getFloat("size", 1f))) },
@@ -53,17 +51,13 @@ internal class CardAppearancePreferences(context: Context) {
         if (enabled && !read().customizeText) for (part in CardTextScalePart.entries) edit.putFloat("text/${part.name}", read().textSize)
         edit.apply()
     }
-    fun observe(change: () -> Unit): () -> Unit {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> change() }
-        store.registerOnSharedPreferenceChangeListener(listener)
-        return { store.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
+    fun observe(change: () -> Unit): () -> Unit = store.observe { change() }
 }
 
 @Composable
 internal fun rememberCardAppearancePreferences(): CardAppearancePreferences {
-    val context = LocalContext.current
-    return remember(context) { CardAppearancePreferences(context) }
+    val platform = AppPlatform.current
+    return remember(platform) { CardAppearancePreferences(platform) }
 }
 
 @Composable

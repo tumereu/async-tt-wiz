@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
 import org.asyncttwiz.storage.evictConnectionsInBackground
+import org.asyncttwiz.appui.AppBuild
 
 
 /** One ordered socket. Credentials are headers only; redirects never forward them. */
@@ -41,7 +42,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
     init {
         require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
             it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
-            (it.scheme == "https" || (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) })
+            (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) })
     }
     override fun connect(token: String, listener: GameConnection.Listener) {
         disconnect()

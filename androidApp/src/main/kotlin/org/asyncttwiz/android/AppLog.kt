@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
-import android.util.Log
+import org.asyncttwiz.appui.LogPriority
+import org.asyncttwiz.appui.platformLog
 import java.io.File
 import java.io.FileOutputStream
 import java.time.Instant
@@ -11,15 +12,15 @@ object AppLog {
 
     /** Loads lines persisted before a restart or crash. */
     fun install(file: File) { buffer = LogBuffer(file) }
-    fun info(tag: String, message: String, failure: Throwable? = null) = write(Log.INFO, tag, message, failure)
-    fun warn(tag: String, message: String, failure: Throwable? = null) = write(Log.WARN, tag, message, failure)
-    fun error(tag: String, message: String, failure: Throwable? = null) = write(Log.ERROR, tag, message, failure)
+    fun info(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.INFO, tag, message, failure)
+    fun warn(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.WARN, tag, message, failure)
+    fun error(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.ERROR, tag, message, failure)
     fun text(): String = buffer.text()
 
     private fun write(priority: Int, tag: String, message: String, failure: Throwable?) {
         val line = buffer.add(priority, tag, message, failure)
         // Plain JVM unit tests have no logcat.
-        try { Log.println(priority, "ATW/$tag", line.substringAfter(": ")) } catch (_: RuntimeException) {}
+        try { platformLog(priority, "ATW/$tag", line.substringAfter(": ")) } catch (_: RuntimeException) {}
     }
 }
 
@@ -38,8 +39,8 @@ internal class LogBuffer(private val file: File?, private val maxBytes: Int = 25
     }
 
     @Synchronized fun add(priority: Int, tag: String, message: String, failure: Throwable? = null): String {
-        val level = when (priority) { Log.ERROR -> 'E'; Log.WARN -> 'W'; else -> 'I' }
-        val detail = failure?.let { if (priority == Log.ERROR) "\n" + it.stackTraceToString().take(8_000) else " | " + summary(it) }.orEmpty()
+        val level = when (priority) { LogPriority.ERROR -> 'E'; LogPriority.WARN -> 'W'; else -> 'I' }
+        val detail = failure?.let { if (priority == LogPriority.ERROR) "\n" + it.stackTraceToString().take(8_000) else " | " + summary(it) }.orEmpty()
         val line = redactLog("${now()} $level/$tag: $message$detail").take(16_000).replace("\n", "\n$INDENT")
         keep(line)
         if (bytes > maxBytes) { trim(maxBytes * 3 / 4); persist() } else append(line)

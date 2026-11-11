@@ -29,6 +29,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.*
+import org.asyncttwiz.appui.AppPlatform
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -163,7 +164,7 @@ class TableChangesScreenshotTest {
     // HIS-031
     @Test fun accumulatedTagsAndHighlightsAtAMidAnimationFrame() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        CardAppearancePreferences(context).setSize(MIN_CARD_SCALE)
+        CardAppearancePreferences(AppPlatform.current).setSize(MIN_CARD_SCALE)
         val play = LiveTableFixture.menuPlay()
         val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", 412f, 892f, false,
             appearance = CardAppearance(cardSize = MIN_CARD_SCALE))

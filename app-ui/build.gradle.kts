@@ -33,8 +33,16 @@ kotlin {
             implementation(libs.cmp.foundation)
             implementation(libs.cmp.ui)
             implementation(libs.cmp.material3)
+            // Platform seams (docs/specs/web-client.md §1 item 2): the HTTP client and Coil's image type.
+            implementation(libs.ktor.client.core)
+            implementation(libs.coil.core)
         }
         // Compiled against the androidx Compose the app runs with (inline functions are copied in at compile time).
-        androidMain.dependencies { implementation(project.dependencies.platform(libs.compose.bom)) }
+        androidMain.dependencies {
+            implementation(project.dependencies.platform(libs.compose.bom))
+            // The Android sides of the seams: the activity's back handling and Ktor's Android engine, as the app has them.
+            implementation(libs.activity.compose)
+            implementation(libs.ktor.client.android)
+        }
     }
 }

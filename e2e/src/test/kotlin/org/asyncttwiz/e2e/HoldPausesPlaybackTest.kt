@@ -9,6 +9,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner, 2026-11-08: a finger held on the table pauses catch-up playback between events, and it goes on when lifted. Owner,
@@ -29,7 +30,7 @@ class HoldPausesPlaybackTest : E2e() {
         val engine = HeldWorker()
         bob = restart(bob, engine)
         // Card move speed 0.25×: each event Bob sees waits 1.32 s in his playback (HIS-021), time enough to hold a card
-        CardMovePreferences(bob.activity, bob.id).multiplier = .25f
+        CardMovePreferences(AppPlatform.current, bob.id).multiplier = .25f
         var paused = false
         everyRun += { if ((bob.game?.shown?.status as? GameDevice.Status.Stopped)?.paused == true) paused = true }
         bob.openGame(game, this)

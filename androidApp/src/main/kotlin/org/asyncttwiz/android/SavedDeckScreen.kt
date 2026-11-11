@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,13 +16,14 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
 
 @Composable
 internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
@@ -124,7 +125,7 @@ internal fun savedListSections(always: List<SavedDeckSection>, present: List<Sav
 private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Unit)?) {
     val state = controller.state
     val detail = state.detail!!
-    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    val landscape = screenWidthDp() > screenHeightDp()
     val actions: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel") }

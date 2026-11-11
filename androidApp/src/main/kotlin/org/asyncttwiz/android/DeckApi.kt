@@ -13,6 +13,7 @@ import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.storage.definition as catalogDefinition
 import java.io.Closeable
 import java.net.URI
+import org.asyncttwiz.appui.AppBuild
 
 class DeckFailure(val code: String) : Exception("Deck request failed")
 
@@ -50,7 +51,7 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
                 it.rawPath.isNullOrEmpty() && (it.scheme == "https" ||
-                (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
+                (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
         })
     }
     override suspend fun create(token: String, value: CreateCube): SavedCube =

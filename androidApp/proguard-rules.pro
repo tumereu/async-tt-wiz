@@ -26,3 +26,9 @@
 -keep class * implements com.google.firebase.components.ComponentRegistrar {
     <init>();
 }
+
+# The shared UI finds the build's values with java.util.ServiceLoader (resources/META-INF/services), which makes the
+# class with its no-arg constructor.
+-keep class org.asyncttwiz.android.AndroidBuildInfo {
+    <init>();
+}

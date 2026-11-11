@@ -1,9 +1,7 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import org.asyncttwiz.appui.AppPlatform
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -30,8 +28,8 @@ internal fun cardMoveProgress(from: TableBounds, to: TableBounds, sceneProgress:
     return 1f - (1f - t) * (1f - t)
 }
 
-internal class CardMovePreferences(context: Context, accountId: String = "") {
-    private val preferences = context.applicationContext.getSharedPreferences("card-move-animation", Context.MODE_PRIVATE)
+internal class CardMovePreferences(platform: AppPlatform, accountId: String = "") {
+    private val preferences = platform.preferences("card-move-animation")
     private val key = "multiplier/$accountId"
     var multiplier: Float
         get() = cardMoveMultiplier(preferences.getFloat(key, 1f))
@@ -43,12 +41,11 @@ internal class CardMovePreferences(context: Context, accountId: String = "") {
     fun multiplierState(): State<Float> {
         val state = remember(this) { mutableFloatStateOf(multiplier) }
         DisposableEffect(this) {
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            val stop = preferences.observe { changed ->
                 if (changed == key) state.floatValue = multiplier
             }
-            preferences.registerOnSharedPreferenceChangeListener(listener)
             state.floatValue = multiplier
-            onDispose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+            onDispose { stop() }
         }
         return state
     }
@@ -56,6 +53,6 @@ internal class CardMovePreferences(context: Context, accountId: String = "") {
 
 @Composable
 internal fun rememberCardMovePreferences(accountId: String = ""): CardMovePreferences {
-    val context = LocalContext.current
-    return remember(context, accountId) { CardMovePreferences(context, accountId) }
+    val platform = AppPlatform.current
+    return remember(platform, accountId) { CardMovePreferences(platform, accountId) }
 }

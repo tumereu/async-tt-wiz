@@ -1,13 +1,11 @@
 package org.asyncttwiz.android
 
-import android.app.Activity
-import android.app.Application
-import android.os.Bundle
-import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.platformLogInfo
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -120,17 +118,18 @@ internal object DebugLatency {
     }
     fun reconnect(value: ReconnectEpisode) {
         if (!Diagnostics.enabled || recorder == null) return
-        Log.i("AtwReconnect", "game=${value.gameId} episode=${value.id} started=${value.startedAt} cause=${value.cause} " +
+        platformLogInfo("AtwReconnect", "game=${value.gameId} episode=${value.id} started=${value.startedAt} cause=${value.cause} " +
             "step=${value.steps.lastOrNull()} durationMs=${value.durationMs} complete=${value.complete}")
         if (reconnects.record(value)) wake.trySend(Unit)
     }
 
-    fun install(application: Application, store: CrashReportStore, version: String, device: String) {
+    /** The platform's [ReportHooks.start] calls [appBackgrounded] when the app goes to the background. */
+    fun install(store: CrashReportStore, version: String, device: String) {
         if (!Diagnostics.enabled || recorder != null) return
         fun report(actions: List<ActionLatency>, episodes: List<ReconnectEpisode>, gestures: List<CardTapDiagnostic>) = CrashReport(Instant.now().toString(), version, device,
             AccountJson.format.encodeToString(LatencyBatch(actions, episodes, gestures)), kind = "latency")
         recorder = LatencyRecorder(true, log = { entry ->
-            Log.i("AtwLatency", "action=${entry.actionType} game=${entry.gameId} nodes=${entry.historyNodeCount} " +
+            platformLogInfo("AtwLatency", "action=${entry.actionType} game=${entry.gameId} nodes=${entry.historyNodeCount} " +
                 "predicted=${entry.predicted} submitted=${entry.submitted} localApplyMs=${entry.localApplyMs} " +
                 "firstFrameMs=${entry.firstFrameMs} serverResultMs=${entry.serverResultMs}" +
                 entry.parts.entries.joinToString("") { (label, ms) -> " $label=$ms" })
@@ -159,7 +158,7 @@ internal object DebugLatency {
                         val batch = buffer.batch(System.nanoTime() / 1_000_000, force)
                         val episodes = reconnects.batch()
                         val gestures = taps.snapshot().take(40)
-                        if (batch.isNotEmpty() || episodes.isNotEmpty() || gestures.isNotEmpty()) AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api ->
+                        if (batch.isNotEmpty() || episodes.isNotEmpty() || gestures.isNotEmpty()) AccountApi(AppBuild.ACCOUNT_ORIGIN).use { api ->
                             if (api.uploadCrashReport(credential, report(batch.map { it.value }, episodes, gestures))) {
                                 buffer.acknowledge(batch); reconnects.acknowledge(episodes); taps.acknowledge(gestures); persist()
                             }
@@ -171,19 +170,10 @@ internal object DebugLatency {
         }
         scope.launch { while (isActive) { delay(1000); tapRecorder.expire() } }
         scope.launch { while (isActive) { delay(60_000); requestUpload(false) } }
-        application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            private var started = 0
-            override fun onActivityStarted(activity: Activity) { started++ }
-            override fun onActivityStopped(activity: Activity) {
-                if (--started == 0 && !activity.isChangingConfigurations) requestUpload(true)
-            }
-            override fun onActivityCreated(activity: Activity, state: Bundle?) = Unit
-            override fun onActivityResumed(activity: Activity) = Unit
-            override fun onActivityPaused(activity: Activity) = Unit
-            override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) = Unit
-            override fun onActivityDestroyed(activity: Activity) = Unit
-        })
     }
+
+    /** The app went to the background (not a rotation): what waits is sent now. */
+    fun appBackgrounded() = requestUpload(true)
 
     /** Reports turned off: the loop empties the queues and deletes the saved batch. */
     fun discard() { clear(); wake.trySend(Unit) }

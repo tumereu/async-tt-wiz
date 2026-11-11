@@ -5,7 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
+import coil3.compose.LocalPlatformContext
 import androidx.compose.ui.unit.IntSize
 import coil3.request.ImageRequest
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +57,7 @@ internal class ArtworkPrefetcher(private val scope: CoroutineScope, parallelism:
  * the lazy grid has composed. The decode size matches the tiles, so a composed tile reuses the memory-cached image. */
 @Composable
 internal fun PodArtPrefetch(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>, tileSize: IntSize) {
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     val scope = rememberCoroutineScope()
     val references = remember(cards, definitions) { podCardPrefetchArtwork(cards, definitions) }
     val width = tileSize.width.coerceIn(0, 4096)

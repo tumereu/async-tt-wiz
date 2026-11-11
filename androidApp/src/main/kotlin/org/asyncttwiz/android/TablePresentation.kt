@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.appui.NativeColors
 
 
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
@@ -182,7 +183,7 @@ data class TableItem(
     val staged: CombatRole? = null
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
-    val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
+    val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else NativeColors.DKGRAY
 }
 
 /** Lazily built, memoized drawings of public pile members, asked for only by cards that changed pile. Derived

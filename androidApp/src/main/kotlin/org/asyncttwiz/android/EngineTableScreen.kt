@@ -1,8 +1,6 @@
 package org.asyncttwiz.android
 
-import android.os.SystemClock
-import android.widget.Toast
-import androidx.activity.compose.BackHandler
+import org.asyncttwiz.appui.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -16,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -28,6 +25,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.appui.uptimeMillis
+import org.asyncttwiz.appui.elapsedRealtime
+import org.asyncttwiz.appui.rememberShortNote
 
 /**
  * The table of a game (every game is played on engine state, I-D56): the same table
@@ -51,8 +51,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
         EngineTableRoutes(accountId, { controller.engineGame() }, { controller.engineSent() },
             { controller.table.value.board?.takeIf { it.gameId == game.id } }, { controller.acknowledgeResult() })
     }
-    val context = LocalContext.current
-    val tokenArt = remember(context) { AndroidTokenArt.of(context.applicationContext) }
+    val services = AppServices.current
+    val tokenArt = remember(services) { AndroidTokenArt.of(services) }
+    val shortNote = rememberShortNote()
     val playId = live.playId
     val toolkit = remember(controller, game.id, playId, accountId) {
         TableToolkitController(accountId, { controller.table.value.board?.takeIf { it.playId == playId && it.gameId == game.id } },
@@ -185,7 +186,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val haptic = LocalHapticFeedback.current
     val recordShown = LocalShownTexts.current
     SideEffect {
-        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.combatHold != null || shown.reveal != null, accountId, SystemClock.uptimeMillis())
+        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.combatHold != null || shown.reveal != null, accountId, uptimeMillis())
         if (cue && reviewPlay == null) {
             routes.moveCue++
             haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -218,9 +219,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
         // HIS-097: a branch's take-back can't be skipped or left
         if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
-        when (back.back(SystemClock.elapsedRealtime(), overlay, false)) {
+        when (back.back(elapsedRealtime(), overlay, false)) {
             TableBackAction.CLOSE_OVERLAY -> if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
-            TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
+            TableBackAction.PROMPT -> shortNote("Press back again to leave")
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.EXIT_REVIEW -> {}
         }

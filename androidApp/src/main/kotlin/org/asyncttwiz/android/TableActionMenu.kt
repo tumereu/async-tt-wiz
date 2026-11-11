@@ -5,11 +5,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
 
 /** The Table actions dialog (TRN-010): the timeline, the game's result and a problem report (I-D52: nothing that
  * changes the board by hand, no tokens, combat area, dice or coins). */
@@ -29,7 +30,7 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     var conceding by remember(scope) { mutableStateOf(false) }
     var reporting by remember(scope) { mutableStateOf(false) }
     var setting by remember(scope) { mutableStateOf(false) }
-    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+    val landscape = screenWidthDp() > screenHeightDp()
     val enabled = controller.enabled(scope) && !blocked
     // TRN-064, CR 104.3a: also while it isn't the viewer's move
     val concedable = controller.concedeEnabled(scope) && !blocked

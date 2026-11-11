@@ -86,16 +86,3 @@ internal fun ProblemReportAction(reports: ProblemReportSender, send: () -> Unit)
         TextButton(onClick = send, enabled = state != ProblemReportState.Sending) { Text("Send problem report") }
     ProblemReportStatus(state)
 }
-
-@Composable
-internal fun ProblemReportStatus(state: ProblemReportState) {
-    when (state) {
-        ProblemReportState.Idle -> Unit
-        ProblemReportState.Sending -> Text("Sending report…", style = MaterialTheme.typography.bodySmall)
-        is ProblemReportState.Sent -> SelectionContainer {
-            Text("Report sent — code ${state.code}", Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center)
-        }
-        is ProblemReportState.Failed -> Text(state.message, Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-    }
-}

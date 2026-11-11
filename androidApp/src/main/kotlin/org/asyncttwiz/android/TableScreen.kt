@@ -11,15 +11,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.protocol.*
-import android.content.Context
-import android.content.ContextWrapper
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
-import android.os.SystemClock
-import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModelProvider
+import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.rememberShortNote
 import kotlinx.coroutines.delay
+import org.asyncttwiz.appui.elapsedRealtime
 
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
@@ -79,10 +74,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         delay(30_000); loadTimedOut = true
     }
     val back = remember(game.id) { TableBackStateMachine() }
-    val context = LocalContext.current
+    val shortNote = rememberShortNote()
     BackHandler {
-        when (back.back(SystemClock.elapsedRealtime(), false, false)) {
-            TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
+        when (back.back(elapsedRealtime(), false, false)) {
+            TableBackAction.PROMPT -> shortNote("Press back again to leave")
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.CLOSE_OVERLAY, TableBackAction.EXIT_REVIEW -> {}
         }

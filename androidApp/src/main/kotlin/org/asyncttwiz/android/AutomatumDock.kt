@@ -36,13 +36,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.appui.screenHeightDp
 
 /**
  * One place for every Automatum panel (UI review #4, decided for the owner 2026-11-03): like the cast panel (I-D47), the
@@ -213,7 +213,7 @@ private fun TargetBarLine(line: String) {
     var whole by remember(line) { mutableStateOf(false) }
     val scroll = rememberScrollState()
     Box((if (cut) Modifier.clickable(onClickLabel = if (whole) "Show less" else "Show the whole sentence") { whole = !whole } else Modifier)
-        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp / 2).verticalScroll(scroll, enabled = whole)) {
+        .heightIn(max = screenHeightDp().dp / 2).verticalScroll(scroll, enabled = whole)) {
         CardText(line, Modifier.semantics { contentDescription = "Question: $line" }, color = Color(0xff4b5a5f),
             style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 13.sp), maxLines = if (whole) Int.MAX_VALUE else 4,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, onTextLayout = { if (!whole) cut = it.hasVisualOverflow })

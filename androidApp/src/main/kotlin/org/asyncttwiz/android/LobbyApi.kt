@@ -11,6 +11,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import java.io.Closeable
 import java.net.URI
+import org.asyncttwiz.appui.AppBuild
 
 class LobbyFailure(val code: String) : Exception("Lobby request failed")
 interface Lobbies : Closeable {
@@ -38,7 +39,7 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
     private val authenticationRequired: (String) -> Unit = {}) : Lobbies {
     init { require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
         it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
-        (it.scheme == "https" || (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
+        (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
     override suspend fun search(token: String, query: String): UserSearch = call(token, "/v1/users?username=${query.encodeURLQueryComponent()}")
     override suspend fun contacts(token: String, after: String?): ContactList = call(token, page("contacts", after))
     override suspend fun add(token: String, input: AddContact): AccountIdentity = call(token, "/v1/contacts", DeckJson.format.encodeToString(input))

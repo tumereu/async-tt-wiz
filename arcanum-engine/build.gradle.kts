@@ -33,11 +33,14 @@ kotlin {
     wasmJs {
         browser { testTask { enabled = false } }
         nodejs {
-            // The set scenario tests (arcanum.engine.sets, ~70% of the module's tests) run on the JVM only unless
-            // -Parcanum.wasmSets=true: on Node they take most of wasmJsNodeTest's time. Whether to include them is
+            // The four long random-game stress classes take ~8 of the engine's ~11 minutes on Node, so wasmJsNodeTest
+            // skips them unless -Parcanum.wasmLongGames=true; the JVM always runs them. Whether to include them is
             // asked at each release (AGENTS.md).
-            if (providers.gradleProperty("arcanum.wasmSets").orNull != "true") {
-                testTask { filter.excludeTestsMatching("arcanum.engine.sets.*") }
+            if (providers.gradleProperty("arcanum.wasmLongGames").orNull != "true") {
+                testTask {
+                    listOf("NightReview4LongGamesTest", "Review3HostTest", "Review2LongGamesTest", "Review3CubeDecksTest")
+                        .forEach { filter.excludeTestsMatching("arcanum.engine.review.$it") }
+                }
             }
         }
     }

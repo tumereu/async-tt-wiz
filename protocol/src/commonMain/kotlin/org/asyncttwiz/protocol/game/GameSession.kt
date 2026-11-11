@@ -245,7 +245,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         line += event
         shown++
         if (waiting.isNotEmpty()) waiting[0] = waiting[0].copy(parentId = event.id)
-        else if (draftKept) { open!!.parentId = event.id; draftAt = event.id }
+        else if (draftKept && open != null) { open.parentId = event.id; draftAt = event.id }
         return Received.Applied(dropped, open != null && !draftKept)
     }
 

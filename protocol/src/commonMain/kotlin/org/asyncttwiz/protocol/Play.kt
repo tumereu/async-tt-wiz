@@ -178,10 +178,10 @@ object StartRules {
             }))
             GameAction.Ready -> when {
                 player.deck == null -> reject("deckRequired")
-                PodGamePreparation.readyProblem(current, actor) != null -> reject(PodGamePreparation.readyProblem(current, actor)!!)
-                else -> PreparationChange(current.copy(players = current.players.map {
-                    if (it.accountId == actor) it.copy(ready = true) else it
-                }))
+                else -> PodGamePreparation.readyProblem(current, actor)?.let(::reject)
+                    ?: PreparationChange(current.copy(players = current.players.map {
+                        if (it.accountId == actor) it.copy(ready = true) else it
+                    }))
             }
             GameAction.WithdrawReady -> PreparationChange(current.copy(players = current.players.map {
                 if (it.accountId == actor) it.copy(ready = false) else it
@@ -212,7 +212,7 @@ object StartRules {
         librarySecret?.let(RandomV1::decodeSeed)
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
-        require(players.all { DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) })
+        require(players.all { DeckValidation.quantities(requireNotNull(it.deck).entries.map { entry -> entry.quantity }) })
         require(librarySeeds.keys == players.map { it.accountId }.toSet())
         val choice = preparation.starter
         val starter = if (choice.accountId == null) InitialStarter(choice,
@@ -229,7 +229,7 @@ object StartRules {
         // I-D49: each player's opening hand is drawn from the shuffled library at once
         val opening = GameRules.STANDARD.openingHand
         for (player in players) {
-            val deck = player.deck!!
+            val deck = requireNotNull(player.deck)
             val library = CommandIds.uuidV5(playId, "container/${player.accountId}/LIBRARY")
             val members = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry ->
                 val definition = definitions.getValue(entry.definition).definition
@@ -255,7 +255,7 @@ object StartRules {
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         // The cards outside the game: Side and Maybe (LOB-141) and the dungeon cards (CR 309.2): their card data, for the table
         // and the choice that brings one in
-        val needed = cards.map { it.definition }.toSet() + players.map { it.deck!! }.flatMap { deck ->
+        val needed = cards.map { it.definition }.toSet() + players.map { requireNotNull(it.deck) }.flatMap { deck ->
             deck.entries.filter { it.section != SavedDeckSection.MAINBOARD }.map { it.definition } + deck.outside }
         return PlayState(game.id, playId, preparation.roundId, requestId, root,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,

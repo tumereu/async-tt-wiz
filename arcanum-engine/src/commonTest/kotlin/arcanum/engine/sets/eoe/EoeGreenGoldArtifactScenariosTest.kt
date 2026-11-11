@@ -22,6 +22,7 @@ import arcanum.engine.sets.eoe.EoeExtras.trinket
 import arcanum.engine.sets.eoe.EoeExtras.wall
 import arcanum.engine.sets.eoe.EoeExtras.zap
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Edge of Eternities chunks 13 to 15 in play: the green, multicolored and artifact cards and the lands. Verdani Groundgardener, Residue
@@ -395,7 +396,7 @@ class EoeGreenGoldArtifactScenariosTest {
     @Test
     fun brisquelFeedsOnArtifacts() = scenario {
         alice.battlefield(EoeSet.brisquelNimbleGalleychef, trinket, "Plains", "Plains", "Plains")
-        expect { assert(arcanum.api.Subtype("Food") in trinket.subtypes) }
+        expect { assertTrue(arcanum.api.Subtype("Food") in trinket.subtypes) }
         alice.activates(EoeSet.brisquelNimbleGalleychef, choosing = listOf(trinket))
         resolveAll()
         expect { bob.life shouldBe 17 }
@@ -594,7 +595,7 @@ class EoeGreenGoldArtifactScenariosTest {
         targets(trinket)
         expect {
             trinket.power shouldBe 3
-            assert(arcanum.api.Subtype("Robot") in trinket.subtypes)
+            assertTrue(arcanum.api.Subtype("Robot") in trinket.subtypes)
         }
     }
 

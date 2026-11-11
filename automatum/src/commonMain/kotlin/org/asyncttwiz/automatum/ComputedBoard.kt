@@ -267,7 +267,7 @@ class ComputedBoard private constructor(
 
     companion object {
         private val PUBLIC = setOf(Zone.Battlefield, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
-        private val PT_LAYERS = setOf(Layer.PowerToughnessDefining, Layer.PowerToughnessSet, Layer.PowerToughnessModify,
+        private val PT_LAYERS = setOf<Layer>(Layer.PowerToughnessDefining, Layer.PowerToughnessSet, Layer.PowerToughnessModify,
             Layer.PowerToughnessSwitch)
 
         /** Nothing computed (Automatum off, or the board not built yet). */

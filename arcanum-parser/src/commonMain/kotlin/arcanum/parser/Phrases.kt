@@ -464,13 +464,13 @@ internal object Filters {
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
         "permanent", "spell", "token")
-    val CARD_TYPES = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment,
+    val CARD_TYPES = mapOf<String, CardType>("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment,
         "instant" to CardType.Instant, "land" to CardType.Land, "planeswalker" to CardType.Planeswalker, "sorcery" to CardType.Sorcery,
         "battle" to CardType.Battle)
-    private val SUPERTYPES = mapOf("basic" to Supertype.Basic, "legendary" to Supertype.Legendary, "snow" to Supertype.Snow)
+    private val SUPERTYPES = mapOf<String, Supertype>("basic" to Supertype.Basic, "legendary" to Supertype.Legendary, "snow" to Supertype.Snow)
     // chunk 14
     private val OR_SPELL = Regex("""(\w+ or \w+) spells?""")
-    private val PERMANENT_TYPES = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+    private val PERMANENT_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
     // chunk 20
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
@@ -915,7 +915,7 @@ internal object Events {
     private val ATTACKS_ALONE = Regex("""(.+) attacks alone""")
     // blb chunk 04: "your second main phase"
     private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase|second main phase)""")
-    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
+    private val STEPS = mapOf<String, arcanum.api.TurnStep>("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
         // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
         "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")

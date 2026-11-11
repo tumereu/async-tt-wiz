@@ -333,7 +333,7 @@ AGENTS.md (catalog entries in the same commit, release notes for visible changes
 what may run side by side:
 
 ```
-0b wasm target ──► 2 shared UI ─┐
+2 shared UI ────────────────────┐
 1a server catalog ─► 1b Android ──┴─► 3 web shell ─► 4 web table ─┬─► 5 desktop table
                                                                   ├─► 6 desktop screens
                                        3 ─► 7 notifications, install (any time after 3)
@@ -343,15 +343,6 @@ what may run side by side:
 ### Step 0: feasibility test (done)
 
 Desktop results are in section 1. No phone-browser run (decision 20).
-
-### Step 0b: wasm target on the shared modules
-
-- `wasmJs` (browser and Node) on `core`, `protocol`, `automatum`, `arcanum-api`, `arcanum-parser`, `arcanum-engine`; the
-  spike's fixes redone cleanly (explicit element types for mixed sealed-object lists, a common `replaceAll` helper,
-  `@JvmInline` imports, wasm SHA-1/SHA-256), Node/Yarn/Binaryen download repositories in `settings.gradle.kts`.
-- Common tests also run on wasm (Node); AGENTS.md's task list gains the wasm test tasks (owner approves the AGENTS
-  change). Arcanum libraries stay ATW-free (`verifyModuleBoundaries`).
-- No behaviour change, no catalog change, no release note. Small (one batch).
 
 ### Step 1a: the pin and the server catalog (built)
 
@@ -466,17 +457,16 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 
 All design questions are answered (2026-11-07, round 3 the same day). Claude's choices to confirm in review:
 
-1. Step 0b adds wasm test tasks to AGENTS.md's task list.
-2. Catalog file format: gzip-compressed JSON lines (1a).
-3. Steps 1a + 1b may go to prod before any web work (1b).
-4. Superseded 2026-11-09: no catalog version on requests; the one-version rule covers it (section 3.5).
-5. Step 2 runs when no other Android batch is open (2).
-6. The real browser is only smoke-tested (Playwright on Chrome); everything else is tested through the shared UI in the
+1. Catalog file format: gzip-compressed JSON lines (1a).
+2. Steps 1a + 1b may go to prod before any web work (1b).
+3. Superseded 2026-11-09: no catalog version on requests; the one-version rule covers it (section 3.5).
+4. Step 2 runs when no other Android batch is open (2).
+5. The real browser is only smoke-tested (Playwright on Chrome); everything else is tested through the shared UI in the
    existing JVM e2e harness, at phone and desktop sizes (3–5).
-7. Hover chips: a battlefield card with one usable ability shows that one chip too, so hover always tells what a click
+6. Hover chips: a battlefield card with one usable ability shows that one chip too, so hover always tells what a click
    does (section 5).
-8. Edge zones outside Build: in the deck editor and Prepare the right zone is the next section, the left zone the
+7. Edge zones outside Build: in the deck editor and Prepare the right zone is the next section, the left zone the
    remaining one; cubes (two sections) only a right zone (section 5).
-9. Draft pick: a ⋯ button on the hovered card opens its menu, for Refund Librarian (section 5).
-10. Rebinding: taking a used key leaves the other action without a key, with a note; Esc, Enter and mouse buttons
-    fixed; one key per action (section 6).
+8. Draft pick: a ⋯ button on the hovered card opens its menu, for Refund Librarian (section 5).
+9. Rebinding: taking a used key leaves the other action without a key, with a note; Esc, Enter and mouse buttons
+   fixed; one key per action (section 6).

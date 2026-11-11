@@ -1,5 +1,7 @@
 package org.asyncttwiz.core
 
+import kotlin.jvm.JvmInline
+
 /** Canonical identity only; acquisition of random IDs belongs to platform adapters. */
 @JvmInline
 value class EntityId(val value: String) {

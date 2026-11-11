@@ -18,6 +18,7 @@ import arcanum.engine.sets.eoe.EoeExtras.shuttle
 import arcanum.engine.sets.eoe.EoeExtras.trinket
 import arcanum.engine.sets.eoe.EoeExtras.zap
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Edge of Eternities chunks 11 and 12 in play: the black and red cards. Gravcrush, Welcome the Abyss's destruction, Cast Out by Ballot
@@ -275,7 +276,7 @@ class EoeBlackRedScenariosTest {
         expect {
             flier.zone shouldBe Zone.Battlefield
             flier lacksKeyword Keyword.Flying
-            assert(arcanum.api.Subtype("Skeleton") in flier.subtypes)
+            assertTrue(arcanum.api.Subtype("Skeleton") in flier.subtypes)
         }
     }
 

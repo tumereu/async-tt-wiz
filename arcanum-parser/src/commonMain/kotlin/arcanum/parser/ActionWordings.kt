@@ -43,7 +43,7 @@ internal object ActionWordings {
     )
 
     /** The marks a permanent can become. */
-    private val MARKS = mapOf(
+    private val MARKS = mapOf<String, ObjectMark>(
         "monstrous" to ObjectMark.Monstrous, // CR 701.37b
         "prepared" to ObjectMark.Prepared, // CR 722.3a
         "renowned" to ObjectMark.Renowned, // CR 702.112b
@@ -51,7 +51,7 @@ internal object ActionWordings {
         "suspected" to ObjectMark.Suspected, // CR 701.60a
     )
 
-    private val PLAYERS = listOf("you " to PlayerFilter.You, "an opponent " to PlayerFilter.Opponent, "a player " to PlayerFilter.Any)
+    private val PLAYERS = listOf<Pair<String, PlayerFilter>>("you " to PlayerFilter.You, "an opponent " to PlayerFilter.Opponent, "a player " to PlayerFilter.Any)
 
     /** "You" did [kind]. */
     fun youDid(kind: KeywordActionKind): EventPattern = EventPattern.KeywordActionDone(kind, PlayerFilter.You)

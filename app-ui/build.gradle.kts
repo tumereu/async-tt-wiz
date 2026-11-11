@@ -36,6 +36,15 @@ kotlin {
             // Platform seams (docs/specs/web-client.md §1 item 2): the HTTP client and Coil's image type.
             implementation(libs.ktor.client.core)
             implementation(libs.coil.core)
+            // The app's UI (step 2c-2). Each resolves on Android to what the app already runs with: JetBrains' icons and
+            // lifecycle point at androidx's (compose-bom's), Coil Compose and the rest are multiplatform themselves.
+            implementation(project(":client-storage"))
+            implementation(libs.cmp.material.icons)
+            implementation(libs.cmp.lifecycle.viewmodel)
+            implementation(libs.cmp.lifecycle.runtime.compose)
+            implementation(libs.coil.compose)
+            implementation(libs.serialization.json)
+            implementation(libs.collections.immutable)
         }
         // Compiled against the androidx Compose the app runs with (inline functions are copied in at compile time).
         androidMain.dependencies {
@@ -43,17 +52,12 @@ kotlin {
             // The Android sides of the seams: the activity's back handling and Ktor's Android engine, as the app has them.
             implementation(libs.activity.compose)
             implementation(libs.ktor.client.android)
-            // The app's UI, moved here from :androidApp as it was (step 2c-1); step 2c-2 moves it on into commonMain.
-            // The same libraries and versions :androidApp compiled it with.
-            implementation(project(":client-storage"))
+            // The app's Android-only pieces (the socket on OkHttp), and the androidx Compose the app compiles with.
             implementation(libs.compose.ui)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.material.icons)
-            implementation(libs.coil.compose)
             implementation(libs.okhttp)
-            implementation(libs.serialization.json)
-            implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
         }
     }
 }

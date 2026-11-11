@@ -112,3 +112,6 @@ actual fun DrawScope.drawCentredText(text: String, center: Offset, size: Float, 
     drawContext.canvas.nativeCanvas.drawText(text, center.x - (bounds.left + bounds.right) / 2f,
         center.y - (bounds.top + bounds.bottom) / 2f, paint)
 }
+
+actual fun edgeToEdgeDialogProperties(): androidx.compose.ui.window.DialogProperties =
+    androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)

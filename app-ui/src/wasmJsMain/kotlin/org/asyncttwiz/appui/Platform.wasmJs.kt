@@ -42,3 +42,4 @@ actual fun DrawScope.nativeSaveCount(): Int = later()
 actual fun DrawScope.nativeRestoreToCount(count: Int): Unit = later()
 actual fun DrawScope.drawCentredText(text: String, center: Offset, size: Float, color: Color, weight: Int,
     maxWidth: Float): Unit = later()
+actual fun edgeToEdgeDialogProperties(): androidx.compose.ui.window.DialogProperties = later()

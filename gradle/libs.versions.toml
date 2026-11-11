@@ -8,6 +8,7 @@ compose-bom = "2026.06.01"
 # Material3 built on androidx Material3 1.4.0 (the BOM's); the later ones are built on 1.5.0 alphas.
 compose-multiplatform = "1.11.1"
 compose-multiplatform-material3 = "1.9.0"
+cmp-lifecycle = "2.9.6"
 activity = "1.13.0"
 androidx-test-runner = "1.7.0"
 androidx-test-junit = "1.3.0"
@@ -50,6 +51,11 @@ cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = 
 cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
+# On Android these point at androidx material-icons-extended (compose-bom's version) and androidx lifecycle (the app's).
+cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-extended", version = "1.7.3" }
+cmp-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "cmp-lifecycle" }
+cmp-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "cmp-lifecycle" }
+collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }

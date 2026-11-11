@@ -18,7 +18,7 @@ internal const val CATALOG_INDEX_VERSION = 6
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
-class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
+class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) : CardCatalog {
     init { check(directory.isDirectory || directory.mkdirs()) }
     // Workers (deck import, card search) may use separate repository objects for the same public DB.
     // Publication/reclamation must share their read lock, not just this object's monitor.
@@ -36,20 +36,20 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         return File(directory, name).also { check(it.isFile) }
     }
 
-    fun metadata(): CatalogMetadata? = synchronized(lock) {
+    override fun metadata(): CatalogMetadata? = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.metadata() } }
     }
 
     /** Worker-only: the draft sets (DRF-088) with their support marks, newest first. */
-    fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
+    override fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
 
     /** Worker-only (LOB-115): which of [printingIds] the card catalog doesn't mark as supported (section 3.8); null
      * without card records. A printing the records don't have is unsupported. */
-    fun unsupported(printingIds: Collection<String>): Set<String>? = snapshot { it?.unsupported(printingIds) }
+    override fun unsupported(printingIds: Collection<String>): Set<String>? = snapshot { it?.unsupported(printingIds) }
 
     /** Worker-only (section 3.9): which of the pictures [scryfallIds] are of no printing the card catalog marks as
      * supported; null without card records. */
-    fun unsupportedPictures(scryfallIds: Collection<String>): Set<String>? = snapshot { it?.unsupportedPictures(scryfallIds) }
+    override fun unsupportedPictures(scryfallIds: Collection<String>): Set<String>? = snapshot { it?.unsupportedPictures(scryfallIds) }
 
     /** Exact normalized name, optionally exact set/collector number. Ambiguity is returned, not guessed. */
     fun find(name: String, set: String? = null, number: String? = null, limit: Int = 100): List<CatalogPrinting> = synchronized(lock) {
@@ -63,43 +63,43 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     /** Owner 2026-11-10 (card data from the server's catalog): the cards of [printingIds] as saved decks and cubes hold
      * them, each the faces of the card the printing is a face of, front first ([CatalogIndex.cards]); printings the
      * records don't have are left out, and nothing without card records. Worker-only. */
-    fun cards(printingIds: Collection<String>): Map<String, List<CatalogPrinting>> = synchronized(lock) {
+    override fun cards(printingIds: Collection<String>): Map<String, List<CatalogPrinting>> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.cards(printingIds) } }.orEmpty()
     }
 
     /** The token printing a token Automatum makes is drawn with ([TokenArtMatch]), null for the plain frame or
      * without card records. Worker-only. */
-    fun tokenArt(face: DefinitionFace, sourceName: String?, sourcePrintingId: String?): CatalogPrinting? = synchronized(lock) {
+    override fun tokenArt(face: DefinitionFace, sourceName: String?, sourcePrintingId: String?): CatalogPrinting? = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.tokenArt(face, sourceName, sourcePrintingId) } }
     }
 
     /** TRN-053 (owner gallery review 2026-11-06): the scryfall id of the picture of the emblem printing whose rules text
      * is [text] ([EmblemArt.same]), null when no emblem printing has it or without card records. Worker-only. */
-    fun emblemArt(text: String): String? = synchronized(lock) {
+    override fun emblemArt(text: String): String? = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.emblemArt(text) } }
     }
 
     /** Worker-only; query the installed public generation, never account data. */
-    fun avatarChoices(query: String = "", previous: List<CatalogAvatar> = emptyList()): List<CatalogAvatar> = synchronized(lock) {
+    override fun avatarChoices(query: String, previous: List<CatalogAvatar>): List<CatalogAvatar> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.avatarChoices(query, previous) } }.orEmpty()
     }
 
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
-    fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
+    override fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
 
     /**
      * Worker-only Scryfall-style card search (CardSearchQuery syntax) over the installed generation: distinct cards
      * sorted by name, each shown with its preferred matching printing. At most [budget] cards are evaluated per
      * call; continue with [CatalogCardSearch.Page.next]. Malformed queries return [CatalogCardSearch.Invalid].
      */
-    fun searchCards(query: String, cursor: CatalogCardCursor? = null, limit: Int = 60, budget: Int = 3000): CatalogCardSearch =
+    override fun searchCards(query: String, cursor: CatalogCardCursor?, limit: Int, budget: Int): CatalogCardSearch =
         synchronized(lock) { searchCatalogCards(activeFile(), openDriver, query, cursor, limit, budget) }
 
     /**
      * Worker-only: the given printings' cards as search knows them, by printing id, with what card records don't carry
      * (colour identity, format legalities, printings and rarities). Printings without such a card are left out.
      */
-    fun searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> =
+    override fun searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> =
         synchronized(lock) { activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.searchData(printings) } }.orEmpty() }
 
     /** Keep every line/face of an import on one generation while a refresh waits. */

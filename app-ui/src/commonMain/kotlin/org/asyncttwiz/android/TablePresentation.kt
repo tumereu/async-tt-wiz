@@ -240,8 +240,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatSlots: List<CombatSlot> = emptyList(),
     /** CMB-050 (owner playtest 2026-11-10): the combat damage dealt in the combat going on, until it ends (null: none). */
     val combatDealt: org.asyncttwiz.automatum.CombatDamageDealt? = null,
-    /** CMB-050: the small splash behind each pair's blockers with what its attackers dealt to their target. */
-    val combatLaneDamage: List<CombatLaneDamage> = emptyList(),
+    /** CMB-050 (owner playtest 2026-11-11): the screen y of the open band's edge facing the attacking player's battlefield,
+     * where the life they gained with the combat damage shows; null while the band is collapsed. */
+    val combatGainEdge: Float? = null,
     /** CMB-031: the gap between the band's card rows, on the screen; null while it is collapsed. */
     val combatArrowGap: TableBounds? = null,
     /** CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields on the screen, clipped to the
@@ -773,19 +774,11 @@ object TablePresentation {
             inset = lane.inset * zoom, chip = translated(lane.chip),
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
-        // CMB-050 (owner playtest 2026-11-10): what the combat's damage did, kept on the band until the combat ends: a small
-        // splash behind each pair's blockers where it reached the pair's target, centred on the blockers' row's edge facing
-        // the target chips
+        // CMB-050 (owner playtest 2026-11-10, 2026-11-11): what the combat's damage did, kept on the band until the combat
+        // ends: each target's total on its chip, and the attacking player's life gained with it on the band's edge facing their
+        // battlefield (the chips' edge faces the defender's: mirrored, the defender's battlefield is the lower one)
         val dealt = if (open) play.engine?.state?.let(org.asyncttwiz.automatum.CombatFlow::dealt) else null
-        val laneDamage = dealt?.let { d -> combat.blockerRows.mapNotNull { (pairId, row) ->
-            val pair = bandBoard.combat?.pairs?.firstOrNull { it.id == pairId } ?: return@mapNotNull null
-            val amount = pair.attackers.sumOf { d.attackers[it.sourceId] ?: 0 }
-            if (amount <= 0) return@mapNotNull null
-            val size = combatCard * CombatLaneDamage.SIZE
-            val edge = if (combat.mirrored) row.bottom else row.y
-            CombatLaneDamage(pairId, translated(TableBounds(row.center.x - size / 2, edge - size / 2, size, size)), amount,
-                combat.lanes.firstOrNull { it.cardId == pair.attackTarget }?.label.orEmpty())
-        } }.orEmpty()
+        val gainEdge = if (open) (if (combat.mirrored) band.y else band.bottom) else null
         val realSources = play.board.cards.associate { c -> c.id to TableMoveSource(c.containerId, positions[c.id],
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.mapNotNull { item ->
@@ -801,7 +794,7 @@ object TablePresentation {
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it, stackRegion) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatSlots = combat.slots.map { it.copy(bounds = translated(it.bounds)) },
-            combatDealt = dealt, combatLaneDamage = laneDamage,
+            combatDealt = dealt, combatGainEdge = gainEdge,
             combatArrowGap = combat.arrowGap?.takeIf { open }?.let(::translated),
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +

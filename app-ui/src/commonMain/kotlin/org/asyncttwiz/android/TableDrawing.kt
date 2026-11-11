@@ -78,9 +78,6 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
             if (scene.combatPanel != null) for ((from, to) in scene.combatLaneDividers) drawLine(
                 Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA), xy(from.x, from.y), xy(to.x, to.y),
                 CombatStackPresentation.laneDividerStroke(scene.combatCardWidth) * density)
-            // CMB-050 (owner playtest 2026-11-10): what reached each pair's target, a small splash behind its blockers
-            for (splash in scene.combatLaneDamage) damageSplash(xy(splash.bounds.x, splash.bounds.y),
-                size(splash.bounds.width, splash.bounds.height), splash.amount.toString())
         }
     }
     // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter; a row in a bar (landscape,

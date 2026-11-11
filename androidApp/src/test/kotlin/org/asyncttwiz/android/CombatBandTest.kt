@@ -298,19 +298,21 @@ class CombatBandTest {
         // Her own action's steps, the damage's hold board among them (HIS-113)
         val aliceDealt = k.alice.transition?.steps.orEmpty().lastOrNull { it.damageDealt }
         k.playOn("the damage dealt on Alice's phone", bobActs = false) { k.state().turn.step == TurnStep.CombatDamage }
-        // CMB-050: Bob's net 4 on his chip, 2 behind each unblocked Cub's blockers' row, nothing for the blocked one
+        // CMB-050 (owner playtest 2026-11-11): Bob's net 4 on his chip and nothing per lane; no life gained, so no heart
         k.scene().let { scene ->
             assertEquals(mapOf<String?, Int>(null to 4), scene.combatDealt?.targets)
-            assertEquals(listOf(2, 2), scene.combatLaneDamage.map { it.amount })
+            assertTrue(scene.combatDealt?.gained.orEmpty().isEmpty(), "no life gained")
         }
         show(k.f.a, assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone"))
+        compose.onAllNodes(hasContentDescription("combat damage to", substring = true), useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasContentDescription("on the band", substring = true), useUnmergedTree = true).assertCountEquals(0)
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-alice.png",
-            "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with 4, each unblocked Cub's column a small splash with 2 behind the blockers' row, and the two Cubs that fought still lie in the band until the hold ends.")
+            "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with his total 4 (nothing per lane), and the two Cubs that fought still lie in the band until the hold ends.")
         k.scenario.confirmStops[k.f.b] = true
         k.playOn("the damage dealt on Bob's phone", bobActs = false) { k.scenario.shown[k.f.b].orEmpty().any { t -> t.steps.any { it.damageDealt } } }
         show(k.f.b, step(k.f.b) { it.damageDealt })
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-bob.png",
-            "Bob's phone, 4 of 5, a forced hold (show plays and combat): the same damage from his side, mirrored: his chip by his battlefield carries the red splash with 4, a small splash with 2 behind each unblocked Cub's empty blocker place.")
+            "Bob's phone, 4 of 5, a forced hold (show plays and combat): the same damage from his side, mirrored: his chip by his battlefield carries the red splash with his total 4.")
         k.playOn("Alice's second main phase") {
             // The combat holds end by their time (HIS-113), as the table ends them
             for (game in listOf(k.alice, k.bob)) game.shown?.combatHold?.let { game.dismissCombatHold(it) }
@@ -318,7 +320,7 @@ class CombatBandTest {
             if (!main2 && k.alice.device.status == GameDevice.Status.YourMove) k.toolkit.automatumStep(TableActionIntent.Next(k.scope))
             main2
         }
-        assertTrue(k.scene().combatDealt == null && k.scene().combatLaneDamage.isEmpty(), "gone with the combat")
+        assertTrue(k.scene().combatDealt == null && k.scene().combatGainEdge == null, "gone with the combat")
         show(k.f.a)
         captureShot("$SCREENSHOTS/combat-sequence/5-after-alice.png",
             "Alice's phone, 5 of 5, no hold or wait (her own move): the combat is over and she is in her second main phase; the band is closed again and the splashes are gone, Bob at 16 life.")

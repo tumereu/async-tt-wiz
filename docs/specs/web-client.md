@@ -5,7 +5,8 @@ finished because Automatum shrank the set of player actions. Decisions marked **
 **(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
 the shared route works on desktop. Phone browsers aren't measured: the web client is built for desktop, phones have the
 native app, and phone-web speed is optimised later only if people use it (owner). Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
-owner): D1–D10 desktop, P1–P4 phone web.
+owner): D1–D19 and D3b desktop, P1–P4 phone web (redrawn 2026-11-11, multiplayer-ready). The wireframes show layout and
+positioning only; every element looks as it does in the Android app (owner).
 Building a part moves its behaviour into the catalog (new `WEB` area, changed entries listed per part) and deletes the
 matching part of this file.
 
@@ -333,8 +334,7 @@ AGENTS.md (catalog entries in the same commit, release notes for visible changes
 what may run side by side:
 
 ```
-2 shared UI ────────────────────┐
-1a server catalog ─► 1b Android ──┴─► 3 web shell ─► 4 web table ─┬─► 5 desktop table
+playtest batch ─► library upgrades ─► 3 web shell ─► 4 web table ─┬─► 5 desktop table (after the wireframe review)
                                                                   ├─► 6 desktop screens
                                        3 ─► 7 notifications, install (any time after 3)
                                                                   └─► 8 web e2e + prod
@@ -371,22 +371,25 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 - The pin names MTGJSON 5.3.0+20261109; `setSupport` and a model comparison against the old file found no change on
   supported cards. Steps 1a–1c go to prod together, before any web work (owner approves that release as usual).
 
-### Step 2: the shared UI module
+### Before step 3 (owner, 2026-11-11)
 
-- New `app-ui` module (Compose Multiplatform 1.11.x; on Android it resolves to the same androidx Compose, so drawing
-  doesn't change). `androidApp`'s UI moves into it as a whole (its `internal` code doesn't survive a split), keeping
-  package names so history stays readable. `androidApp` keeps the Activity, Firebase, WorkManager, the update installer.
-- Sub-steps, each merged green: (a) switch dependencies to Compose Multiplatform artifacts, nothing moved; (b) platform
-  interfaces for the ~41 files using Android APIs (about 10–15 need real redesign: storage and preferences, text paint
-  on the native canvas, Coil loaders, resources, Ktor engine, notifications, haptics, system bars); (c) move the code;
-  (d) `client-storage` becomes multiplatform: common interfaces and logic, the Android SQLDelight implementation.
-- The guard: every existing screenshot test passes unchanged in verify mode, and every e2e test passes. No catalog
-  change, no release note.
-- The largest step and it touches almost every Android file: run it when no other Android batch is open, and merge it
-  quickly to avoid long conflicts.
+Step 2 (the shared UI module, `app-ui`) is built: the UI is in `app-ui`'s commonMain and compiles for Android and wasm.
+Two batches come first, in this order:
+- The 2026-11-11 playtest and gallery notes (`docs/backlog.md`, "Ready to build").
+- Library upgrades, kept apart from step 2 (owner): the newest compose-bom with its matching Compose Multiplatform,
+  CMP Material3 no longer held at 1.9.0, the androidx.savedstate 1.3.3 pin in `androidApp/build.gradle.kts` removed,
+  a Coil built for current CMP (check that Coil links for wasm), other due updates; changed screenshots re-recorded and
+  added to the gallery for the owner; locks written plain and with the Firebase identifiers.
 
 ### Step 3: web shell (phone layout)
 
+- What step 2 left for the browser (each behind an `expect` or interface whose Android side is unchanged; wasm sides
+  throw `NotImplementedError` today): storage and pictures (`AndroidAccountLocalData`, `ProtectedSessionStore`,
+  `CardArtworkService`, `AccountStorageHandle`, client-storage's Android implementations: build the browser storage
+  behind the interfaces, not on SQLDelight's synchronous driver), `SocketGameConnection` (OkHttp: a browser WebSocket),
+  `CatalogController` (a browser installer), crash/jank/latency reports, `DeviceRandom`, `DateTexts`, `StorageParts`
+  (Gson). Code using `runBlocking`, executors or locks through `Concurrency.kt`/`Jvm.kt` needs coroutine-based paths on
+  the browser's single thread.
 - `webApp` module (Kotlin/Wasm); the server serves its build (section 2.1) and the Archidekt proxy (2.3); stale-tab
   reload (2.2); a loading screen for the first load (1.7).
 - Routes, browser history, on-screen Back and CloseWatcher (section 8); sign-in with the token in IndexedDB; the card

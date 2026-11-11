@@ -57,9 +57,9 @@ internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Uni
         val batch = times.time("search reads") {
             select("""SELECT id, name, set_code, number, language, side, token, json, oracle, rarity, identity, legal, scryfall
                 FROM printing WHERE (oracle, id) > (?, ?) ORDER BY oracle, id LIMIT 1024""", listOf(afterOracle, afterId), SEARCH_BATCH) { cursor ->
-                SearchRow(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getString(3)!!,
-                    cursor.getString(4)!!, cursor.getString(5)!!, cursor.getLong(6) == 1L, cursor.getString(7)!!,
-                    cursor.getString(8)!!, cursor.getString(9)!!, cursor.getLong(10)?.toInt(), cursor.getLong(11)!!, cursor.getString(12))
+                SearchRow(cursor.text(0), cursor.text(1), cursor.text(2), cursor.text(3),
+                    cursor.text(4), cursor.text(5), cursor.getLong(6) == 1L, cursor.text(7),
+                    cursor.text(8), cursor.text(9), cursor.getLong(10)?.toInt(), cursor.number(11), cursor.getString(12))
             }
         }
         if (batch.isEmpty()) break
@@ -131,7 +131,7 @@ private class SearchCards(private val index: CatalogIndex) {
             sources.distinct().chunked(MAX_VALUES).flatMap { chunk ->
                 index.select("SELECT f.source, p.id, p.name, p.side, p.json FROM face f JOIN printing p ON p.id=f.target WHERE f.source IN " +
                     chunk.joinToString(",", "(", ")") { "?" }, chunk, SEARCH_FACES.takeIf { chunk.size == MAX_VALUES }) {
-                    it.getString(0)!! to Triple(it.getString(1)!!, it.getString(3)!!, it.getString(2)!! to it.getString(4)!!)
+                    it.text(0) to Triple(it.text(1), it.text(3), it.text(2) to it.text(4))
                 }
             }.groupBy({ it.first }, { it.second })
         }
@@ -225,7 +225,7 @@ internal fun searchCatalogCards(file: File?, open: (File) -> SqlDriver, query: S
                 JOIN search_data ON search_data.oracle = search_card.oracle
                 WHERE (name_key, search_card.oracle) > (?, ?) AND ($filter) ORDER BY name_key, search_card.oracle LIMIT ?""",
                 listOf(afterName, afterKey) + filterArgs + size.toLong()) { row ->
-                arrayOf(row.getString(0)!!, row.getString(1)!!, row.getString(2)!!, row.getString(3)!!)
+                arrayOf(row.text(0), row.text(1), row.text(2), row.text(3))
             }
             for ((oracle, nameKey, printingId, data) in rows) {
                 check(!Thread.currentThread().isInterrupted)
@@ -270,7 +270,7 @@ internal fun CatalogIndex.searchData(printings: Collection<CatalogPrinting>): Ma
     }
     val found = keys.map { it.second }.distinct().chunked(400).flatMap { chunk ->
         select("SELECT oracle, data FROM search_data WHERE oracle IN (${chunk.joinToString { "?" }})", chunk) {
-            it.getString(0)!! to it.getString(1)!!
+            it.text(0) to it.text(1)
         }
     }.toMap()
     return keys.mapNotNull { (id, key) -> found[key]?.let { id to searchJson.decodeFromString(CardSearchCard.serializer(), it) } }.toMap()
@@ -280,7 +280,7 @@ internal fun CatalogIndex.searchData(printings: Collection<CatalogPrinting>): Ma
 private fun CatalogIndex.printings(ids: Collection<String>): Map<String, CatalogPrinting> = ids.distinct().chunked(400).flatMap { chunk ->
     val marks = chunk.joinToString { "?" }
     val links = select("SELECT source, target FROM face WHERE source IN ($marks) ORDER BY source, target", chunk) {
-        it.getString(0)!! to it.getString(1)!!
+        it.text(0) to it.text(1)
     }.groupBy({ it.first }, { it.second })
     rows("SELECT * FROM printing WHERE id IN ($marks)", chunk, enrich = false).map {
         it.copy(otherFaces = links[it.id].orEmpty(), releaseDate = releaseDates[it.set].orEmpty())
@@ -312,8 +312,9 @@ internal object CardSearchSql {
         }
         is CardSearchNode.Or -> {
             val parts = node.terms.map(::translate)
-            if (parts.any { it == null }) null
-            else Clause(parts.joinToString(" OR ") { "(${it!!.sql})" }, parts.flatMap { it!!.args }, parts.all { it!!.exact })
+            val present = parts.filterNotNull()
+            if (present.size != parts.size) null
+            else Clause(present.joinToString(" OR ") { "(${it.sql})" }, present.flatMap { it.args }, present.all { it.exact })
         }
         is CardSearchNode.Not -> translate(node.term)?.takeIf { it.exact }?.let { Clause("NOT (${it.sql})", it.args, true) }
         is CardSearchNode.Name -> Clause("instr(name_key, ?) > 0", listOf(node.text), exact = !node.exact)
@@ -322,8 +323,8 @@ internal object CardSearchSql {
         is CardSearchNode.Colors -> {
             // Bit m of the column is set when a colour unit has exactly the colours m; enumerate the 32 sets.
             val bits = (0..CardColors.ALL).filter { mask ->
-                if (node.count != null) CardSearchQuery.compare(CardColors.count(mask).toDouble(), node.op, node.count!!.toDouble())
-                else CardSearchQuery.compareColors(mask, node.op, node.mask)
+                node.count?.let { count -> CardSearchQuery.compare(CardColors.count(mask).toDouble(), node.op, count.toDouble()) }
+                    ?: CardSearchQuery.compareColors(mask, node.op, node.mask)
             }.fold(0L) { bits, mask -> bits or (1L shl mask) }
             Clause("(${if (node.identity) "identity" else "colors"} & ?) != 0", listOf(bits), true)
         }

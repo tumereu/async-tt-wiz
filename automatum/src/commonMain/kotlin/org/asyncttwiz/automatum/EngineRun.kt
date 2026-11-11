@@ -112,11 +112,13 @@ class EngineRun(
      * @throws IllegalArgumentException when no early answer the engine takes is given for the open decision.
      */
     fun performEarly(): Pending? {
-        val early = requireNotNull(PreAnswers.forOpen(this)) { "No early answer for the open decision" }
-        val decision = working.pending!!.decision
+        val early = PreAnswers.forOpen(this)
+        val decision = working.pending?.decision
+        val answer = if (early != null && decision != null) PreAnswers.answer(early, working, ids, decision) else null
+        if (early == null || decision == null || answer == null) throw IllegalArgumentException("No early answer for the open decision")
         preAnswered += PreAnswers.id(early)
         AutomatumLog.preEvent(gameId, "used", "${PreAnswers.id(early)} for the open ${decision.kind} ${decision.id.value}")
-        return perform(Input.Answer(decision.id, PreAnswers.answer(early, working, ids, decision)!!))
+        return perform(Input.Answer(decision.id, answer))
     }
 
     /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */

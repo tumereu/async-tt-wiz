@@ -38,8 +38,11 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
     fun begin(contact: AccountIdentity) {
         if (closed || state.mutating || state.contacts.none { it.accountId == contact.accountId }) return
         val pending = pendingCreate
-        state = state.copy(draft = if (pending == null) GameNameDraft(contact, suggest())
-            else GameNameDraft(pendingRecipient!!, pending.gameName), uncertain = pending != null, error = null)
+        // A pending create is always kept with its recipient.
+        val recipient = pendingRecipient
+        if (pending != null && recipient == null) Faults.report("LobbyInvitations", "pending create without its recipient", mapOf("game" to pending.gameName))
+        state = state.copy(draft = if (pending == null || recipient == null) GameNameDraft(contact, suggest())
+            else GameNameDraft(recipient, pending.gameName), uncertain = pending != null, error = null)
     }
     fun name(value: String) { if (!state.mutating && pendingCreate == null) state = state.copy(draft = state.draft?.copy(name = value), error = null) }
     fun reroll() { if (!state.mutating && pendingCreate == null) name(suggest()) }
@@ -68,7 +71,7 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
                     val failure = result.exceptionOrNull()
                     val terminal = (failure as? LobbyFailure)?.code in listOf("invalid_name", "contact_required", "invalid_request", "request_conflict")
                     if (terminal) { pendingCreate = null; pendingRecipient = null }
-                    state = state.copy(mutating = false, uncertain = !terminal, error = lobbyError(failure!!))
+                    state = state.copy(mutating = false, uncertain = !terminal, error = lobbyError(failure ?: IllegalStateException("No game created")))
                 }
             } }
         }

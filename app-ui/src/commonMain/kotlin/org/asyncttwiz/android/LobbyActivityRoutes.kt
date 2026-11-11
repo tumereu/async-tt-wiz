@@ -42,13 +42,14 @@ class LobbyActivityRoutes(private val scope: LobbyScope, private val api: Lobbie
             post {
                 if (closed || generation != epoch || version != routeVersion || credential() != token || !current()) return@post
                 val resolved = result.getOrNull()
-                if (resolved?.second == null) {
+                val head = resolved?.second
+                if (resolved == null || head == null) {
                     activityUnavailable(if (result.isFailure) "Could not open this notification. Refresh Games and try again."
                         else "This activity is no longer available. Showing your current Games.")
                 } else {
                     if (state.mutating) return@post
-                    val detail = session?.summary(resolved.second!!) ?: latest[route.gameId]?.takeIf {
-                        GameSession.newerOrEqual(it.revision, resolved.second!!.revision) } ?: resolved.second!!
+                    val detail = session?.summary(head) ?: latest[route.gameId]?.takeIf {
+                        GameSession.newerOrEqual(it.revision, head.revision) } ?: head
                     if (!sessionAvailable(route.gameId) || detail.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) {
                         activityUnavailable(); return@post
                     }

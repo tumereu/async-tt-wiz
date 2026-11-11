@@ -199,10 +199,18 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val laid = if (paying.isEmpty()) layout else layout.copy(paying = paying)
+        // A board the scene can't be built from (a state nobody tested, prod crash WCRF3Q) keeps the last scene shown, reported
+        val lastScene = remember(play.playId, accountId) { LastScene() }
         val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
-            TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots)
+            try {
+                TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
+                    maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
+                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots).also { lastScene.scene = it }
+            } catch (failure: RuntimeException) {
+                Faults.report("TableScene", "table scene not built", mapOf("game" to game.id, "node" to play.nodeId,
+                    "failure" to failure.stackTraceToString().take(4_000)))
+                lastScene.scene ?: throw failure
+            }
         }
         var previousLayout by remember { mutableStateOf(laid) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
@@ -466,3 +474,6 @@ fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
     }
     return glow
 }
+
+/** The last table scene built, shown again while a newer board's can't be built. */
+private class LastScene { var scene: TableScene? = null }

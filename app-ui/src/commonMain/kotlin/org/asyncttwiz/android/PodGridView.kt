@@ -116,8 +116,8 @@ fun PodGridView(
             if (head == null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 PodPickWaiting(waitingText, onMainMenu)
             }
-            boards.forEach { board -> key(board.id) {
-                Text(podGridHeader(board, view!!, totalGrids, members), Modifier.padding(top = 8.dp),
+            if (view != null) boards.forEach { board -> key(board.id) {
+                Text(podGridHeader(board, view, totalGrids, members), Modifier.padding(top = 8.dp),
                     style = MaterialTheme.typography.bodySmall)
                 val stages = remember(board, log) { gridBoardStages(board, log) }
                 val boardRules = rules.takeIf { board.id == head?.id }
@@ -197,7 +197,7 @@ private fun PodGridBoard(board: GridPublicBoard, stage: GridBoardStage, latest: 
                 if (rules != null || arrowSpace) Spacer(Modifier.width(if (rules != null) 4.dp else 44.dp))
                 repeat(3) { column ->
                     val position = row * 3 + column
-                    val bands = podGridBands(stage.picks, position).map { it.line!! to (colors[it.player] ?: OpponentTableColor) }
+                    val bands = podGridBands(stage.picks, position).mapNotNull { pick -> pick.line?.let { it to (colors[pick.player] ?: OpponentTableColor) } }
                     Box(Modifier.weight(1f).drawBehind { drawPodGridBands(bands, row, column) }.padding(PodGridBandWidth)) {
                         PodGridSlot(board, cells[position], position, tag, latest, rules, selected, definitions, members,
                             colors, inspect, inspectScroll)

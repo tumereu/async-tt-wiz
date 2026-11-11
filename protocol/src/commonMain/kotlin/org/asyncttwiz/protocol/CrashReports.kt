@@ -61,12 +61,15 @@ fun GameAction.latencyType(): String = labelOf(this)
 private fun labelOf(value: Any): String = value::class.simpleName?.substringAfterLast('$') ?: "Unknown"
 
 /** Player-sent diagnostics; accepted without an account so it also works from the update gate. [automatum]: the latest
- * game's Automatum log and reproduction bundle (I-D43), at most [MAX_AUTOMATUM] characters; empty when there is none. */
+ * game's Automatum log and reproduction bundle (I-D43), at most [MAX_AUTOMATUM] characters; empty when there is none.
+ * [kind]: [PLAYER] for one a player sent, [FAULT] for one the app sent by itself ([Faults]). */
 @Serializable
 data class ProblemReport(val reportedAt: String, val appVersion: String, val versionCode: Int, val buildType: String,
     val device: String, val android: String, val description: String = "", val problem: String = "",
-    val log: String = "", val logcat: String = "", val automatum: String = "") {
+    val log: String = "", val logcat: String = "", val automatum: String = "", val kind: String = PLAYER) {
     companion object {
+        const val PLAYER = "player"
+        const val FAULT = "fault"
         const val MAX_BYTES = 1_048_576
         const val MAX_AUTOMATUM = CrashReport.MAX_AUTOMATUM
         const val MAX_DESCRIPTION = 2_000

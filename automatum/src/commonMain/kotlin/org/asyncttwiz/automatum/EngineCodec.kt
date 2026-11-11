@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRecord
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.MtgStackItem
@@ -57,7 +58,9 @@ internal object EngineCodec {
     }
 
     private fun serialName(kind: CounterKind): String =
-        json.encodeToJsonElement(CounterKind.serializer(), kind).jsonObject["type"]!!.jsonPrimitive.content
+        json.encodeToJsonElement(CounterKind.serializer(), kind).jsonObject["type"]?.jsonPrimitive?.content ?: kind.toString().also {
+            Faults.report("EngineCodec", "counter kind without a serial name", mapOf("kind" to it))
+        }
 
     private fun signed(n: Int) = if (n < 0) "$n" else "+$n"
 

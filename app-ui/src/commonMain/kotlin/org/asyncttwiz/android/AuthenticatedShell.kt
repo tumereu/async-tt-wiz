@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -32,6 +33,11 @@ fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: 
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null, pods: PodController? = null) {
     val state = controller.state
+    // Shown only while signed in.
+    val account = state.account ?: run {
+        Faults.report("AuthenticatedShell", "shown without an account", mapOf("destination" to state.destination.toString()))
+        return
+    }
     var collectionCubes by remember { mutableStateOf(false) }
     if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
     val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
@@ -70,10 +76,10 @@ fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: 
                     LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
                         if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
                     }
-                    WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
+                    WaitingLobby(lobby, account.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
                         importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
                 } else if (state.destination == ShellDestination.PODS && pods != null) {
-                    PodsDestination(pods, state.account!!.accountId, if (!landscape || podPlay) ({ controller.drawer(true) }) else null, lobby,
+                    PodsDestination(pods, account.accountId, if (!landscape || podPlay) ({ controller.drawer(true) }) else null, lobby,
                         manageCubes = {
                             collectionCubes = true
                             controller.push(ShellDestination.DECKS)
@@ -92,13 +98,13 @@ fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: 
                     if (destination == ShellDestination.PODS) pods?.showList()
                     if (destination == ShellDestination.DECKS) collectionCubes = false
                     controller.navigate(destination)
-                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller, pods,
+                }, catalog, deckImport, decks, lobby, account.accountId, controller::logout, controller, pods,
                     push = controller::push)
             }
         }
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
-        .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
+        .semantics { contentDescription = "Signed in as ${account.username}" }) {
         if (landscape && !tabletop && !podPlay) {
             Row(Modifier.fillMaxSize()) {
                 Surface(Modifier.width(220.dp).fillMaxHeight(), color = Color.White,
@@ -161,13 +167,13 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
             Column {
             val accountId = controller.state.account?.accountId.orEmpty()
-            for (game in navigationGameRows(lobby?.state?.games.orEmpty(), lobby?.state?.invitations.orEmpty(), accountId)) {
+            if (lobby != null) for (game in navigationGameRows(lobby.state.games, lobby.state.invitations, accountId)) {
                 val incoming = incomingInvitation(game, accountId)
                 val selectedGame = !incoming && controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
                 Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp).testTag("navigation-game-${game.id}")
-                    .gameRowActions(lobby!!, game) {
+                    .gameRowActions(lobby, game) {
                         // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
                         if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
                         else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
@@ -204,7 +210,7 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                         val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
                         Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
                             .testTag("navigation-pod-${pod.id}")
-                            .clickable { pods!!.open(pod.id); controller.navigate(ShellDestination.PODS) }
+                            .clickable { pods?.open(pod.id); controller.navigate(ShellDestination.PODS) }
                             .semantics { selected = selectedPod }, shape = MaterialTheme.shapes.extraLarge,
                             color = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
                             Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),

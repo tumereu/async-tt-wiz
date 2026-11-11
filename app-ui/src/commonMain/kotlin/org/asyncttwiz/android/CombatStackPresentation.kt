@@ -304,7 +304,8 @@ object CombatStackPresentation {
         for ((target, members) in groups) {
             if (members.isEmpty()) {
                 // A whole empty lane is one drop: a new pair attacking that target, after every recorded pair.
-                val lane = lanes.first { it.cardId == target }
+                val lane = lanes.firstOrNull { it.cardId == target }
+                    ?: run { Faults.report("CombatStackPresentation", "empty lane without its target", mapOf("target" to target.toString())); continue }
                 for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                     val y = rowY(role)
                     targets += CombatDropRegion("New ${role.name.lowercase()} pair attacking ${lane.label}",

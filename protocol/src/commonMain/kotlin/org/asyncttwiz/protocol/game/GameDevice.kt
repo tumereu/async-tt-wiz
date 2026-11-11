@@ -13,6 +13,7 @@ import arcanum.engine.turn.LoopKey
 import org.asyncttwiz.protocol.EngineRewindRequest
 import org.asyncttwiz.protocol.EngineSnapshot
 import org.asyncttwiz.protocol.EngineUpdate
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.replaceEach
 
@@ -1493,7 +1494,7 @@ class GameDevice(
         note(Note.Refused(DRAFT_DROPPED))
     }
 
-    private fun checkDraft() { if (openDraft != null && (openDraft!!.finished || !session.drafting)) dropDraft() }
+    private fun checkDraft() { val open = openDraft; if (open != null && (open.finished || !session.drafting)) dropDraft() }
 
     private var openDraft: EventBuilder? = null
     private var draftStop: Status.Stopped? = null
@@ -1643,7 +1644,7 @@ class GameDevice(
                 builder.perform(Input.MandatoryLoop)
                 return@repeat
             }
-            if (yields && !yielded.add(key!!)) return
+            if (yields && key != null && !yielded.add(key)) return
             val mark = builder.mark()
             builder.perform(Input.PassPriority(holder))
             builder.answerRandoms()
@@ -1664,7 +1665,9 @@ class GameDevice(
         val input = when (point.offer) {
             null -> return Acted.Refused("noOffer")
             Offer.AssumeBlockers -> Input.DeclareBlockers(opponent, blocks)
-            else -> point.input!!
+            else -> point.input ?: return Acted.Refused("noOffer").also {
+                Faults.report("GameDevice", "assume offer without an input", mapOf("offer" to point.offer.toString(), "wait" to point.reason.toString()))
+            }
         }
         return assumed(input).also { acted ->
             if (acted !is Acted.Sent) return@also
@@ -2222,7 +2225,7 @@ class GameDevice(
             }
         }.takeWhile { it.second != null }.toList()
         if (kept.isNotEmpty() && redeclaring.isEmpty()) redeclareAfter = dropped.first().parentId
-        redeclaring += kept.map { it.second!! }
+        redeclaring += kept.mapNotNull { it.second }
         kept.forEach { redeclared += it.first.id }
         if (redeclared.size > MAX_ORIGINS) redeclared.clear()
         return kept.isNotEmpty()

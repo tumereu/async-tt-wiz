@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -97,7 +98,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { events.withIndex().associate { it.value.id to it.index } }
     val selected = positions[selectedId] ?: -1
-    require(selected >= 0)
+    if (selected < 0) return Faults.report("HistoryTimeline", "selected event not on the timeline", mapOf("selected" to selectedId, "events" to events.size.toString()))
     val pause by rememberUpdatedState(onPause); val select by rememberUpdatedState(onSelect)
     val selectedNow by rememberUpdatedState(selected)
     val density = androidx.compose.ui.platform.LocalDensity.current.density

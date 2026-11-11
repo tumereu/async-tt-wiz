@@ -77,7 +77,7 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
     val game = state.detail ?: return
     // LOB-145: a pod game's chat has the pod's beside it, while the viewer is still in that pod
     val podChat = LocalPodChat.current
-    val podView = game.podId?.takeIf { podChat != null }?.let { id -> podChat!!.views[id] ?: PodChatView(id) }?.takeIf { !it.unavailable }
+    val podView = podChat?.let { chat -> game.podId?.let { id -> chat.views[id] ?: PodChatView(id) } }?.takeIf { !it.unavailable }
     val tab = if (podView == null) ChatTab.GAME else state.chatTab
     val chat = state.chat
     val deliveryFailure = chat.outgoing.lastOrNull { it.failure != null }?.failure
@@ -101,8 +101,8 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
             }
             IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
         }
-        if (tab == ChatTab.GAME || podView == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f))
-        else PodChatBody(podChat!!, podView, accountId,
+        if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f))
+        else PodChatBody(podChat, podView, accountId,
             if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, state.chatOpen, Modifier.weight(1f))
     }
     }

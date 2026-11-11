@@ -8,6 +8,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
+import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
@@ -334,7 +335,7 @@ class CastController(
         AppLog.info("decision", "Cast answer tapped: ${answer.toString().take(400)}")
         return update { it.answer(answer) }
     }
-    override val engine get() = flow!!.state
+    override val engine: GameState? get() = flow?.state ?: null.also { Faults.report("CastController", "engine state read with no cast open") }
     override fun atwCard(id: ObjectId): String? = flow?.atwCard(id)
     override fun listedAnswers(): List<Answer> = listed
     /** I-D27: the cast runs on full information; the panel names only what the caster may see. */
@@ -390,8 +391,9 @@ class CastController(
 
     /** Confirms the targets (or cards, D1) picked for a question that takes several. */
     fun confirmTargets(): Boolean {
-        if (pick == null || !pickDone) return false
-        return answer(pick!!.answer(picked))
+        val open = pick
+        if (open == null || !pickDone) return false
+        return answer(open.answer(picked))
     }
 
     /** STK-024 (owner 2026-11-08, partial override): adds a mana source to the cast's payment or takes it out (a pool or life chip in

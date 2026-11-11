@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -79,7 +80,7 @@ data class ObjectsShape(
                     if ("on the bottom" in text) "Bottom" else "Top")
                 // STK-056: a search is titled by what is searched, up to the sentence's first comma ("Search your
                 // library for a basic land card"), an activated ability's cost left out
-                SEARCH.find(text) != null -> ObjectsShape(Shape.Pick, SEARCH.find(text)!!.groupValues[1].trim(),
+                SEARCH.find(text) != null -> ObjectsShape(Shape.Pick, SEARCH.find(text)?.groupValues?.get(1)?.trim().orEmpty(),
                     "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards", search = true)
                 else -> ObjectsShape(Shape.Pick, pickTitle(text), "Tap ${d.total?.let(::reaching) ?: pickCount(d.min, d.max, n)}, then OK.", "Cards")
             }
@@ -243,12 +244,12 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                 val places = shape.shape == ObjectsShape.Shape.Places
                 TwoAreaChoice(state, cards, ChoiceArea(shape.first, areaIcon(shape.first), ordered = !places || shape.orderFirst),
                     shape.second?.takeIf { places }?.let { ChoiceArea(it, areaIcon(it), ordered = shape.orderSecond) }, inspector)
-                val chosen = (if (!places || shape.chosenFirst) state.first else state.second).map(ids::getValue)
-                val fits = chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)
+                val chosen = (if (!places || shape.chosenFirst) state.first else state.second).let { objectsOf(ids, it) }
+                val fits = chosen.size >= decision.min && decision.max.let { it == null || chosen.size <= it }
                 OkRow(decision, fits) {
                     val then = listOfNotNull(state.first.takeIf { places && shape.orderFirst && it.size > 1 },
                         state.second.takeIf { places && shape.orderSecond && it.size > 1 })
-                        .map { area -> Answer.Objects(area.map(ids::getValue)) }
+                        .map { area -> Answer.Objects(area.let { objectsOf(ids, it) }) }
                     cast.answerWith(Answer.Objects(chosen), then)
                 }
             }
@@ -257,13 +258,13 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                 var chosen by androidx.compose.runtime.saveable.rememberSaveable(decision.id.toString()) { mutableStateOf(listOf<String>()) }
                 // Castability §3: in a cast or activation only what can be paid with the picks so far is offered
                 var selection by remember(decision.id) { mutableStateOf<arcanum.engine.Selection?>(null) }
-                androidx.compose.runtime.LaunchedEffect(decision.id, chosen) { cast.selectionOf(chosen.map(ids::getValue)) { selection = it } }
+                androidx.compose.runtime.LaunchedEffect(decision.id, chosen) { cast.selectionOf(chosen.let { objectsOf(ids, it) }) { selection = it } }
                 // What a report needs of a pick gone missing: the panel left the table with it
                 androidx.compose.runtime.DisposableEffect(decision.id) {
                     onDispose { if (chosen.isNotEmpty()) AppLog.info("decision", "Choice ${decision.id.value}'s panel left the table with $chosen picked") }
                 }
                 val offered = selection?.candidates?.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id } ?: decision.options
-                CardPicks(decision.options.filter { it in offered }.map { cards.getValue(it.toString()) }, chosen, inspector) { key ->
+                CardPicks(decision.options.filter { it in offered }.mapNotNull { cards[it.toString()] }, chosen, inspector) { key ->
                     chosen = when {
                         key in chosen -> chosen - key
                         decision.max == 1 -> listOf(key)
@@ -273,11 +274,12 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                     AppLog.info("decision", "Card tapped in ${decision.id.value}: ${cards[key]?.name} ($key); chosen now $chosen of ${decision.min}..${decision.max}")
                 }
                 if (shape.search) {
-                    val others = remember(decision.id, flow.engine) { searchedOthers(flow.engine, decision) }
+                    val engine = flow.engine
+                    val others = remember(decision.id, engine) { engine?.let { searchedOthers(it, decision) }.orEmpty() }
                     if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 }
-                OkRow(decision, chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!) && selection?.done != false) {
-                    cast.answer(Answer.Objects(chosen.map(ids::getValue)))
+                OkRow(decision, chosen.size >= decision.min && decision.max.let { it == null || chosen.size <= it } && selection?.done != false) {
+                    cast.answer(Answer.Objects(chosen.let { objectsOf(ids, it) }))
                 }
             }
         }
@@ -316,7 +318,7 @@ fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard
     Section(choiceWhat(decision), choiceHint(decision)) {
         CardPicks(decision.among.map { choiceCardOf(flow, play, viewer, it) }, listOfNotNull(kept), inspector) { kept = it }
         // TRN-063 (owner playtest 2026-11-09): Keep is the main button
-        OkRow(decision, kept != null, label = "Keep") { kept?.let { cast.answer(Answer.Keep(ids.getValue(it))) } }
+        OkRow(decision, kept != null, label = "Keep") { kept?.let { ids[it] }?.let { cast.answer(Answer.Keep(it)) } }
     }
     ChoiceInspection(inspector, play, viewer)
 }
@@ -353,4 +355,9 @@ fun colorSwatch(symbol: Char): Color = when (symbol) {
 fun ChoiceHintText(text: String) {
     CardText(text, Modifier.semantics { contentDescription = text }, color = Color(0xff4b5a5f),
         style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
+}
+
+/** [keys]' objects among [ids] (a choice's cards by key); a key that isn't one is left out and reported. */
+private fun objectsOf(ids: Map<String, ObjectId>, keys: List<String>): List<ObjectId> = keys.mapNotNull { key ->
+    ids[key] ?: null.also { Faults.report("ChoiceScreens", "chosen card not among the options", mapOf("key" to key, "options" to ids.keys.joinToString())) }
 }

@@ -63,7 +63,7 @@ fun verifyAppApk(file: File, release: AppRelease): Boolean {
 }
 
 /** Expected update failures carry a player-facing message; [browserFallback] is off when a browser can't help either. */
-class AppUpdateFailure(message: String, val browserFallback: Boolean = true) : Exception(message)
+class AppUpdateFailure(override val message: String, val browserFallback: Boolean = true) : Exception(message)
 
 /** [detail] names the underlying error so a player can pass it on when reporting a problem. */
 data class AppUpdateProblem(val message: String, val detail: String? = null, val browserFallback: Boolean = true)
@@ -71,7 +71,7 @@ data class AppUpdateProblem(val message: String, val detail: String? = null, val
 fun appUpdateProblem(failure: Throwable): AppUpdateProblem {
     val detail = (failure.message?.let { "${failure.javaClass.simpleName}: $it" } ?: failure.javaClass.simpleName).take(160)
     return when {
-        failure is AppUpdateFailure -> AppUpdateProblem(failure.message!!, browserFallback = failure.browserFallback)
+        failure is AppUpdateFailure -> AppUpdateProblem(failure.message, browserFallback = failure.browserFallback)
         failure is UnknownHostException || failure is ConnectException || failure is NoRouteToHostException ->
             AppUpdateProblem("Can't reach the update server. Check your internet connection and try again.", detail)
         failure is IOException && failure.message.orEmpty().contains("ENOSPC") ->
@@ -136,7 +136,7 @@ private fun downloadAppApkPart(client: OkHttpClient, url: String, target: AppRel
         if (!response.isSuccessful)
             throw AppUpdateFailure("The download server isn't responding (error ${response.code}). Try again later.")
         val start = if (response.code == 206 && response.header("Content-Range").orEmpty().startsWith("bytes $offset-")) offset else 0L
-        val body = response.body!!
+        val body = checkNotNull(response.body) { "No response body" }
         if (body.contentLength() != -1L && body.contentLength() != target.size - start) {
             AppLog.warn("update", "Unexpected length ${body.contentLength()} from $start; discarding partial download")
             part.delete()

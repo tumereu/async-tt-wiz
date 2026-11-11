@@ -89,9 +89,10 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
             if (!connected()) break
             val predecessor = play()?.takeIf { it.playId == state.playId && it.gameId == state.gameId } ?: break
             val currentTarget = predecessor.board.containers.singleOrNull { it.id == target.id } ?: break
+            val handGap = (intent.destination as? TableDestination.Container)?.handGap
             val destination = when {
-                target.zone == PlayZone.HAND && (intent.destination as? TableDestination.Container)?.handGap != null -> {
-                    val gap = (intent.destination as TableDestination.Container).handGap!!
+                target.zone == PlayZone.HAND && handGap != null -> {
+                    val gap = handGap
                     MoveDestination(target.id, MoveInsertion.GAP, afterId = prefix ?: gap.afterId, beforeId = gap.beforeId,
                         pendingIds = ids.drop(index + 1))
                 }

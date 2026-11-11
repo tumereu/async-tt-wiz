@@ -943,7 +943,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
         val area = play.board.combat
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
-        val attacking = occurrence != null && area!!.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }
+        val attackedPair = occurrence?.let { o -> area?.pairs?.firstOrNull { p -> p.attackers.any { it.id == o.id } } }
+        val attacking = attackedPair != null
         val declaring = choices.declaring
         if (declaring != null && enabled() && controllerOf(play, card) == declaring) {
             if (choices.attackers) {
@@ -962,7 +963,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 // CMB-003, CMB-032 (owner, 2026-11-06): a staged attacker's copy is selected first, unstaged by a tap on it
                 // selected; its real card's tap unstages it at once (CMB-028)
                 if (attacking && copy && combat.selected != card) { combat.select(card); return true }
-                if (attacking) { combat.clearSelection(); return unstage(occurrence!!.id, card) }
+                if (attacking && occurrence != null) { combat.clearSelection(); return unstage(occurrence.id, card) }
                 if (card !in choices.attacks && !creature(play, card)) return false
                 return stage(play, listOf(card), combat.activeTarget(play))
             }
@@ -979,7 +980,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val blocker = combat.selected
         // CMB-034: the attacker's copy or its real card (combat review #12)
         if (declaring != null && !choices.attackers && attacking && blocker != null && blocker in choices.blocks && enabled()) {
-            val pair = area!!.pairs.first { p -> p.attackers.any { it.id == occurrence!!.id } }.id
+            val pair = attackedPair?.id ?: return false
             block(play, blocker, pair)
             return true
         }
@@ -1032,7 +1033,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
         val defender = choices.declaring ?: return false
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
-        val attacking = occurrence != null && area.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }
+        val attackedPair = occurrence?.let { o -> area.pairs.firstOrNull { p -> p.attackers.any { it.id == o.id } } }
+        val attacking = attackedPair != null
         if (!attacking && controllerOf(play, card) == defender) {
             if (card !in choices.blocks) {
                 if (!creature(play, card)) return false
@@ -1048,7 +1050,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         }
         val blocker = combat.selected?.takeIf { it in choices.blocks } ?: return false
         if (!attacking) return false
-        assumeBlock(placed, play, blocker, area.pairs.first { p -> p.attackers.any { it.id == occurrence!!.id } }.id, toggle = true)
+        assumeBlock(placed, play, blocker, attackedPair?.id ?: return false, toggle = true)
         return true
     }
 
@@ -1205,10 +1207,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
     private fun retarget(bound: ToolkitCapture, cardId: String?): Boolean = batchResult {
         val board = current()?.board ?: return@batchResult false
-        if (board.combat?.id != bound.areaId) return@batchResult false
+        val areaId = bound.areaId
+        if (areaId == null || board.combat?.id != areaId) return@batchResult false
         var sent = false
         for (pair in CombatStackController.attackerPairs(board, bound.viewIds))
-            sent = submit(PlayAction.Combat(CombatAction.SetAttackTarget(bound.areaId!!, pair.id, cardId))) || sent
+            sent = submit(PlayAction.Combat(CombatAction.SetAttackTarget(areaId, pair.id, cardId))) || sent
         sent
     }
 }

@@ -275,7 +275,9 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
     // TRN-065 (owner 2026-11-07, 2026-11-09): a result an OK is still owed on shows over the lobby, on every device, until
     // both stand: with OK while it is yours, else "Waiting for <name> to acknowledge"; the lobby behind takes nothing
     state.detail?.takeIf { controller.resultOpen(it) }?.let { game ->
-        val notice = game.resultNotice!!
+        val notice = game.resultNotice ?: run {
+            Faults.report("LobbyScreens", "result open without its notice", mapOf("game" to game.id)); return@let
+        }
         val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
         val owes = controller.resultUnseen(game)
         key(resultKey(game)) {

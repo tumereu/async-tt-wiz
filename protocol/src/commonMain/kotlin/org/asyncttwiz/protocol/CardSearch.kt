@@ -380,8 +380,7 @@ private class CardSearchParser(private val text: String) {
         val token = next()
         return when (token.kind) {
             Kind.NOT -> {
-                if (peek() == null) fail("Nothing to exclude after -", token.start, token.end)
-                val operand = peek()!!
+                val operand = peek() ?: fail("Nothing to exclude after -", token.start, token.end)
                 if (operand.kind == Kind.OR || operand.kind == Kind.AND) fail("Nothing to exclude after -", token.start, token.end)
                 CardSearchNode.Not(parseUnary(depth))
             }
@@ -405,9 +404,11 @@ private class CardSearchParser(private val text: String) {
 
     private fun term(token: Token): CardSearchNode {
         val value = token.value.replace(Regex("\\s+"), " ").trim()
-        val key = token.key ?: return if (value.isEmpty()) fail("Write a card name", token.start, token.end)
+        // The tokenizer sets a filter's key and operator together.
+        val key = token.key
+        val raw = token.op
+        if (key == null || raw == null) return if (value.isEmpty()) fail("Write a card name", token.start, token.end)
             else CardSearchNode.Name(CardSearchRules.foldName(value), token.exact)
-        val raw = token.op!!
         if (key !in KEYS) fail("Unknown filter \"$key$raw\"", token.start, token.end)
         if (value.isEmpty()) fail("Write a value after $key$raw", token.start, token.end)
         fun op(colon: CardSearchOp): CardSearchOp = when (raw) {

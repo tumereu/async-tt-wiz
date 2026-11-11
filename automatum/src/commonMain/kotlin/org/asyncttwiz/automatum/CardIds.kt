@@ -35,6 +35,7 @@ class CardIds internal constructor() {
 
     fun target(ref: MtgRef): TargetRef = when (ref) {
         is MtgRef.Player -> TargetRef.Player(PlayerId(ref.accountId))
-        else -> TargetRef.Object(obj(ref)!!)
+        is MtgRef.Card -> TargetRef.Object(ObjectId.Card(engine(ref.cardId), ref.zoneChanges))
+        is MtgRef.StackItem -> TargetRef.Object(ObjectId.StackItem(ref.id))
     }
 }

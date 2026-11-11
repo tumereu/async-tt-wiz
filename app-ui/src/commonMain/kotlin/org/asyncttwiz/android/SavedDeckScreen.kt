@@ -124,7 +124,7 @@ fun savedListSections(always: List<SavedDeckSection>, present: List<SavedDeckSec
 @Composable
 private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Unit)?) {
     val state = controller.state
-    val detail = state.detail!!
+    val detail = state.detail ?: return Faults.report("SavedDeckScreen", "cover screen without a deck", emptyMap())
     val landscape = screenWidthDp() > screenHeightDp()
     val actions: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,7 +146,7 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
             // LOB-058 (owner playtest 2026-11-09): listed alphabetically; a card without a printing can't be the cover
             items(detail.saved.entries.filter { it.printingId != null }.distinctBy { it.card }
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { detail.definitions[it.card]?.name.orEmpty() }), key = { it.card }) { entry ->
-                val definition = detail.definitions.getValue(entry.card)
+                val definition = detail.definitions[entry.card] ?: return@items Faults.report("SavedDeckScreen", "cover card without its definition", mapOf("deck" to detail.saved.deck.id, "card" to entry.card))
                 val chosen = state.draftCover == entry.card
                 Surface(selected = chosen, onClick = { controller.cover(entry.card) },
                     enabled = !state.mutating, modifier = Modifier.fillMaxWidth(),

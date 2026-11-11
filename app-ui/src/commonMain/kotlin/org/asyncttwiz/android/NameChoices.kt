@@ -164,7 +164,7 @@ fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardName) {
     var catalog by remember(decision.id) { mutableStateOf(emptyList<String>()) }
     val typed = text.trim()
     val game = remember(decision.id, typed) {
-        runCatching { gameNames(cast.engine, viewer, decision, typed) }.getOrDefault(emptyList())
+        runCatching { cast.engine?.let { gameNames(it, viewer, decision, typed) }.orEmpty() }.getOrDefault(emptyList())
     }
     LaunchedEffect(decision.id, typed) {
         if (typed.length < 2) { catalog = emptyList(); return@LaunchedEffect }

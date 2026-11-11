@@ -256,8 +256,8 @@ object DraftEngine {
         val packs = state.packs.associateBy { it.id }
         val contents = state.packs.associate { it.id to it.cards.toSet() }.toMutableMap()
         // The pack's cards before each pick, and after it (what was passed on).
-        val before = arrayOfNulls<Set<String>>(state.log.size)
-        val after = arrayOfNulls<Set<String>>(state.log.size)
+        val before = Array<Set<String>>(state.log.size) { emptySet() }
+        val after = Array<Set<String>>(state.log.size) { emptySet() }
         for (index in state.log.indices.reversed()) {
             val entry = state.log[index]
             val passed = contents.getValue(entry.packId)
@@ -272,13 +272,13 @@ object DraftEngine {
             state.log.forEachIndexed { index, entry ->
                 val pick = (manual[entry.packId] ?: 0) + 1
                 if (entry.player == player) {
-                    val seen = before[index]!!
+                    val seen = before[index]
                     val gone = lastPassed[entry.packId]?.let { it - seen }.orEmpty()
                     val pack = packs.getValue(entry.packId)
                     add(DraftHistoryPick(pack.number, pick,
                         (seen + entry.librarians).map(copies::getValue), entry.kept, entry.burned, entry.librarians,
                         gone.map(copies::getValue), entry.automatic, pack.round + 1, entry.packId in lastPassed))
-                    lastPassed[entry.packId] = after[index]!!
+                    lastPassed[entry.packId] = after[index]
                 }
                 if (!entry.automatic) manual[entry.packId] = pick
             }

@@ -162,7 +162,7 @@ private class ProtectedFile(file: File, private val alias: String, aad: String, 
         cipher.updateAAD(aad)
         val encrypted = cipher.doFinal(bytes)
         require(cipher.iv.size == 12)
-        check(atomic.baseFile.parentFile!!.let { it.isDirectory || it.mkdirs() })
+        check(atomic.baseFile.parentFile.let { it != null && (it.isDirectory || it.mkdirs()) })
         val output = atomic.startWrite()
         try {
             output.write(byteArrayOf(1) + cipher.iv + encrypted)

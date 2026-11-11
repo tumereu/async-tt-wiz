@@ -25,8 +25,8 @@ class ActivityPushService : FirebaseMessagingService() {
         if (!ActivityPushConfiguration.enabled || message.notification != null) return
         val data = message.data
         if (data.keys != setOf("generation", "gameId", "activityId", "identity")) return
-        AndroidActivityDelivery.get(this).push(ActivityPushHint(data.getValue("generation"), data.getValue("gameId"),
-            data.getValue("activityId"), data.getValue("identity")))
+        AndroidActivityDelivery.get(this).push(ActivityPushHint(data["generation"] ?: return, data["gameId"] ?: return,
+            data["activityId"] ?: return, data["identity"] ?: return))
     }
     companion object {
         @JvmStatic fun configure(context: Context) {

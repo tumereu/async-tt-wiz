@@ -79,11 +79,18 @@ object EngineEventText {
     }
 
     /** What the table part of a table-only event says. */
-    private fun tableText(event: GameEvent, author: String): String = when {
-        event.table.any { it is GameTableChange.AttackDraft } -> (event.table.firstNotNullOfOrNull { it as? GameTableChange.AttackDraft }!!.after
-            ?.let { "$author staged ${it.size} ${if (it.size == 1) "attacker" else "attackers"}" } ?: "$author cleared the attack staging")
-        event.table.any { it is GameTableChange.BlockDraft } -> (event.table.firstNotNullOfOrNull { it as? GameTableChange.BlockDraft }!!.after
-            ?.let { "$author arranged ${it.size} ${if (it.size == 1) "block" else "blocks"}" } ?: "$author cleared the blocks")
+    private fun tableText(event: GameEvent, author: String): String {
+        val attack = event.table.firstNotNullOfOrNull { it as? GameTableChange.AttackDraft }
+        val block = event.table.firstNotNullOfOrNull { it as? GameTableChange.BlockDraft }
+        return tableText(event, author, attack, block)
+    }
+
+    private fun tableText(event: GameEvent, author: String, attack: GameTableChange.AttackDraft?,
+        block: GameTableChange.BlockDraft?): String = when {
+        attack != null -> attack.after
+            ?.let { "$author staged ${it.size} ${if (it.size == 1) "attacker" else "attackers"}" } ?: "$author cleared the attack staging"
+        block != null -> block.after
+            ?.let { "$author arranged ${it.size} ${if (it.size == 1) "block" else "blocks"}" } ?: "$author cleared the blocks"
         event.table.any { it is GameTableChange.EarlyAnswered } ->
             if (event.table.any { it is GameTableChange.EarlyAnswered && it.after != null }) "$author answered early" else "$author withdrew an early answer"
         event.table.any { it is GameTableChange.Suggestion && it.after != null } -> "A result was suggested"

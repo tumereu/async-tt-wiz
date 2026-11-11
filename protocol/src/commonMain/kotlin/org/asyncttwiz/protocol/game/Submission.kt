@@ -10,6 +10,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.asyncttwiz.protocol.Faults
 
 /**
  * One acting point as a device sends it (I-D54 §3: inputs, not results): the new event's [id], the event it was made on
@@ -103,8 +104,14 @@ object Authority {
                         WhoActs.Kind.Automatic, WhoActs.Kind.Random -> {}
                     }
                     if (kind == WhoActs.Kind.Random) {
-                        val d = model.engine.pending!!.decision as Decision.Random
-                        if ((act.input as Input.Answer).answer != builder.randomAnswer(d)) throw Refusal("A random answer that isn't the line's (I-D56 §9)")
+                        // WhoActs says Random only for an answer to a pending random decision.
+                        val d = model.engine.pending?.decision as? Decision.Random
+                        val answer = act.input as? Input.Answer
+                        if (d == null || answer == null) throw Refusal("A random answer without a random decision").also {
+                            Faults.report("Submission", "random answer without a random decision",
+                                mapOf("pending" to model.engine.pending?.decision.toString(), "input" to act.input.toString()))
+                        }
+                        if (answer.answer != builder.randomAnswer(d)) throw Refusal("A random answer that isn't the line's (I-D56 §9)")
                     }
                     try { changes += builder.perform(act.input, assumedBy = if (kind is WhoActs.Kind.Assumed) author else null).changes }
                     catch (e: IllegalArgumentException) { throw Refusal("Refused by the engine: ${e.message}") }
@@ -418,6 +425,8 @@ object Acceptance {
             val next = rest.first()
             val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()
             val assumed = next.assumed
+            // An assumed step always has its input ([GameEvent.assumed]), so [about] is set only with it.
+            val assumedInput = assumed?.input
             val players = (heads.keys + author).distinct()
             val about = assumed?.let { step -> assumedAbout(step, next, players) }
             // The author's assumption of the other player's input, which that player's own same input came before
@@ -425,7 +434,7 @@ object Acceptance {
                 return Confirmed(next.id, alias = submission.id)
             if (first == null || first.assumed) throw Refusal("stale")
             if (about != author && !concession) throw Refusal("stale")
-            if (about == author && !concession && confirms(first.input, assumed!!.input!!))
+            if (about == author && !concession && assumedInput != null && confirms(first.input, assumedInput))
                 return Confirmed(next.id, alias = submission.id.takeIf { duplicate(submission, next) })
             // A branch at the author's local head: a new line, the old line after it discarded. A concession's line is
             // the server's to start when the device didn't (it conceded at what it showed as the head, §11)

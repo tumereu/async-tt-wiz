@@ -559,13 +559,15 @@ class GameSession(private val connection: GameConnection, private val credential
         if (action is GameAction.SendChat) { if (!activeRequest(game)) return null }
         else if (!ready(game.id) || credential() != token) return null
         if ((action !is GameAction.SendChat && action !is GameAction.SetAssumeReveals && pending(game.id)) || pending.size >= 256) return null
-        val stream = streams.getValue(game.id)
+        val stream = streams[game.id] ?: return null.also { Faults.report("GameSession", "command for a game without a stream", mapOf("game" to game.id)) }
+        val generation = stream.generation ?: stream.lastGeneration
+            ?: return null.also { Faults.report("GameSession", "command for a stream without a generation", mapOf("game" to game.id)) }
         val scope = if (action is GameAction.SetAssumeReveals || action == GameAction.AcknowledgeResult) GameScope(game.id)
             else if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
             else GameScope(game.id, game.preparationRound,
                 if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null)
         return GameCommand(randomUuid(), scope,
-            action, stream.id, stream.generation ?: stream.lastGeneration!!)
+            action, stream.id, generation)
     }
     private fun enqueue(game: GameSummary, action: GameAction): GameCommand? = measureLatency(game, action) {
         val command = command(game, action) ?: return null
@@ -789,16 +791,18 @@ class GameSession(private val connection: GameConnection, private val credential
         // No card is silently dropped and an acknowledgement is not a per-card sending barrier.
         preparations.drainCaptured({ ready && credential() == token && pending.size < 256 }) { gameId, roundId, next ->
             val stream = streams[gameId] ?: return@drainCaptured null
-            if (stream.generation == null || !stream.head) return@drainCaptured null
+            val generation = stream.generation
+            if (generation == null || !stream.head) return@drainCaptured null
             val command = GameCommand(randomUuid(), GameScope(gameId, roundId),
-                next(), stream.id, stream.generation!!)
+                next(), stream.id, generation)
             pending[command.requestId] = command
             command
         }
         for ((id, command) in pending) {
-            val stream = streams.getValue(command.scope.gameId)
-            if (id !in sent && available(command.scope.gameId) && stream.generation != null && stream.head) {
-                if (!send(command.copy(generation = stream.generation!!))) return
+            val stream = streams[command.scope.gameId] ?: run { Faults.report("GameSession", "pending command without a stream", mapOf("game" to command.scope.gameId)); continue }
+            val generation = stream.generation
+            if (id !in sent && available(command.scope.gameId) && generation != null && stream.head) {
+                if (!send(command.copy(generation = generation))) return
                 sent.add(id)
             }
         }

@@ -85,7 +85,7 @@ object MatchStats {
     /** Win % on the play and on the draw. */
     fun playDraw(records: List<MatchRecord>, me: String): Pair<Rate, Rate> {
         val finished = records.finished(me)
-        fun rate(onThePlay: Boolean) = finished.filter { it.player(me)!!.onThePlay == onThePlay }
+        fun rate(onThePlay: Boolean) = finished.filter { it.player(me)?.onThePlay == onThePlay }
             .let { list -> Rate(list.count { it.result(me) == SuggestedResult.WIN }, list.size) }
         return rate(true) to rate(false)
     }
@@ -135,7 +135,7 @@ object MatchStats {
         .sortedWith(compareByDescending<Pair<String, Rate>> { it.second.matches }.thenBy { it.first })
 
     /** Win % in matches where the viewer took a mulligan. */
-    fun afterMulligan(records: List<MatchRecord>, me: String): Rate = records.finished(me).filter { (it.player(me)!!.mulligans ?: 0) > 0 }
+    fun afterMulligan(records: List<MatchRecord>, me: String): Rate = records.finished(me).filter { (it.player(me)?.mulligans ?: 0) > 0 }
         .let { list -> Rate(list.count { it.result(me) == SuggestedResult.WIN }, list.size) }
 
     /** The fewest turns of a win, and the most turns of any match. */

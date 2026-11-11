@@ -59,7 +59,7 @@ class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?
                 do {
                     if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
                     val page = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.list(token, next) }; page.decks.forEach { decks[it.id] = it }; next = page.next
-                    check(next == null || seen.add(next!!))
+                    next.let { check(it == null || seen.add(it)) }
                 } while (next != null)
                 // Draft decks are playable too; the picker lists them under their own heading.
                 if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()

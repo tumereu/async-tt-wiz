@@ -115,7 +115,8 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
             log("Card catalog: the server's current version couldn't be read (${failure.message}); downloading $expected")
             null
         }
-        val checksum = expected ?: current!!.checksum
+        // Without [expected] a failed read was thrown above.
+        val checksum = expected ?: current?.checksum ?: throw IllegalStateException("The server's current catalog is unknown")
         require(CardCatalogFiles.valid(checksum)) { "Not a catalog checksum" }
         val size = current?.takeIf { it.checksum == checksum }?.size
         if (current != null && current.checksum != checksum) log("Card catalog: the server's current is ${current.checksum}, this app needs $checksum")

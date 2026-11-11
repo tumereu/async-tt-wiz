@@ -260,9 +260,9 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         """SELECT s.code, s.name, s.release_date, (SELECT count(*) FROM printing p WHERE p.set_code=s.code AND p.token=0),
             s.automatum, s.unsupported, s.keyrune FROM catalog_set s WHERE s.draftable=1 ORDER BY s.release_date DESC, s.code""", { cursor ->
             val sets = mutableListOf<DraftableSet>()
-            while (cursor.next().value) sets += DraftableSet(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!,
-                cursor.getLong(3)!!, cursor.getLong(4) == 1L,
-                runCatching { DeckJson.format.decodeFromString<List<String>>(cursor.getString(5)!!) }.getOrDefault(emptyList()),
+            while (cursor.next().value) sets += DraftableSet(cursor.text(0), cursor.text(1), cursor.text(2),
+                cursor.number(3), cursor.getLong(4) == 1L,
+                runCatching { DeckJson.format.decodeFromString<List<String>>(cursor.text(5)) }.getOrDefault(emptyList()),
                 cursor.getString(6).orEmpty())
             QueryResult.Value(sets)
         }, 0).value
@@ -446,7 +446,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     fun count(): Long = long("SELECT count(*) FROM printing")
     fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->
         check(cursor.next().value)
-        QueryResult.Value(CatalogMetadata(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getLong(3)!!))
+        QueryResult.Value(CatalogMetadata(cursor.text(0), cursor.text(1), cursor.text(2), cursor.number(3)))
     }, 0).value
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
@@ -572,7 +572,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     internal val releaseDates: Map<String, String> by lazy {
         driver.executeQuery(null, "SELECT code, release_date FROM catalog_set", { cursor ->
             val dates = mutableMapOf<String, String>()
-            while (cursor.next().value) dates[cursor.getString(0)!!] = cursor.getString(1)!!
+            while (cursor.next().value) dates[cursor.text(0)] = cursor.text(1)
             QueryResult.Value(dates)
         }, 0).value
     }
@@ -580,10 +580,10 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     internal fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
         val rows = mutableListOf<CatalogPrinting>()
         while (cursor.next().value) {
-            val id = cursor.getString(0)!!
-            rows += CatalogPrinting(id, cursor.getString(1)!!, cursor.getString(3)!!, cursor.getString(4)!!,
-                cursor.getString(5)!!, cursor.getString(6)!!, cursor.getString(7), cursor.getLong(8) == 1L,
-                emptyList(), cursor.getString(9)!!)
+            val id = cursor.text(0)
+            rows += CatalogPrinting(id, cursor.text(1), cursor.text(3), cursor.text(4),
+                cursor.text(5), cursor.text(6), cursor.getString(7), cursor.getLong(8) == 1L,
+                emptyList(), cursor.text(9))
         }
         QueryResult.Value(rows)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value.map { record ->
@@ -595,11 +595,11 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         driver.execute(null, query, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }
     }
     internal fun long(query: String): Long = driver.executeQuery(null, query, { cursor ->
-        check(cursor.next().value); QueryResult.Value(cursor.getLong(0)!!)
+        check(cursor.next().value); QueryResult.Value(cursor.number(0))
     }, 0).value
     internal fun texts(query: String, args: List<String> = emptyList()): List<String> = driver.executeQuery(null, query, { cursor ->
         val result = mutableListOf<String>()
-        while (cursor.next().value) result += cursor.getString(0)!!
+        while (cursor.next().value) result += cursor.text(0)
         QueryResult.Value(result)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value
 

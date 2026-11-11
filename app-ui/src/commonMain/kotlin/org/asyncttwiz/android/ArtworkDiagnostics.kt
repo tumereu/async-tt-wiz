@@ -70,6 +70,6 @@ class ArtworkDiagnostics(private val now: () -> Long = ::currentTimeMillis,
         private fun host(url: String) = runCatching { parseUri(url).host }.getOrNull() ?: "?"
         /** Host and last path segment: enough to tell metadata, image size and card apart. */
         fun shortUrl(url: String) = runCatching { parseUri(url) }.getOrNull()
-            ?.let { "${it.host}/…/${it.path!!.substringAfterLast('/')}" } ?: url.take(120)
+            ?.let { uri -> uri.path?.let { path -> "${uri.host}/…/${path.substringAfterLast('/')}" } } ?: url.take(120)
     }
 }

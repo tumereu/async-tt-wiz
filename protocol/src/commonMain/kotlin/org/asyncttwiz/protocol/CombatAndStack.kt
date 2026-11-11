@@ -143,7 +143,7 @@ object CombatStackRules {
      * attackers of its own pair, then those of the pairs it also blocks. */
     fun blocks(area: CombatArea?): List<Pair<CombatOccurrence, CombatOccurrence>> = area?.pairs.orEmpty().flatMap { pair ->
         pair.blockers.flatMap { b ->
-            blockedPairs(area, b.id).flatMap { id -> area!!.pairs.firstOrNull { it.id == id }?.attackers.orEmpty() }.map { b to it }
+            blockedPairs(area, b.id).flatMap { id -> area?.pairs.orEmpty().firstOrNull { it.id == id }?.attackers.orEmpty() }.map { b to it }
         }
     }
     fun projectionIds(board: BoardState): Set<String> =

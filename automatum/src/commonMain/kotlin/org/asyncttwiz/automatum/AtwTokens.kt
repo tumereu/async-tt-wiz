@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.DeckJson
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PhysicalCardFaces
 import org.asyncttwiz.protocol.SubmittedDefinition
@@ -69,7 +70,9 @@ internal object AtwTokens {
 
     private fun typeLine(face: FaceDefinition, token: Boolean): String {
         fun word(element: kotlinx.serialization.json.JsonElement) =
-            element.jsonObject["type"]!!.jsonPrimitive.content.replaceFirstChar { it.uppercase() }
+            (element.jsonObject["type"]?.jsonPrimitive?.content ?: element.toString().also {
+                Faults.report("AtwTokens", "type word without a serial name", mapOf("element" to it))
+            }).replaceFirstChar { it.uppercase() }
         val supertypes = face.supertypes.map { word(EngineCodec.json.encodeToJsonElement(Supertype.serializer(), it)) }
         val types = face.types.map { word(EngineCodec.json.encodeToJsonElement(CardType.serializer(), it)) }
         val front = ((if (token) listOf("Token") else emptyList()) + supertypes + types).joinToString(" ")

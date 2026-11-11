@@ -60,11 +60,13 @@ fun podBuiltInName(name: String) = PodBuiltInPresets.any { PodPresetValidation.k
 /** "Booster · My cube · 3×15", "Grid · Dominaria United · 18 grids"; built-ins "Glimpse · Built-in · 9×15". */
 fun podPresetSummary(preset: PodPreset): String {
     if (preset.builtIn) return listOf(preset.name, "Built-in", "${preset.settings.packsPerPlayer}×${preset.settings.cardsPerPack}").joinToString(" · ")
+    val cubeName = preset.cubeName
+    val setCode = preset.setCode
     val source = when {
         preset.cubeMissing -> "Cube missing"
-        preset.cubeName != null -> preset.cubeName!!
+        cubeName != null -> cubeName
         PodPackGrid.mixed(preset.packSets) -> podMixedSetsName(preset.packSets)
-        preset.setCode != null -> preset.setName ?: preset.setCode!!
+        setCode != null -> preset.setName ?: setCode
         else -> "No source"
     }
     return podPresetSummary(preset.settings, source, set = preset.setCode != null)

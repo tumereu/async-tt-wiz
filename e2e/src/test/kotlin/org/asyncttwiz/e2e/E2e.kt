@@ -209,10 +209,36 @@ abstract class E2e {
         val step = Duration.ofNanos(now - ranAt).coerceIn(Duration.ofMillis(1), MAX_STEP)
         ranAt = now
         shadowOf(Looper.getMainLooper()).idleFor(step + skip)
+        if (inStep > 0) {
+            // [clockInStep]: the frames' clock moves on by the same time, in whole frames, and only by it
+            owedMillis += (step + skip).toMillis()
+            val frames = owedMillis / FRAME_MILLIS * FRAME_MILLIS
+            if (frames > 0) { compose.mainClock.advanceTimeBy(frames); owedMillis -= frames }
+        }
         compose.waitForIdle()
         everyRun.forEach { it() }
         players.forEach { it.leaks.install() }
     }
+
+    private var inStep = 0
+    private var owedMillis = 0L
+
+    /**
+     * While [block] runs the phones' frames' clock (the Compose test clock: animations, effects' delays, a play shown's or a
+     * combat's hold, [org.asyncttwiz.android.ViewPause.wait]) moves on only as [run] moves the main thread's: by the real
+     * time between rounds (and its skip), never further. Outside it, [run]'s `waitForIdle` advances that clock virtually,
+     * frame after frame, until nothing animates: a 3 s hold could end between two rounds, about 100 ms of real time after
+     * it began, before the test saw it (CombatHoldTest, 2026-11-11). Tests that watch a hold or a show while it lasts run
+     * inside it; its animations then take their real time.
+     */
+    internal fun <T> clockInStep(block: () -> T): T {
+        inStep++
+        compose.mainClock.autoAdvance = false
+        try { return block() } finally { inStep--; restoreAutoAdvance() }
+    }
+
+    /** The frames' clock back to advancing by itself, unless inside [clockInStep]. */
+    private fun restoreAutoAdvance() { compose.mainClock.autoAdvance = inStep == 0 }
 
     /**
      * Whether nothing of the game is on its way between the phones and the server: each phone that is online (its network
@@ -272,7 +298,7 @@ abstract class E2e {
             passWhileHeld(millis)
             held()
             node.performTouchInput { up() }
-        } finally { compose.mainClock.autoAdvance = true }
+        } finally { restoreAutoAdvance() }
         run()
     }
 
@@ -297,7 +323,7 @@ abstract class E2e {
                     }
                 }
             }.block()
-        } finally { compose.mainClock.autoAdvance = true }
+        } finally { restoreAutoAdvance() }
     }
 
     /** [frameByFrame]'s controls. */

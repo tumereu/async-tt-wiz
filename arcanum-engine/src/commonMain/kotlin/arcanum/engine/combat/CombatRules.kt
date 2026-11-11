@@ -143,14 +143,6 @@ internal object CombatRules {
         return null
     }
 
-    /** One cost to attack or block with [creature] (CR 508.1h, 509.1d): [cost] of a "can't attack/block … unless" or a
-     * chosen "as it attacks" ability, read with its own "you" ([controller], [source], [names]); [then] its "when you
-     * do" (CR 607.2h); X and repetitions worked out into the mana parts. */
-    data class CombatCost(
-        val creature: ObjectId, val cost: arcanum.api.Cost, val controller: PlayerId, val source: ObjectId?,
-        val names: arcanum.engine.state.Bindings, val then: arcanum.api.Instructions? = null, val origin: arcanum.engine.view.AbilityOrigin? = null,
-    )
-
     /** The "as this creature attacks" optional costs [id] has (CR 508.1g, 701.43d): its [Mechanic.AsAttacks] with an origin. */
     fun optionalAttackCosts(snap: Snapshot, id: ObjectId): List<AppliedMechanic> =
         mechanics(snap, id).filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
@@ -174,10 +166,9 @@ internal object CombatRules {
         mechanics(snap, a.attacker).mapNotNull { applied ->
             when (val m = applied.mechanic) {
                 is Mechanic.AttackCost -> if (m.target != null && a.target !in recipients(snap, applied, a.attacker, m.target!!)) null
-                    else CombatCost(a.attacker, fixed(snap, applied, a.attacker, m.cost), applied.controller, applied.source, applied.names)
+                    else CombatCost(a.attacker, applied, fixed(snap, applied, a.attacker, m.cost))
                 is Mechanic.AsAttacks -> if (applied.origin == null || applied.origin !in a.paying) null
-                    else CombatCost(a.attacker, fixed(snap, applied, a.attacker, m.cost), applied.controller, applied.source ?: a.attacker,
-                        applied.names, m.then, applied.origin)
+                    else CombatCost(a.attacker, applied, fixed(snap, applied, a.attacker, m.cost))
                 else -> null
             }
         }
@@ -190,7 +181,7 @@ internal object CombatRules {
             val m = applied.mechanic as? Mechanic.BlockCost ?: return@mapNotNull null
             val e = snap.evaluator(applied.controller, self = applied.source ?: b.blocker, names = applied.names).let { it.with(it.ctx.copy(affected = b.blocker)) }
             if (m.attackers != null && !e.matches(m.attackers!!, b.attacker)) null
-            else CombatCost(b.blocker, fixed(snap, applied, b.blocker, m.cost), applied.controller, applied.source, applied.names)
+            else CombatCost(b.blocker, applied, fixed(snap, applied, b.blocker, m.cost))
         }
     }
 

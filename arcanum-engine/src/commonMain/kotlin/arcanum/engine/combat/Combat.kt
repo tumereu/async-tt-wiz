@@ -90,7 +90,7 @@ internal object Combat {
      * its creature as "this"; each paid optional cost's "when you do" triggers (CR 603.12, 607.2h). CR 508.1j "Partial
      * payments are not allowed": a part that can't be paid in full when its turn comes (an object a cost before it took)
      * refuses the declaration ([IllegalArgumentException]). */
-    fun payCosts(act: arcanum.engine.action.Act, player: PlayerId, costs: List<CombatRules.CombatCost>) {
+    fun payCosts(act: arcanum.engine.action.Act, player: PlayerId, costs: List<CombatCost>) {
         CombatRules.manaOf(costs)?.let { act.payMana(player, null, it) }
         costs.forEachIndexed { i, c ->
             val rest = arcanum.api.Cost(c.cost.parts.filter { it !is arcanum.api.CostPart.Mana })

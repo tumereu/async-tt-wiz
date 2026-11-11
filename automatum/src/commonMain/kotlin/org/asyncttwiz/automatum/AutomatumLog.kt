@@ -46,6 +46,9 @@ object AutomatumLog {
     /** ATW and the engine (or the server and this client) disagree: [what] and how. */
     fun mismatch(game: String, what: String, detail: String) = add(AutomatumEntry.Mismatch(now(), game, what, detail.take(MAX_TEXT)))
 
+    /** Something Automatum couldn't work out that it should have, [where] and why: the app logs it as an error. */
+    fun error(game: String, where: String, detail: String) = add(AutomatumEntry.Error(now(), game, where, detail.take(MAX_TEXT)))
+
     /** An early answer (pre-event, I-D33) given, withdrawn or used. */
     fun preEvent(game: String, what: String, detail: String = "") = add(AutomatumEntry.PreEvent(now(), game, what, detail.take(MAX_TEXT)))
 
@@ -129,6 +132,11 @@ sealed interface AutomatumEntry {
     @Serializable @SerialName("refusal")
     data class Refusal(override val at: Long, override val game: String, val where: String, val reason: String) : AutomatumEntry {
         override fun line() = "refused in $where: $reason"
+    }
+
+    @Serializable @SerialName("error")
+    data class Error(override val at: Long, override val game: String, val where: String, val detail: String) : AutomatumEntry {
+        override fun line() = "error in $where: $detail"
     }
 
     @Serializable @SerialName("mismatch")

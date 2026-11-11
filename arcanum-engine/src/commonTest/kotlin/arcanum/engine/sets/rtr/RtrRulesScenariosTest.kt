@@ -92,7 +92,7 @@ class RtrRulesScenariosTest {
     }
 
     /** Before the declaration a host reads the cost as it stands, X worked out from the board: {2} with two enchantments,
-     * {3} once a third enters (Engine.combatCost). */
+     * {3} once a third enters (Engine.attackCosts). */
     // CR 508.1h
     @Test
     fun theCostToAttackReadsWithItsXWorkedOut() = scenario {
@@ -100,8 +100,10 @@ class RtrRulesScenariosTest {
         alice.battlefield(bulwark, sigil)
         bob.battlefield(bear)
         fun cost(): String {
-            val applied = Engine.view(state)[card(bear)]!!.mechanics.single { it.mechanic is arcanum.api.Mechanic.AttackCost }
-            return Engine.combatCost(state, applied, card(bear))!!.parts.joinToString { (it as arcanum.api.CostPart.Mana).cost.toString() }
+            val cost = Engine.attackCosts(state, listOf(Attack(card(bear), TargetRef.Player(alice.id)))).single()
+            assertEquals(card(bear), cost.creature)
+            assertTrue(cost.ability.mechanic is arcanum.api.Mechanic.AttackCost)
+            return cost.cost.parts.joinToString { (it as arcanum.api.CostPart.Mana).cost.toString() }
         }
         assertEquals("{2}", cost())
         alice.battlefield(sigil)

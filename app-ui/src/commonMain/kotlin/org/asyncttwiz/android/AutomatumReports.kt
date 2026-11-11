@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.gzipBase64
+import org.asyncttwiz.automatum.AutomatumEntry
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.ReproBundle
 import org.asyncttwiz.protocol.CrashReport
@@ -13,10 +14,13 @@ import kotlin.concurrent.Volatile
  * down to fit [CrashReport.MAX_AUTOMATUM] ([ReproBundle.decode] reads it back).
  */
 object AutomatumReports {
-    /** Writes every Automatum log entry to the app log, which a report carries (a game on engine state's report carries its
+    /** Writes every Automatum log entry to the app log (an [AutomatumEntry.Error] as an error), which a report carries (a game on engine state's report carries its
      * [GameRepro], not [AutomatumLog.bundle]: report DH3QX6's refusals reached nobody), and so to the Android log. */
     fun install() {
-        AutomatumLog.listener = { entry -> AppLog.info(TAG, "${entry.game.take(8)} ${entry.line()}") }
+        AutomatumLog.listener = { entry ->
+            val line = "${entry.game.take(8)} ${entry.line()}"
+            if (entry is AutomatumEntry.Error) AppLog.error(TAG, line) else AppLog.info(TAG, line)
+        }
     }
 
     /** The latest game's bundle as report text: a game on engine state's device bundle ([GameRepro], I-D56 step D) when

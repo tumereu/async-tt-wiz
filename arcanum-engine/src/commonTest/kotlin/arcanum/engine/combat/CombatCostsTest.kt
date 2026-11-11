@@ -201,4 +201,24 @@ class CombatCostsTest {
         val declarations = Engine.options(state, bob.id).filterIsInstance<Input.DeclareBlockers>()
         assertEquals(listOf(emptyList()), declarations.map { it.blocks })
     }
+
+    /** "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you." */
+    private val tollWard = Cards.invent("Toll Moat Ward", "{2}{W}", "Enchantment",
+        "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.")
+
+    // CR 508.1h: a declaration's costs to attack are each attacker's own: "{2} for each creature attacking you" is {2} for
+    // each of two attackers, both asked by the enchantment (Engine.attackCosts)
+    @Test
+    fun aCostForEachCreatureAttackingYouIsEachAttackersOwn() = scenario {
+        libraries()
+        alice.battlefield(tollWard)
+        bob.battlefield(bear, bear)
+        val attacks = listOf(Attack(card(bear, 0), TargetRef.Player(alice.id)), Attack(card(bear, 1), TargetRef.Player(alice.id)))
+        val costs = Engine.attackCosts(state, attacks)
+        assertEquals(listOf(card(bear, 0), card(bear, 1)), costs.map { it.creature })
+        assertEquals(listOf("{2}", "{2}"), costs.map { c -> c.cost.parts.joinToString { (it as CostPart.Mana).cost.toString() } })
+        assertTrue(costs.all { it.ability.source == card(tollWard) && it.ability.mechanic is Mechanic.AttackCost })
+        assertEquals(listOf(card(bear, 1)), Engine.attackCosts(state, attacks.drop(1)).map { it.creature })
+        assertEquals(emptyList(), Engine.attackCosts(state, emptyList()))
+    }
 }

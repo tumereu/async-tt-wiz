@@ -3945,6 +3945,84 @@
      "manaCost": "{1}{G}",
      "power": "2",
      "toughness": "2"
+    },
+    {
+     "uuid": "82902486-9d5c-5110-a54c-3c557bfea574",
+     "name": "Dawnward Scout // Duskward Stalker",
+     "setCode": "OFF",
+     "number": "4",
+     "language": "English",
+     "layout": "transform",
+     "type": "Creature — Human Scout",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "bc5b6940-9d58-5e9c-8a04-5fce253d0ce5",
+      "scryfallOracleId": "739a55c0-2ffd-5f34-a2ad-a5bb19658e59"
+     },
+     "manaCost": "{1}{G}",
+     "power": "2",
+     "toughness": "1",
+     "faceName": "Dawnward Scout",
+     "side": "a",
+     "otherFaceIds": [
+      "0c461cab-ff43-564b-a7fa-9e4718068425"
+     ]
+    },
+    {
+     "uuid": "0c461cab-ff43-564b-a7fa-9e4718068425",
+     "name": "Dawnward Scout // Duskward Stalker",
+     "setCode": "OFF",
+     "number": "4",
+     "language": "English",
+     "layout": "transform",
+     "type": "Creature — Wolf",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "colorIndicator": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "bc5b6940-9d58-5e9c-8a04-5fce253d0ce5",
+      "scryfallOracleId": "02d56fef-8644-5c8d-a4eb-4980efa0b7ce"
+     },
+     "power": "3",
+     "toughness": "2",
+     "faceName": "Duskward Stalker",
+     "side": "b",
+     "otherFaceIds": [
+      "82902486-9d5c-5110-a54c-3c557bfea574"
+     ]
     }
    ],
    "tokens": []

@@ -1,0 +1,1 @@
+fix: In sets drafted without their real booster contents, double-faced cards no longer come up twice as often as other cards.

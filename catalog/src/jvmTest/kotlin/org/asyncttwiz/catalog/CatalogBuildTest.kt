@@ -12,6 +12,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.asyncttwiz.protocol.DeckJson
 import org.asyncttwiz.protocol.DeckValidation
+import org.asyncttwiz.protocol.RandomV1
+import org.asyncttwiz.protocol.SetBoosters
 import org.asyncttwiz.protocol.SetCardRarity
 
 /** The card catalog built from the invented test cards (tests/fixtures/card-catalog), docs/specs/web-client.md section 3. */
@@ -164,6 +166,22 @@ class CatalogBuildTest {
                 assertEquals(card.uuid, definitions.getValue(card.definition).definition.printingId, "the drawn printing is the card's")
             }
         }
+    }
+
+    // DRF-090 (owner, 2026-11-11): in a set without a recipe (OFF) a double-faced card is one card of the pool, drawn
+    // about as often as each single-faced card of its rarity, never once per face
+    @Test fun `an approximate pack counts a double-faced card once`() {
+        val source = assertNotNull(CatalogSetSources.build(catalog, "OFF"))
+        assertNull(source.snapshot.recipe)
+        val names = source.definitions.associate { it.digest to it.definition.name }
+        val pool = source.snapshot.cards.map { names.getValue(it.definition) }
+        assertEquals(1, pool.count { it == "Dawnward Scout // Duskward Stalker" }, "pool: $pool")
+        assertEquals(pool.size, pool.distinct().size, "each card once: $pool")
+        val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
+        val drawn = SetBoosters.generate(source.snapshot, 400, seed).flatMap { it.cards }.groupingBy { names.getValue(it.definition) }.eachCount()
+        val scout = drawn.getValue("Dawnward Scout // Duskward Stalker")
+        val bear = drawn.getValue("Test Bear")
+        assertTrue(scout < bear * 1.25 && bear < scout * 1.25, "drawn: $drawn")
     }
 
     // SYS-081 (section 3.4): the release builds the catalog from the pinned file only

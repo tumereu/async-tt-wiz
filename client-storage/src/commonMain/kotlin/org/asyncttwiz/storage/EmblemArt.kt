@@ -1,7 +1,5 @@
 package org.asyncttwiz.storage
 
-import java.util.Locale
-
 /**
  * TRN-053 (owner gallery review 2026-11-06): how an emblem Automatum makes finds its picture in the card records. An
  * emblem knows only its rules text (not the card that made it), so the emblem printing (a token record with layout
@@ -10,7 +8,7 @@ import java.util.Locale
  */
 object EmblemArt {
     /** [text] compared without case, reminder text, punctuation or spacing differences. */
-    fun normalized(text: String): String = text.lowercase(Locale.ROOT)
+    fun normalized(text: String): String = text.lowercase()
         .replace(Regex("""\([^)]*\)"""), " ")
         .replace(Regex("""[^\p{L}\p{N}+/−-]+"""), " ")
         .trim()

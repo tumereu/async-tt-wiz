@@ -15,7 +15,7 @@ import java.sql.DriverManager
  * what the row-by-row install did: for each fixture catalog, every table's rows and the answers to a set of searches,
  * lookups and imports are compared with the answers recorded from the row-by-row install (`src/test/resources/
  * catalog-answers`). An intended change of what is stored or answered records them again: `./scripts/gradle.sh
- * :client-storage:testDebugUnitTest -PcatalogAnswers=record --tests '*CatalogInstallAnswersTest*'`.
+ * :client-storage:testAndroidHostTest -PcatalogAnswers=record --tests '*CatalogInstallAnswersTest*'`.
  */
 class CatalogInstallAnswersTest {
     @TempDir lateinit var temporary: Path

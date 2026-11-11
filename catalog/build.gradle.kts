@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// The card catalog (docs/specs/web-client.md section 3): the trimmed catalog's format and reader (common code, read by
-// the server and the clients; `src/shared`: its files and the card records the app indexes it into, JVM and Android)
+// The card catalog (docs/specs/web-client.md section 3): the trimmed catalog's format, reader and the card records the app
+// indexes it into (common code, read by the server and the clients; `src/shared`: its files, JVM and Android)
 // and, on the JVM only, the MTGJSON import (`src/mtgjson`) and the catalog build with its support marks, run at release
 // (`catalogCommand`). The app's tests compile `src/mtgjson` into their own sources to index invented MTGJSON fixtures.
 plugins {
@@ -25,6 +25,12 @@ kotlin {
         compileSdk = 36
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+    }
+    // Kotlin/Wasm for the web client (docs/specs/web-client.md §1): the catalog's format and the card records (common code)
+    // reach the browser through :client-storage. Compiled only: the catalog's tests are JVM tests.
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser { testTask { enabled = false } }
     }
     sourceSets {
         commonMain.dependencies {

@@ -1,48 +1,90 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// The app's local storage (docs/specs/web-client.md §1 items 1 and 4): commonMain holds the storage models and pure
+// logic both clients share; androidMain the Android implementation (SQLDelight on the device's SQLite, the card records
+// index, artwork downloads), unchanged. The browser's own implementation (IndexedDB) comes with the web shell (step 3).
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.sqldelight)
 }
 
-android {
-    namespace = "org.asyncttwiz.storage"
-    compileSdk = 36
-    defaultConfig { minSdk = 29 }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+kotlin {
+    jvmToolchain(21)
+    android {
+        namespace = "org.asyncttwiz.storage"
+        compileSdk = 36
+        minSdk = 29
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        withHostTest {}
     }
-    // The MTGJSON import (:catalog's src/mtgjson, JVM only in the catalog module) indexes the tests' invented MTGJSON
-    // fixtures; the app itself reads only the server's card catalog (docs/specs/web-client.md section 3.5).
-    sourceSets { named("test") { kotlin.directories += rootProject.file("catalog/src/mtgjson/kotlin").path } }
-    testOptions.unitTests.all {
-        it.useJUnitPlatform()
-        it.systemProperty("storage.fixture", file("src/main/sqldelight/databases/1.db").absolutePath)
-        it.systemProperty("catalog.fixtures", rootProject.file("tests/fixtures/catalogs").absolutePath)
-        // CatalogInstallAnswersTest compares with src/test/resources/catalog-answers; -PcatalogAnswers=record rewrites them.
-        it.systemProperty("catalog.answers", file("src/test/resources/catalog-answers").absolutePath)
-        val recordAnswers = providers.gradleProperty("catalogAnswers").orNull == "record"
-        it.systemProperty("catalog.answers.record", recordAnswers.toString())
-        it.inputs.property("catalogAnswersMode", recordAnswers)
-        // The test cards' card catalog (tests/fixtures/card-catalog), as the server serves it
-        it.dependsOn(":catalog:testCardsCatalog")
-        it.systemProperty("catalog.testCards", rootProject.file("catalog/build/test-cards-catalog").absolutePath)
-        val realCatalog = providers.systemProperty("atw.realCatalog")
-            .orElse(providers.environmentVariable("atw.realCatalog"))
-        if (realCatalog.isPresent) {
-            it.systemProperty("atw.realCatalog", realCatalog.get())
-            it.maxHeapSize = "256m"
-            it.testLogging.showStandardStreams = true
-        } else {
-            // Test classes run in parallel JVMs (also capped by org.gradle.workers.max); -PatwTestForks=<n> overrides.
-            it.maxParallelForks = providers.gradleProperty("atwTestForks").map(String::toInt)
-                .getOrElse((Runtime.getRuntime().availableProcessors() / 3).coerceIn(1, 4))
+    // Kotlin/Wasm for the web client: compiled only; the tests are JVM tests on the Android host (androidHostTest).
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser { testTask { enabled = false } }
+    }
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core"))
+            implementation(project(":protocol"))
+            // The card catalog's format and files, and the card records it is indexed into (docs/specs/web-client.md section 3).
+            api(project(":catalog"))
+            implementation(libs.serialization.json)
+            implementation(libs.sqldelight.runtime)
+        }
+        androidMain.dependencies {
+            // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
+            implementation(project(":arcanum-parser"))
+            implementation(libs.sqldelight.android.driver)
+            implementation(libs.gson)
+            implementation(libs.okhttp)
+        }
+        // The MTGJSON import (:catalog's src/mtgjson, JVM only in the catalog module) indexes the tests' invented MTGJSON
+        // fixtures; the app itself reads only the server's card catalog (docs/specs/web-client.md section 3.5).
+        getByName("androidHostTest") {
+            kotlin.srcDir(rootProject.file("catalog/src/mtgjson/kotlin"))
+            dependencies {
+                implementation(libs.sqldelight.sqlite.driver)
+                runtimeOnly(libs.sqlite.jdbc)
+                implementation(project.dependencies.platform(libs.junit.bom))
+                implementation(libs.junit.jupiter)
+                runtimeOnly(libs.junit.launcher)
+            }
         }
     }
 }
 
-kotlin { compilerOptions.jvmTarget.set(JvmTarget.JVM_17) }
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    systemProperty("storage.fixture", file("src/commonMain/sqldelight/databases/1.db").absolutePath)
+    systemProperty("catalog.fixtures", rootProject.file("tests/fixtures/catalogs").absolutePath)
+    // CatalogInstallAnswersTest compares with src/androidHostTest/resources/catalog-answers; -PcatalogAnswers=record rewrites them.
+    systemProperty("catalog.answers", file("src/androidHostTest/resources/catalog-answers").absolutePath)
+    val recordAnswers = providers.gradleProperty("catalogAnswers").orNull == "record"
+    systemProperty("catalog.answers.record", recordAnswers.toString())
+    inputs.property("catalogAnswersMode", recordAnswers)
+    // The test cards' card catalog (tests/fixtures/card-catalog), as the server serves it
+    dependsOn(":catalog:testCardsCatalog")
+    systemProperty("catalog.testCards", rootProject.file("catalog/build/test-cards-catalog").absolutePath)
+    val realCatalog = providers.systemProperty("atw.realCatalog")
+        .orElse(providers.environmentVariable("atw.realCatalog"))
+    if (realCatalog.isPresent) {
+        systemProperty("atw.realCatalog", realCatalog.get())
+        maxHeapSize = "256m"
+        testLogging.showStandardStreams = true
+    } else {
+        // Test classes run in parallel JVMs (also capped by org.gradle.workers.max); -PatwTestForks=<n> overrides.
+        maxParallelForks = providers.gradleProperty("atwTestForks").map(String::toInt)
+            .getOrElse((Runtime.getRuntime().availableProcessors() / 3).coerceIn(1, 4))
+    }
+}
+
+// The name AGENTS.md and the scripts use for this module's tests (the Android host tests).
+tasks.register("test") {
+    group = "verification"
+    description = "Runs client-storage's tests (testAndroidHostTest)."
+    dependsOn("testAndroidHostTest")
+}
 
 sqldelight {
     databases {
@@ -50,27 +92,8 @@ sqldelight {
             packageName.set("org.asyncttwiz.storage.internaldb")
             // API29 ships SQLite 3.22: do not generate newer UPSERT/RETURNING SQL.
             dialect("app.cash.sqldelight:sqlite-3-18-dialect:${libs.versions.sqldelight.get()}")
-            schemaOutputDirectory.set(file("src/main/sqldelight/databases"))
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
             verifyMigrations.set(true)
         }
     }
-}
-
-dependencies {
-    implementation(project(":core"))
-    implementation(project(":protocol"))
-    // The card catalog's format and files, and the card records it is indexed into (docs/specs/web-client.md section 3).
-    api(project(":catalog"))
-    // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
-    implementation(project(":arcanum-parser"))
-    implementation(libs.serialization.json)
-    implementation(libs.sqldelight.runtime)
-    implementation(libs.sqldelight.android.driver)
-    implementation(libs.gson)
-    implementation(libs.okhttp)
-    testImplementation(libs.sqldelight.sqlite.driver)
-    testRuntimeOnly(libs.sqlite.jdbc)
-    testImplementation(platform(libs.junit.bom))
-    testImplementation(libs.junit.jupiter)
-    testRuntimeOnly(libs.junit.launcher)
 }

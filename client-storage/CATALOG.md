@@ -21,5 +21,5 @@ Tests index invented MTGJSON fixtures with the catalog build's MTGJSON import (`
 the tests only).
 
 ```sh
-./scripts/gradle.sh :client-storage:testDebugUnitTest --tests '*CatalogTest'
+./scripts/gradle.sh :client-storage:testAndroidHostTest --tests '*CatalogTest'
 ```

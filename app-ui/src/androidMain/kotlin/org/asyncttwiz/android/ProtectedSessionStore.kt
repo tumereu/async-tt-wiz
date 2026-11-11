@@ -22,7 +22,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Worker-thread only. Current session and optional remembered sessions are protected separately.
  * Clearing the current session must not destroy other accounts' credentials. No passwords on disk. */
-class ProtectedSessionStore internal constructor(
+class ProtectedSessionStore(
     origin: String,
     alias: String,
     file: File,
@@ -104,13 +104,13 @@ private inline fun <T> decodeProtected(decode: () -> T): T = try { decode() }
     catch (failure: Exception) { throw CorruptSession(failure) }
 
 /** Providers may wrap the platform exception. Unknown failures remain retryable, never destructive. */
-internal fun permanentSessionFailure(failure: Throwable): Boolean =
+fun permanentSessionFailure(failure: Throwable): Boolean =
     generateSequence(failure) { it.cause?.takeUnless { cause -> cause === it } }.take(16).any {
         it is CorruptSession || it is KeyPermanentlyInvalidatedException || it is UnrecoverableKeyException ||
             it is BadPaddingException || it is IllegalBlockSizeException
     }
 
-internal interface SessionKeys {
+interface SessionKeys {
     fun get(alias: String): SecretKey?
     fun create(alias: String): SecretKey
     fun delete(alias: String)

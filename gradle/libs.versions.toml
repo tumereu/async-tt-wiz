@@ -79,9 +79,11 @@ appium-client = { module = "io.appium:java-client", version.ref = "appium-client
 selenium-bom = { module = "org.seleniumhq.selenium:selenium-bom", version.ref = "selenium" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 angus-mail = { module = "org.eclipse.angus:jakarta.mail", version.ref = "angus-mail" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 metrics-performance = { module = "androidx.metrics:metrics-performance", version.ref = "metrics" }

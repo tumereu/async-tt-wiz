@@ -1,1 +1,1 @@
-Every name the main button can show, each on a button as wide as on a phone in portrait, its words whole under the icon (the room has two lines); the Assumes are violet with white words.
+Every name the main button can show, each on a button as wide as on a phone in portrait under its kind's icon (crossed swords for To combat and Attack, a turn arrow for End turn, an arrow for the step moves naming where they go, skip for Pass, a shield for Block, play for Resolve, a tick for OK), its words whole on up to two lines; the Assumes are violet with white words.

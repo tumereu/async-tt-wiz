@@ -54,12 +54,13 @@ class ControlEndStepTest {
         fail("Alice's second main phase: ${kit.state().turn}; ${kit.alice.device.status}")
     }
 
-    // TRN-063, STK-036 (owner bug 2026-11-07): in Control the second main phase's arrow reads "End step"; its tap stops at
-    // Alice's own end step with her holding priority, where the arrow reads "End turn" and its tap hands the turn over
+    // TRN-063, STK-036 (owner bug 2026-11-07): in Control the second main phase's arrow reads "To end step" (owner gallery note
+    // 22, 2026-11-11: naming where it goes); its tap stops at Alice's own end step with her holding priority, where the arrow
+    // reads "End turn" and its tap hands the turn over
     @Test fun controlTapsFromTheSecondMainPhaseToTheEndStep() {
         toMain2(ResponseMode.FullControl)
         assertEquals(AutomatumStep.ToEndStep, arrow())
-        assertEquals("End step", arrow().label)
+        assertEquals("To end step", arrow().words(kit.alice.play()))
         tapArrow()
         kit.settle(bobActs = false)
         assertTrue(aliceHolds(TurnStep.End), "Control stops at Alice's own end step: ${kit.state().turn}; ${kit.alice.device.status}")

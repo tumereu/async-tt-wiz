@@ -53,7 +53,7 @@ class TableChromeUiTest {
             // move is yours: your blockers in the other player's turn), in your own turn too
             val shown = who == move
             assertEquals(shown, stepArrowShown(tableBoard(play), who))
-            val next = compose.onNodeWithContentDescription(AutomatumStep.of(tableBoard(play)).label)
+            val next = compose.onNodeWithContentDescription(tableBoard(play).let { AutomatumStep.of(it).words(it) })
             if (shown) next.assertIsDisplayed() else next.assertDoesNotExist()
             compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
             compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()

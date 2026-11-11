@@ -68,6 +68,32 @@ class SettingsScreenTest {
         compose.runOnIdle { assertEquals(AccountSettings(DeckVisibility.HIDDEN), source.cachedValue) }
     }
 
+    // LOB-146, TRN-075 (owner, 2026-11-11): the "Your move" sound is Plip by default; a choice saves to the account at once;
+    // each sound's play button plays it (Off has none)
+    @Test fun yourMoveSoundDefaultsToPlipSavesTheChoiceAndPlaysOnListen() {
+        val source = FakeSettings()
+        compose.setContent { ScreenTheme { SettingsContent(null, "move-sound", {}, null, source) } }
+        compose.onNodeWithTag("move-sound").performScrollTo()
+        compose.onNodeWithText("Your move sound").assertIsDisplayed()
+        compose.onNodeWithTag("move-sound-plip").assertIsSelected()
+        compose.onNodeWithContentDescription("Listen to Off").assertDoesNotExist()
+        val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
+        compose.onNodeWithTag("move-sound").captureShot(File(directory, "move-sound.png").path,
+            "Settings → Games → Your move sound for a new account: Off and four sounds of the app's own, Plip chosen (the default), each sound with a play button to listen to it.")
+        compose.onNodeWithTag("move-sound-drop").performClick().assertIsSelected()
+        compose.onNodeWithTag("move-sound-plip").assertIsNotSelected()
+        compose.runOnIdle { assertEquals(listOf(org.asyncttwiz.protocol.MoveSound.Drop), source.writes.map { it.moveSound }) }
+        compose.onNodeWithContentDescription("Listen to Chime").performClick()
+        compose.runOnIdle { assertTrue("Your move sound: chime (Settings: listening)" in AppLog.text(), "the play button plays it") }
+        compose.onNodeWithTag("move-sound-drop").assertIsSelected()
+        // The app's own sounds, made in code: short and soft
+        for (sound in org.asyncttwiz.protocol.MoveSound.all - org.asyncttwiz.protocol.MoveSound.Off) {
+            val pcm = assertNotNull(MoveSounds.pcm(sound))
+            assertTrue(pcm.size in 1..MoveSounds.SAMPLE_RATE / 2 && pcm.maxOf { kotlin.math.abs(it.toInt()) } < Short.MAX_VALUE / 2, sound.id)
+        }
+        assertNull(MoveSounds.pcm(org.asyncttwiz.protocol.MoveSound.Off))
+    }
+
     @Test fun withoutAnAccountTheGamesSectionIsHiddenAndOtherSectionsKeepTheirOrder() {
         compose.setContent { ScreenTheme { SettingsContent(null, "no-account") {} } }
         compose.onNodeWithText("Games").assertDoesNotExist()

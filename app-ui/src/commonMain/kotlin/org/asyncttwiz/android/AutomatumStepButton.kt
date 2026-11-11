@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LastPage
+import androidx.compose.material.icons.automirrored.outlined.RotateRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -74,13 +75,48 @@ sealed class AutomatumStep(val label: String) {
     }
 }
 
-/** The step arrow's icon (I-D46 d): crossed swords for going to combat and attacking, as the combat quick actions use
- * ([AutomatumStep.swords]); Pass and Next differ. */
+/**
+ * TRN-063, STK-029 (owner gallery note 22, 2026-11-11): what the main button says for [this] step on [play]'s board: a step
+ * move names where it goes ("To draw step" for Next in the upkeep, "To end step" for Pass in the other player's second main
+ * phase, Control's "To end step"); everything else says its [AutomatumStep.label], which also names the step's kind in the
+ * button's semantics ([MainButtonStep]) and the app log.
+ */
+fun AutomatumStep.words(play: TableBoard): String = when (this) {
+    AutomatumStep.Next, AutomatumStep.Pass -> stepDestination(play) ?: label
+    AutomatumStep.ToEndStep -> "To end step"
+    else -> label
+}
+
+/** TRN-063: where a pass with the Stack empty goes on [play]'s board, the next step in turn order ("To draw step"), or null
+ * where the board doesn't say. */
+fun stepDestination(play: TableBoard): String? = when (TurnPosition.of(play.board.turn)) {
+    TurnPosition.UNTAP -> "To upkeep"
+    TurnPosition.UPKEEP -> "To draw step"
+    TurnPosition.DRAW -> "To Main 1"
+    TurnPosition.PRECOMBAT_MAIN -> "To combat"
+    TurnPosition.BEGIN_COMBAT -> "To attackers"
+    // CR 508.8: without attackers the blockers and damage steps are skipped
+    TurnPosition.DECLARE_ATTACKERS -> if (CombatFlow.lanes(play.board.combat).first.isNotEmpty()) "To blockers" else "To end of combat"
+    TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE -> "To damage"
+    TurnPosition.COMBAT_DAMAGE -> "To end of combat"
+    TurnPosition.END_COMBAT -> "To Main 2"
+    TurnPosition.POSTCOMBAT_MAIN -> "To end step"
+    TurnPosition.END_STEP, TurnPosition.CLEANUP -> "To next turn"
+    null -> null
+}
+
+/** The main button's step kind in its semantics (TRN-063): [AutomatumStep.label] ("Next", "Pass", "End step"), whatever
+ * [words] it says. */
+val MainButtonStep = androidx.compose.ui.semantics.SemanticsPropertyKey<String>("MainButtonStep")
+
+/** The step arrow's icon (I-D46 d), one per kind (TRN-063, owner gallery note 22): crossed swords for going to combat and
+ * attacking, as the combat quick actions use ([AutomatumStep.swords]), a shield for blocking, play for Resolve, a turn arrow
+ * for End turn; Pass and Next differ. */
 val AutomatumStep.icon: ImageVector get() = when (this) {
     AutomatumStep.Pass -> Icons.Outlined.SkipNext
     AutomatumStep.Next, AutomatumStep.Waiting -> Icons.AutoMirrored.Outlined.ArrowForward
     AutomatumStep.ToCombat -> Icons.Outlined.Shield
-    AutomatumStep.EndTurn -> Icons.AutoMirrored.Outlined.LastPage
+    AutomatumStep.EndTurn -> Icons.AutoMirrored.Outlined.RotateRight
     AutomatumStep.ToEndStep -> Icons.Outlined.Bedtime
     AutomatumStep.Resolve -> Icons.Outlined.PlayArrow
     is AutomatumStep.Attack -> if (count == 0) Icons.Outlined.Block else Icons.Outlined.Shield
@@ -145,21 +181,29 @@ fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, o
     /** TRN-063: the viewer's response mode is Control ([AutomatumStep.of]). */
     control: Boolean = false, onClick: () -> Unit) {
     val step = AutomatumStep.of(play, control)
+    AutomatumStepFace(step, step.words(play), enabled, modifier, onHold, blocked, resolveTip, onResolveHold, onClick)
+}
+
+/** [AutomatumStepArrow] for [step], saying [words] ([AutomatumStep.words]) under the step's icon ([AutomatumStep.icon], the
+ * crossed swords where [AutomatumStep.swords]). */
+@Composable
+fun AutomatumStepFace(step: AutomatumStep, words: String, enabled: Boolean, modifier: Modifier, onHold: () -> Unit = {},
+    blocked: String? = null, resolveTip: String? = null, onResolveHold: (() -> Unit)? = null, onClick: () -> Unit = {}) {
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }
     val endTurn = blocked == null && step != AutomatumStep.Resolve
     val chain = onResolveHold.takeIf { blocked == null && step == AutomatumStep.Resolve }
-    ActionSquare(step.label, "↦", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    ActionSquare(words, "↦", enabled, modifier.testTag("main-button").semantics { this[MainButtonStep] = step.label }.shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true,
         holdName = if (endTurn) "End turn" else if (chain != null) RESOLVE_CHAIN else null,
         onHold = if (endTurn) onHold else chain, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
-        gestureKey = step.label to blocked,
+        gestureKey = words to blocked,
         icon = { MainButtonContent(icon = {
             if (step.swords) Icon(AppPlatform.current.swordsOutlined(), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
-        }, label = step.label) }, onClick = { if (blocked != null) shakes++ else onClick() })
+        }, label = words) }, onClick = { if (blocked != null) shakes++ else onClick() })
 }
 
 /** TRN-017 (owner 2026-11-07): the name of the hold of Resolve or of a Stack wait's Assume, the Resolve chain. */

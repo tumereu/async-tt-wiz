@@ -53,10 +53,42 @@ data class SessionCreated(val token: String, val account: AccountIdentity) {
 enum class DeckVisibility { VISIBLE, HIDDEN, AFTER_FIRST_GAME }
 
 /** Server-side account preferences (`GET`/`PUT /account/settings`). Defaults are omitted on the wire. [playDefaults]: the
- * response mode, Assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7). */
+ * response mode, Assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7).
+ * [moveSound]: the sound the move passing to you makes at an open table (TRN-075, LOB-146). */
 @Serializable
 data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.AFTER_FIRST_GAME,
-    val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES)
+    val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES,
+    val moveSound: MoveSound = MoveSound.DEFAULT)
+
+/**
+ * TRN-075, LOB-146 (owner, 2026-11-11): the "Your move" sound: Off or one of the app's own short soft sounds, [Plip] by
+ * default. On the wire and in the database by its [id].
+ */
+@Serializable(with = MoveSound.WireSerializer::class)
+sealed class MoveSound(val id: String, val label: String) {
+    data object Off : MoveSound("off", "Off")
+    data object Plip : MoveSound("plip", "Plip")
+    data object Drop : MoveSound("drop", "Drop")
+    data object Chime : MoveSound("chime", "Chime")
+    data object Tock : MoveSound("tock", "Tock")
+
+    companion object {
+        /** Every choice, in the order Settings lists them. */
+        val all: List<MoveSound> get() = listOf(Off, Plip, Drop, Chime, Tock)
+        val DEFAULT: MoveSound get() = Plip
+        fun of(id: String): MoveSound? = all.firstOrNull { it.id == id }
+    }
+
+    /** By [id]; an unknown id is refused. */
+    object WireSerializer : kotlinx.serialization.KSerializer<MoveSound> {
+        override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor("MoveSound",
+            kotlinx.serialization.descriptors.PrimitiveKind.STRING)
+        override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: MoveSound) = encoder.encodeString(value.id)
+        override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): MoveSound = decoder.decodeString().let { id ->
+            of(id) ?: throw kotlinx.serialization.SerializationException("Unknown move sound $id")
+        }
+    }
+}
 
 @Serializable
 data class AccountError(val code: String, val field: String? = null)

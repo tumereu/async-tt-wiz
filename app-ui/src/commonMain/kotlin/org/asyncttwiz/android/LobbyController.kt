@@ -18,7 +18,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
     engineWorker: EngineWorker = EngineWorker.Background,
     /** The main thread's clock [engineTicks] run on: by default the main looper's handler. */
-    private val delayed: MainDelayed = mainLooperDelayed) : AutoCloseable {
+    private val delayed: MainDelayed = mainLooperDelayed,
+    /** LOB-146: where the account's settings are read (the table's "Your move" sound): the app's account service. */
+    val accountOrigin: String = org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -186,6 +188,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun confirmCancelSetup() = removal.confirmCancelSetup()
     fun cancelSetup(game: GameSummary): Boolean = removal.cancelSetup(game)
     /** I-D56: the open game, when it is played on engine state. */
+    /** The signed-in session's token, or null (LOB-146: the table reads the account's settings with it). */
+    fun sessionToken(): String? = credential()
+
     fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
     /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
     fun engineTick() { state.selected?.let { session?.engineTick(it) } }

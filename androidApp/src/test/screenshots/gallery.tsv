@@ -20,7 +20,7 @@ number	item	screenshot	catalog	decisions	sequence
 19	Assumed blockers	combat-band/assume.png	CMB-040 CMB-049 HIS-096
 20	Combat damage division	combat-division/trample.png	CMB-033 STK-033	Divide
 21	Damage preview badges	combat-band/damage-badges.png	CMB-029
-22	Main button names	main-button/names.png	TRN-063 TRN-070
+22	Main button names and icons	main-button/names.png	TRN-063 STK-029 TRN-070
 23	Main button working sign	engine/main-button-working.png	TRN-063
 24	Main button reading Resolve	engine/stack-resolve.png	STK-029 TRN-017 TRN-063
 25	Response mode quick action: Control	engine/mode-control.png	TRN-059
@@ -215,3 +215,4 @@ number	item	screenshot	catalog	decisions	sequence
 214	Multiset drafting: Sealed's one row	draft/multiset-sealed.png	DRF-177		Multiset drafting
 215	Multiset drafting: a preset saved with a pack grid	draft/multiset-preset.png	DRF-032 DRF-177		Multiset drafting
 216	Attack cost chip with its X worked out	combat-band/attack-cost.png	CMB-044
+217	Settings: the Your move sound	settings/move-sound.png	LOB-146 TRN-075

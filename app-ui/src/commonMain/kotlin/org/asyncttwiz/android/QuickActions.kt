@@ -149,7 +149,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
             val main = panelMain
             val control = engine?.control() == true
-            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).label else wait?.label, if (toggles) null else actions.map { it.name }))
+            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name }))
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
@@ -165,7 +165,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 if (!ok) AppLog.info("game", "Main button: a quick second tap on \"$label\" ignored (within ${MainButtonGuard.MILLIS} ms of the last press)")
                 return ok
             }
-            val says = AutomatumStep.of(play, control).label
+            val says = AutomatumStep.of(play, control).words(play)
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             Box(Modifier.width(MainButtonWidth).shaken(mainShakes)) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {

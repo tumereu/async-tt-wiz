@@ -99,6 +99,8 @@ class EngineDeclaringAttackersTest {
         assertEquals(kit.me, kit.state().priority.holder)
         assertEquals(GameDevice.Status.YourMove, kit.alice.device.status)
         assertEquals(AutomatumStep.Next, AutomatumStep.of(kit.alice.play()))
+        // TRN-063 (owner gallery note 22, 2026-11-11): the step move names where it goes
+        assertEquals("To attackers", AutomatumStep.of(kit.alice.play()).words(kit.alice.play()))
 
         // Before attacks: one tap activates the Hound's pump (TBL-122), Autotap paying; it resolves and Alice is back there
         assertEquals(2, power(hound))

@@ -1,0 +1,1 @@
+add: A short soft sound plays when the move passes to you in an open game. Choose the sound, listen to each, or turn it off in Settings → Your move sound.

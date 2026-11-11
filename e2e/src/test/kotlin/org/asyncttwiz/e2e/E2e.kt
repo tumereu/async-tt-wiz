@@ -92,6 +92,7 @@ abstract class E2e {
     @Before fun freshStart() {
         ServerSetup.fresh()
         AutomatumBoards.reset()
+        org.asyncttwiz.android.MoveSoundRefresh.reset()
     }
 
     /**

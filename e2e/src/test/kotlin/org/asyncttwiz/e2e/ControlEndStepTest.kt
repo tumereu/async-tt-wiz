@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  */
 class ControlEndStepTest : E2e() {
     // TRN-063, STK-036 (owner bug 2026-11-07): Alice in Control taps her way to her second main phase, where the arrow reads
-    // "End step"; its tap stops at her own end step with her holding priority, Bob's phone (Assume: Never) waiting there
+    // "To end step"; its tap stops at her own end step with her holding priority, Bob's phone (Assume: Never) waiting there
     // meanwhile; she casts an Idle Glimmer at her end step
     @Test fun controlStopsAtYourOwnEndStep() {
         startGame(TestDeck.glimmers(), TestDeck.thirds(), aliceSettings = PlaySettings(mode = ResponseMode.FullControl),
@@ -24,16 +24,21 @@ class ControlEndStepTest : E2e() {
         bothOpen()
         alice.tap("Keep")
         bob.tap("Keep")
-        // Alice taps the step arrow (never End turn) wherever she gets priority on the way; Bob plays along
+        // Alice taps the step arrow (never End turn) wherever she gets priority on the way; Bob plays along. What the main
+        // button said at each of her taps
+        val said = mutableListOf<String?>()
         waitUntil("Alice's second main phase", along = listOf(bob)) {
             val there = alice.inOwnMain(TurnStep.PostcombatMain)
             if (!there && (alice.status == GameDevice.Status.YourMove || alice.status == GameDevice.Status.Drafting) &&
                 alice.engine { device.session.pending.isEmpty() })
                 alice.stepArrow()?.takeIf { it in listOf("Pass", "Next", "To combat", "No attack", "Resolve") }
-                    ?.let { arrow -> alice.once { alice.tap(arrow) } }
+                    ?.let { arrow -> alice.once { said += alice.mainWords(); alice.tap(arrow) } }
             there && quiet()
         }
+        // TRN-063 (owner gallery note 22, 2026-11-11): a step move names where it goes: Control stops at the beginning of combat
+        assertTrue("To attackers" in said, "Next at the beginning of combat says where it goes: $said")
         assertEquals("End step", alice.stepArrow(), "in Control the second main phase's arrow goes on to the end step")
+        assertEquals("To end step", alice.mainWords(), "and says so")
         alice.tap("End step")
         waitUntil("Alice holding priority at her own end step", along = listOf(bob)) {
             alice.state.let { s -> s.turn.active == alice.me && s.turn.step == TurnStep.End && s.priority.holder == alice.me } &&

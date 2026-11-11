@@ -183,9 +183,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         }
         if (rewindingBranch) EngineTableProbe.rewinding?.invoke(accountId)
     }
-    // TRN-075: the move passing to you from the other player: one haptic tick and one pulse of the main button, not in
-    // timeline mode
+    // TRN-075: the move passing to you from the other player: one haptic tick, the "Your move" sound (LOB-146) and one pulse
+    // of the main button, not in timeline mode
     val moveCue = remember(game.id) { YourMoveCue() }
+    // LOB-146: the account's "Your move" sound with the cue
+    val moveSound = rememberMoveSound(accountId, controller::sessionToken, controller.accountOrigin)
     val haptic = LocalHapticFeedback.current
     val recordShown = LocalShownTexts.current
     SideEffect {
@@ -193,6 +195,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         if (cue && reviewPlay == null) {
             routes.moveCue++
             haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            MoveSounds.play(moveSound, "the move passed to ${accountId.take(8)} in game ${game.id.take(8)}")
             recordShown(YOUR_MOVE_CUE)
         }
     }

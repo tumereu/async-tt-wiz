@@ -102,6 +102,18 @@ class AccountHttpTest {
                 assertEquals(AccountSettings(DeckVisibility.AFTER_FIRST_GAME), json.decodeFromString<AccountSettings>(get(token).body()))
                 assertEquals(AccountSettings(), json.decodeFromString<AccountSettings>(get(other).body()))
                 assertEquals(405, request(settings, "POST", path, token = token).statusCode())
+                // LOB-146, TRN-075: the "Your move" sound, Plip by default, kept for the account's every device; an unknown one refused
+                assertEquals(MoveSound.Plip, json.decodeFromString<AccountSettings>(get(token).body()).moveSound)
+                for (sound in MoveSound.all) {
+                    val reply = put(token, json.encodeToString(AccountSettings(moveSound = sound)))
+                    assertEquals(200, reply.statusCode())
+                    assertEquals(sound, json.decodeFromString<AccountSettings>(reply.body()).moveSound)
+                    assertEquals(sound, json.decodeFromString<AccountSettings>(get(secondDevice).body()).moveSound)
+                }
+                assertEquals(400, put(token, """{"moveSound":"klaxon"}""").statusCode())
+                assertEquals(MoveSound.Tock, json.decodeFromString<AccountSettings>(get(token).body()).moveSound)
+                assertEquals(MoveSound.Plip, json.decodeFromString<AccountSettings>(get(other).body()).moveSound)
+                assertTrue(""""moveSound":"off"""" in put(token, json.encodeToString(AccountSettings(moveSound = MoveSound.Off))).body(), "by its id on the wire")
             }
         }
     }

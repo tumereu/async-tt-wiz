@@ -411,6 +411,57 @@ class CombatBandTest {
             "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing them apart, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
     }
 
+    // CMB-044 (owner-reported 2026-11-11; CR 508.1h): Bob has an Ember Bulwark ("{X} for each creature attacking you, where X
+    // is the number of enchantments you control") and an Ember Chime; Alice stages her Cub and its amber chip reads {2}, on her
+    // table and on Bob's, never {X}
+    @Test fun aCostToAttackShowsItsAmountOnTheChip() {
+        val (bulwark, chime) = EngineGameFixture.Choices.BULWARK to EngineGameFixture.Choices.CHIME
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(creatures = true, bobCards = listOf(bulwark, chime))))
+        kit.bobMain = { s ->
+            val held = listOf(bulwark, chime).filter { kit.scenario.cards(s, kit.other, s.battlefield, it).isEmpty() }
+                .firstNotNullOfOrNull { kit.scenario.cards(s, kit.other, s.player(kit.other).hand, it).firstOrNull() }
+            if (held == null) false else { kit.bob.send(kit.scenario.cast(s, kit.other, Input.Cast(kit.other, held))); true }
+        }
+        val attacker = kit.toReadyCub()
+        kit.bobMain = null
+        assertEquals(listOf(1, 1), listOf(bulwark, chime).map { kit.field(it, kit.other).size }, "Bob's Bulwark and Chime")
+        // A second Mountain to pay {2} with: a cost that can't be paid isn't offered (CR 508.1d)
+        kit.playLand()
+        kit.toAttacks()
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
+        kit.tap(kit.item(attacker))
+        kit.settle()
+        kit.bobToolkit.combat.show(kit.bob.play(), AutomatumBoards.combat(kit.bob.play()))
+        var viewer by androidx.compose.runtime.mutableStateOf(kit.f.b)
+        compose.setContent {
+            val game = if (viewer == kit.f.a) kit.alice else kit.bob
+            val routes = if (viewer == kit.f.a) kit.routes else kit.bobRoutes
+            val toolkit = if (viewer == kit.f.a) kit.toolkit else kit.bobToolkit
+            androidx.compose.runtime.key(viewer) {
+                MaterialTheme {
+                    NoRipples {
+                        CompositionLocalProvider(LocalEngineRoutes provides routes) {
+                            Box(Modifier.fillMaxSize()) {
+                                TableSurface(kit.f.game, game.play(), viewer, false, Modifier.fillMaxSize(), connected = true,
+                                    onIntent = toolkit::handle, toolkit = toolkit,
+                                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() }, controlsConnected = true))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Alice's table, then Bob's: the same amount on both
+        for (who in listOf(kit.f.a, kit.f.b)) {
+            viewer = who
+            compose.waitForIdle()
+            compose.onNode(hasContentDescription("Pays {2}", substring = true), useUnmergedTree = true).assertExists()
+            compose.onNode(hasContentDescription("Pays {X}", substring = true), useUnmergedTree = true).assertDoesNotExist()
+        }
+        captureShot("$SCREENSHOTS/combat-band/attack-cost.png",
+            "Bob's table: he has an Ember Bulwark (each creature attacking him costs {X}, X the number of his enchantments) and an Ember Chime, and Alice staged her Ember Cub: the amber cost chip on its copy reads {2}, worked out from his board, never the letter X (Alice's table shows the same).")
+    }
+
     // CMB-001, CMB-007 (owner, 2026-11-05): the open band in landscape
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun theOpenBandInLandscape() {

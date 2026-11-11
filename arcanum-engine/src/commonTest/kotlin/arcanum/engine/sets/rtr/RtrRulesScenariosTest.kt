@@ -91,6 +91,23 @@ class RtrRulesScenariosTest {
         assertTrue(state.combat!!.attackers.any { it.id == card(bear) })
     }
 
+    /** Before the declaration a host reads the cost as it stands, X worked out from the board: {2} with two enchantments,
+     * {3} once a third enters (Engine.combatCost). */
+    // CR 508.1h
+    @Test
+    fun theCostToAttackReadsWithItsXWorkedOut() = scenario {
+        turn(1, active = bob)
+        alice.battlefield(bulwark, sigil)
+        bob.battlefield(bear)
+        fun cost(): String {
+            val applied = Engine.view(state)[card(bear)]!!.mechanics.single { it.mechanic is arcanum.api.Mechanic.AttackCost }
+            return Engine.combatCost(state, applied, card(bear))!!.parts.joinToString { (it as arcanum.api.CostPart.Mana).cost.toString() }
+        }
+        assertEquals("{2}", cost())
+        alice.battlefield(sigil)
+        assertEquals("{3}", cost())
+    }
+
     /** A declaration whose cost can't be paid isn't made: refused, and not offered (CR 508.1d). */
     // CR 508.1d
     @Test

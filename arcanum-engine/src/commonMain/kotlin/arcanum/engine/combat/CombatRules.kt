@@ -156,7 +156,7 @@ internal object CombatRules {
         mechanics(snap, id).filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
 
     /** [m]'s cost parts with X and repetitions of mana worked out (the mana fixed, CR 508.1h "locked in"). */
-    private fun fixed(snap: Snapshot, applied: AppliedMechanic, creature: ObjectId, cost: arcanum.api.Cost): arcanum.api.Cost {
+    fun fixed(snap: Snapshot, applied: AppliedMechanic, creature: ObjectId, cost: arcanum.api.Cost): arcanum.api.Cost {
         val e = snap.evaluator(applied.controller, self = applied.source ?: creature, names = applied.names).let { it.with(it.ctx.copy(affected = creature)) }
         return arcanum.api.Cost(cost.parts.flatMap { part ->
             if (part !is arcanum.api.CostPart.Mana) return@flatMap listOf(part)

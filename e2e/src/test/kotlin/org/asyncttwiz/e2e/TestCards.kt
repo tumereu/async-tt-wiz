@@ -254,6 +254,9 @@ object TestCards {
     val altar = card("Ember Altar", "Artifact", "{0}", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life.")
     /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
     val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
+    /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
+    val bulwark = card("Ember Bulwark", "Enchantment", "{0}",
+        "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")
     /** A free Aura (D1: an enchanted creature beside an identical one, told apart on the table). */
     val mantle = card("Ember Mantle", "Enchantment — Aura", "{0}", "Enchant creature\nEnchanted creature gets +1/+1.")
     /** A free edict (D1: the other player picks their creature to sacrifice on the table). */

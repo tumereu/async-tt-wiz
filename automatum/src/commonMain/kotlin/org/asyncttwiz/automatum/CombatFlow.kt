@@ -449,7 +449,7 @@ object CombatFlow {
         }.map { call.ids.atw((it as ObjectId.Card).card) }
         val optional = candidates.mapNotNull { (atw, o) ->
             view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
-                .map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.AsAttacks).cost), abilityText(s, m.source ?: o, m.origin), m.origin!!.key) }
+                .map { m -> CombatCostShown(costNow(call, view, m, o, atw), abilityText(s, m.source ?: o, m.origin), m.origin!!.key) }
                 .takeIf { it.isNotEmpty() }?.let { atw to it }
         }.toMap()
         val banding = candidates.filter { (_, o) -> view[o]?.characteristics?.hasKeyword(Keyword.Banding) == true }.map { it.first }.toSet()
@@ -466,9 +466,40 @@ object CombatFlow {
             val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AttackCost }.ifEmpty { return@mapNotNull null }
             val alone = runCatching { attackInput(call, listOf(LaneAttack(a.cardId, a.target))) }.getOrNull()
             if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
-            a.cardId to costs.map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.AttackCost).cost), abilityText(s, m.source ?: o, m.origin)) }
+            a.cardId to costs.map { m -> CombatCostShown(costNow(call, view, m, o, a.cardId), abilityText(s, m.source ?: o, m.origin)) }
         }.toMap()
     }
+
+    /**
+     * CMB-044 (owner-reported 2026-11-11): the chip's words for the cost [m] asks of [o] (ATW card [card]) as the board stands,
+     * worked out again with every board and staging: an X the board defines as its amount ("{3}", never "{X}", CR 508.1h,
+     * 509.1d). A cost whose X is worked out goes into the Automatum log when its amount changes.
+     */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private fun costNow(call: EngineRun, view: arcanum.engine.view.View, m: arcanum.engine.view.AppliedMechanic, o: ObjectId, card: String): String {
+        val printed = when (val mechanic = m.mechanic) {
+            is Mechanic.AttackCost -> mechanic.cost
+            is Mechanic.BlockCost -> mechanic.cost
+            is Mechanic.AsAttacks -> mechanic.cost
+            else -> return ""
+        }
+        val worked = printed.parts.any { it is CostPart.Mana && (it.x != null || it.times != null) }
+        val now = if (!worked) printed else runCatching { Engine.combatCost(call.working, m, o, view) }.getOrNull() ?: printed
+        val label = costLabel(now)
+        if (worked) {
+            val key = "${call.gameId}/$card/${m.source}"
+            val logged = loggedCosts.load()
+            if (logged[key] != label) {
+                loggedCosts.store((if (logged.size >= 64) emptyMap() else logged) + (key to label))
+                AutomatumLog.flow(call.gameId, "combat", "cost", "$card pays ${costLabel(printed)} as $label now (turn ${call.working.turn.number}, ${call.working.turn.step})")
+            }
+        }
+        return label
+    }
+
+    /** The amounts of costs with an X last logged ([costNow]), by game, card and source. */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private val loggedCosts = kotlin.concurrent.atomics.AtomicReference<Map<String, String>>(emptyMap())
 
     /** CMB-037 (CR 509.1d): the costs to block each blocker of [blocks] must pay, as for [attackCosts]. */
     private fun blockCosts(call: EngineRun, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
@@ -479,7 +510,7 @@ object CombatFlow {
             val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.BlockCost }.ifEmpty { return@mapNotNull null }
             val alone = runCatching { blockInput(call, listOf(b)) }.getOrNull()
             if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
-            b.blockerId to costs.map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.BlockCost).cost), abilityText(s, m.source ?: o, m.origin)) }
+            b.blockerId to costs.map { m -> CombatCostShown(costNow(call, view, m, o, b.blockerId), abilityText(s, m.source ?: o, m.origin)) }
         }.toMap()
     }
 

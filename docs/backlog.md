@@ -23,6 +23,8 @@ Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client
 - Drafted cards' printings (DRF-090, the pool, Build and the saved deck): a set pod's cards are printings of the pack's own set: the printing its booster recipe drew (variants of that set included, so the same card may differ in art), and in an approximate pack one of that set's printings of the card at random; never another set's printing. Cube pods keep the cube's printings.
 - Draft history directions (DRF-165, DRF-043): round headers name where the packs went ("Round 1 · passed to Bob"), with "clockwise" / "counter-clockwise" only with three or more players; a seat ring of the pod's avatars at the top of the history shows the seating with the round's direction as an arrow.
 - Draft history's "Returning packs only" chip (DRF-165) is remembered per pod on the device.
+- Main button icons and destinations (owner gallery note 22; TRN-063, STK-029, whose play icon for Resolve the app doesn't show today): an icon per kind (play for Resolve, swords for To combat / Attack, shield for Block, a turn arrow for End turn, a tick for OK) and step moves naming where they go ("To draw step" for Next, "To end step" for Pass). Owner judges it in the gallery and in a game; it may change after.
+- "Your move" sound (owner; Android now, the web client gets it too): a short soft sound ("plip") with TRN-075's cue, whenever the move passes to you and you must press. Settings → a "Your move sound" row: Off and a few sounds, each with a play button to listen; kept on the account. Plays while the game's table is open (on the web also in a background tab). Our own sounds, made for us (no copied game sounds).
 
 Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, tokens in Inspect, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
 
@@ -62,7 +64,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Needs discussion
 
-- Main button icons and destinations (owner gallery note 22, 2026-11-11; TRN-063, STK-029): every own action shows the same double tick today, though STK-029 says Resolve has a play icon (app and catalog differ; owner to decide). Proposal: an icon per kind (play for Resolve, swords for To combat / Attack, shield for Block, a turn arrow for End turn, a tick for OK) and step moves naming where they go ("To draw step" for Next, "To end step" for Pass).
 
 - "Can't do" explainer (owner, 2026-11-08; TBL-118 today says nothing by design): a short-lived chip or bubble rising from a shaken card, saying in one plain line why ("Costs more than you can pay"). Maybe for every shake, starting from castability's unselectable targets. Where it shows and how long are undecided; the engine's refusal reasons are technical, so the wording needs its own step. Also (report 82PG8P): warn, never block, before paying for an ability that would do nothing right now (Frodo's first ability when he is no longer a Citizen; legal, checked when it resolves, and the type may still change in response).
 

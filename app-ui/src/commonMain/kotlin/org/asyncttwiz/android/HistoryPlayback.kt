@@ -115,7 +115,7 @@ class HistorySceneAnimation(initial: TableScene) {
         val viewport = presentation.world?.viewport
         return presentation.fields.map { field ->
             val to = field.gridBounds
-            // Only its height on the screen moves (its width follows the camera and the cards, which jump)
+            // Only its vertical place moves (its x and width follow the camera and the cards, which jump)
             val from = startFields[field.owner]?.let { to.copy(y = it.y) } ?: return@map field
             if (from.y == to.y) return@map field
             val t = cardMoveProgress(from, to, sceneProgress, MAX_CARD_MOVE_DURATION_MILLIS, sceneMoveSpeed)

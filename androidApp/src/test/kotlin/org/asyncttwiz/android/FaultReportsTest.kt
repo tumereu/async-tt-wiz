@@ -29,6 +29,14 @@ class FaultReportsTest {
         assertFalse(log.contains("card=c1"))
     }
 
+    // Owner rule 2026-11-11: a stand-in shown because something couldn't be named is a fault; the player still sees it
+    @Test fun `a placeholder is reported as a fault and returned for the player to see`() {
+        FaultReports.reset()
+        FaultReports.install(send = { sent += it })
+        assertEquals("Trigger 1", Faults.placeholder("OrderTriggersSection", "trigger without a source", "Trigger 1", mapOf("index" to "0")))
+        assertEquals("Automatic fault report: OrderTriggersSection: trigger without a source; index=0; shown=Trigger 1", sent.single().description)
+    }
+
     @Test fun `no more than the run's cap is sent and a failing sink never reaches the caller`() {
         FaultReports.reset()
         FaultReports.install(send = { sent += it })

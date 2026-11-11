@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.Faults
 import arcanum.api.Ability
 import arcanum.api.EventPattern
 import arcanum.api.Keyword
@@ -276,7 +277,8 @@ object StackAbilityText {
         if (item.modes.isEmpty() || item.data.isEmpty()) return emptyList()
         val engine = decoded(item) ?: return emptyList()
         val options = modeOptions(engine.ability) ?: return emptyList()
-        return engine.modes.map { index -> options.getOrNull(index)?.text?.trim()?.takeIf { it.isNotEmpty() } ?: "Mode ${index + 1}" }
+        return engine.modes.map { index -> options.getOrNull(index)?.text?.trim()?.takeIf { it.isNotEmpty() }
+            ?: Faults.placeholder("StackAbilityText", "chosen mode without its text", "Mode ${index + 1}", mapOf("item" to item.id.toString(), "mode" to "$index")) }
     }
 
     private fun engine(item: MtgStackItem): StackItem? {

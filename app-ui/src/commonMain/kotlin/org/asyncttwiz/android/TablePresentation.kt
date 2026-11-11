@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.appui.NativeColors
@@ -519,7 +520,8 @@ object TablePresentation {
             // A face-down Battlefield card hides its face, but its values are public (rules v23).
             val faceDown = hidden && publicFaceDown(play.board, card)
             val values = !hidden || faceDown
-            val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
+            val title = if (hidden) "Covered card" else f?.name
+                ?: Faults.placeholder("TablePresentation", "card without its definition", "Card (definition unavailable)", mapOf("card" to card.id))
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
             // Combat copies follow their live source card; a face-down card's "?" title carries the mark too.
             val coveredTitle = if (zone == PlayZone.BATTLEFIELD && faceDown && !frozen) FACE_DOWN_TITLE else ""
@@ -671,7 +673,8 @@ object TablePresentation {
                     touchBounds = touch(b),
                     token = top?.token == true,
                     keepTopRevealed = c.keepTopRevealed, countersInside = countersInside,
-                    faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
+                    faceTitle = if (hidden || top == null) "" else face(top)?.name
+                        ?: Faults.placeholder("TablePresentation", "pile's top card without its definition", "", mapOf("card" to top.id)),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))

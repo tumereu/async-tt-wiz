@@ -20,6 +20,16 @@ object Faults {
         val target = sink ?: return
         try { target(Fault(area, what, details)) } catch (_: Throwable) {}
     }
+
+    /**
+     * Owner rule (2026-11-11): a generic stand-in shown because something couldn't be named or described ("Trigger 1", "An
+     * object", an empty name) is a fault. Reports it ([report]: [area], [what], [details]) and returns [standIn], the best
+     * text there is, for the player to see. Not for text that is generic by design (a hidden card shown as "A hidden card").
+     */
+    fun placeholder(area: String, what: String, standIn: String, details: Map<String, String> = emptyMap()): String {
+        report(area, what, details + ("shown" to standIn))
+        return standIn
+    }
 }
 
 /** One [Faults.report]. */

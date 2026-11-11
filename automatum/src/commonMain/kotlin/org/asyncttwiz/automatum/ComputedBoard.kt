@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.Faults
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
@@ -109,15 +110,18 @@ class ComputedBoard private constructor(
             if (source == null) return null
             val obj = state.obj(source) ?: (source as? ObjectId.Card)?.let { c ->
                 state.objects.values.lastOrNull { (it.id as? ObjectId.Card)?.card == c.card } }
-                ?: return null
+                ?: return Engine.lastKnown(state, source)?.characteristics?.name?.takeIf { LastKnown.public(state, source) }
             if (obj.faceDown || obj.zone !in PUBLIC) return "a card"
             return view[obj.id]?.name ?: obj.definition?.faces?.getOrNull(obj.face)?.name
         }
         fun source(step: ExplainedEffect): String = when (val s = step.source) {
-            is EffectSource.StaticAbility -> if (s.obj == id) "its own ability" else name(s.obj) ?: "an ability"
+            is EffectSource.StaticAbility -> if (s.obj == id) "its own ability" else name(s.obj)
+                ?: Faults.placeholder("ComputedBoard", "static ability without its source", "an ability", mapOf("object" to id.toString(), "source" to s.obj.toString()))
             is EffectSource.EffectObject -> {
                 val effect = state.effects[s.effect]
-                val by = name(effect?.source) ?: "an effect"
+                val by = name(effect?.source) ?: if (effect?.source == null) "an effect"
+                    else Faults.placeholder("ComputedBoard", "effect without its source's name", "an effect",
+                        mapOf("object" to id.toString(), "effect" to s.effect.toString()))
                 listOfNotNull(by, effect?.let { DurationText(state, view, viewer).of(it, id) }).joinToString(" ")
             }
             is EffectSource.Counters -> "counters"
@@ -335,7 +339,8 @@ class ComputedBoard private constructor(
                 val count = definition.faces.sumOf { face -> face.abilities.count { it is Ability.Unparsed } }
                 if (count == 0) continue
                 if (seen.add(card.definition)) total += count
-                shown[definition.faces.firstOrNull()?.name ?: "A card"] = count
+                shown[definition.faces.firstOrNull()?.name ?: Faults.placeholder("ComputedBoard", "card definition without a face", "A card",
+                    mapOf("card" to card.id))] = count
             }
             return total to shown.entries.map { it.key to it.value }.sortedBy { it.first }
         }

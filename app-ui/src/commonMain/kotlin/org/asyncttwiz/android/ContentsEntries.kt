@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.*
 
 data class ContentsEntry(val cardId: String, val name: String, val category: String, val location: String,
@@ -27,9 +28,10 @@ fun contentsEntries(state: TableBoard, pile: PileContents, viewer: String, searc
         val face = if (visible) state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card.faceId } else null
         val effect = state.board.stackEffects.singleOrNull { it.id == id }
-        val location = card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() } ?: "Unavailable"
+        val location = card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() }
+            ?: Faults.placeholder("ContentsEntries", "card without its place", "Unavailable", mapOf("card" to id))
         val ability = if (visible && effect != null) StackAbilities.of(state, id, viewer) else null
-        ContentsEntry(id, if (visible) ability?.name ?: face?.name ?: "Unavailable card" else "Card back",
+        ContentsEntry(id, if (visible) ability?.name ?: face?.name ?: unavailableCard(id) else "Card back",
             if (visible) contentsCategory(face?.typeLine.orEmpty()) else "Cards",
             (if (pile.ordered) "${index + 1} · " else "") + location +
                 when { effect?.frozen != null -> " · Retained effect"; effect != null -> " · Effect"; else -> "" },
@@ -47,11 +49,16 @@ fun contentsEntries(state: TableBoard, display: ContentsDisplay, viewer: String,
             ?.singleOrNull { it.faceId == card?.faceId } else null
         val type = face?.typeLine.orEmpty()
         val category = if (!visible) "Cards" else contentsCategory(type)
-        ContentsEntry(id, if (visible) face?.name ?: "Unavailable card" else "Card back", category,
-            card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() } ?: "Unavailable",
+        ContentsEntry(id, if (visible) face?.name ?: unavailableCard(id) else "Card back", category,
+            card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() }
+            ?: Faults.placeholder("ContentsEntries", "card without its place", "Unavailable", mapOf("card" to id)),
             display.selection == ContentsSelection.BOTTOM && index == display.cardIds.lastIndex, faceVisible = visible)
     }
     // Covered rows must not be removed/reordered by a hidden name query.
     val filtered = entries.filter { !it.faceVisible || it.name.contains(search, ignoreCase = true) }
     return if (display.search && display.author == viewer) filtered.sortedWith(contentsOrder) else filtered
 }
+
+/** The stand-in of a visible card whose name is missing (a fault: reported). */
+private fun unavailableCard(card: String): String =
+    Faults.placeholder("ContentsEntries", "visible card without a name", "Unavailable card", mapOf("card" to card))

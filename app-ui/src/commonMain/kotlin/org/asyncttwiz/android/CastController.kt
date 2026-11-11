@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -339,7 +340,10 @@ class CastController(
     override fun atwCard(id: ObjectId): String? = flow?.atwCard(id)
     override fun listedAnswers(): List<Answer> = listed
     /** I-D27: the cast runs on full information; the panel names only what the caster may see. */
-    override fun shown(id: ObjectId): Boolean = flow != null && (id is ObjectId.StackItem || id in visible)
+    override fun shown(id: ObjectId): Boolean {
+        val open = flow ?: return false
+        return id is ObjectId.StackItem || id in visible || org.asyncttwiz.automatum.LastKnown.public(open.state, id)
+    }
 
     /** Changes the answer of an earlier section (a toggle above the current one). */
     fun change(index: Int, answer: Answer): Boolean = update { it.change(index, answer) }
@@ -864,9 +868,11 @@ class CastController(
         const val TAKE_OVER = "Automatum can't take over this board:"
 
         fun cardName(play: TableBoard, cardId: String): String {
-            val card = play.board.cards.singleOrNull { it.id == cardId } ?: return "That card"
+            val card = play.board.cards.singleOrNull { it.id == cardId }
+                ?: return Faults.placeholder("CastController", "card to name not on the board", "That card", mapOf("card" to cardId))
             return play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
-                ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: "That card"
+                ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
+                ?: Faults.placeholder("CastController", "card to name without its definition", "That card", mapOf("card" to cardId))
         }
 
         fun land(play: TableBoard, cardId: String): Boolean {

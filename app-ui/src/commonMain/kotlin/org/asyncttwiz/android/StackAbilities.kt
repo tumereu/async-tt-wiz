@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -89,7 +90,8 @@ object StackAbilities {
         // shows only as far as the viewer may see it
         val frozen = effect.frozen != null
         if (!frozen && !CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return null
-        val source = face?.name?.takeIf { it.isNotBlank() } ?: "Ability"
+        val source = face?.name?.takeIf { it.isNotBlank() }
+            ?: Faults.placeholder("StackAbilities", "ability entry without its source's name", "Ability", mapOf("entry" to entryId))
         val text = text(item, face?.rulesText) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
         return kind(item)?.let { StackAbilityShown(triggered, source, text.trim(), it) } ?: StackAbilityShown(triggered, source, text.trim())
     }

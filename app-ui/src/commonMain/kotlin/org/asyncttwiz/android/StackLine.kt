@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -67,8 +68,8 @@ object StackLine {
         val name = face?.name?.takeIf { it.isNotBlank() }
         val ability = if (visible) StackAbilities.of(play, top, viewer) else null
         val head = when (item.kind) {
-            MtgStackKind.Spell -> "$who cast ${name ?: "a card"}"
-            MtgStackKind.SpellCopy -> "$who's copy of ${name ?: "a spell"}"
+            MtgStackKind.Spell -> "$who cast ${name ?: unnamed(visible, "a card", top)}"
+            MtgStackKind.SpellCopy -> "$who's copy of ${name ?: unnamed(visible, "a spell", top)}"
             MtgStackKind.Activated, MtgStackKind.Triggered -> ability?.let { "${it.source}'s ${it.kind.replaceFirstChar { c -> c.lowercase() }}" }
                 ?: "$who's ability"
         }
@@ -200,3 +201,7 @@ private fun DrawScope.targetArrow(start: Offset, end: Offset, color: Color, d: F
     drawLine(color.copy(alpha = .9f), start, base, 2.5f * d, cap = StrokeCap.Round)
     drawPath(tip, color)
 }
+
+/** [standIn] for a Stack entry without a name: a hidden one by design, a visible one a fault (reported). */
+private fun unnamed(visible: Boolean, standIn: String, entry: String): String =
+    if (!visible) standIn else Faults.placeholder("StackLine", "visible entry without a name", standIn, mapOf("entry" to entry))

@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.appui.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -441,7 +442,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
         decision is Decision.Modes && answer is Answer.Modes && decision.max == 1 -> Section("Mode") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (mode in decision.options) FilterChip(mode.index in answer.chosen, { cast.change(index, Answer.Modes(listOf(mode.index))) },
-                    enabled = mode.available, label = { CardText(mode.text ?: "Mode ${mode.index + 1}", style = TextStyle(fontSize = 12.sp)) })
+                    enabled = mode.available, label = { CardText(modeText(mode), style = TextStyle(fontSize = 12.sp)) })
             }
         }
         else -> Section(sectionTitle(decision)) {
@@ -630,7 +631,8 @@ private fun ModeLabel(mode: arcanum.engine.decision.ModeOption, count: Int) {
     }
 }
 
-private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text ?: "Mode ${mode.index + 1}"
+private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text
+    ?: Faults.placeholder("CastPanel", "mode without its text", "Mode ${mode.index + 1}", mapOf("mode" to "${mode.index}"))
 
 /** The mana section: the engine's suggested tapping shown tapped, the other sources untapped; a tap toggles one. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -834,7 +836,8 @@ private fun sectionTitle(d: Decision): String = when (d) {
 private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision, answer: Answer): String = when (answer) {
     is Answer.Targets -> answer.chosen.joinToString { targetName(flow, play, names, it) }.ifEmpty { "None" }
     is Answer.Objects -> answer.chosen.joinToString { objectName(flow, play, it) }.ifEmpty { "None" }
-    is Answer.Modes -> answer.chosen.joinToString(" · ") { i -> (decision as? Decision.Modes)?.options?.firstOrNull { it.index == i }?.text ?: "Mode ${i + 1}" }
+    is Answer.Modes -> answer.chosen.joinToString(" · ") { i -> (decision as? Decision.Modes)?.options?.firstOrNull { it.index == i }?.text
+        ?: Faults.placeholder("CastPanel", "chosen mode without its text", "Mode ${i + 1}", mapOf("decision" to decision.id.value, "mode" to "$i")) }
     is Answer.Number -> answer.value.toString()
     is Answer.YesNo -> if (answer.yes) "Yes" else "No"
     is Answer.Option -> answer.chosen
@@ -845,9 +848,12 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
     is Answer.SubtypeChoice -> answer.subtype.name
     is Answer.CardTypeChoice -> answer.cardType.toString()
     is Answer.CardName -> answer.name
-    is Answer.Replacement -> (decision as? Decision.ChooseReplacement)?.options?.firstOrNull { it.index == answer.index }?.text ?: "Replacement ${answer.index + 1}"
+    is Answer.Replacement -> (decision as? Decision.ChooseReplacement)?.options?.firstOrNull { it.index == answer.index }?.text
+        ?: Faults.placeholder("CastPanel", "chosen replacement without its text", "Replacement ${answer.index + 1}",
+            mapOf("decision" to decision.id.value, "index" to "${answer.index}"))
     Answer.Done -> "Done"
-    else -> answer::class.simpleName ?: "Answer"
+    else -> Faults.placeholder("CastPanel", "answer without a label", answer::class.simpleName ?: "Answer",
+        mapOf("decision" to decision.id.value, "answer" to answer.toString().take(200)))
 }
 
 fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, target: TargetRef): String = when (target) {
@@ -860,7 +866,8 @@ fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
     else flow.engine?.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: flow.engine?.let { arcanum.engine.Engine.lastKnown(it, id) }?.characteristics?.name
-        ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
+        ?: flow.atwCard(id)?.let { CastController.cardName(play, it) }
+        ?: Faults.placeholder("CastPanel", "object without a name", "An object", mapOf("object" to id.toString()))
 
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use) + " " + group.filterIsInstance<ManaUse.Ability>()

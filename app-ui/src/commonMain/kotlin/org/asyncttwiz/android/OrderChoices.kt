@@ -29,6 +29,7 @@ import androidx.compose.ui.zIndex
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ReplacementOption
+import org.asyncttwiz.protocol.Faults
 
 /** [list] with the item at [from] moved to [to]. */
 fun <T> List<T>.moved(from: Int, to: Int): List<T> =
@@ -118,18 +119,33 @@ fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
     val inspector = remember(decision.id) { ChoiceInspector() }
     var order by remember(decision.id) { mutableStateOf(suggestedTriggerOrder(decision)) }
     val triggers = decision.triggers.associateBy { it.index }
+    // 3UE2NW: what each row is made of, so a report of the panel explains itself
+    LaunchedEffect(decision.id) {
+        AppLog.info("decision", "Order triggers ${decision.id.value}: " + decision.triggers.joinToString("; ") { trigger ->
+            val source = trigger.source
+            "#${trigger.index} source ${source ?: "none"}" +
+                (source?.let { " (${objectName(flow, play, it)}, shown ${flow.shown(it)})" } ?: "") + ", text ${trigger.text ?: "none"}"
+        })
+    }
     fun line(index: Int): String {
-        val trigger = triggers.getValue(index)
-        val shown = trigger.source?.let(flow::shown) != false
-        // A keyword's trigger ("Offspring") reads as the keyword's printed line on its source
-        return trigger.text?.takeIf { shown }?.let { text ->
-            org.asyncttwiz.automatum.StackAbilityText.keywordLine(text, trigger.source?.let { rulesTextOf(play, flow.atwCard(it)) }) ?: text
-        } ?: "Trigger ${index + 1}"
+        val trigger = triggers[index] ?: return Faults.placeholder("OrderTriggersSection", "trigger row without its trigger",
+            "Trigger ${index + 1}", mapOf("decision" to decision.id.value, "index" to "$index"))
+        val source = trigger.source
+        // The ability's own text (public as it goes on the Stack); a keyword's trigger ("Offspring") reads as the keyword's
+        // printed line on its source, when the source may be shown
+        trigger.text?.let { text ->
+            val rules = source?.takeIf(flow::shown)?.let { rulesTextOf(play, flow.atwCard(it)) }
+            return org.asyncttwiz.automatum.StackAbilityText.keywordLine(text, rules) ?: text
+        }
+        return Faults.placeholder("OrderTriggersSection", "trigger without its text",
+            source?.let { "${objectName(flow, play, it)}'s triggered ability" } ?: "Trigger ${index + 1}",
+            mapOf("decision" to decision.id.value, "index" to "$index", "source" to source.toString()))
     }
     fun card(index: Int): ChoiceCardData {
-        val trigger = triggers.getValue(index)
-        val name = trigger.source?.let { objectName(flow, play, it) } ?: "Trigger ${index + 1}"
-        return (trigger.source?.let { choiceCardOf(flow, play, viewer, it) } ?: ChoiceCardData("trigger/$index", null, name, null, shown = true))
+        val source = triggers[index]?.source
+        return (source?.let { choiceCardOf(flow, play, viewer, it) } ?: ChoiceCardData("trigger/$index", null,
+            Faults.placeholder("OrderTriggersSection", "trigger without a source", "Trigger ${index + 1}",
+                mapOf("decision" to decision.id.value, "index" to "$index")), null, shown = true))
             .copy(key = "trigger/$index")
     }
     Section(choiceWhat(decision), choiceHint(decision)) {
@@ -154,7 +170,11 @@ fun ReplacementOrderSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
     val inspector = remember(decision.id) { ChoiceInspector() }
     var order by remember(decision.id) { mutableStateOf(decision.options.map { it.index }) }
     val options = decision.options.associateBy { it.index }
-    fun name(option: ReplacementOption) = option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"
+    // A replacement without a source may be the game rules' own; one with neither a source nor a text can't be described
+    fun name(option: ReplacementOption) = option.source?.let { objectName(flow, play, it) }
+        ?: if (option.text != null) "Replacement ${option.index + 1}"
+        else Faults.placeholder("ReplacementOrderSection", "replacement without a source or text", "Replacement ${option.index + 1}",
+            mapOf("decision" to decision.id.value, "index" to "${option.index}"))
     fun card(option: ReplacementOption): ChoiceCardData =
         (option.source?.let { choiceCardOf(flow, play, viewer, it) } ?: ChoiceCardData("replacement/${option.index}", null, name(option), null,
             shown = true)).copy(key = "replacement/${option.index}")

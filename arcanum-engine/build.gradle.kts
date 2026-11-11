@@ -32,7 +32,14 @@ kotlin {
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser { testTask { enabled = false } }
-        nodejs()
+        nodejs {
+            // The set scenario tests (arcanum.engine.sets, ~70% of the module's tests) run on the JVM only unless
+            // -Parcanum.wasmSets=true: on Node they take most of wasmJsNodeTest's time. Whether to include them is
+            // asked at each release (AGENTS.md).
+            if (providers.gradleProperty("arcanum.wasmSets").orNull != "true") {
+                testTask { filter.excludeTestsMatching("arcanum.engine.sets.*") }
+            }
+        }
     }
     sourceSets {
         commonMain.dependencies { api(project(":arcanum-api")) }

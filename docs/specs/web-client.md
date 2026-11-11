@@ -470,3 +470,9 @@ All design questions are answered (2026-11-07, round 3 the same day). Claude's c
 8. Draft pick: a ⋯ button on the hovered card opens its menu, for Refund Librarian (section 5).
 9. Rebinding: taking a used key leaves the other action without a key, with a note; Esc, Enter and mouse buttons
    fixed; one key per action (section 6).
+
+10. **Open (owner, 2026-11-11): right-click Inspect may be misspecified.** Inspect must work the same way on the table and
+    the draft screens, and the draft uses right-click to burn (decision 25), so decision 14 is in doubt. Proposal: hold Alt
+    over a card inspects while held, a tap of Alt pins it (Arena uses Alt; check the browsers' Alt-key menus), Shift as
+    the fallback; right-click stays burn in the draft and the hold action on controls. Decide at the wireframe review,
+    before step 5; build nothing of desktop Inspect until then.

@@ -88,11 +88,13 @@ abstract class E2e {
     lateinit var deal: Deal
     private lateinit var prepared: ServerSetup.Prepared
 
-    /** The same start for every test: the server's base dataset only, no engine boards of an earlier test's tables. */
+    /** The same start for every test: the server's base dataset only, no engine boards of an earlier test's tables, Compose's
+     * main dispatcher not waiting for a post the end of an earlier test dropped ([ComposeMainDispatcher]). */
     @Before fun freshStart() {
         ServerSetup.fresh()
         AutomatumBoards.reset()
         org.asyncttwiz.android.MoveSoundRefresh.reset()
+        ComposeMainDispatcher.forgetDroppedPost()
     }
 
     /**
@@ -290,16 +292,25 @@ abstract class E2e {
         val behind = compose.mainClock.currentTime - android.os.SystemClock.uptimeMillis()
         if (behind > 0) looper.idleFor(Duration.ofMillis(behind))
         compose.mainClock.autoAdvance = false
+        var fingerDown = false
         try {
             node.performTouchInput {
                 down(at())
+                fingerDown = true
                 // [moveFirst]: the finger moves at once, before the hold's time: a pan or a drag, not a hold
                 if (moveFirst != androidx.compose.ui.geometry.Offset.Zero) moveBy(moveFirst)
             }
             passWhileHeld(millis)
             held()
             node.performTouchInput { up() }
-        } finally { restoreAutoAdvance() }
+            fingerDown = false
+        } finally {
+            // A look in [held] that failed still lifts the finger: a finger left down keeps the table's gesture recognition
+            // asking for a frame every frame, the screens never get idle again, and the failure ended minutes later in an
+            // OutOfMemoryError instead of its own message
+            if (fingerDown) runCatching { node.performTouchInput { up() } }
+            restoreAutoAdvance()
+        }
         run()
     }
 
@@ -380,4 +391,28 @@ abstract class E2e {
         const val FRAME_MILLIS = 16L
     }
 
+}
+
+/**
+ * Compose's main-thread dispatcher ([androidx.compose.ui.platform.AndroidUiDispatcher.Main], one per process) runs the global
+ * snapshot manager: what tells compositions and `snapshotFlow`s of state written outside a composition, such as the table's
+ * gesture clock that times a held finger (TBL-047). It posts to the main looper once and posts nothing more while it believes
+ * that post is still to come. Robolectric empties the main looper after each test, so a post still waiting when a test ended
+ * was dropped and the dispatcher waited for it for the rest of the run: in every later test such state reached the screens
+ * only at the next idle check, a hold went unrecognised under the held finger, and the tests that hold a card to inspect it
+ * (HoldPausesPlaybackTest, InspectChangesTest, StackAbilityTest, CardStatesTest) failed when they ran after a test that left
+ * it so, as CombatHoldTest often did. Before each test it forgets a dropped post and posts again.
+ */
+internal object ComposeMainDispatcher {
+    fun forgetDroppedPost() {
+        val main = androidx.compose.ui.platform.AndroidUiDispatcher.Main[kotlin.coroutines.ContinuationInterceptor]
+            as androidx.compose.ui.platform.AndroidUiDispatcher
+        fun field(name: String) = main.javaClass.getDeclaredField(name).apply { isAccessible = true }
+        synchronized(field("lock").get(main)!!) {
+            field("scheduledTrampolineDispatch").setBoolean(main, false)
+            field("scheduledFrameDispatch").setBoolean(main, false)
+        }
+        // Posts again (to the main looper and the next frame): what waited runs at the test's first round
+        main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {})
+    }
 }

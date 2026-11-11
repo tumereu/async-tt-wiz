@@ -99,5 +99,17 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
             }
         }
     }
+    /** LOB-146: the "Your move" sound, kept on the server for every device of the account. */
+    fun setMoveSound(sound: MoveSound) {
+        val next = (settings ?: AccountSettings()).copy(moveSound = sound)
+        if (next == settings) return
+        settings = next
+        AppLog.info("settings", "Your move sound set to ${sound.id}")
+        scope.launch {
+            runCatching { source.set(next) }.onFailure {
+                error = "Couldn't save your move sound to the server. It is kept on this device and sent later."
+            }
+        }
+    }
     fun dismissError() { error = null }
 }

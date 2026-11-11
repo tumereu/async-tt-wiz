@@ -153,6 +153,23 @@ class EngineCombatTest {
         assertTrue(plains.all { paid.objects.getValue(table.obj(it)).tapped }, "both Plains pay")
     }
 
+    // CMB-044 (owner-reported 2026-11-11; CR 508.1h): a cost whose X the board defines shows its amount, worked out again
+    // when the board changes it: {2} with two enchantments, {3} with three, never "{X}"; the defender reads the same
+    @Test fun aCostToAttackWithXShowsItsAmount() {
+        val bulwark = Cards.invent("Sanctum Bulwark", "{4}{W}", "Enchantment",
+            "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")
+        val sigil = Cards.invent("Quiet Sigil", "{1}", "Enchantment")
+        val (bear) = table.put(alice, Zone.Battlefield, "Stout Bear")
+        table.put(bob, Zone.Battlefield, bulwark, sigil)
+        fun staged(state: arcanum.engine.state.GameState) = table.board(state).copy(combat = org.asyncttwiz.protocol.CombatArea(EngineProjection.COMBAT_ID, listOf(
+            org.asyncttwiz.protocol.CombatPair(EngineProjection.pairId(bear), listOf(org.asyncttwiz.protocol.CombatOccurrence(EngineProjection.attackId(bear), bear))))))
+        val two = table.state()
+        assertEquals(listOf("{2}"), CombatFlow.shown(two, staged(two), "game").costs.getValue(bear).map { it.label })
+        table.put(bob, Zone.Battlefield, sigil)
+        val three = table.state()
+        assertEquals(listOf("{3}"), CombatFlow.shown(three, staged(three), "game").costs.getValue(bear).map { it.label })
+    }
+
     // CMB-039 (CR 310.9b, 310.6): Alice attacks her own Siege, which Bob protects: Bob blocks for it, and unblocked damage
     // to it is shown against the Siege
     @Test fun aSiegeIsAttackedAndItsProtectorBlocks() {

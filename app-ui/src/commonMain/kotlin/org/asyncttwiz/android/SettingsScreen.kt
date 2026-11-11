@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.DeckVisibility
 import org.asyncttwiz.appui.AppBuild
@@ -44,7 +46,10 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 HorizontalDivider()
             }
             if (account != null) {
-                SettingsSection("Games") { DeckVisibilitySetting(account) }
+                SettingsSection("Games") {
+                    DeckVisibilitySetting(account)
+                    MoveSoundSetting(account)
+                }
                 HorizontalDivider()
             }
             SettingsSection("Table") {
@@ -117,6 +122,29 @@ fun SettingsLabel(label: String, supporting: String? = null, modifier: Modifier 
         Text(label, style = MaterialTheme.typography.bodyLarge)
         if (supporting != null) Text(supporting, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** LOB-146, TRN-075 (owner, 2026-11-11): the "Your move" sound: Off or one of the app's own sounds, each with a play button
+ * to listen to it; kept on the account. */
+@Composable
+fun MoveSoundSetting(state: AccountSettingsState) {
+    val current = state.settings?.moveSound ?: org.asyncttwiz.protocol.MoveSound.DEFAULT
+    Column(Modifier.fillMaxWidth().selectableGroup().testTag("move-sound")) {
+        SettingsLabel("Your move sound", "Plays when the move passes to you while a game is open",
+            Modifier.padding(top = 12.dp, bottom = 4.dp))
+        for (sound in org.asyncttwiz.protocol.MoveSound.all) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("move-sound-${sound.id}")
+                .selectable(sound == current, role = Role.RadioButton) { state.setMoveSound(sound) },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                RadioButton(sound == current, onClick = null)
+                SettingsLabel(sound.label, modifier = Modifier.weight(1f).padding(vertical = 4.dp))
+                if (sound != org.asyncttwiz.protocol.MoveSound.Off)
+                    IconButton({ MoveSounds.play(sound, "Settings: listening") }, Modifier.semantics { contentDescription = "Listen to ${sound.label}" }) {
+                        Icon(androidx.compose.material.icons.Icons.Outlined.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+            }
+        }
     }
 }
 

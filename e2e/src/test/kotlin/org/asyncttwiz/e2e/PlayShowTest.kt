@@ -59,35 +59,38 @@ class PlayShowTest : E2e() {
     // a double tap ends it and it plays on; his second Glint, left alone, ends by itself after its time and her table plays on
     @Test fun bobsSpellShowsOnAlicesTableWhileBobPlaysOn() {
         start()
-        val life = bobsLife(bob)
-        val show = bobCastsAGlint()
-        assertFalse(bob.shows(hasTestTag(PLAY_SHOW_TAG)), "nothing shown on Bob's phone for his own cast")
-        assertNull(bob.shown.show)
-        waitUntil("the Glint resolved on Bob's phone") { bobsLife(bob) == life + 2 && bob.state.stack.isEmpty() && bob.inOwnMain() }
-        // His phone shows the resolve at once, as its own pending event: it reaches her phone only after the server took it
-        waitUntil("his resolve reaching Alice's phone, his later events waiting there") { alice.shown.behind }
-        assertNotNull(alice.shown.show, "still shown on Alice's phone")
-        assertEquals(show.event, alice.shown.tip, "her table at the cast")
-        assertTrue(alice.state.stack.isNotEmpty(), "the Glint still on her Stack")
-        assertEquals(life, bobsLife(alice), "his life before the Glint on her table")
-        alice.tagged(PLAY_SHOW_TAG).performClick()
-        run()
-        assertNotNull(alice.shown.show, "a single tap does nothing")
-        assertEquals(show.event, alice.shown.tip, "her table still at the cast")
-        run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
-        alice.tagged(PLAY_SHOW_TAG).performTouchInput { doubleClick() }
-        waitUntil("Alice's table playing on past the Glint") {
-            alice.shown.show == null && !alice.shows(hasTestTag(PLAY_SHOW_TAG)) && bobsLife(alice) == life + 2
+        // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            val life = bobsLife(bob)
+            val show = bobCastsAGlint()
+            assertFalse(bob.shows(hasTestTag(PLAY_SHOW_TAG)), "nothing shown on Bob's phone for his own cast")
+            assertNull(bob.shown.show)
+            waitUntil("the Glint resolved on Bob's phone") { bobsLife(bob) == life + 2 && bob.state.stack.isEmpty() && bob.inOwnMain() }
+            // His phone shows the resolve at once, as its own pending event: it reaches her phone only after the server took it
+            waitUntil("his resolve reaching Alice's phone, his later events waiting there") { alice.shown.behind }
+            assertNotNull(alice.shown.show, "still shown on Alice's phone")
+            assertEquals(show.event, alice.shown.tip, "her table at the cast")
+            assertTrue(alice.state.stack.isNotEmpty(), "the Glint still on her Stack")
+            assertEquals(life, bobsLife(alice), "his life before the Glint on her table")
+            alice.tagged(PLAY_SHOW_TAG).performClick()
+            run()
+            assertNotNull(alice.shown.show, "a single tap does nothing")
+            assertEquals(show.event, alice.shown.tip, "her table still at the cast")
+            run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
+            alice.tagged(PLAY_SHOW_TAG).performTouchInput { doubleClick() }
+            waitUntil("Alice's table playing on past the Glint") {
+                alice.shown.show == null && !alice.shows(hasTestTag(PLAY_SHOW_TAG)) && bobsLife(alice) == life + 2
+            }
+            bobCastsAGlint()
+            val at = alice.shown.tip
+            run(skip = Duration.ofSeconds(1))
+            assertEquals(at, alice.shown.tip, "still held after 1 s")
+            assertNotNull(alice.shown.show)
+            run(skip = Duration.ofSeconds(3))
+            waitUntil("the second show over by itself and Alice's table past the Glint") {
+                alice.shown.show == null && bobsLife(alice) == life + 4
+            }
+            assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
         }
-        bobCastsAGlint()
-        val at = alice.shown.tip
-        run(skip = Duration.ofSeconds(1))
-        assertEquals(at, alice.shown.tip, "still held after 1 s")
-        assertNotNull(alice.shown.show)
-        run(skip = Duration.ofSeconds(3))
-        waitUntil("the second show over by itself and Alice's table past the Glint") {
-            alice.shown.show == null && bobsLife(alice) == life + 4
-        }
-        assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 }

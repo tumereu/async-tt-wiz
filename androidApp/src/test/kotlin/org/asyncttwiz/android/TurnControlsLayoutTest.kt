@@ -70,7 +70,7 @@ class TurnControlsLayoutTest {
         } }
         for (step in TurnPosition.entries) {
             compose.runOnIdle { state.value = TableToolFixture.play(step) }
-            val label = AutomatumStep.of(tableBoard(state.value)).label
+            val label = tableBoard(state.value).let { AutomatumStep.of(it).words(it) }
             val text = assertFits(label)
             val arrow = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             // TRN-017 (owner playtest 2026-11-06): the main button keeps one width, 112 dp, on a small phone too

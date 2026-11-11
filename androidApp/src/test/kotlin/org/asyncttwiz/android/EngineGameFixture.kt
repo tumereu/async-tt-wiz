@@ -121,6 +121,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val STONE = "Ember Stone"
         /** A free "Return target card from your graveyard to your hand." sorcery (HIS-114: a card leaving a public pile). */
         const val RECALL = "Hedge Recall"
+        /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
+        const val BULWARK = "Ember Bulwark"
+        /** A free enchantment whose trigger begins its controller's upkeep (another enchantment beside a Bulwark). */
+        const val CHIME = "Ember Chime"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -172,6 +176,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("elf", Choices.ELF, "Creature — Elf", "Haste\n{T}: Add {R}.", "1", "1"),
         free("stone", Choices.STONE, "Artifact", "{T}: Add {C}."),
         free("recall", Choices.RECALL, "Sorcery", "Return target card from your graveyard to your hand."),
+        free("chime", Choices.CHIME, "Enchantment", "At the beginning of your upkeep, you gain 1 life."),
+        free("bulwark", Choices.BULWARK, "Enchantment", "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control."),
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",

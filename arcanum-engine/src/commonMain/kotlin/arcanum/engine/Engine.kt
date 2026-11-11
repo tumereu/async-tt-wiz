@@ -318,6 +318,25 @@ object Engine {
     fun blockCosts(state: GameState, blocks: List<arcanum.engine.input.Block>): Boolean =
         arcanum.engine.combat.CombatRules.blockCosts(arcanum.engine.casting.Snapshot(state), blocks).isNotEmpty()
 
+    /**
+     * The cost [applied] asks of [creature] now: a cost to attack ([arcanum.api.Mechanic.AttackCost]) or block
+     * ([arcanum.api.Mechanic.BlockCost]), or an optional "as it attacks" cost ([arcanum.api.Mechanic.AsAttacks]), with its X
+     * and repetitions of mana worked out from [state] as the declaration would lock them in (CR 508.1h, 509.1d): "{X} …
+     * where X is the number of enchantments you control" with three is {3}. Null for any other mechanic. [view]: [state]'s
+     * view when the caller has it.
+     */
+    fun combatCost(state: GameState, applied: arcanum.engine.view.AppliedMechanic, creature: arcanum.engine.state.ObjectId,
+        view: View? = null): arcanum.api.Cost? {
+        val cost = when (val m = applied.mechanic) {
+            is arcanum.api.Mechanic.AttackCost -> m.cost
+            is arcanum.api.Mechanic.BlockCost -> m.cost
+            is arcanum.api.Mechanic.AsAttacks -> m.cost
+            else -> return null
+        }
+        val snap = if (view != null) arcanum.engine.casting.Snapshot(state) { view } else arcanum.engine.casting.Snapshot(state)
+        return arcanum.engine.combat.CombatRules.fixed(snap, applied, creature, cost)
+    }
+
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
 

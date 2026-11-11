@@ -174,9 +174,12 @@ internal fun E2ePlayer.showsOnBattlefield(name: String, owner: E2ePlayer = this)
     cardNodes(name, owner).any { field.contains(it.boundsInRoot.center) }
 }.getOrDefault(false)
 
-/** A control (button, quick action, the step arrow) by what it says. */
-internal fun E2ePlayer.control(label: String): SemanticsNodeInteraction = node(hasContentDescription(label) and hasClickAction())
-internal fun E2ePlayer.showsControl(label: String): Boolean = shows(hasContentDescription(label) and hasClickAction())
+/** A control (button, quick action, the step arrow) by what it says; the step arrow also by its kind ([stepArrow]: "Next",
+ * "Pass", "End step"), whatever destination it names (TRN-063). */
+internal fun E2ePlayer.control(label: String): SemanticsNodeInteraction = node(saying(label) and hasClickAction())
+internal fun E2ePlayer.showsControl(label: String): Boolean = shows(saying(label) and hasClickAction())
+private fun saying(label: String) =
+    hasContentDescription(label) or androidx.compose.ui.test.SemanticsMatcher.expectValue(org.asyncttwiz.android.MainButtonStep, label)
 
 /** Taps the control [label]. A main button press within [org.asyncttwiz.android.MainButtonGuard.MILLIS] of this phone's last one is
  * ignored as the second tap of a double tap (TRN-063): the phone's clock first moves past it, as a player's finger would be later. */
@@ -197,10 +200,15 @@ internal fun E2ePlayer.pastMainGuard() {
 /** Holds the control [label] (a long press: the step arrow's End turn, Undo's earlier points). */
 internal fun E2ePlayer.hold(label: String) { control(label).performTouchInput { longClick() } }
 
-/** What the step arrow says now ([org.asyncttwiz.android.AutomatumStep] labels), null while it isn't shown. */
+/** What the main button says now (its words, TRN-063: "To draw step", "Cast"), null while none shows. */
+internal fun E2ePlayer.mainWords(): String? = nodes(hasTestTag("main-button")).fetchSemanticsNodes().firstOrNull()?.description()
+
+/** The step arrow's kind now ([org.asyncttwiz.android.AutomatumStep] labels, the main button's
+ * [org.asyncttwiz.android.MainButtonStep]: "Next" or "Pass" whatever destination it names, TRN-063), null while it isn't shown. */
 internal val STEP_LABELS = listOf("Pass", "Next", "To combat", "End turn", "End step", "Resolve", "No attack", "No blocks")
-internal fun E2ePlayer.stepArrow(): String? = nodes(hasClickAction()).fetchSemanticsNodes().map { it.description() }
-    .firstOrNull { it in STEP_LABELS || it.matches(Regex("(Attack|Block) \\([0-9]+\\)")) }
+internal fun E2ePlayer.stepArrow(): String? =
+    nodes(hasClickAction() and androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(org.asyncttwiz.android.MainButtonStep))
+        .fetchSemanticsNodes().firstNotNullOfOrNull { it.config.getOrNull(org.asyncttwiz.android.MainButtonStep) }
 
 /** HIS-094: the centre text that starts or resumes catch-up playback ("<name> has made moves · Tap to watch"). */
 internal fun E2ePlayer.watchText(): String? = nodes(hasTestTag("centre-action")).fetchSemanticsNodes().firstOrNull()?.description()

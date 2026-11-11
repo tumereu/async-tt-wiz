@@ -52,48 +52,57 @@ class HoldToPauseTest : E2e() {
     // table at the cast, while Bob's phone goes on past it; lifted, it ends by itself and her table plays on
     @Test fun aFingerHeldOnTheTablePausesAPlayShown() {
         start()
-        val life = lifeOfBob(bob)
-        bobCastsAGlint()
-        val show = assertNotNull(alice.shown.show)
-        assertFalse(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "no icon before the hold")
-        holding(alice.table(), at = besideTheShow) {
-            assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "the pause icon: ${alice.screen()}")
-            passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
-            assertEquals(show, alice.engine { device.show }, "still shown")
-            assertEquals(show.event, alice.engine { device.session.tip }, "her phone makes nothing of its own meanwhile")
+        // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            val life = lifeOfBob(bob)
+            bobCastsAGlint()
+            val show = assertNotNull(alice.shown.show)
+            assertFalse(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "no icon before the hold")
+            holding(alice.table(), at = besideTheShow) {
+                assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "the pause icon: ${alice.screen()}")
+                passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
+                assertEquals(show, alice.engine { device.show }, "still shown")
+                assertEquals(show.event, alice.engine { device.session.tip }, "her phone makes nothing of its own meanwhile")
+            }
+            // Never the game: Bob's phone resolved it
+            waitUntil("the Glint resolved on Bob's phone") { lifeOfBob(bob) == life + 2 && bob.inOwnMain() }
+            waitUntil("the show over by itself once lifted and her table past the Glint") {
+                alice.shown.show == null && lifeOfBob(alice) == life + 2
+            }
+            waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
+            assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
         }
-        // Never the game: Bob's phone resolved it
-        waitUntil("the Glint resolved on Bob's phone") { lifeOfBob(bob) == life + 2 && bob.inOwnMain() }
-        waitUntil("the show over by itself once lifted and her table past the Glint") {
-            alice.shown.show == null && lifeOfBob(alice) == life + 2
-        }
-        waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
-        assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
     // HIS-112, TBL-104: holding the shown card inspects it and pauses it; lifted, the Inspect closes and it goes on
     @Test fun holdingTheShownCardInspectsItAndPausesIt() {
         start()
-        val life = lifeOfBob(bob)
-        bobCastsAGlint()
-        val show = assertNotNull(alice.shown.show)
-        holding(alice.tagged(PLAY_SHOW_TAG)) {
-            assertTrue(alice.shows(hasContentDescription("Card inspection content")), "the shown card inspected: ${alice.screen()}")
-            passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
-            assertEquals(show, alice.engine { device.show }, "still shown")
+        // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            val life = lifeOfBob(bob)
+            bobCastsAGlint()
+            val show = assertNotNull(alice.shown.show)
+            holding(alice.tagged(PLAY_SHOW_TAG)) {
+                assertTrue(alice.shows(hasContentDescription("Card inspection content")), "the shown card inspected: ${alice.screen()}")
+                passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
+                assertEquals(show, alice.engine { device.show }, "still shown")
+            }
+            waitUntil("the Inspect closed") { !alice.shows(hasContentDescription("Card inspection content")) }
+            waitUntil("the show over by itself once lifted") { alice.shown.show == null && lifeOfBob(alice) == life + 2 }
         }
-        waitUntil("the Inspect closed") { !alice.shows(hasContentDescription("Card inspection content")) }
-        waitUntil("the show over by itself once lifted") { alice.shown.show == null && lifeOfBob(alice) == life + 2 }
     }
 
     // HIS-021, TBL-011: a pan is no pause: the finger stays down moving the table and the show ends by its time meanwhile
     @Test fun aPanIsNoPause() {
         start()
-        bobCastsAGlint()
-        val show = assertNotNull(alice.shown.show)
-        holding(alice.table(), millis = 2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS, moveFirst = Offset(0f, 60f), at = besideTheShow) {
-            assertFalse(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "no pause icon: ${alice.screen()}")
-            assertNull(alice.engine { device.show?.takeIf { it == show } }, "the show ended under the pan")
+        // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            bobCastsAGlint()
+            val show = assertNotNull(alice.shown.show)
+            holding(alice.table(), millis = 2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS, moveFirst = Offset(0f, 60f), at = besideTheShow) {
+                assertFalse(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "no pause icon: ${alice.screen()}")
+                assertNull(alice.engine { device.show?.takeIf { it == show } }, "the show ended under the pan")
+            }
         }
     }
 }

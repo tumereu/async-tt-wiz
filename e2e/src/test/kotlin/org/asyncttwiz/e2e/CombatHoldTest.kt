@@ -49,38 +49,41 @@ class CombatHoldTest : E2e() {
     // its time
     @Test fun aCombatHoldsBothViewsOnTheAttackersAndTheDamage() {
         aliceDeclaring(HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
-        val life = alice.state.player(bob.me).life
-        alice.declare("Attack (1)", this)
-        waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-        val at = alice.shown.tip
-        run(skip = Duration.ofMillis(200))
-        assertEquals(at, alice.shown.tip, "her phone makes nothing of its own meanwhile")
-        // A single tap on the table does nothing at all
-        alice.tapTable()
-        run()
-        assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a single tap")
-        // Her hold never holds the game: Bob's phone hears the attack and holds too
-        waitUntil("the attackers hold Bob's view") { bob.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-        // A double tap on the table skips it, doing nothing else: it doesn't zoom the table (TBL-012)
-        val field = alice.battlefieldBounds()
-        run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
-        alice.doubleTapTable()
-        // Skipped, her phone goes on at once by itself (HIS-096: Bob's passes right after her attack are assumed, and he has
-        // no blockers) to the damage, which may hold her view already
-        waitUntil("Alice's hold skipped") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
-        assertTrue(!alice.refusalSeen)
-        // Bob's hold ends by its time; he answers as he plays along, no blocks possible with no creatures
-        waitUntil("the damage holds Alice's view", along = listOf(bob)) {
-            if (alice.status is GameDevice.Status.Waiting && (alice.status as GameDevice.Status.Waiting).offer != null) alice.once { alice.game!!.assume(emptyList()); alice.lobby.engineSent() }
-            if (alice.status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
-            alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage
+        // The frames' clock in step with the real one: a hold can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            val life = alice.state.player(bob.me).life
+            alice.declare("Attack (1)", this)
+            waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
+            val at = alice.shown.tip
+            run(skip = Duration.ofMillis(200))
+            assertEquals(at, alice.shown.tip, "her phone makes nothing of its own meanwhile")
+            // A single tap on the table does nothing at all
+            alice.tapTable()
+            run()
+            assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a single tap")
+            // Her hold never holds the game: Bob's phone hears the attack and holds too
+            waitUntil("the attackers hold Bob's view") { bob.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
+            // A double tap on the table skips it, doing nothing else: it doesn't zoom the table (TBL-012)
+            val field = alice.battlefieldBounds()
+            run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
+            alice.doubleTapTable()
+            // Skipped, her phone goes on at once by itself (HIS-096: Bob's passes right after her attack are assumed, and he has
+            // no blockers) to the damage, which may hold her view already
+            waitUntil("Alice's hold skipped") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
+            assertTrue(!alice.refusalSeen)
+            // Bob's hold ends by its time; he answers as he plays along, no blocks possible with no creatures
+            waitUntil("the damage holds Alice's view", along = listOf(bob)) {
+                if (alice.status is GameDevice.Status.Waiting && (alice.status as GameDevice.Status.Waiting).offer != null) alice.once { alice.game!!.assume(emptyList()); alice.lobby.engineSent() }
+                if (alice.status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+                alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage
+            }
+            // Still in combat (the combat band as at the attackers), the table where it was: the double tap didn't zoom it.
+            // (Compared once the game moved on, the band gone after combat, it sits 56 dp higher: that is no zoom.)
+            assertEquals(field, alice.battlefieldBounds(), "the double tap didn't zoom the table")
+            assertEquals(life - 1, alice.state.player(bob.me).life, "the board shows the damage dealt while it holds")
+            waitUntil("the hold over by itself, Alice's phone on past it", along = listOf(bob)) { alice.shown.combatHold == null }
+            assertNull(alice.shown.show)
         }
-        // Still in combat (the combat band as at the attackers), the table where it was: the double tap didn't zoom it.
-        // (Compared once the game moved on, the band gone after combat, it sits 56 dp higher: that is no zoom.)
-        assertEquals(field, alice.battlefieldBounds(), "the double tap didn't zoom the table")
-        assertEquals(life - 1, alice.state.player(bob.me).life, "the board shows the damage dealt while it holds")
-        waitUntil("the hold over by itself, Alice's phone on past it", along = listOf(bob)) { alice.shown.combatHold == null }
-        assertNull(alice.shown.show)
     }
 
     /** This player's screen shows [owner]'s [name] on their battlefield with [damage] damage marked (TBL-024). */
@@ -124,29 +127,32 @@ class CombatHoldTest : E2e() {
         val blocker = bob.field("Ash Pup").single()
         val blocked = attack.attacks.first().attacker
         val block = arcanum.engine.input.Input.DeclareBlockers(bob.me, listOf(arcanum.engine.input.Block(blocker, blocked)))
-        // Bob's phone too, whoever made the damage's event: his own Pup shown with its damage while his view holds
-        var bobSaw = false
-        everyRun += { if (bob.game?.shown?.combatHold?.kind == GameDevice.CombatMoment.Damage && bob.showsDamaged("Ash Pup", bob, 1)) bobSaw = true }
-        assertTrue(bob.game!!.send(listOf(block)) !is GameDevice.Acted.Refused)
-        val life = alice.state.player(bob.me).life
-        waitUntil("the damage holding Alice's view with the damage on her screen", along = listOf(bob)) {
-            val status = alice.status
-            if (status is GameDevice.Status.Waiting && status.offer != null) alice.once { alice.game!!.assume(emptyList()); alice.lobby.engineSent() }
-            if (status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
-            alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && alice.showsDamaged("Ash Pup", bob, 1)
+        // The frames' clock in step with the real one: a hold can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            // Bob's phone too, whoever made the damage's event: his own Pup shown with its damage while his view holds
+            var bobSaw = false
+            everyRun += { if (bob.game?.shown?.combatHold?.kind == GameDevice.CombatMoment.Damage && bob.showsDamaged("Ash Pup", bob, 1)) bobSaw = true }
+            assertTrue(bob.game!!.send(listOf(block)) !is GameDevice.Acted.Refused)
+            val life = alice.state.player(bob.me).life
+            waitUntil("the damage holding Alice's view with the damage on her screen", along = listOf(bob)) {
+                val status = alice.status
+                if (status is GameDevice.Status.Waiting && status.offer != null) alice.once { alice.game!!.assume(emptyList()); alice.lobby.engineSent() }
+                if (status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+                alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && alice.showsDamaged("Ash Pup", bob, 1)
+            }
+            val s = alice.state
+            assertTrue(s.player(bob.me).graveyard.any { cardName(s, it) == "Ash Pup" }, "the game already put Bob's Pup into his graveyard")
+            assertTrue(alice.showsDamaged("Ash Pup", alice, 1), "her blocked Pup still shown with its damage: ${alice.screen()}")
+            assertTrue(alice.shows(hasContentDescription("${bob.name}, life ${life - 1}", substring = true)), "Bob's life down by one: ${alice.screen()}")
+            assertEquals(GameDevice.CombatMoment.Damage, alice.shown.combatHold?.kind, "still held")
+            waitUntil("the hold over, the blocked Pups dead on her screen", along = listOf(bob)) {
+                alice.shown.combatHold == null && !alice.showsOnBattlefield("Ash Pup", bob) && alice.field("Ash Pup").size == 1
+            }
+            assertEquals(1, alice.field("Ash Pup").size, "her unblocked Pup lives")
+            waitUntil("Bob's hold over too") { bob.shown.combatHold == null && !bob.showsOnBattlefield("Ash Pup", bob) }
+            everyRun.clear()
+            assertTrue(bobSaw, "Bob's view held on the damage with his dying Pup shown")
         }
-        val s = alice.state
-        assertTrue(s.player(bob.me).graveyard.any { cardName(s, it) == "Ash Pup" }, "the game already put Bob's Pup into his graveyard")
-        assertTrue(alice.showsDamaged("Ash Pup", alice, 1), "her blocked Pup still shown with its damage: ${alice.screen()}")
-        assertTrue(alice.shows(hasContentDescription("${bob.name}, life ${life - 1}", substring = true)), "Bob's life down by one: ${alice.screen()}")
-        assertEquals(GameDevice.CombatMoment.Damage, alice.shown.combatHold?.kind, "still held")
-        waitUntil("the hold over, the blocked Pups dead on her screen", along = listOf(bob)) {
-            alice.shown.combatHold == null && !alice.showsOnBattlefield("Ash Pup", bob) && alice.field("Ash Pup").size == 1
-        }
-        assertEquals(1, alice.field("Ash Pup").size, "her unblocked Pup lives")
-        waitUntil("Bob's hold over too") { bob.shown.combatHold == null && !bob.showsOnBattlefield("Ash Pup", bob) }
-        everyRun.clear()
-        assertTrue(bobSaw, "Bob's view held on the damage with his dying Pup shown")
     }
 
     // HIS-113, LOB-082: at Off there is no hold, though the combat is the same
@@ -172,17 +178,20 @@ class CombatHoldTest : E2e() {
     // Bob's phone is never held by it
     @Test fun aHeldFingerPausesTheCombatHold() {
         aliceDeclaring(HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
-        alice.declare("Attack (1)", this)
-        waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-        val at = alice.engine { device.session.tip }
-        holding(alice.table()) {
-            assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "the pause icon: ${alice.screen()}")
-            // Twice the longest time
-            passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
-            assertEquals(GameDevice.CombatMoment.Attackers, alice.engine { device.combatHold?.kind }, "paused while held")
-            assertEquals(at, alice.engine { device.session.tip }, "her phone makes nothing of its own meanwhile")
+        // The frames' clock in step with the real one: a hold can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            alice.declare("Attack (1)", this)
+            waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
+            val at = alice.engine { device.session.tip }
+            holding(alice.table()) {
+                assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "the pause icon: ${alice.screen()}")
+                // Twice the longest time
+                passWhileHeld(2 * HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
+                assertEquals(GameDevice.CombatMoment.Attackers, alice.engine { device.combatHold?.kind }, "paused while held")
+                assertEquals(at, alice.engine { device.session.tip }, "her phone makes nothing of its own meanwhile")
+            }
+            waitUntil("the hold over by itself once lifted", along = listOf(bob)) { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
+            waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
         }
-        waitUntil("the hold over by itself once lifted", along = listOf(bob)) { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
-        waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
     }
 }

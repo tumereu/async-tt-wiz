@@ -1,0 +1,1 @@
+fix: A cost to attack or block whose amount depends on the board now shows that amount on its chip (for example {3}) instead of X.

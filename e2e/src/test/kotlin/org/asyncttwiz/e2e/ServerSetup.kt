@@ -86,6 +86,11 @@ object ServerSetup {
         api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings))
     }
 
+    /** [account]'s "Your move" sound (LOB-146), as Settings saves it. */
+    fun moveSound(account: TestAccount, sound: org.asyncttwiz.protocol.MoveSound) = accountCall("move sound of ${account.name}") { api ->
+        api.setAccountSettings(account.token, api.accountSettings(account.token).copy(moveSound = sound))
+    }
+
     /** [account]'s latest notification of game [gameId] as the server keeps it (its activity summary, what the phone's
      * notification shows): its activity id and whether it says "your move"; null when there is none. Read from the
      * database: the activity API's rate limit is spent by the phones' own requests. */

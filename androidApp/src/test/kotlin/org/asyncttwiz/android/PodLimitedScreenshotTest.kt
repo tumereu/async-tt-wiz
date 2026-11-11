@@ -305,9 +305,10 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithText("Your pick · Stack: 10 cards").assertIsDisplayed()
     }
 
-    // DRF-165: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a wheel's
-    // cards taken since greyed under their own line, a header per round ("Round 2 · passed right") with a divider between
-    // rounds; "Returning packs only" leaves only the packs that came back; a failure offers Retry
+    // DRF-165, DRF-043: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a
+    // wheel's cards taken since greyed under their own line, a header per round naming where its packs went ("Round 2 ·
+    // passed to Carol · counter-clockwise") with a divider between rounds, and the seat ring at the top; "Returning packs
+    // only" leaves only the packs that came back and is remembered per pod; a failure offers Retry
     @Test fun draftHistoryShowsPacksWithKeepsBurnsAndCardsTakenSince() {
         fun c(vararg n: Int) = n.map { copies[it] }
         val picks = listOf(
@@ -316,30 +317,53 @@ class PodLimitedScreenshotTest {
             DraftHistoryPick(1, 4, c(1, 3, 5, 8), kept = listOf("copy-8"), burned = listOf("copy-1"), takenSince = c(4, 7, 9),
                 returning = true),
             DraftHistoryPick(2, 1, c(11, 12, 14, 15, 17), kept = listOf("copy-14"), burned = listOf("copy-17"), round = 2))
-        val history = PodDraftHistory(picks)
+        // Seated Alice, Bob, Carol: round 1 passes to the next seat (Bob, clockwise), round 2 back (Carol)
+        val history = PodDraftHistory(picks, seating = listOf("alice", "bob", "carol"))
         val shown = picks.flatMap { it.cards + it.takenSince }.distinctBy { it.id }
         var failed by mutableStateOf(false)
         var loaded by mutableStateOf<PodDraftHistory?>(history)
+        var pod by mutableStateOf("pod")
+        var columns by mutableStateOf(8)
         fun at(copy: DraftCopy) = picks.indices.filter { copy in picks[it].cards || copy in picks[it].takenSince }.map { "pod-history-$it-${copy.id}" }
         show({ at(it).first() }, shown, { at(it).drop(1) }) {
-            PodHistoryDialog(loaded, failed, definitions, 8, {}) {}
+            PodHistoryDialog(pod, loaded, failed, definitions, columns, members, "alice", {}) {}
         }
         compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
         compose.onNodeWithText("Taken since you last saw it").assertExists()
-        compose.onNodeWithText("Round 1 · passed left").assertExists()
-        compose.onNodeWithText("Round 2 · passed right").assertExists()
+        compose.onNodeWithTag("pod-history-round-1").assertTextEquals("Round 1 · passed to Bob · clockwise")
+        compose.onNodeWithTag("pod-history-round-2").assertTextEquals("Round 2 · passed to Carol · counter-clockwise")
+        // The seat ring shows the round at the top of the list
+        compose.onNodeWithTag("pod-history-seats-clockwise", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-history-seat-round").assertTextEquals("Round 1 · passed to Bob · clockwise")
         File(SCREENSHOTS).mkdirs()
-        captureShot(File(SCREENSHOTS, "pod-draft-history.png").path, "Draft history of a Glimpse draft with eight cards per " +
-            "row: four of Alice's picks in order under Round 1 · passed left and, after a divider, Round 2 · passed right, each " +
-            "pack as it came with her keep green and burns red; the pack that came round again lists the three cards taken " +
-            "since, greyed.")
+        captureShot(File(SCREENSHOTS, "pod-draft-history.png").path, "Draft history of a three-player Glimpse draft with eight " +
+            "cards per row: the seat ring of Alice, Bob and Carol at the top with clockwise arrows for round 1, then four of Alice's " +
+            "picks in order under Round 1 · passed to Bob · clockwise and, after a divider, Round 2 · passed to Carol · " +
+            "counter-clockwise, each pack as it came with her keep green and burns red; the pack that came round again lists " +
+            "the three cards taken since, greyed.")
+        // Two cards per row make the list taller than the screen; scrolled to round 2
+        compose.runOnIdle { columns = 2 }
+        compose.onNodeWithTag("pod-history-picks").performScrollToKey("round-1-2")
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-history-seats-counter-clockwise", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-history-seat-round").assertTextEquals("Round 2 · passed to Carol · counter-clockwise")
+        captureShot(File(SCREENSHOTS, "pod-draft-history-round-2.png").path, "The same draft history with two cards per row, scrolled to round 2: the " +
+            "seat ring's arrows turn counter-clockwise and its line reads Round 2 · passed to Carol · counter-clockwise.")
+        compose.runOnIdle { columns = 8 }
+        compose.onNodeWithTag("pod-history-picks").performScrollToKey("round-0-1")
         compose.onNodeWithTag("pod-history-returning").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Pack 1 · Pick 4").assertExists()
         compose.onNodeWithText("Pack 1 · Pick 1").assertDoesNotExist()
-        compose.onNodeWithText("Round 2 · passed right").assertDoesNotExist()
+        compose.onNodeWithTag("pod-history-round-2").assertDoesNotExist()
         captureShot(File(SCREENSHOTS, "pod-draft-history-returning.png").path, "The same draft history after tapping Returning " +
             "packs only: only the pack that came back to Alice in round 1 is left, with the cards taken since it was passed.")
+        // Remembered per pod on the device: another pod's history starts without it, this pod's comes back with it
+        compose.runOnIdle { pod = "other" }
+        compose.onNodeWithTag("pod-history-returning").assertIsNotSelected()
+        compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
+        compose.runOnIdle { pod = "pod" }
+        compose.onNodeWithTag("pod-history-returning").assertIsSelected()
         compose.onNodeWithTag("pod-history-returning").performClick()
         compose.runOnIdle { loaded = null; failed = true }
         compose.onNodeWithText("Couldn't load the draft history").assertExists()

@@ -19,7 +19,8 @@ import kotlin.test.assertTrue
  * Multiset drafting (owner, 2026-11-10): Alice, whose card records are the server's catalog (the test cards'), makes a
  * Booster pod whose first round is Test Set and whose second and third rounds are Thornwall Crossing, by tapping the pack
  * grid's row labels; she saves that as a preset, creates the pod and starts it with Bob. Every round's packs come from
- * its own set, and the preset brings the grid back to a new pod.
+ * its own set, and the preset brings the grid back to a new pod, where switching back to one set and choosing a set
+ * fills every pack.
  */
 class MultisetPodTest : E2e() {
     private val testSet = setOf("Test Bear", "Test Caller", "Test Bolt", "Test Knight")
@@ -52,7 +53,7 @@ class MultisetPodTest : E2e() {
         waitUntil("the set in the list") { alice.showsText("Test Set") }
         alice.node(hasClickAction() and hasAnyDescendant(hasText("Test Set"))).performScrollTo().performClick()
         waitUntil("the set chosen as the source") { alice.pods.state.creating?.set?.code == "TST" }
-        // One set by default; Mix sets opens the grid: three rounds of one pack (Booster's defaults)
+        // One set by default; the Mix sets toggle opens the grid: three rounds of one pack (Booster's defaults)
         waitUntil("Mix sets") { alice.shows(hasTestTag("mix-sets")) }
         alice.tagged("mix-sets").performScrollTo().performClick()
         waitUntil("the pack grid") { alice.shows(hasTestTag("pack-grid")) }
@@ -110,5 +111,19 @@ class MultisetPodTest : E2e() {
         alice.text(presetName).performClick()
         waitUntil("the preset's grid") { alice.pods.state.creating?.packs == listOf("TST", "TWL") }
         waitUntil("the grid shown") { alice.shows(hasTestTag("pack-grid")) }
+
+        // Back to one set (owner, 2026-11-11): the toggle hides the grid, the set button reads Mixed sets until a set is
+        // chosen there, which fills every pack
+        alice.tagged("mix-sets").performScrollTo().performClick()
+        waitUntil("the grid hidden") { !alice.shows(hasTestTag("pack-grid")) }
+        assertEquals(listOf("TST", "TWL"), alice.pods.state.creating!!.packs, "switching to one set changes no pack")
+        assertTrue(alice.showsText("Mixed sets"))
+        alice.tagged("pod-source").performScrollTo().performClick()
+        waitUntil("the Source dialog again") { alice.showsText("Sets") }
+        alice.node(hasText("Sets")).performClick()
+        waitUntil("Thornwall Crossing in the list") { alice.showsText("Thornwall Crossing") }
+        alice.node(hasClickAction() and hasAnyDescendant(hasText("Thornwall Crossing"))).performScrollTo().performClick()
+        waitUntil("Thornwall Crossing for every pack") { alice.pods.state.creating?.packs == listOf("TWL") }
+        assertTrue(!alice.shows(hasTestTag("pack-grid")))
     }
 }

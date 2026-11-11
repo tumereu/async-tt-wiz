@@ -1029,7 +1029,9 @@ class PodService(private val runtime: ServiceRuntime) {
             val state = draft(row, settings(row)).booster ?: return@transaction error(409, "wrong_draft_mode")
             val picks = DraftEngine.history(state, owner.toString())
             val digests = picks.flatMap { it.cards + it.takenSince }.map { it.definition }.toSet()
-            Result(200, json.encodeToString(PodDraftHistory(picks, StoredDefinitions.read(sql, digests))))
+            // DRF-165, DRF-043: the seating the history's round headers and seat ring show
+            log("history $id for $owner: ${picks.size} picks, seating ${state.seating}")
+            Result(200, json.encodeToString(PodDraftHistory(picks, StoredDefinitions.read(sql, digests), state.seating)))
         }
     }
 

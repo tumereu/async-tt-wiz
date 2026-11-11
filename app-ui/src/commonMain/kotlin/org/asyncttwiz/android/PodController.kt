@@ -43,6 +43,9 @@ data class PodState(
     val unreachable: Boolean = false,
     /** DRF-170: the open pod's chat panel is showing (personal UI). */
     val chatOpen: Boolean = false,
+    /** DRF-177: the creator's one set / mixed packs toggle in the open form (personal UI); null until toggled, which
+     * shows mixed packs while the pack grid mixes sets. */
+    val packMixing: Boolean? = null,
 )
 
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
@@ -123,7 +126,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     // DRF-169: a set goes to the pod by its code; the server builds its packs from its card catalog
     val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post) { set, target ->
-        state = state.copy(sourcePreview = null, sourceHint = null)
+        // DRF-177: the form stays in the mode it shows (mixed packs or one set) when a set is chosen
+        val mixing = formPacks()?.second?.let(::packMixing)
+        state = state.copy(sourcePreview = null, sourceHint = null, packMixing = mixing ?: state.packMixing)
         if (target != null) choosePackSet(target, set)
         else if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, set = set, packSets = emptyList()))
         else editSetup(set = set)
@@ -159,6 +164,16 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             return
         }
         editSetup(packSets = next)
+    }
+    /** Whether the open form shows mixed packs (DRF-177): as toggled, else while its pack grid mixes sets. */
+    fun packMixing(packs: List<String>): Boolean = state.packMixing ?: PodPackGrid.mixed(packs)
+    /** DRF-177: switches the open form between one set for every pack and mixed packs (the pack grid). Only the form
+     * changes: the pod's packs stay as they are until a set is chosen. */
+    fun togglePackMixing() {
+        val packs = formPacks()?.second ?: return
+        val mixing = !packMixing(packs)
+        AppLog.info("pods", "Pack grid: ${if (mixing) "mixed packs" else "one set"} (packs $packs)")
+        state = state.copy(packMixing = mixing)
     }
     /** Pod chats (owner, 2026-11-08), also read by a pod game's table. */
     val chat = PodChatController(api, credential, chatWorker, post)
@@ -199,7 +214,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false)
+            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false,
+            packMixing = null)
         refresh()
     }
     /** DRF-170: opens the open pod's chat. */
@@ -264,7 +280,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         setPicker.dismiss()
         state = state.copy(selected = null, detail = null, creating = NewPodDraft(suggest(), cubeId), setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = null, sourcePreview = null)
+            confirmation = null, choosingMember = false, error = null, notice = null, sourcePreview = null, packMixing = null)
         loadCubes()
     }
     fun newName(name: String) { state = state.copy(creating = state.creating?.copy(name = name)) }
@@ -339,6 +355,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 state = state.copy(sourceHint = "The cube of “${preset.name}” no longer exists. Choose a set or cube.")
             }
         }
+        // DRF-032, DRF-177: a preset's grid of several sets shows as mixed packs, one set as one set
+        state = state.copy(packMixing = null)
     }
     fun newMode(mode: DraftMode) = newSettings { podModeSettings(mode, it) }
     fun newSettings(change: (DraftSettings) -> DraftSettings) {

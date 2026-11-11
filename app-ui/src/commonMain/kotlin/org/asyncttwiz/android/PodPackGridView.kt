@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -20,25 +20,41 @@ import org.asyncttwiz.storage.DraftableSet
 import org.asyncttwiz.appui.AppPlatform
 
 /** What the setup form shows of a set pod's pack grid (DRF-177): each pack's set read row by row (normalized), the card
- * records' sets for names and symbols, and [choose] (null: read-only) to pick a set for some of its packs (DRF-178). */
-class PodPackGridUi(val packs: List<String>, val set: (String) -> DraftableSet?, val choose: ((PodPackTarget) -> Unit)?)
+ * records' sets for names and symbols, [choose] (null: read-only) to pick a set for some of its packs (DRF-178), whether
+ * the form shows mixed packs ([mixing]: the grid) or one set, and [toggle] (null: can't be switched now) between them. */
+class PodPackGridUi(val packs: List<String>, val set: (String) -> DraftableSet?, val choose: ((PodPackTarget) -> Unit)?,
+    val mixing: Boolean = PodPackGrid.mixed(packs), val toggle: (() -> Unit)? = null)
 
 /**
- * DRF-177: by default one set for the whole pod, with a "Mix sets" button that opens the pod's pack grid; a grid that mixes
- * sets is always shown (read-only for members). Modes without a grid (Rotisserie) show nothing.
+ * DRF-177: the creator's toggle beside the source button, between one set for every pack and mixed packs (the pack grid).
+ * Always shown (the always-show rule for actions), greyed where packs can't be mixed (a cube, no set chosen yet,
+ * Rotisserie); holding it says what it does, or why it is greyed.
  */
+@Composable
+fun PodPackMixToggle(settings: DraftSettings, source: PodSource?, grid: PodPackGridUi?) {
+    val why = when {
+        source?.kind == PodSourceKind.CUBE && source.cubeName.isNotBlank() -> "Only sets can be mixed, not a cube"
+        source?.kind != PodSourceKind.SET || grid == null -> "Choose a set first"
+        PodPackGrid.rows(settings) == null -> "${podModeName(settings.mode)} takes one set"
+        else -> null
+    }
+    val toggle = grid?.toggle.takeIf { why == null }
+    val mixing = why == null && grid?.mixing == true
+    HoldTip(why ?: if (mixing) "One set for every pack" else "Mix sets: choose each pack's set") {
+        OutlinedIconToggleButton(mixing, { toggle?.invoke() }, Modifier.size(48.dp).testTag("mix-sets"), enabled = toggle != null,
+            shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, if (mixing) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outline.copy(alpha = if (toggle != null) 1f else .4f)),
+            colors = IconButtonDefaults.outlinedIconToggleButtonColors(checkedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                checkedContentColor = MaterialTheme.colorScheme.primary)) {
+            EntryIcon("Mix sets", "pack-grid")
+        }
+    }
+}
+
+/** DRF-177, DRF-178: the pod's pack grid, shown while the form shows mixed packs. Modes without a grid (Rotisserie) show nothing. */
 @Composable
 fun PodPackGridSection(settings: DraftSettings, grid: PodPackGridUi) {
     val rows = PodPackGrid.rows(settings) ?: return
-    var open by rememberSaveable { mutableStateOf(false) }
-    val mixed = PodPackGrid.mixed(grid.packs)
-    if (!open && !mixed) {
-        if (grid.choose != null) ScreenOutlinedButton({ open = true; AppLog.info("pods", "Pack grid opened: ${grid.packs}") },
-            Modifier.testTag("mix-sets")) {
-            EntryIcon(null, "pack-grid"); Spacer(Modifier.width(8.dp)); Text("Mix sets")
-        }
-        return
-    }
     PodPackGridView(settings, rows, PodPackGrid.cells(grid.packs, settings), grid)
 }
 

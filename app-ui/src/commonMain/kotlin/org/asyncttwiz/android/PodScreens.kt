@@ -274,9 +274,11 @@ private fun podSourceSupport(controller: PodController, cubeId: String?, setCode
     return supports.firstOrNull()?.let { first -> if (supports.size == 1) first else first.copy(byHand = supports.flatMap { it.byHand }.distinct()) }
 }
 
-/** The pack grid (DRF-177) of the set pod form being shown: its sets from the card records, editable when [editable]. */
+/** The pack grid (DRF-177) of the set pod form being shown: its sets from the card records, editable and switchable
+ * between one set and mixed packs when [editable]. */
 private fun podPackGridUi(controller: PodController, packs: List<String>, editable: Boolean): PodPackGridUi? =
-    packs.takeIf { it.isNotEmpty() }?.let { PodPackGridUi(it, controller.setPicker.state::set, controller::choosePacks.takeIf { editable }) }
+    packs.takeIf { it.isNotEmpty() }?.let { PodPackGridUi(it, controller.setPicker.state::set, controller::choosePacks.takeIf { editable },
+        controller.packMixing(it), controller::togglePackMixing.takeIf { editable }) }
 
 @Composable
 private fun NewPodScreen(controller: PodController) {
@@ -400,7 +402,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
             // DRF-165: on the Draft tab History is above the pack; on the others, while building and after, it is up here.
-            if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, definitions, historyColumns)
+            if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
             PodChatButton(controller, detail.id, accountId)
             PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
                 historyColumns.takeIf { detail.settings.mode.packPassing })
@@ -413,7 +415,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             PodPicksButton(detail, accountId, definitions)
         // DRF-165: Booster and Glimpse show your own picks with their packs.
         if (selected == PodTab.DRAFT && detail.settings.mode.packPassing && detail.phase == PodPhase.DRAFTING)
-            PodHistoryButton(controller, definitions, historyColumns)
+            PodHistoryButton(controller, detail, accountId, definitions, historyColumns)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 // Section 3.6: pod picks wait for the card records

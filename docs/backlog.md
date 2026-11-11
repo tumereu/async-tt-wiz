@@ -18,10 +18,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
-- Mix sets (DRF-177, DRF-178, DRF-032): the set button itself opens today's set list; the pen icon beside it becomes a toggle between one set and mixed packs. One set: the chosen set (or cube) fills every pack, also packs added later. Mixed: the pack grid shows, its cells chosen one by one as today. Back in one set after mixing, the button says "Mixed" until a set is chosen there, which then fills every pack. Cubes have no mixed mode.
-- Drafted cards' printings (DRF-090, the pool, Build and the saved deck): a set pod's cards are printings of the pack's own set: the printing its booster recipe drew (variants of that set included, so the same card may differ in art), and in an approximate pack one of that set's printings of the card at random; never another set's printing. Cube pods keep the cube's printings.
-- Draft history directions (DRF-165, DRF-043): round headers name where the packs went ("Round 1 · passed to Bob"), with "clockwise" / "counter-clockwise" only with three or more players; a seat ring of the pod's avatars at the top of the history shows the seating with the round's direction as an arrow.
-- Draft history's "Returning packs only" chip (DRF-165) is remembered per pod on the device.
 - "Your move" sound on the web client (LOB-146, TRN-075; built for Android 2026-11-11): the browser side of `playPcm` (the sounds are made in common code), playing also in a background tab.
 
 Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, tokens in Inspect, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).

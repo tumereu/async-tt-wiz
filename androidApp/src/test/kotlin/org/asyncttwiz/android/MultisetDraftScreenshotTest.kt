@@ -21,7 +21,7 @@ import kotlin.test.assertEquals
 
 /**
  * Multiset drafting for the owner's gallery: set symbols in the Sets tab (DRF-176) and the pack grid (DRF-177, DRF-178):
- * one set by default with Mix sets, the open grid, a row label, a column label and a single cell chosen, Sealed's one row
+ * one set by default with the Mix sets toggle, the open grid, back to one set, a cube's greyed toggle, a row label, a column label and a single cell chosen, Sealed's one row
  * and a preset saved with a grid. The creator's setup is shown from seeded pod state and driven by taps; nothing is sent
  * (the worker never runs requests). Real set names and symbols, so the symbols show as players see them.
  */
@@ -102,17 +102,55 @@ class MultisetDraftScreenshotTest {
             "Duskmourn, greyed with the warning sign, can't be chosen.")
     }
 
-    // DRF-177: one set for every pack by default, with Mix sets under the source; then the open grid
+    // DRF-177, DRF-018: one set for every pack by default: the set button and the Mix sets toggle beside it; the toggle
+    // opens the grid
     @Test fun oneSetThenTheOpenGrid() {
         show(detail(sixPacks, source("RTR")))
-        compose.onNodeWithTag("mix-sets").assertIsDisplayed()
+        compose.onNodeWithTag("pod-source").assertIsDisplayed().assertHasClickAction()
+        compose.onNodeWithTag("mix-sets").assertIsDisplayed().assertIsEnabled().assertIsOff()
         compose.onNodeWithTag("pack-grid").assertDoesNotExist()
         shot("multiset-one-set", "The creator's setup of a Booster pod from Return to Ravnica with 6 packs, 2 open at once: one set " +
-            "for every pack, with Mix sets under the source.")
+            "for every pack, the set's name on the source button with the Mix sets toggle beside it, off.")
         tap("mix-sets")
+        compose.onNodeWithTag("mix-sets").assertIsOn()
         compose.onNodeWithTag("pack-grid").assertIsDisplayed()
-        shot("multiset-grid-open", "Tapping Mix sets opens the pack grid: Pack 1 and Pack 2 across, Round 1 to Round 3 down, every cell " +
-            "Return to Ravnica's symbol over its code.")
+        shot("multiset-grid-open", "Tapping the Mix sets toggle switches it on and shows the pack grid: Pack 1 and Pack 2 across, Round 1 " +
+            "to Round 3 down, every cell Return to Ravnica's symbol over its code.")
+    }
+
+    // DRF-177: back in one set after mixing, the button says Mixed sets until a set is chosen there, which fills every pack
+    @Test fun backToOneSetAfterMixing() {
+        show(detail(sixPacks, source("RTR")))
+        tap("mix-sets")
+        tap("pack-row-1")
+        choose("Gatecrash")
+        tap("mix-sets")
+        compose.onNodeWithTag("mix-sets").assertIsOff()
+        compose.onNodeWithTag("pack-grid").assertDoesNotExist()
+        compose.onNodeWithTag("pod-source").assertTextContains("Mixed sets")
+        assertEquals(listOf("RTR", "RTR", "GTC", "GTC", "RTR", "RTR"), cells(), "switching shows one set but changes no pack")
+        shot("multiset-back-to-one-set", "After making round 2 Gatecrash in the grid, tapping the Mix sets toggle again switches it off: " +
+            "the grid hides and the source button reads Mixed sets.")
+        tap("pod-source")
+        compose.onNodeWithText("Sets").performClick()
+        settle()
+        choose("Dragon's Maze")
+        assertEquals(List(6) { "DGM" }, cells())
+        compose.onNodeWithTag("pod-source").assertTextContains("Dragon's Maze")
+        compose.onNodeWithTag("pack-grid").assertDoesNotExist()
+        // Packs added later take the same set (DRF-179)
+        assertEquals(listOf("DGM"), pods.state.setup!!.packSets ?: listOf(pods.state.setup!!.set!!.code))
+    }
+
+    // DRF-177: a cube has no mixed packs: the toggle stays, greyed, and holding it says why
+    @Test fun aCubeGreysTheToggle() {
+        show(detail(sixPacks, PodSource("Runes", 540)))
+        compose.onNodeWithTag("mix-sets").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithTag("mix-sets").performTouchInput { longClick() }
+        settle()
+        compose.onNodeWithText("Only sets can be mixed, not a cube").assertIsDisplayed()
+        shot("multiset-cube-toggle", "The creator's setup of a Booster pod from the cube Runes: the Mix sets toggle beside the source " +
+            "button is greyed, and holding it says only sets can be mixed, not a cube.")
     }
 
     // DRF-178: a row label, a column label and a single cell
@@ -123,7 +161,7 @@ class MultisetDraftScreenshotTest {
         compose.onNodeWithTag("pack-set-title").assertTextEquals("Set for Round 2")
         choose("Gatecrash")
         assertEquals(listOf("RTR", "RTR", "GTC", "GTC", "RTR", "RTR"), cells())
-        shot("multiset-row", "After Mix sets, tapping the row label Round 2 and choosing Gatecrash in the set list makes both packs " +
+        shot("multiset-row", "After switching the Mix sets toggle on, tapping the row label Round 2 and choosing Gatecrash in the set list makes both packs " +
             "of round 2 Gatecrash; the source now reads Mixed sets.")
         tap("pack-column-0")
         compose.onNodeWithTag("pack-set-title").assertTextEquals("Set for Pack 1")

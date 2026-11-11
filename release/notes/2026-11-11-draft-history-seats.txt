@@ -1,0 +1,1 @@
+add: Draft history shows who sits where in a ring at the top, and each round says whom your packs passed to.

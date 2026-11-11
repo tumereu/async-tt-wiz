@@ -1,19 +1,43 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.DraftCopy
 import org.asyncttwiz.protocol.DraftHistoryPick
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
-/** The draft history's rounds (DRF-165, owner 2026-11-10): headers with the passing direction and the returning filter. */
+/** The draft history's rounds (DRF-165, owner 2026-11-10 and 2026-11-11): headers naming where the packs went and the
+ * returning filter. */
 class PodHistoryRoundsTest {
     private fun pick(round: Int, pick: Int, returning: Boolean = false) =
         DraftHistoryPick(round, pick, emptyList(), emptyList(), round = round, returning = returning)
 
-    // DRF-165, DRF-043: round 1 passes left, and the direction flips each round
-    @Test fun roundHeadersSayWhichWayThePacksPassed() {
-        assertEquals("Round 1 · passed left", podHistoryRoundHeader(1))
-        assertEquals("Round 2 · passed right", podHistoryRoundHeader(2))
-        assertEquals("Round 3 · passed left", podHistoryRoundHeader(3))
+    private val names = mapOf("alice" to "Alice", "bob" to "Bob", "carol" to "Carol", "dave" to "Dave")
+
+    // DRF-165, DRF-043: round 1 passes to the next seat, the direction flipping each round; with two players the header
+    // names only the player, with three or more also the way round
+    @Test fun roundHeadersNameWhereThePacksWent() {
+        val two = listOf("bob", "alice")
+        assertEquals("Round 1 · passed to Bob", podHistoryRoundHeader(1, two, "alice", names::getValue))
+        assertEquals("Round 2 · passed to Bob", podHistoryRoundHeader(2, two, "alice", names::getValue))
+        val four = listOf("alice", "bob", "carol", "dave")
+        assertEquals("Round 1 · passed to Dave · clockwise", podHistoryRoundHeader(1, four, "carol", names::getValue))
+        assertEquals("Round 2 · passed to Bob · counter-clockwise", podHistoryRoundHeader(2, four, "carol", names::getValue))
+        assertEquals("Round 3 · passed to Alice · clockwise", podHistoryRoundHeader(3, four, "dave", names::getValue))
+        // Without the seating, the round alone
+        assertEquals("Round 1", podHistoryRoundHeader(1, emptyList(), "alice", names::getValue))
+        assertNull(podHistoryPassedTo(four, "eve", 1))
+    }
+
+    // DRF-165: the seat ring follows the round of the item at the top of the list
+    @Test fun eachListItemBelongsToItsRound() {
+        fun copy(n: Int) = DraftCopy("c$n", "d$n")
+        val picks = listOf(DraftHistoryPick(1, 1, listOf(copy(1), copy(2)), emptyList()),
+            DraftHistoryPick(1, 2, listOf(copy(3)), emptyList(), takenSince = listOf(copy(4), copy(5)), returning = true),
+            DraftHistoryPick(2, 1, listOf(copy(6)), emptyList(), round = 2))
+        // Round 1: its header, pick 1's header and 2 cards, pick 2's header, 1 card, the Taken since line and 2 cards; round 2:
+        // its header, the pick's header and 1 card
+        assertEquals(List(9) { 1 } + List(3) { 2 }, podHistoryItemRounds(podHistoryRounds(picks, returningOnly = false)))
     }
 
     // DRF-165: picks grouped by round in order, keeping their places; Returning packs only leaves only packs that came back,

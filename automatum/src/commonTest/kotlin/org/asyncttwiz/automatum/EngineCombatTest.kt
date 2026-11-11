@@ -191,4 +191,25 @@ class EngineCombatTest {
         assertTrue(bear in choices.enlistable)
         assertEquals(setOf(shieldwall), choices.banding)
     }
+
+    // CMB-034 (problem reports WCRF3Q, R8XVPA): a block staging left on the table from an earlier combat (a declaration made
+    // at an assumption can't end it) shows only blocks of creatures on the battlefield and of attackers in this combat; its
+    // blocker that is gone (a token that died) is no combat copy the board can't show
+    @Test fun aLeftoverBlockStagingShowsOnlyCreaturesThatAreThere() {
+        val (bear) = table.put(alice, Zone.Battlefield, "Stout Bear")
+        val (ogre) = table.put(bob, Zone.Battlefield, "Hill Ogre")
+        val blockers = toBlockers(declaredAttackers(listOf(LaneAttack(bear))))
+        val gone = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("bob.gone"), 0)
+        fun board(draft: List<arcanum.engine.input.Block>) = EngineProjection.project(table.base(),
+            org.asyncttwiz.protocol.game.GameModel(blockers.deepCopy(), org.asyncttwiz.protocol.game.TableState(blockDraft = draft)),
+            bob, "node").board
+        val stale = board(listOf(arcanum.engine.input.Block(gone, table.obj(bear))))
+        val pair = assertNotNull(stale.combat).pairs.single()
+        assertTrue(pair.blockers.isEmpty(), "no blocker that is gone: ${pair.blockers}")
+        for (occurrence in CombatStackRules.occurrences(stale.combat))
+            assertNotNull(CombatStackRules.inspection(stale, occurrence.id), "combat copy ${occurrence.id}")
+        // The Ogre's staged block still shows
+        val staged = board(listOf(arcanum.engine.input.Block(table.obj(ogre), table.obj(bear))))
+        assertEquals(listOf(ogre), assertNotNull(staged.combat).pairs.single().blockers.map { it.sourceId })
+    }
 }

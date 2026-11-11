@@ -36,6 +36,17 @@ class CombatStackPresentationTest {
             CombatDestination(declared.board.combat!!.id, CombatRole.BLOCKER, declared.board.combat!!.pairs.first().id))
     }
 
+    // CMB-007 (problem reports WCRF3Q, R8XVPA): a combat copy whose card the board doesn't have (a blocker that is gone) is
+    // left out of the band, and said in the app log, instead of crashing the table on every drawing
+    @Test fun aCombatCopyWithoutItsCardIsLeftOutAndLogged() {
+        val state = populated()
+        val board = state.board.copy(cards = state.board.cards.filterNot { it.id == combatId(22) })
+        val geometry = CombatStackPresentation.combat(board, 48f, 68f, head = "head-1")
+        assertEquals(listOf(combatId(20), combatId(21), combatId(23)), geometry.cards.map { it.card.id }.sorted())
+        val missing = CombatStackRules.occurrences(board.combat).single { it.sourceId == combatId(22) }
+        assertTrue(AppLog.text().lines().any { "E/combat" in it && missing.id in it && "head-1" in it }, AppLog.text().takeLast(800))
+    }
+
     // CMB-008
     @Test fun packedPairWidthsUseUprightCardsAndOnlyInteriorDividers() {
         val state = populated().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->

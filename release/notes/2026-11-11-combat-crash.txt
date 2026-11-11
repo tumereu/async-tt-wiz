@@ -1,0 +1,1 @@
+fix: Games no longer crash when blockers are declared in a later combat after a block was declared while the other player had assumed there would be none.

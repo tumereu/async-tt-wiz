@@ -1,0 +1,1 @@
+After making round 2 Gatecrash in the grid, tapping the Mix sets toggle again switches it off: the grid hides and the source button reads Mixed sets.

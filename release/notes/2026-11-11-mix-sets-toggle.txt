@@ -1,0 +1,1 @@
+mod: In pod setup, tap the set's name to choose a set; the button beside it switches between one set for every pack and choosing each pack's set.

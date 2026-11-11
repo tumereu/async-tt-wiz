@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
@@ -156,16 +157,21 @@ fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, m
     // The other settings follow as choices, not fields: the action key only closes the keyboard.
     OutlinedTextField(name, rename, Modifier.fillMaxWidth(), label = { Text("Pod name") }, singleLine = true,
         readOnly = !editable, keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = hideKeyboardActions(), trailingIcon = reroll?.let { action -> { ScreenIconButton("Suggest another pod name", "shuffle", action) } })
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // DRF-177: a pack grid of several sets reads "Mixed sets"
-        Text(source?.let { if (it.kind == PodSourceKind.SET) (if (grid != null && PodPackGrid.mixed(grid.packs)) "Mixed sets" else null)
-            ?: it.setName ?: it.setCode.orEmpty() else it.cubeName }
-            ?.takeIf { it.isNotBlank() } ?: "No source", Modifier.weight(1f))
+    val setGrid = grid?.takeIf { source?.kind == PodSourceKind.SET }
+    // DRF-177: a pack grid of several sets reads "Mixed sets", also while the form shows one set
+    val label = source?.let { if (it.kind == PodSourceKind.SET) (if (setGrid != null && PodPackGrid.mixed(setGrid.packs)) "Mixed sets" else null)
+        ?: it.setName ?: it.setCode.orEmpty() else it.cubeName }?.takeIf { it.isNotBlank() } ?: "No source"
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // DRF-018: the creator's source button opens the Source dialog
+        if (editable) ScreenOutlinedButton(chooseSource, Modifier.weight(1f).testTag("pod-source")) {
+            Text(label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            EntryIcon("Change source", "switch")
+        } else Text(label, Modifier.weight(1f))
         // DRF-161: the chosen cube's or set's Automatum support
         AutomatumSupportIcon(automatum, Modifier.testTag("automatum-support"))
-        if (editable) ScreenIconButton("Change source", "edit", chooseSource)
+        if (editable) PodPackMixToggle(settings, source, setGrid)
     }
-    if (source?.kind == PodSourceKind.SET && grid != null) PodPackGridSection(settings, grid)
+    if (setGrid != null && setGrid.mixing) PodPackGridSection(settings, setGrid)
     PodSettingsFields(settings, members, editable, source ?: PodSource(), change)
 }
 

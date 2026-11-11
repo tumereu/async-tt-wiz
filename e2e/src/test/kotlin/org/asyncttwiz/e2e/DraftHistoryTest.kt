@@ -144,8 +144,9 @@ class DraftHistoryTest : E2e() {
         waitUntil("the history closed, back at Build") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.shows(hasTestTag("pod-history")) }
     }
 
-    // DRF-165 (owner, 2026-11-10): the history shows a header per round with the way its packs passed, and Returning packs
-    // only leaves just the packs that came back to you in a round (here the first pack's last card, given automatically)
+    // DRF-165, DRF-043 (owner, 2026-11-10 and 2026-11-11): the history shows a header per round naming where its packs
+    // went and a seat ring of the pod's real seating; Returning packs only leaves just the packs that came back to you in a
+    // round (here the first pack's last card, given automatically), and stays on for this pod when the history opens again
     @Test fun historyHasRoundHeadersAndReturningPacksOnly() {
         launchPlayers()
         val name = "E2E History rounds ${UUID.randomUUID().toString().take(6)}"
@@ -158,20 +159,34 @@ class DraftHistoryTest : E2e() {
         alice.text(name).performScrollTo().performClick()
         waitUntil("Alice's History button") { alice.shows(hasTestTag("pod-history")) }
         alice.tagged("pod-history").performClick()
+        // Two players: the packs always go to the other one, with no way round named
+        val round1 = hasTestTag("pod-history-round-1") and hasText("Round 1 · passed to ${bob.name}")
+        val round2 = hasTestTag("pod-history-round-2") and hasText("Round 2 · passed to ${bob.name}")
         waitUntil("both rounds in Alice's history") {
-            alice.pods.history?.picks?.count { !it.automatic } == 3 &&
-                alice.showsText("Round 1 · passed left") && alice.showsText("Pack 1 · Pick 1")
+            alice.pods.history?.picks?.count { !it.automatic } == 3 && alice.shows(round1) && alice.showsText("Pack 1 · Pick 1")
         }
-        alice.node(hasTestTag("pod-history-picks")).performScrollToNode(hasText("Round 2 · passed right"))
-        waitUntil("round 2's header") { alice.showsText("Round 2 · passed right") }
+        // The seating is the server's, both players in it; the ring shows it
+        val seating = kotlinx.serialization.json.Json.decodeFromString<List<String>>(
+            E2eStack.query("select (draft_state::jsonb)->'seating' from pod where id = '$pod'").single())
+        kotlin.test.assertEquals(seating, alice.pods.history!!.seating)
+        kotlin.test.assertEquals(setOf(alice.account.identity.accountId, bob.account.identity.accountId), seating.toSet())
+        waitUntil("the seat ring") { alice.shows(hasTestTag("pod-history-seats")) }
+        alice.node(hasTestTag("pod-history-picks")).performScrollToNode(round2)
+        waitUntil("round 2's header") { alice.shows(round2) }
         val returning = alice.pods.history!!.picks.withIndex().filter { it.value.returning }
         kotlin.test.assertEquals(listOf(Triple(1, 3, true)), returning.map { Triple(it.value.round, it.value.pick, it.value.automatic) },
             "the one pack that came back to Alice: her first pack's last card")
         alice.tagged("pod-history-returning").performClick()
-        waitUntil("only the returning pack") {
-            alice.shows(hasTestTag("pod-history-header-${returning.single().index}")) && alice.showsText("Round 1 · passed left") &&
-                !alice.showsText("Pack 1 · Pick 1") && !alice.showsText("Round 2 · passed right")
+        val onlyReturning = {
+            alice.shows(hasTestTag("pod-history-header-${returning.single().index}")) && alice.shows(round1) &&
+                !alice.showsText("Pack 1 · Pick 1") && !alice.shows(hasTestTag("pod-history-round-2"))
         }
+        waitUntil("only the returning pack") { onlyReturning() }
+        // Remembered for this pod on the phone: closed and opened again, the history still shows only the returning pack
+        alice.node(hasContentDescription("Close draft history")).performClick()
+        waitUntil("the history closed") { !alice.shows(hasTestTag("pod-history-dialog")) }
+        alice.tagged("pod-history").performClick()
+        waitUntil("the returning pack only, again") { alice.pods.history != null && onlyReturning() }
         alice.tagged("pod-history-returning").performClick()
         waitUntil("every pick again") { alice.showsText("Pack 1 · Pick 1") }
     }

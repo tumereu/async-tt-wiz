@@ -148,7 +148,7 @@ number	item	screenshot	catalog	decisions	sequence
 147	Draft: Winchester tables chip row	pod-winchester-tables.png	DRF-158 DRF-159
 148	Draft: Winston tables chip row	pod-winston-tables.png	DRF-156 DRF-157
 149	Draft: Rotisserie pick queue	pod-rotisserie-queue.png	DRF-164 DRF-153
-150	Draft: Booster draft history	pod-draft-history.png	DRF-165 DRF-160
+150	Draft: Booster draft history with the seat ring	pod-draft-history.png	DRF-165 DRF-160 DRF-043
 151	Draft: Stats mana curve by colour	pod-stats-color.png	DRF-111
 152	Draft: Basics dialog with its basics and lands count	pod-build-basics-dialog.png	DRF-103
 153	Card states on the chip	states/card-state-chips.png	TBL-133 TBL-113
@@ -206,7 +206,7 @@ number	item	screenshot	catalog	decisions	sequence
 205	Combat 5 of 5, Alice: after the combat, her own move, the splashes gone	combat-sequence/5-after-alice.png	CMB-050		Combat damage and pauses
 206	Combat 5 of 5, Bob: after the combat, a wait for Alice, the splashes gone	combat-sequence/5-after-bob.png	CMB-050 TRN-066		Combat damage and pauses
 207	Multiset drafting: the Sets tab with set symbols	draft/source-sets-symbols.png	DRF-088 DRF-176		Multiset drafting
-208	Multiset drafting: one set for every pack, with Mix sets	draft/multiset-one-set.png	DRF-177		Multiset drafting
+208	Multiset drafting: one set for every pack: the set button and the Mix sets toggle	draft/multiset-one-set.png	DRF-177		Multiset drafting
 209	Multiset drafting: the open pack grid	draft/multiset-grid-open.png	DRF-177 DRF-176		Multiset drafting
 210	Multiset drafting: a row label chosen (Round 2)	draft/multiset-row.png	DRF-178		Multiset drafting
 211	Multiset drafting: a column label chosen (Pack 1)	draft/multiset-column.png	DRF-178		Multiset drafting
@@ -216,3 +216,6 @@ number	item	screenshot	catalog	decisions	sequence
 215	Multiset drafting: a preset saved with a pack grid	draft/multiset-preset.png	DRF-032 DRF-177		Multiset drafting
 216	Attack cost chip with its X worked out	combat-band/attack-cost.png	CMB-044
 217	Settings: the Your move sound	settings/move-sound.png	LOB-146 TRN-075
+218	Multiset drafting: back to one set after mixing reads Mixed sets	draft/multiset-back-to-one-set.png	DRF-177		Mix sets toggle
+219	Multiset drafting: a cube greys the Mix sets toggle	draft/multiset-cube-toggle.png	DRF-177 DRF-018		Mix sets toggle
+220	Draft history: scrolled to round 2, the seat ring turns counter-clockwise	pod-draft-history-round-2.png	DRF-165 DRF-043

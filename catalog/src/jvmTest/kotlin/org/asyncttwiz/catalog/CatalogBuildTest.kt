@@ -151,6 +151,21 @@ class CatalogBuildTest {
         assertNull(CatalogSetSources.build(catalog, "NOPE"))
     }
 
+    // DRF-090 (owner, 2026-11-11): a set's packs hold its own printings, each card's data that printing's: the recipe's (TST)
+    // and, without a recipe (OFF, approximate packs), the set's printings; Test Bear, printed in both, is each set's own
+    @Test fun `a set's packs hold its own printings, never another set's`() {
+        assertNull(catalog.recipe["OFF"])
+        for (code in listOf("TST", "OFF")) {
+            val source = assertNotNull(CatalogSetSources.build(catalog, code))
+            val definitions = source.definitions.associateBy { it.digest }
+            assertTrue(source.snapshot.cards.any { definitions.getValue(it.definition).definition.name == "Test Bear" })
+            for (card in source.snapshot.cards) {
+                assertEquals(code, catalog.printing.getValue(card.uuid).set, "$code: ${card.uuid}")
+                assertEquals(card.uuid, definitions.getValue(card.definition).definition.printingId, "the drawn printing is the card's")
+            }
+        }
+    }
+
     // SYS-081 (section 3.4): the release builds the catalog from the pinned file only
     @Test fun `the catalog command builds only from the pinned raw file, and move pins a file`() {
         val directory = createTempDirectory("catalog-pin").toFile()

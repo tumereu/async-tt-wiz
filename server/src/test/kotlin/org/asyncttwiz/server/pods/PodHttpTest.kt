@@ -588,6 +588,9 @@ class PodHttpTest {
         // B kept one and burned one of A's pack: both are gone since A passed it
         assertEquals(2, mine.picks[2].takenSince.size)
         assertEquals((mine.picks.flatMap { it.cards + it.takenSince }).map { it.definition }.toSet(), mine.definitions.map { it.digest }.toSet())
+        // DRF-165, DRF-043: with the draft's seating, as the server keeps it, for the round headers and the seat ring
+        assertEquals(storedDraft<DraftState>(f, pod).seating, mine.seating)
+        assertEquals(setOf(f.a.account.accountId, f.b.account.accountId), mine.seating.toSet())
         // B's history is B's own two picks and the last card of A's pack, given automatically
         assertEquals(listOf(false, false, true), json.decodeFromString<PodDraftHistory>(history(f.b)).picks.map { it.automatic })
         history(f.c, 404)
@@ -1391,6 +1394,32 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL"))
         assertEquals("Thornwall Crossing", f.get(f.a, other).source.setName)
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL", cubeId = f.cube.cube.id), 400)
+    }
+
+    // DRF-090 (owner, 2026-11-11): a set pod's cards are printings of the pack's own set, from the packs through the pool
+    // and Build to the saved draft deck; Test Bear and Test Bolt also have printings in other sets (OFF, DCK), never used
+    @Test fun `a set pod's cards are its own set's printings from the packs to the saved draft deck`() = fixture { f ->
+        val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Printings", setCode = "TST"), 201)).id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 2, cardsPerPack = 7))
+        f.start(pod)
+        f.finish(pod, listOf(f.a, f.b))
+        val catalog = ServerCatalogs.current()!!.catalog
+        val detail = f.get(f.a, pod)
+        val printings = detail.definitions.associate { it.digest to it.definition.printingId }
+        val pool = detail.draft!!.pool.map { printings.getValue(it.definition)!! }
+        assertEquals(8, pool.size)
+        assertEquals(setOf("TST"), pool.map { catalog.printing.getValue(it).set }.toSet(), "every drafted card is Test Set's printing")
+        assertTrue(pool.map { catalog.faces[catalog.printing.getValue(it).face].name }.any { it == "Test Bear" || it == "Test Bolt" },
+            "the pool holds a card printed in other sets too: $pool")
+        val attempt = detail.draftAttemptId!!
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 40)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        val summary = json.decodeFromString<DeckList>(f.request(f.a, "GET", "/v1/decks?drafts=true").body()).decks.single { it.draft?.podId == pod }
+        val deck = json.decodeFromString<SavedDeck>(f.request(f.a, "GET", "/v1/decks/${summary.id}").body())
+        val basics = setOf("Plains", "Island", "Swamp", "Mountain", "Forest")
+        val drafted = deck.entries.filter { it.name !in basics }.groupBy({ it.printingId }, { it.quantity }).mapValues { it.value.sum() }
+        assertEquals(pool.groupingBy { it }.eachCount(), drafted, "the saved draft deck holds the drafted printings")
     }
 
     /** The stored draft of pod [pod], as the server keeps it. */

@@ -5,18 +5,17 @@ import com.google.gson.JsonParser
 import java.util.Locale
 import org.asyncttwiz.protocol.CubeValidation
 
-class CubeImportResolver(repository: CatalogRepository) {
+class CubeImportResolver(repository: CatalogRepository) : CubeResolver {
     private val resolver = DeckImportResolver(repository)
-    fun resolve(text: String): DeckImportResult = resolve(parse(text))
+    override fun resolve(text: String): DeckImportResult = resolve(parse(text))
     /** Cubes have Main and Maybe only: anything else becomes Maybe. */
-    fun resolve(parsed: ParsedDeck): DeckImportResult = resolver.resolve(parsed.copy(lines = parsed.lines.map {
+    override fun resolve(parsed: ParsedDeck): DeckImportResult = resolver.resolve(parsed.copy(lines = parsed.lines.map {
         if (it.section == DeckSection.MAINBOARD) it else it.copy(section = DeckSection.MAYBEBOARD)
     }), CubeValidation.MAX_CARDS, allowSubstitutions = true)
     companion object {
         /** Cube lists may also be bare card names, one copy per line (Cube Cobra plaintext export).
          * Sideboard lines go to Maybe, as do maybeboard sections. */
-        fun parse(text: String): ParsedDeck =
-            DeckTextParser.parse(text, CubeValidation.MAX_CARDS, DeckSection.MAYBEBOARD, bareNames = true)
+        fun parse(text: String): ParsedDeck = parseCubeList(text)
     }
 }
 

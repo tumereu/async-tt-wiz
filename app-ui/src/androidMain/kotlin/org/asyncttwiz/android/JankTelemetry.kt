@@ -12,11 +12,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/** A screen's frame tracking (Android: JankStats on an activity's window): [stop] ends it, [state] labels its frames. */
-class JankTracking(val stop: () -> Unit, val state: (String, String) -> Unit)
-
 /** Only while reports are on ([Diagnostics]). Frame callbacks copy bounded labels; persistence, percentiles and uploads run on IO. */
-object DebugJank {
+actual object DebugJank {
     @Volatile private var token: String? = null
     private var installed = false
     private val discarding = java.util.concurrent.atomic.AtomicBoolean()
@@ -32,19 +29,19 @@ object DebugJank {
         "dragging" to "false", "popup" to "none", "history_nodes" to "0", "visible_cards" to "0")
     private val animations = mutableSetOf<String>()
     private val catchUps = mutableSetOf<String>()
-    @Synchronized fun catchUp(game: String, running: Boolean) {
+    @Synchronized actual fun catchUp(game: String, running: Boolean) {
         if (!Diagnostics.enabled) return
         if (running) catchUps.add(game) else catchUps.remove(game)
     }
-    @Synchronized fun catchingUp() = Diagnostics.enabled && catchUps.isNotEmpty()
-    fun treeInFlight() = Diagnostics.enabled && treeWork.get() > 0
-    @Synchronized fun animation(owner: String, running: Boolean) {
+    @Synchronized actual fun catchingUp(): Boolean = Diagnostics.enabled && catchUps.isNotEmpty()
+    actual fun treeInFlight(): Boolean = Diagnostics.enabled && treeWork.get() > 0
+    @Synchronized actual fun animation(owner: String, running: Boolean) {
         if (!Diagnostics.enabled) return
         if (running) animations.add(owner) else animations.remove(owner)
         state("animation" to animations.isNotEmpty().toString())
     }
 
-    @Synchronized fun state(vararg values: Pair<String, String>) {
+    @Synchronized actual fun state(vararg values: Pair<String, String>) {
         if (!Diagnostics.enabled) return
         for ((key, value) in values) {
             if (tags[key] == value) continue
@@ -53,17 +50,17 @@ object DebugJank {
         }
     }
 
-    @Synchronized fun action(name: String) {
+    @Synchronized actual fun action(name: String) {
         if (!Diagnostics.enabled) return
         actions.addLast(name.take(100)); while (actions.size > 8) actions.removeAt(0)
     }
 
-    fun beginWork(kind: String): Long {
+    actual fun beginWork(kind: String): Long {
         if (!Diagnostics.enabled) return 0
         (if (kind == "tree") treeWork else localApply).incrementAndGet()
         return System.nanoTime()
     }
-    @Synchronized fun endWork(kind: String, start: Long) {
+    @Synchronized actual fun endWork(kind: String, start: Long) {
         // Paired with beginWork, not the current switch: a change in between must not leave work counted.
         if (start == 0L) return
         (if (kind == "tree") treeWork else localApply).decrementAndGet()
@@ -135,24 +132,24 @@ object DebugJank {
     }
 
     /** A screen ([owner]) starts its frame tracking: an earlier one of it stops; the labels so far are set on it. */
-    @Synchronized fun track(owner: Any, tracking: JankTracking) {
+    @Synchronized actual fun track(owner: Any, tracking: JankTracking) {
         metrics.remove(owner)?.stop?.invoke()
         metrics[owner] = tracking
         tags.forEach { (key, value) -> tracking.state(key, value) }
     }
 
     /** [owner]'s frame tracking stops. */
-    @Synchronized fun untrack(owner: Any) { metrics.remove(owner)?.stop?.invoke() }
+    @Synchronized actual fun untrack(owner: Any) { metrics.remove(owner)?.stop?.invoke() }
 
     /** A frame the platform drew (only while reports are on), with the labels ([state]) it was drawn under. */
-    fun frame(startNanos: Long, durationNanos: Long, isJank: Boolean, refreshRate: Float, states: Map<String, String>) {
+    actual fun frame(startNanos: Long, durationNanos: Long, isJank: Boolean, refreshRate: Float, states: Map<String, String>) {
         val end = startNanos + durationNanos
         val context = context(startNanos, end)
         frames.trySend(RenderFrame(startNanos, durationNanos, isJank, refreshRate, states, context.first, context.second, context.third))
         wake.trySend(Unit)
     }
 
-    fun authenticated(value: String?) { if (Diagnostics.enabled) { token = value; wake.trySend(Unit) } }
+    actual fun authenticated(value: String?) { if (Diagnostics.enabled) { token = value; wake.trySend(Unit) } }
     /** Reports turned off: the loop drops queued stutters and deletes the saved batch. */
-    fun discard() { discarding.set(true); wake.trySend(Unit) }
+    actual fun discard() { discarding.set(true); wake.trySend(Unit) }
 }

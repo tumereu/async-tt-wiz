@@ -98,3 +98,7 @@ expect fun DrawScope.nativeRestoreToCount(count: Int)
  */
 expect fun DrawScope.drawCentredText(text: String, center: Offset, size: Float, color: Color, weight: Int,
     maxWidth: Float = Float.POSITIVE_INFINITY)
+
+/** A dialog window of the screen's whole size that draws under the system bars (Android: usePlatformDefaultWidth and
+ * decorFitsSystemWindows off). */
+expect fun edgeToEdgeDialogProperties(): androidx.compose.ui.window.DialogProperties

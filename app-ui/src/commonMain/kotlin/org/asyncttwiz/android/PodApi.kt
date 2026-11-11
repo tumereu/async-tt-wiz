@@ -1,0 +1,139 @@
+package org.asyncttwiz.android
+
+import io.ktor.client.HttpClient
+import io.ktor.client.request.*
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpMethod
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
+import kotlinx.serialization.encodeToString
+import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.Closeable
+import org.asyncttwiz.appui.parseUri
+import org.asyncttwiz.appui.AppBuild
+
+class PodFailure(val code: String) : Exception("Pod request failed: $code")
+
+interface Pods : Closeable {
+    suspend fun list(token: String): PodList
+    suspend fun detail(token: String, id: String): PodDetail
+    suspend fun create(token: String, input: CreatePod): PodDetail
+    suspend fun update(token: String, id: String, input: UpdatePod): PodDetail
+    suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail
+    suspend fun accept(token: String, id: String, input: PodRequest): PodDetail
+    suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged
+    suspend fun start(token: String, id: String, input: PodRequest): PodDetail
+    suspend fun autoStart(token: String, id: String, input: SetPodAutoStart): PodDetail
+    suspend fun pick(token: String, id: String, input: PickPod): PodDetail
+    suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail
+    suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = throw PodFailure("not_configured")
+    /** Sets the caller's whole Rotisserie pick queue (DRF-164). */
+    suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = throw PodFailure("not_configured")
+    /** The caller's Booster or Glimpse draft history (DRF-165). */
+    suspend fun history(token: String, id: String): PodDraftHistory = throw PodFailure("not_configured")
+    suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail
+    suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail
+    suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail
+    suspend fun deckCover(token: String, id: String, input: SetPodDeckCover): PodDetail
+    suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail
+    suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail
+    suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged
+    suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged
+    /** Best-effort save of the caller's head-pack marks; refused (409) once that pack is no longer the head. */
+    suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = PodAcknowledged(id)
+    /** Saves the caller's private deck notes for the current attempt; latest wins. */
+    suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = PodAcknowledged(id)
+    /** Prepare cube (creator, setup): the pod's prepared cube and moves between Main and Maybe. */
+    suspend fun cube(token: String, id: String): PodCube = throw PodFailure("not_configured")
+    suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube = throw PodFailure("not_configured")
+    /** A page of the pod's chat (owner, 2026-11-08): the newest, or what is newer than the ordinal [after], with the caller's read state. */
+    suspend fun chat(token: String, id: String, after: String? = null): PodChatPage = throw PodFailure("not_configured")
+    suspend fun sendChat(token: String, id: String, input: SendPodChat): PodChatMessage = throw PodFailure("not_configured")
+    /** Moves the caller's read cursor of the pod's chat forward to a message. */
+    suspend fun readChat(token: String, id: String, input: ReadChat): PodChatRead = throw PodFailure("not_configured")
+    /** The caller's draft table presets (server-side, per account). */
+    suspend fun presets(token: String): PodPresetList = throw PodFailure("not_configured")
+    suspend fun savePreset(token: String, input: SavePodPreset): PodPreset = throw PodFailure("not_configured")
+    suspend fun renamePreset(token: String, id: String, input: RenamePodPreset): PodPreset = throw PodFailure("not_configured")
+    suspend fun deletePreset(token: String, id: String): PodPresetDeleted = throw PodFailure("not_configured")
+}
+
+class PodApi(private val origin: String, private val client: HttpClient = AccountApi.client(),
+    private val authenticationRequired: (String) -> Unit = {}) : Pods {
+    init { require(origin.isEmpty() || parseUri(origin).let { it.host != null && it.rawUserInfo == null &&
+        it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
+        (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
+    private fun path(id: String, action: String = ""): String {
+        if (!DeckValidation.uuid(id)) throw PodFailure("invalid_request")
+        return "/v1/pods/$id$action"
+    }
+    override suspend fun list(token: String): PodList = call(token, "/v1/pods")
+    override suspend fun detail(token: String, id: String): PodDetail = call(token, path(id))
+    override suspend fun create(token: String, input: CreatePod): PodDetail = call(token, "/v1/pods", DeckJson.format.encodeToString(input))
+    override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail = call(token, path(id), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail = call(token, path(id, "/invitations"), DeckJson.format.encodeToString(input))
+    override suspend fun accept(token: String, id: String, input: PodRequest): PodDetail = call(token, path(id, "/accept"), DeckJson.format.encodeToString(input))
+    override suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/decline"), DeckJson.format.encodeToString(input))
+    override suspend fun start(token: String, id: String, input: PodRequest): PodDetail = call(token, path(id, "/start"), DeckJson.format.encodeToString(input))
+    override suspend fun autoStart(token: String, id: String, input: SetPodAutoStart): PodDetail = call(token, path(id, "/auto-start"), DeckJson.format.encodeToString(input))
+    override suspend fun pick(token: String, id: String, input: PickPod): PodDetail = call(token, path(id, "/pick"), DeckJson.format.encodeToString(input))
+    override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail = call(token, path(id, "/grid/select"), DeckJson.format.encodeToString(input))
+    override suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = call(token, path(id, "/turn"), DeckJson.format.encodeToString(input))
+    override suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = call(token, path(id, "/rotisserie/queue"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun history(token: String, id: String): PodDraftHistory = call(token, path(id, "/draft/history"))
+    override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail = call(token, path(id, "/build/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail = call(token, path(id, "/build/basics"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail = call(token, path(id, "/build/name"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun deckCover(token: String, id: String, input: SetPodDeckCover): PodDetail = call(token, path(id, "/build/cover"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail = call(token, path(id, "/submit"), DeckJson.format.encodeToString(input))
+    override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail = call(token, path(id, "/cancel"), DeckJson.format.encodeToString(input))
+    override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/leave"), DeckJson.format.encodeToString(input))
+    override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id), DeckJson.format.encodeToString(input), HttpMethod.Delete)
+    override suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = call(token, path(id, "/draft/marks"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = call(token, path(id, "/build/notes"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun cube(token: String, id: String): PodCube = call(token, path(id, "/cube"))
+    override suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube =
+        call(token, path(id, "/cube/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun chat(token: String, id: String, after: String?): PodChatPage =
+        call(token, path(id, "/chat") + (after?.let { "?after=" + it.toLong() } ?: ""))
+    override suspend fun sendChat(token: String, id: String, input: SendPodChat): PodChatMessage =
+        call(token, path(id, "/chat"), DeckJson.format.encodeToString(input))
+    override suspend fun readChat(token: String, id: String, input: ReadChat): PodChatRead =
+        call(token, path(id, "/chat/read"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    private fun presetPath(id: String): String {
+        if (!DeckValidation.uuid(id)) throw PodFailure("invalid_request")
+        return "/v1/pod-presets/$id"
+    }
+    override suspend fun presets(token: String): PodPresetList = call(token, "/v1/pod-presets")
+    override suspend fun savePreset(token: String, input: SavePodPreset): PodPreset = call(token, "/v1/pod-presets", DeckJson.format.encodeToString(input))
+    override suspend fun renamePreset(token: String, id: String, input: RenamePodPreset): PodPreset = call(token, presetPath(id), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun deletePreset(token: String, id: String): PodPresetDeleted = call(token, presetPath(id), verb = HttpMethod.Delete)
+    private suspend inline fun <reified T> call(token: String, path: String, body: String? = null, verb: HttpMethod? = null): T {
+        if (origin.isEmpty()) throw PodFailure("not_configured")
+        if (!AccountApi.validToken(token)) throw PodFailure("authentication_required")
+        try {
+            val response = client.request(origin + path) {
+                method = verb ?: if (body == null) HttpMethod.Get else HttpMethod.Post
+                header("Authorization", "Bearer $token"); header("Accept", "application/json")
+                if (body != null) { header("Content-Type", "application/json; charset=UTF-8"); setBody(body) }
+            }
+            if (response.status.value == 401) { authenticationRequired(token); throw PodFailure("authentication_required") }
+            val bytes = response.bodyAsChannel().readRemaining(16L * 1024 * 1024 + 1).readByteArray()
+            if (bytes.size > 16 * 1024 * 1024) throw PodFailure("invalid_response")
+            val text = bytes.decodeToString(throwOnInvalidSequence = true)
+            if (response.status.value !in 200..299) {
+                val code = runCatching { DeckJson.format.decodeFromString<PodError>(text).code }.getOrDefault("unavailable")
+                // A refused write (say a set source: invalid_definition, request_too_large) reaches the problem report
+                if (body != null) AppLog.warn("http", "${path.substringBefore('?')} refused: ${response.status.value} $code, ${body.length} chars sent")
+                throw PodFailure(code)
+            }
+            return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw PodFailure("invalid_response") }
+        } catch (failure: PodFailure) { throw failure
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
+        } catch (failure: Exception) {
+            AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
+            throw PodFailure("network")
+        }
+    }
+    override fun close() = client.close()
+}

@@ -3,13 +3,12 @@ package org.asyncttwiz.storage
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.util.Locale
-import org.asyncttwiz.protocol.DeckValidation
 
 /** Worker-only resolution on the installed, disk-backed catalog; exact face text/defaults are retained. */
-class DeckImportResolver(private val repository: CatalogRepository) {
-    fun resolve(text: String): DeckImportResult = resolve(DeckTextParser.parse(text))
-    fun resolve(parsed: ParsedDeck, maxCards: Int = DeckValidation.MAX_CARDS,
-        allowSubstitutions: Boolean = false): DeckImportResult = repository.snapshot { catalog ->
+class DeckImportResolver(private val repository: CatalogRepository) : DeckResolver {
+    override fun resolve(text: String): DeckImportResult = resolve(DeckTextParser.parse(text))
+    override fun resolve(parsed: ParsedDeck, maxCards: Int,
+        allowSubstitutions: Boolean): DeckImportResult = repository.snapshot { catalog ->
         val issues = parsed.issues.toMutableList()
         val substitutions = mutableListOf<ImportIssue>()
         val entries = linkedMapOf<Pair<DeckSection, String>, ResolvedDeckEntry>()

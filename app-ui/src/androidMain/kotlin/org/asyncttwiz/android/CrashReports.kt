@@ -101,7 +101,7 @@ class CrashExceptionHandler(private val store: CrashReportStore,
 }
 
 /** Process lifetime, not Activity lifetime: rotations or repeated sign-ins cannot retry a batch. */
-object DebugCrashes {
+actual object DebugCrashes {
     private var store: CrashReportStore? = null
     private var pending: List<File> = emptyList()
     private val started = AtomicBoolean()
@@ -109,9 +109,9 @@ object DebugCrashes {
 
     /** The signed-in session's token as the app last said ([authenticated]), for a problem report sent from a screen
      * that doesn't hold the account (the table's Send problem report). */
-    fun sessionToken(): String? = token
+    actual fun sessionToken(): String? = token
 
-    @Synchronized fun install(hooks: ReportHooks) {
+    @Synchronized actual fun install(hooks: ReportHooks) {
         if (!Diagnostics.enabled || store != null) return
         val reports = CrashReportStore(hooks.directory)
         store = reports
@@ -129,14 +129,14 @@ object DebugCrashes {
     }
 
     /** Reports turned off: queued reports are deleted on disk and in memory; nothing more is recorded or sent. */
-    @Synchronized fun discard() {
+    @Synchronized actual fun discard() {
         pending = emptyList()
         store?.clear()
         DebugLatency.discard()
         DebugJank.discard()
     }
 
-    fun authenticated(token: String?) {
+    actual fun authenticated(token: String?) {
         this.token = token
         if (!Diagnostics.enabled) return
         DebugJank.authenticated(token)

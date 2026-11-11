@@ -1,0 +1,520 @@
+package org.asyncttwiz.android
+
+import androidx.compose.ui.text.input.ImeAction
+import org.asyncttwiz.appui.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.ArtworkReference
+
+/** With [accountId], a held pod challenge reads from the recipient's side: they see it but must submit first. */
+fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
+    else if (game.invitationHeld && accountId != null && accountId == game.recipient.accountId) "Challenged you · submit your deck to accept"
+    else if (game.invitationHeld) "Waiting for ${game.recipient.username}'s deck" else when (game.invitationState) {
+    InvitationState.PENDING -> "Invitation pending"
+    InvitationState.DECLINED -> "Invitation declined"
+    InvitationState.ACCEPTED -> "Preparing"
+}
+fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
+fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
+    preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
+    PodGamePreparation.readyProblem(preparation, accountId) == "mainTooSmall" -> "Main must contain at least 40 cards including basics."
+    PodGamePreparation.readyProblem(preparation, accountId) == "sideboardLimit" -> "Side exceeds this pod's sideboard limit (${preparation?.podRules?.sideboardLimit}). Move cards to Main."
+    else -> null
+}
+
+@Composable
+fun ContactsContent(controller: LobbyController) {
+    val state = controller.state
+    Box(Modifier.fillMaxSize()) {
+        PlayerPicker(controller, select = if (state.choosingOpponent) ({ controller.invite(it) }) else null) { contact ->
+            val added = state.contacts.any { it.accountId == contact.accountId }
+            if (state.contactsTab == ContactsTab.CONTACTS) {
+                if (state.choosingOpponent) ScreenIconButton("Invite", "send", { controller.begin(contact) }, enabled = !state.mutating)
+                else ScreenIconButton("Remove contact", "delete", { controller.requestRemoveContact(contact) }, enabled = !state.mutating)
+            } else {
+                ScreenIconButton(if (added) "Added contact" else "Add contact", if (added) "ready" else "person",
+                    { controller.add(contact) }, enabled = !state.mutating && !added)
+                if (state.choosingOpponent) ScreenIconButton("Invite", "send", { controller.invite(contact) }, enabled = !state.mutating)
+            }
+        }
+        FloatingTransientError(state.error, controller::dismissSessionError, Modifier.align(Alignment.BottomCenter))
+    }
+    state.removingContact?.let { contact -> ScreenDialog(controller::dismissRemoveContact, title = "Remove ${contact.username}?",
+        actions = {
+            DialogCancelButton("Cancel", controller::dismissRemoveContact)
+            DialogMainButton("Remove", controller::removeContact, danger = true)
+        }) {
+        Text("Existing games and invitations will not change.")
+    } }
+    GameNameDialog(controller)
+}
+
+private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when {
+    state.searching -> "Searching players…"
+    state.mutating -> if (state.draft != null) "Creating game…" else "Saving changes…"
+    state.selected != null && state.selected in state.queuedGames && state.selected !in state.connectedGames -> "Connecting…"
+    state.pendingGames.isNotEmpty() -> "Checking game outcome…"
+    state.busy && !state.backgroundLoading && !state.loaded -> loading
+    else -> null
+}
+
+@Composable
+fun GamesContent(controller: LobbyController, accountId: String) {
+    val state = controller.state
+    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        item {
+            // One list in the shared order (see gameListOrder): invitations sit between the two kinds of game.
+            val games = orderedGames(state.games + state.invitations.filter { incomingInvitation(it, accountId) }, accountId)
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row { Text("GAMES", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge); Text(games.size.toString(), style = MaterialTheme.typography.bodySmall) }
+                    HorizontalDivider()
+                    if (state.loaded && games.isEmpty()) Text("No games yet.")
+                    GameRows(games, controller, accountId, Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+    }
+    }
+}
+
+@Composable
+fun GameDeletionDialogs(controller: LobbyController) {
+    controller.state.gameContext?.let { game ->
+        // A context menu without a cancel button keeps its ✕; its one action sits at the right.
+        ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
+            close = "Close game actions", actions = {
+                DialogMainButton("Delete game", { controller.requestGameDeletion(game) }, danger = true)
+            })
+    }
+    controller.state.deletion?.let { capture ->
+        ScreenDialog(controller::dismissGameDeletion, title = capture.title, actions = {
+            DialogCancelButton("Keep game", controller::dismissGameDeletion)
+            DialogMainButton("Delete game", { controller.confirmGameDeletion() }, danger = true)
+        }) {
+            Text(capture.warning)
+        }
+    }
+}
+
+@Composable
+fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
+    importDeck: (() -> Unit)? = null) {
+    val state = controller.state
+    BackHandler { controller.back() }
+    // TRN-065 (owner, 2026-11-09): a concession or an accepted suggestion leaves both players at the table until both OKs stand
+    val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
+    if (atTable != null) {
+        val reconnecting = atTable.id in state.reconnectingGames
+        var dismissedReconnect by remember(atTable.id, reconnecting) { mutableStateOf(false) }
+        TableScreen(controller, accountId, hamburger, landscape)
+        if (reconnecting && state.board != null && !dismissedReconnect)
+            ReconnectingDialog(controller::back, dismiss = { dismissedReconnect = true })
+        return
+    }
+    if (state.picker != null) { LobbyDeckPicker(controller, importDeck, hamburger); return }
+    if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
+        PreparationScreen(controller, accountId, landscape, hamburger); return
+    }
+    Box(Modifier.fillMaxSize()) {
+    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading game…")) {
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader(state.detail?.gameName ?: "Loading game…", hamburger) {
+            state.detail?.takeIf(controller::offersSetupCancellation)?.let { game ->
+                ScreenIconButton("Cancel game", "cancel", { controller.requestCancelSetup(game) }, danger = true)
+            }
+        }
+        // LOB-035 (game history §3.1): the lobby's two tabs, Lobby and History
+        val gameId = state.detail?.id
+        var historyTab by rememberSaveable(gameId) { mutableStateOf(false) }
+        if (gameId != null) TabRow(if (historyTab) 1 else 0) {
+            Tab(!historyTab, { historyTab = false }, text = { Text("Lobby") })
+            Tab(historyTab, { historyTab = true }, text = { Text("History") }, modifier = Modifier.testTag("lobby-history-tab"))
+        }
+        if (historyTab && gameId != null) {
+            LaunchedEffect(gameId) { controller.history.loadGame(gameId) }
+            var details by remember(gameId) { mutableStateOf<MatchRecord?>(null) }
+            GameHistoryList(controller.history.games[gameId], accountId, { details = it }, Modifier.weight(1f).fillMaxWidth())
+            details?.let { MatchDetailsDialog(it, accountId, null) { details = null } }
+        } else
+        InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
+        // TRN-065, LOB-046 (owner, 2026-11-09): while an OK on the last result is owed the lobby takes no touch (the dialog
+        // stands over it; its eye shows what is behind)
+        val resultOpen = state.detail?.let(controller::resultOpen) == true
+        Column(Modifier.fillMaxSize().then(if (resultOpen) Modifier.testTag("lobby-blocked").pointerInput(Unit) {
+            awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
+        } else Modifier)) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            state.detail?.let { game ->
+                val ownPlayer = state.preparation?.players?.find { it.accountId == accountId }
+                val status = if (ownPlayer?.ready == true && game.invitationState == InvitationState.ACCEPTED)
+                    "Waiting for ${game.opponent(accountId).username}" else gameStatus(game)
+                Text("$status · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // TRN-065: the next game starts only once both have tapped OK on the last result
+                if (game.resultNotice?.unseen?.contains(game.opponent(accountId).accountId) == true)
+                    Text("${game.opponent(accountId).username} hasn't seen the last game's result yet",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("result-unseen"))
+                val own: @Composable (Modifier) -> Unit = { modifier ->
+                    OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
+                        PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName)
+                        if (ownPlayer?.deck != null) ShowDeckChip(ownPlayer.deckShown,
+                            enabled = game.lifecycle == GameLifecycle.LOBBY, onChange = controller::showDeck)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                             // Lobby actions stay enabled while the connection (re)opens; taps run once it is ready.
+                             if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck,
+                                enabled = game.lifecycle == GameLifecycle.LOBBY, modifier = Modifier.weight(1f)) {
+                                EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp))
+                                Text(if (ownPlayer?.deck == null) "Choose deck" else "Change deck")
+                            }
+                                 ScreenOutlinedButton(onClick = controller::prepareDeck, Modifier.weight(1f), enabled = ownPlayer?.deck != null && game.lifecycle == GameLifecycle.LOBBY) {
+                                    EntryIcon(null, "prepare"); Spacer(Modifier.width(8.dp)); Text("Prepare deck")
+                                }
+                        }
+                    } }
+                }
+                val opponent: @Composable (Modifier) -> Unit = { modifier ->
+                    OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PlayerReadiness(game.opponent(accountId),
+                            state.preparation?.players?.find { it.accountId == game.opponent(accountId).accountId }?.ready == true)
+                        if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId, accountId)
+                         else Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
+                             Text(gameStatus(game), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                         }
+                        if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
+                            ScreenOutlinedButton(onClick = { controller.reinvite(game) }) {
+                                EntryIcon(null, "send"); Spacer(Modifier.width(8.dp)); Text("Reinvite")
+                            }
+                    } }
+                }
+                val starter: @Composable () -> Unit = {
+                 StartingPlayerControl(game, state.preparation?.starter ?: StarterChoice(),
+                     enabled = state.preparation != null,
+                     alternate = state.preparation?.alternateStarter ?: true, setAlternate = controller::alternateStarter,
+                     choose = controller::starter)
+                }
+                // LOB-135: the game's assume reveal settings, below Starting player
+                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId, controller::assumeReveals) }
+                if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    own(Modifier.weight(1f))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter(); settings() }
+                } else { own(Modifier.fillMaxWidth()); opponent(Modifier.fillMaxWidth()); starter(); settings() }
+            }
+        }
+        val own = state.preparation?.players?.find { it.accountId == accountId }
+        // I-D52 (LOB-115): a deck Automatum can't play fully can't start a game.
+        val ownCards = remember(own?.deck, state.preparation?.definitions) {
+            own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
+        }
+        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes); the card catalog's
+        // marks tell at once (section 3.8), so the wait says nothing
+        val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
+        val support = rememberCardListSupport(ownCards)
+        val reason = readyReason(state.preparation, accountId)
+            ?: RESULT_FIRST.takeIf { state.detail?.let(controller::resultUnseen) == true }
+            ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
+            ?: "".takeIf { checking && support == null }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
+                if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
+            }
+            val enabled = own != null && (own.ready || reason == null)
+            val readyContent: @Composable RowScope.() -> Unit = {
+                EntryIcon(null, if (own?.ready == true) "withdraw" else "ready"); Spacer(Modifier.width(8.dp))
+                Text(if (own?.ready == true) "Withdraw Ready" else "Ready")
+            }
+            if (own?.ready == true) ScreenOutlinedButton(onClick = controller::withdrawReady, enabled = enabled,
+                modifier = Modifier.fillMaxWidth(), content = readyContent)
+            else ScreenButton(onClick = controller::ready, enabled = enabled, modifier = Modifier.fillMaxWidth(), content = readyContent)
+        }
+        }
+        }
+    }
+    // TRN-065 (owner 2026-11-07, 2026-11-09): a result an OK is still owed on shows over the lobby, on every device, until
+    // both stand: with OK while it is yours, else "Waiting for <name> to acknowledge"; the lobby behind takes nothing
+    state.detail?.takeIf { controller.resultOpen(it) }?.let { game ->
+        val notice = game.resultNotice!!
+        val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
+        val owes = controller.resultUnseen(game)
+        key(resultKey(game)) {
+            GameEndDialog(GameEndText.of(notice, accountId, names),
+                waiting = if (owes) null else "Waiting for ${game.opponent(accountId).username} to acknowledge",
+                ok = if (owes) controller::acknowledgeResult else null)
+        }
+    }
+    }
+    }
+}
+
+@Composable
+fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: Boolean,
+    alternate: Boolean = true, setAlternate: ((Boolean) -> Unit)? = null, choose: (StarterChoice) -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Starting player", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                // On: after each play the other player starts the next one (the radio choice is set for you).
+                if (setAlternate != null) FilterChip(selected = alternate, onClick = { setAlternate(!alternate) }, enabled = enabled,
+                    label = { Text("Alternate") }, modifier = Modifier.semantics { contentDescription = "Alternate starting player" },
+                    leadingIcon = if (alternate) ({ Icon(Icons.Outlined.Check, null,
+                        Modifier.size(FilterChipDefaults.IconSize)) }) else null)
+            }
+            Column(Modifier.fillMaxWidth().selectableGroup()) {
+                for ((label, choice) in listOf("Random" to StarterChoice(),
+                    game.inviter.username to StarterChoice(game.inviter.accountId),
+                    game.recipient.username to StarterChoice(game.recipient.accountId))) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected == choice,
+                        enabled = enabled, role = Role.RadioButton, onClick = { choose(choice) })
+                        .semantics { contentDescription = "Starting player: $label" },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RadioButton(selected == choice, onClick = null, enabled = enabled)
+                        Text(label, fontWeight = if (selected == choice) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
+    val cancel = controller.offersSetupCancellation(game)
+    val delete = controller.offersGameDeletion(game)
+    // Section 3.6: opening a game reads card records; greyed while they install
+    return alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
+        onLongClickLabel = if (cancel || delete) "Game actions" else null,
+        onLongClick = when {
+            cancel -> ({ controller.showGameContext(game) })
+            delete -> ({ controller.gameContext(game) })
+            else -> null
+        })
+        .semantics {
+            if (cancel) customActions = listOf(CustomAccessibilityAction("Cancel game") {
+                controller.requestCancelSetup(game); true
+            })
+            else if (delete) customActions = listOf(CustomAccessibilityAction("Delete game") {
+                controller.requestGameDeletion(game); true
+            })
+        }
+}
+
+@Composable
+fun SetupCancellationDialogs(controller: LobbyController) {
+    val cancellation = controller.setupCancellation
+    cancellation.context?.let { game ->
+        ScreenDialog(cancellation::dismissContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
+            close = "Close game actions", actions = {
+                DialogMainButton("Cancel game", { controller.requestCancelSetup(game) }, danger = true, icon = "cancel")
+            })
+    }
+    cancellation.confirmation?.let { game ->
+        val connected = game.id in controller.state.connectedGames
+        val pending = game.id in controller.state.pendingGames
+        ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null,
+            error = cancellation.error, dismissError = cancellation::clearError, title = "Cancel ${game.gameName}?", actions = {
+                DialogCancelButton("Keep game", cancellation::dismiss)
+                DialogMainButton("Cancel game", controller::confirmCancelSetup, enabled = connected && !pending, danger = true, icon = "cancel")
+            }) {
+            Text("Removes this unstarted game and its pending invitation.")
+            Box(Modifier.fillMaxWidth().height(36.dp)) {
+                if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerReadiness(account: AccountIdentity, ready: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Avatar(account)
+        Text(account.username, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Icon(screenIcon(if (ready) "ready" else "pending"), null, Modifier.size(18.dp),
+            tint = if (ready) androidx.compose.ui.graphics.Color(0xff287a45) else androidx.compose.ui.graphics.Color(0xffa16f26))
+        Text(if (ready) "Ready" else "Not ready", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Own deck only: on, the opponent sees this game's deck name and cover instead of the neutral placeholder. */
+@Composable
+fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    FilterChip(selected = shown, onClick = { onChange(!shown) }, enabled = enabled,
+        label = { Text("Show deck name & art") },
+        modifier = Modifier.semantics { contentDescription = "Show deck name and art to opponent" },
+        leadingIcon = if (shown) ({ Icon(Icons.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }) else null)
+}
+
+@Composable
+fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
+    val player = preparation?.players?.find { it.accountId == accountId }
+    val deck = player?.deck
+    Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
+    if (deck == null) {
+        if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val cover = gameDeckCover(accountId, viewer, deck.cover, player?.deckShown == true)
+            val definition = cover?.let { digest -> preparation.definitions.find { it.digest == digest }?.definition }
+            val face = definition?.faces?.firstOrNull()
+            if (cover != null && face != null) {
+                CardArtwork(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name,
+                    48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
+            } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
+            Column(Modifier.weight(1f, fill = false)) {
+                Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name, player?.deckShown == true, player?.shownPodDeckName), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // LOB-115: only your own deck, worked out from the game's card data of its cards.
+            if (accountId == viewer) {
+                val digests = remember(deck) { deck.entries.map { it.definition }.toSet() }
+                val cards = remember(digests, preparation.definitions) { preparation.definitions.filter { it.digest in digests } }
+                AutomatumSupportIcon(rememberCardListSupport(cards), Modifier.testTag("automatum-support"))
+            }
+        }
+    }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
+    val picker = controller.state.picker ?: return
+    val connecting = picker.game.id in controller.state.queuedGames && picker.game.id !in controller.state.connectedGames
+    ScreenBusyOverlay(if (picker.confirming) (if (connecting) "Connecting…" else "Loading deck…") else null) {
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Choose deck", hamburger)
+        InitialLoadArea(picker.loaded || picker.decks.isNotEmpty(), Modifier.weight(1f).fillMaxWidth(), picker.error != null, controller::refreshPicker, loading = picker.loading) {
+        PullToRefreshBox(isRefreshing = picker.loading,
+            onRefresh = { if (!picker.loading && !picker.confirming) controller.refreshPicker() },
+            modifier = Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                if (picker.decks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
+                    if (!picker.loading) Text("No saved decks yet.")
+                }
+            }
+            for ((heading, decks) in deckPickerSections(picker.decks)) {
+            if (heading != null) item(key = "heading-$heading") {
+                Text(heading.uppercase(), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            items(decks, key = { it.id }) { deck ->
+                val chosen = picker.draft?.id == deck.id
+                Surface(selected = chosen, onClick = { controller.highlightDeck(deck) }, enabled = !picker.confirming,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(if (chosen) 3.dp else 1.dp,
+                        if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.medium) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        deck.cover?.let { cover -> CardArtwork(ArtworkReference(cover.scryfallId, 0, "small", cover.imageUri),
+                            cover.name, 48, 68, Modifier.size(48.dp, 68.dp)) } ?: EntryIcon(null, "decks")
+                         Column(Modifier.weight(1f)) { Text(deck.name, fontWeight = FontWeight.SemiBold)
+                             Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                         // LOB-115
+                         AutomatumSupportIcon(deck.automatum, onTap = { if (!picker.confirming) controller.highlightDeck(deck) })
+                    }
+                }
+            }
+            }
+        }
+        }
+        }
+        // I-D52 (LOB-115): the highlighted deck can't be used while Automatum plays some of its cards by hand.
+        if (picker.draft?.automatum?.supported == false) Text(AUTOMATUM_DECK_BLOCKED, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+            .testTag("automatum-blocked"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScreenOutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) {
+                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
+            }
+            ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming &&
+                picker.draft.automatum?.supported != false, modifier = Modifier.weight(1f)) {
+                EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use selected deck")
+            }
+        }
+    }
+    FloatingTransientError(picker.error, controller::dismissPickerError, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+private fun GameNameDialog(controller: LobbyController) {
+    val state = controller.state
+    val draft = state.draft ?: return
+    var value by remember(draft.recipient.accountId) { mutableStateOf(TextFieldValue(draft.name, TextRange(0, draft.name.length))) }
+    LaunchedEffect(draft.name) { if (value.text != draft.name) value = TextFieldValue(draft.name, TextRange(0, draft.name.length)) }
+    val focus = rememberOpenFocus(draft.recipient.accountId)
+    ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null,
+        error = state.error, dismissError = controller::dismissSessionError, title = "New game", actions = {
+            DialogCancelButton("Cancel", controller::dismiss, enabled = !state.mutating)
+            DialogMainButton("Create", controller::create, enabled = !state.mutating, icon = "add")
+        }) {
+                Text("Invite ${draft.recipient.username}")
+                    OutlinedTextField(value, { next -> value = next; controller.name(next.text) },
+                         Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Game name" }
+                            .onFocusChanged { if (it.isFocused) value = value.copy(selection = TextRange(0, value.text.length)) }
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                    var moved = false
+                                    var up: androidx.compose.ui.input.pointer.PointerInputChange? = null
+                                    do {
+                                        val event = awaitPointerEvent(PointerEventPass.Final)
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                        if (change == null || (change.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                                        if (change?.pressed == false) up = change
+                                    } while (event.changes.any { it.pressed })
+                                    // Observe after TextField's normal tap handling, without consuming drag/long-hold selection.
+                                    if (!moved && up != null && up.uptimeMillis - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis)
+                                        value = value.copy(selection = TextRange(0, value.text.length))
+                                }
+                             }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain,
+                         keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(!state.mutating, submit = controller::create),
+                         trailingIcon = { HoldTip("Suggest another game name") { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } } })
+                 // Rare retry state; errors themselves float, so no permanently reserved gap.
+                 if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
+    }
+}

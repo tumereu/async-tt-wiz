@@ -134,7 +134,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         org.asyncttwiz.android.SavedCardFaces(ids.mapNotNull { id -> TestCatalog.faces(id)?.let { id to it } }.toMap(), TestCatalog.metadata)
     }
     val deckImport = org.asyncttwiz.android.DeckImportController({ text ->
-        org.asyncttwiz.storage.DeckImportResolver(checkNotNull(catalog) { "No card records on this phone" }.repository).resolve(text)
+        checkNotNull(catalog) { "No card records on this phone" }.controller.deckResolver().resolve(text)
     }, worker("deck-import"), post).apply {
         connectSave(DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, saved = {
             auth.push(ShellDestination.DECKS); decks.open(it.deck.id)

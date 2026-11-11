@@ -1,14 +1,10 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
-import org.asyncttwiz.appui.AppBuild
-import org.asyncttwiz.appui.platformLogInfo
-import java.time.Instant
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
+import org.asyncttwiz.appui.instantNow
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.Synchronized
 
 /** Bounded, oldest-first queue. A frame/result can update a sample already awaiting upload. */
 class LatencyBuffer(private val enabled: Boolean, private val capacity: Int = 200) {
@@ -26,7 +22,7 @@ class LatencyBuffer(private val enabled: Boolean, private val capacity: Int = 20
     @Synchronized fun restore(actions: List<ActionLatency>) {
         val current = snapshot()
         entries.clear()
-        actions.takeLast(capacity).forEach { record(UUID.randomUUID().toString(), it) }
+        actions.takeLast(capacity).forEach { record(randomUuid(), it) }
         current.forEach { record(it.id, it.value) }
     }
     @Synchronized fun snapshot(): List<Entry> = entries.map { Entry(it.key, it.value) }
@@ -42,8 +38,8 @@ class LatencyBuffer(private val enabled: Boolean, private val capacity: Int = 20
 }
 
 /** No Android dependencies in the clock/measurement logic; no server time is called local latency. */
-class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long = System::nanoTime,
-    private val timestamp: () -> String = { Instant.now().toString() },
+class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long = ::nanoTime,
+    private val timestamp: () -> String = { instantNow().toString() },
     private val log: (ActionLatency) -> Unit, private val record: (String, ActionLatency) -> Unit) {
     private val frames = linkedMapOf<String, Trace>()
     private val results = linkedMapOf<String, Trace>()
@@ -51,7 +47,7 @@ class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long 
     inner class Trace constructor(gameId: String, action: String, nodes: Int) {
         private val start = now()
         private val workStart = DebugJank.beginWork("apply")
-        private val id = UUID.randomUUID().toString()
+        private val id = randomUuid()
         private var finished = false
         private var sample = ActionLatency(timestamp(), gameId, action, nodes, predicted = false, submitted = false)
         fun submitted(requestId: String?, predicted: Boolean) {
@@ -84,112 +80,4 @@ class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long 
         if (enabled) Trace(gameId, action, nodes) else null
     fun drawn() { val pending = frames.values.toList(); frames.clear(); pending.forEach { it.drawn() } }
     fun result(requestId: String) { results.remove(requestId)?.result() }
-}
-
-/** Installed only behind the same [Diagnostics] gate as crashes. All serialization/disk/network work is IO. */
-object DebugLatency {
-    private var recorder: LatencyRecorder? = null
-    @Volatile private var token: String? = null
-    // Runtime gate: entry points check Diagnostics.enabled; the upload loop empties these when reports are off.
-    private val buffer = LatencyBuffer(true)
-    private val reconnects = ReconnectBuffer(true)
-    private val taps = CardTapBuffer()
-    private val tapRecorder = CardTapRecorder { taps.add(it); wake.trySend(Unit) }
-    private val wake = Channel<Unit>(Channel.CONFLATED)
-    private val upload = AtomicBoolean()
-    private val forced = AtomicBoolean()
-    private val started = AtomicBoolean()
-
-    fun begin(gameId: String, action: String, nodes: Int): LatencyRecorder.Trace? {
-        if (!Diagnostics.enabled) return null
-        DebugJank.action(action)
-        return recorder?.begin(gameId, action, nodes)
-    }
-    fun result(requestId: String) { if (Diagnostics.enabled) recorder?.result(requestId) }
-    fun drawn() { if (Diagnostics.enabled) recorder?.drawn() }
-    fun tap(gameId: String, event: String, popup: Boolean = false, cardId: String? = null) {
-        if (Diagnostics.enabled && recorder != null) tapRecorder.gesture(gameId, event, popup, DebugJank.catchingUp(), DebugJank.treeInFlight(), cardId)
-    }
-    fun tapAnimation(gameId: String, rotatingCardIds: Set<String>) {
-        if (Diagnostics.enabled && recorder != null) tapRecorder.animation(gameId, rotatingCardIds)
-    }
-    fun tapFrame(gameId: String, progress: Float, rate: Float) {
-        if (Diagnostics.enabled && recorder != null) tapRecorder.frame(gameId, progress, rate, DebugJank.catchingUp(), DebugJank.treeInFlight())
-    }
-    fun reconnect(value: ReconnectEpisode) {
-        if (!Diagnostics.enabled || recorder == null) return
-        platformLogInfo("AtwReconnect", "game=${value.gameId} episode=${value.id} started=${value.startedAt} cause=${value.cause} " +
-            "step=${value.steps.lastOrNull()} durationMs=${value.durationMs} complete=${value.complete}")
-        if (reconnects.record(value)) wake.trySend(Unit)
-    }
-
-    /** The platform's [ReportHooks.start] calls [appBackgrounded] when the app goes to the background. */
-    fun install(store: CrashReportStore, version: String, device: String) {
-        if (!Diagnostics.enabled || recorder != null) return
-        fun report(actions: List<ActionLatency>, episodes: List<ReconnectEpisode>, gestures: List<CardTapDiagnostic>) = CrashReport(Instant.now().toString(), version, device,
-            AccountJson.format.encodeToString(LatencyBatch(actions, episodes, gestures)), kind = "latency")
-        recorder = LatencyRecorder(true, log = { entry ->
-            platformLogInfo("AtwLatency", "action=${entry.actionType} game=${entry.gameId} nodes=${entry.historyNodeCount} " +
-                "predicted=${entry.predicted} submitted=${entry.submitted} localApplyMs=${entry.localApplyMs} " +
-                "firstFrameMs=${entry.firstFrameMs} serverResultMs=${entry.serverResultMs}" +
-                entry.parts.entries.joinToString("") { (label, ms) -> " $label=$ms" })
-        }, record = { id, entry -> if (buffer.record(id, entry)) wake.trySend(Unit) })
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        scope.launch {
-            // Restore before handling any persistence/upload signals from the new process.
-            runCatching { store.bufferedLatency()?.let { saved ->
-                val batch = AccountJson.format.decodeFromString<LatencyBatch>(saved.body)
-                buffer.restore(batch.actions); reconnects.restore(batch.reconnects); batch.taps.forEach(taps::add)
-            } }
-            for (signal in wake) {
-                try {
-                    if (!Diagnostics.enabled) { clear(); store.bufferLatency(null); continue }
-                    fun persist() {
-                        val actions = buffer.snapshot().map { it.value }
-                        val episodes = reconnects.snapshot()
-                        val gestures = taps.snapshot()
-                        store.bufferLatency(if (actions.isEmpty() && episodes.isEmpty() && gestures.isEmpty()) null else report(actions, episodes, gestures))
-                    }
-                    persist()
-                    val shouldUpload = upload.getAndSet(false)
-                    val force = forced.getAndSet(false)
-                    val credential = token
-                    if (shouldUpload && credential != null) {
-                        val batch = buffer.batch(System.nanoTime() / 1_000_000, force)
-                        val episodes = reconnects.batch()
-                        val gestures = taps.snapshot().take(40)
-                        if (batch.isNotEmpty() || episodes.isNotEmpty() || gestures.isNotEmpty()) AccountApi(AppBuild.ACCOUNT_ORIGIN).use { api ->
-                            if (api.uploadCrashReport(credential, report(batch.map { it.value }, episodes, gestures))) {
-                                buffer.acknowledge(batch); reconnects.acknowledge(episodes); taps.acknowledge(gestures); persist()
-                            }
-                        }
-                    }
-                } catch (cancelled: CancellationException) { throw cancelled
-                } catch (_: Exception) { /* Keep the bounded queue for the next scheduled attempt/start. */ }
-            }
-        }
-        scope.launch { while (isActive) { delay(1000); tapRecorder.expire() } }
-        scope.launch { while (isActive) { delay(60_000); requestUpload(false) } }
-    }
-
-    /** The app went to the background (not a rotation): what waits is sent now. */
-    fun appBackgrounded() = requestUpload(true)
-
-    /** Reports turned off: the loop empties the queues and deletes the saved batch. */
-    fun discard() { clear(); wake.trySend(Unit) }
-    private fun clear() {
-        buffer.acknowledge(buffer.snapshot()); reconnects.acknowledge(reconnects.snapshot()); taps.acknowledge(taps.snapshot())
-    }
-
-    fun authenticated(value: String?) {
-        if (!Diagnostics.enabled) return
-        token = value
-        if (value != null && started.compareAndSet(false, true)) requestUpload(true)
-    }
-    private fun requestUpload(force: Boolean) {
-        if (!Diagnostics.enabled) return
-        upload.set(true)
-        if (force) forced.set(true)
-        wake.trySend(Unit)
-    }
 }

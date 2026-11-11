@@ -1,10 +1,13 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.simpleClassName
+import org.asyncttwiz.appui.synchronized
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
 fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
@@ -696,7 +699,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         }))
         if (action == PodConfirmation.SUBMIT) { buildHistory = null; state = state.copy(tab = PodTab.GAMES) }
     }
-    private fun requestId() = UUID.randomUUID().toString()
+    private fun requestId() = randomUuid()
 
     private fun enqueue(write: Write) {
         syncCredential()
@@ -884,7 +887,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             } catch (failure: Exception) {
                 post { if (complete()) {
                     if (watched != null) {
-                        val cause = (failure as? PodFailure)?.code ?: failure.javaClass.simpleName
+                        val cause = (failure as? PodFailure)?.code ?: simpleClassName(failure)
                         if (watchFailing != cause) AppLog.info("pods", "Re-read failed ($watched): $cause")
                         watchFailing = cause
                     }

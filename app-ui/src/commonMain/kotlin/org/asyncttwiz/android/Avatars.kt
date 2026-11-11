@@ -35,11 +35,13 @@ import org.asyncttwiz.storage.CatalogAvatar
 import org.asyncttwiz.storage.CatalogPhase
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.firstCodePoint
+import org.asyncttwiz.appui.ioDispatcher
 
 fun avatarInitial(username: String): String = username.trim().let {
-    if (it.isEmpty()) "?" else String(Character.toChars(it.codePointAt(0))).uppercase(java.util.Locale.ROOT)
+    if (it.isEmpty()) "?" else firstCodePoint(it).uppercase()
 }
-fun avatarColor(accountId: String): Color = Color.hsv(Math.floorMod(accountId.hashCode(), 360).toFloat(), .5f, .65f)
+fun avatarColor(accountId: String): Color = Color.hsv(accountId.hashCode().mod(360).toFloat(), .5f, .65f)
 
 @Composable
 fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 32.dp) {
@@ -134,7 +136,7 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
         loading = true
         error = false
         try {
-            choices = withContext(Dispatchers.IO) { requireNotNull(catalog).repository.avatarChoices(query, previous = choices) }
+            choices = withContext(ioDispatcher) { requireNotNull(catalog).repository.avatarChoices(query, previous = choices) }
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (_: Exception) { error = true
         } finally { loading = false }

@@ -2,9 +2,9 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
+import arcanum.parser.OracleParser
 import org.asyncttwiz.storage.*
-import java.time.LocalDate
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
 
 /** The draft sets of the card records with their support marks (section 3.8). Blocking: the picker's worker only. */
 fun interface PodSetRepository {
@@ -12,7 +12,7 @@ fun interface PodSetRepository {
 }
 
 /** The device's card records as the pickers' set list. */
-class StoredPodSets(private val repository: () -> CatalogRepository) : PodSetRepository {
+class StoredPodSets(private val repository: () -> CardCatalog) : PodSetRepository {
     override fun sets() = repository().draftableSets()
 }
 
@@ -23,7 +23,7 @@ fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = cod
 
 /** A set's support as a list's (LOB-115's icon and hold): its unsupported cards (DRF-161), from the card catalog's marks. */
 fun DraftableSet.support(): CardListSupport =
-    CardListSupport(CardDefinitions.parserVersion, unsupported, arcanum.engine.Engine.SUPPORT_VERSION)
+    CardListSupport(OracleParser.VERSION, unsupported, arcanum.engine.Engine.SUPPORT_VERSION)
 
 /** Which packs of the pack grid (DRF-178) a set is being chosen for: one cell, a round's row or a pack's column. */
 sealed interface PodPackTarget {
@@ -68,7 +68,7 @@ data class PodSetPickerState(
     fun set(code: String): DraftableSet? = sets.firstOrNull { it.code == code }
 
     val filtered get() = sets.filter { set ->
-        set.releaseDate <= LocalDate.now(AppClock.clock()).toString() && query.trim().let { it.isEmpty() || set.name.contains(it, true) ||
+        set.releaseDate <= isoDateToday(AppClock.clock()) && query.trim().let { it.isEmpty() || set.name.contains(it, true) ||
             set.code.contains(it, true) || set.releaseDate.contains(it, true) }
     }.sortedWith(compareByDescending<DraftableSet> { it.releaseDate }.thenBy { it.name }.thenBy { it.code })
 }

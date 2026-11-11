@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.appui.drawCentredText
+import org.asyncttwiz.appui.toRadians
 
 /**
  * Text with its mana and tap symbols ({G}, {T}, {X}, hybrid, Phyrexian, snow, energy) drawn as symbols (TBL-124, owner
@@ -116,7 +117,7 @@ private fun DrawScope.turningArrow(radius: Float) {
     val sweep = 225f
     drawArc(ink, start, sweep, useCenter = false, topLeft = center - Offset(arc, arc), size = Size(arc * 2, arc * 2),
         style = Stroke(width, cap = StrokeCap.Butt))
-    val end = Math.toRadians((start + sweep).toDouble())
+    val end = toRadians((start + sweep).toDouble())
     val tip = center + Offset((arc * cos(end)).toFloat(), (arc * sin(end)).toFloat())
     // Clockwise, the arrow runs a quarter turn ahead of its angle; its head reaches past the arc's end
     val ahead = Offset(-sin(end).toFloat(), cos(end).toFloat())

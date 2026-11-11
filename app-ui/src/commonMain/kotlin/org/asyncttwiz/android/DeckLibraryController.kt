@@ -1,10 +1,11 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
 
 /** A saved deck with its cards as the phone shows them ([definitions], by [SavedDeckEntry.card]), built from its card
  * records (owner 2026-11-10: card data from the server's catalog). */
@@ -89,7 +90,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         if (closed || state.mutating || state.dialog != null) return
         val id = state.selected ?: return
         if (state.detail?.saved?.deck?.takeIf { it.id == id }?.draft == null) return
-        if (pending?.copy == null || pending?.id != id) pending = Pending(id, copy = CopyDeck(UUID.randomUUID().toString()))
+        if (pending?.copy == null || pending?.id != id) pending = Pending(id, copy = CopyDeck(randomUuid()))
         mutate()
     }
 
@@ -107,10 +108,10 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 if (!DeckValidation.text(state.draftName) || state.draftName.isBlank()) {
                     state = state.copy(error = "Enter a deck name."); return
                 }
-                Pending(id, update = UpdateDeck(UUID.randomUUID().toString(), name = state.draftName))
+                Pending(id, update = UpdateDeck(randomUuid(), name = state.draftName))
             }
-            DeckDialog.COVER -> Pending(id, update = UpdateDeck(UUID.randomUUID().toString(), cover = state.draftCover ?: return))
-            DeckDialog.DELETE -> Pending(id, delete = DeleteDeck(UUID.randomUUID().toString()))
+            DeckDialog.COVER -> Pending(id, update = UpdateDeck(randomUuid(), cover = state.draftCover ?: return))
+            DeckDialog.DELETE -> Pending(id, delete = DeleteDeck(randomUuid()))
             else -> return
         }
         pending = operation

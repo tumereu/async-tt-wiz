@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import kotlin.jvm.JvmName
+
 
 /** Personal layout data; action identifiers are independent of their short visual labels. */
 data class CardRingPage(val name: String, val actions: List<String>)

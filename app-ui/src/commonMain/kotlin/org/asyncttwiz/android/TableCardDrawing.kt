@@ -16,6 +16,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.NativeTextPaint
 import org.asyncttwiz.appui.NativeColors
 import org.asyncttwiz.appui.drawNativeText
+import org.asyncttwiz.appui.boundedLruMap
 
 /** Retained across tap endpoints: don't rebuild every text metric/path on the first rotation frame. */
 class TableDrawCache(density: Float) {
@@ -23,9 +24,7 @@ class TableDrawCache(density: Float) {
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
     private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
-    private fun <K, V> bounded() = object : java.util.LinkedHashMap<K, V>(256, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > 256
-    }
+    private fun <K, V> bounded() = boundedLruMap<K, V>(256)
     private val measurements = bounded<TextKey, Float>()
     private val centerOffsets = bounded<Float, Float>()
     private val outlines = bounded<FaceKey, androidx.compose.ui.graphics.Path>()

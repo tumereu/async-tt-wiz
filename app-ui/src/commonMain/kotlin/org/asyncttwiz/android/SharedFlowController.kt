@@ -21,6 +21,7 @@ import org.asyncttwiz.automatum.ManaWays
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.simpleClassName
 
 /**
  * Priority, responding, resolution, triggers and the steps of the turn through Automatum (integration spec §3 I2b, I3)
@@ -406,7 +407,7 @@ class SharedFlowController(
         busy = true
         work.run({
             runCatching { outcome().let { it to flow.pays(it.mana) } }
-                .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${it::class.java.simpleName}") }.getOrNull()
+                .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${simpleClassName(it)}") }.getOrNull()
         }) { result ->
             busy = false
             val (done, pays) = result ?: return@run
@@ -480,8 +481,8 @@ class SharedFlowController(
         AutomatumLog.refusal(play.gameId, "shared flow", problem.message.orEmpty())
         Outcome.Fail(CastController.NOT_ALLOWED)
     } catch (problem: Exception) {
-        AppLog.warn("automatum", "Shared flow couldn't go on: ${problem::class.java.simpleName}: ${problem.message?.take(200)}")
-        AutomatumLog.refusal(play.gameId, "shared flow", "${problem::class.java.simpleName}: ${problem.message}")
+        AppLog.warn("automatum", "Shared flow couldn't go on: ${simpleClassName(problem)}: ${problem.message?.take(200)}")
+        AutomatumLog.refusal(play.gameId, "shared flow", "${simpleClassName(problem)}: ${problem.message}")
         Outcome.Fail("Automatum couldn't go on from here.")
     }
 

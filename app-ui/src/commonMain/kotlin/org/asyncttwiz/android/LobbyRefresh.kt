@@ -1,8 +1,9 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import kotlin.concurrent.Volatile
 
 /** LobbyController's list refresh: contacts, games, invitations and the selected game's head read over
  * HTTP and merged with summaries accepted meanwhile, plus the foreground/background switch and quiet

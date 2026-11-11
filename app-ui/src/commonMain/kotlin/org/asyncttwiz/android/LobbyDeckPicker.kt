@@ -1,8 +1,8 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
 
 data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
     val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,

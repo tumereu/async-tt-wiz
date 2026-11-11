@@ -39,6 +39,7 @@ import org.asyncttwiz.automatum.CastWayChip
 import org.asyncttwiz.automatum.HandCastChips
 import org.asyncttwiz.automatum.HandCasts
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.appui.simpleClassName
 
 /**
  * The viewer's hand with Automatum on (integration spec I-D50, ZON-079, ZON-080, owner 2026-11-07): a tap raises a hand
@@ -175,7 +176,7 @@ class HandController(
                 HandCasts.chips(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
                     definitions, viewer, card, offered, seeds)
             } catch (problem: Exception) {
-                AppLog.warn("automatum", "Couldn't work the cost chips out: ${problem::class.java.simpleName}")
+                AppLog.warn("automatum", "Couldn't work the cost chips out: ${simpleClassName(problem)}")
                 null
             }
         }) { result ->
@@ -236,7 +237,7 @@ fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, scene: Ta
         exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(millis)) +
             androidx.compose.animation.slideOutVertically(spec) { rise }) {
         // One bright pulse: up and back down over the flash
-        val level = if (flashing) kotlin.math.sin(flash.value * Math.PI).toFloat() else 0f
+        val level = if (flashing) kotlin.math.sin(flash.value * kotlin.math.PI).toFloat() else 0f
         RaisedChipsRow(hand, play, shownCard, shownItem, shownOptions, level)
     }
 }

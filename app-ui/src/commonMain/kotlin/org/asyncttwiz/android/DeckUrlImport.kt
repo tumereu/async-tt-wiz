@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
-import java.net.URI
-import java.util.Locale
+import org.asyncttwiz.appui.parseUri
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.DeckValidation
 import org.asyncttwiz.storage.*
@@ -21,10 +20,10 @@ object DeckUrlImport {
         val site: DeckImportSite
         val id: String
         if (value.contains("://")) {
-            val uri = URI(value)
-            require(uri.scheme.lowercase(Locale.ROOT) in listOf("http", "https") && uri.rawUserInfo == null && uri.port == -1)
-            val host = uri.host?.lowercase(Locale.ROOT)?.removePrefix("www.")
-            val parts = uri.path.trim('/').split('/')
+            val uri = parseUri(value)
+            require(uri.scheme!!.lowercase() in listOf("http", "https") && uri.rawUserInfo == null && uri.port == -1)
+            val host = uri.host?.lowercase()?.removePrefix("www.")
+            val parts = uri.path!!.trim('/').split('/')
             when (host) {
                 "archidekt.com" -> {
                     require(parts.size >= 2 && parts[0] in listOf("decks", "deck"))
@@ -54,7 +53,7 @@ object DeckUrlImport {
         val maybe = mutableListOf<Pair<Int, String>>()
         for (element in root.getValue("cards").jsonArray) {
             val entry = element.jsonObject
-            val categories = entry["categories"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content.lowercase(Locale.ROOT) }
+            val categories = entry["categories"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content.lowercase() }
             val card = entry.getValue("card").jsonObject.getValue("oracleCard").jsonObject
             val row = entry.getValue("quantity").jsonPrimitive.int to card.string("name")
             if ("maybeboard" in categories) maybe += row
@@ -80,8 +79,8 @@ object DeckUrlImport {
 }
 
 object ImportClipboard {
-    fun cube(text: String?): String? = CubeCobraImport.link(text) ?: text?.trim()?.takeIf { value ->
-        runCatching { CubeCobraImport.cubeId(value) }.isSuccess
+    fun cube(text: String?): String? = cubeCobraLink(text) ?: text?.trim()?.takeIf { value ->
+        runCatching { cubeCobraId(value) }.isSuccess
     }
     fun deck(text: String?): String? = text?.trim()?.takeIf { DeckUrlImport.location(it) != null }
 }

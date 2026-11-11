@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.currentTimeMillis
+import org.asyncttwiz.appui.synchronized
 
 /** Pure delivery policy used by both polling and push. All callbacks share the owner's lock. */
 data class ActivityOwner(val accountId: String, val binding: String)
@@ -22,7 +24,7 @@ interface ActivityWindowStore : ActivityDeliveryStore {
 }
 
 class ActivityDelivery(private val store: ActivityDeliveryStore, private val post: (ActivityNotice) -> Unit) {
-    private var now: () -> Long = System::currentTimeMillis
+    private var now: () -> Long = ::currentTimeMillis
     constructor(store: ActivityDeliveryStore, now: () -> Long, post: (ActivityNotice) -> Unit) : this(store, post) {
         this.now = now
     }

@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import arcanum.api.Ability
+import org.asyncttwiz.appui.FormatLocale
+import org.asyncttwiz.appui.formatIn
 import arcanum.api.Effect
 import arcanum.api.Instructions
 import arcanum.api.ManaKind
@@ -13,6 +15,7 @@ import org.asyncttwiz.storage.ParsedCard
 import kotlin.math.roundToInt
 import arcanum.api.CardDefinition as RulesCard
 import arcanum.api.Color as RulesColor
+import org.asyncttwiz.appui.sortedMutableMapOf
 
 data class PodStats(
     val curve: Map<Double, PodStatsCurveBucket>,
@@ -73,7 +76,7 @@ fun podStatsPipText(value: Double): String {
     return when {
         rest < 1e-6 -> "$whole"
         kotlin.math.abs(rest - .5) < 1e-6 -> if (whole == 0L) "½" else "$whole½"
-        else -> "%.1f".format(java.util.Locale.ROOT, value)
+        else -> formatIn(FormatLocale.Root, "%.1f", value)
     }
 }
 
@@ -228,7 +231,7 @@ fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): Po
  * missing there makes no colour beyond its basic land types. */
 fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
     manaColors: Map<String, Set<DraftColor>> = emptyMap()): PodStats {
-    val curve = sortedMapOf<Double, PodStatsCurveBucket>()
+    val curve = sortedMutableMapOf<Double, PodStatsCurveBucket>()
     val pips = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
     val sources = DraftColor.entries.mapIndexed { index, color -> color to build.basics.podBuildValues()[index].toLong() }.toMap().toMutableMap()
     val others = DraftColor.entries.associateWith { 0L }.toMutableMap()

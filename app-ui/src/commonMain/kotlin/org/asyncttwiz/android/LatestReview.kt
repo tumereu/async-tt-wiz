@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
-import java.util.concurrent.Executor
+import org.asyncttwiz.appui.Executor
+import org.asyncttwiz.appui.synchronized
+import org.asyncttwiz.appui.Synchronized
 
 /** At most one running and one pending review per consumer. Superseded work is never executed. */
 class LatestReview(private val executor: Executor) {

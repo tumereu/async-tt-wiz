@@ -2,7 +2,9 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.mutableStateMapOf
 import org.asyncttwiz.protocol.*
-import java.math.BigInteger
+import org.asyncttwiz.appui.BigInteger
+import org.asyncttwiz.appui.plus
+import org.asyncttwiz.appui.nanoTime
 
 enum class TableChangeKind { LIFE, PLAYER_COUNTER, CORNER, COUNTER, NOTE, OWNER, FACE, LINK, TEXT_MARK, STEP }
 data class TableChangeKey(val target: String, val kind: TableChangeKind, val color: CounterColor? = null,
@@ -18,7 +20,7 @@ data class ActiveTableChange(val change: TableChange, val started: Long, val ser
 }
 
 /** Table-lifetime UI state; the clock is sampled on events, never by board composition. */
-class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000 }) {
+class TableChanges(private val now: () -> Long = { nanoTime() / 1_000_000 }) {
     val active = mutableStateMapOf<TableChangeKey, ActiveTableChange>()
     private var motionCursor: String? = null
     private var shuffledLibraries: Set<String> = emptySet()

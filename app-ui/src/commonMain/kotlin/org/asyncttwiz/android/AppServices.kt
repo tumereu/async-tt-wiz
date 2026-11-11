@@ -4,7 +4,7 @@ import coil3.PlatformContext
 import org.asyncttwiz.protocol.ActivityHint
 import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.protocol.SubmittedDefinition
-import org.asyncttwiz.storage.CatalogRepository
+import org.asyncttwiz.storage.CardCatalog
 import org.asyncttwiz.storage.ParsedCard
 
 /**
@@ -14,10 +14,10 @@ import org.asyncttwiz.storage.ParsedCard
  */
 interface AppServices {
     /** The card catalog's database on this device. */
-    fun catalogRepository(): CatalogRepository
+    fun catalogRepository(): CardCatalog
 
     /** A new installer of the card catalog into this device's catalog, from the app's server. */
-    fun catalogController(): CatalogController
+    fun catalogController(): CardRecordsController
 
     /** A new artwork service with its files where [context] keeps them (blocking: it repairs its disk cache). */
     fun artworkService(context: PlatformContext): ArtworkService

@@ -2,15 +2,16 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val openGame: () -> Unit = {}, private val suggest: () -> String = ::gameNameSuggestion,
     gameConnection: GameConnection? = null, private val accountId: () -> String? = { null },
-    authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
+    authenticationRequired: (String) -> Unit = {}, installationId: String = randomUuid(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
     clock: () -> Long = ::monotonicMillis,

@@ -20,8 +20,10 @@ import org.asyncttwiz.protocol.SessionCreated
 import org.asyncttwiz.protocol.RequestPasswordReset
 import org.asyncttwiz.protocol.ResetPassword
 import org.asyncttwiz.protocol.CheckPasswordResetLink
-import java.io.Closeable
-import java.net.URI
+import org.asyncttwiz.appui.Closeable
+import org.asyncttwiz.appui.parseUri
+import org.asyncttwiz.appui.codePointCount
+import org.asyncttwiz.appui.utf8Prefix
 import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.platformHttpClient
 
@@ -45,7 +47,7 @@ interface PasswordResets : Closeable {
 
 class AccountApi(private val origin: String, private val client: HttpClient = client()) : Accounts, PasswordResets {
     init {
-        require(origin.isEmpty() || URI(origin).let {
+        require(origin.isEmpty() || parseUri(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
                 it.rawPath.isNullOrEmpty() && (it.scheme == "https" ||
                     (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
@@ -86,9 +88,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
         if (!Diagnostics.enabled) return false
         // Keep the complete trace locally, but don't send bodies the server would discard anyway.
-        val bytes = report.body.toByteArray(Charsets.UTF_8)
-        val body = Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.IGNORE)
-            .decode(java.nio.ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString()
+        val body = utf8Prefix(report.body, 65_536)
         call(HttpMethod.Post, "/debug/crash-reports", AccountJson.format.encodeToString(report.copy(body = body)), token,
             discardRateLimited = true)
         return true
@@ -171,7 +171,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
 
         fun validatePassword(value: String) {
             validateScalars(value, "password")
-            if (value.codePointCount(0, value.length) !in 8..256 || value.toByteArray(Charsets.UTF_8).size > 1024)
+            if (codePointCount(value) !in 8..256 || value.encodeToByteArray().size > 1024)
                 throw AccountFailure("invalid_field", "password")
         }
     }

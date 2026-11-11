@@ -6,7 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import java.util.Locale
+import org.asyncttwiz.appui.FormatLocale
+import org.asyncttwiz.appui.formatIn
 
 /** LOB-093: Settings → Card records: what is installed, how far an installation is, Retry after a failure. */
 @Composable
@@ -14,7 +15,7 @@ fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
     Column(Modifier.fillMaxWidth().testTag("catalog-controls")) {
         SettingsSectionHeader("Card records")
         val installed = state.installed?.takeIf { state.ready }
-        SettingsLabel(installed?.let { "Installed: ${it.date} · ${String.format(Locale.US, "%,d", it.records)} records" }
+        SettingsLabel(installed?.let { "Installed: ${it.date} · ${formatIn(FormatLocale.Us, "%,d", it.records)} records" }
             ?: state.records.line().orEmpty(), null, Modifier.padding(vertical = 4.dp))
         if (!state.ready && !state.failed) LinearProgressIndicator(progress = { (state.progress?.percent ?: 0) / 100f },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("catalog-status"))

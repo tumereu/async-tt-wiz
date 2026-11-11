@@ -8,8 +8,8 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
-import java.io.Closeable
-import java.net.URI
+import org.asyncttwiz.appui.Closeable
+import org.asyncttwiz.appui.parseUri
 import org.asyncttwiz.appui.AppBuild
 
 class PodFailure(val code: String) : Exception("Pod request failed: $code")
@@ -60,7 +60,7 @@ interface Pods : Closeable {
 
 class PodApi(private val origin: String, private val client: HttpClient = AccountApi.client(),
     private val authenticationRequired: (String) -> Unit = {}) : Pods {
-    init { require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
+    init { require(origin.isEmpty() || parseUri(origin).let { it.host != null && it.rawUserInfo == null &&
         it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
         (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) }) }
     private fun path(id: String, action: String = ""): String {

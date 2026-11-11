@@ -1,12 +1,11 @@
 package org.asyncttwiz.android
 
-import java.io.ByteArrayOutputStream
-import java.util.Base64
-import java.util.zip.GZIPOutputStream
+import org.asyncttwiz.appui.gzipBase64
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.ReproBundle
 import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.game.GameRepro
+import kotlin.concurrent.Volatile
 
 /**
  * I-D43: Automatum's log in the Android log (debug level) and, in problem and crash reports, the latest game's
@@ -73,11 +72,7 @@ object AutomatumReports {
 
     private fun encode(engineBundle: String): String = GameRepro.REPORT_HEADER + "\n" + gzip(engineBundle)
 
-    private fun gzip(text: String): String {
-        val bytes = ByteArrayOutputStream()
-        GZIPOutputStream(bytes).use { it.write(text.toByteArray(Charsets.UTF_8)) }
-        return Base64.getEncoder().encodeToString(bytes.toByteArray())
-    }
+    private fun gzip(text: String): String = gzipBase64(text)
 
     private const val TAG = "Automatum"
     private const val MIN_ENTRIES = 20

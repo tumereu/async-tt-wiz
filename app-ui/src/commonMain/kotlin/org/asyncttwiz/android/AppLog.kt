@@ -2,9 +2,15 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.LogPriority
 import org.asyncttwiz.appui.platformLog
-import java.io.File
-import java.io.FileOutputStream
-import java.time.Instant
+import org.asyncttwiz.appui.File
+import org.asyncttwiz.appui.Instant
+import org.asyncttwiz.appui.instantNow
+import org.asyncttwiz.appui.readLinesIfFile
+import org.asyncttwiz.appui.appendToFile
+import org.asyncttwiz.appui.replaceFileText
+import org.asyncttwiz.appui.className
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.Synchronized
 
 /** Process-wide diagnostics: logcat plus a bounded, persisted ring of recent lines sent with problem reports. */
 object AppLog {
@@ -25,12 +31,12 @@ object AppLog {
 }
 
 class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
-    private val now: () -> Instant = Instant::now) {
+    private val now: () -> Instant = ::instantNow) {
     private val lines = ArrayDeque<String>()
     private var bytes = 0
 
     init {
-        val stored = runCatching { file?.takeIf { it.isFile }?.readLines(Charsets.UTF_8) }.getOrNull().orEmpty()
+        val stored = runCatching { file?.let(::readLinesIfFile) }.getOrNull().orEmpty()
         // Indented lines continue the entry above (stack traces).
         for (line in stored) if (line.startsWith(INDENT) && lines.isNotEmpty()) {
             val entry = lines.removeAt(lines.lastIndex); bytes -= size(entry); keep(entry + "\n" + line)
@@ -51,26 +57,22 @@ class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
 
     private fun keep(line: String) { lines.addLast(line); bytes += size(line) }
     private fun trim(limit: Int) { while (bytes > limit && lines.isNotEmpty()) bytes -= size(lines.removeAt(0)) }
-    private fun size(line: String) = line.toByteArray(Charsets.UTF_8).size + 1
+    private fun size(line: String) = line.encodeToByteArray().size + 1
 
     private fun append(line: String) {
         val target = file ?: return
-        runCatching { FileOutputStream(target, true).use { it.write((line + "\n").toByteArray(Charsets.UTF_8)) } }
+        runCatching { appendToFile(target, line + "\n") }
     }
 
     private fun persist() {
         val target = file ?: return
-        runCatching {
-            val part = File(target.path + ".part")
-            part.writeText(lines.joinToString("") { it + "\n" }, Charsets.UTF_8)
-            check(part.renameTo(target))
-        }
+        runCatching { replaceFileText(target, lines.joinToString("") { it + "\n" }) }
     }
 
     private companion object {
         const val INDENT = "    "
         fun summary(failure: Throwable): String = generateSequence(failure) { it.cause.takeIf { cause -> cause !== it } }.take(4)
-            .joinToString(" <- ") { "${it.javaClass.name}: ${it.message.orEmpty().take(300)}" }
+            .joinToString(" <- ") { "${className(it)}: ${it.message.orEmpty().take(300)}" }
     }
 }
 

@@ -3,6 +3,8 @@ package org.asyncttwiz.android
 import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.Preferences
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.File
 
 /** The player's answer to "Send error reports?", stored on this device (LOB-104). */
 enum class ReportChoice { UNASKED, ON, OFF }
@@ -47,7 +49,7 @@ object Diagnostics {
 /** What recording reports needs from the platform (Android: [AndroidReportHooks], from the Application). */
 interface ReportHooks {
     /** Where reports wait to be sent. */
-    val directory: java.io.File
+    val directory: File
     /** Starts the platform's own watchers once reports are recorded: [DebugLatency.appBackgrounded] when the app goes to
      * the background, and the screens' frames for [DebugJank] ([DebugJank.track], [DebugJank.frame]). */
     fun start()

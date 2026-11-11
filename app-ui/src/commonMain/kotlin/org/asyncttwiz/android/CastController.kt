@@ -17,8 +17,9 @@ import org.asyncttwiz.automatum.HandCasts
 import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.ManaWays
 import org.asyncttwiz.protocol.*
-import java.util.concurrent.Executors
+import org.asyncttwiz.appui.newSingleThreadExecutor
 import org.asyncttwiz.appui.postToMain
+import org.asyncttwiz.appui.simpleClassName
 
 /**
  * Where Automatum's engine work for the player's own actions runs (SYS-025): [Background] on one worker thread with
@@ -38,7 +39,7 @@ interface AutomatumWork {
     }
 
     object Background : AutomatumWork {
-        private val worker = Executors.newSingleThreadExecutor { Thread(it, "automatum").apply { isDaemon = true } }
+        private val worker = newSingleThreadExecutor("automatum", daemon = true)
         override fun <T> run(work: () -> T, done: (T) -> Unit) {
             worker.execute { val result = work(); postToMain { done(result) } }
         }
@@ -376,7 +377,7 @@ class CastController(
         val now = picked
         val run = ++selectionRun
         work.run({ runCatching { f.selection(now) }.onFailure {
-            AppLog.warn("automatum", "Selection couldn't be worked out: ${it::class.java.simpleName}")
+            AppLog.warn("automatum", "Selection couldn't be worked out: ${simpleClassName(it)}")
         }.getOrNull() }) { result ->
             if (run == selectionRun && flow === f && picked == now && result != null) {
                 selection = result
@@ -649,8 +650,8 @@ class CastController(
         busy = true
         var result = true
         fun guarded(work: () -> Step): Step = try { work() } catch (problem: Exception) {
-            AppLog.warn("automatum", "Cast step failed: ${problem::class.java.simpleName}: ${problem.message?.take(200)}", problem)
-            current()?.gameId?.let { AutomatumLog.refusal(it, "cast", "${problem::class.java.simpleName}: ${problem.message}") }
+            AppLog.warn("automatum", "Cast step failed: ${simpleClassName(problem)}: ${problem.message?.take(200)}", problem)
+            current()?.gameId?.let { AutomatumLog.refusal(it, "cast", "${simpleClassName(problem)}: ${problem.message}") }
             Step.Drop(FAILED)
         }
         this.work.run({ guarded(work) }) { outcome ->

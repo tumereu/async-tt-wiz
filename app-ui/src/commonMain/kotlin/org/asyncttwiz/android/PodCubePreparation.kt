@@ -3,11 +3,12 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
 
 /** One Prepare cube move: [quantity] copies of [definition] from [from] to the other section. */
 data class PodCubeMove(val definition: String, val from: SavedDeckSection, val quantity: Int) {
@@ -109,7 +110,7 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
         state = state.copy(cube = cube, error = null, feedback = TransferFeedback(++serial, "${move.quantity}× $name → ${move.to.sectionLabel()}"),
             undo = if (undoable) (state.undo + move).takeLast(PreparationUndo.LIMIT) else state.undo)
         inFlight++
-        val request = MovePodCubeCards(UUID.randomUUID().toString(), move.definition, move.from, move.quantity)
+        val request = MovePodCubeCards(randomUuid(), move.definition, move.from, move.quantity)
         worker.execute {
             if (generation != epoch) return@execute
             val outcome = runCatching { runBlocking { serviceRetry(wait, current = { generation == epoch }) { api.moveCube(token, pod, request) } } }

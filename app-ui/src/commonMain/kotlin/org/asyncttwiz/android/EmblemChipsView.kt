@@ -35,7 +35,10 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.storage.ArtworkReference
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.ioDispatcher
+import org.asyncttwiz.appui.concurrentMapOf
+import org.asyncttwiz.appui.getOrPutConcurrently
 
 /**
  * TRN-053 (owner gallery review 2026-11-06): each player's emblems as small round chips by their life square
@@ -111,7 +114,7 @@ fun EmblemInspect(texts: List<String>, own: Boolean) {
 fun rememberEmblemArt(text: String): ArtworkReference? {
     val services = AppServices.current
     val art by produceState(AndroidEmblemArt.known(text), text) {
-        value = withContext(Dispatchers.IO) { AndroidEmblemArt.find(services, text) }
+        value = withContext(ioDispatcher) { AndroidEmblemArt.find(services, text) }
     }
     return art?.let { ArtworkReference(it, 0, "art_crop") }
 }
@@ -121,7 +124,7 @@ fun rememberEmblemArt(text: String): ArtworkReference? {
  * looked up once per card records generation and text; none without card records or when reading them fails.
  */
 object AndroidEmblemArt {
-    private val found = ConcurrentHashMap<Pair<String, String>, String>()
+    private val found = concurrentMapOf<Pair<String, String>, String>()
     @Volatile private var generation: String? = null
 
     /** What is already known of [text] in the last generation looked at (no reading). */
@@ -131,7 +134,7 @@ object AndroidEmblemArt {
         val catalog = services.catalogRepository()
         val current = catalog.tokenGeneration()
         generation = current
-        if (current == null) null else found.getOrPut(current to text) { catalog.emblemArt(text).orEmpty() }.ifEmpty { null }
+        if (current == null) null else found.getOrPutConcurrently(current to text) { catalog.emblemArt(text).orEmpty() }.ifEmpty { null }
     } catch (problem: Exception) {
         AppLog.warn("automatum", "Emblem picture lookup failed: ${problem.message?.take(200)}")
         null

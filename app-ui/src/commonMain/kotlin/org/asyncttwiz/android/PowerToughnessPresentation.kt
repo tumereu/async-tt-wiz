@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PlayCard
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TableActions
-import java.math.BigInteger
+import org.asyncttwiz.appui.BigInteger
 
 /** Current-face metadata also covers tokens and retained projection snapshots. No type/rules inference. */
 fun changedPowerToughness(displayed: String, face: DefinitionFace?): Boolean =

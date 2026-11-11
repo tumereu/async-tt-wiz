@@ -3,11 +3,14 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.AccountIdentity
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.AtomicLong
+import org.asyncttwiz.appui.AtomicReference
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.synchronized
 
 enum class AuthPage { LOGIN, REGISTER }
 
@@ -58,7 +61,7 @@ class AuthController(
     @Volatile private var retrySavedLogin = false
     private var nextRestore = 0L
     fun foreground() {
-        val now = System.nanoTime() / 1_000_000
+        val now = nanoTime() / 1_000_000
         if (retrySavedLogin && state.restoring && state.restoreFailed && !state.busy && now >= nextRestore) {
             nextRestore = now + 5_000
             restore()

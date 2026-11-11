@@ -6,6 +6,7 @@ import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.protocol.*
 import kotlinx.collections.immutable.toPersistentMap
+import org.asyncttwiz.appui.toRadians
 
 enum class HistoryMode { LIVE, PLAYBACK }
 /** What the timeline transport is doing, for the table's centre text and corner flash. */
@@ -21,7 +22,7 @@ data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val
 /** Upright face dimensions never depend on the rotating footprint. */
 data class TableCardTransform(val width: Float, val height: Float, val rotation: Float) {
     fun bounds(center: TablePoint): TableBounds {
-        val radians = Math.toRadians(rotation.toDouble())
+        val radians = toRadians(rotation.toDouble())
         val c = kotlin.math.abs(kotlin.math.cos(radians)).toFloat()
         val s = kotlin.math.abs(kotlin.math.sin(radians)).toFloat()
         val w = width * c + height * s

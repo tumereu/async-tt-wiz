@@ -697,7 +697,7 @@ private fun DrawScope.splash(topLeft: Offset, size: Size) {
     val ry = size.height / 2f
     val path = Path()
     for (i in 0 until points * 2) {
-        val angle = Math.PI * i / points - Math.PI / 2
+        val angle = kotlin.math.PI * i / points - kotlin.math.PI / 2
         // Uneven spikes read as a splash, not a star
         val r = if (i % 2 == 0) (if (i % 4 == 0) .98f else .86f) else .66f
         val x = c.x + (rx * r * kotlin.math.cos(angle)).toFloat()

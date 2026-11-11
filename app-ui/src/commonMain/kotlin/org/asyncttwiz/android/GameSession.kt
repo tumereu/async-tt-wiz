@@ -1,10 +1,14 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
-import java.util.UUID
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.currentThread
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.simpleClassName
 
 /** One watched game's server stream: its open/resume state and the authorized generation. */
-data class SessionStream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
+data class SessionStream(val id: String = randomUuid(), var generation: String? = null,
     var head: Boolean = false, var opening: Boolean = false, var opened: Boolean = false,
     var lastGeneration: String? = null, var recoveryIds: List<String> = emptyList(), var awaitingReady: Boolean = false)
 
@@ -12,9 +16,9 @@ data class SessionStream(val id: String = UUID.randomUUID().toString(), var gene
 class GameSession(private val connection: GameConnection, private val credential: () -> String?,
     private val post: (() -> Unit) -> Unit, private val authenticationRequired: (String) -> Unit,
     private val changed: (GameSummary) -> Unit, private val settled: (GameCommand, GameResult) -> Unit,
-    private val statusChanged: () -> Unit, private val installationId: String = UUID.randomUUID().toString(),
+    private val statusChanged: () -> Unit, private val installationId: String = randomUuid(),
     private val accountId: () -> String? = { null },
-    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val now: () -> Long = { nanoTime() / 1_000_000 },
     reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (Diagnostics.enabled) DebugLatency.reconnect(it) },
     private val personalChat: GameChat = GameChat(),
     private val openedGame: () -> String? = { null },
@@ -30,7 +34,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun recoveryReady() { streams.keys.filter(::ready).forEach {
         DebugJank.catchUp(it, false); reconnectTrace.step(it, "ready", complete = true)
     } }
-    private val uiThread = Thread.currentThread()
+    private val uiThread = currentThread()
     private var latencyTrace: LatencyRecorder.Trace? = null
     private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
         if (!Diagnostics.enabled) return block()
@@ -42,7 +46,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun latencySubmitted(command: GameCommand, predicted: Boolean) {
         if (Diagnostics.enabled) latencyTrace?.submitted(command.requestId, predicted)
     }
-    private val processId = UUID.randomUUID().toString()
+    private val processId = randomUuid()
     private val streams = linkedMapOf<String, SessionStream>()
     private val summaries = mutableMapOf<String, GameSummary>()
     private val unavailableGames = mutableSetOf<String>()
@@ -118,7 +122,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // stream heads mark it instead.
         if (backgrounded || resumePending) {
             resumePending = true; resumePing = null
-            if (connected && welcome) UUID.randomUUID().toString().let { resumePing = it; send(GamePing(it)) }
+            if (connected && welcome) randomUuid().let { resumePing = it; send(GamePing(it)) }
         }
         backgrounded = false
         tick()
@@ -392,7 +396,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val generation = stream?.generation ?: stream?.lastGeneration
         if (stream == null || generation == null) { engineBacklog.getOrPut(gameId) { mutableListOf() } += actions; return }
         for (action in actions) {
-            val command = GameCommand(UUID.randomUUID().toString(), GameScope(gameId, playId = game.base.id), action, stream.id, generation)
+            val command = GameCommand(randomUuid(), GameScope(gameId, playId = game.base.id), action, stream.id, generation)
             if (!GameWire.valid(command)) { AppLog.warn("engine", "Invalid engine command ${action::class.simpleName}"); continue }
             pending[command.requestId] = command
         }
@@ -450,7 +454,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     val failure = runCatching { receive(message) }.exceptionOrNull()
                     if (failure != null) {
                         AppLog.warn("game", "Could not apply ${message::class.simpleName}", failure)
-                        connectionUnavailable("streamError:${message::class.simpleName}:${failure.javaClass.simpleName}")
+                        connectionUnavailable("streamError:${message::class.simpleName}:${simpleClassName(failure)}")
                     }
                 }
                 override fun disconnected(unauthorized: Boolean) = disconnected(unauthorized, "socketDisconnected")
@@ -468,7 +472,7 @@ class GameSession(private val connection: GameConnection, private val credential
             streams.keys.forEach(chats::syncChatRead)
             loadOpened()
             // The server's traffic lease counts protocol messages, not WebSocket control pings.
-            if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
+            if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(randomUuid())) }
         }
         connectionDemand.keys.removeAll { ready(it) }
         uncertainGames.removeAll { ready(it) }
@@ -560,7 +564,7 @@ class GameSession(private val connection: GameConnection, private val credential
             else if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
             else GameScope(game.id, game.preparationRound,
                 if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null)
-        return GameCommand(UUID.randomUUID().toString(), scope,
+        return GameCommand(randomUuid(), scope,
             action, stream.id, stream.generation ?: stream.lastGeneration!!)
     }
     private fun enqueue(game: GameSummary, action: GameAction): GameCommand? = measureLatency(game, action) {
@@ -786,7 +790,7 @@ class GameSession(private val connection: GameConnection, private val credential
         preparations.drainCaptured({ ready && credential() == token && pending.size < 256 }) { gameId, roundId, next ->
             val stream = streams[gameId] ?: return@drainCaptured null
             if (stream.generation == null || !stream.head) return@drainCaptured null
-            val command = GameCommand(UUID.randomUUID().toString(), GameScope(gameId, roundId),
+            val command = GameCommand(randomUuid(), GameScope(gameId, roundId),
                 next(), stream.id, stream.generation!!)
             pending[command.requestId] = command
             command
@@ -799,7 +803,7 @@ class GameSession(private val connection: GameConnection, private val credential
             }
         }
     }
-    fun heartbeat(presence: GamePresence): Boolean = connected && welcome && send(GamePing(UUID.randomUUID().toString(), presence))
+    fun heartbeat(presence: GamePresence): Boolean = connected && welcome && send(GamePing(randomUuid(), presence))
     private fun send(message: GameClientMessage): Boolean {
         if (!connection.send(message)) { connectionUnavailable("socketSendFailed"); return false }; return true
     }

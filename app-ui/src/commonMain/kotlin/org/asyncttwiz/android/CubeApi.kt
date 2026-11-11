@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import java.io.Closeable
+import org.asyncttwiz.appui.Closeable
 import org.asyncttwiz.protocol.*
 
 interface Cubes : Closeable {

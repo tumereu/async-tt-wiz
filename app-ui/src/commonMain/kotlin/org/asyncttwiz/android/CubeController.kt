@@ -1,12 +1,12 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
 
 /** A saved cube with its cards as the phone shows them ([definitions], by [SavedCubeEntry.card]), built from the card
  * records' [faces] (owner 2026-11-10). */
@@ -186,12 +186,12 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val input = state; val cobra = cobraSource
         work { _ ->
             val result = if (cobra != null) {
-                val parsed = CubeImportResolver.parse(input.text)
+                val parsed = parseCubeList(input.text)
                 val occurrences = mutableMapOf<Triple<String, String?, String?>, Int>()
                 val lines = parsed.lines.map { line ->
                     val key = Triple(line.name, line.set, line.number)
                     val candidates = cobra.lines.filter { Triple(it.name, it.set, it.number) == key }
-                    val occurrence = occurrences.getOrDefault(key, 0); occurrences[key] = occurrence + 1
+                    val occurrence = occurrences[key] ?: 0; occurrences[key] = occurrence + 1
                     val original = candidates.singleOrNull() ?: candidates.getOrNull(occurrence)
                     line.copy(scryfallId = original?.scryfallId)
                 }
@@ -202,7 +202,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     }
     fun importCobra() {
         if (!state.editing || state.busy) return
-        val id = try { CubeCobraImport.cubeId(state.cobraInput) } catch (_: Exception) {
+        val id = try { cubeCobraId(state.cobraInput) } catch (_: Exception) {
             state = state.copy(linkError = "Enter a Cube Cobra URL or cube id."); return
         }
         work(link = true) { _ ->
@@ -234,11 +234,12 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                     val digest = DeckJson.digest(definition)
                     cards[digest] = SubmittedDefinition(digest, definition)
                     val section = entry.cubeSection()
-                    copies.merge(section to first.getOrPut(section to entry.printing.id) { entry }, entry.quantity, Int::plus)
+                    val key = section to first.getOrPut(section to entry.printing.id) { entry }
+                    copies[key] = (copies[key] ?: 0) + entry.quantity
                 }
                 val entries = copies.map { (key, quantity) -> key.second.listEntry(key.first, quantity) }
                 if (!CubeValidation.input(entries)) throw DeckFailure("invalid_cube")
-                CubeSave(CreateCube(UUID.randomUUID().toString(), input.name, entries, input.provenance), input.target, cards.values.toList())
+                CubeSave(CreateCube(randomUuid(), input.name, entries, input.provenance), input.target, cards.values.toList())
             }
             attempted = plan
             AppLog.info("cubes", "save ${if (plan.target == null) "new cube" else "cube ${plan.target}"}: ${plan.cube.entries.size} entries, " +
@@ -276,8 +277,8 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (!deleting && (state.dialog != CubeDialog.RENAME || !CubeValidation.name(state.name))) {
             state = state.copy(error = "Enter a cube name."); return
         }
-        val delete = if (deleting) pendingDelete ?: DeleteCube(UUID.randomUUID().toString()).also { pendingDelete = it } else null
-        val update = if (!deleting) pendingUpdate ?: UpdateCube(UUID.randomUUID().toString(), name = state.name).also { pendingUpdate = it } else null
+        val delete = if (deleting) pendingDelete ?: DeleteCube(randomUuid()).also { pendingDelete = it } else null
+        val update = if (!deleting) pendingUpdate ?: UpdateCube(randomUuid(), name = state.name).also { pendingUpdate = it } else null
         work { current ->
             serviceRetry(current = current) { if (delete != null) api.delete(token, id, delete) else api.update(token, id, update!!) }
             return@work {

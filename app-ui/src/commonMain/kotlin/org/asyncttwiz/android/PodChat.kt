@@ -1,10 +1,11 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.simpleClassName
 
 /** A message this device sent to a pod's chat, shown until the server has it ("Checking delivery…", or "Not delivered"). */
 data class PodChatOutgoing(val requestId: String, val text: String, val failed: Boolean = false)
@@ -133,7 +134,7 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
                         update(podId) { it.copy(unavailable = true) }
                     } else {
                         // Once per stretch of failures, so an offline phone's polling doesn't push out what matters
-                        val cause = code ?: failure.javaClass.simpleName
+                        val cause = code ?: simpleClassName(failure)
                         if (failing.put(podId, cause) != cause) AppLog.info("pod-chat", "Pod $podId: chat read failed quietly ($reason): $cause")
                     }
                 }
@@ -148,7 +149,7 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
     fun send(podId: String, text: String = view(podId).draft, fromDraft: Boolean = true) {
         if (!view(podId).canSend(text)) return
         val token = credential() ?: return
-        val requestId = UUID.randomUUID().toString()
+        val requestId = randomUuid()
         val generation = epoch
         update(podId) { it.copy(draft = if (fromDraft) "" else it.draft, outgoing = it.outgoing + PodChatOutgoing(requestId, text)) }
         AppLog.info("pod-chat", "Pod $podId: sending message $requestId (${text.length} chars)")
@@ -160,7 +161,7 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
                     AppLog.info("pod-chat", "Pod $podId: message ${message.id} stored as #${message.ordinal}")
                     refresh(podId)
                 }.onFailure { failure ->
-                    AppLog.warn("pod-chat", "Pod $podId: message $requestId not delivered: ${(failure as? PodFailure)?.code ?: failure.javaClass.simpleName}")
+                    AppLog.warn("pod-chat", "Pod $podId: message $requestId not delivered: ${(failure as? PodFailure)?.code ?: simpleClassName(failure)}")
                     update(podId) { view -> view.copy(outgoing = view.outgoing.map { if (it.requestId == requestId) it.copy(failed = true) else it }) }
                 }
             }
@@ -187,7 +188,7 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
                 if (generation != epoch) return@post
                 cursors -= podId
                 result.onSuccess { state -> update(podId) { it.accept(state) }; syncRead(podId) }
-                    .onFailure { AppLog.info("pod-chat", "Pod $podId: read cursor not saved: ${(it as? PodFailure)?.code ?: it.javaClass.simpleName}") }
+                    .onFailure { AppLog.info("pod-chat", "Pod $podId: read cursor not saved: ${(it as? PodFailure)?.code ?: simpleClassName(it)}") }
             }
         }
     }

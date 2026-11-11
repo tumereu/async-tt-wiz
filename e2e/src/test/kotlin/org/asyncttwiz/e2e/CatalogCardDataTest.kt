@@ -10,7 +10,6 @@ import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.SavedCubeEntry
 import org.asyncttwiz.protocol.SavedDeckEntry
 import org.asyncttwiz.protocol.SavedDeckSection
-import org.asyncttwiz.storage.CubeImportResolver
 import org.junit.Test
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -82,7 +81,7 @@ class CatalogCardDataTest : E2e() {
         launchPlayers(aliceCatalog = true)
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }
         val worker = Executors.newSingleThreadExecutor { Thread(it, "e2e-cubes").apply { isDaemon = true } }
-        val resolver = CubeImportResolver(alice.catalog!!.repository)
+        val resolver = alice.catalog!!.controller.cubeResolver()
         val cubes = CubeController(DeckApi(alice.link.origin), alice.auth::sessionToken, resolver::resolve, resolver::resolve, worker,
             { action -> android.os.Handler(android.os.Looper.getMainLooper()).post(action) })
         try {

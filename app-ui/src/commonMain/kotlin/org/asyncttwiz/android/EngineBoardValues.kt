@@ -10,6 +10,10 @@ import org.asyncttwiz.automatum.ComputedBoard
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.HandPlays
 import org.asyncttwiz.automatum.SharedFlow
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.CountDownLatch
+import org.asyncttwiz.appui.currentThread
+import org.asyncttwiz.appui.simpleClassName
 
 /**
  * Engine-responsiveness R3, R4a: what the engine thread works out for a board of a game on engine state as it builds it
@@ -40,7 +44,7 @@ class EngineBoardValues constructor(
     /** TRN-062 (owner problem report 5DDSKK): the cards the viewer puts on the bottom of their library now, right after a
      * mulligan ([AutomatumOpening.bottomOwed]); worked out with the board, on the engine thread. */
     val openingBottom: Int = try { AutomatumOpening.bottomOwed(state, viewer) } catch (problem: Exception) {
-        AppLog.warn("automatum", "Couldn't read the opening's bottom: ${problem::class.java.simpleName}")
+        AppLog.warn("automatum", "Couldn't read the opening's bottom: ${simpleClassName(problem)}")
         0
     }
 
@@ -60,7 +64,7 @@ class EngineBoardValues constructor(
     fun workedHandPlays(): HandPlays = handPlays ?: try {
         HandPlays.of(state, viewer, view)
     } catch (problem: Exception) {
-        AppLog.warn("automatum", "Couldn't list plays: ${problem::class.java.simpleName}")
+        AppLog.warn("automatum", "Couldn't list plays: ${simpleClassName(problem)}")
         HandPlays.NONE
     }.also { handPlays = it }
 
@@ -72,12 +76,12 @@ class EngineBoardValues constructor(
     private fun workedCardPlays(): CardPlays = cardPlays ?: try {
         CardPlays.of(state, viewer, view ?: arcanum.engine.Engine.view(state), visible)
     } catch (problem: Exception) {
-        AppLog.warn("automatum", "Couldn't list card plays: ${problem::class.java.simpleName}")
+        AppLog.warn("automatum", "Couldn't list card plays: ${simpleClassName(problem)}")
         CardPlays.NONE
     }.also { cardPlays = it }
 
     /** An open promise of the plays ([promisePlays]) and the thread that made it (the engine thread). */
-    private class Promise(val kept: java.util.concurrent.CountDownLatch, val by: Thread)
+    private class Promise(val kept: CountDownLatch, val by: Any)
     @Volatile private var promise: Promise? = null
 
     /**
@@ -86,7 +90,7 @@ class EngineBoardValues constructor(
      * queueing behind the engine thread's follow-up work. Nothing when both are already worked out.
      */
     fun promisePlays() {
-        if (handPlays == null || cardPlays == null) promise = Promise(java.util.concurrent.CountDownLatch(1), Thread.currentThread())
+        if (handPlays == null || cardPlays == null) promise = Promise(CountDownLatch(1), currentThread())
     }
 
     /** Engine thread: the hand plays and card menus' plays worked out now (when not yet); keeps [promisePlays]. */
@@ -97,7 +101,7 @@ class EngineBoardValues constructor(
     /** Waits for an open promise of the plays (never on the thread that made it): this, or null when none is open. */
     private fun promised(): EngineBoardValues? {
         val open = promise ?: return null
-        if (open.by === Thread.currentThread()) return null
+        if (open.by === currentThread()) return null
         open.kept.await()
         return this
     }
@@ -112,7 +116,7 @@ class EngineBoardValues constructor(
     fun sharedFlow(): SharedFlow? = if (flowWorked) sharedFlow else engine.call {
         if (!flowWorked) {
             sharedFlow = try { SharedFlow.of(state, board.board, gameId, DeviceRandom::seed).prepared() } catch (problem: Exception) {
-                AppLog.warn("automatum", "Couldn't read the shared flow: ${problem::class.java.simpleName}")
+                AppLog.warn("automatum", "Couldn't read the shared flow: ${simpleClassName(problem)}")
                 null
             }
             flowWorked = true
@@ -128,7 +132,7 @@ class EngineBoardValues constructor(
      * the engine thread when not yet (waits for it; inline on it); [CombatShown.NONE] outside combat. */
     fun combat(): CombatShown = combat ?: engine.call {
         combat ?: try { CombatFlow.shown(state, board.board, gameId) } catch (problem: Exception) {
-            AppLog.warn("automatum", "Couldn't work combat out: ${problem::class.java.simpleName}")
+            AppLog.warn("automatum", "Couldn't work combat out: ${simpleClassName(problem)}")
             CombatShown.NONE
         }.also { combat = it }
     }
@@ -156,8 +160,8 @@ class EngineBoardValues constructor(
                 ComputedBoard.of(board.board, board.definitions, AutomatumBoards.definitions(board.definitions), viewer, state,
                     shown ?: arcanum.engine.Engine.view(state))
             } catch (problem: Exception) {
-                AppLog.warn("automatum", "Couldn't work the board out: ${problem::class.java.simpleName}")
-                ComputedBoard.failed("Automatum couldn't work this board out (${problem.message?.take(120) ?: problem::class.java.simpleName})")
+                AppLog.warn("automatum", "Couldn't work the board out: ${simpleClassName(problem)}")
+                ComputedBoard.failed("Automatum couldn't work this board out (${problem.message?.take(120) ?: simpleClassName(problem)})")
             }
             made++
             return EngineBoardValues(viewer, computed, board, gameId, state, shown, visible, engine)

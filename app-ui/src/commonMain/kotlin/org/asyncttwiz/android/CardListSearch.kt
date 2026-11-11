@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.storage.CatalogCard
 import org.asyncttwiz.storage.CatalogCardCursor
 import org.asyncttwiz.storage.CatalogCardSearch
@@ -25,6 +25,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlin.concurrent.Volatile
 
 /** The search page's quick filters. Within one kind any chosen chip matches; kinds and the typed text all apply. */
 enum class SearchColor(val label: String, val term: String) {

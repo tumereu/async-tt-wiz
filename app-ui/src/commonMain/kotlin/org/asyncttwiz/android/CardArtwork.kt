@@ -32,6 +32,9 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.storage.*
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.synchronized
+import org.asyncttwiz.appui.ioDispatcher
 
 /** Explicit decode target participates in the key: a small thumbnail cannot substitute for inspection.
  * Priority only orders downloads; a prefetched decode is the same memory-cache entry. */
@@ -60,7 +63,7 @@ class ArtworkServiceProvider(
     fun current(): ArtworkService? = service
     // Construction scans, repairs and trims the disk cache. Publish only the fully ready service;
     // even a caller waiting for the first request must never acquire this lock on the UI thread.
-    suspend fun get(context: PlatformContext): ArtworkService = service ?: withContext(Dispatchers.IO) {
+    suspend fun get(context: PlatformContext): ArtworkService = service ?: withContext(ioDispatcher) {
         synchronized(this@ArtworkServiceProvider) {
             service ?: create(context).also { service = it }
         }
@@ -69,7 +72,7 @@ class ArtworkServiceProvider(
 
 object PublicArtwork {
     private val provider = ArtworkServiceProvider()
-    private val starting = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val starting = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val wanted = HashMap<String, List<ArtworkReference>>()
     suspend fun get(context: PlatformContext): ArtworkService = provider.get(context)
     fun current(): ArtworkService? = provider.current()

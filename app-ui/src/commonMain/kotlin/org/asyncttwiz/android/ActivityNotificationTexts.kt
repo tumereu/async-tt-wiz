@@ -19,7 +19,7 @@ fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
             // I-D57: where you would resume (the point you last saw, never further)
             content.resumeAt?.let { " · ${resumePointText(it, content.opponentName)}" }.orEmpty())) +
         (if (content.newMessage) " · new message" else ""),
-    java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli(), content.deckName)
+    offsetDateTimeMillis(content.lastEventAt), content.deckName)
 
 /** I-D57: the point a game notification says you would resume at, in the table's own words (the turn square, TRN-007):
  * "Turn 5, your turn, Upkeep" or "Turn 5, <opponent>'s turn, End step"; the opening is "Mulliganing" (TRN-027). */

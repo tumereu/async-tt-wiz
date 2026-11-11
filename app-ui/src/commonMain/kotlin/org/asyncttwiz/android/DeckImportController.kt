@@ -9,8 +9,10 @@ import org.asyncttwiz.storage.ParsedDeck
 import org.asyncttwiz.storage.DeckSection
 import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.runBlocking
 
 data class DeckImportState(val active: Boolean = false, val text: String = "", val busy: Boolean = false,
     val result: DeckImportResult? = null, val preview: Boolean = false, val name: String = "",
@@ -30,7 +32,7 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
  * from its records (the server builds the same), for the pictures.
  */
 data class DeckSave(val name: String, val entries: List<CardListEntry>, val cover: String?, val target: String?,
-    val editMetadata: Boolean, val cards: List<SubmittedDefinition>, val requestId: String = UUID.randomUUID().toString()) {
+    val editMetadata: Boolean, val cards: List<SubmittedDefinition>, val requestId: String = randomUuid()) {
     fun create() = CreateDeck(requestId, name, entries, cover)
     /** Saving into an existing deck replaces its whole list. */
     fun update() = UpdateDeck(requestId, name = name.takeIf { editMetadata }, cover = cover, contents = DeckContentsImport(entries))
@@ -50,7 +52,7 @@ data class DeckSave(val name: String, val entries: List<CardListEntry>, val cove
                 card(entry, result.catalog, retained).let { card -> card.definition.printingId?.let { cards[it] = card } }
                 val section = SavedDeckSection.valueOf(entry.section.name)
                 val key = section to (first.getOrPut(section to entry.printing.id) { entry })
-                copies.merge(key, entry.quantity.toLong(), Long::plus)
+                copies[key] = (copies[key] ?: 0L) + entry.quantity.toLong()
             }
             if (copies.values.any { it > Int.MAX_VALUE }) throw DeckFailure("invalid_deck")
             if (cover != null && cover !in cards) throw DeckFailure("invalid_cover")
@@ -229,7 +231,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     /** Shared production wiring: reacquire credentials on retry, never regenerate retained intent. */
     fun connectSave(api: Decks, credential: () -> String?, saved: (SavedDeck) -> Unit) {
         connectSave(action = {
-            credential()?.let { token -> { plan: DeckSave -> kotlinx.coroutines.runBlocking {
+            credential()?.let { token -> { plan: DeckSave -> runBlocking {
                 AppLog.info("decks", "save ${if (plan.target == null) "new deck" else "deck ${plan.target}"}: ${plan.entries.size} entries, " +
                     "${plan.entries.count { it.printingId == null }} without a printing, request ${plan.requestId}")
                 // One request: the server builds the cards from its catalog (owner 2026-11-10) and works out their
@@ -249,7 +251,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun connectDelete(api: Decks, credential: () -> String?, deleted: (String) -> Unit) {
         connectDelete(action = {
-            credential()?.let { token -> { id: String, request: DeleteDeck -> kotlinx.coroutines.runBlocking {
+            credential()?.let { token -> { id: String, request: DeleteDeck -> runBlocking {
                 serviceRetry(current = { credential() == token }) { api.delete(token, id, request) }
             }; Unit } }
         }, deleted = deleted)
@@ -265,7 +267,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         if (closed || !state.deleteDialog || state.deleting) return
         val id = state.target ?: return
         val action = deleteAction?.invoke() ?: run { state = state.copy(deleteError = "Sign in to delete this deck."); return }
-        val request = pendingDelete?.takeIf { it.first == id } ?: (id to DeleteDeck(java.util.UUID.randomUUID().toString()))
+        val request = pendingDelete?.takeIf { it.first == id } ?: (id to DeleteDeck(randomUuid()))
         pendingDelete = request
         state = state.copy(deleting = true, deleteError = null)
         worker.execute {

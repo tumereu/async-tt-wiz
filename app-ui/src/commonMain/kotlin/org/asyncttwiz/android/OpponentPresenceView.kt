@@ -5,9 +5,8 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.OpponentPresence
 import org.asyncttwiz.protocol.PresenceState
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import org.asyncttwiz.appui.ZonedDateTime
+import org.asyncttwiz.appui.zonedNow
 
 /** The opponent's presence as last heard from the server, with the local monotonic time it arrived.
  *  Ages keep counting locally from [receivedAt]; the server's clock never matters. */
@@ -51,11 +50,7 @@ object PresenceText {
                 when {
                     seconds < 60 -> "Last seen just now"
                     seconds < 86_400 -> "Last seen ${span(seconds)} ago"
-                    else -> {
-                        val day = wallNow.minusSeconds(seconds)
-                        val pattern = if (day.year == wallNow.year) "MMM d" else "MMM d, yyyy"
-                        "Last seen ${day.format(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH))}"
-                    }
+                    else -> "Last seen ${lastSeenDay(wallNow, seconds)}"
                 }
             }
         }
@@ -93,7 +88,7 @@ fun rememberPresenceDot(received: ReceivedPresence?): PresenceDot? {
 fun rememberPresenceLine(received: ReceivedPresence): String {
     var now by remember { mutableLongStateOf(monotonicMillis()) }
     LaunchedEffect(received) { while (true) { now = monotonicMillis(); delay(20_000) } }
-    return PresenceText.line(received, maxOf(now, received.receivedAt), ZonedDateTime.now(AppClock.clock()))
+    return PresenceText.line(received, maxOf(now, received.receivedAt), zonedNow(AppClock.clock()))
 }
 
 /** The opponent's presence for the table's player panels; null hides the line (unknown or old server). */

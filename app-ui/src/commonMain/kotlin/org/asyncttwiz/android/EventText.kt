@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
-import java.util.concurrent.Executor
+import org.asyncttwiz.appui.Executor
 import org.asyncttwiz.appui.AppPlatform
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.nanoTime
 
 /** The short text of the group whose last shown event is [cursorId]. [serial] tells repeated texts apart. */
 data class EventTextChip(val cursorId: String, val text: String, val serial: Long, val shownAt: Long)
@@ -41,7 +43,7 @@ const val EVENT_TEXT_FADE_OUT_MILLIS = 450
  * group it shows (also the viewer's own); live mode only an opponent's new group. A chip always
  * belongs to the board currently shown: moving elsewhere drops it at once, before the next is ready. */
 class EventTextFeed(worker: Executor, private val post: (() -> Unit) -> Unit,
-    private val clock: () -> Long = { System.nanoTime() / 1_000_000 }) {
+    private val clock: () -> Long = { nanoTime() / 1_000_000 }) {
     var chip by mutableStateOf<EventTextChip?>(null); private set
     var enabled = true
         set(value) { field = value; if (!value) { chip = null; latest = ++epoch } }

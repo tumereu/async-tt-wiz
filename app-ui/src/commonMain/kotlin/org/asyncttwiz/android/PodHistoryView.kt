@@ -42,7 +42,7 @@ fun podHistoryRoundHeader(round: Int): String =
  * card given automatically may come after you opened the next round); [returningOnly]: only packs that came back to you a
  * second or later time in their round, a round without any left out. */
 fun podHistoryRounds(picks: List<DraftHistoryPick>, returningOnly: Boolean): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
-    picks.withIndex().filter { !returningOnly || it.value.returning }.groupBy { it.value.round }.toSortedMap().toList()
+    picks.withIndex().filter { !returningOnly || it.value.returning }.groupBy { it.value.round }.toList().sortedBy { it.first }
 
 /** A history pack's cards sorted like Build columns: W U B R G, multicolour, colourless, then name (DRF-165). */
 fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<DraftCopy> =

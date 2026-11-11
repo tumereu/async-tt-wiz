@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.appui.synchronized
 
 data class ArtworkPrefetchProgress(val done: Int, val total: Int)
 

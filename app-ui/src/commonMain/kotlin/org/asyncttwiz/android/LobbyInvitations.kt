@@ -1,9 +1,9 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.randomUuid
 
 /** [automatum]: the new game starts with Automatum on (I-D44, on by default). */
 data class GameNameDraft(val recipient: AccountIdentity, val name: String)
@@ -49,7 +49,7 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
         val draft = state.draft ?: return
         if (!LobbyValidation.name(draft.name)) { state = state.copy(error = "Enter a game name."); return }
         val token = credential() ?: return
-        val input = pendingCreate ?: CreateInvitation(UUID.randomUUID().toString(), draft.recipient.accountId, draft.name)
+        val input = pendingCreate ?: CreateInvitation(randomUuid(), draft.recipient.accountId, draft.name)
         pendingCreate = input; pendingRecipient = draft.recipient
         val generation = epoch
         state = state.copy(mutating = true, error = null)
@@ -93,7 +93,7 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
             if (generation != epoch) return@execute
             var captured = previous
             val result = runCatching { runBlocking {
-                val request = captured ?: PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName))
+                val request = captured ?: PodChallenge(podId, ChallengeFromPod(randomUuid(), opponentId, gameName))
                     .also { captured = it }
                 serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }
             } }

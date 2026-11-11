@@ -3,7 +3,8 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import java.time.Instant
+import org.asyncttwiz.appui.Instant
+import org.asyncttwiz.appui.instantNow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,12 +17,13 @@ import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.deviceModel
 import org.asyncttwiz.appui.osVersion
 import org.asyncttwiz.appui.ownPlatformLog
+import org.asyncttwiz.appui.ioDispatcher
 
 /** Client margin below the server limit for request framing. */
 const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
 
 /** [automatum]: the latest game's Automatum log and bundle (I-D43, [AutomatumReports.text]), already within its bound. */
-fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now(),
+fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = instantNow(),
     automatum: String = "") =
     ProblemReport(now.toString(), AppBuild.VERSION_NAME, AppBuild.VERSION_CODE, AppBuild.BUILD_TYPE,
         deviceModel().take(200), osVersion().take(100),
@@ -32,7 +34,7 @@ fun problemReport(description: String, problem: String?, log: String, logcat: St
 fun fitProblemReport(report: ProblemReport, maxBytes: Int = PROBLEM_REPORT_BYTES): ProblemReport {
     var fitted = report
     while (true) {
-        val over = AccountJson.format.encodeToString(fitted).toByteArray(Charsets.UTF_8).size - maxBytes
+        val over = AccountJson.format.encodeToString(fitted).encodeToByteArray().size - maxBytes
         fitted = when {
             over <= 0 -> return fitted
             fitted.logcat.isNotEmpty() -> fitted.copy(logcat = dropOldestLines(fitted.logcat, over))
@@ -47,7 +49,7 @@ private fun dropOldestLines(text: String, bytes: Int): String {
     var dropped = 0
     while (dropped < bytes && index < text.length) {
         val end = text.indexOf('\n', index).let { if (it == -1) text.length else it + 1 }
-        dropped += text.substring(index, end).toByteArray(Charsets.UTF_8).size
+        dropped += text.substring(index, end).encodeToByteArray().size
         index = end
     }
     return text.substring(index)
@@ -80,7 +82,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
         AppLog.info("report", "Sending problem report")
         scope.launch {
             state = try {
-                val report = withContext(Dispatchers.IO) {
+                val report = withContext(ioDispatcher) {
                     AutomatumReports.logBoard()
                     fitProblemReport(problemReport(description, problem, AppLog.text(), ownLogcat(), automatum = automatum()))
                 }

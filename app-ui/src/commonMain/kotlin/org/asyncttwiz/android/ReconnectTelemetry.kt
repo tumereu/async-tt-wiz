@@ -2,12 +2,13 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.ReconnectEpisode
 import org.asyncttwiz.protocol.ReconnectStep
-import java.time.Instant
-import java.util.UUID
+import org.asyncttwiz.appui.instantNow
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.Synchronized
 
 /** Record at episode start too: a stalled/failed recovery must not disappear from diagnostics. */
 class ReconnectRecorder(private val enabled: Boolean, private val now: () -> Long,
-    private val timestamp: () -> String = { Instant.now().toString() },
+    private val timestamp: () -> String = { instantNow().toString() },
     private val record: (ReconnectEpisode) -> Unit) {
     private data class Active(val start: Long, var last: Long, var value: ReconnectEpisode)
     private val active = linkedMapOf<String, Active>()
@@ -15,7 +16,7 @@ class ReconnectRecorder(private val enabled: Boolean, private val now: () -> Lon
         if (!enabled) return
         if (gameId in active) { step(gameId, cause); return }
         val time = now()
-        val entry = Active(time, time, ReconnectEpisode(UUID.randomUUID().toString(), gameId, timestamp(), cause.take(160)))
+        val entry = Active(time, time, ReconnectEpisode(randomUuid(), gameId, timestamp(), cause.take(160)))
         active[gameId] = entry
         while (active.size > 200) active.remove(active.keys.first())
         record(entry.value)

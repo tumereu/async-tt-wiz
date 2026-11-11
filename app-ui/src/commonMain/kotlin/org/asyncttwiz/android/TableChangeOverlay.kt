@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.NativeTextPaint
 import org.asyncttwiz.appui.drawNativeText
+import org.asyncttwiz.appui.toRadians
 
 val LocalTableChanges = staticCompositionLocalOf<TableChanges?> { null }
 
@@ -141,7 +142,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                  for (fragment in shown.visible) clipRect(fragment.x * density, fragment.y * density, fragment.right * density, fragment.bottom * density) {
                      rotate(if (card) transform.rotation else 0f, point(b.center)) {
                          if (key.kind == TableChangeKind.OWNER) {
-                             val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * Math.PI)).toFloat())
+                             val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * kotlin.math.PI)).toFloat())
                              rect(local(TableBounds(0f, 0f, 28f, 40f)), color.copy(alpha = pulse), border = true)
                          } else {
                              // A bright pulse over the value, even on a white card; not just an ink hue change.
@@ -157,7 +158,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                  paint.textSize = maxOf(11.sp.toPx(), if (card) 7f * z * valueScale * density else 0f)
                  val width = paint.measureText(active.tag) / density + 10f
                  val height = (paint.fontMetrics().bottom - paint.fontMetrics().top) / density + 4f
-                 val radians = Math.toRadians(transform.rotation.toDouble())
+                 val radians = toRadians(transform.rotation.toDouble())
                  val dx = slot.right - b.center.x
                  val dy = (if (key.kind == TableChangeKind.CORNER) slot.bottom else slot.center.y) - b.center.y
                  val anchor = if (card) TablePoint(

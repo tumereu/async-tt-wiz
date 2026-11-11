@@ -31,6 +31,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.screenOrientation
 import org.asyncttwiz.appui.ScreenOrientation
 import org.asyncttwiz.appui.AppPlatform
+import org.asyncttwiz.appui.edgeToEdgeDialogProperties
 
 @Composable
 fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
@@ -104,8 +105,7 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     // DRF-170: the pod's chat as a side panel, as the table's (LOB-066)
     val chatPod = state.detail?.takeIf { state.chatOpen && it.id == state.selected }
     if (chatPod != null) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = controller::closeChat, properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
             val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
             Box(Modifier.fillMaxSize()) {
                 PodChatPanel(controller.chat, chatPod.id, accountId,

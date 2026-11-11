@@ -1,5 +1,9 @@
 package org.asyncttwiz.android
 
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.newIdentitySet
+import kotlin.math.roundToLong
+
 /**
  * SYS-025, SYS-030 (engine-responsiveness R1): one own action's probe, its time split into parts. Up to its board:
  * [WAIT] (queued behind other work on the engine thread, e.g. the 1-second tick), [ENGINE] (the engine's work: the
@@ -47,7 +51,7 @@ class OwnActionTiming(val what: String, private val clock: () -> Long, val trace
     var computed: Long? = null
     var plays: Long? = null
     /** The boards published from the action's board on (by identity): the computed values of any of them count. */
-    val boards: MutableSet<Any> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+    val boards: MutableSet<Any> = newIdentitySet()
     var reported = false
 
     fun now(): Long = clock()
@@ -92,7 +96,7 @@ class OwnActionTiming(val what: String, private val clock: () -> Long, val trace
         val LABELS = listOf(TOTAL, WAIT, ENGINE, INFO, BOARD, FRAME, COMPUTED, PLAYS, AFTER, AFTER_INFO)
 
         /** Nanoseconds as milliseconds to a tenth (never negative). */
-        private fun ms(nanos: Long): Double = Math.round(nanos.coerceAtLeast(0) / 1e5) / 10.0
+        private fun ms(nanos: Long): Double = (nanos.coerceAtLeast(0) / 1e5).roundToLong() / 10.0
     }
 }
 

@@ -16,6 +16,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.appui.AppPlatform
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.synchronized
 
 /**
  * Set symbols (DRF-176): the Keyrune icon font bundled with the app (assets/fonts: keyrune.ttf, SIL OFL 1.1, its licence

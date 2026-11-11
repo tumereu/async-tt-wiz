@@ -47,7 +47,6 @@ import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.storage.DeckSection
 import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.storage.definition as catalogDefinition
-import org.asyncttwiz.storage.from
 import org.asyncttwiz.appui.screenWidthDp
 
 enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text") }

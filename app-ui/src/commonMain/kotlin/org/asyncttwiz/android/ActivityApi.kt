@@ -8,22 +8,25 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
-import java.io.Closeable
-import java.net.URI
+import org.asyncttwiz.appui.Closeable
+import org.asyncttwiz.appui.parseUri
+import org.asyncttwiz.appui.urlEncode
+import org.asyncttwiz.appui.Instant
+import org.asyncttwiz.appui.instantNow
 import org.asyncttwiz.appui.AppBuild
 
 class ActivityFetchFailure(val status: Int, val retryAfter: Long = 0) : Exception("Activity unavailable") {
     val transient get() = status == 0 || status == 429 || status >= 500
 }
 class ActivityApi(private val origin: String, private val client: HttpClient = AccountApi.client()) : Closeable {
-    init { require(origin.isEmpty() || URI(origin).let {
+    init { require(origin.isEmpty() || parseUri(origin).let {
         it.host != null && it.rawUserInfo == null && it.rawPath.isNullOrEmpty() && it.rawQuery == null && it.rawFragment == null &&
             (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
     }) }
     suspend fun register(token: String, input: RegisterInstallation): ActivityRegistration =
         ActivityWire.json.decodeFromString(call(token, HttpMethod.Put, "/activity/installations", ActivityWire.json.encodeToString(input)))
     suspend fun page(token: String, cursor: String?): ActivityPage = ActivityWire.json.decodeFromString(
-        call(token, HttpMethod.Get, "/activity" + (cursor?.let { "?after=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: "")))
+        call(token, HttpMethod.Get, "/activity" + (cursor?.let { "?after=" + urlEncode(it) } ?: "")))
     suspend fun target(token: String, route: ActivityRoute): ActivityTarget = ActivityWire.json.decodeFromString(
         call(token, HttpMethod.Get, "/activity/target?kind=${route.kind.name}&game=${route.gameId}&identity=${route.identity}"))
     suspend fun waiting(token: String): WaitingGames =
@@ -49,10 +52,7 @@ class ActivityApi(private val origin: String, private val client: HttpClient = A
     }
     override fun close() = client.close()
     companion object {
-        fun retryAfter(value: String?, now: java.time.Instant = java.time.Instant.now()): Long =
-            value?.toLongOrNull()?.coerceAtLeast(0) ?: runCatching {
-                java.time.Duration.between(now, java.time.ZonedDateTime.parse(value,
-                    java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).seconds.coerceAtLeast(0)
-            }.getOrDefault(0)
+        fun retryAfter(value: String?, now: Instant = instantNow()): Long =
+            value?.toLongOrNull()?.coerceAtLeast(0) ?: runCatching { secondsUntilHttpDate(now, value) }.getOrDefault(0)
     }
 }

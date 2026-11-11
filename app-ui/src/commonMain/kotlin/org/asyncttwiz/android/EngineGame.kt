@@ -22,13 +22,14 @@ import org.asyncttwiz.protocol.game.GameModel
 import org.asyncttwiz.protocol.game.GameRepro
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.TableChange
-import java.util.UUID
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Executors
 import org.asyncttwiz.appui.uptimeMillis
 import org.asyncttwiz.appui.isMainThread
 import org.asyncttwiz.appui.postToMain
 import org.asyncttwiz.appui.postFrameCallback
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.AtomicReference
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.randomUuid
 
 /**
  * Where a game's engine work runs (I-D56 step D2, engine-state-architecture §12 item 11): one engine thread owns every
@@ -62,47 +63,19 @@ interface EngineWorker {
         override fun main(work: () -> Unit) = work()
     }
 
-    /** The app's one engine thread (made on first use), results posted to the main looper. */
-    object Background : EngineWorker {
-        @Volatile private var thread: Thread? = null
-        private val executor by lazy {
-            Executors.newSingleThreadExecutor { work -> Thread(work, "atw-engine").apply { isDaemon = true; thread = this } }
-        }
-
-        override fun run(work: () -> Unit) {
-            executor.execute {
-                // A failing step never stops the thread: the next event or action carries on (a device that can't follow
-                // asks to load the game again)
-                try { work() } catch (failure: Throwable) { AppLog.error("engine", "Engine work failed", failure) }
-            }
-        }
-
-        override fun <T> call(work: () -> T): T {
-            if (Thread.currentThread() === thread) return work()
-            try { return executor.submit<T> { work() }.get() }
-            catch (failure: ExecutionException) { throw failure.cause ?: failure }
-        }
-
-        override fun main(work: () -> Unit) {
-            if (isMainThread()) work() else postToMain(work)
-        }
-
-        /** The next frame's callback posts [work], which runs once that frame's main-thread work (the recomposition and
-         * the drawing it brings) is done. */
-        override fun frame(work: () -> Unit) = main {
-            postFrameCallback { postToMain(work) }
-        }
-
-        override fun early(work: (release: (() -> Unit)?) -> Unit) {
-            if (Thread.currentThread() === thread) { work(null); return }
-            val gate = java.util.concurrent.CountDownLatch(1)
-            executor.execute {
-                try { work { gate.countDown() } } catch (failure: Throwable) { AppLog.error("engine", "Engine work failed", failure) }
-                finally { gate.countDown() }
-            }
-            gate.await()
-        }
+    companion object {
+        /** The app's one engine thread (made on first use), results posted to the main thread ([BackgroundEngineWorker]). */
+        val Background: EngineWorker get() = BackgroundEngineWorker
     }
+}
+
+/** The app's one engine thread (made on first use), results posted to the main thread (Android: a JVM thread). */
+expect object BackgroundEngineWorker : EngineWorker {
+    override fun run(work: () -> Unit)
+    override fun <T> call(work: () -> T): T
+    override fun main(work: () -> Unit)
+    override fun frame(work: () -> Unit)
+    override fun early(work: (release: (() -> Unit)?) -> Unit)
 }
 
 /** Tests: every [EngineGame.Shown] an engine game publishes (whole boards, not an own action's early one), with its
@@ -127,10 +100,10 @@ object EngineShownProbe {
  * every head.
  */
 class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: EngineSnapshot,
-    private val ids: () -> String = { UUID.randomUUID().toString() },
+    private val ids: () -> String = { randomUuid() },
     private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {},
     /** The own-action probe's clock (SYS-030), in nanoseconds. */
-    private val clock: () -> Long = System::nanoTime,
+    private val clock: () -> Long = ::nanoTime,
     /** HIS-111, HIS-099: asks the server for the page of the main line ending at an event (older history); its answer
      * (null when it failed) comes off the main thread. Null: none is asked (the device reaches only what it holds). */
     private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null) {
@@ -1361,7 +1334,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val board = shown
         val seen = board?.version
         val timing = timing(what)
-        val result = java.util.concurrent.atomic.AtomicReference<GameDevice.Acted?>(null)
+        val result = AtomicReference<GameDevice.Acted?>(null)
         worker.early { release ->
             timing.started = clock()
             val info = informationNanos()

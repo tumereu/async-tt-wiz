@@ -597,7 +597,7 @@ fun ResponseMode.meaning(): String = when (this) {
     ResponseMode.AutoSkip -> "As Normal, but go on by itself where you can't respond, and answer questions with only one answer."
 }
 
-private val MODES = listOf(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
+private val MODES = listOf<ResponseMode>(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
 /** "Assume resolves" (HIS-096): the choice's name, its short form for the quick action, and what it means. */
 fun AssumeResolves.label(): String = when (this) {

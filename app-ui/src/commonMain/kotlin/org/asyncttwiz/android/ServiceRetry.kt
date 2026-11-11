@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import kotlinx.coroutines.delay
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.simpleClassName
 
 val quickRetryDelays = listOf(500L, 1_500L)
 /** A first load keeps its loading indicator through a short outage (~10 s) before showing Retry. */
@@ -13,7 +15,7 @@ suspend fun <T> serviceRetry(wait: (suspend (Long) -> Unit)? = null,
         if (!current()) throw kotlinx.coroutines.CancellationException("Request owner changed")
         try { return action() } catch (failure: Exception) {
             if (!transientServiceFailure(failure) || attempt == delays.size) throw failure
-            AppLog.info("http", "Retrying after ${failure.javaClass.simpleName}")
+            AppLog.info("http", "Retrying after ${simpleClassName(failure)}")
             if (wait == null) delay(delays[attempt]) else wait(delays[attempt])
         }
     }
@@ -25,7 +27,7 @@ fun transientServiceFailure(failure: Throwable): Boolean = when (failure) {
     is LobbyFailure -> failure.code in setOf("network", "unavailable", "storage_unavailable")
     is PodFailure -> failure.code in setOf("network", "unavailable", "storage_unavailable", "internal_error")
     is AccountFailure -> failure.code in setOf("network", "unavailable")
-    else -> failure is java.io.IOException
+    else -> failure is kotlinx.io.IOException
 }
 
 /** Automatic refreshes of data already on screen stay silent through short outages; the player
@@ -36,4 +38,4 @@ class QuietRefreshFailures(private val now: () -> Long, private val quietMillis:
     /** Records a transient failure of a quiet refresh; true once such failures have lasted [quietMillis]. */
     fun failed(): Boolean { val start = since ?: now().also { since = it }; return now() - start >= quietMillis }
 }
-fun monotonicMillis() = System.nanoTime() / 1_000_000
+fun monotonicMillis() = nanoTime() / 1_000_000

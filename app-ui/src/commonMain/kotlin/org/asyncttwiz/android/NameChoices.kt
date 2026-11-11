@@ -39,10 +39,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.automatum.PrintedCards
 import org.asyncttwiz.protocol.CardSearchRules
-import org.asyncttwiz.storage.CardDefinitions
+import arcanum.parser.OracleParser
 import org.asyncttwiz.storage.CatalogCard
 import org.asyncttwiz.storage.CatalogCardSearch
-import org.asyncttwiz.storage.namedParts
+import org.asyncttwiz.appui.ioDispatcher
 
 /**
  * Card names for "choose a card name" (CR 201.4, final cast review #1): every name of a card that contains what the player
@@ -168,7 +168,7 @@ fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardName) {
     }
     LaunchedEffect(decision.id, typed) {
         if (typed.length < 2) { catalog = emptyList(); return@LaunchedEffect }
-        catalog = withContext(Dispatchers.IO) {
+        catalog = withContext(ioDispatcher) {
             runCatching { source.names(typed, decision.filter) }.getOrDefault(emptyList())
         }
     }
@@ -222,7 +222,7 @@ private fun NameRow(suggestion: NameSuggestion, chosen: Boolean, choose: () -> U
 
 /** Every creature type of the pinned rules (CR 205.3m), by name. */
 val creatureTypes: List<Subtype> by lazy {
-    CardDefinitions.ruleSubtypes.map(::Subtype).filter { Subtypes.kindOf(it) == SubtypeKind.Creature }.sortedBy { it.name }
+    OracleParser.subtypes.map(::Subtype).filter { Subtypes.kindOf(it) == SubtypeKind.Creature }.sortedBy { it.name }
 }
 
 /**

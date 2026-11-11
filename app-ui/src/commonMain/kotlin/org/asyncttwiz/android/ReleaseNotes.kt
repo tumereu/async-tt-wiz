@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.appui.AppPlatform
+import kotlin.concurrent.Volatile
 
 enum class ReleaseNoteKind(val prefix: String, val title: String) {
     // LOB-087 (owner 2026-11-10): sets Automatum newly supports come first, under their own heading

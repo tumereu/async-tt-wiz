@@ -3,9 +3,9 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.runBlocking
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.atomic.AtomicLong
+import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.AtomicLong
 
 enum class ResetPage { REQUEST, PASSWORD, INVALID }
 

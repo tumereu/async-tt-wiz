@@ -41,8 +41,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.protocol.CardListSupport
 import org.asyncttwiz.protocol.SubmittedDefinition
-import org.asyncttwiz.storage.CardDefinitions
+import arcanum.parser.OracleParser
 import org.asyncttwiz.storage.ParsedCard
+import org.asyncttwiz.appui.ioDispatcher
+import org.asyncttwiz.appui.concurrentMapOf
 
 /**
  * LOB-115 (section 3.8): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
@@ -51,7 +53,7 @@ import org.asyncttwiz.storage.ParsedCard
  */
 class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
     private val unsupported: (Collection<String>) -> Set<String>?,
-    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
+    val parserVersion: Int = OracleParser.VERSION, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
 
     /** The cards' Automatum definitions (the device's cache), for Stats' mana sources (DRF-115). Blocking. */
     fun parsed(definitions: Collection<SubmittedDefinition>): Map<String, ParsedCard> = parse(definitions.distinctBy { it.digest })
@@ -130,7 +132,7 @@ const val AUTOMATUM_CARD_UNSUPPORTED = "Automatum can't play this card yet"
  * kept for the app's run (the records change only with a new app). Blocking: a worker only.
  */
 class CardMarks(private val unsupported: (Collection<String>) -> Set<String>?) {
-    private val known = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val known = concurrentMapOf<String, Boolean>()
     fun unsupported(scryfallId: String): Boolean? = known[scryfallId]
         ?: unsupported(listOf(scryfallId))?.let { (scryfallId in it).also { value -> known[scryfallId] = value } }
 }
@@ -150,7 +152,7 @@ fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
     val marks = LocalCardMarks.current ?: return
     if (scryfallId.isNullOrEmpty()) return
     val unsupported by produceState(false, marks, scryfallId) {
-        value = withContext(Dispatchers.IO) { runCatching { marks.unsupported(scryfallId) }.getOrNull() } == true
+        value = withContext(ioDispatcher) { runCatching { marks.unsupported(scryfallId) }.getOrNull() } == true
     }
     if (unsupported) BoxWithConstraints(modifier) {
         val art = CardArtBox.of(maxWidth.value, maxHeight.value)

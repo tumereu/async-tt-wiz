@@ -6,11 +6,7 @@ import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.protocol.PodAttention
 import org.asyncttwiz.protocol.PodInvitation
 import org.asyncttwiz.protocol.InvitationState
-import java.time.Instant
-import java.time.Clock
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import org.asyncttwiz.appui.parseInstant
 
 /** The one game order shared by the Games screen, the Menu quick list and the drawer. */
 enum class GameOrderGroup {
@@ -89,7 +85,7 @@ private fun <T> panelOrder(id: (T) -> String, time: (T) -> String, priority: (T)
     Comparator { a, b ->
         val rank = priority(a).compareTo(priority(b))
         // An unreadable time sorts as the oldest rather than failing the whole list.
-        val activity = compareValues(runCatching { Instant.parse(time(a)) }.getOrNull(), runCatching { Instant.parse(time(b)) }.getOrNull())
+        val activity = compareValues(runCatching { parseInstant(time(a)) }.getOrNull(), runCatching { parseInstant(time(b)) }.getOrNull())
         when {
             rank != 0 -> rank
             activity != 0 -> if (priority(a) == 0) activity else -activity
@@ -109,14 +105,3 @@ fun gameRowMove(game: GameSummary, accountId: String) =
     if (game.lifecycle == GameLifecycle.ACTIVE)
         GameRowMove(quickContinueMove(game, accountId), game.attentionHolder == accountId)
     else GameRowMove(if (game.invitationState == InvitationState.PENDING) "Invitation" else "Setup", false)
-
-fun gameLastActivity(game: GameSummary, clock: Clock = AppClock.clock()): String = runCatching {
-    val activity = Instant.parse(game.updatedAt).atZone(clock.zone)
-    val today = LocalDate.now(clock)
-    val pattern = when {
-        activity.toLocalDate() == today -> "HH:mm"
-        activity.year == today.year -> "d MMM"
-        else -> "d MMM uuuu"
-    }
-    activity.format(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH))
-}.getOrDefault("")

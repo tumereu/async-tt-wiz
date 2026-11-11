@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.JankEpisode
 import kotlin.math.ceil
+import org.asyncttwiz.appui.Synchronized
 
 data class RenderFrame(val startNanos: Long, val durationNanos: Long, val isJank: Boolean,
     val refreshRate: Float, val states: Map<String, String> = emptyMap(), val actions: List<String> = emptyList(),

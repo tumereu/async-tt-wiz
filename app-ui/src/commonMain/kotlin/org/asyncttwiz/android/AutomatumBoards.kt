@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import arcanum.api.CardDefinition
-import kotlinx.coroutines.asCoroutineDispatcher
 import org.asyncttwiz.automatum.CardPlays
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.ComputedBoard
@@ -13,7 +12,12 @@ import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.storage.ParsedCard
-import java.util.concurrent.ConcurrentHashMap
+import org.asyncttwiz.appui.newSingleThreadExecutor
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.simpleClassName
+import org.asyncttwiz.appui.concurrentMapOf
+import org.asyncttwiz.appui.newConcurrentKeySet
+import org.asyncttwiz.appui.asCoroutineDispatcher
 
 /**
  * Automatum (integration spec §3 I1): the engine's view of the table. A board of a game on engine state ([TableBoard]
@@ -69,8 +73,8 @@ object AutomatumBoards {
     /** Parses (or reads from the device cache) the definitions of the given card data. Blocking. */
     @Volatile var definitionSource: ((Collection<SubmittedDefinition>) -> Map<String, ParsedCard>)? = null
 
-    private val parsed = ConcurrentHashMap<String, CardDefinition>()
-    private val unreadable = ConcurrentHashMap.newKeySet<String>()
+    private val parsed = concurrentMapOf<String, CardDefinition>()
+    private val unreadable = newConcurrentKeySet<String>()
 
     /** [CombatFlow.throughEngine] and [CombatFlow.hadFirstStrikeStep] of [board], kept for the last board (combat review
      * #12: the table asks on every frame; each reads the combat record's JSON). */
@@ -91,7 +95,7 @@ object AutomatumBoards {
         val source = definitionSource
         if (missing.isNotEmpty() && source != null) {
             val read = try { source(missing) } catch (problem: Exception) {
-                AppLog.warn("automatum", "Card definitions unavailable: ${problem::class.java.simpleName}")
+                AppLog.warn("automatum", "Card definitions unavailable: ${simpleClassName(problem)}")
                 emptyMap()
             }
             for ((digest, card) in read) when (card) {
@@ -112,7 +116,7 @@ object AutomatumBoards {
 
     /** One worker for the shown boards' engine views, so a board shown only in passing (catch-up playback) is skipped
      * when a newer one replaced it before the worker got to it (SYS-025). */
-    val boardWorker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "automatum-board").apply { isDaemon = true } }
+    val boardWorker = newSingleThreadExecutor("automatum-board", daemon = true)
         .asCoroutineDispatcher()
 }
 

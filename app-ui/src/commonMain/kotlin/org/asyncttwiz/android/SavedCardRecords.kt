@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import java.util.UUID
+import org.asyncttwiz.appui.nameUuid
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.storage.CatalogPrinting
@@ -58,7 +58,7 @@ data class SavedCardFaces(val faces: Map<String, List<CatalogPrinting>>, val cat
     companion object {
         /** A card of [name] alone, for a card without a printing or one the records don't have ([printingId]). */
         fun placeholder(printingId: String?, name: String) = CardDefinition(name,
-            listOf(DefinitionFace(UUID.nameUUIDFromBytes(("saved-card:" + (printingId ?: name)).toByteArray()).toString(), name)),
+            listOf(DefinitionFace(nameUuid(("saved-card:" + (printingId ?: name)).encodeToByteArray()), name)),
             printingId = printingId)
 
         /** An editor entry's printing for [card] the records can't build: its id is the card's key, so a save names it as

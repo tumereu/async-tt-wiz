@@ -1,10 +1,6 @@
 package org.asyncttwiz.android
 
-import java.time.DayOfWeek
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
+import kotlin.math.roundToLong
 import org.asyncttwiz.protocol.*
 
 /**
@@ -17,7 +13,7 @@ object MatchStats {
 
     /** A share of matches: [wins] of [matches]; [percent] null when there were none. */
     data class Rate(val wins: Int, val matches: Int) {
-        val percent: Int? get() = if (matches == 0) null else Math.round(wins * 100.0 / matches).toInt()
+        val percent: Int? get() = if (matches == 0) null else (wins * 100.0 / matches).roundToLong().toInt()
         val text: String get() = percent?.let { "$it%" } ?: "—"
     }
 
@@ -49,7 +45,7 @@ object MatchStats {
     /** A pod member's standing in the pod's matches. */
     data class Standing(val account: AccountIdentity, val record: Record)
 
-    private fun List<MatchRecord>.finished(me: String) = filter { it.finished && it.player(me) != null }.sortedBy { it.endedAt }
+    fun List<MatchRecord>.finished(me: String) = filter { it.finished && it.player(me) != null }.sortedBy { it.endedAt }
     private fun MatchRecord.result(me: String) = player(me)?.result
 
     /** The opponents, most matches first (then by name). */
@@ -146,13 +142,6 @@ object MatchStats {
     fun fastestWin(records: List<MatchRecord>, me: String): Int? = records.finished(me).filter { it.result(me) == SuggestedResult.WIN }.minOfOrNull { it.turns }
     fun longestMatch(records: List<MatchRecord>, me: String): Int? = records.finished(me).maxOfOrNull { it.turns }
 
-    /** Matches per week (weeks from Monday, in [zone]) for the [weeks] weeks up to [now]'s, oldest first. */
-    fun perWeek(records: List<MatchRecord>, me: String, now: Instant, zone: ZoneId, weeks: Int = 8): List<Pair<LocalDate, Int>> {
-        fun week(instant: Instant): LocalDate = instant.atZone(zone).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val current = week(now)
-        val counts = records.finished(me).groupingBy { week(Instant.parse(it.endedAt)) }.eachCount()
-        return (weeks - 1 downTo 0).map { back -> current.minusWeeks(back.toLong()).let { it to (counts[it] ?: 0) } }
-    }
 
     /** A pod's standings: each member's W–L–D in the pod's finished matches, best record first (most wins, then fewest
      * losses, then most draws, then by name); members who played none at 0–0–0. */

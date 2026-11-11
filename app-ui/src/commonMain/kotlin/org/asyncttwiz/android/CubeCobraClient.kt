@@ -5,9 +5,9 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readRemaining
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import kotlinx.io.readByteArray
-import org.asyncttwiz.storage.CubeCobraImport
+
 import org.asyncttwiz.storage.ParsedDeck
 
 /** A Cube Cobra import failure whose message is shown as is. */
@@ -15,7 +15,7 @@ class CubeCobraFailure(message: String) : Exception(message)
 
 /** Public provider request: no account credentials, fixed HTTPS origin, no redirects or shared cache. */
 fun fetchCubeCobra(id: String): ParsedDeck {
-    require(CubeCobraImport.cubeId(id) == id)
+    require(cubeCobraId(id) == id)
     val body = try {
         runBlocking {
             AccountApi.client().use { client ->
@@ -37,7 +37,7 @@ fun fetchCubeCobra(id: String): ParsedDeck {
     } catch (failure: CubeCobraFailure) { throw failure
     } catch (failure: CancellationException) { throw failure
     } catch (_: Exception) { throw CubeCobraFailure("Cube Cobra could not be reached. Try again.") }
-    return try { CubeCobraImport.parse(body) } catch (_: Exception) {
+    return try { parseCubeCobra(body) } catch (_: Exception) {
         throw CubeCobraFailure("Cube Cobra response could not be read.")
     }
 }

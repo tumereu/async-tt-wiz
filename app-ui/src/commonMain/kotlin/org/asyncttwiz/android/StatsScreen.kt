@@ -20,7 +20,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.time.format.DateTimeFormatter
+import org.asyncttwiz.appui.FormatLocale
+import org.asyncttwiz.appui.formatIn
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
@@ -90,7 +91,7 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             "Win %" to summary.record.rate.text,
             "Current streak" to (summary.current?.let { (result, n) -> "$n ${resultLetter(result)}" } ?: "—"),
             "Longest streak" to (if (summary.longestWins == 0) "—" else "${summary.longestWins} W"),
-            "Average turns" to (summary.averageTurns?.let { String.format(java.util.Locale.ROOT, "%.1f", it) } ?: "—")))
+            "Average turns" to (summary.averageTurns?.let { formatIn(FormatLocale.Root, "%.1f", it) } ?: "—")))
         val running = remember(records) { MatchStats.running(records, me) }
         GraphCard("Record over time") {
             RunningChart(running, if (opponent == null) "Your wins" to "Your losses" else "You" to opponent.username)
@@ -128,8 +129,8 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             }
             Text("Matches per week", style = MaterialTheme.typography.labelLarge)
             val clock = AppClock.clock()
-            val weeks = remember(records) { MatchStats.perWeek(records, me, clock.instant(), clock.zone) }
-            CountBars(weeks.map { (week, n) -> DateTimeFormatter.ofPattern("d MMM").format(week) to n }, vertical = true)
+            val weeks = remember(records) { matchesPerWeek(records, me, clock) }
+            CountBars(weeks.map { (week, n) -> weekLabel(week) to n }, vertical = true)
         }
     }
 }

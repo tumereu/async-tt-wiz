@@ -22,7 +22,7 @@ object TopmostSources {
         val offered = options.filterIsInstance<ManaUse.Ability>().toSet()
         // The engine objects of the table cards the options name
         val objects = HashMap<String, ObjectId>()
-        for (use in offered) card(use.source)?.let { objects.putIfAbsent(it, use.source) }
+        for (use in offered) card(use.source)?.let { objects.getOrPut(it) { use.source } }
         val taken = HashSet<String>()
         // Cards another way of paying uses (convoke, improvise) stay with it
         for (use in uses) if (use is ManaUse.Special) use.objects.mapNotNullTo(taken, card)

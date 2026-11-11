@@ -1,8 +1,8 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
 
 /** LobbyController's notification hand-off: opens the game a notification (activity) points to, or
  * explains that it is gone, and keeps its target current as the game changes. Main thread; the read

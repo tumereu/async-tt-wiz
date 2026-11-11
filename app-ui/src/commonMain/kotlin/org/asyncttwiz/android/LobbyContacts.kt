@@ -1,9 +1,9 @@
 package org.asyncttwiz.android
 
-import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.appui.runBlocking
 import org.asyncttwiz.protocol.*
-import java.util.UUID
-import java.util.concurrent.ExecutorService
+import org.asyncttwiz.appui.ExecutorService
+import org.asyncttwiz.appui.randomUuid
 
 enum class ContactsTab { CONTACTS, SEARCH }
 
@@ -64,7 +64,7 @@ class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, pri
     fun add(contact: AccountIdentity, inviteAfter: Boolean = false) {
         if (closed || state.mutating || state.contacts.any { it.accountId == contact.accountId }) return
         val token = credential() ?: return
-        val input = pendingAdds.getOrPut(contact.accountId) { AddContact(UUID.randomUUID().toString(), contact.accountId) }
+        val input = pendingAdds.getOrPut(contact.accountId) { AddContact(randomUuid(), contact.accountId) }
         val generation = epoch
         fenceRefresh()
         state = state.copy(mutating = true, busy = false, error = null)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.ioDispatcher
 
 /** Server-side account preferences with a per-account offline copy. */
 interface AccountSettingsSource {
@@ -27,8 +28,8 @@ class AccountSettingsStore(platform: AppPlatform, account: String,
     private fun read() = preferences.getString(key, null)?.let {
         runCatching { AccountJson.format.decodeFromString<AccountSettings>(it) }.getOrNull()
     } ?: AccountSettings()
-    override suspend fun cached() = withContext(Dispatchers.IO) { mutex.withLock { read() } }
-    override suspend fun refresh(): AccountSettings = withContext(Dispatchers.IO) {
+    override suspend fun cached() = withContext(ioDispatcher) { mutex.withLock { read() } }
+    override suspend fun refresh(): AccountSettings = withContext(ioDispatcher) {
         mutex.withLock {
             val session = token() ?: throw AccountFailure("authentication_required")
             AccountApi(origin).use { api ->
@@ -39,7 +40,7 @@ class AccountSettingsStore(platform: AppPlatform, account: String,
             }
         }
     }
-    override suspend fun set(settings: AccountSettings) = withContext(Dispatchers.IO) {
+    override suspend fun set(settings: AccountSettings) = withContext(ioDispatcher) {
         mutex.withLock {
             check(preferences.edit().putString(key, AccountJson.format.encodeToString(settings)).putBoolean("$key/dirty", true).commit())
             val session = token() ?: throw AccountFailure("authentication_required")

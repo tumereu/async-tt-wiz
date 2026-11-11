@@ -28,6 +28,9 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.appui.uptimeMillis
 import org.asyncttwiz.appui.elapsedRealtime
 import org.asyncttwiz.appui.rememberShortNote
+import kotlin.concurrent.Volatile
+import org.asyncttwiz.appui.AtomicReference
+import org.asyncttwiz.appui.edgeToEdgeDialogProperties
 
 /**
  * The table of a game (every game is played on engine state, I-D56): the same table
@@ -236,7 +239,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // mode); TBL-118: a refused control's shake meanwhile flashes it
     val choosing = if (reviewPlay == null) routes.choosingText(play) else null
     // TRN-066: what the band says reaches the report, once per change
-    val waitLogged = remember(game.id) { java.util.concurrent.atomic.AtomicReference<String?>(null) }
+    val waitLogged = remember(game.id) { AtomicReference<String?>(null) }
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -302,8 +305,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // HIS-010, HIS-028: the timeline panel's gear opens the playback settings
     if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
     if (state.chatOpen) {
-        Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false)) {
+        Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
             TrackGameDialogInput()
             Box(Modifier.fillMaxSize()) {
                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (landscape) .5f else 1f))

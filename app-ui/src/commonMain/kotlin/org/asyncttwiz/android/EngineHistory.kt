@@ -13,7 +13,9 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.MainPress
 import org.asyncttwiz.protocol.game.TableChange as GameTableChange
-import java.math.BigInteger
+import org.asyncttwiz.appui.bigIntegerOf
+import org.asyncttwiz.appui.minus
+import org.asyncttwiz.appui.toBigIntegerOrNull
 
 /**
  * Short texts of engine events (I-D56 step D: the strip, the timeline, the event chip, the Undo dialog and the notes):
@@ -396,7 +398,7 @@ object EngineChanges {
         for ((card, pt) in ptAfter) {
             val old = ptBefore[card] ?: continue
             if (old != pt) add(TableChange(TableChangeKey(card, TableChangeKind.CORNER),
-                listOf(BigInteger.valueOf((pt.first - old.first).toLong()), BigInteger.valueOf((pt.second - old.second).toLong()))))
+                listOf(bigIntegerOf((pt.first - old.first).toLong()), bigIntegerOf((pt.second - old.second).toLong()))))
         }
         val bt = before.board.turn; val at = after.board.turn
         if (bt.number != at.number || bt.phase != at.phase || bt.step != at.step) add(TableChange(TableChangeKey("turn", TableChangeKind.STEP)))

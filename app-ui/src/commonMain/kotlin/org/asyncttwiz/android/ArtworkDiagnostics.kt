@@ -3,12 +3,15 @@ package org.asyncttwiz.android
 import org.asyncttwiz.storage.ArtworkAttempt
 import org.asyncttwiz.storage.ArtworkLog
 import org.asyncttwiz.storage.ArtworkReference
-import java.net.URI
+import org.asyncttwiz.appui.parseUri
+import org.asyncttwiz.appui.currentTimeMillis
+import org.asyncttwiz.appui.simpleClassName
+import org.asyncttwiz.appui.Synchronized
 
 /** Artwork download diagnostics for problem reports. A draft downloads hundreds of images, so
  * every failure reason is written once per minute with its URL and the rest are counted into a
  * minute summary; a success after failures is written as a recovery. */
-class ArtworkDiagnostics(private val now: () -> Long = System::currentTimeMillis,
+class ArtworkDiagnostics(private val now: () -> Long = ::currentTimeMillis,
     private val write: (warning: Boolean, message: String) -> Unit = { warning, message ->
         if (warning) AppLog.warn("art", message) else AppLog.info("art", message)
     }) : ArtworkLog {
@@ -40,7 +43,7 @@ class ArtworkDiagnostics(private val now: () -> Long = System::currentTimeMillis
     @Synchronized override fun failed(reference: ArtworkReference, failure: Throwable) {
         roll()
         gaveUp++
-        val reason = "${failure.javaClass.simpleName}: ${failure.message.orEmpty().take(200)}"
+        val reason = "${simpleClassName(failure)}: ${failure.message.orEmpty().take(200)}"
         if (reasons.add("load ${reason.replace(DIGITS, "#")}")) write(true, "No art for printing ${reference.printing} face ${reference.face}: $reason")
     }
 
@@ -64,9 +67,9 @@ class ArtworkDiagnostics(private val now: () -> Long = System::currentTimeMillis
     companion object {
         const val WINDOW = 60_000L
         private val DIGITS = Regex("[0-9]+")
-        private fun host(url: String) = runCatching { URI(url).host }.getOrNull() ?: "?"
+        private fun host(url: String) = runCatching { parseUri(url).host }.getOrNull() ?: "?"
         /** Host and last path segment: enough to tell metadata, image size and card apart. */
-        fun shortUrl(url: String) = runCatching { URI(url) }.getOrNull()
-            ?.let { "${it.host}/…/${it.path.substringAfterLast('/')}" } ?: url.take(120)
+        fun shortUrl(url: String) = runCatching { parseUri(url) }.getOrNull()
+            ?.let { "${it.host}/…/${it.path!!.substringAfterLast('/')}" } ?: url.take(120)
     }
 }

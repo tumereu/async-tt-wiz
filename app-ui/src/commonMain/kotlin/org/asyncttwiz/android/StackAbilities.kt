@@ -29,6 +29,8 @@ import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.MtgStackItem
 import org.asyncttwiz.protocol.MtgStackKind
+import org.asyncttwiz.appui.synchronized
+import org.asyncttwiz.appui.boundedLruMap
 
 /**
  * STK-046 (owner 2026-11-04, MTG Arena as the reference): a triggered or activated ability on the Stack is drawn as an
@@ -52,9 +54,7 @@ data class StackAbilityShown(val triggered: Boolean, val source: String, val tex
 data class StackEntryText(val pieces: List<StackTextPiece>, val unplaced: List<MtgRef>)
 
 object StackAbilities {
-    private val texts = object : java.util.LinkedHashMap<String, String>(64, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
-    }
+    private val texts = boundedLruMap<String, String>(64)
 
     /** The engine's text of [item]'s ability (a keyword's trigger as the keyword's line of [rulesText]), decoded once
      * per item. */
@@ -62,9 +62,7 @@ object StackAbilities {
         texts[item.data] ?: StackAbilityText.of(item, rulesText)?.also { texts[item.data] = it }
     }
 
-    private val kinds = object : java.util.LinkedHashMap<String, String>(64, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
-    }
+    private val kinds = boundedLruMap<String, String>(64)
 
     /** What kind of ability [item] is ([StackAbilityText.kind]), decoded once per item. */
     private fun kind(item: MtgStackItem): String? = synchronized(kinds) {

@@ -10,15 +10,15 @@ import java.util.UUID
  * secure random. Tests that simulate whole games install a seeded [source] ([seeded]) so a game plays the same on every
  * run.
  */
-object DeviceRandom {
+actual object DeviceRandom {
     private val secure = SecureRandom()
     @Volatile private var source: Random? = null
 
     /** Seeded ids and seeds from now on (tests); null: the device's secure random again. */
-    fun seeded(seed: Long?) { source = seed?.let(::Random) }
+    actual fun seeded(seed: Long?) { source = seed?.let(::Random) }
 
     /** A fresh random (version 4) UUID. */
-    fun uuid(): String {
+    actual fun uuid(): String {
         val random = source ?: return UUID.randomUUID().toString()
         val bytes = ByteArray(16).also(random::nextBytes)
         bytes[6] = (bytes[6].toInt() and 0x0f or 0x40).toByte()
@@ -28,8 +28,8 @@ object DeviceRandom {
     }
 
     /** [size] fresh random bytes. */
-    fun bytes(size: Int): ByteArray = ByteArray(size).also { (source ?: secure).nextBytes(it) }
+    actual fun bytes(size: Int): ByteArray = ByteArray(size).also { (source ?: secure).nextBytes(it) }
 
     /** A fresh shuffle or random-choice seed. */
-    fun seed(): String = RandomV1.encodeSeed(bytes(32))
+    actual fun seed(): String = RandomV1.encodeSeed(bytes(32))
 }

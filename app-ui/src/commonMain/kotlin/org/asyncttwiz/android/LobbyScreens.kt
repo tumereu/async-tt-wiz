@@ -42,14 +42,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
-fun gameDate(game: GameSummary): String = runCatching {
-    DateTimeFormatter.ofPattern("d MMM uuuu").withZone(ZoneId.systemDefault()).format(Instant.parse(game.createdAt))
-}.getOrDefault("")
 /** With [accountId], a held pod challenge reads from the recipient's side: they see it but must submit first. */
 fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
     else if (game.invitationHeld && accountId != null && accountId == game.recipient.accountId) "Challenged you · submit your deck to accept"

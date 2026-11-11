@@ -15,9 +15,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.time.Duration
-import java.time.Instant
-import java.time.format.DateTimeFormatter
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
@@ -25,11 +22,6 @@ import org.asyncttwiz.storage.ArtworkReference
 val WinGreen = Color(0xff2e7d32)
 val LossRed = Color(0xffc62828)
 val DrawGrey = Color(0xff6b7280)
-
-/** A record's date, "7 Nov 2026" (the device's zone). */
-fun matchDate(record: MatchRecord): String = runCatching {
-    DateTimeFormatter.ofPattern("d MMM uuuu").withZone(AppClock.clock().zone).format(Instant.parse(record.endedAt))
-}.getOrDefault("")
 
 /** How a match ended, short (a row): the loser's reason by the rules, Conceded, Agreed, the draw's kind, or Unfinished. */
 fun matchEndText(record: MatchRecord): String = when (val ending = record.ending) {
@@ -118,16 +110,6 @@ fun MatchRow(record: MatchRecord, me: String, open: () -> Unit) {
         }
     }
 }
-
-/** How long a match took, "2 d 3 h", "3 h 5 min" or "12 min". */
-fun matchDuration(record: MatchRecord): String = runCatching {
-    val minutes = Duration.between(Instant.parse(record.startedAt), Instant.parse(record.endedAt)).toMinutes().coerceAtLeast(0)
-    when {
-        minutes >= 24 * 60 -> "${minutes / (24 * 60)} d ${minutes % (24 * 60) / 60} h"
-        minutes >= 60 -> "${minutes / 60} h ${minutes % 60} min"
-        else -> "$minutes min"
-    }
-}.getOrDefault("")
 
 /** A record's details (§3.3): everything it holds, including mulligans, final life, duration, play/draw, the reason, and
  * Open deck for the viewer's own deck while it is saved ([openDeck]). */

@@ -1,11 +1,13 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.GamePresence
-import java.util.UUID
 import androidx.compose.runtime.Composable
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.postToMainDelayed
 import org.asyncttwiz.appui.AppBuild
+import org.asyncttwiz.appui.randomUuid
+import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.newDiscardOldestExecutor
 
 /** Dialogs have their own Window and bypass the activity's input: what is done there counts just like the table
  * (the platform's [AppPlatform.ObserveDialogInput]). */
@@ -13,7 +15,7 @@ import org.asyncttwiz.appui.AppBuild
 fun TrackGameDialogInput() { AppPlatform.current.ObserveDialogInput() }
 
 /** Any input (not just commands) sets one bit, consumed once per heartbeat. */
-class GameHeartbeatTracker(private val presenceId: String = UUID.randomUUID().toString()) {
+class GameHeartbeatTracker(private val presenceId: String = randomUuid()) {
     private var game: String? = null
     private var didSomething = false
     fun input() { if (game != null) didSomething = true }
@@ -30,14 +32,12 @@ class GameHeartbeatTracker(private val presenceId: String = UUID.randomUUID().to
  * Leaving always goes over HTTP too: a socket send only queues, and on a dead or soon frozen socket the
  * "left" mark is lost while the app sits in the background. */
 class GameHeartbeatController(
-    private val http: (String, GamePresence) -> Unit = { token, presence -> kotlinx.coroutines.runBlocking {
+    private val http: (String, GamePresence) -> Unit = { token, presence -> runBlocking {
         ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
     private val socket: (String, GamePresence) -> Boolean,
 ) : AutoCloseable {
     private val tracker = GameHeartbeatTracker()
-    private val worker = java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS,
-        java.util.concurrent.ArrayBlockingQueue<Runnable>(2), { Thread(it, "game-presence") },
-        java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy())
+    private val worker = newDiscardOldestExecutor("game-presence", 2)
     private var token: String? = null
     private var game: String? = null
     private var cancelPulse: () -> Unit = {}

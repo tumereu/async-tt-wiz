@@ -1,11 +1,13 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.CardTapDiagnostic
-import java.time.Instant
+import org.asyncttwiz.appui.instantNow
 import kotlin.math.roundToInt
+import org.asyncttwiz.appui.nanoTime
+import org.asyncttwiz.appui.Synchronized
 
 /** Fixed-size debug observations, independent of the gameplay/history queue. */
-class CardTapRecorder(private val now: () -> Long = System::nanoTime,
+class CardTapRecorder(private val now: () -> Long = ::nanoTime,
     private val record: (CardTapDiagnostic) -> Unit) {
     private data class Rotation(val game: String, val up: Long, var sample: CardTapDiagnostic,
         var cardId: String? = null, var started: Boolean = false, var first: Long? = null, var last: Long? = null)
@@ -15,10 +17,10 @@ class CardTapRecorder(private val now: () -> Long = System::nanoTime,
         expire()
         if (event == "recognized") {
             if (rotations.size == 32) finish(rotations.removeAt(0), "animationNotObserved")
-            rotations.add(Rotation(game, now(), CardTapDiagnostic(Instant.now().toString(), game, "dropped",
+            rotations.add(Rotation(game, now(), CardTapDiagnostic(instantNow().toString(), game, "dropped",
                 "callbackNotObserved", popupOpen = popup, catchUpInFlight = catchUp, treeWorkInFlight = tree)))
         } else if (event.startsWith("nearMiss:")) {
-            record(CardTapDiagnostic(Instant.now().toString(), game, "nearMiss", event.substringAfter(':'),
+            record(CardTapDiagnostic(instantNow().toString(), game, "nearMiss", event.substringAfter(':'),
                 popupOpen = popup, catchUpInFlight = catchUp, treeWorkInFlight = tree))
         } else {
             val pending = rotations.lastOrNull { it.game == game && it.first == null } ?: return

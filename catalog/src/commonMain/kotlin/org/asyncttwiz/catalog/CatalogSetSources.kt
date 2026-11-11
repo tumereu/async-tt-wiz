@@ -16,8 +16,9 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 class CatalogSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>, val missing: Int)
 
 /**
- * Set packs from the card catalog (docs/specs/web-client.md section 3.7): every card of the set, and the cards of other
- * sets its recipe names; a meld result is never a card of its own; printings the catalog doesn't have are left out of the
+ * Set packs from the card catalog (docs/specs/web-client.md section 3.7): every printing of the set (a card of several
+ * faces once, each printing naming its card, so approximate packs draw a card once and then one of its printings), and
+ * the cards of other sets its recipe names; a meld result is never a card of its own; printings the catalog doesn't have are left out of the
  * recipe, and a recipe that no longer holds together without them is dropped (approximate packs, DRF-090). Any set the
  * catalog has can be built.
  */
@@ -37,8 +38,11 @@ object CatalogSetSources {
         val cards = sources.values.mapNotNull { printing ->
             val linked = CatalogCards.linked(catalog, printing)
             if (CatalogCards.meldResult(catalog, printing, linked)) return@mapNotNull null
+            val sides = CatalogCards.physicalSides(catalog, linked)
+            // A card of several faces is one card of the pool, listed by its first side: its other sides are listed only
+            // when the recipe names them, so approximate packs never draw it once per face (DRF-090).
+            if (printing.id != sides.first().id && printing.id !in referenced) return@mapNotNull null
             val submitted = byPrinting[printing.id] ?: run {
-                val sides = CatalogCards.physicalSides(catalog, linked)
                 val definition = CatalogCards.definition(catalog, sides)
                 check(DeckValidation.definition(definition)) {
                     "Card data of ${definition.name} (${printing.id}, ${printing.set} ${printing.number}) isn't valid"
@@ -47,7 +51,8 @@ object CatalogSetSources {
             }
             definitions[submitted.digest] = submitted
             SetSourceCard(submitted.digest, printing.id, rarity(printing.rarity),
-                catalog.faces[printing.face].colors.mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet())
+                catalog.faces[printing.face].colors.mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet(),
+                card = submitted.definition.name)
         }
         if (cards.isEmpty()) return null
         // Both faces of a card can resolve to one physical definition: give them the same whole-card colours.

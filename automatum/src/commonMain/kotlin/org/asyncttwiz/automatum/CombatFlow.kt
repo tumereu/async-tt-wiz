@@ -447,46 +447,109 @@ object CombatFlow {
             o is ObjectId.Card && v?.controller == player && obj != null && !obj.tapped && !obj.phasedOut &&
                 v.characteristics?.isType(CardType.Creature) == true && (!v.summoningSick || v.has { it == Mechanic.IgnoresSummoningSickness })
         }.map { call.ids.atw((it as ObjectId.Card).card) }
-        val optional = candidates.mapNotNull { (atw, o) ->
-            view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
-                .map { m -> CombatCostShown(costNow(call, view, m, o, atw), abilityText(s, m.source ?: o, m.origin), m.origin!!.key) }
-                .takeIf { it.isNotEmpty() }?.let { atw to it }
-        }.toMap()
+        val optional = optionalCosts(call, view, candidates)
         val banding = candidates.filter { (_, o) -> view[o]?.characteristics?.hasKeyword(Keyword.Banding) == true }.map { it.first }.toSet()
         return attackers.copy(enlist = enlist, enlistable = enlistable, optional = optional, banding = banding)
     }
 
-    /** CMB-037 (CR 508.1h): the costs to attack each of [attacks] must pay as the lanes hold it: its "can't attack …
-     * unless … pays" costs that apply to what it attacks (the engine asks for a payment when it attacks alone). */
+    /**
+     * CMB-037, CMB-044 (CR 508.1g, 508.1h): the optional "as it attacks" costs each of [candidates] (ATW card and object) may
+     * choose, as toggle chips: worked out by the engine for a declaration of every candidate attacking the defending player
+     * and paying all of them ([Engine.attackCosts]), an X as its amount.
+     */
+    private fun optionalCosts(call: EngineRun, view: arcanum.engine.view.View, candidates: List<Pair<String, ObjectId>>): Map<String, List<CombatCostShown>> {
+        val s = call.working
+        val offered = candidates.mapNotNull { (atw, o) ->
+            view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }.takeIf { it.isNotEmpty() }?.let { Triple(atw, o, it) }
+        }
+        if (offered.isEmpty()) return emptyMap()
+        val defender = s.players.firstOrNull { it.id != s.turn.active && !it.lost }?.id ?: return emptyMap()
+        val worked = worked(call, "the optional costs to attack of ${offered.map { it.first }}") {
+            Engine.attackCosts(s, offered.map { (_, o, ms) -> Attack(o, TargetRef.Player(defender), paying = ms.mapNotNull { it.origin }.distinct()) }, view)
+        }
+        return offered.associate { (atw, o, ms) ->
+            atw to ms.map { m ->
+                val cost = worked?.let { costs -> costs.firstOrNull { it.creature == o && it.ability.origin == m.origin }?.cost ?: run {
+                    AutomatumLog.error(call.gameId, "combat costs", "No optional cost to attack worked out for $atw's ${m.origin}: shown as printed")
+                    null
+                } }
+                CombatCostShown(label(call, atw, m, cost), abilityText(s, m.source ?: o, m.origin), m.origin!!.key)
+            }
+        }
+    }
+
+    /** CMB-044 (CR 508.1h): each staged attacker's share of the costs to attack the declaration the lanes hold, [attacks],
+     * asks: its "can't attack … unless … pays" costs as the engine works them out for the whole declaration
+     * ([Engine.attackCosts]); the optional costs chosen are chips of their own ([optionalCosts]). */
     private fun attackCosts(call: EngineRun, attacks: List<LaneAttack>): Map<String, List<CombatCostShown>> {
         val s = call.working
+        val staged = attacks.filter { a -> runCatching { objectOf(s, call.ids, a.cardId); a.target?.let { objectOf(s, call.ids, it) } }.isSuccess }
+        if (staged.isEmpty()) return emptyMap()
         val view = Engine.view(s)
-        return attacks.mapNotNull { a ->
-            val o = runCatching { objectOf(s, call.ids, a.cardId) }.getOrNull() ?: return@mapNotNull null
-            val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AttackCost }.ifEmpty { return@mapNotNull null }
-            val alone = runCatching { attackInput(call, listOf(LaneAttack(a.cardId, a.target))) }.getOrNull()
-            if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
-            a.cardId to costs.map { m -> CombatCostShown(costNow(call, view, m, o, a.cardId), abilityText(s, m.source ?: o, m.origin)) }
-        }.toMap()
+        val asked = staged.mapNotNull { a -> objectOf(s, call.ids, a.cardId).let { o ->
+            view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AttackCost }.takeIf { it.isNotEmpty() }?.let { Triple(a.cardId, o, it) } } }
+        if (asked.isEmpty()) return emptyMap()
+        val worked = worked(call, "the costs to attack with ${staged.map { it.cardId }}") { Engine.attackCosts(s, attackInput(call, staged).attacks, view) }
+        return shares(call, asked, worked?.filter { it.ability.mechanic is Mechanic.AttackCost })
+    }
+
+    /** CMB-044 (CR 509.1d): each staged blocker's share of the costs to block the declaration the lanes hold, [blocks], asks
+     * ([Engine.blockCosts]): one for each attacker a cost applies to as it blocks. */
+    private fun blockCosts(call: EngineRun, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
+        val s = call.working
+        val staged = blocks.filter { b -> runCatching { objectOf(s, call.ids, b.blockerId); objectOf(s, call.ids, b.attackerId) }.isSuccess }
+        if (staged.isEmpty()) return emptyMap()
+        val view = Engine.view(s)
+        val asked = staged.distinctBy { it.blockerId }.mapNotNull { b -> objectOf(s, call.ids, b.blockerId).let { o ->
+            view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.BlockCost }.takeIf { it.isNotEmpty() }?.let { Triple(b.blockerId, o, it) } } }
+        if (asked.isEmpty()) return emptyMap()
+        val worked = worked(call, "the costs to block with ${staged.map { it.blockerId }}") { Engine.blockCosts(s, blockInput(call, staged).blocks, view) }
+        return shares(call, asked, worked)
+    }
+
+    /** The engine's costs of a declaration ([what]), or null after logging as an error why they couldn't be worked out. */
+    private fun worked(call: EngineRun, what: String, costs: () -> List<arcanum.engine.combat.CombatCost>): List<arcanum.engine.combat.CombatCost>? = try {
+        costs()
+    } catch (problem: RuntimeException) {
+        AutomatumLog.error(call.gameId, "combat costs", "Couldn't work out $what (turn ${call.working.turn.number}, ${call.working.turn.step}): $problem")
+        null
     }
 
     /**
-     * CMB-044 (owner-reported 2026-11-11): the chip's words for the cost [m] asks of [o] (ATW card [card]) as the board stands,
-     * worked out again with every board and staging: an X the board defines as its amount ("{3}", never "{X}", CR 508.1h,
-     * 509.1d). A cost whose X is worked out goes into the Automatum log when its amount changes.
+     * CMB-044: the chips of [asked] (each creature with a cost, by ATW card, and the abilities asking it) from the
+     * declaration's [worked] costs: each cost that asks something, under the creature it falls on (none for a cost that
+     * asks nothing, such as {0}). When [worked] is null (couldn't be worked out, logged) each ability shows its printed cost.
+     */
+    private fun shares(call: EngineRun, asked: List<Triple<String, ObjectId, List<arcanum.engine.view.AppliedMechanic>>>,
+        worked: List<arcanum.engine.combat.CombatCost>?): Map<String, List<CombatCostShown>> {
+        val s = call.working
+        return asked.mapNotNull { (card, o, ms) ->
+            val chips = if (worked == null) ms.map { m -> CombatCostShown(label(call, card, m, null), abilityText(s, m.source ?: o, m.origin)) }
+                else worked.filter { it.creature == o && !asksNothing(it.cost) }
+                    .map { c -> CombatCostShown(label(call, card, c.ability, c.cost), abilityText(s, c.ability.source ?: o, c.ability.origin)) }
+            chips.takeIf { it.isNotEmpty() }?.let { card to it }
+        }.toMap()
+    }
+
+    /** Whether [cost] asks nothing: only mana, and none of it ({0}, an X worked out as 0). */
+    private fun asksNothing(cost: arcanum.api.Cost): Boolean =
+        cost.parts.all { part -> part is CostPart.Mana && part.cost.symbols.all { it == arcanum.api.ManaSymbol.Generic(0) } }
+
+    /**
+     * CMB-044 (owner-reported 2026-11-11): the chip's words for the cost [m] asks of ATW card [card]: [now], the engine's
+     * cost with its X worked out ("{3}", never "{X}", CR 508.1h, 509.1d), or [m]'s printed cost when it couldn't be worked
+     * out (logged). A cost whose X is worked out goes into the Automatum log when its amount changes.
      */
     @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
-    private fun costNow(call: EngineRun, view: arcanum.engine.view.View, m: arcanum.engine.view.AppliedMechanic, o: ObjectId, card: String): String {
+    private fun label(call: EngineRun, card: String, m: arcanum.engine.view.AppliedMechanic, now: arcanum.api.Cost?): String {
         val printed = when (val mechanic = m.mechanic) {
             is Mechanic.AttackCost -> mechanic.cost
             is Mechanic.BlockCost -> mechanic.cost
             is Mechanic.AsAttacks -> mechanic.cost
-            else -> return ""
+            else -> return now?.let(::costLabel).orEmpty()
         }
-        val worked = printed.parts.any { it is CostPart.Mana && (it.x != null || it.times != null) }
-        val now = if (!worked) printed else runCatching { Engine.combatCost(call.working, m, o, view) }.getOrNull() ?: printed
-        val label = costLabel(now)
-        if (worked) {
+        val label = costLabel(now ?: printed)
+        if (printed.parts.any { it is CostPart.Mana && (it.x != null || it.times != null) }) {
             val key = "${call.gameId}/$card/${m.source}"
             val logged = loggedCosts.load()
             if (logged[key] != label) {
@@ -497,29 +560,9 @@ object CombatFlow {
         return label
     }
 
-    /** The amounts of costs with an X last logged ([costNow]), by game, card and source. */
+    /** The amounts of costs with an X last logged ([label]), by game, card and source. */
     @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
     private val loggedCosts = kotlin.concurrent.atomics.AtomicReference<Map<String, String>>(emptyMap())
-
-    /** CMB-037 (CR 509.1d): the costs to block each blocker of [blocks] must pay, as for [attackCosts]. */
-    private fun blockCosts(call: EngineRun, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
-        val s = call.working
-        val view = Engine.view(s)
-        return blocks.distinctBy { it.blockerId }.mapNotNull { b ->
-            val o = runCatching { objectOf(s, call.ids, b.blockerId) }.getOrNull() ?: return@mapNotNull null
-            val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.BlockCost }.ifEmpty { return@mapNotNull null }
-            val alone = runCatching { blockInput(call, listOf(b)) }.getOrNull()
-            if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
-            b.blockerId to costs.map { m -> CombatCostShown(costNow(call, view, m, o, b.blockerId), abilityText(s, m.source ?: o, m.origin)) }
-        }.toMap()
-    }
-
-    /** Whether declaring [input] in [s] pays something: the engine waits for a payment or pays life, mana, objects or
-     * counters with it (a refused declaration counts as one that would). */
-    private fun asksPayment(s: GameState, input: Input): Boolean = try {
-        val outcome = Engine.perform(s, input)
-        outcome.pending != null || outcome.changes.any { it is Change.Life || it is Change.ZoneChange || it is Change.ManaPool || it is Change.Counters }
-    } catch (_: RuntimeException) { true }
 
     /** The printed text of [origin] on [source] (a held cost chip), when it has one. */
     private fun abilityText(s: GameState, source: ObjectId, origin: arcanum.engine.view.AbilityOrigin?): String? =

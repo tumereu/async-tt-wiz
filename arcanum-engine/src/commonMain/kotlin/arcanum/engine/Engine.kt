@@ -314,28 +314,26 @@ object Engine {
         return if (after == library) null else Change.Reorder(arcanum.api.Zone.Library, player, library, after)
     }
 
-    /** Whether declaring [blocks] has costs to block, which the defending player determines and pays (CR 509.1d). */
-    fun blockCosts(state: GameState, blocks: List<arcanum.engine.input.Block>): Boolean =
-        arcanum.engine.combat.CombatRules.blockCosts(arcanum.engine.casting.Snapshot(state), blocks).isNotEmpty()
+    /**
+     * The costs declaring [attacks] asks (CR 508.1h), each attacker's own ([arcanum.engine.combat.CombatCost]): every "can't
+     * attack … unless … pays" that applies to an attacker and what it attacks, and every optional "as it attacks" cost chosen
+     * for it ([arcanum.engine.input.Attack.paying], CR 508.1g), with X and repetitions of mana worked out as the declaration
+     * locks them in. Empty when the declaration costs nothing. [view]: [state]'s view when the caller has it.
+     */
+    fun attackCosts(state: GameState, attacks: List<arcanum.engine.input.Attack>, view: View? = null): List<arcanum.engine.combat.CombatCost> =
+        arcanum.engine.combat.CombatRules.attackCosts(snapshot(state, view), attacks)
 
     /**
-     * The cost [applied] asks of [creature] now: a cost to attack ([arcanum.api.Mechanic.AttackCost]) or block
-     * ([arcanum.api.Mechanic.BlockCost]), or an optional "as it attacks" cost ([arcanum.api.Mechanic.AsAttacks]), with its X
-     * and repetitions of mana worked out from [state] as the declaration would lock them in (CR 508.1h, 509.1d): "{X} …
-     * where X is the number of enchantments you control" with three is {3}. Null for any other mechanic. [view]: [state]'s
-     * view when the caller has it.
+     * The costs declaring [blocks] asks (CR 509.1d), which the defending player determines and pays: every "can't block …
+     * unless … pays" that applies to a blocker and what it blocks, once for each attacker it blocks, with X and repetitions
+     * of mana worked out as the declaration locks them in. Empty when the declaration costs nothing. [view]: [state]'s view
+     * when the caller has it.
      */
-    fun combatCost(state: GameState, applied: arcanum.engine.view.AppliedMechanic, creature: arcanum.engine.state.ObjectId,
-        view: View? = null): arcanum.api.Cost? {
-        val cost = when (val m = applied.mechanic) {
-            is arcanum.api.Mechanic.AttackCost -> m.cost
-            is arcanum.api.Mechanic.BlockCost -> m.cost
-            is arcanum.api.Mechanic.AsAttacks -> m.cost
-            else -> return null
-        }
-        val snap = if (view != null) arcanum.engine.casting.Snapshot(state) { view } else arcanum.engine.casting.Snapshot(state)
-        return arcanum.engine.combat.CombatRules.fixed(snap, applied, creature, cost)
-    }
+    fun blockCosts(state: GameState, blocks: List<arcanum.engine.input.Block>, view: View? = null): List<arcanum.engine.combat.CombatCost> =
+        arcanum.engine.combat.CombatRules.blockCosts(snapshot(state, view), blocks)
+
+    private fun snapshot(state: GameState, view: View?): arcanum.engine.casting.Snapshot =
+        if (view != null) arcanum.engine.casting.Snapshot(state) { view } else arcanum.engine.casting.Snapshot(state)
 
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result

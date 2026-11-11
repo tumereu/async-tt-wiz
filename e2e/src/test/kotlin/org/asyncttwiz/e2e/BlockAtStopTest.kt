@@ -19,7 +19,8 @@ import kotlin.test.assertTrue
  * blocks; she assumed he had none, so his phone stopped at her assumption and he declared his block there. That declaration
  * couldn't also end the shared block staging, so the staging stayed on the table; the token died in the combat. In Alice's
  * next attack with the same creature the table showed the old staging as Bob's blocks again, with the token that no longer
- * existed, and both phones crashed on every opening of the game.
+ * existed, and both phones crashed on every opening of the game. Follow-up: a declaration at such a stop now ends the
+ * shared block staging, so no old block shows in a later combat, also when its blocker still lives.
  */
 class BlockAtStopTest : E2e() {
     private fun goOn(player: E2ePlayer) {
@@ -56,8 +57,22 @@ class BlockAtStopTest : E2e() {
         bob.node(SemanticsMatcher("node #${token.id}") { it.id == token.id }).performClick()
     }
 
-    // CMB-034, CMB-040
-    @Test fun aBlockDeclaredAtAnAssumptionLeavesNoStagingForTheNextCombat() {
+    /** [player]'s combat copy of Bob's token, tapped once (a first tap selects it, the next removes it, CMB-032). */
+    private fun tapTokensCopy(player: E2ePlayer) {
+        val token = player.nodes(hasContentDescription("Projection, ", substring = true)).fetchSemanticsNodes().first { n ->
+            val what = n.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString().orEmpty()
+            "owner ${bob.name}, " in what && !what.startsWith("Projection, Ember Herald") && !what.startsWith("Projection, Cinder Brute")
+        }
+        run(skip = java.time.Duration.ofSeconds(1))
+        player.node(SemanticsMatcher("node #${token.id}") { it.id == token.id }).performClick()
+        run(skip = java.time.Duration.ofSeconds(1))
+    }
+
+    /**
+     * Turns 1 to 3: Alice's Brute, Bob's Herald and its token; Alice attacks and Bob stages his token as the Brute's blocker,
+     * which reaches the table; Alice assumes he has no blockers, and his phone stops at her assumption with his block.
+     */
+    private fun toBobsStopWithHisStagedBlock() {
         startGame(TestDeck("Brutes", listOf(TestCards.mountain to 20, TestCards.brute to 20)), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Cinder Brute" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
         bothOpen()
@@ -86,26 +101,35 @@ class BlockAtStopTest : E2e() {
         }
         val staged = bob.shown.board.engine!!.table.blockDraft.orEmpty()
         assertTrue(staged.size == 1 && bob.state.obj(staged.single().blocker)?.token == true, "the token blocks: $staged")
-        // Alice assumes he has no blockers; his phone stops at her assumption, and he declares his block there
+        // Alice assumes he has no blockers; his phone stops at her assumption, with his block
         waitUntil("Alice's Assume no blockers") { alice.settled(this) && alice.showsControl("Assume no blockers") }
         alice.tap("Assume no blockers")
         waitUntil("Bob stopped at Alice's assumption with his block") {
             bob.status is GameDevice.Status.Stopped && bob.stepArrow() == "Block (1)" && bob.settled(this)
         }
-        bob.tap("Block (1)")
-        // The combat damage (Alice's division of the Brute's trample damage, when it's asked): the token dies, the Brute lives
-        waitUntil("the token dead in the combat", along = listOf(bob)) {
+    }
+
+    /** The combat goes on to its damage ([done] once it is dealt), Alice dividing the Brute's trample damage when asked. */
+    private fun throughTheDamage(what: String, done: () -> Boolean) {
+        waitUntil(what, along = listOf(bob)) {
             goOn(alice); goOn(bob)
             if (alice.settled(this) && alice.showsControl("OK") && alice.shows(hasContentDescription("Division of combat damage")))
                 alice.tap("OK")
-            !bobsToken() && alice.field("Cinder Brute").isNotEmpty()
+            done()
         }
-        // Turn 4: Bob's; turn 5: Alice attacks with the same Brute and Bob declares blockers again
+    }
+
+    /** Turns 4 and 5: Alice attacks with the same Brute again; no block from the earlier combat shows on either phone (no
+     * staging left on the table), every combat copy is a card the board has, and neither phone crashed. */
+    private fun theNextAttackShowsNoOldBlock() {
+        waitUntil("no block staging left on either table", along = listOf(alice, bob)) {
+            goOn(alice)
+            alice.shown.board.engine!!.table.blockDraft == null && bob.shown.board.engine!!.table.blockDraft == null
+        }
         waitUntil("Bob's second Main 1", along = listOf(alice)) { goOn(alice); bob.inOwnMain() && bob.state.turn.number >= 4 }
         bob.hold("To combat")
         waitUntil("Alice's third Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 5 }
         aliceAttacks()
-        // No staged block from the earlier combat on either phone, every combat copy a card the board has; neither crashed
         waitUntil("both phones settled") { alice.settled(this) && bob.settled(this) }
         run(skip = java.time.Duration.ofSeconds(1))
         for (player in listOf(alice, bob)) {
@@ -118,5 +142,28 @@ class BlockAtStopTest : E2e() {
         assertTrue(bob.stepArrow() == "No blocks", "Bob declares his blocks afresh: ${bob.stepArrow()}")
         assertTrue(AppLog.text().lines().none { "E/crash" in it }, "no crash")
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
+    }
+
+    // CMB-034, CMB-040, CMB-043: Bob declares his staged block at the stop (a branch); the token dies in the combat
+    @Test fun aBlockDeclaredAtAnAssumptionLeavesNoStagingForTheNextCombat() {
+        toBobsStopWithHisStagedBlock()
+        bob.tap("Block (1)")
+        throughTheDamage("the token dead in the combat") { !bobsToken() && alice.field("Cinder Brute").isNotEmpty() }
+        theNextAttackShowsNoOldBlock()
+    }
+
+    // CMB-034, CMB-040, CMB-043 (follow-up to WCRF3Q): at the stop Bob removes his staged block (on his phone only) and
+    // declares no blockers, confirming Alice's assumption; his token lives, and its old staged block, were it left on the
+    // table, would show as a block when the same Brute attacks again
+    @Test fun noBlockersDeclaredAtAnAssumptionLeavesNoPhantomBlockOfALivingBlocker() {
+        toBobsStopWithHisStagedBlock()
+        tapTokensCopy(bob)
+        assertTrue(bob.stepArrow() == "Block (1)", "still blocking after the first tap: ${bob.stepArrow()}")
+        tapTokensCopy(bob)
+        waitUntil("Bob's block removed on his phone") { bob.stepArrow() == "No blocks" && bob.settled(this) }
+        bob.tap("No blocks")
+        throughTheDamage("the Brute's damage dealt to Bob") { bob.state.player(arcanum.engine.state.PlayerId(bob.id)).life < 20 }
+        assertTrue(bobsToken(), "the token lives")
+        theNextAttackShowsNoOldBlock()
     }
 }

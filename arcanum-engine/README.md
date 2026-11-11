@@ -35,8 +35,8 @@ Engine.decider(state, player): PlayerId          // who makes this player's deci
 Engine.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
 Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
-Engine.blockCosts(state, blocks): Boolean        // whether the blocks have costs to block (CR 509.1d)
-Engine.combatCost(state, applied, creature, view?): Cost? // a cost to attack or block as it stands now, its X worked out (CR 508.1h, 509.1d)
+Engine.attackCosts(state, attacks[, view]): List<CombatCost> // the costs a declaration of attackers asks, each attacker's, X worked out (CR 508.1h)
+Engine.blockCosts(state, blocks[, view]): List<CombatCost>   // the costs a declaration of blockers asks, each blocker's, X worked out (CR 509.1d)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
 Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
 Engine.manualParts(definition): List<String>     // the parts of a card the engine leaves to the players (empty: fully supported)

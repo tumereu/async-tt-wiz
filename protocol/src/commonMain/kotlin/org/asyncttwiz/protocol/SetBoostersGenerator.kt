@@ -17,8 +17,15 @@ object SetBoosters {
         val byUuid = cards.associateBy { it.uuid }
         val buckets = cards.groupBy { it.rarity }
 
-        fun random(bucket: List<SetSourceCard>) = bucket[RandomV1.sample(bucket.size, words::next)]
-        fun fallback(rarity: SetCardRarity) = random(buckets[rarity] ?: cards)
+        // DRF-090: an approximate pack draws a card, each card once however many printings it has, then one of them
+        fun cardsOf(printings: List<SetSourceCard>) = printings.groupBy { it.card.ifEmpty { it.uuid } }.values.toList()
+        val allCards = cardsOf(cards)
+        val cardBuckets = buckets.mapValues { (_, printings) -> cardsOf(printings) }
+        fun random(bucket: List<List<SetSourceCard>>): SetSourceCard {
+            val printings = bucket[RandomV1.sample(bucket.size, words::next)]
+            return if (printings.size == 1) printings.single() else printings[RandomV1.sample(printings.size, words::next)]
+        }
+        fun fallback(rarity: SetCardRarity) = random(cardBuckets[rarity] ?: allCards)
         fun approximate(): List<SetSourceCard> = buildList {
             // Reserve a rare, then a wildcard if size permits; floor(size / 5) uncommons,
             // with all remaining slots common. Size 15 retains the 10C/3U/1R+M/1-any layout.
@@ -28,7 +35,7 @@ object SetBoosters {
             repeat(uncommons) { add(fallback(SetCardRarity.UNCOMMON)) }
             val mythic = SetCardRarity.MYTHIC in buckets && RandomV1.sample(8, words::next) == 0
             add(fallback(if (mythic) SetCardRarity.MYTHIC else SetCardRarity.RARE))
-            if (wildcard == 1) add(random(cards))
+            if (wildcard == 1) add(random(allCards))
         }
 
         fun draw(sheet: SetBoosterSheet, count: Int): List<SetSourceCard> {

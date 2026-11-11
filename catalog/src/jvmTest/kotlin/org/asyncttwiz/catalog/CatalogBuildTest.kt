@@ -12,6 +12,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.asyncttwiz.protocol.DeckJson
 import org.asyncttwiz.protocol.DeckValidation
+import org.asyncttwiz.protocol.RandomV1
+import org.asyncttwiz.protocol.SetBoosters
 import org.asyncttwiz.protocol.SetCardRarity
 
 /** The card catalog built from the invented test cards (tests/fixtures/card-catalog), docs/specs/web-client.md section 3. */
@@ -164,6 +166,31 @@ class CatalogBuildTest {
                 assertEquals(card.uuid, definitions.getValue(card.definition).definition.printingId, "the drawn printing is the card's")
             }
         }
+    }
+
+    // DRF-090 (owner, 2026-11-11): in a set without a recipe (OFF) a pack draws each card once, then one of the set's
+    // printings of it at random: a double-faced card (listed once, never once per face) and a card printed twice (Listed
+    // Lone, both printings drawn) come up about as often as a card of one face and one printing (Test Bear)
+    @Test fun `an approximate pack draws each card once, then one of its printings`() {
+        val source = assertNotNull(CatalogSetSources.build(catalog, "OFF"))
+        assertNull(source.snapshot.recipe)
+        val definitions = source.definitions.associate { it.digest to it.definition }
+        val pool = source.snapshot.cards.map { definitions.getValue(it.definition).name }
+        assertEquals(1, pool.count { it == "Dawnward Scout // Duskward Stalker" }, "pool: $pool")
+        assertEquals(2, pool.count { it == "Listed Lone" }, "two printings: $pool")
+        assertTrue(source.snapshot.cards.all { it.card == definitions.getValue(it.definition).name }, "each printing names its card")
+        val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
+        val copies = SetBoosters.generate(source.snapshot, 400, seed).flatMap { it.cards }
+        val drawn = copies.groupingBy { definitions.getValue(it.definition).name }.eachCount()
+        val bear = drawn.getValue("Test Bear")
+        for (name in listOf("Dawnward Scout // Duskward Stalker", "Listed Lone")) {
+            val count = drawn.getValue(name)
+            assertTrue(count < bear * 1.25 && bear < count * 1.25, "$name drawn: $drawn")
+        }
+        val lone = copies.filter { definitions.getValue(it.definition).name == "Listed Lone" }
+            .groupingBy { definitions.getValue(it.definition).printingId }.eachCount()
+        assertEquals(2, lone.size, "both printings drawn: $lone")
+        assertTrue(lone.values.all { it > drawn.getValue("Listed Lone") / 4 }, "each printing about half: $lone")
     }
 
     // SYS-081 (section 3.4): the release builds the catalog from the pinned file only

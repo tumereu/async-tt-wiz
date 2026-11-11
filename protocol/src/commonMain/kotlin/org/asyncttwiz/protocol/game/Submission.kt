@@ -259,7 +259,7 @@ object WhoActs {
             else -> null
         }
         input is Input.DeclareBlockers ->
-            if (Engine.blockCosts(state, input.blocks)) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
+            if (Engine.blockCosts(state, input.blocks).isNotEmpty()) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
         keep(input) -> when {
             state.turn.number != 0 -> "Not an assumable input"
             state.turn.active != author -> "Only the starting player assumes the other player's keep (I-D56 §3)"

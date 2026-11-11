@@ -14,12 +14,16 @@ enum class SetCardRarity {
     @SerialName("unknown") UNKNOWN,
 }
 
+/** One printing packs can hold: its card data [definition] (a digest), its [uuid], [rarity] and [colors]; [card] names the
+ * card it is a printing of (its name), so an approximate pack draws each card once and then one of its printings
+ * (DRF-090); empty: a card of its own. */
 @Serializable
 data class SetSourceCard(
     val definition: String,
     val uuid: String,
     val rarity: SetCardRarity = SetCardRarity.UNKNOWN,
     val colors: Set<DraftColor> = emptySet(),
+    val card: String = "",
 )
 
 /** Includes cards from other sets when referenced by the selected recipe. No catalog is needed to draw packs. */

@@ -1,2 +1,3 @@
 # The test cards' single-card support list: as supported-cards.txt.
 Listed Lone
+Dawnward Scout // Duskward Stalker

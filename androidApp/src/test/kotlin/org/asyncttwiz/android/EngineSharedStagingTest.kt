@@ -109,4 +109,65 @@ class EngineSharedStagingTest {
         }
         fail("Bob's life never flashed: ${bob.device.model.engine.player(PlayerId(f.b)).life}")
     }
+
+    /** Alice declares an attack with her ready Cub and Bob stages a block with his untapped one, shared on both tables. */
+    private fun blockStaged(): List<Block> {
+        val me = PlayerId(f.a)
+        val other = PlayerId(f.b)
+        until(scenario::bothHaveCubs)
+        val attacker = creatures(alice.device.model.engine, me, ready = true).first()
+        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(Input.DeclareAttackers(me, listOf(Attack(attacker, TargetRef.Player(other)))))))
+        settle()
+        val bs = bob.device.model.engine
+        assertTrue(Engine.options(bs, other).any { it is Input.DeclareBlockers }, "Bob declares blockers")
+        val blocks = listOf(Block(creatures(bs, other, ready = false).first { bs.obj(it)?.tapped == false }, attacker))
+        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.BlockDraft(null, blocks))))
+        settle()
+        assertEquals(blocks, alice.device.model.table.blockDraft)
+        return blocks
+    }
+
+    /** Alice assumes Bob has no blockers while his block is staged; his phone stops at her assumption. */
+    private fun bobStoppedAtNoBlockers(): GameDevice.Status.Stopped {
+        scenario.confirmStops[f.b] = false
+        assertTrue(alice.assume() !is GameDevice.Acted.Refused, "Alice's Assume no blockers")
+        settle()
+        val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status, "Bob's phone stops at Alice's assumption")
+        assertEquals(Input.DeclareBlockers(PlayerId(f.b), emptyList()), stop.assumed)
+        return stop
+    }
+
+    /** No block staging left on the server's table or on either phone's. */
+    private fun noStagingLeft() {
+        scenario.confirmStops[f.b] = true
+        settle()
+        assertNull(sim.state().table.blockDraft, "the server's table")
+        assertNull(alice.device.model.table.blockDraft, "Alice's table")
+        assertNull(bob.device.model.table.blockDraft, "Bob's table")
+        assertTrue(sim.leaks.isEmpty())
+    }
+
+    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): a block declared at Bob's stop at Alice's "Assume no blockers"
+    // (another answer: a branch) ends the shared block staging with it, so no staging is left for a later combat
+    @Test fun aBlockDeclaredAtAStopEndsTheStaging() {
+        val blocks = blockStaged()
+        bobStoppedAtNoBlockers()
+        val branches = sim.branches
+        assertTrue(bob.send(listOf(Input.DeclareBlockers(PlayerId(f.b), blocks))) !is GameDevice.Acted.Refused, "Bob's block at the stop")
+        noStagingLeft()
+        assertEquals(branches + 1, sim.branches, "his block branched")
+        val block = Input.DeclareBlockers(PlayerId(f.b), blocks)
+        assertTrue(sim.line().any { e -> e.engine?.steps.orEmpty().any { it.input == block } }, "his block is on the main line")
+    }
+
+    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): no blockers declared at that stop (confirming Alice's
+    // assumption) also ends the staging, in an event of its own after the confirmation
+    @Test fun noBlockersDeclaredAtAStopEndsTheStaging() {
+        blockStaged()
+        val stop = bobStoppedAtNoBlockers()
+        val confirmations = sim.confirmations
+        assertTrue(bob.send(listOf(stop.assumed)) !is GameDevice.Acted.Refused, "Bob's no blockers at the stop")
+        noStagingLeft()
+        assertEquals(confirmations + 1, sim.confirmations, "his answer confirmed her assumption")
+    }
 }

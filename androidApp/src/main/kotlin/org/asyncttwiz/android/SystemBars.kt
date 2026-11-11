@@ -11,6 +11,12 @@ internal object SystemBars {
 
     fun navigationShown(table: Boolean, buttonNavigation: Boolean): Boolean = buttonNavigation && !table
 
+    /** SYS-085: the window's display cutout mode: the table edge to edge reaches into the camera's strip on the short edges
+     * (the top in portrait, a side in landscape); otherwise Android's default. */
+    fun cutoutMode(edgeToEdge: Boolean): Int =
+        if (edgeToEdge) android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        else android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+
     /** Button navigation unless the phone's navigation mode is gestures; [mode] null when the phone doesn't say. */
     fun buttonNavigation(mode: Int?): Boolean = mode != GESTURES
 

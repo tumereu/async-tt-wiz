@@ -4,6 +4,7 @@ import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.appui.NativeColors
+import org.asyncttwiz.appui.toRadians
 
 
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
@@ -186,7 +187,10 @@ data class TableItem(
     val countersInside: Boolean = false,
     /** CMB-047: a stack's member staged as an attacker or placed as a blocker while they are declared, drawn at its stack's
      * right end with the staged look; null otherwise. */
-    val staged: CombatRole? = null
+    val staged: CombatRole? = null,
+    /** ZON-001 (owner, 2026-11-11): the other player's hand in portrait, a small fan of its cards in their row: drawn as its
+     * count only (its cards are their own items, turned). */
+    val handFan: Boolean = false
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else NativeColors.DKGRAY
@@ -325,6 +329,36 @@ object TablePresentation {
     /** The counters' room may be squeezed this far before it scrolls. */
     private const val MIN_SHRUNK_COUNTER_GRID = 60f
     fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
+    /** (owner, 2026-11-11) your life and pile row in portrait: its least height, the life square's and the piles' tops. */
+    private const val OWN_ROW = 56f
+    private const val OWN_LIFE_TOP = 4f
+    private const val OWN_PILE_TOP = 8f
+    /** ZON-001 (owner, 2026-11-11): the other player's hand's fan in portrait: its cards this much of a pile card, turned
+     * at most [FAN_STEP] degrees apart and [FAN_ANGLE] either side, after [FAN_GAP] from the piles, its count in the last
+     * [FAN_COUNT]. */
+    const val FAN_CARD = .75f
+    const val FAN_STEP = 9f
+    const val FAN_ANGLE = 18f
+    const val FAN_GAP = 8f
+    const val FAN_COUNT = 22f
+    /** ZON-001: the fan's whole width, its count's room included, for cards of [cardWidth]x[cardHeight]. */
+    fun handFanWidth(cardWidth: Float, cardHeight: Float): Float {
+        val turn = toRadians(FAN_ANGLE.toDouble())
+        val spread = 2 * cardHeight * kotlin.math.sin(turn)
+        val outer = cardWidth * kotlin.math.cos(turn) + cardHeight * kotlin.math.sin(turn)
+        return (spread + outer).toFloat() + FAN_COUNT
+    }
+    /** ZON-001: each of [count] fanned cards' centre and turn (degrees, clockwise), left to right, about [center]: the cards
+     * turn about a point a card's height below their middle, as cards held in a hand. */
+    fun handFan(count: Int, center: TablePoint, cardWidth: Float, cardHeight: Float): List<Pair<TablePoint, Float>> {
+        val step = if (count <= 1) 0f else minOf(FAN_STEP, 2 * FAN_ANGLE / (count - 1))
+        return (0 until count).map { n ->
+            val turn = (n - (count - 1) / 2f) * step
+            val radians = toRadians(turn.toDouble())
+            TablePoint(center.x + (cardHeight * kotlin.math.sin(radians)).toFloat(),
+                center.y + (cardHeight * (1 - kotlin.math.cos(radians))).toFloat()) to turn
+        }
+    }
 
     /** TBL-009 (owner, 2026-11-07): in landscape each player's life square, piles and emblems sit in a bar row (the
      * opponent's in the top bar, yours in the bottom bar), so the battlefield takes the whole width. */
@@ -432,14 +466,20 @@ object TablePresentation {
         // HIS-001, HIS-007: play mode's bottom bar has only the controls; timeline mode's panel adds its strip in portrait
         val controlsHeight = tableBottomHeight(landscape, timeline)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
+        // (owner, 2026-11-11) in portrait your life and pile row has no margin above the life square and no room under it
+        val ownDockRow = if (landscape) dockRow else maxOf(OWN_ROW, OWN_PILE_TOP + pileHeight + 4f)
+        // ZON-001 (owner, 2026-11-11): in portrait the other player's hand is a small fan in their life and pile row
+        val fanCardWidth = pileWidth * FAN_CARD; val fanCardHeight = pileHeight * FAN_CARD
+        val fanWidth = handFanWidth(fanCardWidth, fanCardHeight)
         val dockSpacing = if (landscape) Landscape.PILE_PITCH else pileWidth + 12f
         val gridWidth = minOf(132f, width * .34f)
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar (taller cards reach above it)
         val ownHandHeight = maxOf(HEADER, railHeight)
         val boardBottom = if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - 4f else height - controlsHeight - 4f
-        val ownDockY = height - controlsHeight - dockRow
-        val worldTop = if (landscape) boardTop else HEADER + dockRow + railHeight
+        val ownDockY = height - controlsHeight - ownDockRow
+        // ZON-001: the other player's hand has no row of its own in portrait: their battlefield starts under their row
+        val worldTop = if (landscape) boardTop else HEADER + dockRow
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
         // TBL-009: the battlefields take the table's whole width in both orientations
         val worldViewport = TableBounds(6f, worldTop, (width - 12f).coerceAtLeast(1f),
@@ -568,7 +608,7 @@ object TablePresentation {
         // Opponent block on top, own block at the bottom; in landscape (TBL-009) the opponent's in the top bar, yours in the
         // bottom bar, left of the controls
         val dockRowY = if (landscape) listOf(0f, height - controlsHeight) else listOf(HEADER, ownDockY)
-        val dockRowHeights = if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, dockRow)
+        val dockRowHeights = if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, ownDockRow)
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
@@ -586,23 +626,27 @@ object TablePresentation {
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
                 hand.copy(cards = hand.cards.filter { it !in castFromHand })
             }
+            // ZON-001 (owner, 2026-11-11): in portrait the other player's hand is a fan in their row, placed with it below
+            val fan = !ownSide && !landscape
             val normalHandBounds = if (!ownSide) {
                 // TBL-009: in landscape in the top bar, after the opponent's life square, piles and emblems
                 if (landscape) Landscape.rowRight(width, own = false, places, wanted = stateRow).let { left -> TableBounds(left + 10f, 2f,
                     (width - toolbarWidth - 10f - left - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight)) }
-                else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
+                else TableBounds(0f, 0f, 0f, 0f) // the fan's own place is worked out with the row's below
             } else if (landscape) {
                 // TBL-009 (owner, 2026-11-08): in the bottom bar, after your life square, piles and emblems, up to the controls
                 val left = Landscape.rowRight(width, own = true, places, emblems, stateRow) + 6f
                 TableBounds(left, height - 4f - ownHandHeight, (width - Landscape.controls(width) - left).coerceAtLeast(handWidth), ownHandHeight)
             } else TableBounds(8f, ownDockY - railHeight, (width - 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
+            val handLabel = "${name(player.accountId)} Hand, ${hand.cards.size} cards"
+            if (!fan) {
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             // ZON-081: a hand pulled past its end (Automatum on) is drawn that far off, springing back on release
             val pulled = ui.overscroll[hp.id] ?: 0f
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
-            items += TableItem(hand.id, handBounds, "${name(player.accountId)} Hand, ${hand.cards.size} cards", hand.cards.size.toString(),
+            items += TableItem(hand.id, handBounds, handLabel, hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
                 // ZON-079: the raised card sits a quarter of its height higher
@@ -612,6 +656,7 @@ object TablePresentation {
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
                 if (raised) items[items.lastIndex] = items.last().copy(raised = true)
             } }
+            }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
             // TBL-004, TBL-053: each card where its group puts it, drawn behind to front; an attached card peeks out above
@@ -634,7 +679,10 @@ object TablePresentation {
             val rowY = dockRowY[index]
             val rowHeight = dockRowHeights[index]
             val spacing = dockSpacing
-            val portraitDock = portraitDockWidth(pileWidth, 3)
+            // ZON-001: the other player's row holds their hand's fan after the piles
+            val pilesDock = portraitDockWidth(pileWidth, 3)
+            val fanRoom = if (fan) fanWidth + FAN_GAP else 0f
+            val portraitDock = pilesDock + fanRoom
             val portraitCounters = (width - portraitDock).coerceAtLeast(0f)
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
@@ -645,22 +693,48 @@ object TablePresentation {
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))).let { full ->
                     if (emblems) minOf(full, width - EmblemChips.MIN_AREA_WIDTH - 16f).coerceAtLeast(0f) else full }
-            val dock = TableBounds(dockX, rowY, dockWidth, rowHeight)
-            val dp = port("dock/${player.accountId}", dock, if (landscape) dockWidth else portraitDock +
+            // ZON-001: the fan keeps its place at the row's end; the piles scroll left of it when there isn't room for both
+            val rowRight = dockX + dockWidth
+            val dock = TableBounds(dockX, rowY, (dockWidth - fanRoom).coerceAtLeast(0f), rowHeight)
+            val dp = port("dock/${player.accountId}", dock, if (landscape) dockWidth else pilesDock +
                 (places - 3) * spacing, bar = landscape)
             // Each pile's left edge: in landscape centred in its own touch target after the life square
             fun pileX(n: Int) = if (landscape) Landscape.pilesRight(dockX, n) + (Landscape.PILE_PITCH - pileWidth) / 2
                 else PILE_START + n * spacing - dp.scroll
-            val pileY = if (landscape) rowY + (rowHeight - pileHeight) / 2 else rowY + 12f
-            // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands; in landscape
-            // right after the piles in the bar row
+            val pileY = if (landscape) rowY + (rowHeight - pileHeight) / 2 else rowY + if (ownSide) OWN_PILE_TOP else 12f
+            // TRN-053: in portrait the emblem chips sit in the empty room right of the piles (and the other player's hand's
+            // fan, ZON-001), clear of the hands; in landscape right after the piles in the bar row
             val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
+            val fanX = minOf(PILE_START + (places - 1) * spacing + pileWidth, dock.right) + FAN_GAP
             val chipsArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
                     val room = (dock.right - x).coerceAtLeast(0f)
                     TableBounds(x, rowY + 4f, room, rowHeight - 8f) }
-                else (minOf(pilesRight, dock.right) + 8f).let { x -> TableBounds(x, rowY + 4f, width - x - 8f, dockRow - 8f) }
+                else (if (fan) fanX + fanWidth + 8f else minOf(pilesRight, dock.right) + 8f).let { x ->
+                    // Your trimmed row gives its chips its whole height
+                    if (ownSide) TableBounds(x, rowY, width - x - 8f, rowHeight)
+                    else TableBounds(x, rowY + 4f, width - x - 8f, rowHeight - 8f) }
             val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - Landscape.LIFE) / 2, Landscape.LIFE, Landscape.LIFE)
-                else TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
+                else TableBounds(10f - dp.scroll, rowY + if (ownSide) OWN_LIFE_TOP else 8f, 48f, 48f)
+            if (fan) {
+                // ZON-001 (owner, 2026-11-11): a small fan of their hand's cards (backs) after their piles, its count at its
+                // right; the cards are the hand's own items, so holding one inspects it and cards fly from it as from the row
+                val fanBounds = TableBounds(fanX, rowY + 4f, fanWidth, rowHeight - 8f)
+                // Its own part of the row (white as the row), outside the piles' scrolling
+                val fanLeft = fanX - FAN_GAP
+                val fp = port("dock/${player.accountId}/hand", TableBounds(fanLeft, rowY, rowRight - fanLeft, rowHeight),
+                    rowRight - fanLeft)
+                items += TableItem(hand.id, fanBounds, handLabel, hand.cards.size.toString(),
+                    player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, fp.id, handFan = true)
+                val faces = handFan(hand.cards.size, TablePoint(fanX + (fanWidth - FAN_COUNT) / 2, pileY + pileHeight / 2),
+                    fanCardWidth, fanCardHeight)
+                hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
+                    val (center, turn) = faces[n]
+                    val face = TableCardTransform(fanCardWidth, fanCardHeight, turn)
+                    val b = face.bounds(center)
+                    card(c, b, b, player.accountId, PlayZone.HAND, fp.id)
+                    items[items.lastIndex] = items.last().copy(cardTransform = face)
+                } }
+            }
             val chips = PlayerChips.layout(stateChips, emblemTexts.size, chipsArea, fromRight = !landscape)
             items += TableItem("life/${player.accountId}", life,
                 "${name(player.accountId)}, life ${player.life}",
@@ -693,7 +767,7 @@ object TablePresentation {
             // The player counters' room stays, empty (I-D52: no counters by hand); in portrait right of the piles (landscape
             // has none: the bar row holds only the life square, piles and emblems)
             if (!landscape) port("counters/${player.accountId}",
-                TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow),
+                TableBounds(rowRight, rowY, (width - rowRight).coerceAtLeast(0f), rowHeight),
                 if (shrink) minOf(gridWidth, portraitCounters) else gridWidth)
             dungeon?.let { d ->
                 val card = byId[d.cardId]
@@ -845,7 +919,9 @@ object TablePresentation {
             if (portions.isNotEmpty() && i.kind != TableItemKind.HAND) for (next in occlusion.candidates(n)) {
                 val cover = clipped[next]
                 // A leaving combat copy (CMB-001) fades out: what lies beneath it shows through
+                // ZON-001: a fanned hand's turned cards overlap only at their corners: each is drawn over the one before
                 if (cover.kind == TableItemKind.HAND || cover.leaving ||
+                    i.cardTransform != null && i.zone == PlayZone.HAND && cover.zone == PlayZone.HAND && cover.viewport == i.viewport ||
                     i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
                     i.bounds.intersection(cover.bounds) == null) continue
                 for (part in cover.visible) if (portions.any { it.intersection(part) != null })

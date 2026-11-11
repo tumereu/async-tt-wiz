@@ -104,13 +104,16 @@ const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
 
 /**
  * TRN-066, STK-057 (owner, 2026-11-09): the one place the wait and the other player's top Stack entry say what goes on: a
- * semi-transparent dark band right under the other player's hand, edge to edge, fading out toward both sides, its words kept
+ * semi-transparent dark band right under the other player's hand (in portrait under their row, which holds it, ZON-001),
+ * edge to edge, fading out toward both sides, its words kept
  * in its dark middle. Purely visual: it has no pointer handlers, so touches go through to the table under it.
  */
 @Composable
 fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
-    val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer }?.bounds ?: return
-    WaitBandStrip(Modifier.offset(0.dp, hand.bottom.dp), content)
+    val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer } ?: return
+    // ZON-001: in portrait their hand is a fan in their row: the band lies under that row, on top of their battlefield
+    val row = scene.viewports.firstOrNull { it.id == "dock/${hand.owner}" }?.bounds?.bottom ?: 0f
+    WaitBandStrip(Modifier.offset(0.dp, maxOf(hand.bounds.bottom, row).dp), content)
 }
 
 /**

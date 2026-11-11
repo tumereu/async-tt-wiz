@@ -129,7 +129,7 @@ class TablePresentationTest {
         val portrait = TableFixture.scene(TableFixture.play(hand = 2))
         val hand = portrait.items.single { it.id == "a/HAND" }.bounds
         assertEquals(8f, hand.x)
-        assertTrue(hand.bottom <= 820f - TableControlsHeight - 64f, "portrait: above the own piles row: $hand")
+        assertTrue(hand.bottom <= portrait.viewports.single { it.id == "dock/a" }.bounds.y, "portrait: above the own piles row: $hand")
     }
 
     // TBL-009, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
@@ -244,9 +244,11 @@ class TablePresentationTest {
             val cards = scene.items.filter { it.kind == TableItemKind.CARD }
             assertTrue(cards.isNotEmpty())
             cards.forEach { c ->
-                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else 1f
-                assertEquals(28 * scale, minOf(c.bounds.width, c.bounds.height), .001f)
-                assertEquals(40 * scale, maxOf(c.bounds.width, c.bounds.height), .001f)
+                // ZON-001: the other player's hand in portrait is a fan of smaller, turned cards: their faces are measured
+                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null) TablePresentation.FAN_CARD else 1f
+                val face = c.faceTransform()
+                assertEquals(28 * scale, minOf(face.width, face.height), .001f)
+                assertEquals(40 * scale, maxOf(face.width, face.height), .001f)
                 if (c.zone == PlayZone.BATTLEFIELD) {
                     assertEquals(TablePresentation.COLUMN_PITCH * zoom, c.footprint.width, .001f)
                     assertTrue(c.bounds.x >= c.footprint.x - 8 * zoom && c.bounds.right <= c.footprint.right)
@@ -345,6 +347,20 @@ class TablePresentationTest {
             val scene = TableFixture.scene(p, landscape)
             for (owner in listOf("a", "b")) {
                 val id = TableFixture.container(owner, PlayZone.HAND)
+                if (!landscape && owner == "b") {
+                    // ZON-001: the other player's hand in portrait is a fan in their row after their piles: every card there, in
+                    // the hand's order
+                    val row = scene.viewports.single { it.id == "dock/b" }.bounds
+                    val fan = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == "b" }
+                    assertEquals(p.board.containers.single { it.id == id }.cards, fan.map { it.cardId })
+                    assertEquals(fan, fan.sortedBy { it.bounds.center.x })
+                    val area = scene.items.single { it.id == id }.bounds
+                    val exile = scene.items.single { it.id == TableFixture.container(owner, PlayZone.EXILE) }.bounds
+                    assertTrue(area.x > exile.right, "after the piles: $area")
+                    assertTrue(fan.all { it.bounds.x >= area.x - .01f && it.bounds.right <= area.right &&
+                        it.bounds.y >= row.y && it.bounds.bottom <= row.bottom }, "$fan")
+                    continue
+                }
                 val port = scene.viewports.single { it.id == id }
                 val first = scene.items.single { it.cardId == "$owner/HAND/0" }
                 if (count == 2) {
@@ -447,7 +463,9 @@ class TablePresentationTest {
                     val bottomHand = scene.items.single { it.id == "a/HAND" }.bounds
                     val stack = scene.items.single { it.id == "stack" }
                     val region = assertNotNull(scene.stackRegion)
-                    assertEquals(topCounters?.bottom ?: topDock.bottom, topHand.y, .001f)
+                    // ZON-001: the other player's hand is a fan in their row; the battlefields start under that row
+                    assertEquals(topCounters?.bottom ?: topDock.bottom, scene.world!!.viewport.y, .001f)
+                    assertTrue(topHand.y >= topDock.y && topHand.bottom <= topDock.bottom, "$topHand in $topDock")
                     assertEquals(bottomHand.bottom, bottomDock.y, .001f)
                     assertEquals(446f, stack.bounds.center.y, .001f)
                     assertEquals(446f, region.center.y, .001f)
@@ -458,7 +476,6 @@ class TablePresentationTest {
                     assertEquals(region.x + 1.5f, stack.stackBadge.center.x, .001f)
                     assertEquals(region.y + 1.5f, stack.stackBadge.center.y, .001f)
                     assertEquals(CombatStackPresentation.CHIP_ROW * zoom, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom, .001f)
-                    assertEquals(topHand.bottom, scene.world!!.viewport.y, .001f)
                     assertEquals(bottomHand.y, scene.world!!.viewport.bottom, .001f)
                     for (port in scene.viewports.filter { it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
                         assertNull(port.bounds.intersection(region))
@@ -517,7 +534,8 @@ class TablePresentationTest {
         for (review in listOf(false, true)) {
             val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", 412f, 892f, false, reviewing = review)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.y, scene.world!!.viewport.bottom, .01f)
-            assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.bottom, scene.world!!.viewport.y, .01f)
+            // ZON-001: the other player's hand is a fan in their row: the battlefields reach up to it
+            assertEquals(scene.viewports.single { it.id == "dock/b" }.bounds.bottom, scene.world!!.viewport.y, .01f)
             assertTrue(scene.fields.first().bounds.height > 100f)
         }
     }

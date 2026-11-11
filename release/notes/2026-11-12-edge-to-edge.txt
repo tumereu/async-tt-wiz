@@ -1,0 +1,1 @@
+add: Settings has an "Edge to edge" switch that draws the game table into the strip around the phone's camera.

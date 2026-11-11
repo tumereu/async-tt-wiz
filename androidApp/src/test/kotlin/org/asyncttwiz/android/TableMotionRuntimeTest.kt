@@ -21,6 +21,9 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
 import kotlin.math.roundToInt
 
+/** How far drawn bounds (snapped to whole pixels, 1 dp at mdpi) may lie from the scene's (ZON-001: fanned cards at fractions). */
+private const val PIXEL = 1f
+
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -59,8 +62,9 @@ class TableMotionRuntimeTest {
         node.assertIsDisplayed()
         val during = node.fetchSemanticsNode().boundsInRoot
         assertTrue(travelMillis < MAX_CARD_MOVE_DURATION_MILLIS, "This short draw must arrive before the scene ends")
-        assertEquals(target.bounds.x, during.left, .01f)
-        assertEquals(target.bounds.y, during.top, .01f)
+        // ZON-001: the other player's fanned hand cards lie at fractions of a dp; the drawn bounds snap to whole pixels
+        assertEquals(target.bounds.x, during.left, PIXEL)
+        assertEquals(target.bounds.y, during.top, PIXEL)
         // Confirmation metadata must not restart a short move that has already arrived while
         // the shared scene clock is still running.
         compose.runOnIdle { state.value = moved.copy(board = moved.board.copy(cards = moved.board.cards.map {
@@ -71,8 +75,8 @@ class TableMotionRuntimeTest {
         compose.mainClock.advanceTimeBy(160)
         compose.waitForIdle()
         val after = node.fetchSemanticsNode().boundsInRoot
-        assertEquals(target.bounds.x, after.left, .01f)
-        assertEquals(target.bounds.y, after.top, .01f)
+        assertEquals(target.bounds.x, after.left, PIXEL)
+        assertEquals(target.bounds.y, after.top, PIXEL)
         compose.mainClock.advanceTimeBy(200)
         compose.waitForIdle()
         assertEquals(after, node.fetchSemanticsNode().boundsInRoot)
@@ -117,18 +121,20 @@ class TableMotionRuntimeTest {
             val old = before.items.single { it.cardId == "$owner/HAND/0" }
             val next = after.items.single { it.cardId == old.cardId }
             val lefts = compose.onAllNodesWithContentDescription(next.label).fetchSemanticsNodes().map { it.boundsInRoot.left }
-            if (jump) assertTrue(lefts.any { kotlin.math.abs(it - next.bounds.x) < .01f })
+            if (jump) assertTrue(lefts.any { kotlin.math.abs(it - next.bounds.x) < PIXEL })
             else {
-                val current = lefts.min()
-                assertTrue(current > minOf(old.bounds.x, next.bounds.x) && current < maxOf(old.bounds.x, next.bounds.x),
-                    "$owner hand must still be sliding: $current")
+                // ZON-001: the card drawn into the other player's fan flies past from their library, left of it: any card
+                // of the hand between the survivor's two places is the survivor
+                assertTrue(lefts.any { it > minOf(old.bounds.x, next.bounds.x) && it < maxOf(old.bounds.x, next.bounds.x) },
+                    "$owner hand must still be sliding: $lefts, ${old.bounds.x} → ${next.bounds.x}")
             }
         }
         compose.mainClock.advanceTimeBy(500); compose.waitForIdle()
         for (owner in listOf("a", "b")) {
             val cards = after.items.filter { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == owner }
             val lefts = compose.onAllNodesWithContentDescription(cards.first().label).fetchSemanticsNodes().map { it.boundsInRoot.left }.sorted()
-            assertEquals(cards.map { it.bounds.x }.sorted(), lefts)
+            assertEquals(cards.size, lefts.size)
+            cards.map { it.bounds.x }.sorted().zip(lefts).forEach { (x, left) -> assertEquals(x, left, PIXEL) }
         }
         compose.mainClock.autoAdvance = true
     }

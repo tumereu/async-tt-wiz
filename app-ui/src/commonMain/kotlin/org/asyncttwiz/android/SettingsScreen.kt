@@ -55,6 +55,7 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
             SettingsSection("Table") {
                 CardMoveSpeedSetting(accountId)
                 EventTextSetting(accountId)
+                EdgeToEdgeSetting()
                 CardSettings()
             }
             HorizontalDivider()

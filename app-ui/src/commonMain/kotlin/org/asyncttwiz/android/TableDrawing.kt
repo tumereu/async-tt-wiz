@@ -88,6 +88,8 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
         val b = hand.bounds
+        // ZON-001: the other player's fanned hand in portrait shows only its count at its right, on their row
+        if (hand.handFan) { text(hand.value, b.right - 18f, b.center.y + 4f, 4); continue }
         val border = if (hand.owner == viewer) OwnTableColor else OpponentTableColor
         drawRoundRect(Color.White, xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density))
         drawRoundRect(border.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density), style = Stroke(density / 2))

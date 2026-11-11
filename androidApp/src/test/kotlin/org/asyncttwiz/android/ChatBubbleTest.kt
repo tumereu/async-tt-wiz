@@ -108,9 +108,15 @@ class ChatBubbleTest {
         val harness = Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here")), 0)
         render(harness)
         val at = compose.onNode(bubble).fetchSemanticsNode().boundsInRoot
-        val under = compose.onAllNodes(hasContentDescription(", owner Bob, ", substring = true)).fetchSemanticsNodes()
-            .map { it.boundsInRoot }.filter { it.overlaps(at) }
-        assertTrue(under.isNotEmpty(), "Bob's hand lies under the bubble: $at")
+        fun bobsCards() = compose.onAllNodes(hasContentDescription(", owner Bob, ", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }
+        // ZON-001: Bob's hand is a fan in his row, clear of the bubble: the table is panned to bring a card of his
+        // battlefield under it
+        val card = bobsCards().first { it.top > at.bottom }
+        toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(card.center.x - at.center.x, card.center.y - at.center.y))
+        compose.waitForIdle()
+        val under = bobsCards().filter { it.overlaps(at) }
+        assertTrue(under.isNotEmpty(), "a card of Bob's lies under the bubble: $at")
         compose.onNode(bubble).performClick()
         compose.onNode(bubble).assertDoesNotExist()
         assertEquals(0, harness.presentation.unread, "read")
@@ -118,7 +124,7 @@ class ChatBubbleTest {
         assertEquals(null, toolkit.peek, "nothing inspected")
     }
 
-    // LOB-136: the other player's bubble with 1/2 under their life square, over their hand's cards
+    // LOB-136: the other player's bubble with 1/2 under their life square, over the top of their battlefield
     @Test fun opponentBubbleShot() {
         render(Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here and then I " +
             "want to look at your graveyard again before I decide what to block with"),
@@ -126,7 +132,7 @@ class ChatBubbleTest {
         compose.onRoot().captureShot("$SCREENSHOTS/chat/bubble-opponent.png",
             "Portrait table with two unread messages from Bob: a white speech bubble outlined in his red shows the older " +
                 "one over four lines (cut with …) and 1/2 beside it, right under his life square with its tail up towards " +
-                "the square, lying over his hand's cards.")
+                "the square, lying over the top of his battlefield (his hand is a fan in his row).")
     }
 
     // LOB-137: your own bubble as it is sent, above your life square, over whatever lies there

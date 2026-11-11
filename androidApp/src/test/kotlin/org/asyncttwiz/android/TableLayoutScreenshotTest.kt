@@ -85,7 +85,9 @@ class TableLayoutScreenshotTest {
             assertEquals(image.width.toFloat(), region.right)
             val topArea = scene.viewports.singleOrNull { it.id == "counters/b" }
                 ?: scene.viewports.single { it.id == "dock/b" }
-            assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.y, topArea.bounds.bottom)
+            // ZON-001: the other player's hand is a fan in their row; the battlefields start under it
+            assertEquals(scene.world!!.viewport.y, topArea.bounds.bottom)
+            assertTrue(scene.items.single { it.id == "b/HAND" }.bounds.bottom <= topArea.bounds.bottom)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.bottom, scene.viewports.single { it.id == "dock/a" }.bounds.y)
             assertTrue(scene.items.filter { it.kind == TableItemKind.LIFE ||
                 it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }

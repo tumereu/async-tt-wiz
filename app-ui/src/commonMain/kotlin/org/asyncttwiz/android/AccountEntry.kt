@@ -37,7 +37,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null, exit: () -> Unit = {}, pods: PodController? = null,
     /** Told whether the game table is shown, which keeps the navigation bar hidden (SYS-079). */
-    tableShown: (Boolean) -> Unit = {}) {
+    tableShown: (Boolean) -> Unit = {},
+    /** Told whether the table is shown edge to edge (SYS-085): drawn into the camera's strip of the screen. */
+    tableEdgeToEdge: (Boolean) -> Unit = {}) {
     val state = controller.state
     val platform = AppPlatform.current
     val avatarMemory = remember { AvatarPromptMemory(platform) }
@@ -49,7 +51,8 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     val landscape = screenWidthDp() > screenHeightDp()
     val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
-    SideEffect { tableShown(tabletop) }
+    val edgeToEdge = rememberEdgeToEdge().first.value
+    SideEffect { tableShown(tabletop); tableEdgeToEdge(tabletop && edgeToEdge) }
     val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
     }
@@ -61,7 +64,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         // Transient bars can be visible for a frame on resume. They overlay an immersive table;
         // only permanent cutouts (and the keyboard) may change its available geometry.
         Box(Modifier.fillMaxSize().background(ScreenBackground)
-            .windowInsetsPadding(if (tabletop) WindowInsets.displayCutout else WindowInsets.safeDrawing).imePadding()) {
+            // SYS-085: edge to edge, the table also takes the camera's strip
+            .windowInsetsPadding(if (!tabletop) WindowInsets.safeDrawing else if (edgeToEdge) WindowInsets(0, 0, 0, 0)
+                else WindowInsets.displayCutout).imePadding()) {
             Column(Modifier.fillMaxSize()) {
             if (state.account == null && catalog != null) CatalogDownloadStatus(catalog)
             Box(Modifier.weight(1f).fillMaxWidth()) {

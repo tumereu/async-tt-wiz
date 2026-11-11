@@ -1065,6 +1065,13 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val clear = if (device.session.behind) emptyList() else listOfNotNull(
                 t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
                 t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
+            // WCRF3Q, R8XVPA: a staging such a declaration leaves on the table (the board then shows only what of it is there)
+            if (device.session.behind) {
+                if (t.attackDraft != null && inputs.any { it is Input.DeclareAttackers })
+                    AppLog.warn("combat", "Attack declared behind the head: the attack staging stays on the table: ${t.attackDraft}")
+                if (t.blockDraft != null && inputs.any { it is Input.DeclareBlockers })
+                    AppLog.warn("combat", "Blocks declared behind the head: the block staging stays on the table: ${t.blockDraft}")
+            }
             device.act(first, table + clear, performed) { if (rest.hasNext()) rest.next() else null }
         }
     }

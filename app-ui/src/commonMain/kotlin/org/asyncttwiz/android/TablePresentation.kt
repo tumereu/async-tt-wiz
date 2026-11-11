@@ -461,7 +461,7 @@ object TablePresentation {
             combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
             avatars = listOf(game.inviter, game.recipient)
                 .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap(), open = open,
-            attackerSlots = open && attackerSlots)
+            attackerSlots = open && attackerSlots, head = "${play.gameId}@${play.nodeId}")
         // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height
         val bandHeight = if (open) combat.height + 2 * COMBAT_BAND_PAD else CombatStackPresentation.CHIP_ROW
         val bandY = worldViewport.height / 2 - bandHeight / 2

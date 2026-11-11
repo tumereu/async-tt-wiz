@@ -8,8 +8,8 @@ import org.asyncttwiz.protocol.PlayZone
 
 /**
  * TBL-104 (owner, 2026-11-06): what Inspect lists under a battlefield card, only what is changed on it or added to it, in
- * this order: its states ("Monstrous", "Ring-bearer: ...", TBL-133), its counters ("+1/+1 counter ×2"; a planeswalker's
- * loyalty and a battle's defense are its corner, not changes), damage ("3 damage"), each continuous effect without its
+ * this order: its states ("Monstrous", "Ring-bearer: ...", TBL-133), its counters ("+1/+1 counter ×2", "loyalty counter
+ * ×4": every counter, the one its corner shows too), damage ("3 damage"), each continuous effect without its
  * source ("+3/+3 until end of turn", "Flying", "Becomes blue": [ComputedBoard.effects], the source kept for pinned mode),
  * what those effects tell it it can't or must do ("Can't block until end of turn", TBL-134), what it is attached to and
  * "Entered this turn". A card with none of them has no lines. A card in exile lists its states and counters (ZON-094, a
@@ -55,14 +55,9 @@ object InspectChanges {
         }.filterValues { it.isNotEmpty() }
     }
 
-    /** The card's counters, one line per kind ("+1/+1 counter ×2", "time counter ×3"). */
+    /** The card's counters, one line per kind ("+1/+1 counter ×2", "loyalty counter ×4", "time counter ×3"): every counter in
+     * words, the one its corner shows too (owner, 2026-11-11). */
     private fun MutableList<InspectChange>.counters(card: PlayCard) {
-        card.typedCounters.filter { it.count != 0 && !corner(it.kind) }.forEach { counter ->
-            val name = ComputedBoard.counterName(counter.kind).let { if (it.endsWith(" counter")) it else "$it counter" }
-            add(InspectChange(if (counter.count == 1) name else "$name ×${counter.count}"))
-        }
+        ComputedBoard.shownCounters(card.typedCounters).forEach { add(InspectChange(it.words)) }
     }
-
-    /** A planeswalker's loyalty or a battle's defense: what its corner shows, not a change. */
-    private fun corner(kind: String): Boolean = kind == "loyalty" || kind == "defense"
 }

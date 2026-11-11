@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 class InspectChangesTest {
     private val f = TableStatesFixture
 
-    // TBL-104: counters (a planeswalker's loyalty is its corner, not a line), damage, what it is attached to and the enter
+    // TBL-104: counters (owner, 2026-11-11: every counter in words, loyalty too), damage, what it is attached to and the enter
     // mark, in that order; an unchanged card and a card off the battlefield have none
     @Test fun aCardListsItsCountersDamageAttachmentAndEnterMark() {
         val creature = f.source(f.a, "1/3")
@@ -26,7 +26,7 @@ class InspectChangesTest {
         val shown = cards.filter { it.id in setOf(creature.id, other.id, plain.id, inHand.id) }
         val name = f.initial.definitions.single { it.digest == creature.definition }.definition.faces.single { it.faceId == creature.faceId }.name
         assertEquals(mapOf(
-            creature.id to listOf("+1/+1 counter ×2", "charge counter", "1 damage", "Entered this turn"),
+            creature.id to listOf("+1/+1 counter ×2", "loyalty counter ×3", "charge counter", "1 damage", "Entered this turn"),
             other.id to listOf("Attached to $name"),
         ), InspectChanges.of(play, f.a, shown, emptyMap()).mapValues { (_, lines) -> lines.map { it.text } })
     }

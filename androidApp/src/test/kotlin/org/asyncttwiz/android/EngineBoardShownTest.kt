@@ -86,9 +86,9 @@ class EngineBoardShownTest {
         assertEquals(field.id, scene.fields.single { it.owner == kit.f.a }.containerId)
     }
 
-    // TBL-113, TBL-112: what Automatum changed on a battlefield card besides P/T is its chip's marks: an Ember Cub with two
-    // +1/+1 counters shows "+1/+1 ×2" (and 4/3 in its corner)
-    @Test fun aCardsCountersAreItsMarks() {
+    // TBL-135, TBL-113, TBL-112 (owner, 2026-11-11: counters as visuals): an Ember Cub with two +1/+1 counters shows them as a
+    // bubble, not words on its chip (and 4/3 in its corner)
+    @Test fun aCardsCountersAreBubbles() {
         val kit = EngineTableKit()
         kit.opening()
         kit.playLand()
@@ -100,7 +100,12 @@ class EngineBoardShownTest {
         }
         val computed = assertNotNull(game.play().values).computed.cards.getValue(cub)
         assertEquals("4/3", computed.corner)
-        assertEquals(listOf("+1/+1 ×2"), computed.marks)
+        assertEquals(emptyList(), computed.marks)
+        assertEquals(listOf(org.asyncttwiz.automatum.ShownCounter(CounterKind.PowerToughness(1, 1), "+1/+1", 2)), computed.bubbles)
+        val item = TablePresentation.scene(kit.f.game, game.play(), kit.f.a, 412f, 892f, false, computed = assertNotNull(game.play().values).computed)
+            .items.single { it.sourceId == cub && it.zone == PlayZone.BATTLEFIELD }
+        assertEquals(computed.bubbles, item.counterBubbles)
+        assertTrue(item.label.endsWith(", +1/+1 counter ×2"), item.label)
     }
 
     // SYS-037: the only differences between the players' tables: what fits the acting player, and hidden information the

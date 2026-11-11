@@ -141,6 +141,9 @@ data class TableItem(
     val token: Boolean = false,
     val typeIcon: String = "", val artwork: ArtworkReference? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
+    /** CMB-001 (owner playtest 2026-11-11): a combat copy fading out where it was as the band closes: clipped to the table
+     * rather than the band, covering nothing beneath it, taking no touch. */
+    val leaving: Boolean = false,
     val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
@@ -167,10 +170,12 @@ data class TableItem(
     val cornerColor: Int? = null,
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
     val cornerHourglass: Boolean = false,
-    /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
+    /** Automatum on (I1): its states, changed types and colours, keywords gained or lost, as one chip (TBL-113). */
     val automatumMarks: List<String> = emptyList(),
     /** TBL-133: the first of [automatumMarks] is a state's word. */
     val automatumState: Boolean = false,
+    /** TBL-135 (owner, 2026-11-11): its counters but the one its corner shows, as bubbles on its art ([CounterBubbles]). */
+    val counterBubbles: List<org.asyncttwiz.automatum.ShownCounter> = emptyList(),
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
@@ -240,8 +245,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatSlots: List<CombatSlot> = emptyList(),
     /** CMB-050 (owner playtest 2026-11-10): the combat damage dealt in the combat going on, until it ends (null: none). */
     val combatDealt: org.asyncttwiz.automatum.CombatDamageDealt? = null,
-    /** CMB-050: the small splash behind each pair's blockers with what its attackers dealt to their target. */
-    val combatLaneDamage: List<CombatLaneDamage> = emptyList(),
+    /** CMB-050 (owner playtest 2026-11-11): the screen y of the open band's edge facing the attacking player's battlefield,
+     * where the life they gained with the combat damage shows; null while the band is collapsed. */
+    val combatGainEdge: Float? = null,
     /** CMB-031: the gap between the band's card rows, on the screen; null while it is collapsed. */
     val combatArrowGap: TableBounds? = null,
     /** CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields on the screen, clipped to the
@@ -271,7 +277,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
             return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
                 it.viewport == stack.viewport && it.visible.any { bounds -> bounds.contains(point) } } ?: stack
         }
-        return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true }
+        return items.asReversed().firstOrNull { item -> !item.leaving && (item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true) }
     }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
@@ -468,9 +474,11 @@ object TablePresentation {
             avatars = listOf(game.inviter, game.recipient)
                 .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap(), open = open,
             attackerSlots = open && attackerSlots, head = "${play.gameId}@${play.nodeId}")
-        // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height
+        // CMB-007: the open band pushes the battlefields apart to hold its lanes; collapsed it keeps the chip row's height.
+        // Owner playtest 2026-11-11: it grows away from the viewer's battlefield (the lower one), which stays where it is with
+        // the collapsed band, so only the other player's moves (up) as it opens and back as it closes
         val bandHeight = if (open) combat.height + 2 * COMBAT_BAND_PAD else CombatStackPresentation.CHIP_ROW
-        val bandY = worldViewport.height / 2 - bandHeight / 2
+        val bandY = worldViewport.height / 2 + CombatStackPresentation.CHIP_ROW / 2 - bandHeight
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         // TBL-121: an untouched camera in landscape opens on the battlefields' whole height
@@ -537,7 +545,9 @@ object TablePresentation {
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                     (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
                     // TBL-024: its damage badge read aloud too
-                    (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "")
+                    (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "") +
+                    // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
+                    auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -551,6 +561,7 @@ object TablePresentation {
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
                     cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
+                    counterBubbles = auto?.bubbles.orEmpty(),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }
@@ -724,7 +735,7 @@ object TablePresentation {
                 TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
                 projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
-        val combatY = worldViewport.height / 2 - combat.height / 2
+        val combatY = bandY + (bandHeight - combat.height) / 2
         // CMB-007: the band on the screen (the table's whole width), and the lanes it holds in its middle
         val band = world.screen(TableBounds(world.panBounds.x, bandY, world.panBounds.width, bandHeight), camera)
         val lanesBounds = if (combat.lanes.isEmpty()) null else world.screen(TableBounds(combatX, combatY, combat.width, combat.height), camera)
@@ -773,19 +784,11 @@ object TablePresentation {
             inset = lane.inset * zoom, chip = translated(lane.chip),
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
-        // CMB-050 (owner playtest 2026-11-10): what the combat's damage did, kept on the band until the combat ends: a small
-        // splash behind each pair's blockers where it reached the pair's target, centred on the blockers' row's edge facing
-        // the target chips
+        // CMB-050 (owner playtest 2026-11-10, 2026-11-11): what the combat's damage did, kept on the band until the combat
+        // ends: each target's total on its chip, and the attacking player's life gained with it on the band's edge facing their
+        // battlefield (the chips' edge faces the defender's: mirrored, the defender's battlefield is the lower one)
         val dealt = if (open) play.engine?.state?.let(org.asyncttwiz.automatum.CombatFlow::dealt) else null
-        val laneDamage = dealt?.let { d -> combat.blockerRows.mapNotNull { (pairId, row) ->
-            val pair = bandBoard.combat?.pairs?.firstOrNull { it.id == pairId } ?: return@mapNotNull null
-            val amount = pair.attackers.sumOf { d.attackers[it.sourceId] ?: 0 }
-            if (amount <= 0) return@mapNotNull null
-            val size = combatCard * CombatLaneDamage.SIZE
-            val edge = if (combat.mirrored) row.bottom else row.y
-            CombatLaneDamage(pairId, translated(TableBounds(row.center.x - size / 2, edge - size / 2, size, size)), amount,
-                combat.lanes.firstOrNull { it.cardId == pair.attackTarget }?.label.orEmpty())
-        } }.orEmpty()
+        val gainEdge = if (open) (if (combat.mirrored) band.y else band.bottom) else null
         val realSources = play.board.cards.associate { c -> c.id to TableMoveSource(c.containerId, positions[c.id],
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.mapNotNull { item ->
@@ -801,7 +804,7 @@ object TablePresentation {
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it, stackRegion) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatSlots = combat.slots.map { it.copy(bounds = translated(it.bounds)) },
-            combatDealt = dealt, combatLaneDamage = laneDamage,
+            combatDealt = dealt, combatGainEdge = gainEdge,
             combatArrowGap = combat.arrowGap?.takeIf { open }?.let(::translated),
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
@@ -826,7 +829,8 @@ object TablePresentation {
             val viewport = viewports[i.viewport]
             // ZON-079: a raised hand card shows whole above its row
             val port = viewport?.bounds?.let { b -> if (i.raised && i.bounds.y < b.y) b.copy(y = i.bounds.y, height = b.bottom - i.bounds.y) else b }
-            val regions = listOfNotNull((if (i.inTransit) {
+            // CMB-001: a combat copy leaving a closing band fades out where it was, clipped to the table, not the band
+            val regions = listOfNotNull((if (i.inTransit || i.leaving) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else port)?.let(i.bounds::intersection)?.intersection(screen))
             val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
@@ -840,7 +844,8 @@ object TablePresentation {
             var portions = i.visible
             if (portions.isNotEmpty() && i.kind != TableItemKind.HAND) for (next in occlusion.candidates(n)) {
                 val cover = clipped[next]
-                if (cover.kind == TableItemKind.HAND ||
+                // A leaving combat copy (CMB-001) fades out: what lies beneath it shows through
+                if (cover.kind == TableItemKind.HAND || cover.leaving ||
                     i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
                     i.bounds.intersection(cover.bounds) == null) continue
                 for (part in cover.visible) if (portions.any { it.intersection(part) != null })

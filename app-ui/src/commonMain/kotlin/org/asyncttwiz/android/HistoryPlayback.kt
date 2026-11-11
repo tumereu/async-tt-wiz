@@ -62,6 +62,10 @@ class HistorySceneAnimation(initial: TableScene) {
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
+    /** CMB-001 (owner playtest 2026-11-11): the battlefields where they were when the scene was retargeted and where they go,
+     * by owner: they move with their cards, so the combat band between them opens and closes with the cards' motion. */
+    private var startFields = initial.fields.associate { it.owner to it.gridBounds }
+    private var endFields = startFields
     var durationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS; private set
     fun remainingDurationMillis(progress: Float) =
         (durationMillis * (1f - progress.coerceIn(0f, 1f))).toInt().coerceAtLeast(1)
@@ -98,6 +102,26 @@ class HistorySceneAnimation(initial: TableScene) {
     }
     fun updateMetadata(target: TableScene) {
         if (target.animationTargets == destination.animationTargets) destination = target
+    }
+    /**
+     * CMB-001, CMB-007 (owner playtest 2026-11-11): [presentation]'s battlefields at [progress]: each slides from where it was
+     * to its place as its cards do (the same move curve over the same distance), so the combat band between them opens and
+     * closes with them instead of jumping.
+     */
+    fun fields(progress: Float, presentation: TableScene = destination): List<TableField> {
+        if (progress >= 1f) return presentation.fields
+        val elapsed = progress.coerceIn(0f, 1f) * durationMillis
+        val sceneProgress = (elapsed / MAX_CARD_MOVE_DURATION_MILLIS).coerceIn(0f, 1f)
+        val viewport = presentation.world?.viewport
+        return presentation.fields.map { field ->
+            val to = field.gridBounds
+            // Only its vertical place moves (its x and width follow the camera and the cards, which jump)
+            val from = startFields[field.owner]?.let { to.copy(y = it.y) } ?: return@map field
+            if (from.y == to.y) return@map field
+            val t = cardMoveProgress(from, to, sceneProgress, MAX_CARD_MOVE_DURATION_MILLIS, sceneMoveSpeed)
+            val grid = to.copy(y = from.y + (to.y - from.y) * t)
+            field.copy(gridBounds = grid, bounds = viewport?.let { grid.intersection(it) ?: grid.copy(width = 0f, height = 0f) } ?: grid)
+        }
     }
     fun frame(progress: Float, presentation: TableScene = destination): List<HistoryAnimatedItem> {
         val sceneProgress = progress.coerceIn(0f, 1f)
@@ -163,7 +187,11 @@ class HistorySceneAnimation(initial: TableScene) {
             val shuffle = channel(LIBRARY_SHUFFLE_DURATION_MILLIS)
             val shuffledBounds = if (id in shufflingPileIds) bounds.copy(x = bounds.x +
                 (kotlin.math.sin(shuffle * 6f * kotlin.math.PI) * 6f * (1f - shuffle)).toFloat()) else bounds
-            HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * flipProgress).coerceAtLeast(.02f) else 1f,
+            // CMB-001 (owner playtest 2026-11-11): a combat copy gone from the band fades out where it was, over whatever
+            // moves beneath it as the band closes
+            val leaving = end[id] == null && item.viewport == "combat"
+            HistoryAnimatedItem(item.copy(cardTransform = face, leaving = leaving,
+                flipScale = if (flipping) kotlin.math.abs(1f - 2f * flipProgress).coerceAtLeast(.02f) else 1f,
                 inTransit = item.kind == TableItemKind.CARD && (t < 1f && a.bounds != b.bounds && !reflow ||
                     rotationProgress < 1f && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation)), shuffledBounds,
                 a.alpha + (b.alpha - a.alpha) * alphaProgress)
@@ -178,6 +206,8 @@ class HistorySceneAnimation(initial: TableScene) {
             destination = target
             return false
         }
+        startFields = fields(currentProgress).associate { it.owner to it.gridBounds }
+        endFields = target.fields.associate { it.owner to it.gridBounds }
         start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.animationId }
         // A preference update applies to the next scene, not to an already-sized running clock.
         sceneMoveSpeed = cardMoveSpeedDpPerMs
@@ -306,6 +336,11 @@ class HistorySceneAnimation(initial: TableScene) {
                 if (flipping(a, b)) CARD_FLIP_DURATION_MILLIS else 0,
                 if (a.alpha != b.alpha) CARD_FADE_DURATION_MILLIS else 0)
         }?.coerceAtLeast(if (shufflingPileIds.isEmpty()) 1 else LIBRARY_SHUFFLE_DURATION_MILLIS) ?: 1
+        // CMB-001: a battlefield moving (the band opening or closing) takes as long as a card moving as far
+        val fieldMoves = endFields.mapNotNull { (owner, to) -> startFields[owner]?.takeIf { it.y != to.y }?.let { from ->
+            cardMoveDurationMillis(kotlin.math.abs(to.y - from.y), sceneMoveSpeed)
+        } }
+        durationMillis = maxOf(durationMillis, fieldMoves.maxOrNull() ?: 0)
         destination = target
         return true
     }

@@ -112,7 +112,39 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             else -> Unit
         }
     }
+    /**
+     * TBL-135 (owner, 2026-11-11): the card's counters, but the one its corner shows, as small bubbles with their number on its
+     * art ([CounterBubbles] says how each looks): left to right along the art's bottom, a further row above when they don't fit.
+     */
+    fun DrawScope.counterBubbles(i: TableItem, x: Float, y: Float, z: Float) {
+        if (i.counterBubbles.isEmpty()) return
+        val height = maxOf(7f, 5.5f * valueScale + 1.5f)
+        paint.textSize = height * .7f * z * density
+        paint.isFakeBoldText = true
+        var left = 1.5f
+        var bottom = artBottom - 1f
+        for (counter in i.counterBubbles) {
+            val look = CounterBubbles.look(counter)
+            val width = maxOf(height, cache.measure(look.text) / (z * density) + 3f).coerceAtMost(24f)
+            if (left > 1.5f && left + width > 26.5f) { left = 1.5f; bottom -= height + .75f }
+            val top = bottom - height
+            val corner = CornerRadius(height / 2 * z * density)
+            drawRoundRect(look.fill, xy(x + left * z, y + top * z), size(width * z, height * z), corner)
+            drawRoundRect(look.edge, xy(x + left * z, y + top * z), size(width * z, height * z), corner, style = Stroke(.6f * z * density))
+            val previous = paint.color
+            paint.color = look.ink.toArgb()
+            val textWidth = minOf(cache.measure(look.text) / density, (width - 2f) * z)
+            clipRect((x + left * z) * density, (y + top * z) * density, (x + (left + width) * z) * density, (y + bottom * z) * density) {
+                text(look.text, x + (left + width / 2) * z - textWidth / 2, y + (top + height / 2) * z - cache.centerOffset() / density, look.text.length)
+            }
+            paint.color = previous
+            left += width + .75f
+        }
+        paint.isFakeBoldText = false
+        paint.textSize = 11 * density
+    }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
+        counterBubbles(i, x, y, z)
         // TBL-113: what Automatum changed on the card besides P/T, one violet-text chip under the title
         if (i.automatumMarks.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.

@@ -251,8 +251,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val rendered = remember(animation, targetScene, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
             animationRevision
             val frame = animation.frame(progress.value, targetScene)
+            // CMB-001: the battlefields slide with their cards, so the combat band between them opens and closes with them
             val base = TablePresentation.clip(targetScene.copy(items = frame.filter { it.alpha > 0f }
-                .map { it.item.copy(bounds = it.bounds) }), maxWidth.value, maxHeight.value)
+                .map { it.item.copy(bounds = it.bounds) }, fields = animation.fields(progress.value, targetScene)), maxWidth.value, maxHeight.value)
             TableRenderFrame(base, frame.associate { it.item.id to it.alpha })
         } }
         val scene = targetScene
@@ -379,9 +380,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 { preview }, layoutState, groupTaps)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
+            // CMB-001 (owner playtest 2026-11-11): the chips on the band's upper edge move with the battlefield above it as
+            // the band opens or closes
+            val bandShift = { rendered.value.scene.fields.firstOrNull()?.gridBounds?.bottom
+                ?.minus(scene.fields.firstOrNull()?.gridBounds?.bottom ?: 0f) ?: 0f }
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
-                    pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }) { item ->
+                    pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }, bandShift = bandShift) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
+            // CMB-001 (owner playtest 2026-11-11): when the band closes, what sat on it or by it fades out where it was
+            ClosingCombatBand(play, scene, accountId) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players; not while the viewer
             // picks targets themselves (their violet glow, STK-047)
             val stackNames = remember(game) { gameNames(game) }

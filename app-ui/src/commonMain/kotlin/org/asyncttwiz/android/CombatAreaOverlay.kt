@@ -75,7 +75,13 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     /** TBL-117, CMB-034 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1). */
     pressed: () -> Pair<String, Float>? = { null },
     /** CMB-028, CMB-034: the card (or combat copy) a finger is dragging now. */
-    dragged: () -> String? = { null }, bounds: (TableItem) -> TableBounds) {
+    dragged: () -> String? = { null },
+    /** CMB-001 (owner playtest 2026-11-11): what sat on a band that just closed ([scene] and [play] from before it closed),
+     * drawn where it was while it fades out: nothing on it takes a touch. */
+    leaving: Boolean = false,
+    /** CMB-001 (owner playtest 2026-11-11): how far the battlefield above the band is drawn from its place now (dp, while the
+     * band opens or closes): the chips on the band's upper edge go with it. */
+    bandShift: () -> Float = { 0f }, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
@@ -243,7 +249,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
                     if (below) for (chip in actions) StagingChipView(chip, b.width)
                     // TBL-132 (owner gallery review 2026-11-06): holding a keyword badge explains the keyword
                     for ((text, color, description) in (if (below) chips else chips.asReversed()))
-                        RuleTip(if (color == AutomatumViolet) text else "") { CombatChip(text, color, b.width, description) }
+                        RuleTip(if (color == AutomatumViolet && !leaving) text else "") { CombatChip(text, color, b.width, description) }
                     if (!below) for (chip in actions.asReversed()) StagingChipView(chip, b.width)
                 }
             }
@@ -262,20 +268,15 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
                 Modifier.align(Alignment.BottomEnd).offset(x = 10.dp, y = 6.dp), "Life would change by $change")
         }
     }
-    // CMB-050 (owner playtest 2026-11-10): what the combat's damage did stays on the band until the combat ends: a red
-    // splash on each target's chip with its net total, a small one behind each pair's blockers (drawn with the band,
-    // TableDrawing; said here), and the attacking player's life gained with it as a green +N on their life square
+    // CMB-050 (owner playtest 2026-11-10, 2026-11-11): what the combat's damage did stays on the band until the combat ends:
+    // each target's net total on its chip (a red splash, or the life-gain heart for a gain), the attacking player's life
+    // gained with it as the heart on the band's edge facing their battlefield and as a green +N on their life square
     val dealt = scene.combatDealt?.takeIf { area != null }
-    if (dealt != null) LaunchedEffect(dealt) {
-        AppLog.info("combat", "Combat damage shown: targets ${dealt.targets.entries.joinToString { (lane, n) -> "${lane ?: "player"} $n" }}; " +
-            "lanes ${scene.combatLaneDamage.joinToString { "${it.pairId.take(8)} ${it.amount}" }}; gained ${dealt.gained}")
-    }
-    for (splash in scene.combatLaneDamage) {
-        val b = splash.bounds
-        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
-            .semantics { contentDescription = "${splash.amount} combat damage to ${splash.target} in this lane" })
-    }
     val attacking = CombatStackRules.attackingPlayer(play.board)
+    if (dealt != null && !leaving) LaunchedEffect(dealt) {
+        AppLog.info("combat", "Combat damage shown: targets ${dealt.targets.entries.joinToString { (lane, n) -> "${lane ?: "player"} $n" }}; " +
+            "gained ${dealt.gained}; attacking ${attacking?.take(8)}, gain on the band's edge at ${scene.combatGainEdge}")
+    }
     dealt?.gained?.get(attacking)?.takeIf { it > 0 }?.let { gain ->
         scene.items.firstOrNull { it.id == "life/$attacking" }?.let { item ->
             val b = bounds(item)
@@ -295,7 +296,8 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             CombatStackRules.defendingPlayer(play.board)?.let { preview.life[it] } ?: 0 else -(damage[lane.cardId] ?: 0)
     }
     TargetChips(scene, play, viewer, active, chooser = if (staging && writable && combat != null && viewer == choices.declaring)
-        ({ target -> combat.chooseTarget(play, target) }) else null, bounds, changes, dealt?.targets.orEmpty())
+        ({ target -> combat.chooseTarget(play, target) }) else null, bounds, changes, dealt?.targets.orEmpty(),
+        gain = dealt?.gained?.get(attacking)?.takeIf { it > 0 }, leaving = leaving, shift = bandShift)
     if (area == null || port == null || scene.combatLabels.isEmpty()) return
     // Just right of the lanes' top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
     val panel = scene.combatPanel ?: return
@@ -395,7 +397,15 @@ private fun signedValue(n: Int) = if (n < 0) "−${-n}" else "$n"
 private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, active: String?, chooser: ((String?) -> Unit)?,
     bounds: (TableItem) -> TableBounds, changes: Map<String?, Int>,
     /** CMB-050: the net combat damage each target took in this combat so far, by lane (null: the defending player). */
-    dealt: Map<String?, Int> = emptyMap()) {
+    dealt: Map<String?, Int> = emptyMap(),
+    /** CMB-050 (owner playtest 2026-11-11): the life the attacking player gained with the combat damage, shown on the band's
+     * edge facing their battlefield ([TableScene.combatGainEdge]) under the defending player's chip's total. */
+    gain: Int? = null,
+    /** CMB-001 (owner playtest 2026-11-11): the chips of a band that just closed, fading out where they were: shown at once,
+     * nothing to tap or hold. */
+    leaving: Boolean = false,
+    /** CMB-001: how far the battlefield above the band is drawn from its place now; chips on the band's upper edge go with it. */
+    shift: () -> Float = { 0f }) {
     val lanes = scene.combatLabels
     // The table, short of the Stack where it lies over the chips (portrait: at the table's right edge), which keeps its taps
     val table = scene.world?.visibleViewport?.let { t ->
@@ -406,7 +416,7 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
     } ?: return
     // CMB-001: the chips fade in when they first show in a step (staging's opening keeps them)
     val key = if (lanes.isEmpty()) null else combatBandKey(play.board)
-    val appear = remember(key) { androidx.compose.animation.core.Animatable(0f) }
+    val appear = remember(key) { androidx.compose.animation.core.Animatable(if (leaving) 1f else 0f) }
     LaunchedEffect(key) { if (key != null) appear.animateTo(1f, androidx.compose.animation.core.tween(CHIP_FADE_MILLIS)) }
     if (lanes.isEmpty()) return
     var held by remember(key) { mutableStateOf<CombatLaneLabel?>(null) }
@@ -426,6 +436,10 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             }
         }
     }
+    // CMB-001 (owner playtest 2026-11-11): chips on the band's upper edge (the attacker's view, and the collapsed band) go
+    // with the battlefield above it while the band opens or closes; mirrored, they lie by the viewer's own, which stays
+    val upper = scene.combatPanel?.let { lanes.first().chip.center.y < it.center.y } ?: true
+    val chipShift = { if (upper) shift() else 0f }
     Box(Modifier.offset { IntOffset(table.x.dp.roundToPx(), table.y.dp.roundToPx()) }.size(table.width.dp, table.height.dp)
         .clipToBounds().graphicsLayer { alpha = appear.value }) {
         for (lane in lanes) key(lane.cardId) {
@@ -437,15 +451,23 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             val x = lane.chip.center.x - width / 2
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
-                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
-            // CMB-050 (owner playtest 2026-11-10): the net combat damage it took, a red splash at the chip's right end
+                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y + chipShift()).dp.roundToPx()) }, interactive = !leaving)
+            // CMB-050 (owner playtest 2026-11-10, 2026-11-11): the net combat damage it took, a red splash at the chip's right
+            // end; a net gain (a defender's lifelink blocker) the life-gain heart with "+N"
             val net = dealt[lane.cardId]
+            val size = lane.chip.height * TARGET_SPLASH
+            val badgeX = x + width - size * .3f
             if (net != null) {
-                val size = lane.chip.height * TARGET_SPLASH
-                DamageBadge(net, false, size, Modifier.offset { IntOffset((x + width - size * .3f - table.x).dp.roundToPx(),
-                    (lane.chip.center.y - size / 2 - table.y).dp.roundToPx()) },
-                    description = "${lane.label} took $net combat damage", text = if (net < 0) "+${-net}" else "$net")
+                val at = Modifier.offset { IntOffset((badgeX - table.x).dp.roundToPx(), (lane.chip.center.y - size / 2 - table.y + chipShift()).dp.roundToPx()) }
+                if (net < 0) LifeGainBadge(-net, size, at, "${lane.label} gained ${-net} life with the combat damage")
+                else DamageBadge(net, false, size, at, description = "${lane.label} took $net combat damage")
             }
+            // CMB-050 (owner playtest 2026-11-11): the attacking player's gain, mirroring the defending player's total on the
+            // band's other edge (they are never dealt combat damage, CR 510.1)
+            val edge = scene.combatGainEdge
+            if (gain != null && edge != null && lane.cardId == null && lane === lanes.first { it.cardId == null }) LifeGainBadge(gain, size,
+                Modifier.offset { IntOffset((badgeX - table.x).dp.roundToPx(), (edge - size / 2 - table.y).dp.roundToPx()) },
+                "Gained $gain life with the combat damage, on the band")
         }
     }
     held?.let { lane ->
@@ -472,7 +494,7 @@ const val CHIP_FADE_MILLIS = 300
  * letters, then the target's value, or what the damage preview would make of it ([change], CMB-029). */
 @Composable
 private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer: String, active: Boolean, onTap: (() -> Unit)?,
-    held: (Boolean) -> Unit, modifier: Modifier) {
+    held: (Boolean) -> Unit, modifier: Modifier, interactive: Boolean = true) {
     val c = lane.chip
     val zoom = c.height / CombatStackPresentation.CHIP_HEIGHT
     var down by remember { mutableStateOf(false) }
@@ -502,12 +524,13 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
             }
         }
         .background(fill, shape).border((if (active) 1.5f else 1.2f).dp * zoom, if (active) AutomatumViolet else tint.copy(alpha = .75f), shape)
-        .pointerInput(lane.cardId) {
+        // A leaving chip (CMB-001) takes no touches: they reach the table beneath
+        .then(if (!interactive) Modifier else Modifier.pointerInput(lane.cardId) {
             detectTapGestures(
                 onPress = { down = true; tryAwaitRelease(); down = false; currentHeld(false) },
                 onLongPress = { currentHeld(true) },
                 onTap = { currentTap?.invoke() })
-        },
+        }),
         verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.width((CombatStackPresentation.CHIP_SIDE * zoom).dp))
         Icon(AppPlatform.current.swordsOutlined(), null,
@@ -685,6 +708,42 @@ fun DrawScope.damageSplash(topLeft: Offset, size: Size, text: String) {
     if (text.isNotEmpty()) drawCentredText(text, Offset(topLeft.x + size.width * SplashNumberCentre.x, topLeft.y + size.height * SplashNumberCentre.y),
         size.height * .44f, Color.White, 900, maxWidth = size.width * SplashNumberWidth)
 }
+
+/**
+ * CMB-050 (owner playtest 2026-11-11): life gained with combat damage on the combat band, as one badge [size] dp square: its
+ * own icon, a green heart with a thin white edge and "+N" in white, drawn smaller for a longer number to fit (never the
+ * damage splash recoloured).
+ */
+@Composable
+fun LifeGainBadge(gained: Int, size: Float, modifier: Modifier = Modifier, description: String) {
+    Canvas(modifier.size(size.dp).semantics { contentDescription = description }) {
+        val heart = lifeGainHeart(this.size)
+        drawPath(heart, LifeGainGreen)
+        drawPath(heart, Color.White, style = Stroke(this.size.minDimension * .05f))
+        drawCentredText("+$gained", Offset(this.size.width * HeartNumberCentre.x, this.size.height * HeartNumberCentre.y),
+            this.size.height * .36f, Color.White, 900, maxWidth = this.size.width * HeartNumberWidth)
+    }
+}
+
+/** A heart filling [size]: two round lobes over a point, wide enough at the lobes' line for "+N". */
+private fun lifeGainHeart(size: Size): Path {
+    val w = size.width
+    val h = size.height
+    return Path().apply {
+        moveTo(w * .5f, h * .96f)
+        cubicTo(w * .18f, h * .74f, w * .02f, h * .56f, w * .03f, h * .36f)
+        cubicTo(w * .04f, h * .16f, w * .2f, h * .05f, w * .32f, h * .06f)
+        cubicTo(w * .42f, h * .07f, w * .48f, h * .14f, w * .5f, h * .22f)
+        cubicTo(w * .52f, h * .14f, w * .58f, h * .07f, w * .68f, h * .06f)
+        cubicTo(w * .8f, h * .05f, w * .96f, h * .16f, w * .97f, h * .36f)
+        cubicTo(w * .98f, h * .56f, w * .82f, h * .74f, w * .5f, h * .96f)
+        close()
+    }
+}
+
+/** Where a life-gain heart's number is centred and how wide it may be, as shares of the badge: across the lobes, above the point. */
+val HeartNumberCentre = Offset(.5f, .44f)
+const val HeartNumberWidth = .66f
 
 /** The widest a damage badge's number is drawn, as a share of the badge: inside the splash's core and the cranium, so
  * one or two digits keep their full size and three are drawn smaller. */

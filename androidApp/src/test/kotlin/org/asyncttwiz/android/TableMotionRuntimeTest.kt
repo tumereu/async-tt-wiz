@@ -167,8 +167,8 @@ class TableMotionRuntimeTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // CMB-007 (owner, 2026-11-05): the combat band opens between the battlefields, pushing them apart and back when it
-    // closes; nothing fixed-size (hands, the Stack) moves
+    // CMB-007 (owner, 2026-11-05; owner playtest 2026-11-11): the combat band opens between the battlefields, pushing the other
+    // player's away from yours and back when it closes; yours stays, and nothing fixed-size (hands, the Stack) moves
     @Test fun combatOpeningAndClosingPushesTheBattlefieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1, hand = 1).let { play ->
             val hand = CardDefinition("Hand card", listOf(DefinitionFace("face", "Hand face")))
@@ -194,8 +194,9 @@ class TableMotionRuntimeTest {
             assertEquals(stackBefore, bounds("stack"))
         }
         compose.mainClock.advanceTimeBy(5_000); compose.waitForIdle()
-        // The own battlefield, below the band, moved down for it
-        assertTrue(bounds("card/a/BATTLEFIELD/0").top > cardBefore.top)
+        assertEquals(cardBefore, bounds("card/a/BATTLEFIELD/0"), "your battlefield, below the band, stays where it was")
+        assertTrue(TablePresentation.scene(TableFixture.game, tableBoard(opened), "a", 412f, 892f, false).fields.first().gridBounds.y <
+            home.fields.first().gridBounds.y, "the other player's goes up")
         assertEquals(handBefore, bounds("card/a/HAND/0"))
         compose.runOnIdle { state.value = initial }
         compose.mainClock.advanceTimeByFrame(); compose.waitForIdle()

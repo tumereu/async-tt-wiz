@@ -1,0 +1,1 @@
+mod: The combat band now opens by moving the other player's side away, so your own creatures stay where they were, and when it closes, what was on it fades out in place.

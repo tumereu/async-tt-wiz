@@ -288,6 +288,10 @@ object TestCards {
     val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
     /** A free Vehicle with crew 2 (CR 702.122a). */
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
+    /** CMB-050: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
+    val leech = card("Ember Leech", "Creature — Elemental Leech", "{0}", "Lifelink\nHaste", "2", "2")
+    /** TBL-021, TBL-135: a free planeswalker, its loyalty the number in its corner. */
+    val sage = card("Ember Sage", "Legendary Planeswalker — Chandra", "{0}", "[+1]: You gain 1 life.", loyalty = "3")
 
     /** HIS-114: a free permanent that puts itself into its graveyard, and free spells moving a card out of it: to the hand
      * (a hidden zone) and to the battlefield. */

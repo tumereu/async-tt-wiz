@@ -219,3 +219,6 @@ number	item	screenshot	catalog	decisions	sequence
 218	Multiset drafting: back to one set after mixing reads Mixed sets	draft/multiset-back-to-one-set.png	DRF-177		Mix sets toggle
 219	Multiset drafting: a cube greys the Mix sets toggle	draft/multiset-cube-toggle.png	DRF-177 DRF-018		Mix sets toggle
 220	Draft history: scrolled to round 2, the seat ring turns counter-clockwise	pod-draft-history-round-2.png	DRF-165 DRF-043
+221	Combat damage: an attacker's lifelink gain as the green heart on the band	combat-band/lifelink-gain-alice.png	CMB-050
+222	Counters: a planeswalker's loyalty in its corner, other counters as bubbles	states-counters-portrait.png	TBL-021 TBL-135		Counters as visuals
+223	Counters: the bubbles up close (+1/+1, shield, stun, -1/-1, a white one for oil)	states-counters-close-portrait.png	TBL-135		Counters as visuals

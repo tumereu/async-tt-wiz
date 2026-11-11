@@ -41,24 +41,12 @@ data class CombatDropRegion(val label: String, val bounds: TableBounds, val dest
  * player). The table draws the ones the viewer is placing ([CombatAreaOverlay]).
  */
 data class CombatSlot(val role: CombatRole, val bounds: TableBounds, val pairId: String?, val attackTarget: String?)
-/**
- * CMB-050 (owner playtest 2026-11-10): the combat damage the attackers of pair [pairId] dealt to their target ([target]: its
- * chip's name), [amount], as a small red splash at [bounds] (on the screen), drawn behind the pair's blockers.
- */
-data class CombatLaneDamage(val pairId: String, val bounds: TableBounds, val amount: Int, val target: String) {
-    companion object {
-        /** The splash's size as a share of a combat card's width. */
-        const val SIZE = .6f
-    }
-}
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
     val dividers: List<Float>, val destinations: List<CombatDropRegion>,
     val lanes: List<CombatLaneLabel> = emptyList(), val laneDividers: List<Float> = emptyList(), val labelHeight: Float = 0f,
     val mirrored: Boolean = false, val slots: List<CombatSlot> = emptyList(),
     /** CMB-031: the gap between the card rows, where the arrows are drawn. */
-    val arrowGap: TableBounds? = null,
-    /** CMB-050: each pair's part of the blockers' row (its width, the row's height), by pair id. */
-    val blockerRows: Map<String, TableBounds> = emptyMap()) {
+    val arrowGap: TableBounds? = null) {
     /** The defending viewer sees the area mirrored: attackers on top, blockers below, lane labels at the bottom. */
     val labelY get() = if (mirrored) height - labelHeight else 0f
     /** Vertical span of the two card rows (everything but the lane label row). */
@@ -301,7 +289,6 @@ object CombatStackPresentation {
             }
         }
         val edges = mutableListOf<Pair<Float, Float>>() // each laid-out pair's left and right x, in display order
-        val blockerRows = LinkedHashMap<String, TableBounds>()
         for ((target, members) in groups) {
             if (members.isEmpty()) {
                 // A whole empty lane is one drop: a new pair attacking that target, after every recorded pair.
@@ -329,7 +316,6 @@ object CombatStackPresentation {
                 // Between pairs; a lane's first pair, after its free space, has the lane separator before it instead
                 if (index > 0) dividers += if (n == 0) x - pad - room else x
                 val pairWidth = pairWidths.getValue(pair.id)
-                blockerRows[pair.id] = TableBounds(x, rowY(CombatRole.BLOCKER), pairWidth, rowHeight)
                 // The lane's first and last pairs also take drops in the free space at its ends
                 val before = if (n == 0) pad + room else 0f
                 val after = if (n == members.lastIndex && !attackerSlots) pad else 0f
@@ -378,8 +364,7 @@ object CombatStackPresentation {
                 // Mirrored, the chips sit at the very bottom (by the defender's battlefield)
                 headed(lane.copy(bounds = lane.bounds.copy(y = top, height = labelHeight)), top + CHIP_PAD)
             },
-            laneDividers, labelHeight, mirrored, slots, TableBounds(0f, if (mirrored) rowHeight else labelHeight + rowHeight, x, gap),
-            blockerRows)
+            laneDividers, labelHeight, mirrored, slots, TableBounds(0f, if (mirrored) rowHeight else labelHeight + rowHeight, x, gap))
     }
 
     /**

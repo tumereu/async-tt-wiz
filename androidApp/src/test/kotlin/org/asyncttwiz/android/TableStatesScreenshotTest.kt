@@ -67,6 +67,25 @@ class TableStatesScreenshotTest {
             } }))
     }
 
+    /** TBL-021, TBL-135 (owner, 2026-11-11: counters as visuals): Bob's Ash Oracle planeswalker with 4 loyalty counters, his
+     * creature with a -1/-1 counter and 3 oil counters, Alice's with two +1/+1 counters, a shield and a stun counter. */
+    private val countersState = f.initial.let { play ->
+        val sentinel = f.source(f.a, "1/3")
+        val blocker = f.source(f.b, "2/3")
+        val walker = play.board.cards.first { it.containerId == f.id("b/BATTLEFIELD") && it.id != blocker.id }
+        val original = play.definitions.single { it.digest == walker.definition }
+        val definition = original.definition.copy(faces = original.definition.faces.map {
+            it.copy(name = "Ash Oracle", typeLine = "Legendary Planeswalker — Chandra", rulesText = "[+1]: You gain 1 life.",
+                power = "", toughness = "", loyalty = "3", corner = "3") })
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        play.copy(definitions = play.definitions + submitted, board = play.board.copy(cards = play.board.cards.map { when (it.id) {
+            sentinel.id -> it.copy(typedCounters = listOf(TypedCounter("+1/+1", 2, 1), TypedCounter("shield", 1, 2), TypedCounter("stun", 1, 3)))
+            blocker.id -> it.copy(typedCounters = listOf(TypedCounter("-1/-1", 1, 4), TypedCounter("oil", 3, 5)))
+            walker.id -> it.copy(definition = submitted.digest, corner = "3", typedCounters = listOf(TypedCounter("loyalty", 4, 6)))
+            else -> it
+        } }))
+    }
+
     @OptIn(ExperimentalRoborazziApi::class)
     private fun render(kind: String, landscape: Boolean): List<PlayAction> {
         val sent = mutableListOf<PlayAction>()
@@ -83,11 +102,18 @@ class TableStatesScreenshotTest {
         val drawn = if (kind == "combat-targets") combatTargetsState
             else if (kind.startsWith("tokens")) tokenState
             else if (kind == "graveyard-contents") graveyardState
-            else if (kind.startsWith("exile-counters")) exileState else f.combat()
+            else if (kind.startsWith("exile-counters")) exileState
+            else if (kind.startsWith("counters")) countersState else f.combat()
         val current = { drawn }
         // The engine table's board and routes (R4b follow-up): what the app draws of this board
         val toolkit = TableToolkitController(f.a, { engineTableBoard(current(), f.a) }, { true }, { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
+        // Zoomed in on Alice's creature with counters, centred on it
+        if (kind == "counters-close") TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, 412f, 892f, landscape).let { scene ->
+            val card = scene.items.single { it.sourceId == f.source(f.a, "1/3").id && it.zone == PlayZone.BATTLEFIELD }.bounds.center
+            val port = assertNotNull(scene.world).viewport.center
+            toolkit.layoutState.value = TableLayoutState(TableCamera(card.x - port.x, card.y - port.y, zoom = 3f))
+        }
         compose.setContent {
             MaterialTheme {
                 if (kind in listOf("placeholder", "unavailable")) TableUnavailable(f.game.gameName, landscape,
@@ -133,9 +159,23 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithContentDescription("Alice exile, 2 cards, cards with counters").performTouchInput { doubleClick() }
                 compose.mainClock.advanceTimeBy(500)
                 compose.onNodeWithContentDescription("Your Exile panel, 2 cards").assertIsDisplayed()
-                compose.onNodeWithContentDescription("Exile panel: River Adept, time ×3").assertIsDisplayed()
+                compose.onNodeWithContentDescription("Exile panel: River Adept, time counter ×3").assertIsDisplayed()
                 val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
-                assertEquals(listOf("time ×3"), scene.items.single { it.label == "Exile panel: River Adept, time ×3" }.automatumMarks)
+                // TBL-135 (owner, 2026-11-11): a bubble on its art, not words on a chip
+                assertEquals(listOf(3), scene.items.single { it.label == "Exile panel: River Adept, time counter ×3" }.counterBubbles.map { it.count })
+            }
+            "counters" -> {
+                val board = engineTableBoard(current(), f.a)
+                val scene = TablePresentation.scene(f.game, board, f.a, 412f, 892f, landscape, toolkit.layoutState.value,
+                    computed = assertNotNull(board.values).computed)
+                val oracle = scene.items.single { it.zone == PlayZone.BATTLEFIELD && it.label.startsWith("Ash Oracle,") }
+                assertEquals("4", oracle.corner, "its loyalty in the corner")
+                assertEquals(emptyList(), oracle.counterBubbles, "no loyalty bubble beside its corner")
+                assertTrue(oracle.label.endsWith(", loyalty counter ×4"), oracle.label)
+                assertEquals(listOf("2", "1", "1"), scene.items.single { it.sourceId == f.source(f.a, "1/3").id && it.zone == PlayZone.BATTLEFIELD }
+                    .counterBubbles.map { CounterBubbles.look(it).text })
+                assertEquals(listOf("1", "3O"), scene.items.single { it.sourceId == f.source(f.b, "2/3").id && it.zone == PlayZone.BATTLEFIELD }
+                    .counterBubbles.map { CounterBubbles.look(it).text })
             }
             "exile-counters-pile" -> {
                 compose.onNodeWithContentDescription("Alice exile, 2 cards, cards with counters").assertIsDisplayed()
@@ -159,7 +199,9 @@ class TableStatesScreenshotTest {
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
-            "exile-counters" -> "after double-tapping your exile: its panel shows the suspended River Adept's chip \"time ×3\" under its title"
+            "exile-counters" -> "after double-tapping your exile: its panel shows the suspended River Adept with a white bubble \"3T\" (three time counters) on its art"
+            "counters" -> "with counters on the battlefield: Bob's Ash Oracle planeswalker shows its 4 loyalty in its corner, his creature a near-black -1/-1 bubble and a white \"3O\" bubble for 3 oil counters, Alice's creature a green 2 (+1/+1), a sky-blue 1 (shield) and a yellow 1 (stun) on its art"
+            "counters-close" -> "with counters on the battlefield, zoomed in on Alice's creature: a green 2 for its +1/+1 counters, a sky-blue 1 (shield) and a yellow 1 (stun) on its art, its corner 3/5; beside it Bob's creature's near-black -1/-1 bubble and white \"3O\" for 3 oil counters"
             "exile-counters-pile" -> "with a suspended card (3 time counters) in your exile: the exile pile carries a small violet counter marker at its top-right corner"
             "placeholder" -> "placeholder showing Loading table… with a spinner"
             "unavailable" -> "placeholder showing Table unavailable with a Reconnect button"
@@ -248,6 +290,9 @@ class TableStatesScreenshotTest {
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
     // ZON-091: counters on a card in exile show on it in the exile view
     @Test fun exileCountersPortrait() { render("exile-counters", false) }
+    // TBL-021, TBL-135 (owner, 2026-11-11): a planeswalker's loyalty in its corner, other counters as bubbles on the art
+    @Test fun countersPortrait() { render("counters", false) }
+    @Test fun countersCloseUpPortrait() { render("counters-close", false) }
     // ZON-092: an exile pile holding a card with counters is marked
     @Test fun exileCountersPilePortrait() { render("exile-counters-pile", false) }
     // TBL-104

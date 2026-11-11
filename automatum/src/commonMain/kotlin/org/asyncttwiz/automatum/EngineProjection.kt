@@ -269,7 +269,7 @@ object EngineProjection {
             if (staged != null) addAll(staged.records) else addAll(EngineDrafts.records(state, table))
         }.distinctBy { it.id }.sortedBy { it.id }
         val board = BoardState(players = players, cards = withPlaces + shownAbilities, containers = containers, turn = turn,
-            schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table),
+            schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table, base.gameId),
             stackEffects = effects, resultSuggestion = suggestion(table, nodeId),
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
             engineRecords = records, move = move)
@@ -310,13 +310,19 @@ object EngineProjection {
 
     /** The combat lanes: the engine's combat (a pair per attacker, blockers in the pair of the first attacker they block,
      * also blocking the others' pairs, CMB-031), else the attack staged before it is declared. */
-    private fun combat(state: GameState, table: TableState): CombatArea? {
+    private fun combat(state: GameState, table: TableState, game: String): CombatArea? {
         val combat = state.combat
         fun card(id: ObjectId) = (id as? ObjectId.Card)?.card?.value
         fun target(t: TargetRef) = ((t as? TargetRef.Object)?.id as? ObjectId.Card)?.card?.value
         if (combat != null) {
             // CMB-034 (I-D54 §8): before blockers are declared, the defender's shared block staging
+            // Problem reports WCRF3Q, R8XVPA: only blocks of creatures on the battlefield and of this combat's attackers: a
+            // staging left on the table from an earlier combat (a declaration made at an assumption can't end it) may name a
+            // creature that is gone, which the board can't show
+            val attacking = combat.attackers.map { it.id }.toSet()
             val drafted = table.blockDraft?.takeIf { combat.blockersDeclaredBy.isEmpty() && state.turn.step == arcanum.api.TurnStep.DeclareBlockers }
+                ?.also { all -> leftOut(game, state, "block", all.filterNot { it.blocker in state.battlefield && it.attacker in attacking }) }
+                ?.filter { it.blocker in state.battlefield && it.attacker in attacking }
                 ?.groupBy { it.blocker }?.map { (blocker, blocks) -> blocker to blocks.map { it.attacker } }
             val blocking = drafted ?: combat.blockers.map { it.id to it.attackers }
             val pairs = combat.attackers.mapNotNull { a ->
@@ -330,13 +336,31 @@ object EngineProjection {
             }
             return CombatArea(COMBAT_ID, pairs)
         }
-        val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers } ?: return null
+        // WCRF3Q, R8XVPA: likewise only attackers on the battlefield
+        val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers }
+            ?.also { all -> leftOut(game, state, "attack", all.filterNot { it.attacker in state.battlefield }) }
+            ?.filter { it.attacker in state.battlefield }?.ifEmpty { null } ?: return null
         val pairs = staged.mapNotNull { a ->
             val attacker = card(a.attacker) ?: return@mapNotNull null
             CombatPair(pairId(attacker), listOf(CombatOccurrence(attackId(attacker), attacker)), attackTarget = target(a.target))
         }
         return CombatArea(COMBAT_ID, pairs).takeIf { pairs.isNotEmpty() || staged.isEmpty() }
     }
+
+    /** WCRF3Q, R8XVPA: the Automatum log's note (once per game, turn, step and entries) of the entries of the table's [kind]
+     * staging the board leaves out, as they name creatures not on the battlefield or not in this combat. */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private fun leftOut(game: String, state: GameState, kind: String, entries: List<Any>) {
+        if (entries.isEmpty()) return
+        val key = "$game/${state.turn.number}/${state.turn.step}/$entries"
+        val seen = loggedStaging.load()
+        if (key in seen) return
+        loggedStaging.store((seen + key).toList().takeLast(50).toSet())
+        AutomatumLog.mismatch(game, "combat staging", "The table's $kind staging names creatures not in this combat, left out: " +
+            "$entries (turn ${state.turn.number} ${state.turn.step}, attackers ${state.combat?.attackers?.map { it.id }})")
+    }
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private val loggedStaging = kotlin.concurrent.atomics.AtomicReference<Set<String>>(emptySet())
 
     private fun suggestion(table: TableState, nodeId: String): AtwSuggestion? {
         val s = table.suggestion ?: return null

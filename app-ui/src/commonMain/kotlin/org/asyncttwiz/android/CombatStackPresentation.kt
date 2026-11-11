@@ -190,9 +190,11 @@ object CombatStackPresentation {
         open: Boolean = true,
         /** CMB-028 (owner, 2026-11-08): the viewer declares attackers: each lane with attackers keeps room for one more at
          * its end, so choosing another target moves nothing. */
-        attackerSlots: Boolean = false): CombatGeometry {
+        attackerSlots: Boolean = false,
+        /** The board's point (its event), for the log of a combat copy left out ([drawable]). */
+        head: String = ""): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
-        val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
+        val area = board.combat?.let { drawable(board, it, head) } ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
         val margin = cardGap(cardWidth)
         val padding = slotMargin(cardWidth)
         val rowHeight = cardHeight + margin * 2
@@ -341,7 +343,8 @@ object CombatStackPresentation {
                         CombatDestination(area.id, role, pair.id, attackTarget = pair.attackTarget),
                         landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
                     for (occurrence in side) {
-                        val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
+                        // [drawable] left out every copy the board can't show
+                        val card = CombatStackRules.inspection(board, occurrence.id)?.copy(tapped = false) ?: continue
                         cards += OccurrenceDrawing(occurrence.id, card,
                             TableBounds(left, y + margin, cardWidth, cardHeight), true)
                         left += cardWidth + margin
@@ -376,6 +379,33 @@ object CombatStackPresentation {
             laneDividers, labelHeight, mirrored, slots, TableBounds(0f, if (mirrored) rowHeight else labelHeight + rowHeight, x, gap),
             blockerRows)
     }
+
+    /**
+     * Problem reports WCRF3Q, R8XVPA: [area] without its combat copies whose card [board] doesn't have (a stale pair: a
+     * blocker or attacker that is gone), and without the pairs that leaves empty, so the table still draws; each copy left
+     * out is logged once as an error with its pair, the step and the board's point [head].
+     */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    internal fun drawable(board: BoardState, area: CombatArea, head: String): CombatArea {
+        val missing = CombatStackRules.occurrences(area).filter { CombatStackRules.inspection(board, it.id) == null }
+        if (missing.isEmpty()) return area
+        for (occurrence in missing) {
+            val key = "$head/${occurrence.id}"
+            val seen = leftOut.load()
+            if (key in seen) continue
+            leftOut.store((seen + key).toList().takeLast(50).toSet())
+            val pair = area.pairs.firstOrNull { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
+            AppLog.error("combat", "Combat copy left out, its card isn't on the board: occurrence ${occurrence.id} of " +
+                "${occurrence.sourceId} in pair $pair; turn ${board.turn.number} ${board.turn.phase} ${board.turn.step}, " +
+                "active ${board.turn.accountId}, head $head; pairs ${area.pairs}")
+        }
+        val gone = missing.map { it.id }.toSet()
+        return area.copy(pairs = area.pairs.map { p ->
+            p.copy(attackers = p.attackers.filterNot { it.id in gone }, blockers = p.blockers.filterNot { it.id in gone })
+        }.filter { it.attackers.isNotEmpty() || it.blockers.isNotEmpty() })
+    }
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private val leftOut = kotlin.concurrent.atomics.AtomicReference<Set<String>>(emptySet())
 
     /** [lane] with its chip (its name and value, CMB-013) centred in the lane at [chipY]. */
     private fun headed(lane: CombatLaneLabel, chipY: Float): CombatLaneLabel {

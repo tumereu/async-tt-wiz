@@ -116,6 +116,40 @@ class ProblemReportHttpTest {
         }
     }
 
+    // An automatic fault report (Faults) is stored as one, an unknown kind is refused, and each kind keeps its own newest
+    // per account: faults never push out a player's report.
+    @Test fun `fault reports are kept apart from player reports`() {
+        ActivityFixture().use { f ->
+            val adapter = ProblemReportHttp(f.runtime, retained = 20, retainedPerAccount = 2)
+            val server = TomcatServletWebServerFactory(0).apply { setAddress(InetAddress.getByName("127.0.0.1")) }.getWebServer({ context ->
+                context.addServlet("problem-reports", object : HttpServlet() {
+                    override fun service(request: HttpServletRequest, response: HttpServletResponse) {
+                        if (!adapter.handle(request, response)) response.status = 404
+                    }
+                }).addMapping("/")
+            })
+            server.start()
+            try {
+                val client = HttpClient.newHttpClient()
+                fun post(description: String, kind: String): Int {
+                    val body = AccountJson.format.encodeToString(ProblemReport(Instant.now().toString(), "0.1.3", 4, "release",
+                        "d", "a", description, kind = kind))
+                    val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/app/problem-reports"))
+                        .header("Content-Type", "application/json").header("Authorization", "Bearer ${f.tokenA}")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                    return client.send(request.build(), HttpResponse.BodyHandlers.ofString()).statusCode()
+                }
+                assertEquals(201, post("player", ProblemReport.PLAYER))
+                repeat(3) { assertEquals(201, post("fault$it", ProblemReport.FAULT)) }
+                assertEquals(400, post("other", "other"))
+                fun count(where: String) = f.number("SELECT count(*) FROM problem_report WHERE $where")
+                assertEquals(1L, count("kind='player' AND description='player'"))
+                assertEquals(2L, count("kind='fault' AND description IN ('fault1', 'fault2')"))
+                assertEquals(3L, count("true"))
+            } finally { server.stop() }
+        }
+    }
+
     @Test fun `a flood from one address is rate limited`() {
         ActivityFixture().use { f ->
             val adapter = ProblemReportHttp(f.runtime, limits = AccountRateLimits { 0 })

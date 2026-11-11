@@ -54,7 +54,8 @@ class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRu
             val reported = runCatching { Instant.parse(input.reportedAt) }.getOrNull()
             if (reported == null || input.appVersion.length > 100 || input.versionCode < 0 || input.buildType.length > 40 ||
                 input.device.length > 200 || input.android.length > 100 || input.description.length > ProblemReport.MAX_DESCRIPTION ||
-                input.problem.length > ProblemReport.MAX_PROBLEM || input.automatum.length > ProblemReport.MAX_AUTOMATUM) {
+                input.problem.length > ProblemReport.MAX_PROBLEM || input.automatum.length > ProblemReport.MAX_AUTOMATUM ||
+                input.kind !in setOf(ProblemReport.PLAYER, ProblemReport.FAULT)) {
                 error(response, 400, "invalid_request"); return true }
             val account = request.getHeaders("Authorization").toList().singleOrNull()
                 ?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)?.let(accounts::authenticate)
@@ -89,8 +90,8 @@ class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRu
             code = code()
             val inserted = connection.prepareStatement("""
                 INSERT INTO problem_report(code, account_id, received_at, reported_at, app_version, version_code,
-                    build_type, device, android, description, problem, log, logcat, automatum)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (code) DO NOTHING
+                    build_type, device, android, description, problem, log, logcat, automatum, kind)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (code) DO NOTHING
             """.trimIndent()).use {
                 it.setString(1, code); it.setObject(2, account)
                 it.setObject(3, OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
@@ -99,14 +100,16 @@ class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRu
                 it.setString(8, clean(input.device)); it.setString(9, clean(input.android))
                 it.setString(10, clean(input.description)); it.setString(11, clean(input.problem))
                 it.setString(12, clean(input.log)); it.setString(13, clean(input.logcat)); it.setString(14, clean(input.automatum))
+                it.setString(15, input.kind)
                 it.executeUpdate()
             }
         } while (inserted == 0)
+        // Each kind keeps its own newest per account: automatic fault reports never push out a player's.
         if (account != null) connection.prepareStatement("""
             DELETE FROM problem_report WHERE id IN (
-                SELECT id FROM problem_report WHERE account_id = ? ORDER BY id DESC OFFSET ?
+                SELECT id FROM problem_report WHERE account_id = ? AND kind = ? ORDER BY id DESC OFFSET ?
             )
-        """.trimIndent()).use { it.setObject(1, account); it.setInt(2, retainedPerAccount); it.executeUpdate() }
+        """.trimIndent()).use { it.setObject(1, account); it.setString(2, input.kind); it.setInt(3, retainedPerAccount); it.executeUpdate() }
         connection.prepareStatement("""
             DELETE FROM problem_report WHERE id IN (
                 SELECT id FROM problem_report ORDER BY id DESC OFFSET ?

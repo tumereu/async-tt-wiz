@@ -1368,7 +1368,8 @@ class GameDevice(
 
     /** Confirms the assumption at the stop with [input], then makes what [follow] gives next and [table] (I-D56 §8:
      * "a confirmation followed by new input"). [replay]: [follow]'s queue, when it replays a draft's inputs (the confirmed
-     * event's own automatic answers are skipped in it). */
+     * event's own automatic answers are skipped in it). A declaration's end of its staging among [table] is made at the
+     * head after the confirmation ([endStaging]). */
     private fun confirmThen(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?): Acted {
         val event = session.buffered.first()
         confirm(input)
@@ -1377,12 +1378,33 @@ class GameDevice(
         var acted: Acted = Acted.Confirmed
         val next = follow(model)
         if (next != null) acted = goOn(next, follow, replay)
-        if (table.isNotEmpty() && acted !is Acted.Refused) {
+        val (ends, rest) = table.partition(::endsStaging)
+        if (rest.isNotEmpty() && acted !is Acted.Refused) {
             val target = if (session.behind) session.headModel() else model
-            val again = rebase(target, table) ?: return Acted.Refused("inapplicable")
+            val again = rebase(target, rest) ?: return Acted.Refused("inapplicable")
             this.table(again).let { if (acted == Acted.Confirmed) acted = it }
         }
+        if (ends.isNotEmpty() && acted !is Acted.Refused) endStaging(ends)
         return acted
+    }
+
+    /** Whether [change] ends the attack or block staging (a declaration's, I-D54 §8). */
+    private fun endsStaging(change: TableChange): Boolean =
+        change is TableChange.AttackDraft && change.after == null || change is TableChange.BlockDraft && change.after == null
+
+    /**
+     * Follow-up to problem reports WCRF3Q, R8XVPA: a declaration confirmed at a decision stop ends its shared staging in an
+     * event of its own at the head (the confirming answer must be the input alone, §8), so no staging is left on the table
+     * for a later combat: the staging as it stands at the head ([ends] rebased), nothing when none is left there.
+     */
+    private fun endStaging(ends: List<TableChange>) {
+        val at = if (session.behind) session.headModel() else model
+        val again = rebase(at, ends).orEmpty().filterNot { c ->
+            c is TableChange.AttackDraft && c.before == null || c is TableChange.BlockDraft && c.before == null }
+        remember("declaration at a stop ends the staging at the head: ${again.ifEmpty { "none left" }}")
+        if (again.isEmpty()) return
+        if (!session.behind) { table(again); return }
+        atHead(at, again)
     }
 
     /** The player's next [input] after a confirmation: at the head, or at the next assumption about them (whatever
@@ -1681,10 +1703,16 @@ class GameDevice(
         val model = session.headModel()
         val again = rebase(model, changes)
         if (again == null) return Acted.Refused("inapplicable")
+        return atHead(model, again)
+    }
+
+    /** Table-only [changes] made as an event at the head, whose model is [model] (their before-values its own), while the
+     * player is behind it. */
+    private fun atHead(model: GameModel, changes: List<TableChange>): Acted {
         val builder = EventBuilder(model, ids(), session.head, me.value)
         builder.mode = settings.mode
         Rewind.lineDue(model, lines)?.let(builder::startLine)
-        try { again.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
+        try { changes.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)

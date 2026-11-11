@@ -1059,19 +1059,16 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         return early("send", on = GameDevice.madeOn(inputs), inputs = inputs) { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
-            // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
-            // answer must be the input alone to confirm what was assumed)
+            // I-D54 §8: a declaration ends the shared staging of it: in the same event at the head and in a branch made at a
+            // decision stop; one confirming the assumption at a stop (the answer must be the input alone) ends it in an
+            // event of its own at the head (WCRF3Q, R8XVPA: else the staging stayed on the table for a later combat)
             val t = device.model.table
-            val clear = if (device.session.behind) emptyList() else listOfNotNull(
+            val clear = listOfNotNull(
                 t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
                 t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
-            // WCRF3Q, R8XVPA: a staging such a declaration leaves on the table (the board then shows only what of it is there)
-            if (device.session.behind) {
-                if (t.attackDraft != null && inputs.any { it is Input.DeclareAttackers })
-                    AppLog.warn("combat", "Attack declared behind the head: the attack staging stays on the table: ${t.attackDraft}")
-                if (t.blockDraft != null && inputs.any { it is Input.DeclareBlockers })
-                    AppLog.warn("combat", "Blocks declared behind the head: the block staging stays on the table: ${t.blockDraft}")
-            }
+            if (device.session.behind && clear.isNotEmpty())
+                AppLog.info("combat", "Declared behind the head, ending the staging with it: ${clear.joinToString { c ->
+                    when (c) { is TableChange.AttackDraft -> "attacks ${c.before}"; is TableChange.BlockDraft -> "blocks ${c.before}"; else -> "$c" } }}")
             device.act(first, table + clear, performed) { if (rest.hasNext()) rest.next() else null }
         }
     }

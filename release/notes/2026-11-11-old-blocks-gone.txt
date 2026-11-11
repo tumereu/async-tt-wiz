@@ -1,0 +1,1 @@
+fix: Blocks declared after the other player assumed you had none no longer show up again in a later combat.

@@ -1,0 +1,1 @@
+fix: The trigger order list names every trigger by its card and text, also one whose card has just died.

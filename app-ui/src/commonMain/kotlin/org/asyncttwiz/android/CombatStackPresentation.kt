@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -233,8 +234,8 @@ object CombatStackPresentation {
             val label = when {
                 target == null -> name
                 hidden -> "Face-down card"
-                gone -> "${face?.name ?: "Card"} (gone)"
-                else -> face?.name ?: "Card"
+                gone -> "${face?.name ?: unnamedTarget(targetCard?.id)} (gone)"
+                else -> face?.name ?: unnamedTarget(targetCard?.id)
             }
             val value = when {
                 target == null -> board.players.firstOrNull { it.accountId == defender }?.life.orEmpty()
@@ -433,7 +434,8 @@ object CombatStackPresentation {
         val hidden = if (drawing.frozen) card.covered else CombatStackRules.faceDownEntry(state.board, drawing.viewId) ||
             !CardVisibility.isVisibleFaceUp(state.board, card, "")
         val name = if (hidden) "Covered card" else state.definitions.find { it.digest == card.definition }?.definition
-            ?.faces?.find { it.faceId == card.faceId }?.name ?: "Card"
+            ?.faces?.find { it.faceId == card.faceId }?.name
+            ?: Faults.placeholder("CombatStackPresentation", "combat copy without its card's name", "Card", mapOf("card" to card.id))
         return when {
             drawing.frozen -> "Effect, $name, retained source, read-only"
             drawing.projection -> "Projection, $name"
@@ -441,3 +443,7 @@ object CombatStackPresentation {
         }
     }
 }
+
+/** The stand-in of an attack target whose card data is missing (a fault: reported). */
+private fun unnamedTarget(card: String?): String =
+    Faults.placeholder("CombatStackPresentation", "attack target without its card's name", "Card", mapOf("card" to card.toString()))

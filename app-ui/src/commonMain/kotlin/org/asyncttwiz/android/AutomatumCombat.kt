@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -419,6 +420,7 @@ fun combatName(play: TableBoard, cardId: String): String =
 fun refName(play: TableBoard, names: Map<String, String>, ref: MtgRef): String = when (ref) {
     is MtgRef.Player -> names[ref.accountId] ?: "A player"
     is MtgRef.Card -> play.board.cards.singleOrNull { it.id == ref.cardId }?.let { card ->
-        if (card.isFaceDown) "A face-down creature" else CastController.cardName(play, card.id) } ?: "A card"
+        if (card.isFaceDown) "A face-down creature" else CastController.cardName(play, card.id) }
+        ?: Faults.placeholder("AutomatumCombat", "card to name not on the board", "A card", mapOf("card" to ref.cardId))
     is MtgRef.StackItem -> "An ability"
 }

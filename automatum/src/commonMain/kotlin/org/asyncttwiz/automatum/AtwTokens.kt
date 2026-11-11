@@ -36,7 +36,8 @@ internal object AtwTokens {
     /** I-D13: the card data an ability-only Stack entry shows (`StackAction.AddAbility`): one face named after its
      * source ([source], "Ability" when unknown) with the ability's own text as its rules text. */
     fun ability(source: String?, ability: Ability?): SubmittedDefinition {
-        val name = source?.takeIf { it.isNotBlank() } ?: "Ability"
+        val name = source?.takeIf { it.isNotBlank() }
+            ?: Faults.placeholder("AtwTokens", "ability entry without its source's name", "Ability", mapOf("ability" to ability?.let(::text).orEmpty()))
         val text = ability?.let(::text).orEmpty()
         val face = DefinitionFace(CommandIds.uuidV5(NAMESPACE, "ability/$name/$text"), name, typeLine = "Ability", rulesText = text)
         val card = AtwCard(name, listOf(face), token = true)

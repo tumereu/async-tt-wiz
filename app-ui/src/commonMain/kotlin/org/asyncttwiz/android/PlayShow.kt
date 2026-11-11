@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
@@ -70,7 +71,7 @@ object PlayShows {
         val name = definition?.faces?.getOrNull(faceIndex)?.name?.takeIf { visible && it.isNotBlank() }
         return when (show.kind) {
             GameDevice.PlayKind.Cast -> {
-                val caption = line ?: listOf(StackTextPiece("$who cast ${name ?: "a card"}"))
+                val caption = line ?: listOf(StackTextPiece("$who cast ${name ?: unnamed(visible, "a card", show)}"))
                 val face = if (visible && definition != null) inspectFaces(InspectedCard.retained(definition), faceIndex,
                     flippedOnTable(definition, card.faceId), "play-show/${card.id}",
                     if (own) OwnTableColor else OpponentTableColor, card.token).firstOrNull() else null
@@ -79,7 +80,7 @@ object PlayShows {
             GameDevice.PlayKind.Activated, GameDevice.PlayKind.Triggered -> {
                 val triggered = show.kind == GameDevice.PlayKind.Triggered
                 val ability = effect?.let { StackAbilities.of(play, entry, viewer) }
-                    ?: StackAbilityShown(triggered, name ?: "Ability", "")
+                    ?: StackAbilityShown(triggered, name ?: unnamed(visible, "Ability", show), "")
                 val source = choiceCard(play, viewer, "play-show/source", effect?.sourceId ?: cardId, visible, ability.source)
                 val caption = line ?: listOf(StackTextPiece(ability.name))
                 PlayShown(caption.plain(), caption, own, ability = ability, art = source.art, typeIcon = source.typeIcon)
@@ -189,3 +190,8 @@ fun playShowTarget(scene: TableScene): TableBounds? {
     return pile?.let { p -> scene.items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.viewport == p.viewport } }?.bounds
         ?: pile?.bounds ?: scene.stackRegion
 }
+
+/** [standIn] for a played card without a name: a hidden one by design, a visible one a fault (reported). */
+private fun unnamed(visible: Boolean, standIn: String, show: GameDevice.PlayShow): String =
+    if (!visible) standIn else Faults.placeholder("PlayShows", "visible play without a name", standIn,
+        mapOf("entry" to show.entry.toString(), "card" to show.card?.value.toString()))

@@ -418,7 +418,8 @@ class SharedFlowController(
     }
 
     /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers in
-     * zones that aren't public (their library during a search). Objects in public zones are named only when visible to
+     * zones that aren't public (their library during a search). An object that left a public zone face up (a trigger's
+     * source that died) shows what it was there (CR 608.2h). Objects in public zones are named only when visible to
      * the viewer, so a face-down creature stays hidden from the player dividing damage onto it (#4). Someone choosing for
      * the other player sees that player's hidden cards only as hidden cards. An option that has left (STK-060) shows what it was. */
     override fun shown(id: ObjectId): Boolean {
@@ -427,6 +428,8 @@ class SharedFlowController(
         val known = visible ?: flow.visible(viewer).also { visible = it }
         if (id in known) return true
         if (flow.offeredAfterLeaving(id)) return true
+        // A trigger's source that has left the battlefield (3UE2NW): what it was there is public
+        if (org.asyncttwiz.automatum.LastKnown.public(flow.state, id)) return true
         val zone = flow.state.obj(id)?.zone
         return flow.decision?.player?.value == viewer && zone != null && zone !in PUBLIC_ZONES
     }

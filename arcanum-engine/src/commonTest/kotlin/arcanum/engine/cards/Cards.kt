@@ -95,7 +95,7 @@ object Cards {
         return definition
     }
 
-    private val LAYOUTS = mapOf(
+    private val LAYOUTS = mapOf<String, Layout>(
         "Normal" to Layout.Normal, "Split" to Layout.Split, "Flip" to Layout.Flip, "Transform" to Layout.Transform,
         "ModalDoubleFaced" to Layout.ModalDoubleFaced, "Adventure" to Layout.Adventure, "Omen" to Layout.Omen, "Prepare" to Layout.Prepare,
     )

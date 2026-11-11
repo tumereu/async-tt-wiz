@@ -53,9 +53,9 @@ object TypeLine {
         return if (face.subtypes.isEmpty()) left else left + " — " + face.subtypes.joinToString(" ") { it.name }
     }
 
-    private val SUPERTYPES = mapOf("Basic" to Supertype.Basic, "Legendary" to Supertype.Legendary, "Snow" to Supertype.Snow,
+    private val SUPERTYPES = mapOf<String, Supertype>("Basic" to Supertype.Basic, "Legendary" to Supertype.Legendary, "Snow" to Supertype.Snow,
         "World" to Supertype.World)
-    private val CARD_TYPES = mapOf("Artifact" to CardType.Artifact, "Battle" to CardType.Battle, "Creature" to CardType.Creature,
+    private val CARD_TYPES = mapOf<String, CardType>("Artifact" to CardType.Artifact, "Battle" to CardType.Battle, "Creature" to CardType.Creature,
         "Enchantment" to CardType.Enchantment, "Instant" to CardType.Instant, "Kindred" to CardType.Kindred, "Land" to CardType.Land,
         "Planeswalker" to CardType.Planeswalker, "Sorcery" to CardType.Sorcery,
         // CR 309.1

@@ -14,6 +14,7 @@ import org.asyncttwiz.protocol.EngineRewindRequest
 import org.asyncttwiz.protocol.EngineSnapshot
 import org.asyncttwiz.protocol.EngineUpdate
 import org.asyncttwiz.protocol.GameAction
+import org.asyncttwiz.protocol.replaceEach
 
 /**
  * The device core of a game played on engine state (I-D56 §4–§11, step B): what one player's device does with its
@@ -801,8 +802,8 @@ class GameDevice(
     private fun adoptMoments(mine: String, theirs: String) {
         if (!revealsSeen.remove(mine)) return
         revealsSeen += theirs
-        revealsOpen.replaceAll { if (it.event == mine) it.copy(event = theirs) else it }
-        showsOpen.replaceAll { moment -> if (moment.event != mine) moment else when (moment) {
+        revealsOpen.replaceEach { if (it.event == mine) it.copy(event = theirs) else it }
+        showsOpen.replaceEach { moment -> if (moment.event != mine) moment else when (moment) {
             is PlayShow -> moment.copy(event = theirs)
             is CombatHold -> moment.copy(event = theirs)
         } }

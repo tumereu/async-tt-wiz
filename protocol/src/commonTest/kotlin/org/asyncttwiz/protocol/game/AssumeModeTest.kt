@@ -83,7 +83,7 @@ class AssumeModeTest {
     /** Bob passes in his main phase with nothing on the Stack: Alice's priority there is no pause of hers. */
     private val bobPasses: DeviceSim.() -> Unit = { assertIs<GameDevice.Acted.Sent>(device(bob).act(Input.PassPriority(bob))) }
 
-    private val modes = listOf(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
+    private val modes = listOf<ResponseMode>(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
     // HIS-096, TRN-070, STK-036 (owner 2026-11-06, 2026-11-07: Bob's spell, his point): at the other player's pause where their real hand
     // can't respond: Never and Normal wait unless their mode would pass (Quick does: nothing to respond with); When they

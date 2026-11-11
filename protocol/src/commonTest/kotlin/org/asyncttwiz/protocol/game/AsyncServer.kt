@@ -6,6 +6,7 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.setup.StartOptions
 import arcanum.engine.state.PlayerId
+import org.asyncttwiz.protocol.replaceEach
 
 /**
  * A server holding one game in memory as the server does (I-D54 phase 3, I-D56 step A): the tree of events with
@@ -61,7 +62,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
                 val event = result.event
                 if (result.discarded != null) {
                     val gone = MainLine.after(history, oldHead, event.parentId)!!.map { it.id }.toSet()
-                    heads.replaceAll { _, h -> if (h in gone) event.parentId else h }
+                    heads.replaceEach { _, h -> if (h in gone) event.parentId else h }
                 }
                 event.startsLine?.let { lines = it }
                 store.add(event, history.checkpointFor(store.depthOfParent(event) + 1, result.live.model))
@@ -116,7 +117,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
         warm = LiveState(target, model)
         var n = 0
         val events = Rewind.again(model, target, after, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
-        heads.replaceAll { _, h -> if (h in gone || h == target) head else h }
+        heads.replaceEach { _, h -> if (h in gone || h == target) head else h }
         request = null
         return events
     }

@@ -10995,7 +10995,7 @@ internal class Sentences(
         // msh: "Power-up —", "I LOVE Squirrels! —", "Do You Like Squirrels? —"
         val ABILITY_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\-ā ]+) — (.+)""") // spm: "Pavitr's Sevā"; fin: "10,000 Needles"
         const val IMPRINTED = "imprinted"
-        val LABELS = mapOf("boast" to arcanum.api.AbilityLabel.Boast, "solved" to arcanum.api.AbilityLabel.Solved,
+        val LABELS = mapOf<String, arcanum.api.AbilityLabel>("boast" to arcanum.api.AbilityLabel.Boast, "solved" to arcanum.api.AbilityLabel.Solved,
             "exhaust" to arcanum.api.AbilityLabel.Exhaust, "max speed" to arcanum.api.AbilityLabel.MaxSpeed,
             "power-up" to arcanum.api.AbilityLabel.PowerUp,
             // mh2 chunk 02: CR 702.57
@@ -11522,7 +11522,7 @@ internal class Sentences(
         const val CHOSEN_NAME = "name"
         const val CHOSEN = "chosen"
         val CANT_BE_ACTIVATED = Regex("""Activated abilities of (.+) can't be activated\.""")
-        val EVERY_ZONE = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
+        val EVERY_ZONE = listOf<Zone>(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
         val PUT_FOUND_IN_HAND_REST_ON_BOTTOM = Regex("""Put that card into your hand and (?:the rest|all other cards revealed this way) (?:on the bottom of your library in (a random|any) order|(into your graveyard))\.""") // inr chunk 09: graveyard
         val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal (.+)\.""")
         const val FOUND = "found"

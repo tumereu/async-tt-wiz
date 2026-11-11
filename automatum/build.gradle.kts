@@ -20,6 +20,12 @@ kotlin {
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
+    // Kotlin/Wasm for the web client (docs/specs/web-client.md): common tests also run on Node (wasmJsNodeTest).
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser { testTask { enabled = false } }
+        nodejs()
+    }
     sourceSets {
         commonMain.dependencies {
             api(project(":protocol"))

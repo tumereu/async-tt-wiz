@@ -100,6 +100,7 @@ catalog wins. Where neither says, ask rather than pick.
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
   `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:arcanum-tools:test`, `:e2e:test` (slow, Docker;
   see End-to-end coverage).
+  `wasmJsNodeTest` of `:core`, `:protocol`, `:automatum`, `:arcanum-api`, `:arcanum-parser` and `:arcanum-engine` runs their common tests on Kotlin/Wasm (Node).
   `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in set work's fix and close steps, and reads the pinned MTGJSON file (`catalog/pin.properties`; `scripts/catalog-pin.sh verify`), never committed: without it, it stops and says how to get it.
   `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
   While implementing, run the tasks relevant to what you changed. After a batch

@@ -905,7 +905,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 
-        private val ZONES = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside)
+        private val ZONES = listOf<Zone>(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside)
         fun zoneName(zone: Zone): String = zone.toString()
         fun zoneByName(name: String): Zone? = ZONES.firstOrNull { it.toString() == name }
 

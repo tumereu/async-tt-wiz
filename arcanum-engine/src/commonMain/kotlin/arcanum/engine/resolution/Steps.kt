@@ -337,7 +337,7 @@ internal object Steps {
         }
     }
 
-    private val ALL_TYPES = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Instant,
+    private val ALL_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Instant,
         CardType.Kindred, CardType.Land, CardType.Planeswalker, CardType.Sorcery)
 
     /**

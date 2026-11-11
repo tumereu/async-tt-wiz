@@ -29,7 +29,7 @@ internal object MechanicWordings {
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
     private val WAS_BARGAINED = Regex("""(.+) was bargained""")
     /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
-    private val FROM_ANYWHERE = listOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
+    private val FROM_ANYWHERE = listOf<arcanum.api.Zone>(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
         arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
     private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
     // fdn chunk 07: "If Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead."

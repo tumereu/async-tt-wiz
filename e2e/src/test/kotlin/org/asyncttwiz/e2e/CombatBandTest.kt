@@ -74,6 +74,7 @@ class CombatBandTest : E2e() {
         assertEquals("No attack", alice.stepArrow())
         assertFalse(alice.bandOpen(), "a chip opens nothing")
         // CMB-028: a tap on each ready Cub stages it in the band's lane; nothing covers them
+        val ownField = alice.battlefieldBounds()
         for (n in 0..1) {
             alice.stageAttacker("Ember Cub", this, index = n)
             waitUntil("Cub ${n + 1} staged") { alice.shown.board.engine!!.table.attackDraft.orEmpty().size == n + 1 }
@@ -81,6 +82,8 @@ class CombatBandTest : E2e() {
         }
         assertEquals("Attack (2)", alice.stepArrow())
         assertTrue(alice.bandOpen(), "the band opened by itself with the first attacker")
+        // CMB-007 (owner playtest 2026-11-11): it opened away from Alice's battlefield, which stayed where it was
+        waitUntil("the band open and settled") { alice.battlefieldBounds() == ownField }
         val life = alice.state.player(bob.me).life
         alice.declare("Attack (2)", this)
         // Bob reaches his blocks (passing where he may respond to the attack)

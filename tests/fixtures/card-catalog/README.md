@@ -7,7 +7,7 @@ A small, invented MTGJSON AllPrintings file (no real card data) and its support 
 - `TWL` Thornwall Crossing: a meld pair (problem report 7ZZC89) and twenty commons, as `MeldSetSourceTest` uses.
 - `BAD` Broken Set: listed, but one card's text Automatum can't read, so it can't be drafted.
 - `OFF` Unlisted Set: not listed and without a booster recipe (approximate packs); two cards on the single-card list (one
-  of them double-faced), a reprint of Test Bear, a Japanese printing.
+  of them double-faced, the other printed twice), a reprint of Test Bear, a Japanese printing.
 - `BON` Bonus Sheet Set: listed; three commons, a reversible printing of Test Bear on a sheet of its own, and a
   special-guest sheet holding Plain Bear from `OFF` (unsupported).
 - `DCK` Test Promos: a kind of set the Sets tab doesn't list, whose recipe the catalog leaves out.

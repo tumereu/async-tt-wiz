@@ -4023,6 +4023,39 @@
      "otherFaceIds": [
       "82902486-9d5c-5110-a54c-3c557bfea574"
      ]
+    },
+    {
+     "uuid": "611d88a1-0e37-5131-a4e7-8d9eec977068",
+     "name": "Listed Lone",
+     "setCode": "OFF",
+     "number": "5",
+     "language": "English",
+     "layout": "normal",
+     "type": "Creature — Elf",
+     "colors": [
+      "G"
+     ],
+     "colorIdentity": [
+      "G"
+     ],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallId": "0f2a8f34-4282-5e8c-9978-91f13221b980",
+      "scryfallOracleId": "a337ef43-6e5f-58d3-96b4-8dd1455e2da1"
+     },
+     "manaCost": "{G}",
+     "power": "1",
+     "toughness": "1"
     }
    ],
    "tokens": []

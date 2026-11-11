@@ -16,8 +16,9 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 class CatalogSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>, val missing: Int)
 
 /**
- * Set packs from the card catalog (docs/specs/web-client.md section 3.7): every card of the set (a card of several faces
- * once), and the cards of other sets its recipe names; a meld result is never a card of its own; printings the catalog doesn't have are left out of the
+ * Set packs from the card catalog (docs/specs/web-client.md section 3.7): every printing of the set (a card of several
+ * faces once, each printing naming its card, so approximate packs draw a card once and then one of its printings), and
+ * the cards of other sets its recipe names; a meld result is never a card of its own; printings the catalog doesn't have are left out of the
  * recipe, and a recipe that no longer holds together without them is dropped (approximate packs, DRF-090). Any set the
  * catalog has can be built.
  */
@@ -50,7 +51,8 @@ object CatalogSetSources {
             }
             definitions[submitted.digest] = submitted
             SetSourceCard(submitted.digest, printing.id, rarity(printing.rarity),
-                catalog.faces[printing.face].colors.mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet())
+                catalog.faces[printing.face].colors.mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet(),
+                card = submitted.definition.name)
         }
         if (cards.isEmpty()) return null
         // Both faces of a card can resolve to one physical definition: give them the same whole-card colours.

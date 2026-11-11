@@ -1,0 +1,2 @@
+# The only `!!` allowed in client main code (checkClientNotNull in build.gradle.kts): one line each,
+# `file | the trimmed code line | why a `!!` is the clearest there`.

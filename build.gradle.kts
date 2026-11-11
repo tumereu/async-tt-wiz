@@ -170,9 +170,79 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
         marker.get().asFile.apply { parentFile.mkdirs(); writeText("${defined.size} entries\n") }
     }
 }
+// Client crash safety (after prod crash WCRF3Q): client main code has no `!!` except the few in
+// gradle/client-not-null-allowlist.txt, each with its reason. Elsewhere the types prove the value is there, or the code
+// falls back and reports the fault (org.asyncttwiz.protocol.Faults). An entry that no longer matches fails too, so the
+// list stays exact. Runs before every test task.
+val checkClientNotNull = tasks.register("checkClientNotNull") {
+    val sources = fileTree(".") {
+        include("app-ui/src/*Main/**/*.kt", "automatum/src/*Main/**/*.kt", "protocol/src/*Main/**/*.kt",
+            "client-storage/src/*Main/**/*.kt", "androidApp/src/main/**/*.kt")
+        exclude("**/build/**")
+    }
+    val allowlist = file("gradle/client-not-null-allowlist.txt")
+    inputs.files(sources).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(allowlist).withPathSensitivity(PathSensitivity.RELATIVE)
+    val marker = layout.buildDirectory.file("client-not-null/checked")
+    outputs.file(marker)
+    val root = rootDir
+    doLast {
+        // Code lines (comments and string contents blanked, string templates kept) that hold a `!!`.
+        fun assertions(text: String): List<Pair<Int, String>> {
+            val code = StringBuilder(text.length)
+            var i = 0
+            fun blank(count: Int) { repeat(count) { if (i < text.length) { code.append(if (text[i] == '\n') '\n' else ' '); i++ } } }
+            fun keep(count: Int) { repeat(count) { if (i < text.length) { code.append(text[i]); i++ } } }
+            // Innermost last: "code" (the file, or a string template's braces), "string", "raw"; with code's brace depth.
+            val modes = mutableListOf("code")
+            val depths = mutableListOf(0)
+            while (i < text.length) {
+                val c = text[i]
+                if (modes.last() == "code") when {
+                    text.startsWith("//", i) -> blank(text.indexOf('\n', i).let { if (it < 0) text.length else it } - i)
+                    text.startsWith("/*", i) -> blank(text.indexOf("*/", i + 2).let { if (it < 0) text.length else it + 2 } - i)
+                    text.startsWith("\"\"\"", i) -> { keep(3); modes += "raw"; depths += 0 }
+                    c == '"' -> { keep(1); modes += "string"; depths += 0 }
+                    c == '\'' -> { keep(1); while (i < text.length && text[i] != '\'' && text[i] != '\n') blank(if (text[i] == '\\') 2 else 1); keep(1) }
+                    c == '{' -> { depths[depths.lastIndex]++; keep(1) }
+                    c == '}' && depths.last() == 0 && modes.size > 1 -> { modes.removeLast(); depths.removeLast(); keep(1) }
+                    c == '}' -> { depths[depths.lastIndex]--; keep(1) }
+                    else -> keep(1)
+                } else when {
+                    modes.last() == "raw" && text.startsWith("\"\"\"", i) -> { keep(3); modes.removeLast(); depths.removeLast() }
+                    modes.last() == "string" && c == '"' -> { keep(1); modes.removeLast(); depths.removeLast() }
+                    modes.last() == "string" && c == '\\' -> blank(2)
+                    text.startsWith("\${", i) -> { keep(2); modes += "code"; depths += 0 }
+                    else -> blank(1)
+                }
+            }
+            val original = text.lines()
+            return code.toString().lines().withIndex().filter { "!!" in it.value }.map { (index, _) -> index + 1 to original[index].trim() }
+        }
+        val entries = allowlist.readLines().map(String::trim).filter { it.isNotEmpty() && !it.startsWith("#") }
+        val problems = mutableListOf<String>()
+        val allowed = entries.mapNotNull { line ->
+            val parts = line.split(" | ")
+            if (parts.size != 3 || parts.any { it.isBlank() }) { problems += "allowlist entry not 'file | code line | reason': $line"; null }
+            else parts[0] to parts[1]
+        }
+        val used = mutableSetOf<Pair<String, String>>()
+        sources.files.sortedBy { it.path }.forEach { file ->
+            val path = file.relativeTo(root).invariantSeparatorsPath
+            assertions(file.readText()).forEach { (number, line) ->
+                if (path to line in allowed) used += path to line
+                else problems += "$path:$number: `!!` in client main code: make the types prove it, or fall back and Faults.report it (or allow-list it with a reason in gradle/client-not-null-allowlist.txt)\n    $line"
+            }
+        }
+        (allowed - used).forEach { (path, line) -> problems += "allowlist entry matches no `!!` any more: $path | $line" }
+        check(problems.isEmpty()) { "Client not-null check failed:\n" + problems.joinToString("\n") }
+        marker.get().asFile.apply { parentFile.mkdirs(); writeText("${used.size} allowed\n") }
+    }
+}
 subprojects {
     tasks.withType<Test>().configureEach {
         dependsOn(checkFeatureCatalog)
+        dependsOn(checkClientNotNull)
         // Test JVMs keep temp files in the module's build directory, not /tmp: here /tmp is a small in-memory disk,
         // and Robolectric unpacks ~200 MB per test JVM that stays behind whenever a JVM is killed.
         val tmp = layout.buildDirectory.dir("tmp/test-jvm").get().asFile

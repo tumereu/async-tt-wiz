@@ -83,7 +83,7 @@ class TablePresentationTest {
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
                 appearance = appearance)
             val pileHeight = minOf(40f * appearance.size(CardArea.PILES), 32f)
-            assertEquals(TableBounds(6f, scene.world!!.viewport.y, width - 12f, scene.world.viewport.height), scene.world.viewport)
+            assertEquals(TableBounds(6f, scene.world!!.viewport.y, width - 12f, scene.world!!.viewport.height), scene.world!!.viewport)
             for (owner in listOf("a", "b")) {
                 val dock = scene.viewports.single { it.id == "dock/$owner" }
                 assertEquals(0f, dock.maxScroll)
@@ -459,7 +459,7 @@ class TablePresentationTest {
                     assertEquals(region.y + 1.5f, stack.stackBadge.center.y, .001f)
                     assertEquals(CombatStackPresentation.CHIP_ROW * zoom, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom, .001f)
                     assertEquals(topHand.bottom, scene.world!!.viewport.y, .001f)
-                    assertEquals(bottomHand.y, scene.world.viewport.bottom, .001f)
+                    assertEquals(bottomHand.y, scene.world!!.viewport.bottom, .001f)
                     for (port in scene.viewports.filter { it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
                         assertNull(port.bounds.intersection(region))
                     }
@@ -517,7 +517,7 @@ class TablePresentationTest {
         for (review in listOf(false, true)) {
             val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", 412f, 892f, false, reviewing = review)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.y, scene.world!!.viewport.bottom, .01f)
-            assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.bottom, scene.world.viewport.y, .01f)
+            assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.bottom, scene.world!!.viewport.y, .01f)
             assertTrue(scene.fields.first().bounds.height > 100f)
         }
     }

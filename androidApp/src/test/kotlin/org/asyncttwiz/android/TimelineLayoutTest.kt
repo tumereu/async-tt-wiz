@@ -19,8 +19,8 @@ class TimelineLayoutTest {
             assertEquals(normal.camera, review.camera)
             if (landscape) {
                 assertEquals(normal.world!!.viewport, review.world!!.viewport)
-                assertEquals(normal.world.bounds, review.world.bounds)
-                assertEquals(normal.world.visibleViewport, review.world.visibleViewport)
+                assertEquals(normal.world!!.bounds, review.world!!.bounds)
+                assertEquals(normal.world!!.visibleViewport, review.world!!.visibleViewport)
                 for ((before, after) in normal.items.zip(review.items)) {
                     assertEquals(before.id, after.id)
                     assertEquals(before.bounds, after.bounds)

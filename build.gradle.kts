@@ -74,7 +74,7 @@ tasks.register("verifyModuleBoundaries") {
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser", ":catalog"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":app-ui"),
             // The shared Compose UI for Android and the web (docs/specs/web-client.md §1).
-            ":app-ui" to setOf(":core", ":protocol", ":automatum"),
+            ":app-ui" to setOf(":core", ":protocol", ":automatum", ":client-storage"),
             ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine", ":catalog"),
             // The card catalog: its format and reader, the MTGJSON import, and the build with Automatum's support marks.
             ":catalog" to setOf(":protocol", ":automatum"),

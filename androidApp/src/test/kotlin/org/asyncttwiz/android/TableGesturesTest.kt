@@ -340,13 +340,13 @@ class TableGesturesTest {
     // SYS-029, TBL-011, TBL-012
     @Test fun emptySingleTapIsImmediateDoubleTapFitsAndDoubleTapHoldDragPans() {
         val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
-        val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
+        val point = TablePoint(scene.world!!.viewport.center.x, scene.world!!.viewport.center.y)
         assertNull(scene.hit(point))
         val f = Fixture(scene)
         f.gestures.down(point, 0); f.gestures.up(point, 20)
         assertEquals(1, f.events.count { it == TableIntent.EmptyTap })
         f.gestures.down(point, 100); f.gestures.up(point, 120)
-        assertEquals(scene.world.fit(), f.events.filterIsInstance<TableIntent.Camera>().single().camera)
+        assertEquals(scene.world!!.fit(), f.events.filterIsInstance<TableIntent.Camera>().single().camera)
         assertTrue(f.events.none { it is TableIntent.Move })
 
         f.gestures.update(scene, true)
@@ -368,7 +368,7 @@ class TableGesturesTest {
     // TBL-011 (I-D52): a one-finger drag that starts on empty table pans it; there is no selection rectangle
     @Test fun oneFingerDragOnEmptyTablePans() {
         val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
-        val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
+        val point = TablePoint(scene.world!!.viewport.center.x, scene.world!!.viewport.center.y)
         assertNull(scene.hit(point))
         val f = Fixture(scene)
         // A small vertical drag: three rows each (TBL-003) fill the screen at 1.4×, so the pan bounds stop a larger one
@@ -788,7 +788,7 @@ class TableGesturesTest {
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
         // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009) pans the camera.
-        val background = TablePoint(scene.stackRegion!!.x - 4f, scene.stackRegion.center.y)
+        val background = TablePoint(scene.stackRegion!!.x - 4f, scene.stackRegion!!.center.y)
         f.gestures.down(background, 0)
         f.gestures.transform(TablePoint(0f, -60f), 1f, background)
         assertTrue(f.events.isNotEmpty() && f.events.all { it is TableIntent.Camera }, "${f.events}")

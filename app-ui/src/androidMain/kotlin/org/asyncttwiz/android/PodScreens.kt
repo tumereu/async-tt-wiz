@@ -1,0 +1,604 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.appui.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.screenOrientation
+import org.asyncttwiz.appui.ScreenOrientation
+import org.asyncttwiz.appui.AppPlatform
+
+@Composable
+fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
+    lobby: LobbyController?, manageCubes: () -> Unit, mainMenu: (() -> Unit)? = null) {
+    val state = controller.state
+    // DRF-141: Prepare cube covers the pod screen until Done or Back.
+    if (controller.cubePreparation.state.open) { PodCubePreparationScreen(controller.cubePreparation); return }
+    val pickTab = state.detail?.phase == PodPhase.DRAFTING && state.tab == PodTab.DRAFT
+    val playScreen = state.detail?.phase?.let { it != PodPhase.SETUP } == true
+    val pickMessages = remember { SnackbarHostState() }
+    LaunchedEffect(pickTab, state.error, state.notice, state.uncertain) {
+        if (pickTab) (state.error ?: state.notice ?: "Request not confirmed".takeIf { state.uncertain })?.let {
+            val result = pickMessages.showSnackbar(it, actionLabel = "Retry".takeIf { state.uncertain })
+            if (result == SnackbarResult.ActionPerformed) controller.retry()
+        }
+    }
+    DisposableEffect(controller) { onDispose { controller.flushSetup(leaving = true) } }
+    LaunchedEffect(controller, state.selected) { controller.shown() }
+    // The pod list and the open pod are read again every 10 s while shown with the app in front, on the main thread's clock
+    WhileInFront(controller, state.selected) { controller.watch(state.selected?.let { "pod $it" } ?: "pod list") }
+    // DRF-170: an open pod's chat is read again every few seconds
+    state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen, "pod screen") }
+    LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {
+        if (state.setup != null) { delay(600); controller.flushSetup() }
+    }
+    BackHandler(state.selected != null || state.creating != null) { controller.back() }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
+                if (state.selected == null && state.creating == null) {
+                    ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
+                } else if (state.creating != null) {
+                    PodPresetsButton(controller.presets)
+                } else {
+                    state.detail?.let {
+                        if (it.phase == PodPhase.SETUP && it.creator.accountId == accountId && !state.choosingMember)
+                            PodPresetsButton(controller.presets, enabled = !state.uncertain)
+                        PodChatButton(controller, it.id, accountId)
+                        PodOverflow(controller, it.creator.accountId == accountId, it.phase,
+                            startNow = it.pendingInvitations.isNotEmpty() && podCanStart(it))
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    state.creating != null -> NewPodScreen(controller)
+                    state.selected != null -> InitialLoadArea(state.detail != null, failed = state.error != null,
+                        retry = { controller.refresh(requested = true) }, loading = state.loading) {
+                        state.detail?.let { detail ->
+                            Column(Modifier.fillMaxSize()) {
+                                if (detail.phase == PodPhase.SETUP) PodMemberStrip(detail)
+                                if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
+                                else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
+                                else PodDraftScreen(controller, detail, accountId, lobby, navigation, mainMenu)
+                            }
+                        }
+                    }
+                    else -> PodsList(state, accountId, controller::open, controller::respond) { controller.refresh(requested = true) }
+                }
+                if (!pickTab) {
+                    FloatingTransientError(state.error ?: state.notice, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+                    if (state.uncertain) ScreenIconButton("Retry pod request", "refresh", controller::retry,
+                        Modifier.align(Alignment.BottomEnd), enabled = !state.loading)
+                }
+                lobby?.let { PodChallengeFeedback(it.state, it::retryPodChallenge, it::dismissSessionError, Modifier.matchParentSize()) }
+            }
+        }
+        if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
+    }
+    if (controller.presets.state.open) PodPresetsDialog(controller.presets)
+    // DRF-170: the pod's chat as a side panel, as the table's (LOB-066)
+    val chatPod = state.detail?.takeIf { state.chatOpen && it.id == state.selected }
+    if (chatPod != null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = controller::closeChat, properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
+            Box(Modifier.fillMaxSize()) {
+                PodChatPanel(controller.chat, chatPod.id, accountId,
+                    chatPod.members.firstOrNull { it.account.accountId == accountId }?.account?.username ?: "You",
+                    controller::closeChat, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (landscape) .5f else 1f))
+            }
+        }
+    }
+    if (controller.setPicker.state.open) {
+        val target = controller.setPicker.state.target
+        if (target == null) PodSourcePickerDialog(controller, manageCubes)
+        else PodPackSetDialog(controller, target, state.creating?.settings ?: state.setup?.settings ?: state.detail?.settings ?: DraftSettings())
+    }
+    if (state.confirmation != null && state.detail != null) {
+        val action = state.confirmation
+        ScreenDialog(controller::dismissConfirmation, title = when (action) {
+            PodConfirmation.DESTROY -> "Destroy pod"
+            PodConfirmation.LEAVE -> "Leave pod"
+            PodConfirmation.CANCEL -> "Cancel draft"
+            PodConfirmation.SUBMIT -> "Submit deck"
+            PodConfirmation.START -> "Start now"
+        }, actions = {
+            DialogCancelButton(when (action) {
+                PodConfirmation.DESTROY, PodConfirmation.LEAVE -> "Keep pod"
+                PodConfirmation.CANCEL -> "Keep draft"
+                PodConfirmation.SUBMIT, PodConfirmation.START -> "Cancel"
+            }, controller::dismissConfirmation, enabled = !state.uncertain && state.pending == 0)
+            DialogMainButton(if (state.uncertain) "Retry" else when (action) {
+                PodConfirmation.DESTROY -> "Destroy"
+                PodConfirmation.LEAVE -> "Leave"
+                PodConfirmation.CANCEL -> "Cancel draft"
+                PodConfirmation.SUBMIT -> "Submit"
+                PodConfirmation.START -> "Start now"
+            }, if (state.uncertain) controller::retry else controller::confirm,
+                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT && action != PodConfirmation.START,
+                icon = if (state.uncertain) "refresh" else when (action) {
+                    PodConfirmation.DESTROY -> "delete"
+                    PodConfirmation.LEAVE -> "logout"
+                    PodConfirmation.CANCEL -> "cancel"
+                    PodConfirmation.SUBMIT -> "send"
+                    PodConfirmation.START -> "start"
+                })
+        }) {
+            Text(podConfirmationText(action, state.detail))
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+/** Available even when the original pod or opponent can no longer be opened. */
+@Composable
+fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        if (state.retryPodChallengeName != null) {
+            HoldTip("Retry challenge", Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                FilledTonalIconButton(retry, enabled = !state.mutating) { EntryIcon("Retry challenge", "refresh") }
+            }
+        }
+        FloatingTransientError(state.error, dismiss, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodPhase, compact: Boolean = false,
+    startNow: Boolean = false) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        if (compact) HoldTip("Pod actions") { IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") } }
+        else ScreenIconButton("Pod actions", "more", { expanded = true })
+        DropdownMenu(expanded, { expanded = false }) {
+            // Starting is otherwise "Start when everyone accepts" while invitations are pending.
+            if (creator && phase == PodPhase.SETUP && startNow) DropdownMenuItem(text = { Text("Start now") }, onClick = {
+                expanded = false; controller.requestConfirmation(PodConfirmation.START)
+            })
+            if (creator && phase == PodPhase.DRAFTING) DropdownMenuItem(text = { Text("Cancel draft") }, onClick = {
+                expanded = false; controller.requestConfirmation(PodConfirmation.CANCEL)
+            })
+            DropdownMenuItem(text = { Text(if (creator) "Destroy" else "Leave") }, onClick = {
+                expanded = false; controller.requestConfirmation(if (creator) PodConfirmation.DESTROY else PodConfirmation.LEAVE)
+            })
+        }
+    }
+}
+
+/** DRF-170: the pod screens' chat button, a dot on it while the pod's chat holds messages of other members you haven't read. */
+@Composable
+private fun PodChatButton(controller: PodController, podId: String, accountId: String) {
+    val unread = controller.chat.views[podId]?.unread(accountId) ?: 0
+    Box {
+        HoldTip("Pod chat") {
+            IconButton(controller::openChat, Modifier.size(48.dp).testTag("pod-chat-button")
+                .semantics { stateDescription = if (unread > 0) "$unread unread messages" else "" }) { EntryIcon("Pod chat", "chat") }
+        }
+        if (unread > 0) UnreadDot(Modifier.align(Alignment.TopEnd).padding(10.dp).testTag("pod-chat-unread"))
+    }
+}
+
+/** A small dot in the other player's colour: unread chat messages (LOB-066, DRF-170). */
+@Composable
+fun UnreadDot(modifier: Modifier = Modifier) {
+    Box(modifier.size(6.dp).background(OpponentTableColor, CircleShape))
+}
+
+@Composable
+fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respond: (String, Boolean) -> Unit,
+    refresh: () -> Unit) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = refresh, loading = state.loading) {
+        // DRF-012: one list in the shared pod order (DRF-013), invitations answered in place.
+        val entries = orderedPods(state.pods, state.invitations)
+        val stackWidth = podStackWidth(state.pods, accountId)
+        LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item {
+                Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
+                if (entries.isEmpty()) Text("No pods yet")
+            }
+            items(entries, key = { if (it.invitation != null) "invitation:${it.id}" else it.id }) { entry ->
+                val invitation = entry.invitation
+                if (invitation == null) PodRow(requireNotNull(entry.pod), accountId, { open(entry.id) }, stackWidth = stackWidth,
+                    chatUnread = requireNotNull(entry.pod).chatUnread)
+                else OutlinedCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(invitation.name, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Avatar(invitation.creator); Text(invitation.creator.username)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { ButtonLabel("ready", "Accept") }
+                            ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { ButtonLabel("close", "Decline") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false,
+    stackWidth: Dp = podStackWidth(listOf(pod), accountId), chatUnread: Int = 0) {
+    val highlighted = pod.attention == PodAttention.YOUR_PICK
+    val fill = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    Surface(onClick = open, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = fill,
+        border = BorderStroke(1.dp, if (highlighted) MaterialTheme.colorScheme.primary else ScreenBorder)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // DRF-012: the side menu's compact stack of the other members (LOB-018).
+            AvatarStack(podNavigationAvatars(pod.members, accountId), ring = fill, width = stackWidth)
+            Column(Modifier.weight(1f)) {
+                Text(pod.name, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (quick) "Your pick" else podStatus(pod), style = MaterialTheme.typography.bodySmall)
+                    // DRF-012: the pod's chat holds messages of other members you haven't read
+                    if (chatUnread > 0) UnreadDot(Modifier.testTag("pod-chat-unread-${pod.id}")
+                        .semantics { stateDescription = "$chatUnread unread chat messages" })
+                }
+            }
+            EntryIcon(null, "chevron")
+        }
+    }
+}
+
+/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support; a pack grid's (DRF-177) is every one
+ * of its sets', the cards none of them can play together. */
+private fun podSourceSupport(controller: PodController, cubeId: String?, setCode: String?, packs: List<String> = listOfNotNull(setCode)): CardListSupport? {
+    cubeId?.let { id -> return controller.state.cubes.find { it.id == id }?.automatum }
+    val supports = packs.ifEmpty { listOfNotNull(setCode) }.distinct().map { controller.setPicker.state.support(it) ?: return null }
+    return supports.firstOrNull()?.let { first -> if (supports.size == 1) first else first.copy(byHand = supports.flatMap { it.byHand }.distinct()) }
+}
+
+/** The pack grid (DRF-177) of the set pod form being shown: its sets from the card records, editable when [editable]. */
+private fun podPackGridUi(controller: PodController, packs: List<String>, editable: Boolean): PodPackGridUi? =
+    packs.takeIf { it.isNotEmpty() }?.let { PodPackGridUi(it, controller.setPicker.state::set, controller::choosePacks.takeIf { editable }) }
+
+@Composable
+private fun NewPodScreen(controller: PodController) {
+    val state = controller.state
+    val draft = state.creating ?: return
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val source = state.sourcePreview ?: draft.set?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
+            val setCode = draft.set?.code.takeIf { draft.cubeId == null }
+            LaunchedEffect(setCode) { if (setCode != null) controller.setPicker.loadSupport() }
+            val packs = if (setCode == null) emptyList() else draft.packs
+            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, setCode, packs)
+            PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
+                controller::newSettings, controller::reroll, automatum = support,
+                grid = podPackGridUi(controller, packs, state.sourcePreview == null))
+            // I-D52 (DRF-161): a source Automatum can't play fully can't start a pod.
+            if (support?.supported == false) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"),
+                color = MaterialTheme.colorScheme.error)
+        }
+        Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.set != null) && draft.name.isNotBlank() &&
+            draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
+            podSourceSupport(controller, draft.cubeId, draft.set?.code, draft.packs)?.supported != false) { ButtonLabel("add", "Create") }
+    }
+}
+
+@Composable
+private fun PodMemberStrip(detail: PodDetail) {
+    Row(Modifier.fillMaxWidth().testTag("pod-member-strip").horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        detail.members.forEach { member ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Avatar(member.account)
+                Text(member.account.username, style = MaterialTheme.typography.labelMedium)
+                Text(podMemberStatus(member, detail.phase, detail.settings.mode), style = MaterialTheme.typography.labelSmall,
+                    color = if (member.packsWaiting > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun PodSetupScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
+    val state = controller.state
+    val creator = detail.creator.accountId == accountId
+    val enabled = creator
+    val edit = state.setup
+    val settings = edit?.settings ?: detail.settings
+    val source = state.sourcePreview ?: detail.source
+    LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val setCode = edit?.set?.code ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
+        LaunchedEffect(detail.id, setCode) { if (setCode != null) controller.setPicker.loadSupport() }
+        // DRF-177: the pod's pack grid (the setup edit's predicted source holds an edited one)
+        val packs = if (setCode == null) emptyList() else edit?.set?.let { listOf(it.code) }
+            ?: source.packSets.ifEmpty { listOf(setCode) }.let { PodPackGrid.normalize(it, settings) }
+        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode, packs)
+        PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
+            { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support,
+            grid = podPackGridUi(controller, packs, enabled && state.sourcePreview == null && !state.uncertain))
+        val unsupported = support?.supported == false
+        // DRF-141: the creator moves this pod's cards between the cube's Main and Maybe before drafting.
+        if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.set == null)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ScreenOutlinedButton({ controller.cubePreparation.open(detail.id) }, Modifier.testTag("prepare-cube"),
+                    enabled = state.pending == 0 && !state.uncertain) {
+                    EntryIcon(null, "prepare"); Spacer(Modifier.width(8.dp)); Text("Prepare cube")
+                }
+                Text(podCubeSections(source), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        Text("Members (${detail.members.size}/${settings.mode.players.last})", style = MaterialTheme.typography.titleMedium)
+        detail.members.forEach { MemberLine(it.account, "accepted") }
+        detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
+        if (creator) {
+            ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
+                enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
+            detail.autoStartOff?.let { Text(podAutoStartOffText(it, settings.mode), color = MaterialTheme.colorScheme.error) }
+            val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
+            val limit = podPlayerLimitText(detail.copy(settings = settings))
+            if (detail.pendingInvitations.isEmpty())
+                ScreenButton(controller::start, enabled = idle && podCanStart(detail) && !unsupported) { ButtonLabel("start", "Start draft") }
+            else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { ButtonLabel("pending", podAutoStartLabel(detail)) }
+            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null && !unsupported) { ButtonLabel("pending", podAutoStartLabel(detail)) }
+            // I-D52 (DRF-161): a source Automatum can't play fully can't start a draft.
+            if (unsupported) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"), color = MaterialTheme.colorScheme.error)
+            // DRF-035, DRF-036: why Start or auto-start is not offered with this many players.
+            limit?.let { Text(it, Modifier.testTag("pod-player-limit"), color = MaterialTheme.colorScheme.error) }
+        } else if (detail.autoStart) {
+            Text("Starts automatically when everyone accepts", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** "360 main · 12 maybe": the prepared cube's sections. */
+fun podCubeSections(source: PodSource) = "${source.totalCopies} main · ${source.maybeCopies} maybe"
+
+@Composable
+private fun PodChooseMember(controller: PodController, lobby: LobbyController, detail: PodDetail) {
+    PlayerPicker(lobby) { account ->
+        val existing = detail.members.any { it.account.accountId == account.accountId } || detail.pendingInvitations.any { it.accountId == account.accountId }
+        ScreenIconButton(if (existing) "Invited / member" else "Invite player", if (existing) "ready" else "send",
+            { controller.invite(account) }, enabled = !existing)
+    }
+}
+
+@Composable
+private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?,
+    navigation: (() -> Unit)?, mainMenu: (() -> Unit)?) {
+    val state = controller.state
+    val tabs = podTabs(detail.phase)
+    val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
+    val build = detail.build ?: PodDeckBuild()
+    val copies = (detail.grid?.mine?.pool ?: detail.limited?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
+    val definitions = detail.definitions.associate { it.digest to it.definition }
+    val pickColumns = rememberPodPickColumns()
+    val buildColumns = rememberPodBuildColumns()
+    val buildSideBySide = rememberPodBuildSideBySide()
+    val historyColumns = rememberPodHistoryColumns(podHistoryPackSize(detail))
+    val waiting = podWaitingText(detail, accountId)
+    Column(Modifier.fillMaxSize()) {
+        PodPlayHeader(detail, navigation) {
+            // DRF-165: on the Draft tab History is above the pack; on the others, while building and after, it is up here.
+            if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, definitions, historyColumns)
+            PodChatButton(controller, detail.id, accountId)
+            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
+                historyColumns.takeIf { detail.settings.mode.packPassing })
+        }
+        PodDraftTabs(tabs, selected, controller::tab) {
+            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
+        }
+        // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
+        if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
+            PodPicksButton(detail, accountId, definitions)
+        // DRF-165: Booster and Glimpse show your own picks with their packs.
+        if (selected == PodTab.DRAFT && detail.settings.mode.packPassing && detail.phase == PodPhase.DRAFTING)
+            PodHistoryButton(controller, definitions, historyColumns)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (selected) {
+                // Section 3.6: pod picks wait for the card records
+                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue)
+                else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
+                    definitions, detail.members.map { it.account }, state.picking || state.uncertain,
+                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
+                else PodPickView(detail.draft?.head, detail.settings, definitions,
+                    state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
+                    librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
+                    nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
+                    waitingText = waiting, onMainMenu = mainMenu,
+                    savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
+                    orientation = podPickOrientationText(detail)) }
+                PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
+                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
+                    controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
+                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
+                    controller.canUndoBuild, controller::undoBuild, controller::revertMove,
+                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
+                    deckCover = detail.deckCover, onCover = controller::deckCover)
+                PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
+                PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
+            }
+        }
+    }
+}
+
+@Composable
+fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, overflow: @Composable () -> Unit) {
+    Surface {
+        Row(Modifier.fillMaxWidth().testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
+            TabRow(tabs.indexOf(selected), Modifier.weight(1f)) {
+                tabs.forEach { tab -> Tab(selected == tab, { select(tab) },
+                    text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
+            }
+            Box(Modifier.width(40.dp).height(48.dp), contentAlignment = Alignment.Center) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }
+                HorizontalDivider(Modifier.align(Alignment.BottomCenter))
+            }
+        }
+    }
+}
+
+val PodPlayHeaderHeight = 48.dp
+
+/** Hamburger (modal drawer), a very small pod title, the readiness avatars under it and a trailing view settings cog. */
+@Composable
+fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
+    Surface {
+        Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (navigation != null) HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
+            else Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                PodDraftMemberRow(detail)
+            }
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { trailing() }
+        }
+    }
+}
+
+/** Readiness badges only while drafting; afterwards the avatars just show who is in the pod. */
+@Composable
+fun PodDraftMemberRow(detail: PodDetail) {
+    val drafting = detail.phase == PodPhase.DRAFTING
+    Row(Modifier.fillMaxWidth().height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        detail.members.forEach { member ->
+            // Picks the member can make in a row if nobody else acts, next-round packs (Grid: grids) they open included.
+            val waiting = member.packsWaiting
+            Box(Modifier.size(28.dp).semantics {
+                if (drafting) stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
+            }) {
+                Avatar(member.account, size = 28.dp)
+                // A circle for one character, a pill for "9+".
+                if (drafting) Box(Modifier.align(Alignment.BottomEnd).testTag("pod-member-badge").height(12.dp).widthIn(min = 12.dp)
+                    .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape)
+                    .padding(horizontal = 2.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text(podBadgeText(waiting), color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, softWrap = false)
+                }
+            }
+        }
+    }
+}
+
+fun podBadgeText(waiting: Int) = when { waiting <= 0 -> "✓"; waiting > 9 -> "9+"; else -> "$waiting" }
+
+/** Who still holds packs (or grid turns), plus the caller's round. */
+fun podWaitingText(detail: PodDetail, accountId: String): String {
+    detail.limited?.let { return podLimitedWaitingText(detail, it, accountId) }
+    val grid = detail.grid?.publicView?.takeIf { detail.settings.mode == DraftMode.GRID }
+    val busy = detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
+    val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }
+    val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
+    val round = grid?.takeIf { !it.finished }?.let { detail.grid!!.mine.round to it.rounds }
+        ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
+    val draft = detail.draft
+    if (grid != null || draft == null) return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")
+    // Booster and Glimpse say whether packs still come back to this player; each part goes on its own line.
+    val status = when {
+        draft.incoming > 0 -> "$who\n${draft.incoming} ${if (draft.incoming == 1) "pack will" else "packs will"} come back to you"
+        names.isEmpty() -> "All your picks are done\nOther players are finishing"
+        else -> "All your picks are done\n${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
+    }
+    return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
+}
+
+/** The pick screen's orientation line: "Round 2/6 · Pick 2 · from Matti", or "… · your pack" before its first pick. */
+fun podPickOrientationText(detail: PodDetail): String? {
+    val draft = detail.draft ?: return null
+    val head = draft.head ?: return null
+    val from = head.passedBy?.let { id ->
+        "from " + (detail.members.firstOrNull { it.account.accountId == id }?.account?.username ?: "another player")
+    } ?: "your pack"
+    val round = if (draft.rounds > 0 && draft.round in 1..draft.rounds) "Round ${draft.round}/${draft.rounds} · " else ""
+    return "${round}Pick ${head.pick} · $from"
+}
+
+/** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */
+@Composable
+fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
+    val mine = detail.members.firstOrNull { it.account.accountId == accountId }
+    val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Members", style = MaterialTheme.typography.titleMedium)
+        detail.members.forEach { member ->
+            MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
+                if (podChallengeOffered(detail, member, accountId) && lobby != null)
+                    HoldTip("Challenge") {
+                    FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
+                        enabled = mine?.submitted == true && !lobby.state.mutating) {
+                        Icon(AppPlatform.current.swordsOutlined(), contentDescription = "Challenge")
+                    }
+                    }
+            }
+        }
+        // DRF-121 (game history §3.2): the pod's standings and every match of it, played or being played, no decks
+        if (lobby != null) {
+            // Read on opening, and again when one of the pod's games starts or ends (its match record is written as it
+            // ends): a read made just before the server took an ending would otherwise keep showing the match in play
+            val stages = games.map { "${it.id.take(8)} ${it.lifecycle.name.lowercase()}${if (it.resultNotice != null) " ended" else ""}" }.sorted()
+            val opened = remember(detail.id) { stages }
+            LaunchedEffect(detail.id, stages) {
+                lobby.history.loadPod(detail.id, if (stages == opened) "opened" else "a game changed: ${stages.joinToString()}")
+            }
+            PodMatchesSection(detail, lobby.history.pods[detail.id])
+        }
+        if (games.isNotEmpty()) {
+            Text("Games", style = MaterialTheme.typography.titleMedium)
+            games.forEach { game ->
+                val opponent = if (game.inviter.accountId == accountId) game.recipient else game.inviter
+                // An invitation to answer is answered in place, like the Menu list; it is not opened as a lobby yet.
+                val incoming = incomingInvitation(game, accountId)
+                Row(Modifier.fillMaxWidth().testTag("pod-game-${game.id}")
+                    .then(if (incoming) Modifier else Modifier.clickable { lobby?.open(game.id) }).heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Avatar(opponent)
+                    Column(Modifier.weight(1f)) {
+                        Text(game.gameName)
+                        if (game.invitationHeld || incoming) Text(gameStatus(game, accountId), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("vs ${opponent.username}", style = MaterialTheme.typography.bodySmall)
+                    if (incoming && lobby != null) MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
+                        acceptEnabled = !game.invitationHeld) { lobby.respond(game, it) }
+                }
+            }
+        }
+    }
+}
+
+/** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
+fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
+    detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId
+
+@Composable
+fun MemberLine(account: AccountIdentity, status: String, trailing: @Composable RowScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Avatar(account)
+        Column(Modifier.weight(1f)) { Text(account.username); Text(status, style = MaterialTheme.typography.bodySmall) }
+        trailing()
+    }
+}

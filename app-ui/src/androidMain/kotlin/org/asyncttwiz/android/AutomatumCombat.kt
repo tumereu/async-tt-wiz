@@ -1,0 +1,424 @@
+package org.asyncttwiz.android
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.asyncttwiz.automatum.AttackChoice
+import org.asyncttwiz.automatum.AutomatumLog
+import org.asyncttwiz.automatum.CombatFlow
+import org.asyncttwiz.automatum.CombatRefused
+import org.asyncttwiz.automatum.CombatShown
+import org.asyncttwiz.automatum.DamageDivision
+import org.asyncttwiz.automatum.Divisions
+import org.asyncttwiz.automatum.EngineRun
+import org.asyncttwiz.automatum.LaneAttack
+import org.asyncttwiz.automatum.LaneBlock
+import org.asyncttwiz.automatum.PreAnswer
+import org.asyncttwiz.automatum.PreAnswers
+import org.asyncttwiz.automatum.PreShare
+import org.asyncttwiz.automatum.StepFlow
+import org.asyncttwiz.protocol.*
+
+/**
+ * Combat through Automatum on today's lanes (integration spec §3 I3; the interim before the combat area redesign, I-D32):
+ *
+ * - while the engine waits for attackers or blockers the lanes are a draft of the declaration: cards join it by dragging
+ *   (CMB-028) or Declare (CMB-017), checked against what the engine allows ([draftRefusal], I-D36);
+ * - Attack / No attack, Block / No blocks and Deal damage are the step arrow's pass (TRN-057): with a declaration
+ *   awaited it declares what the lanes hold, else the priority holder passes and the engine deals the combat damage,
+ *   asking for a division only where there is a choice (the shared flow's panel, I-D29);
+ * - what the table shows ([shown]): the damage preview, "+N" on a blocker blocking several attackers, and divisions
+ *   still to come, which their player may give early ([giveEarly], a pre-event, I-D33).
+ */
+class CombatController(
+    private val current: () -> TableBoard?,
+    private val submit: (PlayAction) -> Boolean,
+    /** Where the engine's reasons for refused drafts are worked out (SYS-025): off the main thread in the app. */
+    private val work: AutomatumWork = AutomatumWork.Inline,
+    /** The message shown now, and showing another (an engine reason worked out after the refusal). */
+    private val error: () -> String? = { null },
+    private val fail: (String?) -> Unit = {},
+    /** The board shown now (also while the viewer can't act), which the viewer's selection belongs to. */
+    private val board: () -> TableBoard? = current,
+) {
+    private var shownBoard: BoardState? = null
+    /** What the table shows of combat on the board last worked out ([show]). */
+    var view by mutableStateOf(CombatShown.NONE); private set
+
+    /** [value] is what the table shows of combat on [play]'s board. */
+    fun show(play: TableBoard, value: CombatShown) {
+        shownBoard = play.board; view = value
+        noteDivisions(play, value)
+    }
+
+    // ---- The viewer's own state of the combat area (I-D32): nothing of it is shared
+
+    /** CMB-032, CMB-034: the combatant the viewer selected, by its real card's id; null when none. It belongs to the
+     * combat step it was made in (combat review #7): once that declaration or step is over, by whoever's action, it is
+     * gone. */
+    val selected: String? get() = selection?.takeIf { it.second == step(board()) }?.first
+    private var selection by mutableStateOf<Pair<String, String>?>(null)
+    private fun step(play: TableBoard?): String = play?.board?.let { b -> "${b.turn.number}/${b.turn.phase}/${b.turn.step}/${b.combat?.id}" }.orEmpty()
+    /** CMB-028: the attack target the viewer's taps stage to, with the turn it was chosen in (null target: the defending
+     * player). */
+    private var lane by mutableStateOf<Pair<String, String?>?>(null)
+    /** CMB-029: the eye hid the preview's numbers. */
+    var numbersHidden by mutableStateOf(false); private set
+
+    fun select(card: String?) { selection = card?.let { it to step(board()) } }
+    fun clearSelection() { selection = null; picking = null }
+    /** CMB-036, CMB-038: the viewer stops picking for a staged attacker (its selection stays). */
+    fun stopPicking() { picking = null }
+    fun toggleNumbers() { numbersHidden = !numbersHidden }
+
+    // ---- The attacker's choices with their staged attackers (CMB-036–CMB-038): shared as an early answer of its own
+    // ([PreAnswer.AttackChoices]); only which attacker the viewer is enlisting for or forming a band with is theirs
+
+    /** What the viewer's taps pick for a staged attacker now: creatures to enlist ([Picking.Enlist], CMB-036) or the
+     * members of its band ([Picking.Band], CMB-038); null otherwise. It belongs to the step it began in. */
+    sealed interface Picking {
+        val attacker: String
+        data class Enlist(override val attacker: String) : Picking
+        data class Band(override val attacker: String) : Picking
+    }
+    val picked: Picking? get() = picking?.takeIf { it.second == step(board()) }?.first
+    private var picking by mutableStateOf<Pair<Picking, String>?>(null)
+
+    /** CMB-036: begins (or ends) picking the creatures [attacker] enlists. */
+    fun pickEnlisted(attacker: String) {
+        picking = if (picked == Picking.Enlist(attacker)) null else Picking.Enlist(attacker) to step(board())
+    }
+
+    /** CMB-038: begins (or ends) forming [attacker]'s band; it joins a band of its own at once. */
+    fun pickBand(attacker: String): Boolean {
+        val play = current() ?: return false
+        if (picked == Picking.Band(attacker)) { picking = null; return true }
+        picking = Picking.Band(attacker) to step(board())
+        val choices = CombatFlow.attackChoices(play.board)
+        if (choices[attacker]?.band != null) return true
+        val band = (choices.values.mapNotNull { it.band }.maxOrNull() ?: 0) + 1
+        return changeChoice(play, attacker) { it.copy(band = band) }
+    }
+
+    /** CMB-037: [attacker] pays the optional cost to attack [key] (exert), or no longer does. */
+    fun toggleOptional(attacker: String, key: String): Boolean = current()?.let { play ->
+        changeChoice(play, attacker) { c -> c.copy(paying = if (key in c.paying) c.paying - key else c.paying + key) } } ?: false
+
+    /** CMB-036: [attacker] enlists [creature] (as many as it has enlist abilities, [limit]: the first goes when full), or
+     * no longer does when it already enlists it. */
+    fun toggleEnlisted(play: TableBoard, attacker: String, creature: String, limit: Int): Boolean {
+        val sent = changeChoice(play, attacker) { c ->
+            if (creature in c.enlisted) c.copy(enlisted = c.enlisted - creature)
+            else c.copy(enlisted = (c.enlisted + creature).takeLast(limit.coerceAtLeast(1)))
+        }
+        if (sent && CombatFlow.attackChoices(current()?.board ?: play.board)[attacker]?.enlisted.orEmpty().size >= limit) picking = null
+        return sent
+    }
+
+    /** CMB-036: [attacker] enlists nothing. */
+    fun clearEnlisted(attacker: String): Boolean = current()?.let { play -> changeChoice(play, attacker) { it.copy(enlisted = emptyList()) } } ?: false
+
+    /** CMB-038: the staged [member] joins the band of the attacker being formed into one, or leaves it. */
+    fun toggleBandMember(play: TableBoard, member: String): Boolean {
+        val leader = (picked as? Picking.Band)?.attacker ?: return false
+        val band = CombatFlow.attackChoices(play.board)[leader]?.band ?: return false
+        return changeChoice(play, member) { c -> c.copy(band = if (c.band == band) null else band) }
+    }
+
+    /** The event that sets [card]'s choice to [change] of it on [play]'s board (the record withdrawn once nothing is
+     * chosen), or null when nothing changes. */
+    fun choiceAction(play: TableBoard, card: String, change: (AttackChoice) -> AttackChoice): PlayAction? {
+        val given = CombatFlow.attackChoices(play.board)
+        val before = given[card] ?: AttackChoice(card)
+        val after = change(before)
+        if (after == before) return null
+        val rest = given.values.filter { it.cardId != card } + listOfNotNull(after.takeUnless { it.empty })
+        // A band of one is no band (CMB-038): its last member leaves it too
+        val bands = rest.mapNotNull { it.band }.groupingBy { it }.eachCount()
+        val choices = rest.map { if (it.band != null && bands[it.band] == 1 && it.cardId != (picked as? Picking.Band)?.attacker) it.copy(band = null) else it }
+            .filterNot { it.empty }
+        if (choices.isEmpty()) return PreAnswers.withdraw(play.board, PreAnswer.ATTACK_CHOICES)
+        return PreAnswers.set(play.board, PreAnswer.AttackChoices(play.board.turn.accountId, play.board.turn.number.toIntOrNull(), choices))
+    }
+
+    private fun changeChoice(play: TableBoard, card: String, change: (AttackChoice) -> AttackChoice): Boolean {
+        val action = choiceAction(play, card, change) ?: return false
+        AutomatumLog.preEvent(play.gameId, "attack choice", card)
+        return submit(action)
+    }
+
+    /** CMB-028: the active target lane on [play]'s board: chosen this turn and still a target, else the defending player. */
+    fun activeTarget(play: TableBoard): String? {
+        val chosen = lane?.takeIf { it.first == play.board.turn.number }?.second ?: return null
+        return chosen.takeIf { id -> play.board.cards.any { it.id == id } &&
+            id in CombatStackPresentation.attackTargets(play.board, play.definitions, play.board.turn.accountId) }
+    }
+    fun chooseTarget(play: TableBoard, target: String?) { lane = play.board.turn.number to target }
+
+    /** CMB-028 (owner, 2026-11-05): while [viewer] declares attackers on [play]'s board, their creatures that may attack
+     * something (staged ones too), once worked out; empty otherwise. */
+    fun attackable(play: TableBoard, viewer: String): Set<String> {
+        val choices = readyOrLast(play)?.choices ?: return emptySet()
+        if (choices.declaring != viewer || !choices.attackers) return emptySet()
+        return choices.attacks.filterValues { it.isNotEmpty() }.keys
+    }
+
+    /** CMB-034, CMB-040 (owner, 2026-11-08): while [viewer] declares blockers on [play]'s board, or places the defender's to
+     * assume them ([assuming]), the creatures that may block something (placed ones too), once worked out; empty otherwise. */
+    fun blockable(play: TableBoard, viewer: String, assuming: Boolean): Set<String> {
+        val choices = readyOrLast(play)?.choices ?: return emptySet()
+        if (choices.declaring == null || choices.attackers || (choices.declaring != viewer && !assuming)) return emptySet()
+        return choices.blocks.filterValues { it.isNotEmpty() }.keys
+    }
+
+    /** CMB-033: the divisions with a choice asked in a damage step, as first seen (turn, first-strike step) → sources,
+     * so the dialog can say "2 of 3" after the first ones were answered. */
+    private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null
+
+    private fun noteDivisions(play: TableBoard, value: CombatShown) {
+        val asked = value.preview?.divisions.orEmpty().map { it.first }.filter { askedInDialog(play.board, it) }
+        for (step in listOf(true, false)) {
+            val sources = asked.filter { it.firstStrike == step }.map { it.source }.distinct()
+            if (sources.isEmpty()) continue
+            val key = play.board.turn.number to step
+            val known = stepDivisions?.takeIf { it.first == key }?.second.orEmpty()
+            // A list from before any answer holds every one; a later look holds only those still to come
+            if (known.isEmpty() || !known.containsAll(sources)) stepDivisions = key to (known.filterNot { it in sources } + sources).distinct()
+            break
+        }
+    }
+
+    /** CMB-033: "n of m" for the open [division] on [play]'s board, or null when it is the only one of its step. */
+    fun divisionCount(play: TableBoard, division: DamageDivision): Pair<Int, Int>? {
+        val known = stepDivisions?.takeIf { it.first == (play.board.turn.number to division.firstStrike) }?.second.orEmpty()
+        val index = known.indexOf(division.source)
+        val coming = view.early.filter { askedInDialog(play.board, it) }.map { it.source }.distinct()
+        val (n, m) = if (index >= 0) index + 1 to maxOf(known.size, index + 1 + coming.size) else 1 to 1 + coming.size
+        return (n to m).takeIf { m > 1 }
+    }
+
+    /**
+     * What may be declared on [play]'s board, never worked out on the main thread in the app (#12, finalreview-combat #5,
+     * SYS-025): the board's own when worked out, else the last shown board's while it awaits the same declaration
+     * (drafting only moves cards in the lanes, which the engine doesn't read while a declaration is awaited); else
+     * [WORKING] until [AutomatumCombatHost] has worked it out ([working] tells it). Worked out now only with
+     * [AutomatumWork.Inline] (tests).
+     */
+    fun choices(play: TableBoard): CombatShown {
+        ready(play)?.let { return it }
+        val last = shownBoard
+        if (last != null && sameDeclaration(last, play.board)) return view
+        return if (work === AutomatumWork.Inline) shown(play) else WORKING
+    }
+
+    /** Whether [shown] is [WORKING]: what combat allows on the board isn't worked out yet. */
+    fun working(shown: CombatShown): Boolean = shown === WORKING
+
+    /** Whether [a] and [b] differ only in what a draft of a declaration changes (the lanes, what is only shown). */
+    private fun sameDeclaration(a: BoardState, b: BoardState): Boolean =
+        a.turn == b.turn && a.priority == b.priority &&
+            // CMB-036: the attacker's choices are an early answer beside the board, which what may be declared doesn't read
+            a.engineRecords.filter { it.kind != EngineRecordKind.PreAnswer } == b.engineRecords.filter { it.kind != EngineRecordKind.PreAnswer } &&
+            a.cards.size == b.cards.size && a.cards.zip(b.cards).all { (x, y) -> x.id == y.id && x.containerId == y.containerId &&
+                x.tapped == y.tapped && x.zoneChanges == y.zoneChanges }
+
+    /** What the table shows of combat on [play]'s board: worked out already, or now (blocking). */
+    fun shown(play: TableBoard): CombatShown =
+        if (shownBoard === play.board) view else AutomatumBoards.combat(play)
+
+    /** What is shown of combat on [play]'s board when already worked out (never blocks); null until then. */
+    fun ready(play: TableBoard): CombatShown? = if (shownBoard === play.board) view else AutomatumBoards.cachedCombat(play)
+
+    /** [ready], else the last shown board's while it awaits the same declaration (the combat area keeps its chips while a
+     * draft change is worked out, CMB-036–CMB-038); null when neither. */
+    fun readyOrLast(play: TableBoard): CombatShown? = ready(play) ?: shownBoard?.takeIf { sameDeclaration(it, play.board) }?.let { view }
+
+    /** The early answer (I-D33) to [division]: [shares] by target. One ordinary event, undoable. */
+    fun giveEarly(division: DamageDivision, shares: Map<MtgRef, Int>): Boolean {
+        val play = current() ?: return false
+        val card = play.board.cards.singleOrNull { it.id == division.source } ?: return false
+        // Keyed to that division: this turn's, in its damage step (#3, CR 510.4)
+        val answer = PreAnswer.Division(division.player, MtgRef.Card(card.id, card.zoneChanges),
+            shares.map { (target, amount) -> PreShare(target, amount) }, play.board.turn.number.toIntOrNull(), division.firstStrike)
+        AutomatumLog.preEvent(play.gameId, "given", answer.toString())
+        return submit(PreAnswers.set(play.board, answer))
+    }
+
+    /** Withdraws the early answer to [division]. */
+    fun withdrawEarly(division: DamageDivision): Boolean {
+        val play = current() ?: return false
+        val card = play.board.cards.singleOrNull { it.id == division.source } ?: return false
+        AutomatumLog.preEvent(play.gameId, "withdrawn", "division of ${card.id}")
+        return submit(PreAnswers.withdraw(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges), division.firstStrike))
+            ?: return false)
+    }
+
+    /** The early answer given on [play]'s board for [division], if any. */
+    fun early(play: TableBoard, division: DamageDivision): PreAnswer.Division? {
+        val card = play.board.cards.singleOrNull { it.id == division.source } ?: return null
+        return PreAnswers.find(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges), division.firstStrike)) as? PreAnswer.Division
+    }
+
+    /**
+     * Why [sources] (Battlefield cards, or the cards of combat copies) can't join the draft in the lanes as [role] in
+     * [pairId] (or a new pair attacking [attackTarget]) now (I-D36: a drag into the combat area means declaring an
+     * attacker or a blocker); null when they can. Only what the engine allows: attackers while they are awaited, of the
+     * creatures that may attack that target; blockers while they are awaited, in the pair of attackers they may block.
+     */
+    fun draftRefusal(play: TableBoard, sources: List<String>, role: CombatRole, pairId: String?, attackTarget: String?): String? {
+        val shown = choices(play)
+        if (working(shown)) return WORKING_OUT
+        val choices = shown.choices
+        val pair = pairId?.let { id -> play.board.combat?.pairs?.singleOrNull { it.id == id } }
+        choices.declaring ?: return if (AutomatumBoards.throughEngine(play.board)) DECLARED else NOT_DECLARING
+        fun name(id: String) = combatName(play, id)
+        if (choices.attackers) {
+            if (role != CombatRole.ATTACKER) return "Blockers are declared in the Declare blockers step."
+            val target = pair?.attackTarget ?: attackTarget
+            for (source in sources) {
+                if (target in choices.attacks[source].orEmpty()) continue
+                return refused(play, "${name(source)} can't attack ${if (target == null) "the player" else name(target)} now.") {
+                    CombatFlow.attackRefusal(it, listOf(LaneAttack(source, target)))
+                }
+            }
+            return null
+        }
+        if (role != CombatRole.BLOCKER) return DECLARED_ATTACKERS
+        val attackers = pair?.attackers?.map { it.sourceId }.orEmpty()
+        if (attackers.isEmpty()) return "Put a blocker into the pair of the attacker it blocks."
+        for (source in sources) {
+            if (attackers.all { it in choices.blocks[source].orEmpty() }) continue
+            return refused(play, "${name(source)} can't block ${attackers.joinToString(" and ") { name(it) }}.") { call ->
+                CombatFlow.blockRefusal(call, attackers.map { LaneBlock(source, it) })
+            }
+        }
+        return null
+    }
+
+    /**
+     * A refusal with the engine's reason ([refusal]) when it gives one, else [fallback]. The reason is worked out on [work]
+     * (#12, SYS-025): meanwhile [fallback] is shown, replaced by the reason once it is ready unless another message
+     * replaced it.
+     */
+    private fun refused(play: TableBoard, fallback: String, refusal: (EngineRun) -> String?): String {
+        if (work === AutomatumWork.Inline) return reason(play, refusal) ?: fallback
+        work.run({ reason(play, refusal) }) { why -> if (why != null && error() == fallback) fail(why) }
+        return fallback
+    }
+
+    /** The engine's reason for a refusal on [play] (blocking: one engine call); null when it gives none. */
+    private fun reason(play: TableBoard, refusal: (EngineRun) -> String?): String? = try {
+        // R4a: on the game's own engine state
+        val engine = play.engine ?: return null
+        refusal(EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") })
+    } catch (problem: Exception) { null }
+
+    companion object {
+        const val NOT_DECLARING = "Creatures join combat as attackers in the Declare attackers step, as blockers in the Declare blockers step."
+        const val DECLARED = "Attackers and blockers are already declared."
+        const val DECLARED_ATTACKERS = "Attackers are already declared."
+        const val WORKING_OUT = "Automatum is still working out this combat: try again in a moment."
+        /** What [choices] gives while the board's combat isn't worked out yet (an identity, never equal to a result). */
+        private val WORKING = CombatShown(CombatShown.NONE.choices)
+    }
+}
+
+/** Works out what combat allows and would do on the shown board, off the main thread (SYS-025), for the quick actions,
+ * the drags, the damage preview and early divisions ([CombatController.show]). */
+@Composable
+fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
+    LaunchedEffect(IdentityKey(play.board)) {
+        val shown = AutomatumBoards.cachedCombat(play)
+            ?: toolkit.boardWork(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
+        toolkit.combat.show(play, shown)
+    }
+}
+
+/**
+ * The quick actions of combat with Automatum on (CMB-028, CMB-029, CMB-034), or null when the manual ones
+ * stay (Automatum off, outside these steps, or a board Automatum can't take over). Empty until what the engine allows
+ * is worked out.
+ */
+/** CMB-048: the defending player's name (the player whose turn it isn't) for "Rest → <name>", from the game's players,
+ * so it is there before any lane is drawn; null when the board names no such player. */
+fun defendingPlayerName(game: GameSummary, play: TableBoard): String? {
+    val defender = play.board.players.firstOrNull { it.accountId != play.board.turn.accountId }?.accountId ?: return null
+    return when (defender) {
+        game.inviter.accountId -> game.inviter.username
+        game.recipient.accountId -> game.recipient.username
+        else -> null
+    }
+}
+
+/** CMB-028: [this] context with the viewer's active attack target lane and its name ([playerName]: the defending
+ * player's). */
+fun QuickContext.withCombatTarget(combat: CombatController, play: TableBoard, playerName: String?): QuickContext {
+    if (play.board.combat == null && TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS) return this
+    val target = combat.activeTarget(play)
+    return copy(combatTarget = target, combatTargetName = if (target == null) playerName ?: "the player" else CastController.cardName(play, target))
+}
+
+fun automatumCombatQuickActions(play: TableBoard, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
+    val position = TurnPosition.of(play.board.turn)
+    if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
+    // CMB-040 (owner, 2026-11-05): while the attacker waits for the defender's blocks they place assumed ones on the lanes,
+    // with Clear as the defender has (CMB-034)
+    context.assumedBlockers?.let { placed ->
+        return listOf(QuickAction("Clear", "", TableActionIntent.Combat(scope, CombatTool.ASSUME_CLEAR, context.combatAreaId),
+            enabled = placed > 0, refused = if (placed > 0) null else "Nothing blocks yet."))
+    }
+    val shown = context.automatumCombat ?: return emptyList()
+    // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
+    if (position == TurnPosition.COMBAT_DAMAGE && !AutomatumBoards.throughEngine(play.board) && shown.passing == null) return null
+    val viewer = context.viewer
+    val area = context.combatAreaId
+    val choices = shown.choices
+    val pairs = play.board.combat?.pairs.orEmpty()
+    fun greyed(name: String, tool: CombatTool, reason: String?, ids: List<String> = emptyList()) =
+        QuickAction(name, "", TableActionIntent.Combat(scope, tool, area, ids), enabled = reason == null, refused = reason)
+    // UI review round 2 #1 (decided for the owner): the step arrow alone declares and passes ("Attack (N)" / "No attack",
+    // "Block (N)" / "No blocks", "Next"); combat's quick actions are only the staging helpers
+    return buildList {
+        when {
+            // CMB-028: the attacker's staging
+            choices.declaring != null && choices.attackers -> if (viewer == play.board.turn.accountId) {
+                val staged = pairs.flatMap { it.attackers }.map { it.sourceId }
+                val target = context.combatTarget
+                val name = context.combatTargetName.ifEmpty { "target" }
+                val rest = choices.attacks.filter { (card, targets) -> target in targets && card !in staged }.keys.toList()
+                add(greyed("Rest → $name", CombatTool.AUTOMATUM_STAGE,
+                    if (rest.isEmpty()) "No other creature can attack $name now." else null, rest))
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (staged.isEmpty()) "Nothing is staged." else null))
+            }
+            // CMB-034: the defender's blocks
+            choices.declaring != null -> if (viewer == choices.declaring) {
+                val blocks = CombatStackRules.blocks(play.board.combat)
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (blocks.isEmpty()) "Nothing blocks yet." else null))
+            }
+        }
+    }
+}
+
+/** A card in combat as everyone may see it named in combat's messages (I-D27, combat review #6): a face-down card stays
+ * hidden. */
+fun combatName(play: TableBoard, cardId: String): String =
+    if (play.board.cards.singleOrNull { it.id == cardId }?.isFaceDown == true) "A face-down creature" else CastController.cardName(play, cardId)
+
+/** A card or player as the viewer may see it named (I-D27: a face-down card stays hidden). */
+fun refName(play: TableBoard, names: Map<String, String>, ref: MtgRef): String = when (ref) {
+    is MtgRef.Player -> names[ref.accountId] ?: "A player"
+    is MtgRef.Card -> play.board.cards.singleOrNull { it.id == ref.cardId }?.let { card ->
+        if (card.isFaceDown) "A face-down creature" else CastController.cardName(play, card.id) } ?: "A card"
+    is MtgRef.StackItem -> "An ability"
+}

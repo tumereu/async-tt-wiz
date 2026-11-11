@@ -311,13 +311,13 @@ configurations.matching { !it.name.contains("CompileClasspath") }.configureEach 
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
     implementation(project(":core"))
     implementation(project(":protocol"))
     implementation(project(":client-storage"))
     // Arcanum Automatum in ATW (integration spec §3): the engine's view of the board (I1).
     implementation(project(":automatum"))
-    // The shared Compose UI (docs/specs/web-client.md §11 step 2); compose-bom below keeps androidx Compose's versions.
+    // The app's UI (docs/specs/web-client.md §11 step 2: the shell keeps only what it uses itself); compose-bom below keeps
+    // androidx Compose's versions.
     implementation(project(":app-ui"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
@@ -325,13 +325,13 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
-    implementation(libs.ktor.client.android)
     implementation(libs.okhttp)
     implementation(libs.work.runtime)
     implementation(libs.metrics.performance)
     if (fcmEnabled) implementation(libs.firebase.messaging)
     implementation(libs.serialization.json)
-    implementation(libs.coil.compose)
+    // The shell's artwork service (CardArtworkService); the UI's Coil Compose comes with :app-ui.
+    implementation(libs.coil.core)
     testImplementation(libs.kotlin.test)
     // Tests only: invented cards for Automatum casting are parsed from their oracle text, as the device does (I-D2).
     testImplementation(project(":arcanum-parser"))

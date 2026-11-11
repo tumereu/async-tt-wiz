@@ -43,6 +43,17 @@ kotlin {
             // The Android sides of the seams: the activity's back handling and Ktor's Android engine, as the app has them.
             implementation(libs.activity.compose)
             implementation(libs.ktor.client.android)
+            // The app's UI, moved here from :androidApp as it was (step 2c-1); step 2c-2 moves it on into commonMain.
+            // The same libraries and versions :androidApp compiled it with.
+            implementation(project(":client-storage"))
+            implementation(libs.compose.ui)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.material.icons)
+            implementation(libs.coil.compose)
+            implementation(libs.okhttp)
+            implementation(libs.serialization.json)
+            implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
         }
     }
 }

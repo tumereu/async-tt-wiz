@@ -1,0 +1,239 @@
+package org.asyncttwiz.android
+
+import androidx.compose.ui.text.input.ImeAction
+import org.asyncttwiz.appui.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.appui.screenWidthDp
+import org.asyncttwiz.appui.screenHeightDp
+
+@Composable
+fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
+    importDeck: ((DeckDetail) -> Unit)? = null) {
+    val state = controller.state
+    BackHandler { controller.back() }
+    val columns = rememberDeckViewColumns(DeckViewScreen.SAVED)
+    var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
+    val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
+    if (state.dialog == DeckDialog.COVER && state.detail != null) {
+        CoverScreen(controller, openNavigation); return
+    }
+    ScreenBusyOverlay(if (state.mutating) "Saving deck…" else if (state.busy && state.detail == null) "Loading saved deck…" else null) {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
+        val draft = state.detail?.saved?.deck?.draft
+        ScreenHeader(if (draft != null) "Draft deck" else "Saved deck", openNavigation) {
+            // LOB-057: a draft deck is read-only: Delete draft deck beside Save as deck, which gives an editable copy that is kept.
+            if (draft != null) {
+                TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.heightIn(min = 48.dp), enabled = !state.mutating,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(screenIcon("delete"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete draft deck", maxLines = 1)
+                }
+                ScreenOutlinedButton(onClick = controller::saveAsDeck, enabled = !state.mutating) {
+                    EntryIcon(null, "ready"); Spacer(Modifier.width(6.dp)); Text("Save as deck", maxLines = 1)
+                }
+            } else ScreenOutlinedButton(onClick = { state.detail?.let { importDeck?.invoke(it) } },
+                enabled = state.detail != null && !state.mutating && importDeck != null) {
+                EntryIcon(null, "edit"); Spacer(Modifier.width(6.dp)); Text("Edit")
+            }
+        }
+        InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::retry, loading = state.busy) {
+        Column(Modifier.fillMaxSize()) {
+        state.detail?.let { detail ->
+            DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover, padding = PaddingValues(start = 16.dp, end = 8.dp,
+                top = 8.dp, bottom = 8.dp), automatum = detail.saved.deck.automatum) { DeckViewColumnsControl(columns) }
+            detail.saved.deck.draft?.let { origin ->
+                Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // The game preparation view, read-only: every section in one scroll, holding a card inspects it.
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
+                for (section in savedListSections(SavedDeckSection.PREPARED, detail.saved.entries.map { it.section })) {
+                    val title = section.sectionLabel()
+                    visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
+                        preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
+                        val key = "$section/${tile.digest}"
+                        VisualDeckCard(tile, key, title, onHold = { open ->
+                            if (open) {
+                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                held = key to tile
+                            } else if (held?.first == key) held = null
+                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
+                    }
+                }
+            }
+        }
+    }
+    }
+    }
+    FloatingTransientError(state.error.takeIf { state.dialog == null }, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
+    }
+    held?.second?.let { tile ->
+        val card = remember(tile.digest, tile.definition) {
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
+        }
+        PodCardArtPreview(card, tile.name, previewScroll)
+    }
+    if (state.dialog == DeckDialog.RENAME || state.dialog == DeckDialog.DELETE) {
+        val deleting = state.dialog == DeckDialog.DELETE
+        ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) {
+            if (deleting) "Deleting deck…" else "Saving deck name…"
+        } else null, error = state.error, dismissError = controller::dismissError,
+            title = if (deleting) "Delete ${deckKind(state.detail?.saved?.deck)}?" else "Rename deck", actions = {
+                DialogCancelButton(if (deleting) "Keep deck" else "Cancel", controller::dismiss)
+                DialogMainButton(if (deleting) "Delete ${deckKind(state.detail?.saved?.deck)}" else "Save name", controller::confirm,
+                    enabled = !state.mutating, danger = deleting, icon = if (deleting) "delete" else "rename")
+            }) {
+                    if (deleting) {
+                        Text(state.detail?.saved?.deck?.name.orEmpty(), fontWeight = FontWeight.Bold)
+                        Text("Deletion cannot be undone.")
+                    } else {
+                        val name = rememberDialogField(state.draftName)
+                        OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, label = { Text("Deck name") },
+                            modifier = Modifier.fillMaxWidth().dialogField(name), enabled = !state.mutating, singleLine = true,
+                            keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(!state.mutating, submit = controller::confirm))
+                    }
+        }
+    }
+}
+
+/** A saved list's sections: [always] shown (empty ones say "Empty"), then Maybe only when it holds cards. */
+fun savedListSections(always: List<SavedDeckSection>, present: List<SavedDeckSection>): List<SavedDeckSection> =
+    always + listOf(SavedDeckSection.MAYBEBOARD).filter { it !in always && it in present }
+
+@Composable
+private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Unit)?) {
+    val state = controller.state
+    val detail = state.detail!!
+    val landscape = screenWidthDp() > screenHeightDp()
+    val actions: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel") }
+            ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating && state.draftCover != null) { EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use cover") }
+        }
+    }
+    ScreenBusyOverlay(if (state.mutating) "Saving cover…" else null) {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Choose cover", navigation)
+        val grid: @Composable (Modifier) -> Unit = { modifier ->
+        Column(modifier) {
+        Text("DECK: ${detail.saved.deck.name.uppercase()}", Modifier.padding(16.dp), style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyVerticalGrid(GridCells.Fixed(if (landscape) 3 else 2),
+            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // LOB-058 (owner playtest 2026-11-09): listed alphabetically; a card without a printing can't be the cover
+            items(detail.saved.entries.filter { it.printingId != null }.distinctBy { it.card }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { detail.definitions[it.card]?.name.orEmpty() }), key = { it.card }) { entry ->
+                val definition = detail.definitions.getValue(entry.card)
+                val chosen = state.draftCover == entry.card
+                Surface(selected = chosen, onClick = { controller.cover(entry.card) },
+                    enabled = !state.mutating, modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(if (chosen) 3.dp else 1.dp,
+                    if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.small) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                         BoxWithConstraints(Modifier.fillMaxWidth()) {
+                             val face = definition.faces.first()
+                             DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri),
+                                 definition.name, maxWidth, 64.dp)
+                         }
+                        Text(definition.name)
+                    }
+                }
+            }
+        }
+        }
+        }
+        if (landscape) Row(Modifier.weight(1f)) {
+            grid(Modifier.weight(1f).fillMaxHeight())
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("COVER PREVIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    state.draftCover?.let { digest -> detail.definitions[digest]?.let { definition ->
+                        OutlinedCard(Modifier.fillMaxWidth(), colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val face = definition.faces.first()
+                                DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name, 120.dp, 64.dp)
+                                Text(definition.name, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } }
+                }
+                actions()
+            }
+        } else {
+            grid(Modifier.weight(1f))
+            actions()
+        }
+    }
+    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun SavedDeckCollection(controller: DeckLibraryController) {
+    val state = controller.state
+    Box(Modifier.fillMaxSize()) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
+    PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy) controller.refresh() }, modifier = Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.loaded && state.decks.isEmpty()) Text("No saved decks yet.")
+        }
+        items(state.decks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+        if (state.draftDecks.isNotEmpty()) item {
+            Text(draftDecksHeading(state.draftDecks.size), Modifier.padding(top = 20.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(DRAFT_DECKS_EXPLANATION, Modifier.padding(bottom = 8.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+    }
+    }
+    }
+    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+private fun SavedDeckRow(deck: DeckSummary, open: () -> Unit) {
+    OutlinedCard(onClick = open, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val cover = deck.cover
+            DeckThumbnail(cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, cover?.name ?: deck.name, 40.dp, 52.dp)
+            Column(Modifier.weight(1f)) {
+                Text(deck.name, fontWeight = FontWeight.Bold)
+                Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            AutomatumSupportIcon(deck.automatum, onTap = open)
+            EntryIcon(null, "chevron")
+        }
+    }
+}

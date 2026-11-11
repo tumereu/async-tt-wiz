@@ -1,0 +1,82 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.protocol.CardDefinition
+import org.asyncttwiz.protocol.PodDeckCategory
+import org.asyncttwiz.protocol.PodDeckRules
+import org.asyncttwiz.protocol.PodDeckSwipe
+
+/** One pool copy in a feed; a ×N stack yields N consecutive feed cards. */
+data class PodBuildFeedCard(val copyId: String, val digest: String, val definition: CardDefinition?, val column: Int)
+
+/**
+ * Reviewing one Build column (or a whole section, Maybe too) one copy at a time. [cards] is a snapshot taken when
+ * the feed opens, so moves never reorder it. Each decision either keeps the copy in [category] (a tap) or moves it
+ * where a swipe in the columns would ([right], [left]: DRF-099); [moved] records the decisions made so far, in order
+ * (null: kept).
+ */
+data class PodBuildFeed(
+    val category: PodDeckCategory,
+    /** The reviewed column, or null for the whole section. */
+    val column: Int?,
+    val labels: List<String>,
+    val cards: List<PodBuildFeedCard>,
+    val moved: List<PodDeckCategory?> = emptyList(),
+) {
+    /** Where a swipe right sends the copy, as in the columns. */
+    val right: PodDeckCategory get() = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
+    /** Where a swipe left sends the copy, as in the columns. */
+    val left: PodDeckCategory get() = PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
+    val position: Int get() = moved.size
+    val current: PodBuildFeedCard? get() = cards.getOrNull(position)
+    val finished: Boolean get() = position >= cards.size
+    val canUndo: Boolean get() = moved.isNotEmpty()
+
+    /** "Main · MV 2"; a section feed names the current card's column, and just the section once finished. */
+    val title: String get() {
+        val shown = column ?: current?.column
+        val label = shown?.let(labels::getOrNull)?.let(::podBuildFeedColumnLabel)
+        return if (label == null) category.podBuildLabel() else "${category.podBuildLabel()} · $label"
+    }
+
+    val progress: String get() = "${minOf(position + 1, cards.size)} / ${cards.size}"
+
+    /** Zero parts are left out ("Kept 3", "2 to Side", "1 to Maybe"); an empty review says "Kept 0". */
+    val summary: String get() = (listOf(null, right, left).mapNotNull { destination ->
+        moved.count { it == destination }.takeIf { it > 0 }?.let { count ->
+            if (destination == null) "Kept $count" else "$count to ${destination.podBuildLabel()}"
+        }
+    }).joinToString(" · ").ifEmpty { "Kept 0" }
+
+    /** The current copy kept ([destination] null) or moved to [destination]. */
+    fun decide(destination: PodDeckCategory?): PodBuildFeed =
+        if (finished) this else copy(moved = moved + destination?.takeIf { it != category })
+
+    /** Back one card. The returned copy id, when present, was moved by that decision and must move back. */
+    fun undo(): Pair<PodBuildFeed, String?> {
+        if (!canUndo) return this to null
+        val previous = copy(moved = moved.dropLast(1))
+        return previous to cards[previous.position].copyId.takeIf { moved.last() != null }
+    }
+}
+
+/** Bucket labels read as "Lands", "MV 0" … "MV 5+". */
+fun podBuildFeedColumnLabel(label: String): String =
+    if (label.firstOrNull()?.isDigit() == true) "MV $label" else label
+
+/** A snapshot of [column] (or all columns, in display order) of [buckets]; null when there is nothing to review. */
+fun podBuildFeed(
+    category: PodDeckCategory, buckets: List<List<PodBuildTile>>, labels: List<String>, column: Int?,
+): PodBuildFeed? {
+    val cards = buckets.withIndex().filter { column == null || it.index == column }.flatMap { (index, tiles) ->
+        tiles.flatMap { tile -> tile.copyIds.map { PodBuildFeedCard(it, tile.digest, tile.definition, index) } }
+    }
+    if (cards.isEmpty()) return null
+    return PodBuildFeed(category, column, labels, cards)
+}
+
+/** Width of each of [perRow] equal cards across [columnWidth], with [gap] between neighbours. */
+fun podBuildCardWidth(columnWidth: Int, perRow: Int, gap: Int): Int =
+    ((columnWidth - gap * (perRow - 1)) / perRow.coerceAtLeast(1)).coerceAtLeast(1)
+
+/** Row-major (row, column) slot of the card at [index] when [perRow] cards sit side by side. */
+fun podBuildGridSlot(index: Int, perRow: Int): Pair<Int, Int> = index / perRow to index % perRow

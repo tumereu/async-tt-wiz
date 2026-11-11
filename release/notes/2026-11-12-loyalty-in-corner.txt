@@ -1,0 +1,1 @@
+fix: A planeswalker shows its loyalty, a battle its defense and a Saga its lore as the number in its corner.

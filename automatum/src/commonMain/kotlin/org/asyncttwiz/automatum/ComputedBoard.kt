@@ -30,7 +30,9 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  * - [untilEndOfTurn]: an until-end-of-turn effect changes its power or toughness.
  * - [gained]/[lost]: keyword abilities it has that its base values don't, and the other way round (layer 6).
  * - [typeLine]/[colors]: its type line and colours when an effect changed them (layers 4, 5); null when unchanged.
- * - [counters]: its typed counters (§4.2) as "+1/+1 ×2", "charge ×1", "Flying counter ×1".
+ * - [counters]: its typed counters (§4.2), each kind once ([ShownCounter]).
+ * - [primary]: TBL-021: the counter its rules make primary, for a permanent without P/T: a planeswalker's loyalty, a battle's
+ *   defense, a Saga's lore (count 0 when it has none); null for one with P/T or with no such counter kind.
  * - [keywords]: every keyword ability it has.
  * - [states]: TBL-133: the states the rules keep on it ("Ring-bearer", "Goaded", "Monstrous", [CardStates.words]).
  */
@@ -45,13 +47,18 @@ data class ComputedCard(
     val lost: List<String> = emptyList(),
     val typeLine: String? = null,
     val colors: String? = null,
-    val counters: List<String> = emptyList(),
+    val counters: List<ShownCounter> = emptyList(),
+    val primary: ShownCounter? = null,
     /** Every keyword ability it has now ("Flying", "First strike"), as the engine works them out (layer 6). */
     val keywords: List<String> = emptyList(),
     val states: List<String> = emptyList(),
 ) {
-    /** The computed P/T as the corner shows it ("3/3"); null when the engine gives the card no power and toughness. */
-    val corner: String? get() = if (power != null && toughness != null) "$power/$toughness" else null
+    /** The computed P/T as the corner shows it ("3/3"); for a permanent without P/T its primary counter's count (TBL-021:
+     * "4" loyalty); null when it has neither. */
+    val corner: String? get() = if (power != null && toughness != null) "$power/$toughness" else primary?.count?.toString()
+
+    /** The counters shown as bubbles on its art (owner, 2026-11-11): every kind but the one its corner shows. */
+    val bubbles: List<ShownCounter> get() = counters.filter { primary == null || it.kind != primary.kind }
 
     /** Up (1) when the computed P/T is above the base in one value and below it in none, down (-1) the other way
      * round, 0 unchanged, null when it went up in one and down in the other (a switch). */
@@ -68,8 +75,17 @@ data class ComputedCard(
         }
 
     /** The short marks the card shows besides its P/T: its states first (the chip is cut short, TBL-113, TBL-133), then
-     * changed types and colours, keywords gained and lost, counters. */
-    val marks: List<String> get() = states + listOfNotNull(typeLine, colors) + gained + lost.map { "no $it" } + counters
+     * changed types and colours, keywords gained and lost (its counters are bubbles, [bubbles]). */
+    val marks: List<String> get() = states + listOfNotNull(typeLine, colors) + gained + lost.map { "no $it" }
+}
+
+/**
+ * [count] counters of one kind on a card as the table shows them (owner, 2026-11-11: counters as visuals): [kind] the engine's
+ * kind (null when it can't be read), [name] as players read it ("+1/+1", "loyalty", "Flying counter", "charge").
+ */
+data class ShownCounter(val kind: CounterKind?, val name: String, val count: Int) {
+    /** The words Inspect lists it with ("+1/+1 counter ×2", "loyalty counter"). */
+    val words: String get() = (if (name.endsWith(" counter")) name else "$name counter").let { if (count == 1) it else "$it ×$count" }
 }
 
 /** One continuous effect on a card as Inspect lists it ([ComputedBoard.effects]): what it does ("+3/+3 until end of
@@ -313,7 +329,8 @@ class ComputedBoard private constructor(
                     gained = gained, lost = lost,
                     typeLine = typeLine(chars).takeIf { it != typeLine(base) },
                     colors = colors(chars).takeIf { chars.colors != base.colors },
-                    counters = counterMarks(card.typedCounters),
+                    counters = shownCounters(card.typedCounters),
+                    primary = primaryCounter(chars, shownCounters(card.typedCounters)),
                     keywords = chars.keywords.map(Keyword::text),
                     states = o.obj?.let { CardStates.words(state, it) }.orEmpty(),
                 )
@@ -373,9 +390,23 @@ class ComputedBoard private constructor(
             else -> EngineCodec.counterName(k)
         }
 
-        /** A card's counters as its chip reads them ("+1/+1 ×2", "time ×3"): on the battlefield (TBL-113) and in exile
-         * (ZON-091). */
-        fun counterMarks(counters: List<org.asyncttwiz.protocol.TypedCounter>): List<String> =
-            counters.filter { it.count != 0 }.map { "${counterName(it.kind)} ×${it.count}" }
+        /** A card's counters, each kind once, as the table shows them: bubbles on the battlefield and in exile (owner,
+         * 2026-11-11; ZON-091), lines in Inspect (TBL-104). */
+        fun shownCounters(counters: List<org.asyncttwiz.protocol.TypedCounter>): List<ShownCounter> = counters.filter { it.count != 0 }
+            .map { ShownCounter(runCatching { EngineCodec.counterKind(it.kind) }.getOrNull(), counterName(it.kind), it.count) }
+
+        /** TBL-021 (owner, 2026-11-11): the counter a permanent without P/T shows in its corner, the one its rules make primary:
+         * a planeswalker's loyalty (CR 306.5c), a battle's defense (CR 310.4c), a Saga's lore (CR 714.2b); with its count, 0
+         * when it has none. Null for a permanent with P/T (its corner is the P/T, the counter a bubble) or none of these. */
+        fun primaryCounter(chars: Characteristics, counters: List<ShownCounter>): ShownCounter? {
+            if (chars.power != null && chars.toughness != null) return null
+            val kind = when {
+                chars.isType(CardType.Planeswalker) -> CounterKind.Loyalty
+                chars.isType(CardType.Battle) -> CounterKind.Defense
+                chars.subtypes.any { it.name == "Saga" } -> CounterKind.Lore
+                else -> return null
+            }
+            return counters.firstOrNull { it.kind == kind } ?: ShownCounter(kind, counterName(EngineCodec.counterName(kind)), 0)
+        }
     }
 }

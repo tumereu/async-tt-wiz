@@ -1,0 +1,1 @@
+mod: Counters on cards show as small coloured bubbles with their number instead of words; holding a card still lists them.

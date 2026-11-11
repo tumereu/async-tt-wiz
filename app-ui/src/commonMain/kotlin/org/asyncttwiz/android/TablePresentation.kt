@@ -170,10 +170,12 @@ data class TableItem(
     val cornerColor: Int? = null,
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
     val cornerHourglass: Boolean = false,
-    /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
+    /** Automatum on (I1): its states, changed types and colours, keywords gained or lost, as one chip (TBL-113). */
     val automatumMarks: List<String> = emptyList(),
     /** TBL-133: the first of [automatumMarks] is a state's word. */
     val automatumState: Boolean = false,
+    /** TBL-135 (owner, 2026-11-11): its counters but the one its corner shows, as bubbles on its art ([CounterBubbles]). */
+    val counterBubbles: List<org.asyncttwiz.automatum.ShownCounter> = emptyList(),
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
@@ -543,7 +545,9 @@ object TablePresentation {
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                     (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
                     // TBL-024: its damage badge read aloud too
-                    (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "")
+                    (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "") +
+                    // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
+                    auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -557,6 +561,7 @@ object TablePresentation {
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
                     cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
+                    counterBubbles = auto?.bubbles.orEmpty(),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }

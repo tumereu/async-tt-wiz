@@ -121,11 +121,11 @@ fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, panels: List
         val face = definition?.faces?.firstOrNull { it.faceId == card.faceId }
         val art = if (!row.entry.faceVisible || face == null || face.scryfallId == null && face.imageUri == null) null else
             face.tableArtwork(definition.faces.indexOf(face))?.forTable()
-        // ZON-091: counters on a card in exile (a suspended card's time counters) show as on the battlefield (TBL-113)
-        val counters = org.asyncttwiz.automatum.ComputedBoard.counterMarks(card.typedCounters)
+        // ZON-091: counters on a card in exile (a suspended card's time counters) show as on the battlefield: bubbles (TBL-135)
+        val counters = org.asyncttwiz.automatum.ComputedBoard.shownCounters(card.typedCounters)
         TableItem("card/${card.id}", row.bounds,
             "${panel.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}" +
-                counters.joinToString("") { ", $it" }, if (row.entry.faceVisible) row.entry.name else "",
+                counters.joinToString("") { ", ${it.words}" }, if (row.entry.faceVisible) row.entry.name else "",
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,
             viewport = panel.viewport.id, cardId = card.id, covered = !row.entry.faceVisible,
             artwork = art,
@@ -133,7 +133,7 @@ fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, panels: List
             damage = if (row.entry.faceVisible) card.damage else "",
             copies = row.copies, token = card.token,
             // ZON-094: the state a card has in exile first, as on the battlefield (TBL-133)
-            automatumMarks = exileStates[card.id].orEmpty() + counters,
+            automatumMarks = exileStates[card.id].orEmpty(), counterBubbles = counters,
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "",
             changedPowerToughness = row.entry.faceVisible && changedPowerToughness(card.corner, face))
     } }

@@ -102,6 +102,8 @@ catalog wins. Where neither says, ask rather than pick.
   see End-to-end coverage).
   `wasmJsNodeTest` of `:core`, `:protocol`, `:automatum`, `:arcanum-api`, `:arcanum-parser` and `:arcanum-engine` runs their common tests on Kotlin/Wasm (Node); the engine's skips its four long random-game classes unless `-Parcanum.wasmLongGames=true` (about 8 more minutes): before each release, ask the owner whether to include them.
   `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in set work's fix and close steps, and reads the pinned MTGJSON file (`catalog/pin.properties`; `scripts/catalog-pin.sh verify`), never committed: without it, it stops and says how to get it.
+  `:androidApp:compileDebugAndroidTestKotlin` compiles the on-device tests (androidApp/src/androidTest), which nothing else builds; it runs in the full-suite batch.
+  After changing dependencies, write the locks twice: plain, and with the Firebase identifiers (`source scripts/lib/fcm.sh; atw_fcm_args ~/.config/atw-firebase/google-services-test.json org.asyncttwiz.android.test; ./scripts/gradle.sh resolveAndLockAll --write-locks "${fcm_args[@]}"`), or the Firebase test and release builds fail their locks.
   `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
   While implementing, run the tasks relevant to what you changed. After a batch
   of implementations is merged, all the tasks above run together on the merged

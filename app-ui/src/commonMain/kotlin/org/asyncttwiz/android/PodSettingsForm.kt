@@ -99,16 +99,22 @@ enum class PodSetting(val label: String) {
         TABLES -> "How many separate tables the cards are split into, each with its own stack and piles, so players can pick at different tables at the same time."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
-    fun apply(s: DraftSettings, value: Int?): DraftSettings = when (this) {
-        PACKS -> s.copy(packsPerPlayer = value!!); PACK_SIZE -> s.copy(cardsPerPack = value!!)
-        KEEP -> s.copy(keep = value!!); BURN -> s.copy(burn = value!!)
-        DISCARD -> s.copy(discardRemainingAt = value!!); OPEN_PACKS -> s.copy(packsOpenAtOnce = value!!)
-        GRIDS -> s.copy(grids = value!!); OPEN_GRIDS -> s.copy(gridsOpenAtOnce = value!!)
-        SIDEBOARD -> s.copy(sideboardLimit = value)
-        LIBRARIANS -> s.copy(librarians = value!!)
-        TABLE_OPEN -> s.copy(tablePacksOpen = value)
-        CARDS_EACH -> s.copy(cardsPerPlayer = value!!); PILES -> s.copy(piles = value!!); BOOSTERS -> s.copy(packsPerPlayer = value!!)
-        TABLES -> s.copy(tables = value!!)
+    /** [s] with this setting [value]; null (no value) only for a setting with [emptyText], else [s] unchanged (reported). */
+    fun apply(s: DraftSettings, value: Int?): DraftSettings = when {
+        this == SIDEBOARD -> s.copy(sideboardLimit = value)
+        this == TABLE_OPEN -> s.copy(tablePacksOpen = value)
+        value == null -> s.also { Faults.report("PodSettingsForm", "no value for a setting that needs one", mapOf("setting" to name)) }
+        else -> when (this) {
+            PACKS -> s.copy(packsPerPlayer = value); PACK_SIZE -> s.copy(cardsPerPack = value)
+            KEEP -> s.copy(keep = value); BURN -> s.copy(burn = value)
+            DISCARD -> s.copy(discardRemainingAt = value); OPEN_PACKS -> s.copy(packsOpenAtOnce = value)
+            GRIDS -> s.copy(grids = value); OPEN_GRIDS -> s.copy(gridsOpenAtOnce = value)
+            SIDEBOARD -> s.copy(sideboardLimit = value)
+            LIBRARIANS -> s.copy(librarians = value)
+            TABLE_OPEN -> s.copy(tablePacksOpen = value)
+            CARDS_EACH -> s.copy(cardsPerPlayer = value); PILES -> s.copy(piles = value); BOOSTERS -> s.copy(packsPerPlayer = value)
+            TABLES -> s.copy(tables = value)
+        }
     }
 }
 

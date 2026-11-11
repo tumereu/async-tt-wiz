@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.Faults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import arcanum.engine.input.Block
@@ -157,8 +158,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val ownActionShown: Boolean = false,
         /** TRN-066 (owner, 2026-11-09): where the other player is while the game waits for them and they are behind this
          * player (who went ahead on assumptions), else null ([GameDevice.opponentAt]). */
-        val opponentAt: GameDevice.OpponentAt? = null) {
-        val engine: GameState get() = board.engine!!.state
+        val opponentAt: GameDevice.OpponentAt? = null,
+        /** [board]'s engine state (every board this game builds has one). */
+        val engine: GameState) {
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
          * [EngineBoardValues.promisePlays]) and, when first asked, the card menus' plays (on an own action's board with its
@@ -352,11 +354,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
         // is plain catch-up playback
         if (branchStop && status != GameDevice.Status.CatchUp) { branchStop = false; takingBack = false }
+        val engine = play.engine?.state ?: return play.also {
+            Faults.report("EngineGame", "board without engine state", mapOf("game" to gameId, "node" to tip))
+        }
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, takingBack,
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
-            opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null)
+            opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, engine = engine)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -454,11 +459,15 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // the action's whole outcome is published (owner playtest 2026-11-04: nothing else flickers)
         val play = board(last.board.nodeId, attention, last.board.board.move)
         previewed = play
+        val engine = play.engine?.state ?: return null.also {
+            Faults.report("EngineGame", "preview board without engine state", mapOf("game" to gameId, "node" to last.board.nodeId))
+        }
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt)
+            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt,
+            engine = engine)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -516,17 +525,18 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         ownUndo = null
         if (!loaded && before != null && from == null) undoing?.let { r -> if (undo(r, before, after, attention, move)) return }
         val jump = loaded || before == null || from == null || to == null
-        val forward = if (!jump && to!! > from!!) line.subList(from + 1, to + 1).toList() else emptyList()
-        val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
+        val forward = if (!jump && from != null && to != null && to > from) line.subList(from + 1, to + 1).toList() else emptyList()
+        val backward = if (!jump && from != null && to != null && to < from) line.subList(to + 1, from + 1).reversed() else emptyList()
         val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
         // On the transition's node, so the table animates it as one of its steps
         val shownFirst = previewed?.with(nodeId = tip)
         val steps = if (jump || forward.isEmpty()) emptyList() else runCatching {
             EngineMotion.trim(motionSteps(forward, tip, attention, move, previewed = shownFirst != null), before, after, shownFirst)
         }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
-        lastTransition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
+        val transition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
             forward, backward, steps)
-        TurnBanners.of(lastTransition!!)?.let { lastTurnChange = it }
+        lastTransition = transition
+        TurnBanners.of(transition)?.let { lastTurnChange = it }
         pt = ptAfter
         loaded = false
     }
@@ -843,8 +853,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             // the table stays as they left it until their tap; what follows it waits with it
             val kind = if (awayPaused && heldWork == null && takesBackShown(events, update))
                 Held(update?.rewoundBy ?: events.firstOrNull()?.author ?: device.opponent.value, undo = update?.target != null) else null
-            if (heldWork != null || kind != null) {
-                hold(kind ?: heldWork!!) { received(events, update) }
+            val held = kind ?: heldWork
+            if (held != null) {
+                hold(held) { received(events, update) }
                 publish()
             } else received(events, update)
         }
@@ -1312,11 +1323,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val info = informationNanos()
             try {
                 if (inAction) work()
-                else if (seen != null && seen != published && !unchanged(what ?: "action", board) &&
+                else if (seen != null && board != null && seen != published && !unchanged(what ?: "action", board) &&
                     !(own && ownSince(what ?: "action", board)) && !stillSame(what ?: "action", board, same)) {
                     refused = true
                     // What the tap meant already happened on the newer board: nothing to do and nothing to tell
-                    done?.invoke(board!!)?.also { AppLog.info("engine", "Own ${what ?: "action"} on board v$seen: already done on board v$published") }
+                    done?.invoke(board)?.also { AppLog.info("engine", "Own ${what ?: "action"} on board v$seen: already done on board v$published") }
                         ?: run { staleBoard(what ?: "action", seen); refusedStale(); stale }
                 }
                 else { inAction = true; try { work() } finally { inAction = false } }
@@ -1344,9 +1355,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val info = informationNanos()
             // HIS-109, SYS-011 (a full e2e run, 2026-11-08): an own action's early board stays the newest published while its
             // event is finished, but the device has moved on from it by then (its passes folded in, the Stack perhaps resolved)
-            if (!inAction && seen != null && (seen != published || previewed != null) && !stillSame(what, board)) {
+            if (!inAction && seen != null && board != null && (seen != published || previewed != null) && !stillSame(what, board)) {
                 // What the tap meant already happened on the newer board ([acting]'s done): nothing to do or tell
-                val already = done?.invoke(board!!)
+                val already = done?.invoke(board)
                 if (already != null) {
                     AppLog.info("engine", "Own $what on board v$seen: already done on board v$published")
                     result.set(already)
@@ -1366,14 +1377,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             var shownInfo = 0L
             val acted = try {
                 work {
-                    if (outer) {
+                    if (outer && release != null) {
                         timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0)
                         val shownBoard = preview(timing)
                         early = shownBoard != null
                         timing.early = early
                         shownInfo = informationNanos()
                         result.set(GameDevice.Acted.Made)
-                        try { release!!() } finally {
+                        try { release() } finally {
                             // Its plays now, before the rest of its event and the device's own steps
                             shownBoard?.let(::playsOf)
                         }
@@ -1388,7 +1399,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             }
             else {
                 // The rest of its event, worked out after its board was shown
-                timing.after(timing.boardEnd!!, clock(), informationNanos() - shownInfo)
+                timing.boardEnd?.let { timing.after(it, clock(), informationNanos() - shownInfo) }
+                    ?: Faults.report("EngineGame", "early board without its end time", mapOf("action" to what))
                 if (acted is GameDevice.Acted.Refused) {
                     takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
                     worker.main { notes.add(GameDevice.Note.Refused(acted.reason, on)) }
@@ -1508,7 +1520,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             if (timing != null) playsOf(shownBoard)
             afterBoard()
         } finally {
-            timing?.let { it.after(it.boardEnd!!, clock(), informationNanos() - info); afterDone(it) }
+            timing?.let { t ->
+                t.boardEnd?.let { t.after(it, clock(), informationNanos() - info) }
+                    ?: Faults.report("EngineGame", "board shown without its end time", emptyMap())
+                afterDone(t)
+            }
         }
     }
 

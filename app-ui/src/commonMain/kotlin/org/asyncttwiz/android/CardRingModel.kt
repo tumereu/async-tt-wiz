@@ -121,9 +121,8 @@ object CardRingGeometry {
         popupWidth: Float, popupHeight: Float, focusY: Float): CardRingPlacement? {
         val spaces = sides.map { bands -> bands.firstOrNull { it.width >= popupWidth && it.height >= popupHeight } }
         val preferred = if (own) 0 else 1
-        val side = spaces.indices.filter { spaces[it] != null }
-            .maxWithOrNull(compareBy<Int> { spaces[it]!!.width * spaces[it]!!.height }.thenBy { it == preferred }) ?: return null
-        val region = spaces[side]!!
+        val (side, region) = spaces.withIndex().mapNotNull { (index, space) -> space?.let { index to it } }
+            .maxWithOrNull(compareBy<Pair<Int, TableBounds>> { it.second.width * it.second.height }.thenBy { it.first == preferred }) ?: return null
         val x = (when (side) {
             2 -> region.right - popupWidth
             3 -> region.x

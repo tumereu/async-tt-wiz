@@ -9,9 +9,10 @@ data class ActivityRoute(val accountId: String, val binding: String, val kind: A
     companion object {
         fun parse(account: String?, binding: String?, kind: String?, game: String?, identity: String?, pod: String? = null): ActivityRoute? {
             val type = ActivityKind.entries.find { it.name == kind } ?: return null
-            if (listOf(account, binding, game, identity).any { it == null || !DeckValidation.uuid(it) }) return null
+            if (account == null || binding == null || game == null || identity == null) return null
+            if (listOf(account, binding, game, identity).any { !DeckValidation.uuid(it) }) return null
             if (pod != null && (type != ActivityKind.INVITATION || !DeckValidation.uuid(pod))) return null
-            return ActivityRoute(account!!, binding!!, type, game!!, identity!!, pod)
+            return ActivityRoute(account, binding, type, game, identity, pod)
         }
     }
 }

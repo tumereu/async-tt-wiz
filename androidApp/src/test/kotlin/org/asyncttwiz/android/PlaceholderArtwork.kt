@@ -25,6 +25,8 @@ class TestTabletopApplication : TabletopApplication() {
     override fun onCreate() {
         super.onCreate()
         PlaceholderArtwork.install(this)
+        // Faults are logged in tests, never sent.
+        FaultReports.install(send = {})
     }
 }
 

@@ -101,7 +101,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     val attackChoices = if (staging) CombatFlow.attackChoices(play.board).filterKeys { it in staged } else emptyMap()
     val choosing = staging && writable && combat != null && viewer == choices.declaring
     val picking = if (choosing) combat?.picked else null
-    val bands = attackChoices.values.filter { it.band != null }.groupBy { it.band!! }.mapValues { (_, c) -> c.map { it.cardId } }
+    val bands = attackChoices.values.mapNotNull { c -> c.band?.let { it to c.cardId } }.groupBy({ it.first }, { it.second })
         .filterValues { it.size >= 2 }
     val enlistedBy = attackChoices.values.flatMap { c -> c.enlisted.filter { it !in staged }.map { it to c.cardId } }.toMap()
     val enlistable = if (picking is CombatController.Picking.Enlist) choices.enlistable.filter { it !in staged }.toSet() else emptySet()
@@ -206,20 +206,26 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
                 .forEach { chips += Triple(it.lowercase(), AutomatumViolet, it.lowercase()) }
             toTargets[card]?.groupBy { it.target }?.forEach { (target, list) ->
-                val text = "${list.sumOf { it.amount }} → ${label(target)!!.label.removePrefix("→ ")}"
+                val name = label(target)?.label ?: run {
+                    Faults.report("CombatAreaOverlay", "division target without a label", mapOf("card" to card, "target" to target.toString()))
+                    return@forEach
+                }
+                val text = "${list.sumOf { it.amount }} → ${name.removePrefix("→ ")}"
                 chips += Triple(text, PreviewRed, text)
             }
         }
         // CMB-036: a creature a staged attacker enlists
-        if (real && card in enlistedBy) chips += Triple("enlisted", AutomatumViolet,
-            "Enlisted by ${combatName(play, enlistedBy.getValue(card))}")
+        if (real) enlistedBy[card]?.let { by -> chips += Triple("enlisted", AutomatumViolet, "Enlisted by ${combatName(play, by)}") }
         if (real && card in inCombat) {
-            val occurrence = CombatStackRules.occurrences(area).first { it.sourceId == card }
-            val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
-            val attacker = pair.attackers.any { it.id == occurrence.id }
+            // [inCombat] is the copies' sources, each in a pair of [area]; a copy missing from them shows no combat chip
+            val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+            val pair = occurrence?.let { o -> area?.pairs?.firstOrNull { p -> (p.attackers + p.blockers).any { it.id == o.id } } }
+            if (occurrence == null || pair == null) Faults.report("CombatAreaOverlay", "combat copy without its pair",
+                mapOf("card" to card, "occurrence" to occurrence?.id.toString(), "pairs" to area?.pairs?.size.toString()))
+            val attacker = occurrence != null && pair != null && pair.attackers.any { it.id == occurrence.id }
             // CMB-035 (owner playtest 2026-11-07): a staged attacker carries no chip, its lane already names its target.
             // Only where it fits: small cards show their combat by their copies alone
-            if (!(staging && attacker) && b.width >= 44f)
+            if (pair != null && !(staging && attacker) && b.width >= 44f)
                 (if (attacker) "attacking" else "blocking").let { chips += Triple(it, ArrowColor, it) }
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
@@ -433,8 +439,8 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
                 held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
                 Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
             // CMB-050 (owner playtest 2026-11-10): the net combat damage it took, a red splash at the chip's right end
-            if (lane.cardId in dealt) {
-                val net = dealt.getValue(lane.cardId)
+            val net = dealt[lane.cardId]
+            if (net != null) {
                 val size = lane.chip.height * TARGET_SPLASH
                 DamageBadge(net, false, size, Modifier.offset { IntOffset((x + width - size * .3f - table.x).dp.roundToPx(),
                     (lane.chip.center.y - size / 2 - table.y).dp.roundToPx()) },

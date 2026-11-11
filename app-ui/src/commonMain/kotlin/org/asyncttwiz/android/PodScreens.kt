@@ -223,8 +223,12 @@ fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respon
             }
             items(entries, key = { if (it.invitation != null) "invitation:${it.id}" else it.id }) { entry ->
                 val invitation = entry.invitation
-                if (invitation == null) PodRow(requireNotNull(entry.pod), accountId, { open(entry.id) }, stackWidth = stackWidth,
-                    chatUnread = requireNotNull(entry.pod).chatUnread)
+                val pod = entry.pod
+                // An entry is a pod or an invitation to one
+                if (invitation == null) {
+                    if (pod != null) PodRow(pod, accountId, { open(entry.id) }, stackWidth = stackWidth, chatUnread = pod.chatUnread)
+                    else Faults.report("PodScreens", "pod entry without a pod or invitation", mapOf("entry" to entry.id))
+                }
                 else OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(invitation.name, fontWeight = FontWeight.Bold)
@@ -515,7 +519,7 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
     val busy = detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
     val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }
     val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
-    val round = grid?.takeIf { !it.finished }?.let { detail.grid!!.mine.round to it.rounds }
+    val round = grid?.takeIf { !it.finished }?.let { open -> detail.grid?.let { it.mine.round to open.rounds } }
         ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
     val draft = detail.draft
     if (grid != null || draft == null) return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")

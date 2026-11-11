@@ -69,8 +69,8 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 val drafts = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
                 if (generation != epoch) return@execute
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
-                    decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it },
-                    draftDecks = drafts ?: state.draftDecks.map { if (it.id == id) result!!.saved.deck else it },
+                    decks = decks ?: state.decks.map { if (it.id == id && result != null) result.saved.deck else it },
+                    draftDecks = drafts ?: state.draftDecks.map { if (it.id == id && result != null) result.saved.deck else it },
                     busy = false, loaded = state.loaded || id == null) }
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) {
@@ -123,7 +123,8 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 val copy = runBlocking { serviceRetry(current = { generation == epoch }) {
                     if (operation.delete != null) { api.delete(token, operation.id, operation.delete); null }
                     else if (operation.copy != null) api.copy(token, operation.id, operation.copy)
-                    else { api.update(token, operation.id, operation.update!!); null }
+                    else { operation.update?.let { api.update(token, operation.id, it) }
+                        ?: Faults.report("DeckLibraryController", "deck write without a change", mapOf("deck" to operation.id)); null }
                 } }
                 // The original retry outcome may precede another device's newer edit. Read current state,
                 // never install an old outcome over that state or reapply the mutation locally.

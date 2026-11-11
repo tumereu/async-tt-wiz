@@ -328,7 +328,8 @@ private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) =
     for (i in scene.items.filter { it.kind == TableItemKind.PILE && !(it.temp && it.cards.isEmpty()) }) {
         val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
         val port = if (i.countBadge != null) TableBounds(0f, 0f, size.width / density, size.height / density)
-            else scene.viewports.single { it.id == i.viewport }.bounds
+            else scene.viewports.firstOrNull { it.id == i.viewport }?.bounds
+                ?: run { Faults.report("TableDrawing", "pile badge without its viewport", mapOf("pile" to i.id, "viewport" to i.viewport.toString())); continue }
         if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
             drawCircle(Color(0xff345451), badge.width / 2 * density, xy(badge.center.x, badge.center.y))
             drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))

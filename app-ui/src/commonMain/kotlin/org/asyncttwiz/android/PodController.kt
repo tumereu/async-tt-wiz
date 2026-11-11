@@ -340,9 +340,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             state = state.copy(sourcePreview = null, sourceHint = null)
             editSetup(settings = settings, cubeId = cube)
         }
+        val setCode = preset.setCode
         when {
-            preset.setCode != null -> {
-                setPicker.load(preset.setCode!!, preset.setName ?: preset.setCode!!)
+            setCode != null -> {
+                setPicker.load(setCode, preset.setName ?: setCode)
                 // DRF-032, DRF-177: the preset's pack grid
                 if (PodPackGrid.mixed(preset.packSets)) {
                     AppLog.info("pods", "Preset ${preset.name}: pack grid ${preset.packSets}")
@@ -462,7 +463,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING } ?: return
         val pack = detail.draft?.head ?: return
         val attempt = detail.draftAttemptId ?: return
-        val owned = detail.draft!!.pool.filter { it.librarian }.map { it.id }
+        val owned = detail.draft?.pool.orEmpty().filter { it.librarian }.map { it.id }
         if (librarians.distinct().size != librarians.size || librarians.any { it !in owned }) return
         if (state.uncertain || !PodPickRules(pack, detail.settings, librarians)
                 .canConfirm(PodPickMarks(keeps = keep, burns = burn, librarians = librarians), false)) return
@@ -635,7 +636,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         sendMove(detail, copyId, category)
     }
     private fun sendMove(detail: PodDetail, copyId: String, category: PodDeckCategory) {
-        val input = MovePodCopy(requestId(), detail.draftAttemptId!!, copyId, category)
+        val input = MovePodCopy(requestId(), (attemptOf(detail) ?: return), copyId, category)
         enqueue(Write(detail.id, input.draftAttemptId, predict = { build -> build.copy(copies = build.copies.map {
             if (it.copyId == copyId) it.copy(category = category) else it
         }) }, send = { api.move(it, detail.id, input) }))
@@ -649,14 +650,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         sendBasics(detail, basics, side)
     }
     private fun sendBasics(detail: PodDetail, basics: PodDeckBasics, side: Boolean) {
-        val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics, side)
+        val input = SetPodBasics(requestId(), (attemptOf(detail) ?: return), basics, side)
         enqueue(Write(detail.id, input.draftAttemptId, predict = { if (side) it.copy(sideBasics = basics) else it.copy(basics = basics) },
             send = { api.basics(it, detail.id, input) }))
     }
     private fun buildSteps(detail: PodDetail?): List<PodBuildStep> =
         buildHistory?.takeIf { detail != null && it.pod == detail.id && it.attempt == detail.draftAttemptId }?.steps.orEmpty()
     private fun record(detail: PodDetail, step: PodBuildStep) {
-        buildHistory = PodBuildHistory(detail.id, detail.draftAttemptId!!, (buildSteps(detail) + step).takeLast(PodBuildUndoLimit))
+        buildHistory = PodBuildHistory(detail.id, (attemptOf(detail) ?: return), (buildSteps(detail) + step).takeLast(PodBuildUndoLimit))
     }
     val canUndoBuild: Boolean get() = editable()?.let { buildSteps(it).isNotEmpty() } == true
     /** Sends the inverse of the latest Build change as an ordinary edit. Returns the moved copy and its destination. */
@@ -678,13 +679,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun deckName(name: String) {
         val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return
         if (name.isBlank() || name.length > 120 || !DeckValidation.text(name) || name.any { it.isISOControl() }) return
-        val input = SetPodDeckName(requestId(), detail.draftAttemptId!!, name)
+        val input = SetPodDeckName(requestId(), (attemptOf(detail) ?: return), name)
         enqueue(Write(detail.id, input.draftAttemptId, deckName = name, send = { api.deckName(it, detail.id, input) }))
     }
     /** DRF-166: shown at once, like the name; the server keeps it. */
     fun deckCover(definition: String) {
         val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return
-        val input = SetPodDeckCover(requestId(), detail.draftAttemptId!!, definition)
+        val input = SetPodDeckCover(requestId(), (attemptOf(detail) ?: return), definition)
         enqueue(Write(detail.id, input.draftAttemptId, deckCover = definition, send = { api.deckCover(it, detail.id, input) }))
     }
     private fun editable() = state.detail?.takeIf { it.draftAttemptId != null && !it.submitted &&
@@ -710,14 +711,18 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             when (action) {
                 PodConfirmation.DESTROY -> { api.destroy(token, detail.id, input); null }
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
-                PodConfirmation.CANCEL -> api.cancel(token, detail.id, submit!!)
-                PodConfirmation.SUBMIT -> api.submit(token, detail.id, submission!!)
+                PodConfirmation.CANCEL -> submit?.let { api.cancel(token, detail.id, it) }
+                PodConfirmation.SUBMIT -> submission?.let { api.submit(token, detail.id, it) }
                 PodConfirmation.START -> api.start(token, detail.id, input)
             }
         }))
         if (action == PodConfirmation.SUBMIT) { buildHistory = null; state = state.copy(tab = PodTab.GAMES) }
     }
     private fun requestId() = randomUuid()
+    /** [detail]'s draft attempt, which every build write names; null (reported, the write not made) when it has none. */
+    private fun attemptOf(detail: PodDetail): String? = detail.draftAttemptId ?: null.also {
+        Faults.report("PodController", "build write without a draft attempt", mapOf("pod" to detail.id, "phase" to detail.phase.toString()))
+    }
 
     private fun enqueue(write: Write) {
         syncCredential()
@@ -741,10 +746,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 members = base.members.map { if (it.account.accountId == draft.player)
                     it.copy(packsWaiting = (it.packsWaiting - 1).coerceAtLeast(0), picksMade = it.picksMade + 1) else it })
         }
-        if (detail != null && detail.build != null && !detail.submitted) {
+        val baseBuild = detail?.build
+        if (detail != null && baseBuild != null && !detail.submitted) {
             val base = detail
             val predicted = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
-                .fold(base.build!!) { build, write -> write.predict?.invoke(build) ?: build }
+                .fold(baseBuild) { build, write -> write.predict?.invoke(build) ?: build }
             detail = base.copy(build = predicted)
         }
         val edit = state.setup
@@ -882,10 +888,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         if (write.exit && (state.selected == null || state.selected == write.pod)) {
                             accepted = null; state = state.copy(selected = null, detail = null, setup = null)
                         }
-                        if (write.select && result.first != null) {
+                        val created = result.first
+                        if (write.select && created != null) {
                             // Creation leaves the form live too. Carry edits made in flight into setup.
                             val newer = write.createdFrom?.let { sent -> state.creating?.takeIf { it != sent } }
-                            state = state.copy(selected = result.first!!.id, creating = null, setup = newer?.let {
+                            state = state.copy(selected = created.id, creating = null, setup = newer?.let {
                                 PodSetupEdit(it.name, it.settings,
                                     cubeId = it.cubeId.takeIf { id -> id != write.createdFrom?.cubeId },
                                     set = it.set.takeIf { set -> set != write.createdFrom?.set },

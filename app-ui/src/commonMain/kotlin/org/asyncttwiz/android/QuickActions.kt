@@ -191,7 +191,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 // TRN-063: over the Assume violet the working sign sweeps white
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape),
                     if (main == null && !arrow && wait != null && assumeLook(wait)) Color.White else AutomatumViolet)
-                if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
+                if (unconfirmed && engine != null) EngineUnconfirmedMark(engine.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }
         }
     }

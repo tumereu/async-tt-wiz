@@ -71,8 +71,8 @@ fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubb
         val other = if (incoming != null && opponentLife != null)
             place(opponentLife, below = true, incoming.text, incoming.counter, width, height, { measure(it) }, { measure(it, counterStyle) })
             else null
-        val own = if (showSent && ownLife != null)
-            place(ownLife, below = false, sent!!.text, null, width, height, { measure(it) }, { measure(it, counterStyle) })
+        val own = if (showSent && ownLife != null && sent != null)
+            place(ownLife, below = false, sent.text, null, width, height, { measure(it) }, { measure(it, counterStyle) })
             else null
         other to own
     }

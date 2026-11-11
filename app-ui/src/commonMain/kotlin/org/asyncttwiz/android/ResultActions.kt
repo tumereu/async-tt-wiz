@@ -46,7 +46,8 @@ object ResultActions {
     fun presentation(game: GameSummary, current: TableBoard?, viewer: String,
         gate: ResultPlaybackGate?): ResultPresentation? {
         val target = capture(game, current) ?: return null
-        val suggestion = current!!.board.resultSuggestion ?: return null
+        if (current == null) return null
+        val suggestion = current.board.resultSuggestion ?: return null
         if (gate?.play != target || gate.suggestionId != suggestion.id || viewer !in current.board.players.map { it.accountId }) return null
         // I-D53: the rules' result, from the viewer's side; either player confirms it
         if (suggestion.byRules) return ResultPresentation(ResultAcceptanceTarget(target, suggestion.id),

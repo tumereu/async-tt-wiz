@@ -25,6 +25,7 @@ open class TabletopApplication : Application() {
         }
         AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
         AutomatumReports.install()
+        FaultReports.install()
         Diagnostics.start(AndroidReportHooks(this))
     }
 }

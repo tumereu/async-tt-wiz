@@ -21,9 +21,9 @@ object DeckUrlImport {
         val id: String
         if (value.contains("://")) {
             val uri = parseUri(value)
-            require(uri.scheme!!.lowercase() in listOf("http", "https") && uri.rawUserInfo == null && uri.port == -1)
+            require(requireNotNull(uri.scheme).lowercase() in listOf("http", "https") && uri.rawUserInfo == null && uri.port == -1)
             val host = uri.host?.lowercase()?.removePrefix("www.")
-            val parts = uri.path!!.trim('/').split('/')
+            val parts = requireNotNull(uri.path).trim('/').split('/')
             when (host) {
                 "archidekt.com" -> {
                     require(parts.size >= 2 && parts[0] in listOf("decks", "deck"))

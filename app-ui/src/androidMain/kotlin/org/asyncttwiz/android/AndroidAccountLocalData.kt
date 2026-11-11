@@ -31,7 +31,7 @@ class AndroidAccountLocalData(context: Context) : AppLocalData {
     }
 
     override fun logout(store: SessionStore) {
-        check(pending.baseFile.parentFile!!.let { it.isDirectory || it.mkdirs() })
+        check(pending.baseFile.parentFile.let { it != null && (it.isDirectory || it.mkdirs()) })
         val output = pending.startWrite()
         try { output.write(1); pending.finishWrite(output) }
         catch (failure: Exception) { pending.failWrite(output); throw failure }

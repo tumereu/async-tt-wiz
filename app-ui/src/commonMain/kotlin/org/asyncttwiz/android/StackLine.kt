@@ -62,8 +62,8 @@ object StackLine {
         val who = if (item.controller == viewer) "You" else names[item.controller] ?: "The other player"
         val card = CombatStackRules.inspection(play.board, top)
         val visible = card != null && !effect.faceDown && (effect.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
-        val face = if (!visible) null else play.definitions.firstOrNull { it.digest == card!!.definition }?.definition?.faces
-            ?.let { faces -> faces.firstOrNull { it.faceId == card!!.faceId } ?: faces.firstOrNull() }
+        val face = if (!visible || card == null) null else play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
+            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
         val name = face?.name?.takeIf { it.isNotBlank() }
         val ability = if (visible) StackAbilities.of(play, top, viewer) else null
         val head = when (item.kind) {

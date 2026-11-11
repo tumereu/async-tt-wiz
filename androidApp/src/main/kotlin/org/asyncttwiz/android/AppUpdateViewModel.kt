@@ -25,7 +25,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
     // GitHub answers release downloads with a redirect to its file host; https only.
     private val github = client.newBuilder().followRedirects(true).followSslRedirects(false).build()
     private val origin = BuildConfig.ACCOUNT_ORIGIN
-    var release by mutableStateOf(runCatching { AppRelease.parse(preferences.getString("latest", "")!!) }.getOrNull())
+    var release by mutableStateOf(runCatching { AppRelease.parse(preferences.getString("latest", "").orEmpty()) }.getOrNull())
         private set
     private var incompatible by mutableStateOf(preferences.getInt("incompatible-version", -1) == BuildConfig.VERSION_CODE)
     var initialCheck by mutableStateOf(release == null && origin.isNotBlank())
@@ -48,7 +48,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         client.newCall(request).apply { timeout().timeout(5, TimeUnit.SECONDS) }.execute().use { response ->
             if (response.code == 404) return null.also { AppLog.info("update", "No published release") }
             check(response.isSuccessful) { "Release check failed with HTTP ${response.code}" }
-            val text = response.body!!.source().use { source ->
+            val text = checkNotNull(response.body) { "No response body" }.source().use { source ->
                 source.request(16_385)
                 source.readByteArray(minOf(source.buffer.size, 16_385L)).toString(Charsets.UTF_8)
             }

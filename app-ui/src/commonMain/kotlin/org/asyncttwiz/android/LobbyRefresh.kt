@@ -78,7 +78,7 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                     var after: String? = null; val seen = mutableSetOf<String>()
                     do {
                         if (!current()) return false
-                        after = read(after); check(after == null || seen.add(after!!))
+                        after = read(after).also { check(it == null || seen.add(it)) }
                     } while (after != null)
                     return current()
                 }
@@ -154,7 +154,7 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                     val silent = failure == null || lobbyLifecycleInterruption(failure,
                         interrupted = lifecycle != lifecycleVersion || !inForeground)
                     val previousError = refreshError
-                    refreshError = if (silent) null else lobbyError(failure!!)
+                    refreshError = if (silent || failure == null) null else lobbyError(failure)
                     state = state.copy(busy = false, backgroundLoading = false,
                         error = refreshError ?: state.error.takeUnless { it == previousError })
                 }

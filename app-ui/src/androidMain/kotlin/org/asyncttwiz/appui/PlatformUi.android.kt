@@ -98,12 +98,12 @@ private val centredBounds = ThreadLocal.withInitial { android.graphics.Rect() }
 
 actual fun DrawScope.drawCentredText(text: String, center: Offset, size: Float, color: Color, weight: Int,
     maxWidth: Float) {
-    val paint = centredPaint.get()!!
+    val paint: android.graphics.Paint = centredPaint.get()
     paint.typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, weight, false)
     paint.textSize = size
     paint.color = color.toArgb()
     paint.textAlign = android.graphics.Paint.Align.LEFT
-    val bounds = centredBounds.get()!!
+    val bounds: android.graphics.Rect = centredBounds.get()
     paint.getTextBounds(text, 0, text.length, bounds)
     if (bounds.width() > maxWidth) {
         paint.textSize = size * maxWidth / bounds.width()

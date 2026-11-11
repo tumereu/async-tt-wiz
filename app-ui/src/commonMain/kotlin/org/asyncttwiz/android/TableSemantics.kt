@@ -19,7 +19,7 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
         .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
             val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
-            contentDescription = "${player.username} Battlefield, ${play.board.containers.single { it.id == field.containerId }.cards.size} cards"
+            contentDescription = "${player.username} Battlefield, ${play.board.containers.firstOrNull { it.id == field.containerId }?.cards?.size ?: 0} cards"
             stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
         })
     // Semantics-only children do not install a second pointer detector. Dock piles expose

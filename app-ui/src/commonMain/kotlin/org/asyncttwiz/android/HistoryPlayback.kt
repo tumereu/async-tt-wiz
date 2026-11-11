@@ -223,9 +223,11 @@ class HistorySceneAnimation(initial: TableScene) {
         val madeTokens = if (resolving == null) emptyList() else end.values.filter { it.item.kind == TableItemKind.CARD &&
             it.item.token && !it.item.projection && it.item.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD &&
             it.item.animationId !in start && destination.items.none { old -> old.kind == TableItemKind.CARD && old.cardId == it.item.cardId } }
-        for (token in madeTokens) start = start + (token.item.animationId to token.copy(bounds = resolving!!.bounds,
-            item = token.item.copy(viewport = resolving.item.viewport)))
-        if (madeTokens.isNotEmpty()) start = start - resolving!!.item.animationId
+        if (resolving != null) {
+            for (token in madeTokens) start = start + (token.item.animationId to token.copy(bounds = resolving.bounds,
+                item = token.item.copy(viewport = resolving.item.viewport)))
+            if (madeTokens.isNotEmpty()) start = start - resolving.item.animationId
+        }
         // A removed occurrence flies home independently of the real card, which stays drawn in place.
         // Membership (not the top-three drawings) distinguishes removal from a newly covered peek.
         for (departure in start.values.filter { it.item.kind == TableItemKind.CARD && it.item.projection &&

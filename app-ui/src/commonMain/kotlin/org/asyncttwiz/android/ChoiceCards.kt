@@ -376,8 +376,7 @@ fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, first: Ch
     }
     Box(modifier.onGloballyPositioned { origin = it.boundsInRoot().topLeft; box = it }) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (isSecond in listOfNotNull(false, second?.let { true })) {
-                val area = if (isSecond) second!! else first
+            for ((isSecond, area) in listOfNotNull(false to first, second?.let { true to it })) {
                 val keys = if (isSecond) state.second else state.first
                 Column(Modifier.fillMaxWidth().border(1.dp, AutomatumViolet.copy(alpha = .35f), RoundedCornerShape(6.dp))
                     .background(AutomatumViolet.copy(alpha = .05f), RoundedCornerShape(6.dp))

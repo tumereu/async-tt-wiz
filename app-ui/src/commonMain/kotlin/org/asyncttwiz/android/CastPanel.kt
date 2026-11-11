@@ -131,7 +131,8 @@ private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit)
  * for the other one).
  */
 interface FlowQuestions {
-    val engine: GameState
+    /** The open flow's state; null (reported) when none is open, as for a panel drawn after its flow closed. */
+    val engine: GameState?
     fun atwCard(id: ObjectId): String?
     fun answer(answer: Answer): Boolean
     /** Answers with [answer] and, in the same step, the orders the engine asks next of the same cards ([then], I-D48: a
@@ -223,8 +224,8 @@ fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? =
             maxHeight = (constraints.maxHeight * .78f).toInt().coerceAtLeast(0)))
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable ?: return@layout
-            if (docked) {
-                val above = dock!!.y.dp.roundToPx() - margin
+            if (docked && dock != null) {
+                val above = dock.y.dp.roundToPx() - margin
                 placeable.place(((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(margin),
                     (above - placeable.height).coerceIn(margin, (constraints.maxHeight - placeable.height - margin).coerceAtLeast(margin)))
                 return@layout
@@ -518,7 +519,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
                     if (target is TargetRef.Player) Icon(Icons.Outlined.Person, null, Modifier.size(24.dp), tint = MenuInk)
                     Text(targetName(flow, play, names, target) + (lethal[target]?.let { " (lethal $it)" } ?: ""),
                         Modifier.weight(1f), fontSize = 12.sp)
-                    Stepper(shares.getValue(target), decision.minEach, decision.amount) { shares = shares + (target to it) }
+                    Stepper(shares[target] ?: decision.minEach, decision.minEach, decision.amount) { shares = shares + (target to it) }
                 }
                 OkRow(decision, shares.values.sum() == decision.amount) {
                     cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) }))
@@ -682,7 +683,7 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
         else -> "Not enough to pay $due: tap more sources on the table."
     }
     val onTable = cast.mana.filter { cast.tableSource(it) != null }
-    val outOfView = onTable.filterNot { inView(cast.tableSource(it)!!) }.map { useName(cast, play, it) }
+    val outOfView = onTable.filterNot { use -> cast.tableSource(use)?.let(inView) != false }.map { useName(cast, play, it) }
     Section("Mana · $due") {
         val line = if (names.isEmpty()) "Nothing chosen yet." else "Paid with ${names.joinToString()}"
         Column(Modifier.semantics { contentDescription = "Payment: $line" }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -857,8 +858,8 @@ fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>
 /** An object's name, or "A hidden card" when the viewer mustn't see it (I-D27). */
 fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
-    else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
-        ?: arcanum.engine.Engine.lastKnown(flow.engine, id)?.characteristics?.name
+    else flow.engine?.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
+        ?: flow.engine?.let { arcanum.engine.Engine.lastKnown(it, id) }?.characteristics?.name
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
 
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {

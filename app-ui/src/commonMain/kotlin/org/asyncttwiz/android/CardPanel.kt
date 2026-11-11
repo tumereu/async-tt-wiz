@@ -60,7 +60,8 @@ fun cardPanelGeometry(play: TableBoard, viewer: String, ui: TableLayoutState, ar
     val rowPitch = 40f * scale + 12f
     val availablePerPanel = (area.width - (displays.size - 1).coerceAtLeast(0) * 4f) / displays.size.coerceAtLeast(1)
     return displays.map { display ->
-        val localZone = if (display == local) play.board.containers.single { it.id == display.containerId }.zone else null
+        val localZone = if (display == local) play.board.containers.firstOrNull { it.id == display.containerId }?.zone
+            ?: null.also { Faults.report("CardPanel", "panel of a missing container", mapOf("container" to display.containerId)) } else null
         val entries = if (localZone != null) contentsEntries(play, PileContents(display.containerId, "", display.cardIds), viewer)
             else contentsEntries(play, display, viewer)
         // Picking targets: each card is its own object, so none are grouped

@@ -44,9 +44,9 @@ fun lossCauseText(cause: LossCause): String = when (cause) {
 fun matchEndDetail(record: MatchRecord, me: String): String {
     fun name(accountId: String) = if (accountId == me) "You" else record.player(accountId)?.account?.username ?: "Opponent"
     return when (val ending = record.ending) {
-        MatchEnding.ByRules -> record.players.filter { it.lossCause != null }.joinToString("; ") { loser ->
+        MatchEnding.ByRules -> record.players.mapNotNull { p -> p.lossCause?.let { p to it } }.joinToString("; ") { (loser, cause) ->
             val who = name(loser.account.accountId)
-            when (val cause = loser.lossCause!!) {
+            when (cause) {
                 LossCause.ZeroLife -> "$who reached 0 life"
                 LossCause.EmptyLibrary -> "$who drew from an empty library"
                 LossCause.Poison -> "$who got 10 poison counters"

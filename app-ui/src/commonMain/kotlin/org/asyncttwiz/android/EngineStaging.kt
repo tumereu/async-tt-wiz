@@ -80,7 +80,7 @@ object EngineStaging {
             // An unchanged solo placement is a no-op, retaining its stable pile identity
             val solo = card.placement?.position == position && sourceMembers.size == 1
             if (solo && action.faceDown == null) return board
-            val pile = if (solo) card.placement!!.pileId else CommandIds.uuidV5(requestId, "pile/0")
+            val pile = card.placement?.takeIf { solo }?.pileId ?: CommandIds.uuidV5(requestId, "pile/0")
             require(board.cards.none { it.id != card.id && it.placement?.pileId == pile }) { "inapplicable" }
             placement = PlayPlacement(position, pile)
             ordered = emptyList()

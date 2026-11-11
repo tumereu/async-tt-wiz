@@ -221,6 +221,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (!CubeValidation.name(state.name)) { state = state.copy(error = "Enter a cube name."); return }
         val token = credential() ?: return
         val input = state; val retained = placeholders
+        val resolved = input.result ?: return
         var attempted = pendingSave
         state = state.copy(saving = true)
         work(onFailure = { pendingSave = attempted.takeIf { state.text == input.text && state.name == input.name } }) { current ->
@@ -228,9 +229,9 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 val cards = linkedMapOf<String, SubmittedDefinition>()
                 val copies = linkedMapOf<Pair<SavedDeckSection, ResolvedDeckEntry>, Int>()
                 val first = HashMap<Pair<SavedDeckSection, String>, ResolvedDeckEntry>()
-                for (entry in input.result!!.entries) {
+                for (entry in resolved.entries) {
                     // A card the records can't build is kept as the editor holds it (by printing id, or by name without one)
-                    val definition = retained[entry.printing.id] ?: PhysicalCardFaces.normalize(entry.definition(input.result.catalog))
+                    val definition = retained[entry.printing.id] ?: PhysicalCardFaces.normalize(entry.definition(resolved.catalog))
                     val digest = DeckJson.digest(definition)
                     cards[digest] = SubmittedDefinition(digest, definition)
                     val section = entry.cubeSection()
@@ -258,9 +259,10 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         }
     }
     fun dialog(value: CubeDialog) {
-        if (!state.busy && state.detail != null) {
+        val detail = state.detail
+        if (!state.busy && detail != null) {
             pendingUpdate = null; pendingDelete = null
-            state = state.copy(dialog = value, name = state.detail!!.saved.cube.name, error = null)
+            state = state.copy(dialog = value, name = detail.saved.cube.name, error = null)
         }
     }
     /** LOB-057: the editor of a saved cube offers "Delete cube", confirmed first; the name field keeps what was typed. */
@@ -280,7 +282,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val delete = if (deleting) pendingDelete ?: DeleteCube(randomUuid()).also { pendingDelete = it } else null
         val update = if (!deleting) pendingUpdate ?: UpdateCube(randomUuid(), name = state.name).also { pendingUpdate = it } else null
         work { current ->
-            serviceRetry(current = current) { if (delete != null) api.delete(token, id, delete) else api.update(token, id, update!!) }
+            serviceRetry(current = current) { if (delete != null) api.delete(token, id, delete) else if (update != null) api.update(token, id, update); Unit }
             return@work {
                 pendingUpdate = null; pendingDelete = null; state = state.copy(dialog = null)
                 if (deleting) { if (state.editing) discardEdit(); back() } else open(id)

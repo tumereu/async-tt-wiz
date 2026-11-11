@@ -272,7 +272,7 @@ class SharedFlowController(
         fail(null)
         if (pick.max == 1 && pick.min <= 1) return answer(pick.answer(listOf(target)))
         picked = if (target in picked) picked - target else picked + target
-        if (pick.max != null && picked.size >= pick.max!!) return confirmTargets()
+        if (pick.max?.let { picked.size >= it } == true) return confirmTargets()
         return true
     }
 
@@ -306,7 +306,7 @@ class SharedFlowController(
         return targetEntries(play, pick.options.map(flow::ref))
     }
 
-    override val engine: GameState get() = view!!.state
+    override val engine: GameState? get() = view?.state ?: null.also { Faults.report("SharedFlowController", "engine state read with no flow open") }
     override fun atwCard(id: ObjectId): String? = view?.atwCard(id)
     /** Worked out with the flow, off the main thread ([SharedFlow.prepared], SYS-025). */
     override fun listedAnswers(): List<Answer> = view?.listedAnswers().orEmpty()

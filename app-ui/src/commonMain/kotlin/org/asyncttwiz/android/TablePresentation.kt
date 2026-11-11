@@ -390,12 +390,17 @@ object TablePresentation {
         val definitions = play.definitions.associate { it.digest to it.definition }
         val castFromHand = castSpellSources(play.board)
         fun name(id: String?) = if (game.inviter.accountId == id) game.inviter.username else game.recipient.username
-        fun container(player: String?, zone: PlayZone) = play.board.containers.single { it.accountId == player && it.zone == zone && !it.temp }
+        // Every player has each zone's container; a board without one draws it empty
+        fun container(player: String?, zone: PlayZone) = play.board.containers.firstOrNull { it.accountId == player && it.zone == zone && !it.temp }
+            ?: PlayContainer("missing/$player/${zone.name}", zone, player).also {
+                Faults.report("TablePresentation", "board without a zone's container", mapOf("game" to game.id, "player" to player.toString(), "zone" to zone.name))
+            }
         fun face(card: PlayCard?) = card?.let { definitions[it.definition]?.faces?.firstOrNull { f -> f.faceId == it.faceId } }
         fun art(card: PlayCard?, hidden: Boolean): ArtworkReference? {
-            val f = face(card) ?: return null
+            val faces = card?.let { definitions[it.definition]?.faces } ?: return null
+            val f = faces.firstOrNull { it.faceId == card.faceId } ?: return null
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
-            return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f))?.forTable()
+            return f.tableArtwork(faces.indexOf(f))?.forTable()
         }
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
         val battlefieldScale = cardScale(appearance.cardSize)
@@ -707,9 +712,12 @@ object TablePresentation {
             items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
         }
         // Animation metadata for ALL entries, including a real spell buried below the peeks.
-        val stackProjections = stack.cards.map { entryId ->
+        val stackProjections = stack.cards.mapNotNull { entryId ->
             val effect = play.board.stackEffects.firstOrNull { it.id == entryId }
-            items.firstOrNull { it.cardId == entryId && it.zone == PlayZone.STACK } ?: card(CombatStackRules.inspection(play.board, entryId)!!,
+            items.firstOrNull { it.cardId == entryId && it.zone == PlayZone.STACK } ?: card(CombatStackRules.inspection(play.board, entryId)
+                ?: return@mapNotNull null.also {
+                    Faults.report("TablePresentation", "Stack entry without a card to animate", mapOf("game" to game.id, "entry" to entryId))
+                },
                 TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
                 projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
@@ -730,8 +738,12 @@ object TablePresentation {
                 x = if (region.extendLeft) band.x else bounds.x,
                 width = (if (region.extendRight) band.right else bounds.right) - (if (region.extendLeft) band.x else bounds.x)),
                 extendLeft = false, extendRight = false, landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
-            val top = lanesBounds!!.y
-            val bottom = lanesBounds.bottom
+            // Combat destinations come with lanes; without them the region keeps its bounds
+            val lanes = lanesBounds ?: return@map region.copy(bounds = bounds).also {
+                Faults.report("TablePresentation", "combat destination without lanes", mapOf("game" to game.id, "role" to region.destination.role.toString()))
+            }
+            val top = lanes.y
+            val bottom = lanes.bottom
             // The two card rows fill the panel except the lane label row (on top, or at the bottom when mirrored).
             val rowTop = if (combat.mirrored) top else world.screen(TablePoint(0f, combatY + combat.rowsTop), camera).y
             val rowBottom = if (combat.mirrored) world.screen(TablePoint(0f, combatY + combat.rowsBottom), camera).y else bottom
@@ -773,8 +785,14 @@ object TablePresentation {
         } }.orEmpty()
         val realSources = play.board.cards.associate { c -> c.id to TableMoveSource(c.containerId, positions[c.id],
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
-        val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
-            item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
+        val sources = realSources + items.filter { it.projection && it.sourceId != null }.mapNotNull { item ->
+            val cardId = item.cardId
+            val source = item.sourceId?.let { realSources[it] }
+            if (cardId == null || source == null) null.also {
+                Faults.report("TablePresentation", "projection without its real card", mapOf("game" to game.id, "item" to item.id,
+                    "card" to cardId.toString(), "source" to item.sourceId.toString()))
+            } else cardId to source.copy(sourceId = item.sourceId)
+        }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = stackRegion, world = world, appearance = appearance,
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it, stackRegion) },
@@ -784,7 +802,7 @@ object TablePresentation {
             combatArrowGap = combat.arrowGap?.takeIf { open }?.let(::translated),
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
-                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },
+                items.mapNotNull { item -> item.cardId?.let { id -> item.owner?.let { id to it } } }.toMap(),
             pileCards = PileCardDrawings { id ->
                 // Built only on demand: for a card that changed pile, never for every pile member per update.
                 val member = byId[id] ?: return@PileCardDrawings null

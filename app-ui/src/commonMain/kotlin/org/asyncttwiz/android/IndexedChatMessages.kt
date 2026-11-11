@@ -33,11 +33,11 @@ class IndexedChatMessages private constructor(private val root: Node?,
     override val size get() = root?.size ?: 0
     override fun get(index: Int): ChatMessage {
         require(index in indices)
-        var n = root!!; var at = index
+        var n = root ?: throw IndexOutOfBoundsException("Index $index of $size"); var at = index
         while (true) {
-            val left = n.left?.size ?: 0
-            when { at < left -> n = n.left!!; at == left -> return n.message
-                else -> { at -= left + 1; n = n.right!! } }
+            val smaller = n.left; val left = smaller?.size ?: 0
+            when { at < left && smaller != null -> n = smaller; at == left -> return n.message
+                else -> { at -= left + 1; n = n.right ?: throw IndexOutOfBoundsException("Index $index of $size") } }
         }
     }
     fun byId(id: String) = ids[id]
@@ -77,10 +77,10 @@ class IndexedChatMessages private constructor(private val root: Node?,
         nodeVisits++
         node ?: return Node(message)
         if (compare(message, node.message) < 0) {
-            val next = node.copy(left = put(node.left, message)); val left = next.left!!
+            val left = put(node.left, message); val next = node.copy(left = left)
             return if (left.priority < next.priority) left.copy(right = next.copy(left = left.right)) else next
         }
-        val next = node.copy(right = put(node.right, message)); val right = next.right!!
+        val right = put(node.right, message); val next = node.copy(right = right)
         return if (right.priority < next.priority) right.copy(left = next.copy(right = right.left)) else next
     }
     private fun merge(a: Node?, b: Node?): Node? = when {

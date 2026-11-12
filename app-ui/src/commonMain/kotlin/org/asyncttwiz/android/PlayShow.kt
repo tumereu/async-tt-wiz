@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,7 +40,10 @@ import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.storage.ArtworkReference
+import kotlin.concurrent.Volatile
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /** The test tag of the play shown in the middle of the table (HIS-112). */
 const val PLAY_SHOW_TAG = "play-show"
@@ -95,15 +99,82 @@ private const val PLAY_SHOW_MAX_HEIGHT = 300f
 /** HIS-112 (owner playtest 2026-11-07): the flight to the Stack at Card move speed 1×. */
 const val PLAY_SHOW_FLIGHT_MILLIS = 250
 
-/** HIS-112: how long the flight to the Stack takes at the Card move speed [multiplier] (TBL-038). */
-fun playShowFlightMillis(multiplier: Float): Int =
-    (PLAY_SHOW_FLIGHT_MILLIS / cardMoveMultiplier(multiplier)).roundToInt().coerceAtLeast(1)
+/** HIS-112: how long the flight to the Stack takes at the Card move speed [multiplier] (TBL-038), for a play shown again
+ * [repeats] times before in its chain ([playShowRepeatFactor], down to [PLAY_SHOW_FLIGHT_FLOOR_MILLIS]). */
+fun playShowFlightMillis(multiplier: Float, repeats: Int = 0): Int {
+    val full = (PLAY_SHOW_FLIGHT_MILLIS / cardMoveMultiplier(multiplier)).roundToInt().coerceAtLeast(1)
+    if (repeats <= 0) return full
+    val floor = minOf(full, (PLAY_SHOW_FLIGHT_FLOOR_MILLIS / cardMoveMultiplier(multiplier)).roundToInt().coerceAtLeast(1))
+    return maxOf(floor, (full * playShowRepeatFactor(repeats)).roundToInt())
+}
+
+/** HIS-112 (owner playtest 2026-11-11): each repeat of the same ability in one chain shows this much shorter than the one
+ * before (35% shorter). */
+const val PLAY_SHOW_REPEAT_FACTOR = .65
+
+/** HIS-112: the shortest a repeated play shows ([PLAY_SHOW_REPEAT_FACTOR]); never longer than the setting itself. */
+const val PLAY_SHOW_REPEAT_FLOOR_MILLIS = 150L
+
+/** HIS-112: the shortest flight of a repeated play at Card move speed 1×. */
+const val PLAY_SHOW_FLIGHT_FLOOR_MILLIS = 100
+
+/** HIS-112: a play following the one before within this long after it landed continues its chain ([PlayShowPace]). */
+const val PLAY_SHOW_CHAIN_GAP_MILLIS = 1_000L
+
+/** HIS-112: the share of the full time a play shown again [repeats] times before in its chain takes. */
+fun playShowRepeatFactor(repeats: Int): Double = PLAY_SHOW_REPEAT_FACTOR.pow(repeats.coerceAtLeast(0))
+
+/**
+ * HIS-112 (owner playtest 2026-11-11: a board wipe's 30 "whenever a creature dies" triggers took half a minute): how long a
+ * play shows for the "Show plays and combat" time [setting] when the same ability was shown [repeats] times before in its
+ * chain: the first the whole setting, each repeat 35% shorter, down to [PLAY_SHOW_REPEAT_FLOOR_MILLIS].
+ */
+fun playShowMillis(setting: Long, repeats: Int): Long {
+    if (repeats <= 0) return setting
+    val floor = minOf(setting, PLAY_SHOW_REPEAT_FLOOR_MILLIS)
+    return maxOf(floor, (setting * playShowRepeatFactor(repeats)).roundToLong())
+}
+
+/**
+ * HIS-112 (owner playtest 2026-11-11): the plays shown one after another on this table, for their pace. A chain is the
+ * plays that follow one another, each showing within [PLAY_SHOW_CHAIN_GAP_MILLIS] after the one before landed; in it, the
+ * same ability from the same kind of source ([key]: the source's name and the ability's text, whoever controls it) shows
+ * faster each time ([playShowMillis]). Main thread; times are the frames' clock.
+ */
+class PlayShowPace {
+    private val seen = HashMap<Any, Int>()
+    private var landedAt: Long? = null
+
+    /** A play shown begins at [now]: how many times its [key] showed before in this chain (0 for a play without one), and
+     * how long after the one before landed it begins (null: it begins a chain). */
+    fun begin(key: Any?, now: Long): Pair<Int, Long?> {
+        val gap = landedAt?.let { now - it }?.takeIf { it <= PLAY_SHOW_CHAIN_GAP_MILLIS }
+        if (gap == null) seen.clear()
+        landedAt = null
+        if (key == null) return 0 to gap
+        val repeats = seen[key] ?: 0
+        seen[key] = repeats + 1
+        return repeats to gap
+    }
+
+    /** The play shown landed at [now] (a play taken back or ended by timeline mode never lands: the next begins a chain). */
+    fun landed(now: Long) { landedAt = now }
+
+    /** What makes plays repeats of one another ([PlayShown.ability]: an ability's source name and text); null for a spell. */
+    fun key(shown: PlayShown): Any? = shown.ability
+}
+
+/** Tests: each play shown as its time starts on [me]'s table, with the repeats before it in its chain and its times. */
+object PlayShowProbe {
+    @Volatile var listener: ((me: String, show: GameDevice.PlayShow, repeats: Int, millis: Long, flightMillis: Int) -> Unit)? = null
+}
 
 /** HIS-112: the shown card's opacity at [progress] of its flight: whole over the first half, fading out over the second. */
 fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).coerceIn(0f, 1f)
 
 /**
- * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis], then it
+ * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis] (shorter
+ * for a repeat of the same ability in its chain, [pace], owner playtest 2026-11-11: [playShowMillis]), then it
  * flies to the Stack's top card, taking its place and size, with an accelerating curve ([playShowFlightMillis]); its line
  * goes as the flight starts and the card fades out over the flight's second half. When it lands it is gone from this
  * screen at once, and [done] (the device's dismissal, on the engine thread) runs. A double tap on it ends it at once, a
@@ -116,7 +187,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: G
     names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() }, inspect: (Boolean) -> Unit = {},
     moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
     /** Outlives this play: a tap's double-tap time goes on after it has gone. */
-    tapScope: CoroutineScope = rememberCoroutineScope(), done: () -> Unit) {
+    tapScope: CoroutineScope = rememberCoroutineScope(),
+    /** Outlives this play: the chain it is part of, for its pace. */
+    pace: PlayShowPace = remember { PlayShowPace() }, done: () -> Unit) {
     val board = scene.world?.visibleViewport ?: return
     val shown = remember(show) { PlayShows.of(play, show, viewer, names) }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
@@ -130,11 +203,25 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: G
     val ended = remember(show) { booleanArrayOf(false) }
     fun end() { gone = true; if (!ended[0]) { ended[0] = true; done() } }
     LaunchedEffect(show) {
-        pause.wait(millis)
+        val start = withFrameMillis { it }
+        val (repeats, gap) = pace.begin(pace.key(shown), start)
+        val showFor = playShowMillis(millis, repeats)
+        val flightFor = playShowFlightMillis(multiplier, repeats)
+        PlayShowProbe.listener?.invoke(viewer, show, repeats, showFor, flightFor)
+        pause.wait(showFor)
+        val flown = withFrameMillis { it }
         flying = true
-        if (target != null) flight.animateTo(1f, tween(playShowFlightMillis(multiplier), easing = FastOutLinearInEasing))
+        if (target != null) flight.animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
         // A finger held during the flight still holds the view: what comes next waits for it
         pause.lifted()
+        val landed = withFrameMillis { it }
+        pace.landed(landed)
+        // HIS-112 (owner playtest 2026-11-11): where a play's time goes, for the report: the gap before it (the device and
+        // the table getting it on screen), its time shown against the setting, its flight
+        AppLog.info("game", "Play shown ${show.kind::class.simpleName} in ${show.event.take(8)}: " +
+            (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
+            ", shown ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms), flight ${landed - flown} ms ($flightFor ms)" +
+            if (target == null) ", no Stack card to fly to" else "")
         end()
     }
     if (gone) return

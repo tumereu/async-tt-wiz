@@ -249,6 +249,8 @@ object TestCards {
     val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
     /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
     val martyr = card("Ember Martyr", "Creature — Elemental", "{0}", "When this creature dies, you gain 2 life.", "1", "1")
+    /** A free board wipe (HIS-112: several Ember Martyrs dying at once, their triggers shown one after another). */
+    val reckoning = card("Ember Reckoning", "Sorcery", "{0}", "Destroy all creatures.")
     /** A free creature with a trigger of its own when another of its controller's creatures dies (with an Ember Martyr
      * dying: two different triggers, one of a source that has left the battlefield; problem report 3UE2NW). */
     val mourner = card("Ember Mourner", "Creature — Elemental", "{0}", "Whenever another creature you control dies, you gain 1 life.", "1", "1")

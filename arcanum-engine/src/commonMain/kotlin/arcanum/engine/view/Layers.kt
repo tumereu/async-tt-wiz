@@ -726,10 +726,13 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             // CR 310.12b: a Siege has the intrinsic trigger of its last defense counter
             val siege = listOfNotNull(arcanum.engine.combat.Battles.siegeAbility.takeIf {
                 CardType.Battle in c.types && arcanum.engine.combat.Battles.SIEGE in subtypes })
-            p.copy(chars = c.copy(
+            val kept = c.abilities.filterNot { it.origin is AbilityOrigin.LandType || it.origin == arcanum.engine.combat.Battles.SIEGE_RULE }
+            // Every object passes here in each view (a library's cards too): one this changes nothing on is kept as it is
+            if (subtypes.size == c.subtypes.size && allCreatureTypes == c.allCreatureTypes && kept.size == c.abilities.size &&
+                landAbilities.isEmpty() && siege.isEmpty()) p
+            else p.copy(chars = c.copy(
                 subtypes = subtypes, allCreatureTypes = allCreatureTypes,
-                abilities = c.abilities.filterNot { it.origin is AbilityOrigin.LandType || it.origin == arcanum.engine.combat.Battles.SIEGE_RULE } +
-                    landAbilities + siege,
+                abilities = kept + landAbilities + siege,
             ))
         }
     }

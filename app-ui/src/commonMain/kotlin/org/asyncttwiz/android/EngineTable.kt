@@ -722,13 +722,19 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     val playbackPreferences = rememberHistoryPlaybackPreferences(routes.viewer)
     val showMillis by playbackPreferences.showPlaysState()
     LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
-    val show = shown.show
+    // HIS-112 (owner playtest 2026-11-11): the next play shows the moment the one before lands, not once the device's
+    // dismissal of that one is back from the engine thread: the plays this table ended are passed over until the device's
+    // list drops them
+    val endedShows = remember(game) { mutableStateListOf<GameDevice.PlayShow>() }
+    SideEffect { if (endedShows.any { it !in shown.moments }) endedShows.retainAll(shown.moments.toSet()) }
+    val show = shown.moments.firstOrNull { it !in endedShows } as? GameDevice.PlayShow
+    val showPace = remember(game) { PlayShowPace() }
     val showTapScope = rememberCoroutineScope()
     if ((show != null || shown.combatHold != null) && reviewing) LaunchedEffect(show, shown.combatHold) { game.dismissShows(); routes.pump() }
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
-        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis, routes.viewPause, tapScope = showTapScope,
+        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis, routes.viewPause, tapScope = showTapScope, pace = showPace,
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { holding ->
                 if (holding) {
@@ -739,7 +745,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
             },
             moved = { dx, dy, step ->
                 if (peekSwipe?.moved(dx, dy) != true) peekScroll?.holdPreviewScroll(step, peekHeight)
-            }) { game.dismissShow(show); routes.pump() }
+            }) { endedShows += show; game.dismissShow(show); routes.pump() }
     }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)

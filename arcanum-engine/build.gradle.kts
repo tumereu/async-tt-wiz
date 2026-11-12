@@ -17,7 +17,7 @@ kotlin {
             systemProperty("arcanum.regenerate", providers.gradleProperty("arcanum.regenerate").getOrElse("false"))
             // -Parcanum.longGames=N plays N seeded random whole games (Review2LongGamesJvmTest); 0 skips them.
             listOf("arcanum.longGames", "arcanum.longGames.from", "arcanum.longGames.players", "arcanum.longGames.viewer", "arcanum.longGames.malformed",
-                "arcanum.review3.games", "arcanum.review3.perf").forEach { key ->
+                "arcanum.review3.games", "arcanum.review3.perf", "arcanum.massTriggers.perf", "arcanum.massTriggers.runs").forEach { key ->
                 providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
             }
         }

@@ -410,6 +410,8 @@ internal object Filters {
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
+        // otj chunk 02: "outlaw": an Assassin, Mercenary, Pirate, Rogue and/or Warlock (CR 700.12)
+        if (word == "outlaw") return ObjectFilter.Or(listOf("Assassin", "Mercenary", "Pirate", "Rogue", "Warlock").map { ObjectFilter.Sub(Subtype(it)) })
         // chunk 50: "historic": artifacts, legendaries and Sagas (CR 700.6)
         if (word == "historic") return ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Super(Supertype.Legendary),
             ObjectFilter.Sub(Subtype("Saga"))))
@@ -470,7 +472,7 @@ internal object Filters {
     // chunk 32
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
-        "permanent", "spell", "token")
+        "permanent", "spell", "token", "outlaw")
     val CARD_TYPES = mapOf<String, CardType>("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment,
         "instant" to CardType.Instant, "land" to CardType.Land, "planeswalker" to CardType.Planeswalker, "sorcery" to CardType.Sorcery,
         "battle" to CardType.Battle)
@@ -1008,6 +1010,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        OtjPhrases.condition(text)?.let { return it } // otj
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

@@ -226,3 +226,14 @@ fun entersWith(vararg counters: Pair<CounterKind, Value>, condition: Condition? 
     Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
         modify = counters.map { (kind, amount) -> arcanum.api.Modification.EntersWithCounters(kind, amount) })),
         affects = Affected.Objects(Objects.Self), condition = condition)
+
+// ---- otj chunk 02: spree, outlaws
+
+/** Spree (CR 702.172a): the keyword and a spell of one or more of [options], each with its additional cost. */
+fun spree(vararg options: Mode): List<Ability> =
+    listOf(Keyword.Spree, Ability.Spell(Instructions(modes = Modes(options.toList(), min = 1, max = options.size, chooser = Players.You))))
+/** One spree mode: "+ [cost] — [steps]". */
+fun spreeMode(cost: String, vararg steps: Step, targets: List<TargetSlot> = emptyList()): Mode =
+    Mode(Instructions(targets = targets, steps = steps.toList()), extraCost = manaCost(cost))
+/** An outlaw: an Assassin, Mercenary, Pirate, Rogue and/or Warlock (CR 700.12). */
+val outlaw: ObjectFilter = or(sub("Assassin"), sub("Mercenary"), sub("Pirate"), sub("Rogue"), sub("Warlock"))

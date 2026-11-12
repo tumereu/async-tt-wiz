@@ -5098,7 +5098,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Untap(context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null))))
         }
         UNTAP_ALL.matchEntire(sentence)?.let { m ->
-            return listOf(Step.Do(Effect.Untap(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null))))
+            // otj chunk 02: "Untap all creatures target player controls."
+            val filter = m.groupValues[1].removeSuffix(" target player controls").takeIf { it != m.groupValues[1] }?.let { noun ->
+                Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(context.targetPlayer())))
+            } ?: Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Untap(Objects.Each(filter))))
         }
         if (sentence == "Reveal the top card of your library.") {
             context.it = Objects.Bound("revealed")
@@ -12325,12 +12329,16 @@ internal class Sentences(
         }
         // hob chunk 05: "Exchange control of two target nonland permanents that share a card type." (CR 701.12; the second target
         // shares a card type with the first)
+        // otj chunk 02: "Exchange control of two target creatures." (any two of them, CR 701.12a)
         Hob.EXCHANGE_CONTROL_SHARING.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
-            context.targets += hobSlot("permanent", filter)
-            context.targets += hobSlot("other permanent", Filters.all(filter, ObjectFilter.Shares(arcanum.api.SharedQuality.CardType, Objects.Target("permanent"))))
-                .copy(distinctFrom = listOf("permanent"))
-            return listOf(Step.Do(Effect.ExchangeControl(Objects.Target("permanent"), Objects.Target("other permanent"))))
+            val noun = m.groupValues[1].removeSuffix("s")
+            val filter = Filters.noun(noun) ?: return null
+            val sharing = m.groupValues[2].isNotEmpty()
+            val name = if (sharing) "permanent" else Filters.slotName(noun)
+            context.targets += hobSlot(name, filter)
+            context.targets += hobSlot("other $name", if (sharing) Filters.all(filter, ObjectFilter.Shares(arcanum.api.SharedQuality.CardType, Objects.Target(name))) else filter)
+                .copy(distinctFrom = listOf(name))
+            return listOf(Step.Do(Effect.ExchangeControl(Objects.Target(name), Objects.Target("other $name"))))
         }
         // hob chunk 05: "Exile two target creatures and/or lands you control, then return them to the battlefield under their owner's
         // control." (CR 400.7)
@@ -15593,6 +15601,66 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")),
                 Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("sacrificed")))))
+        }
+        // otj chunk 02: "All creatures lose all abilities until end of turn." (the creatures there as it resolves, CR 611.2c, 613.1f)
+        Otj.GROUP_LOSES_ALL_ABILITIES_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.LoseAbilities()), Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // otj chunk 02: "Destroy target creature if no other creature has greater power." (checked as it resolves, CR 608.2c)
+        Otj.DESTROY_TARGET_IF_NO_OTHER_GREATER_POWER.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val greater = Filters.all(ObjectFilter.Not(ObjectFilter.Is(target)), Filters.noun(m.groupValues[2]) ?: return null,
+                ObjectFilter.Power(arcanum.api.Comparison.Greater, Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single)))
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Exists(greater, atLeast = 1)), then = listOf(Step.Do(Effect.Destroy(target)))))
+        }
+        // otj chunk 02: "there is an additional combat phase after this phase." (CR 500.8)
+        if (Otj.ADDITIONAL_COMBAT_AFTER_THIS_PHASE.matches(sentence)) return listOf(Step.Do(Effect.ExtraCombat()))
+        // otj chunk 02: "Choose target opponent. Whenever a creature you control deals combat damage to that player this turn, create a tapped
+        // Treasure token." (a delayed trigger for each time, about the chosen player, CR 603.7b, c)
+        Otj.WHENEVER_DEALS_COMBAT_DAMAGE_TO_THAT_PLAYER_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val player = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Players } ?: return null
+            val (read, _) = trigger("${m.groupValues[1]} deals combat damage to a player") ?: return null
+            val damage = read.events.single() as? EventPattern.Damage ?: return null
+            val trigger = read.copy(events = listOf(damage.copy(to = arcanum.api.RecipientFilter(players = PlayerFilter.Is(Players.Target(player.name))))))
+            val inner = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }, event = trigger.events.single(), that = that(trigger)) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(trigger, inner, duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // otj chunk 02: "Return up to two creature cards with total mana value 4 or less from your graveyard to the battlefield." (chosen as it
+        // resolves, not targeted)
+        Otj.RETURN_UP_TO_TOTAL_MANA_VALUE.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val cards = Filters.all(Filters.noun(m.groupValues[2] + " card") ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(0), Value.Fixed(n),
+                totalAtMost = arcanum.api.Choice.TotalLimit(arcanum.api.NumericProperty.ManaValue, Value.Fixed(m.groupValues[3].toInt()))), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))))
+        }
+        // otj chunk 02: "Return target Aura or Equipment card from your graveyard to the battlefield attached to a creature you control." (the
+        // creature chosen as it resolves; with none, an Equipment enters unattached and an Aura stays, CR 301.5c, 303.4f)
+        Otj.RETURN_TARGET_ATTACHED_TO_A.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1] + " card"
+            val card = context.target(Filters.slotName(noun), Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))
+            val host = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(host, Value.Fixed(1), Value.Fixed(1)), bind = "host", chooser = Players.You),
+                Step.If(arcanum.api.Condition.NonEmpty("host"),
+                    then = listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, attachedTo = arcanum.api.Recipients(objects = Objects.Bound("host")))))),
+                    otherwise = listOf(Step.Do(Effect.Move(Objects.Where(card, ObjectFilter.Not(ObjectFilter.Sub(Subtype("Aura")))), Destination(Zone.Battlefield))))))
+        }
+        // otj chunk 02: "Target opponent sacrifices half the creatures they control of their choice, rounded up.", "… discards half the cards in
+        // their hand, rounded up.", "… loses half their life, rounded up." (CR 107.1a)
+        Otj.TARGET_PLAYER_HALF.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "opponent") context.targetOpponent() else context.targetPlayer()
+            val up = m.groupValues[4] == "up"
+            return when {
+                m.groupValues[2].startsWith("sacrifices") -> {
+                    val theirs = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+                    val half = Value.Half(Value.Count(Objects.Each(theirs)), roundUp = up)
+                    listOf(Step.Choose(arcanum.api.Choice.Objects(theirs, half, half), bind = "sacrificed", chooser = player),
+                        Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
+                }
+                m.groupValues[2].startsWith("discards") -> listOf(Step.Do(Effect.Discard(player, Value.Half(Value.HandSize(player), roundUp = up), ObjectFilter.Any)))
+                else -> listOf(Step.Do(Effect.LoseLife(player, Value.Half(Value.LifeOf(player), roundUp = up))))
+            }
         }
         return null
     }

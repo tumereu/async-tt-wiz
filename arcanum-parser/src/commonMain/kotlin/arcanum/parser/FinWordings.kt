@@ -51,8 +51,9 @@ internal object FinPhrases {
         }
         SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
-            val spell = Filters.noun(m.groupValues[1]) ?: return null
-            return ObjectFilter.Or(listOf(spell, ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
+            // otj chunk 02: "instant spell, sorcery spell, activated ability, or triggered ability": each spell noun is an alternative (CR 113.1)
+            val spells = m.groupValues[1].split(", ").map { Filters.noun(it) ?: return null }
+            return ObjectFilter.Or(spells + listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
         }
         // fin chunk 12: "attacking equipped creature" (CR 301.5c)
         if (phrase == "attacking equipped creature")

@@ -14,4 +14,29 @@ internal object Otj {
     // otj chunk 01: Sheriff of Safe Passage
     val ENTERS_WITH_COUNTER_PLUS_ADDITIONAL_FOR_EACH = Regex(
         """(.+?) enters with (a|an|one|two) (\S+) counters? on it plus an additional (\S+) counter on it for each (.+)\.""")
+    // otj chunk 02: Final Showdown
+    val GROUP_LOSES_ALL_ABILITIES_UNTIL_EOT = Regex("""(All|Each) (.+?) loses? all abilities until end of turn\.""")
+    // otj chunk 02: Getaway Glamer
+    val DESTROY_TARGET_IF_NO_OTHER_GREATER_POWER = Regex("""Destroy target (.+?) if no other (.+?) has greater power\.""")
+    // otj chunk 02: Great Train Heist
+    val ADDITIONAL_COMBAT_AFTER_THIS_PHASE = Regex("""[Tt]here is an additional combat phase after this phase\.""")
+    val WHENEVER_DEALS_COMBAT_DAMAGE_TO_THAT_PLAYER_THIS_TURN = Regex("""Whenever (.+?) deals combat damage to that player this turn, (.+)""")
+    // otj chunk 02: Lively Dirge
+    val RETURN_UP_TO_TOTAL_MANA_VALUE = Regex("""Return up to (\w+) (.+?) cards with total mana value (\d+) or less from your graveyard to the battlefield\.""")
+    // otj chunk 02: One Last Job
+    val RETURN_TARGET_ATTACHED_TO_A = Regex("""Return target (.+?) card from your graveyard to the battlefield attached to an? (.+?)\.""")
+    // otj chunk 02: Rush of Dread
+    val TARGET_PLAYER_HALF = Regex(
+        """Target (opponent|player) (sacrifices half the (.+?) they control of their choice|discards half the cards in their hand|loses half their life), rounded (up|down)\.""")
+}
+
+/** Phrases first met in Outlaws of Thunder Junction (OTJ). */
+internal object OtjPhrases {
+    fun condition(text: String): arcanum.api.Condition? {
+        // otj chunk 02: "it's your combat phase" (any step of your combat phase, CR 506.1)
+        if (text == "it's your combat phase") return arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
+            arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers, arcanum.api.TurnStep.DeclareBlockers,
+                arcanum.api.TurnStep.CombatDamage, arcanum.api.TurnStep.EndOfCombat).map { arcanum.api.Condition.StepIs(it) })))
+        return null
+    }
 }

@@ -337,7 +337,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // TRN-058 (I-D57): the move pill and the bar colours show whom the game really waits for, as the game list does
         val play = board(tip, attention, device.move?.value)
         // R3: the player's hand plays go out with the board (a board published again unchanged keeps them)
-        play.values?.workedHandPlays()
+        play.values?.boardPlays()
         val local = session.indexOf(session.localHead) ?: -1
         val held = session.events.take(local + 1)
         val line = held + session.pending
@@ -443,7 +443,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private fun table(projected: EngineProjection.Board, model: GameModel, nodeId: String, viewer: String = me): TableBoard {
         val visible = runCatching { model.visible(PlayerId(viewer)) }.getOrDefault(emptySet())
         val engine = org.asyncttwiz.protocol.game.EngineView(model.engine, model.table, PlayerId(viewer), visible)
-        val values = EngineBoardValues.make(projected, gameId, engine.state, viewer, runCatching { model.view() }.getOrNull(), visible, worker)
+        val values = EngineBoardValues.make(projected, gameId, engine.state, viewer, runCatching { model.view() }.getOrNull(), visible, worker,
+            engine.table)
         return TableBoard(gameId, base.id, nodeId, projected.board, projected.definitions, engine, values)
     }
 

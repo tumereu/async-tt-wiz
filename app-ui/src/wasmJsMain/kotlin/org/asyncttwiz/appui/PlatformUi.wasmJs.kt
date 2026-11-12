@@ -87,6 +87,18 @@ object WebBack {
 
 @Composable actual fun ScreenBackHandler(enabled: Boolean, onBack: () -> Unit) = WebBackEntry(screen = true, enabled, onBack)
 
+/** WEB-004: Compose's own Back (Esc, Android Chrome's system Back through the shell's close watcher) leaves the table or
+ * the draft when nothing above it takes it; not a layer (the stale-tab reload doesn't wait for it). */
+@Composable actual fun LeaveScreenBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    androidx.compose.ui.backhandler.BackHandler(enabled) {
+        org.asyncttwiz.android.AppLog.info("web-back", "Esc or the system Back leaves the screen")
+        onBack()
+    }
+}
+
+/** WEB-002: Back leaves a game's table at once in the browser. */
+actual val secondBackLeavesTable: Boolean = false
+
 @Composable actual fun screenWidthDp(): Int =
     (LocalWindowInfo.current.containerSize.width / LocalDensity.current.density).toInt()
 

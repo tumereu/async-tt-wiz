@@ -2,9 +2,7 @@
 
 package org.asyncttwiz.android
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -28,8 +26,8 @@ import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.LocalCompatNavigationEventDispatcherOwner
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigationevent.NavigationEventInput
@@ -47,12 +45,13 @@ import org.asyncttwiz.appui.pageScope
 import org.asyncttwiz.appui.postToMainDelayed
 import org.asyncttwiz.appui.unlockSound
 import org.asyncttwiz.protocol.GameLifecycle
+import org.asyncttwiz.protocol.PodPhase
 
 // The web client's shell (docs/specs/web-client.md §11 step 3, docs/features/web.md): the page's entry point that opens
 // the browser's storage and installs the app's platform and services, then the shared app (sign-in, lobby, decks, cubes,
 // settings) in the phone layout, with addresses and browser history (WEB-001, WEB-002), the on-screen Back (WEB-003),
-// Android Chrome's system Back for layers (WEB-004), the stale-tab reload (WEB-006) and a placeholder where a game's table
-// would open (WEB-007: the table comes with step 4).
+// Android Chrome's system Back for layers (WEB-004), the stale-tab reload (WEB-006), and a game's table (step 4, WEB-011:
+// the engine's Web Worker for its plays, the browser's own gestures kept off it, haptics).
 
 /** Starts the web app in this page with the build's values [build] (the webApp module's entry point). */
 fun startWebApp(build: BuildInfo, assetBase: String) {
@@ -68,6 +67,9 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         val catalog = BrowserCatalogController(storage, build.accountOrigin, build.catalogChecksum.ifEmpty { null }, pageScope)
         AppServices.install(BrowserAppServices(storage, catalog))
         startBrowserDiagnostics()
+        // The table's plays are worked out in the engine's Web Worker; requests wait until it has loaded
+        EngineBoundary.useRemote(startEngineWorker(assetBase))
+        jsGuardTablePage()
         unlockSound()
         val auth = AuthViewModel(AppServices.current)
         val shell = WebShell(auth)
@@ -134,11 +136,18 @@ internal class WebShell(private val auth: AuthViewModel) {
                 ReportsPromptDialog { on -> Diagnostics.choose(on); reportChoice = reportChoices.choice }
             }
             WebCloseWatcher()
+            // WEB-011: the browser's own scrolling, zooming, selection and menus stay off the table and the draft
+            val tableChrome = router.tableOpen() || router.draftOpen()
+            DisposableEffect(tableChrome) {
+                AppLog.info("web-page", if (tableChrome) "Table page: browser gestures off" else "Screen page: browser gestures back")
+                jsTablePage(tableChrome)
+                onDispose { }
+            }
             Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport, LocalCardMarks provides auth.cardMarks,
-                    LocalCollectionTab provides collectionTab, LocalScreenBack provides router.screenBack()) {
-                    if (router.tableOpen()) GameElsewhere(auth.lobby) { router.back() }
-                    else AccountEntry(auth.controller, auth.reset, auth.catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes,
+                    LocalCollectionTab provides collectionTab, LocalScreenBack provides router.screenBack(),
+                    LocalHapticFeedback provides BrowserHaptics) {
+                    AccountEntry(auth.controller, auth.reset, auth.catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes,
                         pods = auth.pods)
                 }
             }
@@ -148,23 +157,6 @@ internal class WebShell(private val auth: AuthViewModel) {
                         Text(text, Modifier.padding(horizontal = 16.dp, vertical = 10.dp).testTag("web-note"), color = Color.White)
                     }
                 }
-            }
-        }
-    }
-}
-
-/** WEB-007: a game's table doesn't open in the browser yet; its lobby does. */
-@Composable private fun GameElsewhere(lobby: LobbyController, back: () -> Unit) {
-    ScreenTheme {
-        Column(Modifier.fillMaxSize()) {
-            ScreenHeader(lobby.state.games.firstOrNull { it.id == lobby.state.selected }?.gameName ?: "Game")
-            Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
-                Text("Games open in the app for now", Modifier.testTag("game-elsewhere"), style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center)
-                Text("Playing in the browser comes soon. Open this game in the Android app.", textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ScreenOutlinedButton(onClick = back) { Text("Back to Games") }
             }
         }
     }
@@ -359,9 +351,13 @@ internal class WebRouter(private val auth: AuthViewModel, private val collection
     /** The headers' on-screen Back, on every screen but the menu. */
     fun screenBack(): (() -> Unit)? = if (shown == null || shown == WebRoute.Menu) null else ::back
 
-    /** Whether the open game would show its table (WEB-007), which the browser doesn't have yet. */
+    /** Whether the open game shows its table (WEB-007). */
     fun tableOpen(): Boolean = auth.controller.state.let { it.account != null && it.destination == ShellDestination.GAMES } &&
         auth.lobby.state.selected != null && auth.lobby.state.detail?.lifecycle == GameLifecycle.ACTIVE
+
+    /** Whether an open pod shows its draft (WEB-011). */
+    fun draftOpen(): Boolean = auth.controller.state.let { it.account != null && it.destination == ShellDestination.PODS } &&
+        auth.pods.state.let { it.selected != null && it.detail?.phase == PodPhase.DRAFTING && it.tab == PodTab.DRAFT }
 }
 
 /**

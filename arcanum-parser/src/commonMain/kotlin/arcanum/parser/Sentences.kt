@@ -6892,7 +6892,11 @@ internal class Sentences(
             return listOf(apply(listOf(Mechanic.GainAbilities(listOf(granted))), Objects.Each(filter)))
         }
         // dgm: "destroy that creature." (the creature that dealt the damage)
-        if (sentence == "Destroy that creature." && context.event is EventPattern.Damage) return listOf(Step.Do(Effect.Destroy(Objects.EventObject(EventRole.Source))))
+        // isd chunk 13: when this object dealt the damage, "that creature" is the one it damaged (CR 120.2), not itself
+        if (sentence == "Destroy that creature." && context.event is EventPattern.Damage) {
+            val dealt = (context.event as EventPattern.Damage).source == ObjectFilter.Is(Objects.Self)
+            return listOf(Step.Do(Effect.Destroy(Objects.EventObject(if (dealt) EventRole.Object else EventRole.Source))))
+        }
         // dgm: "create a 2/2 white Knight creature token with vigilance, a 3/3 green Centaur creature token, and a 4/4 green Rhino
         // creature token with trample."
         Gtc.CREATE_TOKENS_LIST.matchEntire(sentence)?.let { m ->

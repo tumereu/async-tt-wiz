@@ -205,15 +205,17 @@ class EndTurnBenchmark {
  * sickness), equipment and auras attached to the creatures in order. The rest of each 60-card deck (Mountains, Storm
  * Sparks, Ember Cubs) is in the library and the opening hand.
  */
-private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, private val filler: List<Pair<BenchCard, Int>> = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8)) {
+internal class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, private val filler: List<Pair<BenchCard, Int>> = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8),
+    /** Cards put into each player's hand besides the opening hand (taken out of the filler). */
+    hand: List<Pair<BenchCard, Int>> = emptyList(), private val life: Int? = null) {
     private val f = TableStatesFixture
     val a = f.a
     val b = f.b
-    private val cards = (board + filler).flatMap { (card, n) -> List(n) { card } }
+    private val cards = (board + filler + hand).flatMap { (card, n) -> List(n) { card } }
     private val decks = listOf(a, b).associateWith { p -> cards.mapIndexed { i, card -> f.id("$p/card/$i") to card } }
     private val onBattlefield = board.sumOf { it.second }
     val permanents get() = onBattlefield * 2
-    val parsedWarnings: String = (board + filler).map { it.first }.distinct()
+    val parsedWarnings: String = (board + filler + hand).map { it.first }.distinct()
         .filter { c -> c.definition.faces.any { face -> face.abilities.any { it is arcanum.api.Ability.Unparsed } } }
         .let { if (it.isEmpty()) "every card parsed" else "UNPARSED: " + it.joinToString { c -> c.name } }
 
@@ -250,6 +252,8 @@ private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, pr
         val head = event("keep/a", "keep/b", a, keep(a))
         check(model.engine.turn.number == 1) { "turn ${model.engine.turn}" }
         for (p in listOf(a, b)) put(model.engine, PlayerId(p), board)
+        for (p in listOf(a, b)) toHand(model.engine, PlayerId(p), hand)
+        if (life != null) model.engine.players.indices.forEach { i -> model.engine.players[i] = model.engine.players[i].copy(life = life) }
         val codec = EngineJson(GameDefinitions.of(model.engine))
         EngineSnapshot(codec.encodeDefinitions(), f.id("root"), head.id, codec.encodeModel(model),
             localHeads = mapOf(a to head.id, b to head.id), settings = PLAYS_ON)
@@ -281,6 +285,19 @@ private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, pr
         }
     }
 
+    /** Moves [player]'s cards of [hand] from the library into the hand. */
+    private fun toHand(s: GameState, player: PlayerId, hand: List<Pair<BenchCard, Int>>) {
+        val moved = mutableListOf<ObjectId>()
+        for ((card, n) in hand) {
+            val inHand = s.player(player).hand.count { id -> s.obj(id)?.definition == card.definition }
+            repeat(n - inHand) { moved += s.player(player).library.first { id -> id !in moved && s.obj(id)?.definition == card.definition } }
+        }
+        val index = s.players.indexOfFirst { it.id == player }
+        val p = s.players[index]
+        s.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand + moved, libraryPlaces = p.libraryPlaces - moved.toSet())
+        for (id in moved) s.objects[id] = s.obj(id)!!.copy(zone = Zone.Hand)
+    }
+
     /** The game loaded afresh, at Alice's first main phase with priority. */
     fun game(): EngineGame {
         var n = 0
@@ -307,7 +324,7 @@ private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, pr
 }
 
 /** An invented card (our names, oracle wordings of real templates), as the server and a device parse it. */
-private class BenchCard(val name: String, cost: String?, type: String, text: String = "", power: String? = null, toughness: String? = null) {
+internal class BenchCard(val name: String, cost: String?, type: String, text: String = "", power: String? = null, toughness: String? = null) {
     val submitted = CardDefinition(name, listOf(DefinitionFace(TableStatesFixture.id("face/$name"), name, typeLine = type,
         manaCost = cost.orEmpty(), rulesText = text, power = power.orEmpty(), toughness = toughness.orEmpty())))
         .let { SubmittedDefinition(DeckJson.digest(it), it) }

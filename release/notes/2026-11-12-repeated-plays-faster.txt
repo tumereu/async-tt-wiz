@@ -1,0 +1,1 @@
+mod: The same ability shown again and again in a row (like many "whenever a creature dies" triggers after a board wipe) shows faster each time; the first keeps its full time.

@@ -62,40 +62,44 @@ fun DragOrderList(keys: List<String>, move: (Int, Int) -> Unit, describe: (Strin
     val moveNow by rememberUpdatedState(move)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         keys.forEachIndexed { index, key ->
-            val lifted = dragging == key
-            val actions = listOfNotNull(
-                CustomAccessibilityAction("Move up") { moveNow(index, index - 1); true }.takeIf { index > 0 },
-                CustomAccessibilityAction("Move down") { moveNow(index, index + 1); true }.takeIf { index < keys.lastIndex })
-            Row(Modifier.fillMaxWidth().zIndex(if (lifted) 1f else 0f)
-                .onSizeChanged { heights[key] = it.height }
-                .graphicsLayer { translationY = if (lifted) offset else 0f; shadowElevation = if (lifted) 8f else 0f }
-                .background(if (lifted) Color(0xfff6f3fb) else Color.White, RoundedCornerShape(8.dp))
-                .border(1.dp, if (lifted) AutomatumViolet else Color(0x22000000), RoundedCornerShape(8.dp))
-                .semantics { contentDescription = describe(key); customActions = actions }
-                .padding(end = 6.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(width = 36.dp, height = 44.dp).pointerInput(key) {
-                    detectVerticalDragGestures(onDragStart = { dragging = key; offset = 0f },
-                        onDragEnd = { dragging = null; offset = 0f }, onDragCancel = { dragging = null; offset = 0f }) { change, dy ->
-                        change.consume()
-                        offset += dy
-                        val at = current.indexOf(key)
-                        if (offset > 0 && at < current.lastIndex) {
-                            val next = (heights[current[at + 1]] ?: 0) + gap
-                            if (offset > next / 2) { moveNow(at, at + 1); offset -= next }
-                        } else if (offset < 0 && at > 0) {
-                            val previous = (heights[current[at - 1]] ?: 0) + gap
-                            if (-offset > previous / 2) { moveNow(at, at - 1); offset += previous }
+            // Owner, 2026-11-11 (30 triggers and more): each row keeps its composition as it moves, so a move doesn't compose
+            // every row again and the dragged row's gesture goes on
+            androidx.compose.runtime.key(key) {
+                val lifted = dragging == key
+                val actions = listOfNotNull(
+                    CustomAccessibilityAction("Move up") { moveNow(index, index - 1); true }.takeIf { index > 0 },
+                    CustomAccessibilityAction("Move down") { moveNow(index, index + 1); true }.takeIf { index < keys.lastIndex })
+                Row(Modifier.fillMaxWidth().zIndex(if (lifted) 1f else 0f)
+                    .onSizeChanged { heights[key] = it.height }
+                    .graphicsLayer { translationY = if (lifted) offset else 0f; shadowElevation = if (lifted) 8f else 0f }
+                    .background(if (lifted) Color(0xfff6f3fb) else Color.White, RoundedCornerShape(8.dp))
+                    .border(1.dp, if (lifted) AutomatumViolet else Color(0x22000000), RoundedCornerShape(8.dp))
+                    .semantics { contentDescription = describe(key); customActions = actions }
+                    .padding(end = 6.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(width = 36.dp, height = 44.dp).pointerInput(key) {
+                        detectVerticalDragGestures(onDragStart = { dragging = key; offset = 0f },
+                            onDragEnd = { dragging = null; offset = 0f }, onDragCancel = { dragging = null; offset = 0f }) { change, dy ->
+                            change.consume()
+                            offset += dy
+                            val at = current.indexOf(key)
+                            if (offset > 0 && at < current.lastIndex) {
+                                val next = (heights[current[at + 1]] ?: 0) + gap
+                                if (offset > next / 2) { moveNow(at, at + 1); offset -= next }
+                            } else if (offset < 0 && at > 0) {
+                                val previous = (heights[current[at - 1]] ?: 0) + gap
+                                if (-offset > previous / 2) { moveNow(at, at - 1); offset += previous }
+                            }
                         }
+                    }.semantics { contentDescription = "Drag to reorder" }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.DragHandle, null, Modifier.size(22.dp), tint = Color(0xff78909c))
                     }
-                }.semantics { contentDescription = "Drag to reorder" }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.DragHandle, null, Modifier.size(22.dp), tint = Color(0xff78909c))
+                    // Its place: 1 is the first (resolves or applies first)
+                    Box(Modifier.size(20.dp).background(AutomatumViolet, CircleShape), contentAlignment = Alignment.Center) {
+                        Text("${index + 1}", color = Color.White, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    row(key, index)
                 }
-                // Its place: 1 is the first (resolves or applies first)
-                Box(Modifier.size(20.dp).background(AutomatumViolet, CircleShape), contentAlignment = Alignment.Center) {
-                    Text("${index + 1}", color = Color.White, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                row(key, index)
             }
         }
     }
@@ -127,7 +131,7 @@ fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
                 (source?.let { " (${objectName(flow, play, it)}, shown ${flow.shown(it)})" } ?: "") + ", text ${trigger.text ?: "none"}"
         })
     }
-    fun line(index: Int): String {
+    fun lineOf(index: Int): String {
         val trigger = triggers[index] ?: return Faults.placeholder("OrderTriggersSection", "trigger row without its trigger",
             "Trigger ${index + 1}", mapOf("decision" to decision.id.value, "index" to "$index"))
         val source = trigger.source
@@ -141,13 +145,18 @@ fun OrderTriggersSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             source?.let { "${objectName(flow, play, it)}'s triggered ability" } ?: "Trigger ${index + 1}",
             mapOf("decision" to decision.id.value, "index" to "$index", "source" to source.toString()))
     }
-    fun card(index: Int): ChoiceCardData {
+    fun cardOf(index: Int): ChoiceCardData {
         val source = triggers[index]?.source
         return (source?.let { choiceCardOf(flow, play, viewer, it) } ?: ChoiceCardData("trigger/$index", null,
             Faults.placeholder("OrderTriggersSection", "trigger without a source", "Trigger ${index + 1}",
                 mapOf("decision" to decision.id.value, "index" to "$index")), null, shown = true))
             .copy(key = "trigger/$index")
     }
+    // Owner, 2026-11-11 (30 triggers and more): each row's card and line worked out once, not again at every move
+    val lines = remember(decision.id, IdentityKey(play)) { HashMap<Int, String>() }
+    val cards = remember(decision.id, IdentityKey(play)) { HashMap<Int, ChoiceCardData>() }
+    fun line(index: Int): String = lines.getOrPut(index) { lineOf(index) }
+    fun card(index: Int): ChoiceCardData = cards.getOrPut(index) { cardOf(index) }
     Section(choiceWhat(decision), choiceHint(decision)) {
         DragOrderList(order.map { "$it" }, { from, to -> order = order.moved(from, to) },
             describe = { key -> "Trigger: ${line(key.toInt())}" }) { key, _ ->

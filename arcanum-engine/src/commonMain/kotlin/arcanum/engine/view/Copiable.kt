@@ -344,15 +344,23 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         /** An object's characteristics before layers 2–7, from its copiable faces. */
         fun initial(o: GameObject?, faces: List<IndexedFace>, timestamp: Long?): Characteristics {
             val merged = faces.filterNot { it.abilitiesOnly }.map { it.face }
-            val symbols = merged.flatMap { it.manaCost?.symbols.orEmpty() }
             val onBattlefield = o?.zone == Zone.Battlefield
+            // Every object's starting values are worked out for each view (a library's cards too): one face, the usual
+            // case, takes its values as they are; each face's colours are worked out once
+            val single = merged.singleOrNull()
             return Characteristics(
-                name = merged.map { it.name }.filter { it.isNotEmpty() }.joinToString(" // ").ifEmpty { null },
-                manaCost = if (merged.all { it.manaCost == null }) null else ManaCost(symbols),
-                colors = Color.all.filter { c -> merged.any { c in colorsOf(it) } },
-                supertypes = merged.flatMap { it.supertypes }.distinct(),
-                types = merged.flatMap { it.types }.distinct(),
-                subtypes = merged.flatMap { it.subtypes }.distinct(),
+                name = if (single != null) single.name.ifEmpty { null }
+                    else merged.map { it.name }.filter { it.isNotEmpty() }.joinToString(" // ").ifEmpty { null },
+                manaCost = when {
+                    single != null -> single.manaCost
+                    merged.all { it.manaCost == null } -> null
+                    else -> ManaCost(merged.flatMap { it.manaCost?.symbols.orEmpty() })
+                },
+                colors = if (single != null) colorsOf(single)
+                    else merged.flatMapTo(HashSet()) { colorsOf(it) }.let { all -> Color.all.filter { it in all } },
+                supertypes = merged.flatMapDistinct { it.supertypes },
+                types = merged.flatMapDistinct { it.types },
+                subtypes = merged.flatMapDistinct { it.subtypes },
                 power = merged.firstNotNullOfOrNull { it.power }?.let(::number),
                 toughness = merged.firstNotNullOfOrNull { it.toughness }?.let(::number),
                 // CR 306.5c, 310.4c: on the battlefield, loyalty and defense are the counters
@@ -364,6 +372,13 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                     f.face.abilities.mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Printed(f.index, i, f.card), timestamp) }
                 }),
             )
+        }
+
+        /** [part] of every face, each value once: one face's list as it is when it can't hold a value twice. */
+        private inline fun <T> List<FaceDefinition>.flatMapDistinct(part: (FaceDefinition) -> List<T>): List<T> {
+            val single = singleOrNull() ?: return flatMap(part).distinct()
+            val values = part(single)
+            return if (values.size < 2) values else values.distinct()
         }
 
         /** A printed number before characteristic-defining abilities (CR 208.2a): `*` counts as its addend, X as 0. */

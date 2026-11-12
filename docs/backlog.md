@@ -28,9 +28,6 @@ Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client
 
 Playtest notes (owner, 2026-11-11 evening): before web step 3, after the client crash-safety pass. The web wireframes show the same changes.
 
-- Plays shown pacing (HIS-112): with many triggers, each ability shown large waited a long pause before the next; wanted: shown large for the setting's time, shrinks onto the Stack, and the next one shows the moment it lands. Find and remove the extra pause; log the timings.
-- Repeated plays speed up (HIS-112, HIS-021): the same ability from the same kind of source shown again and again in one chain (a board wipe with "whenever a creature dies, gain 1 life") shows faster each time down to a short floor, so 30 of them don't take half a minute; the first one keeps the setting's full time.
-- Engine scale check for mass triggers (Commander readiness): scenarios with ~30 creatures dying at once with death triggers, and copies of such triggers, must resolve without freezing the phone; measure (no timing asserts in tests), fix hot spots found.
 - Draft history button in one place (owner, 2026-11-11; DRF-165): the History icon in the pod's header on every tab, the Draft tab included; the Draft tab's own "History" button goes.
 - Draft pods: after submitting a deck you can still rename it and change its cover art (from Prepare deck in the game lobby).
 - Subtype counts in draft stats (owner, 2026-11-11; DRF-112): a row (or rows) counting the Main cards' subtypes, all of them for now (creature types, Equipment, Aura, …), most common first, the rest behind a tap; the owner may narrow it after trying.

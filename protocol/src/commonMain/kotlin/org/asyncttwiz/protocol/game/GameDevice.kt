@@ -983,6 +983,10 @@ class GameDevice(
     /** HIS-112: every play not shown to its end yet, oldest first. */
     val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.filterIsInstance<PlayShow>() }
 
+    /** HIS-112, HIS-113: every play shown and combat moment not done yet, oldest first ([show] or [combatHold] the first);
+     * none while a reveal panel is open (HIS-110 first). */
+    val openMoments: List<ViewMoment> get() { syncReveals(); return if (revealsOpen.isNotEmpty()) emptyList() else showsOpen.toList() }
+
     /** HIS-112: the event of the last play done ([dismissShow]): playback lets the next event follow it at once (the show
      * took the playback delay's place, HIS-021). */
     var showDone: String? = null

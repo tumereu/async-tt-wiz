@@ -1,0 +1,1 @@
+fix: Each play shown in the middle of the table now shows for its set time, and the next one comes the moment it lands on the Stack, with no extra pause between them.

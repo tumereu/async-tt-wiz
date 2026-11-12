@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,15 +46,22 @@ class ViewPause {
     /** Returns once nothing pauses the view. */
     suspend fun lifted() { if (paused) snapshotFlow { paused }.first { !it } }
 
-    /** Waits [millis] of time the view isn't paused, ending only when it isn't. */
+    /**
+     * Waits [millis] of time the view isn't paused, ending only when it isn't. The time is the frames' clock (owner
+     * playtest 2026-11-11: counting the slices waited for made a play shown last longer than its time while the main
+     * thread was busy, each slice resuming late), so a busy main thread doesn't lengthen it.
+     */
     suspend fun wait(millis: Long) {
+        if (millis <= 0) { lifted(); return }
         var left = millis
+        var last = withFrameMillis { it }
         while (true) {
-            lifted()
+            if (paused) { lifted(); last = withFrameMillis { it } }
             if (left <= 0) return
-            val slice = minOf(left, VIEW_PAUSE_SLICE_MILLIS)
-            delay(slice)
-            left -= slice
+            delay(minOf(left, VIEW_PAUSE_SLICE_MILLIS))
+            val now = withFrameMillis { it }
+            left -= now - last
+            last = now
         }
     }
 }

@@ -159,6 +159,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         /** TRN-066 (owner, 2026-11-09): where the other player is while the game waits for them and they are behind this
          * player (who went ahead on assumptions), else null ([GameDevice.opponentAt]). */
         val opponentAt: GameDevice.OpponentAt? = null,
+        /** HIS-112, HIS-113: every play shown and combat moment not done yet, oldest first ([show] or [combatHold] the first;
+         * none while a reveal panel is open): the table shows the next play the moment the one before lands. */
+        val moments: List<GameDevice.ViewMoment> = emptyList(),
         /** [board]'s engine state (every board this game builds has one). */
         val engine: GameState) {
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
@@ -361,7 +364,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, takingBack,
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
-            opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, engine = engine)
+            opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, moments = device.openMoments, engine = engine)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -466,7 +469,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt,
+            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt, moments = last.moments,
             engine = engine)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
@@ -1194,7 +1197,19 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** HIS-112: the play shown [show] is done (its time is up, or the player tapped it): the next one shows, or the view
      * goes on. Nothing when it is no longer the one shown (taken back meanwhile). */
-    fun dismissShow(show: GameDevice.PlayShow) = worker.run { if (device.dismissShow(show)) { publish(); afterBoard() } }
+    fun dismissShow(show: GameDevice.PlayShow) = worker.run {
+        val start = clock()
+        if (!device.dismissShow(show)) return@run
+        publish()
+        val published = clock()
+        afterBoard()
+        // HIS-112 (owner playtest 2026-11-11): the engine thread's part of a play's end, when slow: the board published
+        // again, and the device's own steps the last play let it make (what waited on the Stack resolving by itself)
+        val total = (clock() - start) / 1_000_000
+        if (total >= SLOW_SHOW_MS) AppLog.info("game", "Play shown done in ${show.event.take(8)}: ${total} ms on the engine thread " +
+            "(board ${(published - start) / 1_000_000} ms, own steps and board after it ${(clock() - published) / 1_000_000} ms), " +
+            "${device.openMoments.size} holds left")
+    }
 
     /** HIS-113: the combat moment [hold] is done (its time is up, or the player tapped the table): the next moment comes, or
      * the view goes on. Nothing when it is no longer the one (taken back meanwhile). */
@@ -1617,6 +1632,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private companion object {
         /** SYS-025's budget for an action's local result. */
         const val SLOW_MS = 20.0
+        /** HIS-112: a play shown's end slower than this on the engine thread is logged. */
+        const val SLOW_SHOW_MS = 50L
         /** The start of every own action's line in the app log (SYS-030): "Own action what=… path=… totalMs=…". */
         const val OWN_ACTION = "Own action "
         /** An action made on a board the device has moved on from ([refusedText]: SYS-012's note). */

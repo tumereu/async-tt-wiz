@@ -226,6 +226,33 @@ class PlayShowTest {
         assertEquals(0f, playShowFlightAlpha(1f))
     }
 
+    // HIS-112 (owner playtest 2026-11-11): the same ability shown again in one chain shows 35% shorter each time, down to
+    // 0.15 s (never longer than the setting), its flight likewise down to 0.1 s at Card move speed 1×; the first the whole time
+    @Test fun aRepeatedAbilityShowsFasterEachTimeDownToAFloor() {
+        assertEquals(listOf(1_200L, 780L, 507L, 330L, 214L, 150L, 150L), (0..6).map { playShowMillis(1_200, it) })
+        assertEquals(6_781L, (0 until 30).sumOf { playShowMillis(1_200, it) }, "30 repeats of 1.2 s shown: under 7 s in all")
+        assertEquals(listOf(100L, 100L), (0..1).map { playShowMillis(100, it) }, "a setting below the floor stays as it is")
+        assertEquals(listOf(3_000L, 1_950L), (0..1).map { playShowMillis(3_000, it) })
+        assertEquals(listOf(250, 163, 106, 100, 100), (0..4).map { playShowFlightMillis(1f, it) })
+        assertEquals(listOf(125, 81, 53, 50), (0..3).map { playShowFlightMillis(2f, it) })
+    }
+
+    // HIS-112: a chain is plays each showing within a second after the one before landed; in it each ability counts its own
+    // repeats (another ability between doesn't end it); a spell is never a repeat; after a rest the next begins a chain
+    @Test fun aChainCountsEachAbilityAndEndsAfterARest() {
+        val pace = PlayShowPace()
+        val martyr = StackAbilityShown(true, "Ember Martyr", "When this creature dies, you gain 2 life.")
+        val mourner = StackAbilityShown(true, "Ember Mourner", "Whenever another creature you control dies, you gain 1 life.")
+        assertEquals(0 to null, pace.begin(null, 0)); pace.landed(1_450)
+        assertEquals(0 to 10L, pace.begin(martyr, 1_460)); pace.landed(2_900)
+        assertEquals(0, pace.begin(mourner, 2_910).first); pace.landed(4_000)
+        assertEquals(1, pace.begin(martyr.copy(), 4_300).first, "the same ability and source name: a repeat"); pace.landed(5_000)
+        assertEquals(2, pace.begin(martyr, 5_900).first); pace.landed(6_000)
+        assertEquals(0 to null, pace.begin(martyr, 7_001), "more than a second after the last landed: a new chain")
+        // A play that never landed (taken back) leaves the next to begin a chain
+        assertEquals(0 to null, pace.begin(martyr, 7_100))
+    }
+
     // HIS-112 (owner playtest 2026-11-07): after its time the line goes as the flight starts, the card flies to the Stack's
     // top card and is gone from the screen as it lands, without waiting for the device (here its dismissal never comes)
     @Test fun theShowLeavesTheScreenWhenItLandsWithoutWaitingForTheDevice() {

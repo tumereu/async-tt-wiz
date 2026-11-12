@@ -6568,11 +6568,13 @@ internal class Sentences(
         val eot = arcanum.api.Duration.EndOfTurn
         // dgm: "You may reveal up to two instant and/or sorcery cards from among them and put the revealed cards into your hand." /
         // "Put the rest on the bottom of your library in any order." (after looking at the top cards)
+        // one chunk 02: "You may reveal any number of Rat cards from among them and put the revealed cards into your hand." (no upper limit)
         Gtc.MAY_REVEAL_UP_TO_FROM_AMONG.matchEntire(sentence)?.let { m ->
             val seen = Objects.Bound(context.seen ?: return null)
+            val max = if (m.groupValues[1].isEmpty()) null else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             context.picked = "revealed"
             return listOf(
-                Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[2]) ?: return null, Value.Fixed(0), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
+                Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[2]) ?: return null, Value.Fixed(0), max,
                     from = seen), bind = "revealed", chooser = Players.You),
                 Step.Do(Effect.Reveal(Objects.Bound("revealed"))),
                 Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand))))
@@ -15551,6 +15553,20 @@ internal class Sentences(
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             return listOf(Step.Do(Effect.OneMoreCounterOfChosenKind(Recipients(objects = target))))
         }
+        // one chunk 02: Skrelv, "Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn.
+        // It can't be blocked by creatures of that color this turn." (the color chosen as it resolves, CR 702.11d, 509.1b)
+        One.CHOOSE_COLOR_GAINS_HEXPROOF_FROM_UNBLOCKABLE_BY.matchEntire(text)?.let { m ->
+            val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[2]))
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val color = ObjectFilter.OfColor(ColorRef.Chosen("color"))
+            val keywords = if (m.groupValues[3].isEmpty()) emptyList() else tmtKeywords(m.groupValues[3]) ?: return null
+            val blockers = Filters.noun(m.groupValues[4]) ?: return null
+            context.targets += tmtSlot(name, if (m.groupValues[1] == "Target") noun else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun))
+            val target = Objects.Target(name)
+            return listOf(Step.Choose(arcanum.api.Choice.Color(), bind = "color", chooser = Players.You),
+                tmtUntilEndOfTurn(target, Mechanic.GainAbilities(keywords + arcanum.api.Keyword.HexproofFrom(color))),
+                tmtUntilEndOfTurn(target, Mechanic.CantBeBlockedBy(Filters.all(blockers, color))))
+        }
         return null
     }
 
@@ -21174,9 +21190,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Draw(player, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))),
                 Step.Do(Effect.GainLife(player, Value.Fixed(m.groupValues[2].toInt()))))
         }
-        // "that player gets two poison counters." (the player dealt damage, CR 122.1f)
+        // "that player gets two poison counters." (the player dealt damage, CR 122.1f); one chunk 02: "… an additional poison counter" (one more),
+        // "target opponent gets a poison counter", "each opponent gets …"
         Eoe.THAT_PLAYER_GETS_POISON.matchEntire(sentence)?.let { m ->
-            return listOf(Step.Do(Effect.GivePlayerCounters(Players.EventPlayer, arcanum.api.CounterKind.Poison, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+            val players = playersIn(m.groupValues[1], context) ?: return null
+            val count = if (m.groupValues[2] == "an additional") 1 else Numbers.count(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.GivePlayerCounters(players, Counters.kind(m.groupValues[3]) ?: return null, Value.Fixed(count))))
         }
         // "Create a token that's a copy of target artifact or enchantment you control, except it's legendary." (CR 707.9b)
         Eoe.CREATE_COPY_EXCEPT_LEGENDARY.matchEntire(sentence)?.let { m ->

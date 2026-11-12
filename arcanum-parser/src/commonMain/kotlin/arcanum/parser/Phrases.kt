@@ -180,6 +180,9 @@ internal object Filters {
         // fdn chunk 22: not "an instant card or a card with flash": the alternative after " or a" has its own noun, the " or " split owns it
         WITH_KEYWORD.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
+            // one chunk 02: "creature you control with toxic": a keyword that takes a number, named alone (any toxic value, CR 702.164)
+            AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(m.groupValues[2], ignoreCase = true) }
+                ?.let { kind -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(kind)) }
         }
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
@@ -505,6 +508,8 @@ internal object Filters {
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
+    /** Keywords named by a bare word in "with <keyword>" though written with a number ("toxic 1"). */
+    private val AMOUNT_KEYWORD_KINDS: List<arcanum.api.KeywordKind> = listOf(arcanum.api.Keyword.Toxic.Kind)
     // chunk 51
     private val MANA_VALUE_PLUS_SACRIFICED = Regex("""(.+) with mana value equal to (\d+) plus the sacrificed \w+'s mana value""")
 }
@@ -722,13 +727,16 @@ internal object Events {
         // blb chunk 04: "you expend 4" (CR 700.14)
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
+        // one chunk 02: "a creature you control becomes the target of a spell" (any player's spell, not an ability)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
-            val by = when (m.groupValues[2]) {
-                "you control" -> PlayerFilter.You
-                "an opponent controls" -> PlayerFilter.Opponent
-                else -> return null
+            val controller = when (m.groupValues[3]) {
+                "you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
+                "an opponent controls" -> ObjectFilter.ControlledBy(PlayerFilter.Opponent)
+                else -> null
             }
-            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = ObjectFilter.ControlledBy(by))
+            val spell = if (m.groupValues[2] == "spell") ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) else null
+            val by = listOfNotNull(spell, controller).let { if (it.isEmpty()) ObjectFilter.Any else it.singleOrNull() ?: ObjectFilter.And(it) }
+            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = by)
         }
         // chunk 33: leaves-the-battlefield (CR 603.6c)
         LEAVES_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
@@ -971,7 +979,7 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     private val TRANSFORMS = Regex("""(.+) transforms""")
     // blb chunk 01
-    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
+    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a (spell or ability|spell)(?: (you control|an opponent controls))?""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
     private val BEGINNING_OF_EACH_PLAYERS = Regex("""the beginning of each player's (upkeep|draw step|end step)""")

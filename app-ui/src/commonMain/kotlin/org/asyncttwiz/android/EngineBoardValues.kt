@@ -10,6 +10,9 @@ import org.asyncttwiz.automatum.ComputedBoard
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.HandPlays
 import org.asyncttwiz.automatum.SharedFlow
+import org.asyncttwiz.automatum.boundary.EngineAnswer
+import org.asyncttwiz.automatum.boundary.EngineRequest
+import org.asyncttwiz.automatum.boundary.PlanningBoard
 import kotlin.concurrent.Volatile
 import org.asyncttwiz.appui.CountDownLatch
 import org.asyncttwiz.appui.currentThread
@@ -20,7 +23,7 @@ import org.asyncttwiz.appui.simpleClassName
  * ([EngineGame]), from its one view of the state (R2), carried by the board ([TableBoard.values]):
  * - [computed]: the computed card values ([ComputedBoard]: P/T, keywords, type and colour changes, until-end-of-turn
  *   marks), made with the board: the table never shows the previous board's with it;
- * - the player's hand plays ([HandPlays]): worked out on the engine thread with the board it publishes as the result of
+ * - the player's hand plays ([HandPlays]): worked out (through the engine boundary in-process, [EngineBoundary]) on the engine thread with the board it publishes as the result of
  *   an action ([EngineGame.Shown]), or on the engine thread when asked first. An own action's board (its early board, or
  *   its whole outcome's) gets them and its card menus' plays right after it is published, before the engine thread's
  *   follow-up work (the rest of the action's event, the device's own steps): they are promised ([promisePlays]) before
@@ -48,6 +51,13 @@ class EngineBoardValues constructor(
         0
     }
 
+    /** This board's number on the engine boundary ([EngineRequest.board]). */
+    private val number: Long = numbers.incrementAndGet()
+
+    /** Engine thread: the planning request [request] on this board, through the engine boundary in-process ([EngineBoundary]). */
+    private fun plan(request: (seq: Long) -> EngineRequest): EngineAnswer =
+        EngineBoundary.inProcess.call(request(EngineBoundary.inProcess.next()), PlanningBoard(state, view, visible))
+
     /** The hand plays once worked out (any thread reads; the engine thread writes). */
     @Volatile var handPlays: HandPlays? = null
         private set
@@ -61,15 +71,14 @@ class EngineBoardValues constructor(
     fun handPlays(): HandPlays = handPlays ?: promised()?.handPlays ?: engine.call { workedHandPlays() }
 
     /** Engine thread: the hand plays, worked out now when not yet. Never throws (as the table's did: none on failure). */
-    fun workedHandPlays(): HandPlays = handPlays ?: try {
-        HandPlays.of(state, viewer, view).also { plays ->
+    fun workedHandPlays(): HandPlays = handPlays ?: when (val answer = plan { EngineRequest.HandPlaysOf(it, gameId, number, viewer) }) {
+        is EngineAnswer.HandPlaysAnswer -> answer.plays.also { plays ->
             // ZON-079: the cards from other zones the hand row shows on this board
             if (plays.offZone.isNotEmpty()) AppLog.info("automatum", "Hand row from other zones on ${board.board.turn.number}: " +
                 plays.offZone.joinToString { id -> "$id (${board.board.cards.singleOrNull { it.id == id }?.containerId})" })
         }
-    } catch (problem: Exception) {
-        AppLog.warn("automatum", "Couldn't list plays: ${simpleClassName(problem)}")
-        HandPlays.NONE
+        // A failure is logged by the boundary
+        else -> HandPlays.NONE
     }.also { handPlays = it }
 
     /** The card menus' plays, worked out on the engine thread when not yet (waits for it; inline on it), or, when
@@ -77,11 +86,10 @@ class EngineBoardValues constructor(
     fun cardPlays(): CardPlays = cardPlays ?: promised()?.cardPlays ?: engine.call { workedCardPlays() }
 
     /** Engine thread: the card menus' plays, worked out now when not yet. Never throws (none on failure). */
-    private fun workedCardPlays(): CardPlays = cardPlays ?: try {
-        CardPlays.of(state, viewer, view ?: arcanum.engine.Engine.view(state), visible)
-    } catch (problem: Exception) {
-        AppLog.warn("automatum", "Couldn't list card plays: ${simpleClassName(problem)}")
-        CardPlays.NONE
+    private fun workedCardPlays(): CardPlays = cardPlays ?: when (val answer = plan { EngineRequest.CardPlaysOf(it, gameId, number, viewer) }) {
+        is EngineAnswer.CardPlaysAnswer -> answer.plays
+        // A failure is logged by the boundary
+        else -> CardPlays.NONE
     }.also { cardPlays = it }
 
     /** An open promise of the plays ([promisePlays]) and the thread that made it (the engine thread). */
@@ -149,6 +157,9 @@ class EngineBoardValues constructor(
         }
 
     companion object {
+        /** The boards' numbers on the engine boundary. */
+        private val numbers = org.asyncttwiz.appui.AtomicLong()
+
         /** Tests and measurements: how many computed boards the engine thread made with its boards. */
         @Volatile var made = 0
             private set

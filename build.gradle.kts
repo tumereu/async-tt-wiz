@@ -77,6 +77,8 @@ tasks.register("verifyModuleBoundaries") {
             ":app-ui" to setOf(":core", ":protocol", ":automatum", ":client-storage"),
             // The web client's page: the shared UI in a browser.
             ":webApp" to setOf(":app-ui"),
+            // The engine's Web Worker: the engine boundary's engine side (automatum) alone, no UI.
+            ":webApp:engine" to setOf(":automatum"),
             ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine", ":catalog"),
             // The card catalog: its format and reader, the MTGJSON import, and the build with Automatum's support marks.
             ":catalog" to setOf(":protocol", ":automatum"),

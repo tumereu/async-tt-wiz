@@ -398,6 +398,12 @@ Two batches come first, in this order:
   table (section 8.5); haptics where available.
 - Tests: the existing e2e suite already drives the shared UI in the JVM, so it keeps covering the table; the browser
   smoke gains "open a game, make one move"; a mixed e2e: one player on Android code, one on the web build's code path.
+- Built in 4a (2026-11-13): the boundary (`automatum`'s `org.asyncttwiz.automatum.boundary`: requests and answers,
+  the engine side's boards as a snapshot then events, the page's staleness ledger, an in-process and a message channel),
+  Android's board planning (hand plays' trial casts, card plays) on it in-process, and the worker (`webApp/engine`,
+  served as `engine.js`; a test build at `#engine-bench` measures it). Not yet behind it: the device's own work
+  (End turn, passes, own actions, server events, projection, which Android's main thread waits for synchronously) and
+  the cast, combat and shared-flow steps; the web page still runs those on its own thread.
 
 ### Step 5: desktop table
 

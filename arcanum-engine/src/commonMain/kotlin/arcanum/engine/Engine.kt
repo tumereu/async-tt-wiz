@@ -346,6 +346,23 @@ object Engine {
      */
     @kotlin.concurrent.Volatile
     var layersWorkedOut: (() -> Unit)? = null
+
+    /**
+     * For a host's tests and measurements (changes no result): called on the calling thread each time a state is copied
+     * ([GameState.deepCopy]), by the engine (its working copy in [perform], trial casts in [options], …) or by a host.
+     * Null (the default): nothing is called. One for the whole process: set it only in tests or while measuring.
+     */
+    @kotlin.concurrent.Volatile
+    var statesCopied: (() -> Unit)? = null
+
+    /**
+     * For a host's tests and measurements (changes no result): called on the calling thread each time the engine searches
+     * what a player may do: each [options] call, and each search of a pass check ([passCheck], [shouldPassFor]) that looks
+     * for something to do. Null (the default): nothing is called. One for the whole process: set it only in tests or
+     * while measuring.
+     */
+    @kotlin.concurrent.Volatile
+    var optionsSearched: (() -> Unit)? = null
 }
 
 /**

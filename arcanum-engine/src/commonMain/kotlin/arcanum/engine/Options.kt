@@ -58,6 +58,12 @@ import arcanum.engine.view.Subtypes
 internal object Options {
     /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
     fun of(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): List<Input> {
+        Engine.optionsSearched?.invoke()
+        return search(state, player, view)
+    }
+
+    /** [of] without counting the search ([Engine.optionsSearched]): for a search already counted. */
+    private fun search(state: GameState, player: PlayerId, view: arcanum.engine.view.View?): List<Input> {
         // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
         val snap = snapshot(state, view)
@@ -80,8 +86,9 @@ internal object Options {
      * host asks this after every outcome, [AutoPass]).
      */
     fun any(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, predicate: (Input) -> Boolean): Boolean {
+        Engine.optionsSearched?.invoke()
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost || state.pending != null || !state.started ||
-            Combat.waitingForDeclaration(state) || state.priority.holder != player) return of(state, player, view).any(predicate)
+            Combat.waitingForDeclaration(state) || state.priority.holder != player) return search(state, player, view).any(predicate)
         val snap = snapshot(state, view)
         return predicate(Input.PassPriority(player)) || lands(snap, player).any(predicate) ||
             spellWays(snap, player).any { predicate(it) && startable(snap, it) } ||

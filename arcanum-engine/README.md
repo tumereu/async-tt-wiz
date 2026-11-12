@@ -42,6 +42,8 @@ Engine.SUPPORT_VERSION                           // raised when what the engine 
 Engine.manualParts(definition): List<String>     // the parts of a card the engine leaves to the players (empty: fully supported)
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 Engine.layersWorkedOut: (() -> Unit)?            // tests and measurements: called each time the layers are worked out in full
+Engine.statesCopied: (() -> Unit)?               // tests and measurements: called each time a state is copied (deepCopy)
+Engine.optionsSearched: (() -> Unit)?            // tests and measurements: called each time options or a pass check searches
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 

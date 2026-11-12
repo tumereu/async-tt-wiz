@@ -166,7 +166,12 @@ data class GameState(
     }
 
     /** An independent copy: the engine's own working state (D56). Objects inside are immutable and shared. */
-    fun deepCopy(): GameState = copy(
+    fun deepCopy(): GameState {
+        arcanum.engine.Engine.statesCopied?.invoke()
+        return copied()
+    }
+
+    private fun copied(): GameState = copy(
         players = players.toMutableList(),
         objects = LinkedHashMap(objects),
         battlefield = battlefield.toMutableList(),

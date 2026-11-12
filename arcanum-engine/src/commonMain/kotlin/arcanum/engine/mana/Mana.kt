@@ -125,14 +125,8 @@ internal object Mana {
     /** Whether [player] may activate [instance] of [id] now as far as its source and cost go (CR 602.2, 602.5, 605.3a). */
     fun canActivate(snap: Snapshot, player: PlayerId, id: ObjectId, instance: AbilityInstance): Boolean {
         val ability = instance.ability as? Ability.Activated ?: return false
-        val o = snap.state.obj(id) ?: return false
+        if (!functionsFor(snap, player, id, ability)) return false
         val ov = snap.view[id] ?: return false
-        val instantOrSorcery = ov.characteristics?.let { it.isType(CardType.Instant) || it.isType(CardType.Sorcery) } == true
-        if (o.zone !in Functioning.zones(ability, instantOrSorcery)) return false
-        val controller = snap.board.controller(id) ?: o.owner
-        val eval = snap.evaluator(controller, self = id)
-        if (!eval.matches(ability.rules.activatedBy, player)) return false
-        if (ability.rules.condition?.let { eval.holds(it) } == false) return false
         if (ov.has { it is Mechanic.CantBeActivated && (it.manaAbilities || !ability.isManaAbility()) }) return false
         // fra: a player who can't activate such abilities (split second, CR 702.61a)
         if (snap.view.players[player]?.mechanics.orEmpty().any { applied ->
@@ -140,6 +134,22 @@ internal object Mana {
                 abilityMatches(snap.evaluator(applied.controller, self = applied.source, names = applied.names), m.abilities, ability, id)
             }) return false
         return ability.cost.parts.all { part -> costPartPossible(snap, player, id, part) }
+    }
+
+    /**
+     * Whether [ability] of [id] functions where [id] is (CR 113.6, 602.2: its zone) and [player] may activate it there (who may
+     * activate it, its condition), whatever else stops it now: the part of [canActivate] that
+     * [arcanum.engine.casting.Legality.cantUse] shares.
+     */
+    fun functionsFor(snap: Snapshot, player: PlayerId, id: ObjectId, ability: Ability.Activated): Boolean {
+        val o = snap.state.obj(id) ?: return false
+        val ov = snap.view[id] ?: return false
+        val instantOrSorcery = ov.characteristics?.let { it.isType(CardType.Instant) || it.isType(CardType.Sorcery) } == true
+        if (o.zone !in Functioning.zones(ability, instantOrSorcery)) return false
+        val controller = snap.board.controller(id) ?: o.owner
+        val eval = snap.evaluator(controller, self = id)
+        if (!eval.matches(ability.rules.activatedBy, player)) return false
+        return ability.rules.condition?.let { eval.holds(it) } != false
     }
 
     /** fra: whether [ability] of [source], being activated, matches [filter] (an ability filter: kind, source, label). */

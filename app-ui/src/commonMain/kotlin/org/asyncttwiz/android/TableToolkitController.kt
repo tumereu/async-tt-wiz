@@ -114,14 +114,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
     private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
 
-    /** Whether [cardId], a card in the viewer's hand, is known to have no cast, play, special action or ability from the
-     * hand (foretell, plot, cycling, channel: a way chip, ZON-080) Automatum allows now (I-D46); a card of the hand row from
-     * another zone (ZON-079), no cast or play. */
+    /** Whether [cardId], a card in the viewer's hand row, is known to have no cast, play, special action or ability from where
+     * it is (foretell, plot, cycling, channel; ZON-079: flashback, unearth, embalm: a way chip, ZON-080) Automatum allows now
+     * (I-D46): the same for a card from another zone as for a hand card, so a card that glows never shakes (TBL-128). */
     private fun unplayable(play: TableBoard, cardId: String): Boolean {
         val plays = AutomatumBoards.cachedCardPlays(play, viewer) ?: return false
         if (CastController.inHandRow(play, cardId, viewer) != true) return false
-        if (!CastController.ownHand(play, cardId, viewer)) return plays.of(cardId).none { it.legal &&
-            (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play) }
         return plays.of(cardId).none { it.legal && (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast ||
             it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Special ||
             it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Ability || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana) }

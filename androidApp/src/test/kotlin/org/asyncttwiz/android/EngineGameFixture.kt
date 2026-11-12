@@ -131,6 +131,12 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val LEECH = "Ember Leech"
         /** ZON-079: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
         const val FLARE = "Ember Flare"
+        /** ZON-079: a free creature with "Sacrifice this creature: You gain 1 life." and unearth {R}: sacrificed, it is unearthed
+         * from the hand row. */
+        const val GHOUL = "Ember Ghoul"
+        /** ZON-079: a free "You gain 2 life." sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your
+         * hand.": with one Mountain only its ability can be used from the graveyard. */
+        const val REPRISE = "Ember Reprise"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -186,6 +192,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("chime", Choices.CHIME, "Enchantment", "At the beginning of your upkeep, you gain 1 life."),
         free("leech", Choices.LEECH, "Creature — Elemental Leech", "Lifelink\nHaste", "2", "2"),
         free("flare", Choices.FLARE, "Sorcery", "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)"),
+        free("ghoul", Choices.GHOUL, "Creature — Zombie", "Sacrifice this creature: You gain 1 life.\nUnearth {R}", "2", "2"),
+        free("reprise", Choices.REPRISE, "Sorcery", "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand."),
         free("bulwark", Choices.BULWARK, "Enchantment", "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control."),
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),

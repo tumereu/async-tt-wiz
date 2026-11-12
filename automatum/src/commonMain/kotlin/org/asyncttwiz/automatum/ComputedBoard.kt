@@ -113,7 +113,7 @@ class ComputedBoard private constructor(
      * even for a card exiled face down. */
     val exileStates: Map<String, List<String>> = emptyMap(),
     /** ZON-079 (owner, 2026-11-12): the cards outside the viewer's hand a permission lets them cast or play from where they are,
-     * castable now or not, that they may see ([OffZoneCards.permitted]), by ATW card id, in their hand row's order. */
+     * or with an ability or special action they may use there, usable now or not, that they may see ([OffZoneCards.permitted]), by ATW card id, in their hand row's order. */
     val handRow: List<String> = emptyList(),
 ) {
     /**

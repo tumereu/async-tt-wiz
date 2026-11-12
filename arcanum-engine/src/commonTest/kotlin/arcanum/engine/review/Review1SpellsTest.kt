@@ -26,7 +26,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
-/** Review 1: copies of spells, special costs, removal from combat, hidden information (D60) and randomness (D25). */
+/** Review 1: copies of spells, special costs, removal from combat, hidden information and randomness (D25). */
 class Review1SpellsTest {
     private fun Scenario.settleStack(vararg names: String) {
         var guard = 30
@@ -259,42 +259,41 @@ class Review1SpellsTest {
         }
     }
 
-    /** A spell from a hidden hand chosen from a revealed hand: the host is asked what the cards are (D60). */
-    // CR 701.20a, D60
+    /** A card chosen from a revealed hand is discarded. */
+    // CR 701.20a
     @Test
-    fun revealedHiddenHandIsFilledByTheHost() = scenario {
+    fun aCardChosenFromARevealedHandIsDiscarded() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Mind Pilfer")
-        bob.hiddenHand("Storm Spark", "Forest")
+        bob.hand("Storm Spark", "Forest")
         alice.casts("Mind Pilfer", target = "bob")
         allPass()
-        assertTrue(applied.any { it is Change.PendingSet && it.after?.decision is Decision.HostFill })
         expect {
             bob.graveyard has "Storm Spark"
             bob.hand.size shouldBe 1
         }
     }
 
-    /** A plain draw from a hidden library asks the host nothing (D60). */
-    // D60
+    /** A plain draw shows the card to nobody but its drawer, who may see their hand: no card is shown in passing. */
+    // CR 121.1
     @Test
-    fun plainDrawNeedsNoFill() = scenario {
+    fun aPlainDrawShowsNothing() = scenario {
         turn(number = 3, step = TurnStep.Upkeep)
-        alice.library("Island", "Forest", hidden = true)
+        alice.library("Island", "Forest")
         allPass()
-        assertTrue(applied.none { it is Change.PendingSet && it.after?.decision is Decision.HostFill })
+        assertTrue(applied.none { it is Change.Shown })
         expect { alice.hand.size shouldBe 1 }
     }
 
-    /** Discarding at random asks the host for the random pick and fills the discarded card (D25, D60). */
-    // CR 701.9a, D25, D60
+    /** Discarding at random asks the host for the random pick (D25). */
+    // CR 701.9a, D25
     @Test
     fun randomDiscardFromAHiddenHand() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Searing Question")
         alice.library("Island", "Island", "Island")
         bob.library("Island", "Island", "Island")
-        bob.hiddenHand("Storm Spark", "Forest")
+        bob.hand("Storm Spark", "Forest")
         alice.casts("Searing Question")
         allPass()
         expect {
@@ -305,13 +304,13 @@ class Review1SpellsTest {
         assertTrue(applied.any { it is Change.PendingSet && it.after?.decision is Decision.Random })
     }
 
-    /** Revealing the top card of a hidden library to lose life by its mana value asks the host (D60). */
-    // CR 701.20a, D60
+    /** Revealing the top card of a library to lose life by its mana value. */
+    // CR 701.20a
     @Test
     fun revealTopOfAHiddenLibrary() = scenario {
         turn(number = 2, active = bob, step = TurnStep.End)
         alice.battlefield("Shadow Informant")
-        alice.library("Doomfire", "Island", hidden = true)
+        alice.library("Doomfire", "Island")
         advanceTo(TurnStep.Upkeep, turn = 3)
         settleStack()
         expect {
@@ -333,13 +332,13 @@ class Review1SpellsTest {
         expect { alice.life shouldBe 17 }
     }
 
-    /** Reverting a cast that asked the host for a hidden card's identity restores the unknown card (D59, D60). */
-    // D59, D60
+    /** Reverting a cast that looked at a hidden hand restores the state as it was (D59). */
+    // D59
     @Test
-    fun revertingAFillForgetsNothingButRestores() = scenario {
+    fun revertingACastThatLooksAtAHandRestores() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Mind Pilfer")
-        bob.hiddenHand("Storm Spark")
+        bob.hand("Storm Spark")
         val before = state.deepCopy()
         alice.casts("Mind Pilfer", target = "bob")
         allPass()

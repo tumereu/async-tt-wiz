@@ -281,7 +281,7 @@ class ProductionUpgradeTest {
             load(db, tables)
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            // No migration deleted anything but V54's, V59's, V63's and V74's (I-D52, I-D54, stable decision ids, the engine's general forms; owner-approved): every game that had started a play, with
+            // No migration deleted anything but V54's, V59's, V63's, V74's and V85's (I-D52, I-D54, stable decision ids, the engine's general forms, the engine API rework; owner-approved): every game that had started a play, with
             // everything that belongs to it, but its match records: they are never deleted (V66); and V76's (owner 2026-11-10): the request rows
             // holding the old model's fields (R4d) at their top level or in their play, with the outbox rows of those requests.
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()

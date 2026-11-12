@@ -36,14 +36,9 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         scenario.put(this, names.toList(), Zone.Hand)
     }
 
-    /** Cards in hand the caller can't see (D60): the scenario's host knows them and fills them in when asked. */
-    fun hiddenHand(vararg names: String) {
-        scenario.put(this, names.toList(), Zone.Hand, hidden = true)
-    }
-
     /** Puts cards on top of the library: [top] first is the top card. */
-    fun library(vararg top: String, hidden: Boolean = false) {
-        top.reversed().forEach { scenario.put(this, listOf(it), Zone.Library, hidden = hidden, top = true) }
+    fun library(vararg top: String) {
+        top.reversed().forEach { scenario.put(this, listOf(it), Zone.Library, top = true) }
     }
 
     fun graveyard(vararg names: String) {

@@ -43,28 +43,11 @@ import kotlin.test.fail
  * a player who can do nothing ([Host.shouldPassFor], I-D3) and questions with nothing to choose are skipped. Off: a
  * pass or skip that depends on cards only that player may see (hand, face-down cards) is theirs: a priority window they
  * pass themselves, or the question with only its forced answer. Skips that depend on nothing hidden stay automatic (P5).
- * Each scenario runs with full information and on both players' views (D60).
+ * Each scenario runs with the setting on and off.
  */
 class SkipWhenNoChoiceTest {
-    /** Full information, alice's view, bob's view. */
-    private val viewers = listOf<String?>(null, "alice", "bob")
-
-    private fun Scenario.view(name: String?) {
-        if (name != null) viewer(player(PlayerId(name)))
-    }
-
-    /** Runs [block] for every viewer with [on] as the setting of [who] (alice by default). */
-    private fun everyWay(block: Scenario.(viewer: String?, on: Boolean) -> Unit) = viewers.forEach { v ->
-        listOf(true, false).forEach { on -> scenario { view(v); block(v, on) } }
-    }
-
-    /** The decision asked now: in a viewer's state that waits on the other player's view, the one asked there. */
-    private fun Scenario.asked(): Decision? = when (val d = pending) {
-        is Decision.OtherView -> Host.otherViewDecision(state, otherView(d, emptyList()).filled)
-        else -> d
-    }
-
-    private fun Scenario.unknownHand(player: PlayerId) = state.player(player).hand.all { state.objOrThrow(it).unknown }
+    /** Runs [block] with [on] as the setting, on and off. */
+    private fun everyWay(block: Scenario.(on: Boolean) -> Unit) = listOf(true, false).forEach { on -> scenario { block(on) } }
 
     /** "Choose a creature card in your hand. Put it onto the battlefield." ({G} sorcery, written in the model: the parser
      * reads no such wording yet.) */
@@ -89,48 +72,42 @@ class SkipWhenNoChoiceTest {
     }
 
     /** bob's hand holds an instant he can't afford (Denial, {U}{U}, with one Island): on, priority is passed for him (his
-     * Island's mana ability alone isn't something to do); off, it is his to pass, since a card only he sees decides. In
-     * alice's view his hand is unknown, so the engine can't tell either way and never passes for him (D60). */
+     * Island's mana ability alone isn't something to do); off, it is his to pass, since a card only he sees decides. */
     // I-D18, CR 117.3d, 106.4
     @Test
-    fun anUnaffordableInstantInHandIsPassedForOnlyWhenOn() = viewers.forEach { v ->
-        listOf(true, false).forEach { on ->
-            scenario {
-                view(v)
-                bob.skipWhenNoChoice = on
-                bob.battlefield("Island")
-                bob.hand("Denial")
-                aliceSparksBob()
-                assertTrue(Engine.options(state, bob.id).any { it is Input.Activate }, "his Island's mana ability is listed")
-                assertEquals(on && v != "alice", Host.shouldPassFor(state, bob.id), "on=$on viewer=$v")
-                assertFalse(Host.shouldPassFor(state, alice.id), "only the holder is passed for")
-            }
-        }
+    fun anUnaffordableInstantInHandIsPassedForOnlyWhenOn() = everyWay { on ->
+        bob.skipWhenNoChoice = on
+        bob.battlefield("Island")
+        bob.hand("Denial")
+        aliceSparksBob()
+        assertTrue(Engine.options(state, bob.id).any { it is Input.Activate }, "his Island's mana ability is listed")
+        assertEquals(on, Host.shouldPassFor(state, bob.id), "on=$on")
+        assertFalse(Host.shouldPassFor(state, alice.id), "only the holder is passed for")
     }
 
     /** [Host.passCheck] answers [Host.shouldPassFor] as set and with bob's own setting on, from one search: the
      * same as asking it twice with the setting changed in between. */
     // I-D18, CR 117.3d
     @Test
-    fun passCheckIsShouldPassForBothWays() = everyWay { v, on ->
+    fun passCheckIsShouldPassForBothWays() = everyWay { on ->
         bob.skipWhenNoChoice = on
         bob.battlefield("Island")
         bob.hand("Denial")
         aliceSparksBob()
         val check = Host.passCheck(state, bob.id)
-        assertEquals(Host.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on viewer=$v")
+        assertEquals(Host.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on")
         val skip = Changes.skipWhenNoChoice(state, bob.id, true)
         state.apply(skip)
         val withSkip = Host.shouldPassFor(state, bob.id)
         state.revert(skip)
-        assertEquals(withSkip, check.ownSkipOn, "own skip on, on=$on viewer=$v")
+        assertEquals(withSkip, check.ownSkipOn, "own skip on, on=$on")
         assertEquals(arcanum.engine.PassCheck.NONE, Host.passCheck(state, alice.id), "only the holder")
     }
 
-    /** With an empty hand nothing hidden decides: priority is passed for bob whatever his setting and whoever's view. */
+    /** With an empty hand nothing hidden decides: priority is passed for bob whatever his setting. */
     // I-D18, CR 117.3d
     @Test
-    fun anEmptyHandIsPassedForEitherWay() = everyWay { _, on ->
+    fun anEmptyHandIsPassedForEitherWay() = everyWay { on ->
         bob.skipWhenNoChoice = on
         bob.battlefield("Island")
         aliceSparksBob()
@@ -140,11 +117,11 @@ class SkipWhenNoChoiceTest {
     /** A face-down permanent is a card only its controller sees (CR 708.5): off, bob passes himself. */
     // I-D18, CR 708.5
     @Test
-    fun aFaceDownPermanentIsHisToPassWithWhenOff() = everyWay { v, on ->
+    fun aFaceDownPermanentIsHisToPassWithWhenOff() = everyWay { on ->
         bob.skipWhenNoChoice = on
         bob.battlefield("Undead Soothsayer", faceDown = true)
         aliceSparksBob()
-        assertEquals(on && v != "alice", Host.shouldPassFor(state, bob.id), "on=$on viewer=$v")
+        assertEquals(on, Host.shouldPassFor(state, bob.id), "on=$on")
     }
 
     /** A host passes for each player while [Host.shouldPassFor] says so: on, the spell resolves at once although bob
@@ -175,16 +152,16 @@ class SkipWhenNoChoiceTest {
     /** "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the
      * battlefield. If you don't, put it into its owner's graveyard." (Gemstone Charm) with no land card in hand: on, it
      * goes to the graveyard unasked; off, alice is asked the cost she can't pay, "no" being the only answer (anyone may
-     * give it, P7). In bob's view her hand is filled in only in her view (D31) and stays unknown in his. */
+     * give it, P7). */
     // I-D18, CR 614.1c, 118.3
     @Test
-    fun aCostOnlyHiddenCardsCouldPayIsAskedWhenOff() = everyWay { v, on ->
+    fun aCostOnlyHiddenCardsCouldPayIsAskedWhenOff() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.hand("Gemstone Charm", "Storm Spark")
         alice.casts("Gemstone Charm")
         allPass()
         if (!on) {
-            val may = asked() as? Decision.May ?: fail("Expected the cost to be asked: $pending")
+            val may = pending as? Decision.May ?: fail("Expected the cost to be asked: $pending")
             assertEquals(alice.id, may.player)
             assertFalse(may.payable)
             (pending as? Decision.May)?.let { d ->
@@ -195,43 +172,40 @@ class SkipWhenNoChoiceTest {
             }
             alice.answers(Answer.YesNo(false))
         }
-        assertNull(pending, "viewer=$v on=$on")
+        assertNull(pending, "on=$on")
         expect {
             alice.graveyard has "Gemstone Charm"
             alice.hand.size shouldBe 1
         }
-        if (v == "bob") assertTrue(unknownHand(alice.id))
     }
 
-    /** With a land card in hand the cost is asked as usual; in bob's view her hand is looked at in her view (D31), so the
-     * charm enters there as it does in hers (her hand used to read as no land card there). Paying, the only land card is
-     * discarded by the rules: off, she is asked with it as the one answer, as only she knows it is her only land. */
-    // I-D18, CR 614.1c, D60
+    /** With a land card in hand the cost is asked as usual. Paying, the only land card is discarded by the rules: off, she
+     * is asked with it as the one answer, as only she knows it is her only land. */
+    // I-D18, CR 614.1c
     @Test
-    fun aCostHiddenCardsCanPayIsAskedEitherWay() = everyWay { v, on ->
+    fun aCostHiddenCardsCanPayIsAskedEitherWay() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.hand("Gemstone Charm", "Forest", "Storm Spark")
         alice.casts("Gemstone Charm")
         allPass()
-        assertTrue((asked() as? Decision.May)?.payable == true, "asked: ${asked()}")
+        assertTrue((pending as? Decision.May)?.payable == true, "asked: ${pending}")
         alice.answers(Answer.YesNo(true))
         if (!on) {
-            val choice = asked() as? Decision.ChooseObjects ?: fail("Expected the discard to be asked: $pending")
+            val choice = pending as? Decision.ChooseObjects ?: fail("Expected the discard to be asked: $pending")
             assertEquals(1, choice.options.size)
             alice.answers(Answer.Objects(choice.options))
         }
-        assertNull(pending, "viewer=$v on=$on")
+        assertNull(pending, "on=$on")
         expect {
             alice.battlefield has "Gemstone Charm"
             alice.graveyard has "Forest"
         }
-        if (v == "bob") assertTrue(unknownHand(alice.id))
     }
 
     /** With an empty hand the cost can't be paid whatever cards are hidden: no question, setting or not. */
     // I-D18, P5
     @Test
-    fun aCostWithAnEmptyHandIsSkippedEitherWay() = everyWay { _, on ->
+    fun aCostWithAnEmptyHandIsSkippedEitherWay() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.hand("Gemstone Charm")
         alice.casts("Gemstone Charm")
@@ -243,21 +217,21 @@ class SkipWhenNoChoiceTest {
     /** "Choose a creature card in your hand" with none: off, the choice is asked with nothing to choose. */
     // I-D18, CR 608.2d
     @Test
-    fun aChoiceOfHiddenCardsWithNoneIsAskedWhenOff() = everyWay { v, on ->
+    fun aChoiceOfHiddenCardsWithNoneIsAskedWhenOff() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.battlefield("Forest")
         alice.hand(summons, "Storm Spark")
         alice.casts(summons)
         allPass()
         if (!on) {
-            val choice = asked() as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
+            val choice = pending as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
             assertEquals(Triple(emptyList(), 0, 0), Triple(choice.options, choice.min, choice.max))
             (pending as? Decision.ChooseObjects)?.let { d ->
                 assertEquals(listOf<Input>(Input.Answer(d.id, Answer.Objects(emptyList()))), Engine.options(state, alice.id))
             }
             alice.answers(Answer.Objects(emptyList()))
         }
-        assertNull(pending, "viewer=$v on=$on")
+        assertNull(pending, "on=$on")
         expect {
             alice.graveyard has summons
             alice.hand.size shouldBe 1
@@ -267,19 +241,19 @@ class SkipWhenNoChoiceTest {
     /** The only creature card in hand is chosen by the rules (CR 609.3): off, alice is asked with it as the one answer. */
     // I-D18, CR 609.3
     @Test
-    fun aForcedChoiceOfHiddenCardsIsAskedWhenOff() = everyWay { v, on ->
+    fun aForcedChoiceOfHiddenCardsIsAskedWhenOff() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.battlefield("Forest")
         alice.hand(summons, "Elvish Seer", "Storm Spark")
         alice.casts(summons)
         allPass()
         if (!on) {
-            val choice = asked() as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
+            val choice = pending as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
             assertEquals(1, choice.options.size)
             assertEquals(1, choice.min)
             alice.answers(Answer.Objects(choice.options))
         }
-        assertNull(pending, "viewer=$v on=$on")
+        assertNull(pending, "on=$on")
         expect { alice.battlefield has "Elvish Seer" }
     }
 
@@ -287,7 +261,7 @@ class SkipWhenNoChoiceTest {
      * with no land card in hand: the "may" is skipped only because no hidden card qualifies, so off asks it. */
     // I-D18, CR 603.3
     @Test
-    fun aMaySkippedForWantOfAHandCardIsAskedWhenOff() = everyWay { v, on ->
+    fun aMaySkippedForWantOfAHandCardIsAskedWhenOff() = everyWay { on ->
         alice.skipWhenNoChoice = on
         alice.battlefield("Forest")
         alice.hand("Canopy Browser", "Storm Spark")
@@ -296,11 +270,11 @@ class SkipWhenNoChoiceTest {
         expect { stack.names shouldBe listOf("ability of Canopy Browser") }
         allPass()
         if (!on) {
-            val choice = asked() as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
+            val choice = pending as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
             assertTrue(choice.options.isEmpty())
             alice.answers(Answer.Objects(emptyList()))
         }
-        assertNull(pending, "viewer=$v on=$on")
+        assertNull(pending, "on=$on")
         expect {
             alice.battlefield has "Canopy Browser"
             alice.hand.size shouldBe 1
@@ -311,9 +285,8 @@ class SkipWhenNoChoiceTest {
      * card" with one card in hand: forced choices everyone can see (how many cards, not which) stay automatic off. */
     // I-D18, P5, CR 701.21a, 701.9a
     @Test
-    fun forcedChoicesEveryoneCanSeeStayAutomatic() = viewers.forEach { v ->
+    fun forcedChoicesEveryoneCanSeeStayAutomatic() {
         scenario {
-            view(v)
             alice.skipWhenNoChoice = false
             bob.skipWhenNoChoice = false
             alice.battlefield("Swamp", "Swamp", "Swamp", "Swamp")
@@ -323,7 +296,7 @@ class SkipWhenNoChoiceTest {
             alice.casts("Cursed Pillager")
             allPass()
             allPass()
-            assertNull(pending, "viewer=$v")
+            assertNull(pending)
             expect {
                 alice.graveyard has "Cursed Pillager"
                 bob.graveyard has "Elvish Seer"
@@ -331,7 +304,7 @@ class SkipWhenNoChoiceTest {
             alice.casts("Festering Vermin")
             allPass()
             allPass()
-            assertNull(pending, "viewer=$v")
+            assertNull(pending)
             expect {
                 bob.graveyard has "Storm Spark"
                 bob.hand.size shouldBe 0

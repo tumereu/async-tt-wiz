@@ -385,7 +385,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersScenariosTest {
     @Test
     fun renjiKageharaEmblem() = scenario {
         alice.battlefield("Elvish Seer", "Renji Kagehara", counters = listOf(CounterKind.Loyalty to 7))
-        alice.library("Forest", "Venomous Owlet", "Island", hidden = true)
+        alice.library("Forest", "Venomous Owlet", "Island")
         alice.activates("Renji Kagehara", ability = 2)
         allPass()
         expect { alice.graveyard has "Renji Kagehara" }

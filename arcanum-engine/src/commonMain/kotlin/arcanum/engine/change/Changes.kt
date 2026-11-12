@@ -204,8 +204,8 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
     }
 
-    /** Applies and keeps [change] as it is, finding no triggers: for changes already worked out with their triggers
-     * ([arcanum.engine.action.Knowledge.forgetHidden]). */
+    /** Applies and keeps [change] as it is, finding no triggers: for bookkeeping that follows a change
+     * ([arcanum.engine.action.LibraryPlaces.follow]). */
     fun append(change: Change) {
         state.apply(change)
         changes += change

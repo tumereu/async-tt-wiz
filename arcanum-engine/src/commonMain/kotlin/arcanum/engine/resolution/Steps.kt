@@ -291,10 +291,10 @@ internal object Steps {
             }
             is Choice.Objects -> {
                 val from = choice.from?.let { e.objects(it) }
-                if (from != null) act.fill(chooser, source, from, "choose from among them")
+                if (from != null) act.show(chooser, from)
                 // I-D18: whether cards only the chooser sees decide what is offered (filled in first when unknown)
                 val pool = (from ?: e.inZonesOf(choice.filter)).filter { act.state.obj(it) != null }
-                val hidden = act.hiddenDecides(chooser, source, pool) { e.identityDecides(choice.filter, it) }
+                val hidden = act.hiddenDecides(chooser, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
                 val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
                 val chosen = act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },

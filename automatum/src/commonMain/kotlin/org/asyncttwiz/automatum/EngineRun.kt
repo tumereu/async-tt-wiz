@@ -1,21 +1,17 @@
 package org.asyncttwiz.automatum
 
 import arcanum.engine.Engine
-import arcanum.engine.Host
 import arcanum.engine.Outcome
 import arcanum.engine.Pending
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
-import arcanum.engine.decision.FilledObject
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
-import arcanum.engine.state.CardId
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.BoardState
-import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.RandomV1
 
 /**
@@ -27,7 +23,6 @@ import org.asyncttwiz.protocol.RandomV1
  *
  * - randomness with ATW's own seeded randomness ([RandomV1], fresh seeds from [seeds]); a shuffle's order is the one
  *   ATW's `ShuffleLibrary` gives for the same seed;
- * - host fills and another player's view ([Decision.OtherView], D31) with the objects' identities;
  * - a step the engine leaves to the players (an engine gap): answered Done and logged (pivot review #3);
  * - a player's decision answered early (I-D33, [PreAnswers]) with that answer, when the engine takes it.
  *
@@ -47,10 +42,8 @@ class EngineRun(
     /** The state after [changes]. */
     val working: GameState = start.deepCopy()
     val changes = mutableListOf<Change>()
-    /** Card ids a viewer's shuffle made (D60), by the ATW card each one is. */
-    internal val hidden = mutableMapOf<CardId, String>()
 
-    /** What the engine waits for now: a player's decision, or another player's view ([Decision.OtherView]). */
+    /** What the engine waits for now: a player's decision. */
     val pending: Pending? get() = working.pending
 
     /** Performs [input] and answers the host's decisions that follow; returns what the engine then waits for. */
@@ -61,17 +54,6 @@ class EngineRun(
             val decision = working.pending?.decision ?: return null
             val answer = when (decision) {
                 is Decision.Random -> random(decision)
-                is Decision.HostFill -> Answer.Filled(decision.objects.map(::filled))
-                is Decision.OtherView -> {
-                    val filled = decision.objects.map(::filled)
-                    // D31: the identities alone carry on while that player has nothing to decide there; random results
-                    // there are the host's too
-                    when (val next = Host.otherViewDecision(working, filled)) {
-                        null -> Answer.OtherView(filled, emptyList())
-                        is Decision.Random -> Answer.OtherView(filled, listOf(random(next)))
-                        else -> return working.pending
-                    }
-                }
                 // Pivot review #3 (I-D52): every game is played by the rules, so a step the engine leaves to the players
                 // is an engine gap: logged for a report (I-D43), answered Done at once and said in the history
                 // ([MtgAction.Skipped], [gaps]); the game goes on without it
@@ -122,21 +104,12 @@ class EngineRun(
         return perform(Input.Answer(decision.id, answer))
     }
 
-    /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
-    fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
-
     /** The engine's outcome of [input] on [working], nothing applied yet. */
     private fun performed(input: Input): Outcome = Engine.perform(working, input)
 
     private fun run(input: Input) {
         val outcome = performed(input)
         outcome.changes.forEach { working.apply(it); changes += it }
-    }
-
-    /** The identity of [id]: the object's own definition in the state the run started from (full information). */
-    private fun filled(id: ObjectId): FilledObject {
-        val definition = (start.objects[id] ?: working.objects[id])?.definition ?: error("No definition to fill $id")
-        return FilledObject(id, definition)
     }
 
     private fun random(decision: Decision.Random): Answer = when (val what = decision.what) {
@@ -148,22 +121,18 @@ class EngineRun(
     /** Random objects: a shuffle ([shuffled]) in the order ATW's `ShuffleLibrary` gives; else a random pick. */
     private fun objects(player: PlayerId, what: RandomKind.Objects): Answer.RandomObjects {
         val seed = seeds()
-        val atw = what.among.map { (it as? ObjectId.Card)?.let { o -> hidden[o.card] ?: ids.atw(o.card) } ?: error("Not a card: $it") }
+        val atw = what.among.map { (it as? ObjectId.Card)?.let { o -> ids.atw(o.card) } ?: error("Not a card: $it") }
         val owner = if (what.library.isNotEmpty()) player else shuffled(what)
         val order = if (owner == null) RandomV1.shuffle(atw, seed).take(what.count) else {
             // ATW shuffles the whole library with the seed; cards the shuffle leaves out (CR 701.24b) go back on top.
             // Final cast review #7: the library as the engine shuffles it, not as it is while the decision is asked (cards
             // found earlier in the step, "search …, put them onto the battlefield, then shuffle", have left it by then)
             val library = what.library.ifEmpty { working.player(owner).library }
-                .map { (it as ObjectId.Card).card.let { c -> hidden[c] ?: ids.atw(c) } }
+                .map { ids.atw((it as ObjectId.Card).card) }
             RandomV1.shuffle(library, seed).filter { it in atw }
         }
         val byAtw = atw.zip(what.among).toMap()
-        val chosen = if (!what.newIds) order.map { byAtw.getValue(it) } else order.mapIndexed { i, real ->
-            // D60: new ids for cards whose order the viewer doesn't know; this host knows which card each one is
-            CardId(CommandIds.uuidV5(HIDDEN_NAMESPACE, "$seed/$i")).also { hidden[it] = real }.let { ObjectId.Card(it, 0) }
-        }
-        return Answer.RandomObjects(chosen)
+        return Answer.RandomObjects(order.map { byAtw.getValue(it) })
     }
 
     /** The player whose library [what] shuffles: all of it (but cards the shuffle leaves out) in a random order. */
@@ -173,9 +142,6 @@ class EngineRun(
     }
 
     companion object {
-        /** A fixed namespace for the card ids of a viewer's shuffle. */
-        private const val HIDDEN_NAMESPACE = "8a3d6f0e-5b1c-4e7a-9d2f-6c4b8e1a7f30"
-
         /**
          * A run on a game's own engine state (I-D56): [state] (full information; kept as the run's start, so never
          * changed afterwards) shown as [board]. Card ids are the engine's own (a game on engine state keeps the game's

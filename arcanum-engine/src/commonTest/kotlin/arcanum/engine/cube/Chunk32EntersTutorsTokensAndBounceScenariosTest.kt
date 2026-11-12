@@ -34,7 +34,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun royalEnlister() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain")
         alice.hand("Royal Enlister")
-        alice.library("Bull of the Pyre", "Elvish Seer", "Island", hidden = true)
+        alice.library("Bull of the Pyre", "Elvish Seer", "Island")
 
         castAndResolve("Royal Enlister")
         // CR 701.23a: only a card that matches may be found
@@ -52,7 +52,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun enlisterOfTheWatch() = scenario {
         alice.battlefield("Plains", "Plains", "Plains")
         alice.hand("Enlister of the Watch")
-        alice.library("Wall of Portents", "Undying Valet", "Island", hidden = true)
+        alice.library("Wall of Portents", "Undying Valet", "Island")
 
         castAndResolve("Enlister of the Watch")
         answer(Answer.YesNo(true))
@@ -67,7 +67,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun rangerMarshalOfDawn() = scenario {
         alice.battlefield("Plains", "Plains", "Plains")
         alice.hand("Ranger-Marshal of Dawn")
-        alice.library("Elvish Seerling", "Elvish Seer", "Island", hidden = true)
+        alice.library("Elvish Seerling", "Elvish Seer", "Island")
         bob.battlefield("Mountain", "Forest")
         bob.hand("Storm Spark", "Elvish Seer")
         bob.library("Island")
@@ -105,7 +105,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun arcaneSeeker() = scenario {
         alice.battlefield("Island", "Island", "Island")
         alice.hand("Arcane Seeker")
-        alice.library("Roiling Chant", "Denial", "Island", hidden = true)
+        alice.library("Roiling Chant", "Denial", "Island")
 
         castAndResolve("Arcane Seeker")
         answer(Answer.YesNo(true))
@@ -120,7 +120,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun anvilbornMystic() = scenario {
         alice.battlefield("Plains", "Plains")
         alice.hand("Anvilborn Mystic")
-        alice.library("Island", "Eden Cloak", "Swamp", hidden = true)
+        alice.library("Island", "Eden Cloak", "Swamp")
 
         castAndResolve("Anvilborn Mystic")
         answer(Answer.YesNo(true))
@@ -151,7 +151,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun commandingOrator() = scenario {
         alice.battlefield("Forest", "Forest", "Forest")
         alice.hand("Commanding Orator", "Island", "Swamp")
-        alice.library("Plains", "Elvish Seer", hidden = true)
+        alice.library("Plains", "Elvish Seer")
 
         castAndResolve("Commanding Orator")
         answer(Answer.YesNo(true))
@@ -201,7 +201,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
     fun vivacityWithGreenMana() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest")
         alice.hand("Vivacity")
-        alice.library("Storm Spark", "Island", hidden = true)
+        alice.library("Storm Spark", "Island")
 
         alice.casts("Vivacity")
         allPass()
@@ -240,7 +240,7 @@ class Chunk32EntersTutorsTokensAndBounceScenariosTest {
         val book = Cards.invent("The Netherworld Recipe Book", "{2}", "Artifact")
         alice.battlefield("Swamp", "Swamp", "Ghoul Outbreak")
         alice.hand("Bartholomewtheophilustrindleberry", "Forest", "Island")
-        alice.library("Plains", book, hidden = true)
+        alice.library("Plains", book)
 
         // No discard yet: it can't be cast
         assertFailsWith<IllegalArgumentException> { alice.casts("Bartholomewtheophilustrindleberry", way = alternative("Bartholomewtheophilustrindleberry")) }

@@ -64,9 +64,6 @@ internal data class PlannedMove(
     val memory: Bindings = Bindings.EMPTY,
     val copyOf: Pair<ObjectId, List<CopyException>>? = null,
     val abilities: List<arcanum.api.Ability> = emptyList(),
-    /** Put into a library in a random order hidden from the viewer (D60): the new id the host gave it; it arrives
-     * unknown under that id ([arcanum.engine.decision.RandomKind.Objects.newIds]). */
-    val newId: ObjectId.Card? = null,
     /** Put into a library in a random order together with the other moves so marked: their places are known as a group
      * only ([LibraryPlaces.group]). */
     val randomOrder: Boolean = false,
@@ -104,8 +101,6 @@ internal object Actions {
                 act.record(Change.StackItemRemoved(copy, act.state.stack.indexOf(pm.id), pm.meanings + Meaning.CeasedToExist))
             }
         }
-        // D60: cards everyone is about to see are filled in first, so replacements and triggers see what they are
-        Knowledge.fillRevealedByMoves(act, planned)
         val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
             Replacements.apply(
@@ -122,7 +117,6 @@ internal object Actions {
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
         val final = replaced.mapNotNull { auraEntering(act, it) }
-        Knowledge.fillSeenAfterMoves(act, final)
         val result = commitMoves(act, cause, final, linked)
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
@@ -327,7 +321,7 @@ internal object Actions {
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
                 protectors[m.id]?.let { if (toBattlefield) after = after.copy(protector = it) }
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
-                if (toBattlefield && m.transformed && (before.definition?.layout == Layout.Transform || before.definition?.layout is Layout.Meld)) after = after.copy(face = 1)
+                if (toBattlefield && m.transformed && (before.definition.layout == Layout.Transform || before.definition.layout is Layout.Meld)) after = after.copy(face = 1)
                 // CR 702.145b: at night a daybound card enters transformed
                 if (toBattlefield && !m.faceDown && arcanum.engine.turn.DayNight.entersTransformed(scratch, after)) after = after.copy(face = 1)
                 // CR 709.5d: a Room enters with the half cast as a spell unlocked
@@ -337,12 +331,7 @@ internal object Actions {
                 // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
                 if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
                     facts = m.marks.fold(after.facts) { facts, mark -> gained(act, m.id, mark, emptyList())?.let(facts::gaining) ?: facts })
-                // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
-                if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
-                if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
-                // CR 730.3: a merged permanent's other components, forgotten as its own card is where the viewer can't see
-                val parts = mv.parts.map { p -> if (Knowledge.forgets(scratch, p.obj)) p.copy(obj = Knowledge.forgotten(p.obj)) else p }
-                mv.copy(after = after, seen = snapshots[m.id], parts = parts)
+                mv.copy(after = after, seen = snapshots[m.id])
             }
             scratch.apply(Change.ZoneChange(listOf(moved)))
             all += moved
@@ -423,7 +412,7 @@ internal object Actions {
     private fun enteringFace(act: Act, o: GameObject, m: PlannedMove): arcanum.api.FaceDefinition? {
         if (m.to != Zone.Battlefield || m.faceDown) return null
         return m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
-            ?: o.definition?.faces?.getOrNull(if (m.transformed && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld)) 1 else o.face)
+            ?: o.definition.faces.getOrNull(if (m.transformed && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld)) 1 else o.face)
     }
 
     private fun lockedEffect(
@@ -845,7 +834,7 @@ internal object Actions {
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
-        // D35, D60: from the timestamp, not the cause's key (a spell's card id differs between views)
+        // D35: from the timestamp, not the cause's key
         val creator = TokenIds.created("token", act.state.nextTimestamp())
         fun planned(specs: List<Pair<arcanum.engine.state.CopiableValues, Int>>): List<GameObject> {
             var n = 0
@@ -919,7 +908,7 @@ internal object Actions {
         }
         // CR 303.4f–i, 303.4h, 301.5e: what each token is attached to as it is created; an Aura with nothing to enchant isn't created
         tokens = tokens.mapNotNull { t ->
-            val face = t.definition?.faces?.getOrNull(t.face) ?: return@mapNotNull t
+            val face = t.definition.faces.getOrNull(t.face) ?: return@mapNotNull t
             val r = entering(act, t.id, t.controller ?: t.owner, face, t.attachedTo, proposedBoard())
             if (!r.enters) null else if (r.host == t.attachedTo) t else t.copy(attachedTo = r.host)
         }
@@ -1020,19 +1009,15 @@ internal object Actions {
 
     /**
      * Shuffles [player]'s library (CR 701.24): the host decides the order (D25); the cards become new objects (D38),
-     * except [kept], which stay on top as they were (CR 701.24b, D45). In a viewer's state (D60) nobody knows the new
-     * order: the host gives new ids instead ([RandomKind.Objects.newIds]) and the shuffled cards become unknown.
+     * except [kept], which stay on top as they were (CR 701.24b, D45).
      */
     fun shuffle(act: Act, player: PlayerId, kept: List<ObjectId> = emptyList(), source: ObjectId? = null) {
         val library = act.state.player(player).library
         val shuffled = library.filter { it !in kept }
-        val hidden = act.state.viewer != null && shuffled.size > 1
-        val order = if (shuffled.size <= 1) shuffled else act.randomObjects(player, source, shuffled, shuffled.size, newIds = hidden, library = library)
+        val order = if (shuffled.size <= 1) shuffled else act.randomObjects(player, source, shuffled, shuffled.size, library = library)
         val before = library.map { act.state.objOrThrow(it) }
-        val after = library.filter { it in kept }.map { act.state.objOrThrow(it) } + if (hidden) {
-            // Each new id takes a place in the library; which card is where only the host knows
-            order.mapIndexed { i, id -> Knowledge.forgotten(act.state.objOrThrow(shuffled[i])).copy(id = id as ObjectId.Card) }
-        } else order.map { act.state.objOrThrow(it).let { o -> o.copy(id = o.id.next()) } }
+        val after = library.filter { it in kept }.map { act.state.objOrThrow(it) } +
+            order.map { act.state.objOrThrow(it).let { o -> o.copy(id = o.id.next()) } }
         act.record(Change.Shuffle(player, before, after))
     }
 

@@ -122,7 +122,7 @@ internal object Loops {
             _command = byTime(state.command),
             _players = state.players.map { it.copy(ledger = emptyMap()) }.toMutableList(),
             _objects = state.objects.mapValuesTo(LinkedHashMap()) { (_, o) ->
-                o.copy(definition = o.definition?.let(::named), facts = o.facts.withoutCounts())
+                o.copy(definition = named(o.definition), facts = o.facts.withoutCounts())
             },
             _stackItems = state.stackItems.mapValuesTo(LinkedHashMap()) { (_, item) -> item.copy(facts = item.facts?.withoutCounts()) },
             _ledger = mutableMapOf(),

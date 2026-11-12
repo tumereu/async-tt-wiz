@@ -6,7 +6,6 @@ import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
-import arcanum.engine.decision.FilledObject
 import arcanum.engine.decision.Share
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
@@ -20,10 +19,9 @@ import kotlin.test.assertEquals
 import kotlin.test.fail
 
 /**
- * Review 2, the host's inputs: an async host relays answers from clients and its own random results and fills (D25,
- * D58, D60). Every input is either applied or refused with [IllegalArgumentException] (the refusal [Engine.options]
+ * Review 2, the host's inputs: an async host relays answers from clients and its own random results (D25, D58). Every input is either applied or refused with [IllegalArgumentException] (the refusal [Engine.options]
  * relies on), never a crash, and a refused answer can't make the engine do something the decision didn't ask:
- * malformed shuffles, random picks outside the set, dice beyond their sides, fills of other objects.
+ * malformed shuffles, random picks outside the set, dice beyond their sides.
  */
 class Review2HostInputTest {
     /** [input] on [game] is refused the documented way. */
@@ -94,19 +92,6 @@ class Review2HostInputTest {
         Engine.perform(game, Input.StartGame(StartOptions())).changes.forEach { game.apply(it) }
         val roll = game.pending?.decision as? Decision.Random ?: fail("No roll asked: ${game.pending}")
         refused(game, Input.Answer(roll.id, Answer.DieRolls(listOf(7))), "a 7 on a two-sided die")
-    }
-
-    /** A host fill naming other objects than the ones asked is refused. */
-    // D60
-    @Test
-    fun aFillOfOtherObjectsIsRefused() = scenario {
-        alice.battlefield("Swamp", "Swamp")
-        alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Storm Spark", hidden = true)
-        alice.casts("Fiendish Mentor")
-        val (game, fill) = copyUntil<Decision.HostFill>()
-        refused(game, Input.Answer(fill.id, Answer.Filled(listOf(FilledObject(card("Swamp"), Cards.definition("Island"))))),
-            "a fill of a known Swamp")
     }
 
     /** Ordering triggers with an index twice is refused. */

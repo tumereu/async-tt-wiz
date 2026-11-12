@@ -10,9 +10,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * One game in MTG terms, as one viewer sees it ([viewer], D56, D60): players in turn order, every object by id, the shared
- * zones, the Stack with its items, effect objects, delayed triggers, turn and priority, ledgers, this and last turn's
- * tagged events, and the open continuation.
+ * One game in MTG terms, with full information (D56; every card is known, what a player may see is
+ * [arcanum.engine.Host.visible]): players in turn order, every object by id, the shared zones, the Stack with its
+ * items, effect objects, delayed triggers, turn and priority, ledgers, this and last turn's tagged events, and the open
+ * continuation.
  *
  * Read-only from outside the engine: its fields can be read, and only [apply] and [revert] change them (D56, D59).
  * Inside, the collections are mutable for speed, and [arcanum.engine.Engine] never changes the state it is given: it works
@@ -41,7 +42,6 @@ data class GameState internal constructor(
     @SerialName("inputCount") internal var _inputCount: Int = 0,
     @SerialName("triggered") internal var _triggered: MutableList<WaitingTrigger> = mutableListOf(),
     @SerialName("skipFirstDraw") internal var _skipFirstDraw: Boolean = true,
-    @SerialName("viewer") internal var _viewer: PlayerId? = null,
 ) {
     /** In turn order (CR 101.4, D61). */
     val players: List<PlayerState> get() = _players
@@ -82,13 +82,6 @@ data class GameState internal constructor(
     /** The starting player skips the draw step of turn 1 (CR 103.8a, two players); the host sets false where nobody
      * skips it (CR 103.8c). A setting of the game, not changed by play. */
     val skipFirstDraw: Boolean get() = _skipFirstDraw
-    /**
-     * Whose view of the game this state is (D60, spec §7.0 "Hidden information"): null for full information (a host or
-     * referee that knows every card); else that player's view, where cards they can't see are unknown and stay so.
-     * The engine fills cards in as they become public or visible to the viewer, and forgets them as they become hidden
-     * from the viewer ([arcanum.engine.Host.visible]). A setting of the game, not changed by play.
-     */
-    val viewer: PlayerId? get() = _viewer
 
     /** The engine's cached view of its own working copy (never set on a host's state). */
     @kotlinx.serialization.Transient

@@ -223,7 +223,7 @@ class Chunk20EquipmentAndSacrificeArtifactsScenariosTest {
     fun seersTrinketDrawsNextUpkeep() = scenario {
         alice.battlefield("Seer's Trinket")
         alice.library("Island", "Forest")
-        bob.library("Swamp", hidden = true)
+        bob.library("Swamp")
 
         alice.activates("Seer's Trinket", target = "bob")
         allPass()
@@ -240,7 +240,7 @@ class Chunk20EquipmentAndSacrificeArtifactsScenariosTest {
     fun spysTrinketDrawsNextUpkeep() = scenario {
         alice.battlefield("Spy's Trinket")
         alice.library("Island")
-        bob.hiddenHand("Storm Spark", "Forest")
+        bob.hand("Storm Spark", "Forest")
 
         alice.activates("Spy's Trinket", target = "bob")
         allPass()

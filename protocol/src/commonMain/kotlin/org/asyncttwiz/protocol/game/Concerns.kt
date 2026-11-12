@@ -76,8 +76,6 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
                 is Change.ZoneChange -> change.moves.forEach { presence(it.before.id); presence(it.after.id); into += StateKey.Player(it.before.owner) }
                 is Change.Created -> change.objects.forEach { presence(it.obj.id); into += StateKey.Player(it.obj.owner) }
                 is Change.Removed -> change.objects.forEach { presence(it.obj.id); into += StateKey.Player(it.obj.owner) }
-                is Change.Filled -> presence(change.before.id)
-                is Change.Forgotten -> presence(change.before.id)
                 is Change.Shuffle -> { into += StateKey.Player(change.player); (change.before + change.after).forEach { presence(it.id) } }
                 is Change.Reorder -> { change.owner?.let { into += StateKey.Player(it) }; (change.before + change.after).forEach { state(it) } }
                 is Change.Status -> state(change.id)

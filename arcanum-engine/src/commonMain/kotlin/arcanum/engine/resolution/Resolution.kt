@@ -52,8 +52,8 @@ internal object Resolution {
 
     /**
      * CR 608.2b: a spell or ability that doesn't resolve leaves the Stack; a spell's card goes to its owner's graveyard
-     * (or where its permission says) as an event outside resolution ([Events.run]), so a replacement's order or a host
-     * fill (CR 708.9) waits for its answer.
+     * (or where its permission says) as an event outside resolution ([Events.run]), so a replacement's order waits for
+     * its answer.
      */
     private fun fizzle(recorder: Recorder, item: StackItem): Progress {
         val act = Act(recorder, Asker.NONE)
@@ -68,11 +68,6 @@ internal object Resolution {
     }
 
     fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress {
-        if (continuation.otherView != null) {
-            val sent = answer as Answer.OtherView
-            return OtherView.run(recorder, continuation.copy(answers = continuation.answers + sent.answers),
-                sent.filled.associate { it.id to it.definition })
-        }
         return run(recorder, continuation.copy(answers = continuation.answers + answer))
     }
 
@@ -122,7 +117,7 @@ internal object Resolution {
             val item = c.left ?: recorder.state.stackItems[c.item] ?: return Progress.Done
             val steps = stepsOf(item)
             val mark = recorder.changes.size
-            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}", mayAskOtherView = true))
+            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}"))
             try {
                 // dsk gaps: "Do this only once each turn" (CR 603.2h): once its action was taken this turn, it does nothing
                 val once = (item.ability as? Ability.Triggered)?.takeIf { it.actionOncePerTurn } != null
@@ -146,10 +141,6 @@ internal object Resolution {
             } catch (n: NeedDecision) {
                 recorder.rollback(mark)
                 return Progress.Waiting(Pending(n.decision, c))
-            } catch (n: arcanum.engine.action.NeedOtherView) {
-                // D60, D31: cards only another player may look at; from this step on, worked out as in their view
-                recorder.rollback(mark)
-                return OtherView.start(c, n)
             }
         }
     }
@@ -346,7 +337,7 @@ internal object Resolution {
         }
         // CR 715.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,
         // is played as a land)
-        if (!fizzled && card.definition?.layout == arcanum.api.Layout.Adventure && card.face == 1) {
+        if (!fizzled && card.definition.layout == arcanum.api.Layout.Adventure && card.face == 1) {
             val land = arcanum.api.CardType.Land in card.definition.faces.first().types
             val exiled = Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Exile, meanings = listOf(meaning))))[item.id]
             if (exiled != null && act.state.obj(exiled)?.zone == Zone.Exile) act.record(arcanum.engine.change.Changes.effect(act.state) { ts ->
@@ -362,7 +353,7 @@ internal object Resolution {
             return
         }
         // tdm: CR 720.3d: a resolving Omen spell is shuffled into its owner's library instead
-        if (!fizzled && card.definition?.layout == arcanum.api.Layout.Omen && card.face == 1) {
+        if (!fizzled && card.definition.layout == arcanum.api.Layout.Omen && card.face == 1) {
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Library, meanings = listOf(meaning))))
             Actions.shuffle(act, card.owner)
             return

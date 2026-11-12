@@ -65,7 +65,7 @@ internal object TheRing {
 
     /** CR 701.54a, c, d: the Ring tempts [player]. */
     fun tempt(act: Act, cause: Cause?, player: PlayerId) {
-        if (act.state.command.none { id -> act.state.obj(id)?.let { it.owner == player && it.definition?.faces?.firstOrNull()?.name == EMBLEM } == true })
+        if (act.state.command.none { id -> act.state.obj(id)?.let { it.owner == player && it.definition.faces.firstOrNull()?.name == EMBLEM } == true })
             createEmblem(act, player)
         val before = temptations(act.state, player)
         act.record(Change.Ledger(player, KEY, before, before + 1))
@@ -103,7 +103,7 @@ internal object TheRing {
     private fun createEmblem(act: Act, player: PlayerId) {
         val ts = act.state.nextTimestamp()
         val o = GameObject(
-            // D35, D60: named from the timestamp, the same in every view (not the cause's key: a spell's id differs between views)
+            // D35: named from the timestamp, not the cause's key
             id = ObjectId.Card(TokenIds.token(TokenIds.created("the-ring", ts) + "/$player", 0), 0), owner = player, controller = player,
             zone = Zone.Command, definition = CardDefinition(Layout.Normal, listOf(FaceDefinition(EMBLEM, abilities = abilities))),
             token = false, timestamp = ts,

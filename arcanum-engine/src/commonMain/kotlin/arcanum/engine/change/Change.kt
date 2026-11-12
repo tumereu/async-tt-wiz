@@ -295,29 +295,13 @@ sealed interface Change {
     }
 
     /**
-     * Cards whose identity [to] looks at (null: everyone sees them), where the state has full information
-     * ([arcanum.engine.state.GameState.viewer] null) and so asks no host fill (D60): searched, scried, looked at, revealed,
-     * the cards of a choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
+     * Cards whose identity [to] looks at (null: everyone sees them): searched, scried, looked at, revealed, the cards of a
+     * choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
      * ([arcanum.engine.Host.revealed]) and the engine which library places became known.
      */
     @Serializable @SerialName("shown")
     data class Shown(val to: PlayerId?, val ids: List<ObjectId>) : Change {
         override fun inverse() = this
-        override val isEvent: Boolean get() = false
-    }
-
-    /** The host fills in an unknown object's identity (D60). */
-    @Serializable @SerialName("filled")
-    data class Filled(val before: GameObject, val after: GameObject) : Change {
-        override fun inverse() = copy(before = after, after = before)
-        override val isEvent: Boolean get() = false
-    }
-
-    /** The viewer forgets a known object's identity as it becomes hidden from them (D60): turned face down where they
-     * can't look. Inverse of [Filled]. */
-    @Serializable @SerialName("forgotten")
-    data class Forgotten(val before: GameObject, val after: GameObject) : Change {
-        override fun inverse() = Filled(after, before)
         override val isEvent: Boolean get() = false
     }
 

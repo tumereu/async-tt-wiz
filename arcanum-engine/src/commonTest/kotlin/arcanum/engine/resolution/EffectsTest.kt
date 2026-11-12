@@ -132,11 +132,11 @@ class EffectsTest {
         }
     }
 
-    // CR 701.20, D60: the revealed hand's hidden cards are filled in by the host; the caster chooses
+    // CR 701.20: the hand is revealed; the caster chooses
     @Test
     fun revealHandChooseAndDiscard() = scenario {
         alice.hand("Mind Pilfer")
-        bob.hiddenHand("Forest", "Storm Spark", "Denial")
+        bob.hand("Forest", "Storm Spark", "Denial")
 
         alice.castsWithoutCosts("Mind Pilfer", target = "bob")
         resolve()
@@ -219,7 +219,7 @@ class EffectsTest {
     @Test
     fun searchForACardThenShuffle() = scenario {
         alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Island", "Swamp", hidden = true)
+        alice.library("Forest", "Island", "Swamp")
 
         alice.castsWithoutCosts("Fiendish Mentor")
         resolve()
@@ -565,12 +565,12 @@ class EffectsTest {
         assertEquals(1, sacrifices.size, "One event for both sacrifices (CR 608.2e)")
     }
 
-    // CR 701.20, D60: look at a hidden hand (filled in by the host), then draw
+    // CR 701.20: look at a hidden hand, then draw
     @Test
     fun lookAtTargetPlayersHand() = scenario {
         alice.hand("Cerebral Scan")
         alice.library("Forest")
-        bob.hiddenHand("Storm Spark")
+        bob.hand("Storm Spark")
 
         alice.castsWithoutCosts("Cerebral Scan", target = "bob")
         resolve()

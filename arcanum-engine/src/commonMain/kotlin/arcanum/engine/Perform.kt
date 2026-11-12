@@ -146,7 +146,6 @@ internal object Perform {
                 is TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, continuation.action, answer)
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
-            is Continuation.Played -> Casting.resumePlayed(recorder, continuation, answer)
             is Continuation.Loop -> Loops.resume(recorder, answer)
         }
         return progress

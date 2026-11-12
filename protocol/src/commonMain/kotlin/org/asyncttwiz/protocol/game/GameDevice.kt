@@ -2842,7 +2842,7 @@ class GameDevice(
                 a.exile == b.exile && a.command == b.command && a.stackItems == b.stackItems && a.effects == b.effects &&
                 a.delayedTriggers == b.delayedTriggers && a.turn == b.turn && a.priority == b.priority && a.combat == b.combat &&
                 a.ledger == b.ledger && a.pending == b.pending && a.inputCount == b.inputCount && a.triggered == b.triggered &&
-                a.skipFirstDraw == b.skipFirstDraw && a.viewer == b.viewer
+                a.skipFirstDraw == b.skipFirstDraw
         }
 
         /**

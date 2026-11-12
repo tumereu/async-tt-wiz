@@ -3,7 +3,6 @@ package arcanum.engine.decision
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.input.Input
-import arcanum.engine.review.copyUntil
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.setup.StartOptions
@@ -37,7 +36,7 @@ class AnswerCheckTest {
         Engine.perform(game, Input.Answer(game.pending!!.decision.id, answer))
     }
 
-    /** The shuffle a search ends with, on a copy: in alice's view when [viewer]. */
+    /** The shuffle a search ends with, on a copy. */
     private fun Scenario.shuffleAfterSearch(): Pair<GameState, RandomKind.Objects> {
         alice.battlefield("Sunbaked Mesa")
         alice.library("Storm Spark", "Mountain", "Plains")
@@ -49,46 +48,24 @@ class AnswerCheckTest {
         return game to shuffle.what as RandomKind.Objects
     }
 
-    /** In a viewer's state a shuffle is answered with new card ids (D60): the old cards in an order, a new id twice or
-     * the wrong number of ids are refused; new ids are accepted. */
-    // CR 701.24a, D25, D60
-    @Test
-    fun aHiddenShuffleTakesExactlyNewIds() = scenario {
-        viewer(alice)
-        val (game, what) = shuffleAfterSearch()
-        assertEquals(true, what.newIds)
-        refused(game, Answer.RandomObjects(what.among.reversed()), "the old cards in an order")
-        val fresh = List(what.count) { ObjectId.Card(CardId("fresh.$it"), 0) }
-        refused(game, Answer.RandomObjects(listOf(fresh[0], fresh[0])), "a new id twice")
-        refused(game, Answer.RandomObjects(fresh.take(1)), "too few new ids")
-        refused(game, Answer.RandomObjects(listOf(fresh[0], ObjectId.Card(CardId("fresh.0"), 3))), "one card under two ids")
-        accepted(game, Answer.RandomObjects(fresh))
-    }
-
-    /** With full information a shuffle is answered with the library's own cards, each once; new ids are refused. */
+    /** A shuffle is answered with the library's own cards, each once; new ids are refused. */
     // CR 701.24a, D25
     @Test
     fun aShuffleWithFullInformationTakesTheLibrarysCards() = scenario {
         val (game, what) = shuffleAfterSearch()
-        assertEquals(false, what.newIds)
         refused(game, Answer.RandomObjects(List(what.count) { ObjectId.Card(CardId("fresh.$it"), 0) }), "new ids")
         refused(game, Answer.RandomObjects(what.among.take(1)), "one card of two")
         accepted(game, Answer.RandomObjects(what.among.reversed()))
     }
 
-    /** A host fill naming an asked object twice (and so missing another) is refused. */
-    // D60
+    /** The card the host gives for a card name ([Decision.NamedCard]) must have that name. */
+    // CR 707.12
     @Test
-    fun aFillOfAnObjectTwiceIsRefused() = scenario {
-        alice.battlefield("Swamp", "Swamp")
-        alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Storm Spark", hidden = true)
-        alice.casts("Fiendish Mentor")
-        val (game, fill) = copyUntil<Decision.HostFill>()
-        val first = fill.objects.first()
-        refused(game, Answer.Filled(listOf(FilledObject(first, Cards.definition("Forest")), FilledObject(first, Cards.definition("Forest")))),
-            "the same object twice")
-        refused(game, Answer.Filled(emptyList()), "nothing")
+    fun aNamedCardOfAnotherNameIsRefused() = scenario {
+        val asked = Decision.NamedCard(DecisionId("named"), alice.id, null, "Forest")
+        AnswerCheck.check(state, asked, Answer.NamedCard(Cards.definition("Forest")))
+        kotlin.test.assertFailsWith<IllegalArgumentException> { AnswerCheck.check(state, asked, Answer.NamedCard(Cards.definition("Storm Spark"))) }
+        kotlin.test.assertFailsWith<IllegalArgumentException> { AnswerCheck.check(state, asked, Answer.Done) }
     }
 
     /** The starting player's die: one result per die, within its sides. */
@@ -143,7 +120,7 @@ class AnswerCheckTest {
 
     /** Any answer of any kind with odd contents, to every decision of a whole game, is accepted or refused the
      * documented way, never a crash (LongGame with malformed answers). */
-    // D58, D60
+    // D58
     @Test
     fun malformedAnswersNeverCrash() {
         arcanum.engine.review.LongGame(7L, jsonEvery = 50, malformed = true).play()

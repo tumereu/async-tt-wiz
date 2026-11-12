@@ -39,16 +39,14 @@ Inspect.classLevel(state, id): Int?               // the level a Class has gaine
 Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
 
 // a host running games
-Host.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
+Host.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (display)
 Host.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
 Host.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
 Host.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
-Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
+Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them
 Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Host.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
 Host.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
-Host.seenBy(state, player[, visible]): GameState // a copy of the state as a player sees it: what they can't see unknown (D60)
-Host.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 
 // which cards the engine plays fully
 CardSupport.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
@@ -69,8 +67,8 @@ state.setup.objects[id] = obj; state.setup.turn = …   // the state's fields, w
 ```
 
 `options` lists what can be begun: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
-(random results and host fills are the host's, D25, D60). Answers are listed to every player (P7), except answers
-naming cards hidden from that player (D60); for choices of several
+(random results and named cards, `Decision.NamedCard`, are the host's, D25). Answers are listed to every player (P7), except answers
+naming cards hidden from that player (P7); for choices of several
 objects, targets or modes a working sample is listed, not every combination. A cast or activation is listed when it can
 be begun, everything known at its start can be done (its first targets, the objects its costs use, a mode with what it
 needs), a payment may exist for its mana cost as it stands then (X as 0; every mana ability, convoke and delve counted) and its next
@@ -92,11 +90,11 @@ seeded random games of cube cards, failing on any open player decision without a
   life, counters, mana pool; every card/token object by `ObjectId` (`Card(card, zoneChanges)`
   or `StackItem(id)`, D21/D35) with owner, controller, zone, face, status, counters, damage,
   attachment, timestamp (D34), control start (CR 302.6), card memory and per-instance facts
-  (D22/D41); unknown objects have no definition (D60); Stack items with targets, modes, X,
+  (D22/D41); every object has its definition (full information); Stack items with targets, modes, X,
   names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority;
   ledgers; the tagged event log (D33); the open `Pending`; `inputCount`, the inputs performed so far (`Change.InputCounted`,
   the first change of every input's outcome, taken back with it). `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
-  the creation's timestamp, so every player's view (D60) derives the same ones.
+  the creation's timestamp, so every host derives the same ones.
   Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
   revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
   (`Change.LibraryPlaces`); with full information the engine records what a player looked at as `Change.Shown`
@@ -184,7 +182,7 @@ for the agreement, as for a mandatory loop, and `options` never lists it.
 (CR 104.2a) and `Draw` when the last players lose at once (CR 104.4a); then `options` are empty and `perform` refuses
 input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4a): their objects leave the game, what
 they control is exiled, their abilities on the Stack and waiting triggers go, their face-down permanents and spells are
-revealed (CR 708.9; in a viewer's state those it doesn't know stay unknown, as leaving can't wait for the host),
+revealed (CR 708.9),
 priority they held passes on, their turn goes on without them (CR 800.4j), and their decisions are made by others or not at
 all (CR 800.4f–h, see Status).
 
@@ -214,49 +212,22 @@ loses to several state-based actions at once gets the first listed in CR 704.5; 
 
 ## Hidden information
 
-The state is one viewer's view (`GameState.viewer`, D60; null: full information, as a host knows the game, the way
-tests play). One rule, in the event pipeline and the effects that look:
+The state always has full information, as a host knows the game (D60 as revised by the API rework: no per-viewer
+states). Hidden information is display: what a host shows each player.
 
-- **Filled when it matters or becomes visible:** a card put into a graveyard, the Stack, exile or the battlefield face
-  up, a face-down card leaving or turning face up (CR 708.9), a revealed card, one looked at or searched, one drawn
-  into the viewer's hand, one picked at random (a host `Random`, CR 701.20c), one its controller may look at any time
-  (CR 401.5, checked before priority): the engine asks `Decision.HostFill` for exactly those cards (`public`, or for
-  its `player` only) before going on, so replacements and triggers see them (madness, "whenever a land card is put
-  into your graveyard"). Reveal-until turns over one card at a time.
-- **Forgotten when hidden from the viewer:** a card put into a hand the viewer can't see or turned face down where the
-  viewer can't look (`Change.Forgotten`); a shuffle or a random order into a library asks the host for new ids
-  (`RandomKind.Objects.newIds`) instead of an order, and the cards become unknown under them, so their order can't be
-  tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. With full information
-  nothing is forgotten.
-- **What each player may see:** a face-down permanent is a nameless 2/2 creature even unseen (CR 708.2a); `options`
-  offers another player no answer naming cards hidden from them; `Host.visible(state, player)` says what a host may
-  show each player. A pending decision over cards hidden from others (a search's matches) is shown only to its player.
-- **A host keeping one state per player** forwards each player's inputs to the other states:
-  - Another player's `PlayLand`, `Cast` or `Activate` of a card the viewer doesn't know asks `HostFill` (public) for
-    exactly that card, which becomes public as it is played (CR 305.1, 601.2a, 602.2a), then goes on
-    (`Continuation.Played`; cancelling the cast forgets it again). `options` doesn't list such plays in the viewer's
-    state (it can't check them); the host takes them from the player's own state.
-  - A resolution that reaches cards only another player may look at (their search, scry, surveil, look, a choice
-    among cards hidden from the viewer) is done in that player's view (D31): it waits on `Decision.OtherView(player,
-    objects)`. The host has the player decide in their own state and answers `Answer.OtherView(filled, answers)`: the
-    identities of `objects` and the answers given there (anyone's decisions and random results, in order; never host
-    fills), all at once or as they come. Each step is worked out with them and committed without them
-    (`Knowledge.forgetHidden`: the identities are in neither the state nor the changes; a card the viewer then sees,
-    put into a public zone or revealed, is filled in as it would have been asked; triggers are found as with the
-    identities). The state keeps only the answers and which cards are hidden, so the identities come with every
-    answer; while more are needed the engine asks `OtherView` again. Once nothing is hidden the resolution goes on as
-    usual. `Host.otherViewDecision(state, filled)` gives a host that doesn't keep the player's state the decision
-    they face.
-  - Another player's companion check at the start (CR 103.2b) is theirs, made in their own state: the viewer's state
-    doesn't look at their deck and offers every card of theirs outside the game that may be a companion; the one they
-    reveal (the host forwards their choice) is filled in publicly.
-  - Foretelling (CR 702.143) is a special action the rules give a card in a hand (`AbilityOrigin.Rule("foretell")`): another
-    player's state takes it with the card unknown, as the host forwards it, so the card isn't revealed; the foretold card is
-    face down in exile, `ObjectMark.Foretold`, known to its owner only (`Knowledge.mayKnow`), and filled publicly as it is cast.
-    Not yet: a card foretold only through foretell another object gave it, when it was unknown to the view: the view never learned that cost, so it
-    refuses the forwarded cast (a host holding full information, as ATW does, isn't affected).
-  - Not yet: a face-down cast of a card unknown to the view is filled publicly (CR 708.2 would keep it unknown; the
-    face-down cost comes from the card's own ability, which the view can't read).
+- **What each player may see:** `Host.visible(state, player)`: public cards, their own hand and cards outside the
+  game, face-down cards they control, cards an ability lets them look at any time (CR 401.5). A face-down permanent
+  is a nameless 2/2 creature for everyone (CR 708.2a). `options` offers another player no answer naming cards hidden
+  from them (P7). A pending decision over cards hidden from others (a search's matches) is shown only to its player.
+- **What a player looked at:** an effect that looks at hidden cards (a search, scry, surveil, look, reveal, the cards of
+  a choice among hidden cards) records a `Change.Shown(to, ids)` (`to` null: everyone) for exactly those cards; a
+  reveal-until turns over one card at a time. `Host.revealed(before, changes, viewer)` tells a host which cards some
+  changes showed a player that they couldn't see before.
+- **A card by name:** "create a copy of the card with the chosen name" asks the host for that card
+  (`Decision.NamedCard`, answered `Answer.NamedCard(definition)`, like a random result): the engine has no cards of its own.
+- Foretelling (CR 702.143) is a special action the rules give a card in a hand (`AbilityOrigin.Rule("foretell")`), taken
+  without revealing the card; the foretold card is face down in exile, `ObjectMark.Foretold`, known to its owner only
+  (`Knowledge.mayKnow`).
 
 ## Controlling another player (CR 723)
 
@@ -289,7 +260,7 @@ Each player has a setting in the state, `PlayerState.skipWhenNoChoice` (on by de
 player holds priority, nothing is pending and `options` offers nothing but passing (mana abilities aside); on, that is
 enough; off, only when the player has no card only they may see (`Knowledge.privateTo`: hand, face-down permanents and
 spells, cards only they may look at; not cards outside the game), so an instant they can't afford is theirs to pass
-with, and an empty hand isn't. While such cards are unknown in the state (another player's view, D60) it is false.
+with, and an empty hand isn't.
 
 Inside a flow, a question with nothing to choose ("you may discard a land card" with no land card in hand, "choose a
 creature card in your hand" with none, a choice the rules force, CR 609.3) is skipped on; off, when the skip depends on
@@ -298,9 +269,7 @@ the forced cards, none or all, as min and max), or a cost they can't pay as `Dec
 accepted. A skip depends on hidden cards when a card of the choice's pool in a hidden zone (hand, outside the game, a
 library card only they may look at; a face-down permanent is a public 2/2, CR 708.2a) could be offered or not depending
 on what card it is (`Evaluator.identityDecides`: types, colours, names, abilities, P/T and mana value could go either
-way; zone, owner, controller, status and counters are read). Such cards still unknown in the state are filled in for
-the player first (in another player's view, as a step done in their view, D31), on or off, so the choice is worked out
-on what they are. Skips that depend on nothing hidden ("discard a card" with one card in hand, "sacrifice a creature"
+way; zone, owner, controller, status and counters are read). Skips that depend on nothing hidden ("discard a card" with one card in hand, "sacrifice a creature"
 with one creature, a search of a library nobody sees) stay automatic either way (P5). Covered: choices of objects during
 resolution (`Step.Choose`), discards with a filter, costs paid on resolution and their choices, the companion reveal at
 the start; not casting and activating, which the player does themselves.
@@ -361,14 +330,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   protection, prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life (paying life is losing it, through life-loss replacements, CR 119.4), counters, tapping, tokens (D35 ids), draws,
   mills, discards (cards put into one library position together in their owner's order, CR
-  401.4), host-ordered shuffles (D25; the random decision names the whole library as it is shuffled, `RandomKind.Objects.library`) and host fills and forgetting (D60, see Hidden information); mana costs paid while resolving
+  401.4), host-ordered shuffles (D25; the random decision names the whole library as it is shuffled, `RandomKind.Objects.library`); mana costs paid while resolving
   ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
   118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
   order when it matters, prevention effects among them (CR 616.1: not asked when one prevents all
   and the others only change the amount, or when only prevention is left: shields last); each once per event; "instead", modifications, optional ones, linked
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
-  re-check and fizzling (the card leaving through `Events.run`, so a replacement's order or a host fill waits), partial
+  re-check and fizzling (the card leaving through `Events.run`, so a replacement's order waits), partial
   legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
   611.2c), delayed and reflexive triggers (snapshots of objects that already left, CR 608.2h), "until"
@@ -532,8 +501,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   planeswalkers (lethal damage to the planeswalker is its loyalty, CR 702.19c), "isn't legendary", additional loyalty costs, a
   triggered ability's "choose both instead" judged as it is put on the Stack, exiling a card from any graveyard as a cost (the filter
   naming the owner) kept as the permanent's memory, a keyword ability of a source that left read as it last existed (modular), the
-  creature types each player chose in one loop gathered, and a copy of a card by a chosen name: the host fills it in
-  (`Decision.HostFill.named`), it is made in exile and may be cast.
+  creature types each player chose in one loop gathered, and a copy of a card by a chosen name: the host gives the card
+  (`Decision.NamedCard`), the copy is made in exile and may be cast.
 - Done, The Lord of the Rings: Tales of Middle-earth (scenarios in `commonTest/…/sets/ltr/`): every non-trivial card plays (each file
   names the cards that only repeat a played template). The Ring as the player's emblem (CR 701.54) in many shapes; equip at instant
   speed by a player's permission; a legendary instant or sorcery needing a legendary creature or planeswalker (CR 205.4e); an untap
@@ -587,7 +556,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   other components in `GameObject.mergedAbove` / `mergedBelow` as `MergedPart`s: layer 1 gives it the topmost component's
   characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
   topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
-  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card filled in publicly, 730.2e, D60;
+  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card shown to everyone, 730.2e;
   the merge is a copy effect timestamped as the objects merge, `MergedPart.timestamp`, applied in timestamp order among the
   permanent's copy effects, so a later one overrides it, 613.7; a copy of a merged permanent copies the topmost card with every
   component's abilities, 707.2).
@@ -601,8 +570,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player spends their mana
   to cast the spell, so mana restricted to such spells pays (CR 106.6); one who leaves the game before the cast finishes pays
   nothing and nobody else is asked (CR 800.4f): the caster pays the whole cost. Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
-  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game (chosen in their own view when the state
-  is another player's, D31) is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
+  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
   venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
@@ -620,8 +588,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   scenarios in `conspiracy/HiddenAgendaTest`): with `StartOptions.conspiracies` (a Conspiracy Draft game) each player in turn order
   may put conspiracy cards from outside the game into the command zone, those with hidden agenda face down with their owner's
   secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
-  keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
-  the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
+  keyword expands to the special action turning it face up (CR 116.2j). Only the owner may look at it.
   A player leaving the game reveals their face-down conspiracies (702.106e).
 - Done, engine lane 4 (2026-11-03, scenarios in `combat/CombatCostsTest`): costs to attack of any kind (`Mechanic.AttackCost`:
   sacrificing, tapping, life, … with the mana, CR 508.1h–j) and costs to block (`Mechanic.BlockCost`, CR 509.1d–f), paid as the
@@ -701,8 +668,7 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 player's hand first; `activates`: their permanents; targets, attacks and expectations: the battlefield, then the Stack;
 choices: the decision's options, a name given twice meaning two cards); elsewhere a name in several zones fails unless
 `card(name, zone = …)` or an index says which. `effect(…)` locks its objects as a resolution does. Random results are scripted with
-`random(…)` or seeded; hidden cards (`hidden = true`, or everything a `viewer(player)` can't see) are filled in by the
-harness, which is the host and also gives new ids for shuffles in a viewer's game. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
+`random(…)` or seeded; the harness is the host, and answers a named card (`Decision.NamedCard`) from the test cards. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
 run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
@@ -711,17 +677,13 @@ reverting all its changes restores the state after setup.
 costs, abilities activated, triggers triggered) and check the outcome a Magic player expects.
 
 `review/Review2LongGames.kt` plays whole games from `Engine.newGame` with random 40-card cube decks by a seeded random
-policy over `Engine.options`, checking D56/D58/D59 and zone, id, counter and timestamp invariants after every input; with
-a viewer it plays on that player's view, the driver being the host, and checks that public cards are known and hidden
-ones aren't (D60). Two seeds and one seed on each player's view run in the normal suite, more with
-`-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`, `-Parcanum.longGames.from=S`,
-`-Parcanum.longGames.viewer=alice`, `-Parcanum.longGames.malformed=true` to also try odd answers of every kind at every
-decision) and `--tests '*Review2LongGamesJvmTest*'`. `hidden/ViewerKnowledgeTest` plays the hidden-information rule on
-both players' views with every host answer through JSON; `hidden/SkipWhenNoChoiceTest` the "Skip when I have no choice"
-setting (I-D18) both ways on every view; `decision/AnswerCheckTest` the answer checks. `review/Review*Test.kt` are the adversarial
-reviews' scenarios; failing ones are `@Ignore`d with their finding number. Review 3 adds `review/Review3Host.kt`, a host
-written against the public API only that keeps the full-information state and each player's view in step (D60), four
-themed 40-card cube decks (`Review3Decks`), their long games (`-Parcanum.review3.games=N --tests '*Review3CubeDecksJvmTest*'`)
+policy over `Engine.options`, checking D56/D58/D59 and zone, id, counter and timestamp invariants after every input. Some
+seeds run in the normal suite, more with `-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`,
+`-Parcanum.longGames.from=S`, `-Parcanum.longGames.malformed=true` to also try odd answers of every kind at every
+decision) and `--tests '*Review2LongGamesJvmTest*'`. `review/Review2HiddenInfoTest` plays what each player is shown;
+`hidden/SkipWhenNoChoiceTest` the "Skip when I have no choice" setting (I-D18) both ways; `decision/AnswerCheckTest` the
+answer checks. `review/Review*Test.kt` are the adversarial
+reviews' scenarios; failing ones are `@Ignore`d with their finding number. Review 3 adds four themed 40-card cube decks (`Review3Decks`), their long games (`-Parcanum.review3.games=N --tests '*Review3CubeDecksJvmTest*'`)
 and printed timings on large boards (`-Parcanum.review3.perf=true --tests '*Review3PerformanceJvmTest*' -i`).
 `view/ShortcutsTest` plays games with `Layers.checkShortcuts`, which checks every view kept, every resolution kept and
 every dependency not tried against working it out in full.

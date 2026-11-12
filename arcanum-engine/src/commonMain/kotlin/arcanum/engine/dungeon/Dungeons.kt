@@ -57,13 +57,13 @@ internal object Dungeons {
 
     fun completed(state: GameState, player: PlayerId): Int = state.player(player).ledger[COMPLETED] ?: 0
 
-    private fun isDungeon(o: GameObject): Boolean = o.definition?.faces?.firstOrNull()?.types?.contains(CardType.Dungeon) == true
+    private fun isDungeon(o: GameObject): Boolean = o.definition.faces.firstOrNull()?.types?.contains(CardType.Dungeon) == true
 
-    private fun rooms(o: GameObject): List<DungeonRoom> = o.definition?.faces?.firstOrNull()?.rooms.orEmpty()
+    private fun rooms(o: GameObject): List<DungeonRoom> = o.definition.faces.firstOrNull()?.rooms.orEmpty()
 
     /** The qualities a dungeon may only be entered by venturing into ("You can't enter this dungeon unless you "venture into
      * Undercity."", CR 701.49d): a plain venture can't choose it. */
-    private fun only(o: GameObject): List<ObjectFilter> = o.definition?.faces?.firstOrNull()?.abilities.orEmpty()
+    private fun only(o: GameObject): List<ObjectFilter> = o.definition.faces.firstOrNull()?.abilities.orEmpty()
         .filterIsInstance<Ability.Static>().flatMap { it.mechanics.filterIsInstance<arcanum.api.Mechanic.OnlyVentureInto>() }.map { it.quality }
 
     /** The dungeon [player] owns in the command zone (CR 309.3: at most one). */
@@ -93,8 +93,8 @@ internal object Dungeons {
     /** CR 309.2a, 701.49a, d: a dungeon card [player] owns from outside the game into the command zone, the marker on its topmost room. */
     private fun enter(act: Act, cause: Cause?, player: PlayerId, into: ObjectFilter?) {
         val outside = act.state.player(player).outside
-        // Only its owner may see their cards outside the game (D60): their choice is made in their view
-        act.fill(player, cause?.source, outside, "venture into the dungeon")
+        // Only its owner may see their cards outside the game: they look at them to choose
+        act.show(player, outside)
         val e = act.evaluator(Context(player, cause?.source, Bindings.EMPTY))
         val options = outside.filter { id ->
             val o = act.state.obj(id)

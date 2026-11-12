@@ -356,7 +356,7 @@ class Chunk31EntersLibraryAndGraveyardScenariosTest {
     fun goblinSalvager() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Tinkered Mite")
         alice.hand("Goblin Salvager")
-        alice.library("Island", "Cookie Brawler", "Swamp", hidden = true)
+        alice.library("Island", "Cookie Brawler", "Swamp")
 
         castAndResolve("Goblin Salvager")
         answer(Answer.YesNo(true))

@@ -40,12 +40,10 @@ class HiddenAgendaTest {
 
     private fun Scenario.conspiracy(name: String, vararg names: String): ObjectId {
         val id = put(alice, listOf(name), Zone.Command, faceDown = true).single()
-        if (state.viewer == null || state.viewer == alice.id) {
-            var memory = Bindings.EMPTY
-            names.getOrNull(0)?.let { memory = memory.with(Conspiracies.CHOSEN_NAME, NamedValue.Name(it)) }
-            names.getOrNull(1)?.let { memory = memory.with(Conspiracies.SECOND_NAME, NamedValue.Name(it)) }
-            state._objects[id] = state.objOrThrow(id).copy(memory = memory)
-        }
+        var memory = Bindings.EMPTY
+        names.getOrNull(0)?.let { memory = memory.with(Conspiracies.CHOSEN_NAME, NamedValue.Name(it)) }
+        names.getOrNull(1)?.let { memory = memory.with(Conspiracies.SECOND_NAME, NamedValue.Name(it)) }
+        state._objects[id] = state.objOrThrow(id).copy(memory = memory)
         return id
     }
 
@@ -95,25 +93,5 @@ class HiddenAgendaTest {
         alice.casts(ox)
         allPass()
         expect { alice.battlefield has ox }
-    }
-
-    // D60: in bob's view the conspiracy and its name are unknown until alice turns it face up; then the host answers the name
-    @Test
-    fun theNameIsAskedAsItIsRevealedInAnotherView() = scenario {
-        viewer(bob)
-        alice.battlefield("Forest")
-        alice.hand(bear)
-        val id = conspiracy(tithe)
-        assertTrue(state.objOrThrow(id).unknown)
-        assertNull(state.objOrThrow(id).memory[Conspiracies.CHOSEN_NAME])
-        assertTrue(Engine.options(state, alice.id).none { it is Input.Activate && it.source == id })
-        perform(Input.Activate(alice.id, id, reveal))
-        val d = pending
-        assertTrue(d is Decision.ChooseCardName && d.player == alice.id, "The host answers alice's name: $d")
-        answer(Answer.CardName(bear))
-        assertEquals(NamedValue.Name(bear), state.objOrThrow(id).memory[Conspiracies.CHOSEN_NAME])
-        alice.casts(bear)
-        allPass()
-        expect { alice.battlefield has bear }
     }
 }

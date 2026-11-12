@@ -16,7 +16,7 @@ object Inspect {
      * Where object [id]'s characteristics come from (spec §7.1, a host's Inspect: "2/2 printed, +1/+1 from an anthem,
      * +3/+3 until end of turn"): its values after layer 1, then each continuous effect that changed them in the order
      * applied (CR 613), with what made it. Works the layers out afresh (one [Engine.view]'s cost). Null when [id] has no
-     * characteristics (an unknown object, D60, or no such object).
+     * characteristics (no such object).
      */
     fun explain(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.view.Explanation? = Layers.explain(state, id)
 
@@ -60,7 +60,7 @@ object Inspect {
     /** The level a Class [id] has gained (CR 716.2, its level abilities): at least 1 for a Class on the battlefield; null for
      * any other object or none. */
     fun classLevel(state: GameState, id: arcanum.engine.state.ObjectId): Int? = state.obj(id)?.let { o ->
-        if (arcanum.api.Subtype("Class") !in o.definition?.faces?.getOrNull(o.face)?.subtypes.orEmpty() || o.zone != arcanum.api.Zone.Battlefield) null
+        if (arcanum.api.Subtype("Class") !in o.definition.faces.getOrNull(o.face)?.subtypes.orEmpty() || o.zone != arcanum.api.Zone.Battlefield) null
         else ((o.memory[arcanum.engine.query.Evaluator.CLASS_LEVEL] as? arcanum.engine.state.NamedValue.Number)?.value ?: 1).coerceAtLeast(1)
     }
 

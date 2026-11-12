@@ -1,5 +1,6 @@
 package arcanum.engine.mutate
 
+import arcanum.engine.change.Change
 import arcanum.api.Ability
 import arcanum.api.Keyword
 import arcanum.api.Mechanic
@@ -170,19 +171,17 @@ class MutateTest {
         }
     }
 
-    // CR 730.2e, 708.2a, D60: merged on top of a face-down creature, the permanent is face up; in bob's view alice's face-down card
-    // is filled in publicly as its abilities now count. Merged under, it stays a face-down 2/2 and stays unknown.
+    // CR 730.2e, 708.2a: merged on top of a face-down creature, the permanent is face up and everyone sees its card. Merged
+    // under, it stays a face-down 2/2.
     @Test
-    fun onTopOfAFaceDownCreatureInAnotherView() = listOf(Mutate.ON_TOP, Mutate.UNDER).forEach { where ->
+    fun onTopOfAFaceDownCreature() = listOf(Mutate.ON_TOP, Mutate.UNDER).forEach { where ->
         scenario {
-            viewer(bob)
             alice.battlefield("Forest", "Forest", "Forest")
             alice.battlefield(wolf, faceDown = true)
             alice.hand(hulk)
             alice.library("Forest")
             val morph = card(wolf)
-            assertTrue(state.objOrThrow(morph).unknown)
-            // The card is unknown in bob's view until it is cast: its mutate keyword is its first printed ability
+            // Its mutate keyword is its first printed ability
             val mutate = CastWay(alternative = arcanum.engine.view.AbilityOrigin.Expansion(arcanum.engine.view.AbilityOrigin.Printed(0, 0), 0))
             alice.casts(hulk, way = mutate, target = wolf)
             allPass()
@@ -190,13 +189,14 @@ class MutateTest {
             allPass()
             val merged = state.objOrThrow(morph)
             if (where == Mutate.ON_TOP) {
-                assertTrue(!merged.faceDown && !merged.unknown)
+                assertTrue(!merged.faceDown)
+                assertTrue(applied.any { it is Change.Shown && it.to == null && morph in it.ids }, "everyone sees the card")
                 expect {
                     hulk.power shouldBe 6
                     hulk hasKeyword Keyword.Vigilance
                 }
             } else {
-                assertTrue(merged.faceDown && merged.unknown)
+                assertTrue(merged.faceDown)
                 assertEquals(2, view()[morph]!!.characteristics!!.power)
             }
         }

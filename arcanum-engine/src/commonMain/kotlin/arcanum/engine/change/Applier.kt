@@ -210,14 +210,6 @@ internal object Applier {
                 p.copy(libraryPlaces = change.after)
             }
             is Change.Shown -> Unit
-            is Change.Forgotten -> applyState(state, Change.Filled(change.before, change.after))
-            is Change.Filled -> {
-                check(change.before.id == change.after.id) { "Filling can't change an id" }
-                updateObject(state, change.before.id) { o ->
-                    check(o == change.before) { "${change.before.id} isn't as expected" }
-                    change.after
-                }
-            }
             is Change.TriggersWaiting -> {
                 check(state.triggered == change.before) { "Waiting triggers aren't as expected" }
                 state._triggered = change.after.toMutableList()

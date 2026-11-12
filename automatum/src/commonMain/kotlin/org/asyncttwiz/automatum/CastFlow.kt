@@ -220,7 +220,7 @@ class CastFlow private constructor(
         /** Whether [continuation] is part of casting or playing the card (CR 601.2, 305.1), which the caster's device
          * keeps to itself (I-D11), rather than what follows it. */
         internal fun private(continuation: Continuation): Boolean =
-            continuation is Continuation.Announcing || continuation is Continuation.Event || continuation is Continuation.Played
+            continuation is Continuation.Announcing || continuation is Continuation.Event
 
         internal class Context(val source: Source, val player: String, val seeds: Seeds, val extras: List<Int>? = null)
 

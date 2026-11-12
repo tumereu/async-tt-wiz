@@ -487,7 +487,7 @@ class Chunk08BurnAndRemovalScenariosTest {
         alice.battlefield("Plains")
         alice.hand("Road to Exile")
         bob.battlefield(brute)
-        bob.library("Storm Spark", "Forest", "Denial", hidden = true)
+        bob.library("Storm Spark", "Forest", "Denial")
 
         alice.casts("Road to Exile", target = brute)
         allPass()

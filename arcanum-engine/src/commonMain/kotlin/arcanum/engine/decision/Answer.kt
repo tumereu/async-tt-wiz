@@ -52,15 +52,8 @@ sealed interface Answer {
     @Serializable @SerialName("dice") data class DieRolls(val results: List<Int>) : Answer
     /** [Decision.Random] with [RandomKind.Objects]. */
     @Serializable @SerialName("random-objects") data class RandomObjects(val chosen: List<ObjectId>) : Answer
-    /** [Decision.HostFill]: what each unknown object is. */
-    @Serializable @SerialName("filled") data class Filled(val objects: List<FilledObject>) : Answer
-    /** [Decision.OtherView]: the identities of its objects ([filled]) and the next [answers] given in its player's
-     * view (after the decision's `answered` ones; no [Filled] among them). */
-    @Serializable @SerialName("other-view") data class OtherView(val filled: List<FilledObject>, val answers: List<Answer>) : Answer
+    /** [Decision.NamedCard]: the card with that name. */
+    @Serializable @SerialName("named-card") data class NamedCard(val definition: CardDefinition) : Answer
     /** [Decision.Manual]: done by hand. */
     @Serializable @SerialName("done") data object Done : Answer
 }
-
-/** The identity of an unknown object (D60): its card's [definition]. */
-@Serializable
-data class FilledObject(val id: ObjectId, val definition: CardDefinition)

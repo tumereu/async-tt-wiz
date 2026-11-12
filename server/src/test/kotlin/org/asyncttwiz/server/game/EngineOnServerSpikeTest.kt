@@ -84,7 +84,7 @@ class EngineOnServerSpikeTest {
         fun next(state: GameState): Input {
             val d = state.pending?.decision
             if (d is Decision.Random) return Input.Answer(d.id, random(d.what))
-            check(d !is Decision.HostFill && d !is Decision.OtherView) { "full information has no host fills: $d" }
+            check(d !is Decision.NamedCard) { "no card is named here: $d" }
             if (state.turn.number == 0 && d == null) return Input.StartGame()
             val listed = state.players.flatMap { Engine.options(state, it.id) }.distinct()
             check(listed.isNotEmpty()) { "stuck at ${d ?: state.turn}" }
@@ -99,10 +99,7 @@ class EngineOnServerSpikeTest {
         private fun random(kind: RandomKind): Answer = when (kind) {
             RandomKind.CoinFlip -> Answer.CoinFlip(rnd.nextBoolean())
             is RandomKind.Die -> Answer.DieRolls(List(kind.count) { rnd.nextInt(1, kind.sides + 1) })
-            is RandomKind.Objects -> {
-                check(!kind.newIds) { "full information keeps ids" }
-                Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count))
-            }
+            is RandomKind.Objects -> Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count))
         }
     }
 

@@ -32,8 +32,6 @@ internal object AutoPass {
         // Cards only they may see that could let them act: a card in hand, a face-down permanent to turn face up
         // (CR 702.37e), a card they may look at and play; not cards outside the game (a revealed companion is public)
         val hidden = Knowledge.privateTo(state, snap.view, player).filter { state.obj(it)?.zone != Zone.Outside }
-        // The state can't tell what unknown cards would let them do (D60): their own view decides
-        if (hidden.any { state.obj(it)?.unknown == true }) return PassCheck.NONE
         // CR 723.5: a controlled player's priority is passed the way their controller would have it
         val decider = Control.decider(state, player)
         val setting = state.player(decider).skipWhenNoChoice

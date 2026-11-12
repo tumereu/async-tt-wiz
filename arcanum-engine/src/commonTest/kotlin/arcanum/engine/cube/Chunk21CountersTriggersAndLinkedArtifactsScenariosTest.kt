@@ -143,7 +143,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsScenariosTest {
     fun wishfangAmuletTutorsAndChangesHands() = scenario {
         alice.battlefield("Swamp", "Swamp", "Swamp")
         alice.hand("Wishfang Amulet")
-        alice.library("Forest", "Storm Spark", hidden = true)
+        alice.library("Forest", "Storm Spark")
 
         alice.casts("Wishfang Amulet", paying = listOf("Swamp", "Swamp#1"))
         allPass()

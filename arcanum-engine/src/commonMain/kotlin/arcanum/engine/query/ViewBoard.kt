@@ -75,7 +75,7 @@ internal object Lki {
 
     /** The printed characteristics of [o] (no continuous effects): the fallback when a move kept no snapshot. */
     fun printed(o: arcanum.engine.state.GameObject): Characteristics? {
-        val face = o.definition?.faces?.getOrNull(o.face) ?: return null
+        val face = o.definition.faces.getOrNull(o.face) ?: return null
         return arcanum.engine.view.Copiable.initial(o, listOf(arcanum.engine.view.IndexedFace(o.face, face)), null)
     }
 }

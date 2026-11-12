@@ -38,7 +38,7 @@ internal object Casts {
         val caster = scope.players(effect.caster).firstOrNull() ?: scope.actor
         val cast = mutableListOf<ObjectId>()
         for (id in scope.objects(effect.objects).filter { act.state.obj(it) != null }) {
-            act.fill(caster, scope.self, listOf(id), "cast", public = true)
+            act.show(caster, listOf(id), public = true)
             val e = scope.eval()
             val c = act.view()[id]?.characteristics ?: continue
             if (effect.resultingSpell != null && !e.matches(effect.resultingSpell!!, id)) continue

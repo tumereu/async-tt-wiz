@@ -106,7 +106,7 @@ data class ObjectSnapshot(
     val owner: PlayerId,
     val controller: PlayerId?,
     val zone: Zone,
-    /** Null when it was unknown to the caller (D60). */
+    /** Null when the view had none for it. */
     val characteristics: Characteristics?,
     val counters: List<CounterEntry> = emptyList(),
     val damage: Int = 0,

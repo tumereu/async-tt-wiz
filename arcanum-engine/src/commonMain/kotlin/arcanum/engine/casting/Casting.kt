@@ -36,23 +36,19 @@ internal object Casting {
     /**
      * Why [input] (a land play, cast or activation) can't be begun on [snap]'s state with nothing open: the refusal its
      * flow below throws before it does anything, word for word ([arcanum.engine.CastScreen.refusal]); null when it may be
-     * begun, or for a card the state doesn't know (a viewer's state fills it in first, [fillPlayed]) and other inputs.
+     * begun, or for other inputs.
      */
     fun refusal(snap: Snapshot, input: Input): String? = when (input) {
-        is Input.PlayLand -> if (snap.state.obj(input.card)?.unknown == true) null
-            else Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { "Can't play that land: $it" }
-        is Input.Cast -> if (snap.state.obj(input.card)?.unknown == true) null
-            else Legality.cantCast(snap, input.player, input.card, input.way)?.let { "Can't cast that: $it" }
-        is Input.Activate -> if (!arcanum.engine.foretell.Foretell.isForetell(input.ability) && snap.state.obj(input.source)?.unknown == true) null
-            else when (val instance = Legality.instance(snap, input.source, input.ability)) {
-                null -> "${input.source} has no ability ${input.ability.key}"
-                else -> Legality.cantActivate(snap, input.player, input.source, instance)?.let { "Can't activate that: $it" }
-            }
+        is Input.PlayLand -> Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { "Can't play that land: $it" }
+        is Input.Cast -> Legality.cantCast(snap, input.player, input.card, input.way)?.let { "Can't cast that: $it" }
+        is Input.Activate -> when (val instance = Legality.instance(snap, input.source, input.ability)) {
+            null -> "${input.source} has no ability ${input.ability.key}"
+            else -> Legality.cantActivate(snap, input.player, input.source, instance)?.let { "Can't activate that: $it" }
+        }
         else -> null
     }
 
     fun playLand(recorder: Recorder, input: Input.PlayLand): Progress {
-        fillPlayed(recorder, input, input.player, input.card, "played")?.let { return it }
         val snap = recorder.snapshot()
         refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val s = recorder.state
@@ -74,7 +70,6 @@ internal object Casting {
     }
 
     fun cast(recorder: Recorder, input: Input.Cast, from: Int = recorder.changes.size): Progress {
-        fillPlayed(recorder, input, input.player, input.card, "cast")?.let { return it }
         val snap = recorder.snapshot()
         refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val o = recorder.state.objOrThrow(input.card)
@@ -90,7 +85,7 @@ internal object Casting {
         val onStack = (input.card as ObjectId.Card).next()
         // CR 702.146a, 712.11a: a double-faced card cast transformed (disturb) is its back face on the Stack and enters that way
         val castTransformed = (permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay)?.transformed == true &&
-            o.definition?.layout == arcanum.api.Layout.Transform && (o.definition.faces.size) > 1
+            o.definition.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
         val face = if (castTransformed) 1 else way.face
         if (face != recorder.state.objOrThrow(onStack).face) recorder.record(Change.Face(onStack, recorder.state.objOrThrow(onStack).face, face))
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
@@ -109,9 +104,6 @@ internal object Casting {
     }
 
     fun activate(recorder: Recorder, input: Input.Activate, from: Int = recorder.changes.size): Progress {
-        // CR 702.143a: foretelling keeps the card hidden, so a viewer's state takes it unknown (D60)
-        if (!arcanum.engine.foretell.Foretell.isForetell(input.ability))
-            fillPlayed(recorder, input, input.player, input.source, "activated")?.let { return it }
         val snap = recorder.snapshot()
         refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val instance = checkNotNull(Legality.instance(snap, input.source, input.ability))
@@ -120,38 +112,6 @@ internal object Casting {
         val c = Continuation.Announcing(input.player, Announced.Ability(input.source, input.ability, instance.ability),
             AnnounceStage.Modes, Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
         return advance(recorder, c, from)
-    }
-
-    /**
-     * D60: in a viewer's state ([arcanum.engine.state.GameState.viewer]), another player plays, casts or activates a card
-     * the viewer doesn't know (a host keeping one state per player forwards their input). The card becomes public as it
-     * is played: a land enters face up (CR 305.1), a spell's card moves to the Stack (CR 601.2a), an ability activated
-     * from a hidden zone reveals its card (CR 602.2a), a face-down permanent's only ability turns it face up (CR 708.2,
-     * 702.37e). So the host fills exactly that card in publicly ([Decision.HostFill]) and the input is redone
-     * ([Continuation.Played]); its legality is checked then. Null when the card is known.
-     */
-    private fun fillPlayed(recorder: Recorder, input: Input, player: arcanum.engine.state.PlayerId, card: ObjectId, reason: String): Progress? {
-        val o = recorder.state.obj(card) ?: return null
-        if (!o.unknown) return null
-        val decision = Decision.HostFill(decisionId(recorder.state, player, "played"), player, card, listOf(card), reason, public = true)
-        return Progress.Waiting(Pending(decision, Continuation.Played(input)))
-    }
-
-    /** The card of a [Continuation.Played] is filled in (checked against its [Decision.HostFill]): the input is redone. */
-    fun resumePlayed(recorder: Recorder, continuation: Continuation.Played, answer: Answer): Progress {
-        // The fill is part of the cast or activation: cancelling it forgets the card again (CR 601.2, D58)
-        val from = recorder.changes.size
-        val filled = (answer as Answer.Filled).objects
-        filled.forEach { f ->
-            val before = recorder.state.objOrThrow(f.id)
-            recorder.record(Change.Filled(before, before.copy(definition = f.definition)))
-        }
-        return when (val input = continuation.input) {
-            is Input.PlayLand -> playLand(recorder, input)
-            is Input.Cast -> cast(recorder, input, from)
-            is Input.Activate -> activate(recorder, input, from)
-            else -> throw IllegalStateException("Only plays, casts and activations wait for their card: $input")
-        }
     }
 
     fun resume(recorder: Recorder, continuation: Continuation.Announcing, answer: Answer): Progress {
@@ -174,16 +134,6 @@ internal object Casting {
     /** [Input.Cancel]: [player] takes back their open cast or activation, everything it did, last first (CR 601.2,
      * D58). Only the player casting or activating it may. */
     fun cancel(recorder: Recorder, continuation: Continuation, player: arcanum.engine.state.PlayerId): Progress {
-        if (continuation is Continuation.Played) {
-            val by = when (val i = continuation.input) {
-                is Input.PlayLand -> i.player
-                is Input.Cast -> i.player
-                is Input.Activate -> i.player
-                else -> null
-            }
-            require(by == player) { "Only $by can take back their play, not $player" }
-            return Progress.Done
-        }
         val open = continuation as? Continuation.Announcing
             ?: throw IllegalArgumentException("Only a cast or an activation can be cancelled")
         require(open.player == player) { "Only ${open.player} can cancel what they are casting or activating, not $player" }
@@ -234,13 +184,13 @@ internal object Casting {
         val o = act.state.obj(card) ?: return null
         val snap = Snapshot(act.state)
         // CR 712.11a: cast transformed, a transforming double-faced card is its back face (a Siege, CR 310.12b)
-        val castTransformed = transformed && o.definition?.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
+        val castTransformed = transformed && o.definition.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
         val faces = (if (castTransformed) listOf(1) else Legality.castableFaces(o)).filter { Legality.cantCastByEffect(snap, player, card, it) == null }
         if (faces.isEmpty()) return null
         val face = if (faces.size == 1) faces.single() else {
-            val names = faces.map { o.definition!!.faces[it].name }
+            val names = faces.map { o.definition.faces[it].name }
             val chosen = names.indexOf(act.chooseOption(player, card, names))
-            require(chosen >= 0) { "Not a face of ${o.definition?.faces?.firstOrNull()?.name}" }
+            require(chosen >= 0) { "Not a face of ${o.definition.faces.firstOrNull()?.name}" }
             faces[chosen]
         }
         val alternative = chooseAlternative(act, snap, player, card, face, withoutPaying || cost != null)

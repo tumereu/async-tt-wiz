@@ -251,7 +251,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
     val model: GameModel = GameModel(Engine.newGame(listOf(a, b).map { p ->
         Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) },
             if (p != a) emptyList() else outside.mapIndexed { i, d ->
-                DeckCard(CardId(f.id("$p/outside/$i")), org.asyncttwiz.protocol.game.GameCards.parse(d.definition).definition) })
+                DeckCard(CardId(f.id("$p/outside/$i")), checkNotNull(org.asyncttwiz.protocol.game.GameCards.parse(d.definition).definition) { "Unreadable outside card ${d.digest}" }) })
     }).also { s -> s.players.toList().forEach { p -> s.apply(arcanum.engine.change.Changes.skipWhenNoChoice(s, p.id, false)) } },
         TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
     val codec = EngineJson(GameDefinitions.of(model.engine))

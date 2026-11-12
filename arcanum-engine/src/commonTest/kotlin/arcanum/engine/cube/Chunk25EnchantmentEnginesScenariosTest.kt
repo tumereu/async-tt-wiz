@@ -110,7 +110,7 @@ class Chunk25EnchantmentEnginesScenariosTest {
     fun lawOfTheWilds() = scenario {
         alice.battlefield("Forest", "Forest", "Forest")
         alice.hand("Law of the Wilds", "Umbral Elves")
-        alice.library("Forest", "Elvish Seer", "Island", hidden = true)
+        alice.library("Forest", "Elvish Seer", "Island")
 
         alice.casts("Law of the Wilds")
         allPass()

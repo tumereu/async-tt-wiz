@@ -69,7 +69,7 @@ class Chunk13HandDisruptionAndRemovalScenariosTest {
     fun pettyCoercionTakesANoncreatureNonlandCard() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Petty Coercion")
-        bob.hiddenHand("Elvish Seer", "Forest", "Storm Spark", "Denial")
+        bob.hand("Elvish Seer", "Forest", "Storm Spark", "Denial")
 
         alice.casts("Petty Coercion", target = "bob")
         allPass()
@@ -89,7 +89,7 @@ class Chunk13HandDisruptionAndRemovalScenariosTest {
     fun mindPilferTakesACardAndCostsLife() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Mind Pilfer")
-        bob.hiddenHand("Elvish Seer", "Storm Spark", "Forest")
+        bob.hand("Elvish Seer", "Storm Spark", "Forest")
 
         alice.casts("Mind Pilfer", target = "bob")
         allPass()
@@ -108,7 +108,7 @@ class Chunk13HandDisruptionAndRemovalScenariosTest {
     fun inquestOfTheDeepTakesACheapCard() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Inquest of the Deep")
-        bob.hiddenHand("Elvish Hierophant", "Elvish Seer", "Deadly Plotting", "Forest")
+        bob.hand("Elvish Hierophant", "Elvish Seer", "Deadly Plotting", "Forest")
 
         alice.casts("Inquest of the Deep", target = "bob")
         allPass()

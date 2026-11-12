@@ -532,7 +532,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** tdm: the kinds of counters on [id] (CR 122.1). */
     private fun counterKinds(id: ObjectId) = counterList(id).orEmpty().filter { it.count > 0 }.map { it.kind }.distinct()
 
-    private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
+    private fun GameObject.printedTypes(): List<CardType> = definition.faces.getOrNull(face)?.types.orEmpty()
 
     /** [a] and [b] share [quality] ("share a color", "with the same power"). */
     fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
@@ -801,11 +801,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
      * one copying something (a back face included) has the copy's (0 for a back face, which has no mana cost). */
     private fun frontFaceCost(id: ObjectId): arcanum.api.ManaCost? {
         val o = state.obj(id) ?: return null
-        val definition = o.definition ?: return null
+        val definition = o.definition
         // fin: CR 202.3c, 712.8g: a melded permanent's mana value is the total of its two front faces'
         if (definition.layout is arcanum.api.Layout.Meld && o.face == 1 && o.zone == Zone.Battlefield)
             return arcanum.api.ManaCost(((definition.faces.first().manaCost?.symbols ?: emptyList()) +
-                o.mergedBelow.flatMap { it.definition?.faces?.firstOrNull()?.manaCost?.symbols.orEmpty() }))
+                o.mergedBelow.flatMap { it.definition.faces.firstOrNull()?.manaCost?.symbols.orEmpty() }))
         if (definition.layout != arcanum.api.Layout.Transform || o.face == 0 || o.faceDown) return null
         if (o.zone != Zone.Battlefield && o.zone != Zone.Stack) return null
         if (state.effects.values.any { e -> e.locked?.contains(id) == true && e.mechanics.any { it is arcanum.api.Mechanic.CopyOf } }) return null

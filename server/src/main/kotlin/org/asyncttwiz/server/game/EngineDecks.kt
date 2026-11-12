@@ -15,19 +15,21 @@ import org.asyncttwiz.protocol.game.OutsideCards
  * engine definition the parser makes of its card data on the server ([GameCards], the same parser as the device's).
  * Main decks become libraries; Side and Maybe are the cards outside the game (LOB-141: what wishes, learn and the like can
  * fetch), with the dungeon cards the server brought with the player's Ready ([OutsideCards], CR 309.2). Players in seat order by account
- * id, as the play sorts them. A card whose printed values can't be read plays as an unknown card (no definition, D60): the
- * readiness check (I-D52) keeps decks Automatum can't play out of games, Maybe cards included.
+ * id, as the play sorts them. Null when a card's printed values can't be read: the readiness check (I-D52) keeps decks
+ * Automatum can't play out of games, Maybe cards included.
  */
 internal object EngineDecks {
-    fun seats(preparation: LobbyPreparation): List<Seat> {
+    fun seats(preparation: LobbyPreparation): List<Seat>? {
         val definitions = preparation.definitions.associateBy { it.digest }
         val parsed = definitions.mapValues { (_, card) -> GameCards.parse(card.definition).definition }
+        val decks = preparation.players.map { player -> requireNotNull(player.deck) { "${player.accountId} has no deck" } }
+        if (decks.any { deck -> (deck.entries.map { it.definition } + deck.outside).any { parsed[it] == null } }) return null
         return preparation.players.sortedBy { it.accountId }.map { player ->
-            val deck = requireNotNull(player.deck) { "${player.accountId} has no deck" }
+            val deck = player.deck!!
             fun section(section: SavedDeckSection) = deck.entries.filter { it.section == section }.flatMap { entry ->
-                List(entry.quantity) { offset -> DeckCard(CardId(deck.card(entry, offset).id), parsed[entry.definition]) }
+                List(entry.quantity) { offset -> DeckCard(CardId(deck.card(entry, offset).id), parsed.getValue(entry.definition)!!) }
             }
-            val outside = deck.outside.mapIndexed { n, digest -> DeckCard(CardId(OutsideCards.cardId(deck, n)), parsed[digest]) }
+            val outside = deck.outside.mapIndexed { n, digest -> DeckCard(CardId(OutsideCards.cardId(deck, n)), parsed.getValue(digest)!!) }
             Seat(PlayerId(player.accountId), section(SavedDeckSection.MAINBOARD),
                 section(SavedDeckSection.SIDEBOARD) + section(SavedDeckSection.MAYBEBOARD) + outside)
         }

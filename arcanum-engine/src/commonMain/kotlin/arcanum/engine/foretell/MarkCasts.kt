@@ -71,7 +71,7 @@ internal object MarkCasts {
     }
 
     /** The costs of [keyword] printed on [o]'s card, read through its definition as a face-down card shows none (CR 702.143a). */
-    private fun printedCosts(o: GameObject, keyword: KeywordKind) = costsOf(o.definition?.faces?.firstOrNull()?.abilities.orEmpty(), keyword)
+    private fun printedCosts(o: GameObject, keyword: KeywordKind) = costsOf(o.definition.faces.firstOrNull()?.abilities.orEmpty(), keyword)
 
     private fun costsOf(abilities: List<arcanum.api.Ability>, keyword: KeywordKind) =
         abilities.filterIsInstance<Keyword>().filter { it.kind == keyword }.filterIsInstance<HasCost>().map { it.cost }

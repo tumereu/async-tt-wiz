@@ -44,7 +44,7 @@ data class ObjectView(
     /** After control-changing effects (layer 2); null outside the battlefield and the Stack (CR 108.4). */
     val controller: PlayerId?,
     val zone: Zone,
-    /** Null for an unknown object (D60). */
+    /** Null when it has none (an object whose characteristics couldn't be worked out). */
     val characteristics: Characteristics?,
     /** Rules applied to it that are not characteristics (D24): from its own abilities (keyword meanings: deathtouch,
      * "can't be blocked except by …") and from other sources ("can't block" from an Aura, CR 113.12). */
@@ -54,10 +54,10 @@ data class ObjectView(
     /** The object as stored, before continuous effects. */
     val obj: GameObject?,
     /** Its characteristics after layer 1 only (printed, copied or face down, CR 613.2), before every other continuous
-     * effect: what [characteristics] is compared with to show what effects changed. Null for an unknown object. */
+     * effect: what [characteristics] is compared with to show what effects changed. */
     val base: Characteristics? = null,
     /** Its copiable values as a whole (CR 707.2): layout and all faces, printed or copied, before its Room's doors lock
-     * anything (CR 709.5). Null for an unknown object. */
+     * anything (CR 709.5). */
     val copiable: arcanum.engine.state.CopiableValues? = null,
 ) {
     val name: String? get() = characteristics?.name

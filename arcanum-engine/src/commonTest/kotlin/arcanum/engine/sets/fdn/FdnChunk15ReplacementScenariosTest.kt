@@ -120,7 +120,7 @@ class FdnChunk15ReplacementScenariosTest {
     fun talismanTutorsAndChangesHands() = scenario {
         alice.battlefield("Swamp", "Swamp", "Swamp")
         alice.hand(talisman)
-        alice.library(prize, hidden = true)
+        alice.library(prize)
         alice.casts(talisman, paying = listOf("Swamp", "Swamp#1"))
         allPass()
         expect { card(talisman).counters(CounterKind.Named("wish")) shouldBe 3 }

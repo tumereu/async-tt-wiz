@@ -94,8 +94,8 @@ class InrCovenEmergeAurasScenariosTest {
     fun mindbenderTakesOneCheapAndOneDearCard() = scenario(players = 3) {
         alice.battlefield("Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Swamp")
         alice.hand(mindbender)
-        bob.hiddenHand(cheapA, cheapB, dear, dearToo, "Forest")
-        players[2].hiddenHand(cheapA)
+        bob.hand(cheapA, cheapB, dear, dearToo, "Forest")
+        players[2].hand(cheapA)
         alice.casts(mindbender, target = "bob")
         allPass()
         assertEquals(setOf(card(cheapA, owner = bob), card(cheapB, owner = bob)), decision<Decision.ChooseObjects>().options.toSet())

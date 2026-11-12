@@ -93,8 +93,6 @@ internal object ChangeSamples {
         val withDelayed = after(Change.DelayedTriggerAdded(delayed))
         val druidObject = base.objOrThrow(druid)
         val library = base.player(alice).library.map { base.objOrThrow(it) }
-        val unknown = base.objOrThrow(spark).copy(definition = null)
-        val withUnknown = base.deepCopy().also { it._objects[spark] = unknown }
 
         val samples = listOf(
             on(base, Changes.move(base, listOf(druid, forest), Zone.Graveyard)),
@@ -135,8 +133,6 @@ internal object ChangeSamples {
             on(base, Change.Reorder(Zone.Library, alice, base.player(alice).library, base.player(alice).library.reversed())),
             on(base, Change.LibraryPlaces(alice, emptyMap(), mapOf(base.player(alice).library.first() to 0))),
             on(base, Change.Shown(alice, base.player(alice).library)),
-            on(withUnknown, Change.Filled(unknown, base.objOrThrow(spark))),
-            on(base, Change.Forgotten(base.objOrThrow(spark), unknown)),
             on(base, Change.Happened(GameEvent.CoinFlipped(alice, won = true))),
             on(base, Changes.pending(base, pending)),
             on(base, Change.InputCounted(base.inputCount, base.inputCount + 1)),

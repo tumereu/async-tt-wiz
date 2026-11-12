@@ -79,7 +79,7 @@ internal object TestEngineState {
                 owner = PlayerId(if (card.token) card.owner else play.shuffles.firstOrNull { card.id in it.order }?.accountId ?: card.owner),
                 controller = if (zone == Zone.Battlefield) container.accountId?.let(::PlayerId) else null,
                 zone = zone,
-                definition = definition(card),
+                definition = checkNotNull(definition(card)) { "No definition for ${card.id}" },
                 face = faces.indexOfFirst { it.faceId == card.faceId }.coerceAtLeast(0),
                 token = card.token,
                 tapped = card.tapped,

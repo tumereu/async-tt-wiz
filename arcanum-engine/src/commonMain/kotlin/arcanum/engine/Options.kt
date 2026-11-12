@@ -40,7 +40,7 @@ import arcanum.engine.view.Subtypes
  *   work together. In a cast or activation, only answers after which it can still be finished (CR 601.2c, 601.2g–h), denied
  *   only with proof (castability §1): whenever a search stops early, the answer stands.
  *   Not every combination is listed: the decision says what is allowed, and any allowed answer is accepted. Random
- *   results and host fills (D25, D60) are the host's to answer and aren't listed. Any player may answer (P7), so answers
+ *   results and named cards (D25, [Decision.NamedCard]) are the host's to answer and aren't listed. Any player may answer (P7), so answers
  *   are offered to everyone; [Input.Cancel] for a cast or an activation only to the player casting or activating it.
  * - While attackers or blockers are awaited: the least declaration that obeys the requirements (none when there are
  *   none, CR 508.1d, 509.1c), and it with each one more legal attack or block (or an attacker's other target); the
@@ -125,7 +125,7 @@ internal object Options {
         if (c.choices.paying != null) return true
         if (!payableYet(Plan(state, c))) return false
         val d = pending.decision
-        if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return true
+        if (d is Decision.Random || d is Decision.NamedCard) return true
         // The payment itself: [payableYet] says a way may exist; finding it is the player's and Autotap's (CR 601.2g-h)
         if (d is Decision.ManaPayment) return true
         val snap = Snapshot(state)
@@ -311,7 +311,7 @@ internal object Options {
                 leaves += Leaf(d.cost, manaFound(Plan(s, c)), d.suggestion, path, x)
                 return
             }
-            if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) { leaves += Leaf(null, true, emptyList(), path, x); stopped = true; return }
+            if (d is Decision.Random || d is Decision.NamedCard) { leaves += Leaf(null, true, emptyList(), path, x); stopped = true; return }
             asks = true
             xes = maxOf(xes, Plan(s, c).contributions.sumOf { co -> co.cost.parts.sumOf { pa -> (pa as? arcanum.api.CostPart.Mana)?.cost?.symbols.orEmpty().count { it is arcanum.api.ManaSymbol.Variable } } })
             val snap = Snapshot(s)
@@ -376,7 +376,7 @@ internal object Options {
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {
         val d = pending.decision
         val announcing = pending.continuation is Continuation.Announcing
-        // D60: another player isn't offered answers naming cards they can't see (which of a searched library match)
+        // P7: another player isn't offered answers naming cards they can't see (which of a searched library match)
         val hidden = if (player == d.player) emptySet() else objectsOf(d) - arcanum.engine.action.Knowledge.visible(snap.state, snap.view, player)
         // In a cast or activation, only answers after which it can still be finished (no dead end, CR 601.2c, 601.2g–h)
         val found = if (d is Decision.Announce && announcing) announced(snap, pending, NUMBERS)
@@ -442,8 +442,8 @@ internal object Options {
         is Decision.ChooseSubtype -> (d.among ?: creatureTypes(snap, d.player)).map { Answer.SubtypeChoice(it) }
         is Decision.ChooseCardName -> cardNames(snap, d).map { Answer.CardName(it) }
         is Decision.Manual -> listOf(Answer.Done)
-        // The host's to answer, with its own randomness and knowledge (D25, D60)
-        is Decision.Random, is Decision.HostFill, is Decision.OtherView -> emptyList()
+        // The host's to answer, with its own randomness and cards (D25)
+        is Decision.Random, is Decision.NamedCard -> emptyList()
     }
 
     /** Choices of [min] to [max] of [options]: each alone (and none) when one will do, else the first [min]. */
@@ -500,8 +500,8 @@ internal object Options {
     /** Names of cards in the game that match the decision's filter (CR 201.3). */
     private fun cardNames(snap: Snapshot, d: Decision.ChooseCardName): List<String> {
         val e = snap.evaluator(d.player, self = d.source)
-        return snap.state.objects.values.filter { it.definition != null && !it.token && e.matches(d.filter, it.id) }
-            .mapNotNull { it.definition?.faces?.firstOrNull()?.name }.distinct().take(MAX_NAMES)
+        return snap.state.objects.values.filter { !it.token && e.matches(d.filter, it.id) }
+            .mapNotNull { it.definition.faces.firstOrNull()?.name }.distinct().take(MAX_NAMES)
     }
 
     private fun evenly(amount: Int, d: Decision.Divide): List<Share> {

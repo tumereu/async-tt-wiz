@@ -61,7 +61,7 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
 
     private fun choose(state: GameState): Input {
         val d = state.pending?.decision
-        check(d !is Decision.HostFill && d !is Decision.OtherView) { "full information has no host fills: $d" }
+        check(d !is Decision.NamedCard) { "no card is named here: $d" }
         if (state.turn.number == 0 && d == null) return Input.StartGame()
         val listed = state.players.flatMap { Engine.options(state, it.id) }.distinct().filter { it !is Input.Concede }
         check(listed.isNotEmpty()) { "stuck at ${d ?: state.turn}" }

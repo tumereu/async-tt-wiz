@@ -39,12 +39,11 @@ fun GameState.Companion.of(
     inputCount: Int = 0,
     triggered: List<WaitingTrigger> = emptyList(),
     skipFirstDraw: Boolean = true,
-    viewer: PlayerId? = null,
 ): GameState = GameState(
     players.toMutableList(), LinkedHashMap(objects), battlefield.toMutableList(), stack.toMutableList(), exile.toMutableList(),
     command.toMutableList(), LinkedHashMap(stackItems), LinkedHashMap(effects), LinkedHashMap(delayedTriggers), turn, priority,
     combat, LinkedHashMap(ledger), log.toMutableList(), pending, timestampCounter, inputCount, triggered.toMutableList(),
-    skipFirstDraw, viewer,
+    skipFirstDraw,
 )
 
 /** A test board with [players] (in turn order) at [life], turn 1 of the first player in [step], nothing in any zone. */
@@ -100,9 +99,6 @@ class StateSetup internal constructor(private val state: GameState) {
     var skipFirstDraw: Boolean
         get() = state._skipFirstDraw
         set(value) { state._skipFirstDraw = value }
-    var viewer: PlayerId?
-        get() = state._viewer
-        set(value) { state._viewer = value }
 
     /** Changes [id]'s player state. */
     fun player(id: PlayerId, change: (PlayerState) -> PlayerState) = state.updatePlayer(id, change)

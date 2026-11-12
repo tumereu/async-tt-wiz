@@ -154,7 +154,7 @@ fun choiceWhat(decision: Decision): String = when (decision) {
     is Decision.ChooseReplacement -> "Which applies first"
     is Decision.LegendRule -> "Legend rule"
     is Decision.Manual -> "Skipped"
-    is Decision.Random, is Decision.HostFill, is Decision.OtherView -> "Choice"
+    is Decision.Random, is Decision.NamedCard -> "Choice"
 }
 
 /** A short instruction for an open decision (I-D47); null when its own sentence says it all. */
@@ -173,7 +173,7 @@ fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.ChooseReplacement -> "Drag them by their handles into the order they apply, the top one first, then OK."
     is Decision.LegendRule -> "Tap the ${decision.name} to keep; the others go to the graveyard."
     is Decision.Manual -> "Automatum can't do this part yet: it is skipped."
-    is Decision.Targets, is Decision.May, is Decision.Random, is Decision.HostFill, is Decision.OtherView -> null
+    is Decision.Targets, is Decision.May, is Decision.Random, is Decision.NamedCard -> null
 }
 
 /**

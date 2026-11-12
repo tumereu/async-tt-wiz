@@ -666,7 +666,7 @@ object CombatFlow {
                         else -> return null
                     }
                 }
-                is Decision.Random, is Decision.HostFill, is Decision.OtherView -> return null
+                is Decision.Random, is Decision.NamedCard -> return null
                 is Decision.ManaPayment -> { assumed = true; Input.Answer(d.id, Answer.ManaPayment(d.suggestion)) }
                 else -> {
                     assumed = true

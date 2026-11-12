@@ -53,9 +53,6 @@ internal object StateBasedActions {
     }
 
     private fun once(act: Act) {
-        // Not a state-based action, but checked with them before a player gets priority (CR 117.5): cards a player may
-        // look at any time are filled in for the viewer (D60)
-        arcanum.engine.action.Knowledge.fillLookable(act)
         // fin: control changes made by continuous effects (CR 613.1b)
         ControlChanges.notice(act.recorder)
         val state = act.state

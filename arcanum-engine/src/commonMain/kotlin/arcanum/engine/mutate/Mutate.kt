@@ -54,8 +54,8 @@ internal object Mutate {
         val target = act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield } ?: return false
         val onTop = act.chooseOption(item.controller, item.id, listOf(ON_TOP, UNDER)) == ON_TOP
         // CR 730.2e: merged on top of a face-down permanent, it is face up (not turned face up): its own card is seen, as its
-        // abilities now count (D60)
-        if (onTop && target.faceDown) act.fill(target.owner, item.id, listOf(target.id), "merged face up", public = true)
+        // abilities now count
+        if (onTop && target.faceDown) act.show(target.owner, listOf(target.id), public = true)
         val now = act.state.objOrThrow(target.id)
         val spell = act.state.objOrThrow(card.id)
         // CR 730.2a: the merge is a copy effect timestamped as the objects merge

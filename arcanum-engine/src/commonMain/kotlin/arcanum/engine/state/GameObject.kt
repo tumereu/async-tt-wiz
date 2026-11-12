@@ -27,8 +27,8 @@ data class GameObject(
      * the owner answers for it (CR 108.4a). Control-changing effects apply in layer 2 of the view, not here. */
     val controller: PlayerId? = null,
     val zone: Zone,
-    /** The card's definition; null for an unknown object, a card the caller can't see (D60). */
-    val definition: CardDefinition?,
+    /** The card's definition (the state has full information: every card is known). */
+    val definition: CardDefinition,
     /** Which face is up: 0 the front; 1 the back of a transformed or modal double-faced card, the flipped half of a
      * flip card (CR 710), or the second half / Adventure being cast (CR 709, 715). */
     val face: Int = 0,
@@ -84,12 +84,9 @@ data class GameObject(
 ) {
     val card: CardId get() = id.card
 
-    /** Not known to the caller (D60). */
-    val unknown: Boolean get() = definition == null
-
     /** A transformed double-faced permanent (CR 712, 701.27g): its back face is up. What it is physically: a permanent
      * copying a double-faced permanent isn't double-faced (CR 712.9), a token copy of one is (CR 707.8a, its [definition]). */
-    val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
+    val transformed: Boolean get() = definition.layout == Layout.Transform && face == 1
 
     /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
      * to be bestowed (702.103e, f, which clear [ObjectFacts.alternative]). */
@@ -98,7 +95,7 @@ data class GameObject(
 
     /** Flipped (CR 710), a status (CR 110.5) kept whatever it copies later (CR 110.5c): a flip card's is its [face]; any other
      * permanent's, flipped while a copy of a flip card, is [flippedStatus]. */
-    val flipped: Boolean get() = if (definition?.layout == Layout.Flip) face == 1 else flippedStatus
+    val flipped: Boolean get() = if (definition.layout == Layout.Flip) face == 1 else flippedStatus
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 
@@ -117,14 +114,13 @@ data class FixedCopy(val source: ObjectId, val ability: Int, val values: Copiabl
 /**
  * One card or token among those representing a merged permanent other than its own card (CR 730.2): the object it was as it
  * merged ([id]; as the merged permanent leaves the battlefield it becomes [ObjectId.Card.next] in the new zone, CR 730.3), with
- * what the object knew of it.
+ * its definition.
  */
 @Serializable
 data class MergedPart(
     val id: ObjectId.Card,
     val owner: PlayerId,
-    /** Null: unknown to the caller (D60). */
-    val definition: CardDefinition?,
+    val definition: CardDefinition,
     val face: Int = 0,
     val token: Boolean = false,
     val copyOfCard: Boolean = false,
@@ -205,8 +201,7 @@ data class ObjectFacts(
 
 /**
  * The object gained [mark] in turn [turn] (CR 702.143a, 702.170d). [costs]: the costs it had then of the keyword [mark]'s
- * [arcanum.api.MarkCost.OfKeyword] names, those another object gave it included (CR 702.143e); a state that doesn't know the card (D60)
- * has none.
+ * [arcanum.api.MarkCost.OfKeyword] names, those another object gave it included (CR 702.143e).
  */
 @Serializable
 data class MarkGained(val mark: ObjectMark, val turn: Int, val costs: List<Cost> = emptyList())

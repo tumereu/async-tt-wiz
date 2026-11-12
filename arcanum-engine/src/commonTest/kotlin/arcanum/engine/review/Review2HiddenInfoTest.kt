@@ -5,6 +5,7 @@ import arcanum.api.CounterKind
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -15,44 +16,42 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Review 2, the host's view (D60): the state is one caller's view, with the cards that caller can't see unknown. An
- * effect that needs a card's identity asks the host to fill in exactly the cards it needs; a card that goes where
- * everyone sees it (a graveyard, the battlefield face up, exile face up) becomes known; nothing the viewer couldn't know
- * stays known (a shuffle makes a library unknown again). Decisions wait as data and survive JSON (D58).
+ * Review 2, hidden information: the state has full information, and what a player looks at or everyone sees is said by
+ * a [arcanum.engine.change.Change.Shown] (exactly the cards an effect looks at or reveals), so a host shows each player
+ * only what they may see; options never name cards a player can't see (P7). Decisions wait as data and survive JSON
+ * (D58).
  */
 class Review2HiddenInfoTest {
     private val plusOne = CounterKind.PowerToughness(1, 1)
 
-    /** Cards milled from a hidden library go to a public zone: the host fills them in, so "whenever a land card is put
-     * into your graveyard" sees the lands among them. */
+    /** Cards milled from a library go to a public zone, so "whenever a land card is put into your graveyard" sees the
+     * lands among them. */
     // CR 701.17a, 400.2, 603.2
     @Test
-    fun milledHiddenCardsAreFilledIn() = scenario {
+    fun milledCardsAreSeenByTriggers() = scenario {
         alice.battlefield("Mirebloat, the Undermuck", "Island", "Island")
         alice.hand("Mind Chill")
-        alice.library("Forest", "Storm Spark", "Island", "Swamp", hidden = true)
+        alice.library("Forest", "Storm Spark", "Island", "Swamp")
 
         alice.casts("Mind Chill", target = "alice")
         // Storm's trigger, then the spell, then Mirebloat's two triggers
         repeat(4) { allPass() }
 
-        assertFalse(unknownIn("Forest", Zone.Graveyard), "a milled card is public")
-        assertFalse(unknownIn("Storm Spark", Zone.Graveyard))
-        // The Swamp stays in the library, unasked
-        assertTrue(card("Swamp") !in filledIds())
+        expect { alice.graveyard has "Forest"; alice.graveyard has "Storm Spark" }
+        // The Swamp stays in the library, unseen
+        assertTrue(card("Swamp") !in shownIds())
         expect { "Mirebloat, the Undermuck".counters(plusOne) shouldBe 2 }
     }
 
-    /** "Discards three cards at random" from a hand the viewer can't see: the discarded cards become known, and only
-     * they are asked for, not the cards left in hand. */
+    /** "Discards three cards at random": the cards left in hand aren't shown to anyone. */
     // CR 701.9b, 400.2
     @Test
-    fun randomDiscardFillsOnlyTheDiscardedCards() = scenario {
+    fun randomDiscardShowsNoCardLeftInHand() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Searing Question")
-        alice.library("Island", "Swamp", "Plains", hidden = true)
-        bob.hiddenHand("Forest", "Storm Spark")
-        bob.library("Denial", "Elvish Seer", "Mountain", hidden = true)
+        alice.library("Island", "Swamp", "Plains")
+        bob.hand("Forest", "Storm Spark")
+        bob.library("Denial", "Elvish Seer", "Mountain")
 
         alice.casts("Searing Question")
         allPass()
@@ -62,29 +61,30 @@ class Review2HiddenInfoTest {
             bob.graveyard.size shouldBe 3
             bob.hand.size shouldBe 2
         }
-        val graveyards = state.player(alice.id).graveyard + state.player(bob.id).graveyard
-        assertTrue(graveyards.none { state.objOrThrow(it).unknown }, "discarded cards are public")
-        assertTrue(state.player(bob.id).hand.none { it in filledIds() }, "cards left in hand aren't asked for")
+        assertTrue(state.player(bob.id).hand.none { it in shownIds() }, "cards left in hand aren't shown")
     }
 
-    /** A card discarded in the cleanup step from a hand the viewer can't see becomes known in the graveyard. */
+    /** A card discarded in the cleanup step goes to the graveyard, and the other players aren't offered answers naming
+     * the discarding player's hidden cards (P7). */
     // CR 514.1, 400.2
     @Test
-    fun cleanupDiscardOfAHiddenCardIsFilledIn() = scenario {
+    fun cleanupDiscardOfAHiddenCard() = scenario {
         turn(number = 2, active = bob, step = TurnStep.End)
-        bob.hiddenHand("Forest", "Forest", "Forest", "Forest", "Island", "Island", "Island", "Storm Spark")
+        bob.hand("Forest", "Forest", "Forest", "Forest", "Island", "Island", "Island", "Storm Spark")
         allPass()
         val d = decision<Decision.ChooseObjects>()
         assertEquals(bob.id, d.player)
+        assertTrue(Engine.options(state, alice.id).none { it is Input.Answer && (it.answer as Answer.Objects).chosen.isNotEmpty() })
+        assertTrue(Engine.options(state, bob.id).any { it is Input.Answer })
         bob.answers(Answer.Objects(listOf(card("Storm Spark"))))
-        assertFalse(unknownIn("Storm Spark", Zone.Graveyard))
+        expect { bob.graveyard has "Storm Spark" }
     }
 
-    /** A face-down creature the viewer can't see is a 2/2 colourless nameless creature in the view. */
+    /** A face-down creature is a 2/2 colourless nameless creature in the view. */
     // CR 708.2a
     @Test
-    fun anUnknownFaceDownCreatureIsATwoTwo() = scenario {
-        hiddenBattlefield(bob, "Barkwood Pathfinders")
+    fun aFaceDownCreatureIsATwoTwo() = scenario {
+        bob.battlefield("Barkwood Pathfinders", faceDown = true)
         val v = view()[card("Barkwood Pathfinders")]?.characteristics ?: kotlin.test.fail("no characteristics")
         assertEquals(2, v.power)
         assertEquals(2, v.toughness)
@@ -92,145 +92,117 @@ class Review2HiddenInfoTest {
         assertTrue(v.colors.isEmpty())
     }
 
-    /** An unknown face-down creature can be targeted and dealt lethal damage like any 2/2. */
+    /** A face-down creature can be targeted and dealt lethal damage like any 2/2. */
     // CR 708.2a, 704.5g
     @Test
-    fun anUnknownFaceDownCreatureDies() = scenario {
+    fun aFaceDownCreatureDies() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
-        hiddenBattlefield(bob, "Barkwood Pathfinders")
+        bob.battlefield("Barkwood Pathfinders", faceDown = true)
         alice.casts("Storm Spark", target = "Barkwood Pathfinders")
         allPass()
         expect { bob.graveyard has "Barkwood Pathfinders" }
     }
 
-    /** A face-down permanent that leaves the battlefield is revealed (CR 708.9): the host fills it in, and the card in
-     * the graveyard is known. */
+    /** A face-down permanent that leaves the battlefield is revealed (CR 708.9): face up in the graveyard. */
     // CR 708.9
     @Test
     fun aFaceDownPermanentLeavingIsRevealed() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
-        hiddenBattlefield(bob, "Barkwood Pathfinders")
+        bob.battlefield("Barkwood Pathfinders", faceDown = true)
         alice.casts("Storm Spark", target = "Barkwood Pathfinders")
         allPass()
-        assertFalse(unknownIn("Barkwood Pathfinders", Zone.Graveyard))
+        assertFalse(state.objOrThrow(card("Barkwood Pathfinders", zone = Zone.Graveyard)).faceDown)
     }
 
-    /** Cascade from a hidden library asks for the cards it exiles, not for the whole library. */
-    // CR 702.85a, D60
+    /** Cascade reveals the cards it exiles, not the whole library. */
+    // CR 702.85a
     @Test
-    fun cascadeAsksOnlyForTheCardsItExiles() = scenario {
+    fun cascadeRevealsOnlyTheCardsItExiles() = scenario {
         alice.battlefield("Forest", "Island", "Island")
         alice.hand("Splintered Envoy")
-        alice.library("Forest", "Tinkered Mite", "Island", "Swamp", hidden = true)
+        alice.library("Forest", "Tinkered Mite", "Island", "Swamp")
 
         alice.casts("Splintered Envoy")
         allPass()
-        val asked = filledIds().toSet()
-        assertTrue(card("Island", zone = Zone.Library) !in asked, "the Island below the hit wasn't revealed: $asked")
-        assertTrue(card("Swamp") !in asked)
+        val shown = shownIds().toSet()
+        assertTrue(card("Island", zone = Zone.Library) !in shown, "the Island below the hit wasn't revealed: $shown")
+        assertTrue(card("Swamp") !in shown)
     }
 
-    /** Search, then shuffle: once shuffled, nobody knows the library's order, so its cards are unknown again. */
-    // CR 701.24a, 701.23a, D60
+    /** Twining Augur reveals only the top card. */
+    // CR 701.20a
     @Test
-    fun aShuffleForgetsTheLibrary() = scenario {
-        // alice's view: forgetting is the viewer's (with full information the host knows the order)
-        viewer(alice)
-        alice.battlefield("Swamp", "Swamp")
-        alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Storm Spark", "Island", hidden = true)
-
-        alice.casts("Fiendish Mentor")
-        allPass()
-        alice.chooses("Storm Spark")
-
-        val library = state.player(alice.id).library
-        assertEquals(2, library.size)
-        assertTrue(library.all { state.objOrThrow(it).unknown }, "after a shuffle the order is unknown")
-    }
-
-    /** Twining Augur reveals only the top card: the host is asked for that one. */
-    // CR 701.20a, D60
-    @Test
-    fun revealingTheTopCardAsksForThatCardOnly() = scenario {
+    fun revealingTheTopCardShowsThatCardOnly() = scenario {
         alice.battlefield("Forest", "Island")
         alice.hand("Twining Augur")
-        alice.library("Island", "Storm Spark", hidden = true)
+        alice.library("Island", "Storm Spark")
 
         alice.casts("Twining Augur")
         allPass()
         allPass()
 
-        assertEquals(1, filledIds().size, "only the top card is asked for")
+        assertEquals(1, shownIds().size, "only the top card is revealed")
         expect { alice.battlefield has "Island" }
-        assertTrue(unknownIn("Storm Spark", Zone.Library))
+        assertTrue(card("Storm Spark") !in shownIds())
     }
 
-    /** Scry 2 asks for the top two cards only. */
-    // CR 701.22a, D60
+    /** Scry 2 shows its player the top two cards only. */
+    // CR 701.22a
     @Test
-    fun scryAsksForTheTopCardsOnly() = scenario {
+    fun scryShowsTheTopCardsOnly() = scenario {
         alice.battlefield("Island")
         alice.hand("Faerie Augur")
-        alice.library("Forest", "Island", "Swamp", hidden = true)
+        alice.library("Forest", "Island", "Swamp")
 
         alice.casts("Faerie Augur")
         allPass()
         allPass()
-        assertEquals(setOf(card("Forest"), card("Island", zone = Zone.Library)), filledIds().toSet())
+        // The scry's choices: the cards are shown as the step is done
+        val top = setOf(card("Forest"), card("Island", zone = Zone.Library))
+        var guard = 5
+        while (pending != null && guard-- > 0) perform(Engine.options(state, alice.id).first { it is Input.Answer })
+        assertEquals(top, shownIds().toSet())
+        assertEquals(listOf(alice.id), shownSoFar().map { it.to }.distinct())
     }
 
-    /** Spy's Trinket looks at one card at random: the random pick comes first, then only that card is asked for. */
-    // CR 701.20c, D25, D60
+    /** Spy's Trinket looks at one card at random: the random pick comes first, then only that card is shown. */
+    // CR 701.20c, D25
     @Test
-    fun lookingAtARandomCardAsksForThatCardOnly() = scenario {
+    fun lookingAtARandomCardShowsThatCardOnly() = scenario {
         alice.battlefield("Spy's Trinket")
-        bob.hiddenHand("Storm Spark", "Forest", "Denial")
+        bob.hand("Storm Spark", "Forest", "Denial")
 
         alice.activates("Spy's Trinket", target = "bob")
         allPass()
-        assertEquals(1, filledIds().size)
-        assertTrue(filledIds().single() in state.player(bob.id).hand)
+        assertEquals(1, shownIds().size)
+        assertTrue(shownIds().single() in state.player(bob.id).hand)
     }
 
-    /** Seer's Trinket looks at the top card of bob's library: only that card is asked for, and only by alice. */
-    // CR 701.20c, D60
+    /** Seer's Trinket looks at the top card of bob's library: only that card is shown, and only to alice. */
+    // CR 701.20c
     @Test
-    fun lookingAtTheTopCardAsksForThatCardOnly() = scenario {
+    fun lookingAtTheTopCardShowsThatCardOnly() = scenario {
         alice.battlefield("Seer's Trinket")
-        bob.library("Storm Spark", "Forest", hidden = true)
+        bob.library("Storm Spark", "Forest")
 
         alice.activates("Seer's Trinket", target = "bob")
         allPass()
-        assertEquals(listOf(card("Storm Spark")), filledIds())
-        assertEquals(alice.id, hostFillsAsked().single().player)
+        assertEquals(listOf(card("Storm Spark")), shownIds())
+        assertEquals(alice.id, shownSoFar().single().to)
     }
 
-    /** The host fill of a search waits as data: the state with its continuation through JSON gives the same outcome. */
-    // D58, D60
+    /** A search's choice waits as data: the state with its continuation through JSON gives the same outcome. */
+    // D58
     @Test
-    fun aHostFillSurvivesJson() = scenario {
+    fun aSearchSurvivesJson() = scenario {
         alice.battlefield("Swamp", "Swamp")
         alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Storm Spark", hidden = true)
+        alice.library("Forest", "Storm Spark")
         alice.casts("Fiendish Mentor")
-        val (game, fill) = copyUntil<Decision.HostFill>()
-        assertEquals(2, fill.objects.size)
-        Review1.sameAfterJson(game, Input.Answer(fill.id, Answer.Filled(fill.objects.map {
-            arcanum.engine.decision.FilledObject(it, arcanum.engine.cards.Cards.definition(if (it == card("Forest")) "Forest" else "Storm Spark"))
-        })))
-    }
-
-    /** An unknown card in a player's own hand is not offered to cast or play, and options don't fail on it. */
-    // D60
-    @Test
-    fun unknownCardsInHandAreNotOffered() = scenario {
-        alice.battlefield("Mountain")
-        alice.hiddenHand("Storm Spark", "Forest")
-        val options = Engine.options(state, alice.id)
-        assertTrue(options.none { it is Input.Cast || it is Input.PlayLand }, "$options")
+        val (game, search) = copyUntil<Decision.ChooseObjects>()
+        Review1.sameAfterJson(game, Input.Answer(search.id, Answer.Objects(search.options.take(1))))
     }
 
     /** Petty Coercion's choice lists only the matching cards of the revealed hand (alice chooses, bob's hand is
@@ -240,7 +212,7 @@ class Review2HiddenInfoTest {
     fun aRevealedHandChoiceListsOnlyMatchingCards() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Petty Coercion")
-        bob.hiddenHand("Elvish Seer", "Forest", "Storm Spark", "Denial")
+        bob.hand("Elvish Seer", "Forest", "Storm Spark", "Denial")
         alice.casts("Petty Coercion", target = "bob")
         allPass()
         val d = decision<Decision.ChooseObjects>()
@@ -250,12 +222,12 @@ class Review2HiddenInfoTest {
 
     /** While alice searches her library, the decision lists which of her hidden cards match ("a creature card"): bob
      * isn't offered answers that name them, which would tell him what those cards are. */
-    // D60, CR 701.23a
+    // P7, CR 701.23a
     @Test
     fun theOpponentIsntShownTheSearchChoices() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest")
         alice.hand("Verdant Moon's Apex")
-        alice.library("Canopy Visionary", "Island", "Elvish Seer", hidden = true)
+        alice.library("Canopy Visionary", "Island", "Elvish Seer")
         alice.casts("Verdant Moon's Apex", x = 3)
         allPass()
         val d = decision<Decision.ChooseObjects>()
@@ -274,27 +246,28 @@ class Review2HiddenInfoTest {
         assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.PlayLand>().any { it.card == card("Forest") })
     }
 
-    /** Seer of Harvestide: alice may look at her top card any time, so in her view a hidden top card should be filled
-     * in; the engine never asks, so the land on top isn't offered. */
-    // CR 401.5, D60
+    /** Seer of Harvestide lets alice look at her top card any time: alice may see it, bob may not, and neither may see
+     * the card below it. */
+    // CR 401.5
     @Test
-    fun aHiddenTopLandUnderAlwaysLookIsOffered() = scenario {
+    fun aCardItsControllerMayLookAtIsVisibleOnlyToThem() = scenario {
         alice.battlefield("Seer of Harvestide")
-        alice.library("Forest", "Island", hidden = true)
-        alice.passes()
-        bob.passes()
-        assertTrue(hostFillsAsked().isNotEmpty() || !state.objOrThrow(card("Forest")).unknown, "the top card was never filled")
+        alice.library("Forest", "Island")
+        settle()
+        assertTrue(card("Forest") in Host.visible(state, alice.id))
+        assertFalse(card("Forest") in Host.visible(state, bob.id))
+        assertFalse(card("Island") in Host.visible(state, alice.id), "only the top card")
     }
 
-    /** Gossamer Coterie looks at bob's hand: alice is asked for bob's hand (and only that); the card she picks goes to
-     * the bottom of bob's library and bob draws a card he can see — not asked for in alice's view. */
-    // CR 701.20c, 121.1, D60
+    /** Gossamer Coterie looks at bob's hand: alice is shown bob's hand (and only that); the card she picks goes to the
+     * bottom of bob's library and bob draws a card only he sees. */
+    // CR 701.20c, 121.1
     @Test
-    fun lookingAtAHandAsksForThatHandOnly() = scenario {
+    fun lookingAtAHandShowsThatHandOnly() = scenario {
         alice.battlefield("Island", "Island", "Island")
         alice.hand("Gossamer Coterie")
-        bob.hiddenHand("Storm Spark", "Forest", "Denial")
-        bob.library("Island", "Swamp", hidden = true)
+        bob.hand("Storm Spark", "Forest", "Denial")
+        bob.library("Island", "Swamp")
         val hand = state.player(bob.id).hand.toSet()
         alice.casts("Gossamer Coterie")
         allPass()
@@ -303,11 +276,11 @@ class Review2HiddenInfoTest {
         if (pending is Decision.May) alice.answers(Answer.YesNo(true))
         if (pending is Decision.ChooseObjects) alice.chooses("Storm Spark")
         allPass()
-        val fills = hostFillsAsked()
-        assertTrue(fills.isNotEmpty())
-        assertEquals(alice.id, fills.first().player)
-        assertEquals(hand, fills.flatMap { it.objects }.toSet())
+        val shown = shownSoFar()
+        assertTrue(shown.isNotEmpty())
+        assertEquals(alice.id, shown.first().to)
+        assertEquals(hand, shown.flatMap { it.ids }.toSet())
         expect { bob.hand.size shouldBe 3 }
-        assertTrue(card("Island", owner = bob) !in filledIds(), "the drawn card isn't asked in alice's view")
+        assertTrue(card("Island", owner = bob) !in shownIds(), "the drawn card isn't shown to alice")
     }
 }

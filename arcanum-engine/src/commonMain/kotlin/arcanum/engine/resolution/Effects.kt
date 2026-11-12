@@ -41,6 +41,7 @@ import arcanum.engine.change.GameEvent
 import arcanum.engine.change.Meaning
 import arcanum.engine.change.Placed
 import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Decision
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.decision.WaitingTrigger
 import arcanum.engine.query.Evaluator
@@ -132,13 +133,13 @@ internal object Effects {
             is Effect.Reorder -> reorder(scope, effect)
             is Effect.Reveal -> {
                 val ids = scope.objects(effect.objects)
-                act.fill(scope.actor, scope.self, ids, "revealed", public = true)
+                act.show(scope.actor, ids, public = true)
                 if (ids.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(revealer(scope, ids), ids)))
                 scope.bind(effect.bind, NamedValue.Objects(ids))
             }
             is Effect.LookAt -> {
                 val ids = scope.objects(effect.objects)
-                act.fill(scope.players(effect.players).firstOrNull() ?: scope.actor, scope.self, ids, "looked at")
+                act.show(scope.players(effect.players).firstOrNull() ?: scope.actor, ids)
                 scope.bind(effect.bind, NamedValue.Objects(ids))
             }
             is Effect.GainLife -> {
@@ -184,9 +185,9 @@ internal object Effects {
                 // CR 701.27, 101.2: "can't transform" wins over the instruction
                 if (act.view()[id]?.has { it == Mechanic.CantTransform } == true) return@forEach
                 // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
-                val layout = o.definition?.layout
+                val layout = o.definition.layout
                 if (layout != Layout.Transform && layout != Layout.ModalDoubleFaced) return@forEach
-                val other = o.definition!!.faces.getOrNull(1 - o.face) ?: return@forEach
+                val other = o.definition.faces.getOrNull(1 - o.face) ?: return@forEach
                 if (layout == Layout.ModalDoubleFaced && (arcanum.api.CardType.Instant in other.types || arcanum.api.CardType.Sorcery in other.types)) return@forEach
                 act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
@@ -197,7 +198,7 @@ internal object Effects {
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
-                act.record(if (o.definition?.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
+                act.record(if (o.definition.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
                     else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             // CR 116.2b, j: every way a permanent or a conspiracy in the command zone is turned face up, special actions included (CR 702.37e, 702.106c)
@@ -205,8 +206,8 @@ internal object Effects {
                 val o = act.state.objOrThrow(id)
                 if (!o.faceDown) return@forEach
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
-                // CR 708.8: turned face up, everyone sees it (D60)
-                act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
+                // CR 708.8: turned face up, everyone sees it
+                act.show(o.controller ?: o.owner, listOf(id), public = true)
                 // CR 701.40g, 701.58g: a manifested or cloaked instant or sorcery card is revealed and left face down; nothing triggers
                 if (spellCardFaceDown(act.state.objOrThrow(id))) {
                     act.record(Change.Happened(GameEvent.Revealed(o.controller ?: o.owner, listOf(id))))
@@ -230,8 +231,6 @@ internal object Effects {
                 if (o.faceDown) return@forEach
                 act.record(Change.Status(id, StatusFlag.FaceDown, false, true, listOf(Meaning.TurnedFaceDown)))
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
-                // D60: face down where the viewer can't look, it is forgotten
-                act.state.objOrThrow(id).let { now -> if (arcanum.engine.action.Knowledge.forgets(act.state, now)) act.record(Change.Forgotten(now, arcanum.engine.action.Knowledge.forgotten(now))) }
             }
             is Effect.PhaseOut -> {
                 // mh2: "until this enchantment leaves the battlefield": if it already left, nothing phases out (CR 610.3)
@@ -561,7 +560,7 @@ internal object Effects {
     /** CR 701.40g, 701.58g: [o] is a manifested or cloaked permanent represented by an instant or sorcery card (a split card by either half). */
     private fun spellCardFaceDown(o: arcanum.engine.state.GameObject): Boolean {
         if (ObjectMark.Manifested !in o.marks && ObjectMark.Cloaked !in o.marks) return false
-        val definition = o.definition ?: return false
+        val definition = o.definition
         val faces = if (definition.layout == Layout.Split) definition.faces else definition.faces.take(1)
         return faces.any { f -> f.types.any { it == CardType.Instant || it == CardType.Sorcery } }
     }
@@ -624,16 +623,16 @@ internal object Effects {
      * are named for the "cast the copies" after it; those not cast cease to exist when state-based actions are next
      * checked (CR 704.5e).
      */
-    /** mh2: a copy of a card by name, made in exile with its identity unknown and filled in by the host (D60), everyone seeing it. */
+    /** mh2: a copy of a card by name, made in exile from the card the host gives ([Decision.NamedCard]), everyone seeing it. */
     private fun copyNamedCard(scope: Scope, effect: Effect.CopyNamedCard) {
         val act = scope.act
         val name = (scope.names[effect.name] as? NamedValue.Name)?.name ?: return scope.bind(effect.bind, NamedValue.Objects(emptyList()))
         val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
+        val definition = (act.ask { Decision.NamedCard(it, owner, scope.self, name) } as Answer.NamedCard).definition
         val creator = TokenIds.created("named-copy", act.state.nextTimestamp())
-        val copy = GameObject(id = ObjectId.Card(TokenIds.token(creator, 0), 0), owner = owner, zone = Zone.Exile, definition = null,
+        val copy = GameObject(id = ObjectId.Card(TokenIds.token(creator, 0), 0), owner = owner, zone = Zone.Exile, definition = definition,
             copyOfCard = true, timestamp = act.state.nextTimestamp())
         act.record(Change.Created(listOf(Placed(copy, act.state.exile.size)), listOf(Meaning.CardCopied)))
-        act.fill(owner, scope.self, listOf(copy.id), "a copy of the card named $name", public = true, named = name)
         scope.bind(effect.bind, NamedValue.Objects(listOf(copy.id)))
     }
 
@@ -642,7 +641,7 @@ internal object Effects {
         val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
         val creator = TokenIds.created("copy", act.state.nextTimestamp())
         val first = act.state.nextTimestamp()
-        val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.filter { !it.unknown }.mapIndexed { i, card ->
+        val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.mapIndexed { i, card ->
             GameObject(
                 id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = owner, zone = card.zone,
                 // A card outside the battlefield and the Stack has its printed copiable values
@@ -677,11 +676,7 @@ internal object Effects {
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
         val attacking = dest.attacking?.let { attackTarget(scope, it) }
         var ordered = ids
-        var newIds: List<ObjectId>? = null
-        if (dest.randomOrder && ids.size > 1 && act.state.viewer != null && dest.zone == Zone.Library) {
-            // D60: in a viewer's state the random order is the host's secret: the cards go in under new ids, unknown
-            newIds = act.randomObjects(scope.actor, scope.self, ids, ids.size, newIds = true)
-        } else if (dest.randomOrder && ids.size > 1) {
+        if (dest.randomOrder && ids.size > 1) {
             ordered = act.randomObjects(scope.actor, scope.self, ids, ids.size)
         } else if (dest.zone == Zone.Library && dest.libraryPosition != null && ids.size > 1) {
             // CR 401.4: cards put into one position of a library at once are arranged by their owner (first: topmost);
@@ -692,7 +687,7 @@ internal object Effects {
             }
         }
         val position = dest.libraryPosition?.let { Actions.libraryPosition(it) }
-        val moves = ordered.mapIndexed { i, id ->
+        val moves = ordered.map { id ->
             val from = act.state.obj(id)!!.zone
             PlannedMove(
                 // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
@@ -700,7 +695,6 @@ internal object Effects {
                     ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
-                newId = newIds?.getOrNull(i) as ObjectId.Card?,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
             )
@@ -760,10 +754,10 @@ internal object Effects {
             discarded += if (effect.random) {
                 if (hand.size <= n) hand else (act.random(p, scope.self, RandomKind.Objects(hand, n)) as Answer.RandomObjects).chosen
             } else {
-                if (effect.filter != ObjectFilter.Any) act.fill(p, scope.self, hand, "discard")
+                if (effect.filter != ObjectFilter.Any) act.show(p, hand)
                 val e = scope.eval()
                 // I-D18: "discard a creature card" decided by cards only the player sees
-                val hidden = act.hiddenDecides(p, scope.self, act.state.player(p).hand) { e.identityDecides(effect.filter, it) }
+                val hidden = act.hiddenDecides(p, act.state.player(p).hand) { e.identityDecides(effect.filter, it) }
                 val options = act.state.player(p).hand.filter { e.matches(effect.filter, it) }
                 act.chooseObjects(p, scope.self, options, n, n, "Discard", hidden)
             }
@@ -781,7 +775,7 @@ internal object Effects {
             if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Scry, player, amount = 0)))
             return
         }
-        act.fill(player, scope.self, top, "scry")
+        act.show(player, top)
         val chosen = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
         val kept = act.order(player, scope.self, top.filter { it !in chosen }, "Order on top, first on top")
         val bottom = act.order(player, scope.self, chosen, "Order on the bottom, first on top")
@@ -801,7 +795,7 @@ internal object Effects {
             if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = 0)))
             return
         }
-        act.fill(player, scope.self, top, "surveil")
+        act.show(player, top)
         val toGraveyard = act.chooseObjects(player, scope.self, top, 0, top.size, "Put into your graveyard")
         val moved = Actions.moveTo(act, scope.cause, toGraveyard, Zone.Graveyard)
         val kept = top.filter { it !in toGraveyard }
@@ -821,7 +815,7 @@ internal object Effects {
         val found = mutableListOf<ObjectId>()
         scope.players(effect.library).forEach { owner ->
             val cards = effect.zones.flatMap { act.state.zone(it, owner) }
-            act.fill(searcher, scope.self, cards, "search")
+            act.show(searcher, cards)
             if (Zone.Library in effect.zones) act.record(Change.Happened(GameEvent.Searched(searcher, owner)))
             effect.zones.forEach { z -> scope.bind(Evaluator.SEARCHED_PREFIX + (effect.bind ?: "") + ":" + z, NamedValue.Number(1)) }
             val e = scope.eval()
@@ -868,8 +862,8 @@ internal object Effects {
         for (id in library) {
             if (total == null && found.size >= wanted) break
             if (total != null && sum >= total) break
-            // D60: each card is asked for as it is turned over, so the cards below the last one stay unknown
-            act.fill(owner, scope.self, listOf(id), if (effect.reveal) "revealed" else "looked at", public = effect.reveal)
+            // Each card is looked at or revealed as it is turned over, so the cards below the last one stay hidden
+            act.show(owner, listOf(id), public = effect.reveal)
             turned += id
             if (scope.eval().matches(effect.filter, id)) {
                 found += id
@@ -955,10 +949,10 @@ internal object Effects {
         val act = scope.act
         val cards = scope.objects(action.objects).mapNotNull { act.state.obj(it) }.filter { it.zone == Zone.Exile && !it.token }.distinctBy { it.id }
         if (cards.size != 2 || cards[0].owner != cards[1].owner) return
-        val top = cards.firstOrNull { it.definition?.layout is Layout.Meld && it.definition.faces.getOrNull(1)?.name == action.into } ?: return
+        val top = cards.firstOrNull { it.definition.layout is Layout.Meld && it.definition.faces.getOrNull(1)?.name == action.into } ?: return
         val other = cards.first { it.id != top.id }
-        val partner = (top.definition!!.layout as Layout.Meld).partner
-        if (other.definition?.layout !is Layout.Meld || other.definition.faces.firstOrNull()?.name != partner) return
+        val partner = (top.definition.layout as Layout.Meld).partner
+        if (other.definition.layout !is Layout.Meld || other.definition.faces.firstOrNull()?.name != partner) return
         val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true)))[top.id]
         val now = entered?.let { act.state.obj(it) }?.takeIf { it.zone == Zone.Battlefield } ?: return
         val lone = act.state.objOrThrow(other.id)
@@ -1349,12 +1343,12 @@ internal object Effects {
         val ids = scope.objects(effect.objects)
         val separator = scope.players(effect.separator).firstOrNull() ?: scope.actor
         val chooser = scope.players(effect.chooser).firstOrNull() ?: scope.actor
-        act.fill(separator, scope.self, ids, "separate into piles")
+        act.show(separator, ids)
         val first = act.chooseObjects(separator, scope.self, ids, 0, ids.size, if (effect.faceDownPile) "Face-up pile" else "First pile")
         val second = ids.filter { it !in first }
         // hob: one pile face down: the face-up pile is shown to everyone, the other stays hidden (CR 701.20)
         if (effect.faceDownPile && first.isNotEmpty()) {
-            act.fill(separator, scope.self, first, "face-up pile", public = true)
+            act.show(separator, first, public = true)
             act.record(Change.Happened(GameEvent.Revealed(separator, first)))
         }
         val chosen = act.chooseOption(chooser, scope.self, listOf("first", "second"))
@@ -1710,7 +1704,7 @@ internal object Effects {
         val top = act.state.player(controller).library.firstOrNull()
         if (top == null) counter()
         else {
-            act.fill(controller, explorer, listOf(top), "explore", public = true)
+            act.show(controller, listOf(top), public = true)
             act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
             if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)
             else {
@@ -1745,7 +1739,7 @@ internal object Effects {
     private fun manifestDread(scope: Scope, player: PlayerId, bind: String?) {
         val act = scope.act
         val top = act.state.player(player).library.take(2)
-        act.fill(player, scope.self, top, "manifest dread")
+        act.show(player, top)
         val chosen = if (top.size <= 1) top else act.chooseObjects(player, scope.self, top, 1, 1, "Manifest which card?")
         val moved = if (chosen.isEmpty()) emptyMap() else Actions.move(act, scope.cause, chosen.map {
             PlannedMove(it, Zone.Battlefield, controller = player, faceDown = true)

@@ -6,20 +6,25 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-/** The wipe of the engine generalisation (V74, owner 2026-11-08), run again on a live server's latest schema: what players
- * see of it afterwards. */
+/** The wipes of started games (V74, the engine generalisation, owner 2026-11-08; V85, the engine API rework, owner
+ * 2026-11-12), run again on a live server's latest schema: what players see of them afterwards. */
 class StartedGamesWipeTest {
     private fun list(w: HistoryWorld, actor: AccountService.Principal, since: String? = null) =
         GameWire.json.decodeFromString<GameList>(w.lobby.list(actor, null, false, since).body)
 
-    private fun wipe(w: HistoryWorld) {
-        val text = checkNotNull(javaClass.getResourceAsStream("/db/migration/V74__engine_general_forms_wipe_plays.sql")).reader().readText()
+    private fun wipe(w: HistoryWorld, migration: String = V74) {
+        val text = checkNotNull(javaClass.getResourceAsStream("/db/migration/$migration")).reader().readText()
         w.runtime.transaction { connection -> connection.createStatement().use { it.execute(text) } }
     }
 
     // LOB-133: started games go, a list read since before learns it for both players; a game that never started stays, a
     // finished match's record stays, and a match in play leaves none
-    @Test fun `V74 removes started games, a changed-since read reports them gone and records stay`() = HistoryWorld.run { w ->
+    @Test fun `V74 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V74)
+
+    // LOB-133: the same for the engine API rework's wipe
+    @Test fun `V85 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V85)
+
+    private fun removesStartedGames(migration: String) = HistoryWorld.run { w ->
         val a = w.account("WipeAlice"); val b = w.account("WipeBob")
         val finished = w.Match(a, b, "Wipe finished"); finished.start(); finished.concede()
         val inPlay = w.Match(a, b, "Wipe in play"); inPlay.start()
@@ -28,7 +33,7 @@ class StartedGamesWipeTest {
         val accountRecords = { actor: AccountService.Principal -> w.sql { MatchRecords.forAccount(it, UUID.fromString(actor.account.accountId)) } }
         assertEquals(1, accountRecords(a).size)
 
-        wipe(w)
+        wipe(w, migration)
 
         assertFalse(finished.exists()); assertFalse(inPlay.exists()); assertTrue(waiting.exists())
         for ((actor, token) in tokens) {
@@ -58,5 +63,10 @@ class StartedGamesWipeTest {
         wipe(w)
         assertTrue(waiting.exists())
         assertEquals(0L, w.number("SELECT count(*) FROM game_removed"))
+    }
+
+    private companion object {
+        const val V74 = "V74__engine_general_forms_wipe_plays.sql"
+        const val V85 = "V85__engine_full_information_wipe_plays.sql"
     }
 }

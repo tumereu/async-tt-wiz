@@ -62,8 +62,8 @@ object CastScreen {
      * activation (special actions included) the same reason, word for word, as the [IllegalArgumentException] [Engine.perform]
      * throws before doing anything (the game is over, a decision is open, or it can't be begun: priority, timing, uses
      * left this turn, what the card or ability allows, CR 116, 117.1, 305, 601.2, 602.5, 606.3). Null when it may be
-     * begun ([Engine.perform] may still refuse it later, as it is announced: a target or a cost it can't have), for a card
-     * [state] doesn't know (a viewer's state, D60: [Engine.perform] first asks for it) and for any other input. A host greys
+     * begun ([Engine.perform] may still refuse it later, as it is announced: a target or a cost it can't have) and for any
+     * other input. A host greys
      * an action out with this reason instead of trying it.
      */
     fun refusal(state: GameState, input: Input, view: View? = null): String? = Perform.refusal(state, input, view)

@@ -34,9 +34,9 @@ import arcanum.engine.turn.Steps
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** One card of a deck: the host's own card id and the card's definition, null for a card the caller can't see (D60). */
+/** One card of a deck: the host's own card id and the card's definition. */
 @Serializable
-data class DeckCard(val card: CardId, val definition: CardDefinition?)
+data class DeckCard(val card: CardId, val definition: CardDefinition)
 
 /**
  * A player at the table, in seat order (clockwise, CR 103.1): their [deck], which becomes their library (CR 103.3), and
@@ -129,7 +129,7 @@ val GameState.started: Boolean get() = turn.number > 0
  *    answers picks (D25). Turn order is seat order from the starting player (CR 103.1, 101.4).
  * 2. Companions (CR 103.2b, 702.139a): in turn order, each player with a companion outside the game whose condition
  *    their starting deck meets may reveal one; the engine checks conditions it can read (`each … card in your starting
- *    deck`, unknown deck cards filled in by the host, D60) and offers the rest on trust. Sideboards are set aside from
+ *    deck`) and offers the rest on trust. Sideboards are set aside from
  *    the start (CR 103.2a). A player with no companion among their cards outside the game isn't asked, even when they
  *    don't skip choices they don't have (a companion whose condition fails is still asked about, I-D18).
  * 3. Libraries are shuffled by the host (CR 103.3, D25); each player draws their starting hand (CR 103.5).
@@ -357,13 +357,12 @@ internal object Setup {
     private fun companion(act: Act, asked: List<PlayerId>): SetupStage? {
         val player = order(act.state).firstOrNull { it !in asked } ?: return null
         val candidates = companions(act, player)
-        // I-D18: whether a companion's condition is met is the player's to know (unknown ones are offered as they are, see
-        // [companions]); a player with no companion among their cards outside the game (a sideboard, dungeons) isn't asked
-        val hidden = act.hiddenDecides(player, null, act.state.player(player).outside, fill = false) { companionAbility(act.state.obj(it)) != null }
+        // I-D18: whether a companion's condition is met is the player's to know; a player with no companion among their
+        // cards outside the game (a sideboard, dungeons) isn't asked
+        val hidden = act.hiddenDecides(player, act.state.player(player).outside) { companionAbility(act.state.obj(it)) != null }
         val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)", hidden)
         chosen.singleOrNull()?.let { id ->
-            // D60: a companion chosen in another player's view becomes public as it is revealed
-            act.fill(player, null, listOf(id), "Revealed companion (CR 103.2b)", public = true)
+            act.show(player, listOf(id), public = true)
             act.record(Change.Memory(id, Evaluator.REVEALED_COMPANION, null, NamedValue.Number(1)))
             act.record(Change.Happened(GameEvent.Revealed(player, listOf(id))))
         }
@@ -371,19 +370,13 @@ internal object Setup {
     }
 
     /** The cards [player] owns outside the game with a companion ability whose condition their starting deck meets
-     * (CR 702.139a, b); a condition the engine can't read is left to the player.
-     *
-     * D60: in another player's view their deck and sideboard are hidden, so the check is theirs, made in their own view
-     * (a host keeping one state per player forwards their choice): here every card of theirs outside the game that may
-     * be a companion is offered, and their library isn't looked at. */
+     * (CR 702.139a, b); a condition the engine can't read is left to the player. */
     private fun companions(act: Act, player: PlayerId): List<ObjectId> {
         val all = act.state.player(player).outside
         val outside = all.filter { companionAbility(act.state.obj(it)) != null }
-        val viewer = act.state.viewer
-        if (viewer != null && viewer != player) return all.filter { it in outside || act.state.obj(it)?.unknown == true }
         if (outside.isEmpty()) return emptyList()
         if (outside.any { companionAbility(act.state.obj(it))?.eachCard != null }) {
-            act.fill(player, null, act.state.player(player).library, "Check companion conditions against the starting deck (CR 702.139a)")
+            act.show(player, act.state.player(player).library)
         }
         val snap = Snapshot(act.state)
         val deck = act.state.player(player).library
@@ -448,7 +441,7 @@ internal object Setup {
         // CR 103.5b: actions "any time you could mulligan" of cards in their hand, then they declare
         val uses = mulliganActions(act, player)
         val labels = uses.mapIndexed { i, (id, _) -> "$USE ${i + 1}: ${act.state.obj(id)?.definition?.faces?.firstOrNull()?.name ?: "a card"}" }
-        // D60, P7: each "Use" option names a card of a hidden hand: not listed to the other players ([Decision.ChooseOption.naming])
+        // P7: each "Use" option names a card of a hidden hand: not listed to the other players ([Decision.ChooseOption.naming])
         val choice = if (canMulligan || uses.isNotEmpty()) act.chooseOption(player, null, listOf(KEEP) + (if (canMulligan) listOf(MULLIGAN) else emptyList()) + labels,
             labels.zip(uses.map { it.first }).toMap()) else KEEP
         labels.indexOf(choice).takeIf { it >= 0 }?.let { i ->

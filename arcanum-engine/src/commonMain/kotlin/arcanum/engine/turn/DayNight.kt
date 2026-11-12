@@ -64,7 +64,7 @@ internal object DayNight {
         (if (night) daybound.filter { state.obj(it)?.face == 0 } else emptyList()).plus(
             if (day) nightbound.filter { state.obj(it)?.face == 1 } else emptyList()).forEach { id ->
             val o = state.objOrThrow(id)
-            if (o.definition?.layout != Layout.Transform || o.definition.faces.size < 2) return@forEach
+            if (o.definition.layout != Layout.Transform || o.definition.faces.size < 2) return@forEach
             if (view[id]?.has { it == arcanum.api.Mechanic.CantTransform } == true) return@forEach // CR 701.27, 101.2
             act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
             act.record(Change.Restamped(id, o.timestamp, state.nextTimestamp()))
@@ -72,6 +72,6 @@ internal object DayNight {
     }
 
     /** CR 702.145b: at night, a daybound double-faced card enters transformed. */
-    fun entersTransformed(state: GameState, o: GameObject): Boolean = of(state) == Evaluator.NIGHT && o.definition?.layout == Layout.Transform &&
+    fun entersTransformed(state: GameState, o: GameObject): Boolean = of(state) == Evaluator.NIGHT && o.definition.layout == Layout.Transform &&
         o.face == 0 && o.definition.faces.firstOrNull()?.abilities.orEmpty().any { it == Keyword.Daybound }
 }

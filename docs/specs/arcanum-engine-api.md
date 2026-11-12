@@ -54,6 +54,10 @@ with an existing object, such as the internal `casting.Casting`.
 | Card support | `manualParts`, `SUPPORT_VERSION` |
 | Test probes | `layersWorkedOut`, plus the new counters from Phase 0 |
 
+Phase 1 starts from `Engine.kt` as it is on master at that point. Sort anything added since 2026-11-12 by the same
+rules. Public API outside `Engine` keeps its place: for example `Cost.spans` in arcanum-api and
+`Decision.ChooseObjects.cost`.
+
 These functions are removed. Their values come from the view's status lists (see View below):
 - `speed`, `ringTemptations`, `dungeonsCompleted`
 - `dayOrNight`

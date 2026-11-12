@@ -363,7 +363,7 @@ internal object Setup {
         val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)", hidden)
         chosen.singleOrNull()?.let { id ->
             act.show(player, listOf(id), public = true)
-            act.record(Change.Memory(id, Evaluator.REVEALED_COMPANION, null, NamedValue.Number(1)))
+            act.record(Change.ObjectStatusChanged(id, null, arcanum.engine.state.ObjectStatus.RevealedCompanion))
             act.record(Change.Happened(GameEvent.Revealed(player, listOf(id))))
         }
         return SetupStage.RevealCompanion(asked + player)

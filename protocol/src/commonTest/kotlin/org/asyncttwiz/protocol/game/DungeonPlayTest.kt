@@ -1,5 +1,10 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.protocol.game
 
+import arcanum.engine.state.playerStatus
+import arcanum.engine.state.status
+import arcanum.engine.state.setup
 import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.Inspect
@@ -61,7 +66,7 @@ class DungeonPlayTest {
 
     private fun GameObject.named() = definition?.faces?.first()?.name
     private fun AsyncServer.dungeon(): GameObject? = state().engine.let { s -> s.command.mapNotNull { s.obj(it) }.firstOrNull { it.owner == alice } }
-    private fun AsyncServer.room(): String? = dungeon()?.let { d -> Inspect.ventureRoom(state().engine, d.id)?.let { d.definition!!.faces.first().rooms[it].name } }
+    private fun AsyncServer.room(): String? = dungeon()?.let { d -> d.statuses.status<arcanum.engine.state.ObjectStatus.VentureRoom>()?.room?.let { d.definition!!.faces.first().rooms[it].name } }
     private fun AsyncServer.life(p: PlayerId) = state().engine.player(p).life
     private fun AsyncServer.hand(name: String): ObjectId = state().engine.player(alice).hand.first { state().engine.obj(it)?.named() == name }
 
@@ -72,10 +77,10 @@ class DungeonPlayTest {
             val s = state().engine
             val d = s.pending?.decision
             if (d != null) {
-                val answer = choose(d) ?: Engine.options(s, alice).filterIsInstance<Input.Answer>().first().answer
+                val answer = choose(d) ?: Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Answer>().first().answer
                 act(alice, Input.Answer(d.id, answer)).getOrThrow(); return@repeat
             }
-            if (s.stack.isEmpty() && s.triggered.isEmpty()) return
+            if (s.stack.isEmpty() && s.setup.triggered.isEmpty()) return
             val holder = s.priority.holder!!
             act(alice, Input.PassPriority(holder), assumed = holder != alice).getOrThrow()
         }
@@ -153,7 +158,7 @@ class DungeonPlayTest {
         server.resolve()
         assertNull(server.dungeon(), "completed: removed from the game")
         assertEquals(24, server.life(server.alice))
-        assertEquals(1, server.state().engine.player(server.alice).ledger["dungeons-completed"])
+        assertEquals(1, server.state().engine.player(server.alice).statuses.playerStatus<arcanum.engine.state.PlayerStatus.DungeonsCompleted>()?.count)
         assertTrue(server.state().engine.player(server.alice).outside.any { server.state().engine.obj(it)?.named() == "Dungeon Test Crypt" })
     }
 

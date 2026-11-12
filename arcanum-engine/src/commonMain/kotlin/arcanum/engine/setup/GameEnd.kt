@@ -72,8 +72,8 @@ internal object GameEnd {
      * again without them; any other open decision stays open. If the game goes on, the player leaves it (CR 800.4a) and
      * the game continues: state-based actions, triggers and priority as after any action (CR 117.5).
      */
-    fun concede(state: GameState, input: Input.Concede): Outcome {
-        val recorder = Recorder(state.deepCopy())
+    fun concede(state: GameState, input: Input.Concede, prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()): Outcome {
+        val recorder = Recorder(state.deepCopy(), prefs = prefs)
         arcanum.engine.Perform.countInput(recorder)
         val s = recorder.state
         val player = input.player
@@ -89,7 +89,7 @@ internal object GameEnd {
             }
         }
         recorder.record(Change.Happened(GameEvent.Conceded(player)))
-        recorder.record(Change.Lost(player, false, true, LossReason.Conceded))
+        recorder.record(Change.Lost(player, null, LossReason.Conceded))
         if (over(s)) {
             close(recorder)
             return Outcome(recorder.changes.toList(), null)
@@ -132,8 +132,8 @@ internal object GameEnd {
      * (CR 104.4i, 104.4a); a win: every other remaining player concedes (CR 104.3a), so the winner is the only one left
      * (CR 104.2a).
      */
-    fun agree(state: GameState, input: Input.AgreedResult): Outcome {
-        val recorder = Recorder(state.deepCopy())
+    fun agree(state: GameState, input: Input.AgreedResult, prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()): Outcome {
+        val recorder = Recorder(state.deepCopy(), prefs = prefs)
         arcanum.engine.Perform.countInput(recorder)
         val s = recorder.state
         require(s.players.size >= 2) { "A game of one player has no result to agree on" }
@@ -148,7 +148,7 @@ internal object GameEnd {
         val leaving = if (result is GameResult.Won) left - result.winner else left
         leaving.forEach { player ->
             if (result is GameResult.Won) recorder.record(Change.Happened(GameEvent.Conceded(player)))
-            recorder.record(Change.Lost(player, false, true, LossReason.Agreed))
+            recorder.record(Change.Lost(player, null, LossReason.Agreed))
         }
         close(recorder)
         return Outcome(recorder.changes.toList(), null)
@@ -239,10 +239,10 @@ internal object GameEnd {
         val s = recorder.state
         val initiative = arcanum.api.Designation.Initiative
         if (initiative !in s.player(player).designations) return
-        recorder.record(Change.PlayerDesignation(player, initiative, true, false))
+        recorder.record(arcanum.engine.change.Changes.designation(player, initiative, false))
         val taker = s.turn.active.takeIf { it != player && !s.player(it).lost } ?: Priority.nextPlayer(s, player)
         if (taker == player) return
-        recorder.record(Change.PlayerDesignation(taker, initiative, false, true))
+        recorder.record(arcanum.engine.change.Changes.designation(taker, initiative, true))
         recorder.record(Change.Happened(GameEvent.TookInitiative(taker)))
     }
 

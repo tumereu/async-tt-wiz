@@ -85,16 +85,19 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
                 is Change.Attached -> { state(change.id); target(change.before); target(change.after) }
                 is Change.Restamped -> state(change.id)
                 is Change.Memory -> state(change.id)
-                is Change.Facts -> state(change.id)
+                is Change.CastFactsChanged -> state(change.id)
+                is Change.UsesCounted -> state(change.id)
+                is Change.ObjectStatusChanged -> state(change.id)
                 is Change.ControlStart -> state(change.id)
                 is Change.ObjectUpdated -> state(change.before.id)
                 is Change.Life -> into += StateKey.Player(change.player)
                 is Change.ManaPool -> into += StateKey.Player(change.player)
-                is Change.Ledger -> change.player?.let { into += StateKey.Player(it) }
+                is Change.Ledger -> into += StateKey.Player(change.player)
                 is Change.Lost -> into += StateKey.Player(change.player)
-                is Change.SkipWhenNoChoice -> into += StateKey.Player(change.player)
                 is Change.LibraryPlaces -> into += StateKey.Player(change.player)
-                is Change.PlayerDesignation -> into += StateKey.Player(change.player)
+                is Change.PlayerStatusChanged -> into += StateKey.Player(change.player)
+                is Change.EmptyLibraryDraw -> into += StateKey.Player(change.player)
+                is Change.SpentCounted -> into += StateKey.Player(change.player)
                 is Change.Reverted -> writes(change.change, into)
                 else -> {}
             }

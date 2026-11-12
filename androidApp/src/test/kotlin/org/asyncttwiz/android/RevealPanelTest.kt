@@ -92,11 +92,11 @@ class RevealPanelTest {
         val inputs = mutableListOf<Input>(Input.Cast(me, card))
         var next: Input = inputs.first()
         while (true) {
-            Engine.perform(copy, next).changes.forEach(copy::apply)
+            Engine.perform(copy, next, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
             if (d is Decision.Random || Host.decider(copy, d.player) != me) break
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
         return inputs

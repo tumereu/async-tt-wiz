@@ -32,7 +32,7 @@ class LibraryPlacesTest {
 
         val library = state.player(alice.id).library
         val forest = library.last()
-        assertEquals(mapOf(forest to 0), state.player(alice.id).libraryPlaces)
+        assertEquals(mapOf(forest to 0), state.libraryPlaces(alice.id))
         assertEquals(listOf(library.dropLast(1)), Host.unknownOrder(state, alice.id))
         // A host's new order of the unknown part: the scried card stays at the bottom
         val reversed = library.dropLast(1).reversed()
@@ -53,7 +53,7 @@ class LibraryPlacesTest {
         val recorder = arcanum.engine.change.Recorder(state.deepCopy())
         recorder.record(arcanum.engine.change.Changes.move(recorder.state, listOf(card("Storm Spark")), arcanum.api.Zone.Library))
         val top = recorder.state.player(alice.id).library.first()
-        assertEquals(mapOf(top to 0), recorder.state.player(alice.id).libraryPlaces)
+        assertEquals(mapOf(top to 0), recorder.state.libraryPlaces(alice.id))
         assertTrue(recorder.changes.any { it is Change.LibraryPlaces })
     }
 
@@ -64,10 +64,10 @@ class LibraryPlacesTest {
         val recorder = arcanum.engine.change.Recorder(state.deepCopy())
         val library = recorder.state.player(alice.id).library
         recorder.record(Change.Shown(alice.id, listOf(library.first())))
-        assertEquals(mapOf(library.first() to 0), recorder.state.player(alice.id).libraryPlaces)
+        assertEquals(mapOf(library.first() to 0), recorder.state.libraryPlaces(alice.id))
         val before = library.map { recorder.state.objOrThrow(it) }
         recorder.record(Change.Shuffle(alice.id, before, before.reversed().map { it.copy(id = it.id.next()) }))
-        assertTrue(recorder.state.player(alice.id).libraryPlaces.isEmpty())
+        assertTrue(recorder.state.libraryPlaces(alice.id).isEmpty())
         assertEquals(1, Host.unknownOrder(recorder.state, alice.id).size)
     }
 
@@ -84,7 +84,7 @@ class LibraryPlacesTest {
         answer(Answer.Objects(listOf(card("Storm Spark"))))
 
         val library = state.player(alice.id).library
-        val places = state.player(alice.id).libraryPlaces
+        val places = state.libraryPlaces(alice.id)
         val group = library.takeLast(3)
         val top = library.dropLast(3)
         assertEquals(group.toSet(), places.keys)

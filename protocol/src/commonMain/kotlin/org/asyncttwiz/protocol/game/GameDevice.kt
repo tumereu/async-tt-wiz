@@ -962,6 +962,22 @@ class GameDevice(
         data object Triggered : PlayKind
     }
 
+    /** "Create a copy of the card with the chosen name" (CR 707.12): the player's device answers the engine's
+     * [Decision.NamedCard] of their own with the card from its card records, as it answers the randomness. None until the app
+     * gives them: the decision then waits. */
+    var namedCards: NamedCards = NamedCards.NONE
+
+    /** The answer to [d], the player's own [Decision.NamedCard], from [namedCards]; null (logged) when they have no such card. */
+    private fun namedCard(d: Decision.NamedCard): Input.Answer? {
+        val definition = runCatching { namedCards.definition(d.name) }.onFailure { remember("named card ${d.name}: the records failed: $it") }.getOrNull()
+        if (definition == null) {
+            remember("named card ${d.name}: none in the card records, ${d.kind} ${d.id.value} waits")
+            return null
+        }
+        remember("named card ${d.name}: answered from the card records")
+        return Input.Answer(d.id, arcanum.engine.decision.Answer.NamedCard(definition))
+    }
+
     /**
      * HIS-112: whether plays are shown at all (the player's "Show the other player's plays" time is above 0). Off (the
      * default: simulations and the server never show any), the events shown open none; turned off, the open ones close.
@@ -1194,6 +1210,7 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d is Decision.Random || Host.decider(s, d.player) != me) return null
+            if (d is Decision.NamedCard) return namedCard(d)
             return WhoActs.automaticAnswer(m, d) ?: oneAnswer(s, d, m)?.takeIf { !keeps(at) }
         }
         val holder = s.priority.holder
@@ -1209,7 +1226,7 @@ class GameDevice(
             return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
-            return Engine.options(s, me, m.keptView()).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
+            return Engine.options(s, me, m.keptView(), EnginePreferences.of(s)).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
         return null
     }
 
@@ -1218,7 +1235,7 @@ class GameDevice(
      * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
     private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
         (d is Decision.ChooseObjects && d.total != null)) null
-        else Engine.options(s, d.player, m.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
+        else Engine.options(s, d.player, m.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2, [Stops.passes]: never
      * at their own main phases, owner smoke 2026-11-04, STK-036) or an End turn. */
@@ -1241,7 +1258,7 @@ class GameDevice(
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(m, d)?.let { return Point.Automatic(it) }
             // TRN-027, HIS-096 (owner, 2026-11-05): the other player's opening keep is never assumed: their opening is waited for
-            if (Engine.options(s, d.player, m.keptView()).any { keep(it) }) return Point.Wait(Wait.Keep)
+            if (Engine.options(s, d.player, m.keptView(), EnginePreferences.of(s)).any { keep(it) }) return Point.Wait(Wait.Keep)
             return Point.Wait(Wait.Choosing(d.source?.takeIf { it in m.visible(me) }))
         }
         val holder = s.priority.holder
@@ -1256,7 +1273,7 @@ class GameDevice(
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
             return Point.Wait(reason, Offer.AssumeResolves, pass)
         }
-        val blocks = Engine.options(s, opponent, m.keptView()).filterIsInstance<Input.DeclareBlockers>()
+        val blocks = Engine.options(s, opponent, m.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.DeclareBlockers>()
         if (blocks.isNotEmpty()) {
             val none = Input.DeclareBlockers(opponent, emptyList())
             if (!assumable(none, m)) return Point.Wait(Wait.Blockers)
@@ -1283,7 +1300,7 @@ class GameDevice(
      * could activate (no untapped mana source, mana abilities being activations too, and no other ability usable now).
      * The cards in their hand are hidden and don't count. */
     private fun noMana(s: GameState, holder: PlayerId, m: GameModel = model): Boolean =
-        s.player(holder).manaPool.isEmpty() && Engine.options(s, holder, m.keptView()).none { it is Input.Activate }
+        s.player(holder).manaPool.isEmpty() && Engine.options(s, holder, m.keptView(), EnginePreferences.of(s)).none { it is Input.Activate }
 
     private fun keep(input: Input): Boolean = when (input) {
         is Input.SetupAnswer -> input.player == opponent && input.answer == arcanum.engine.decision.Answer.Option("Keep")
@@ -1624,6 +1641,11 @@ class GameDevice(
             val d = s.pending?.decision
             if (d != null) {
                 if (d is Decision.Random) { builder.answerRandoms(); return@repeat }
+                // The player's own copy of a named card is answered with their input's event, as the randomness is (CR 707.12)
+                if (d is Decision.NamedCard) {
+                    builder.perform((if (own && Host.decider(s, d.player) == me) namedCard(d) else null) ?: return)
+                    return@repeat
+                }
                 val answer = WhoActs.automaticAnswer(model, d)
                     ?: if (own && Host.decider(s, d.player) == me) oneAnswer(s, d) else null
                 builder.perform(answer ?: return)
@@ -1733,7 +1755,7 @@ class GameDevice(
         val drafts = changes.filter { it is TableChange.AttackDraft && it.after != null || it is TableChange.BlockDraft && it.after != null }
         if (drafts.isEmpty()) return true
         val s = model.engine
-        val options = runCatching { s.players.flatMap { Engine.options(s, it.id) } }.getOrDefault(emptyList())
+        val options = runCatching { s.players.flatMap { Engine.options(s, it.id, EnginePreferences.of(s)) } }.getOrDefault(emptyList())
         return drafts.all { c ->
             if (c is TableChange.AttackDraft) options.any { it is Input.DeclareAttackers } else options.any { it is Input.DeclareBlockers }
         }
@@ -2431,7 +2453,7 @@ class GameDevice(
         if (s.turn.number != 0) return null
         val d = s.pending?.decision
         if (d != null && Host.decider(s, d.player) == me) return Input.Answer(d.id, answer)
-        return Input.SetupAnswer(me, answer).takeIf { Engine.options(s, me).any { it is Input.SetupAnswer && it.player == me } }
+        return Input.SetupAnswer(me, answer).takeIf { Engine.options(s, me, EnginePreferences.of(s)).any { it is Input.SetupAnswer && it.player == me } }
     }
 
     /** The server moved this player's local head ahead of the shown state (a rewind, or a confirmation it took): the
@@ -2605,7 +2627,7 @@ class GameDevice(
         agreement()?.let { e -> return org.asyncttwiz.protocol.MatchEnding.Agreed(
             e.table.firstNotNullOfOrNull { (it as? TableChange.Suggestion)?.before?.note }.orEmpty()) }
         if (result is GameResult.Draw) return org.asyncttwiz.protocol.MatchEnding.Draw(
-            loop = s.players.any { it.lossReason == arcanum.engine.setup.LossReason.Loop })
+            loop = s.players.any { it.loss == arcanum.engine.setup.LossReason.Loop })
         return org.asyncttwiz.protocol.MatchEnding.ByRules
     }
 
@@ -2666,7 +2688,7 @@ class GameDevice(
          * count (no input in between), turn and step, priority (its holder and the passes in a row), open decision (its
          * id names what is asked, of whom, after how many inputs) and its options, Stack, combat, every object (zones,
          * what is known of hidden cards, targets) and player; only what no decision depends on may differ (stable
-         * decision identity, owner 2026-11-05): the record of what happened ([GameState.log]), the timestamp counter and
+         * decision identity, owner 2026-11-05): the record of what happened ([arcanum.engine.Inspect.events]), the timestamp counter and
          * the order of the libraries' unknown parts (a new line's reshuffle, §9; the places a player knows are compared).
          * Any other change (a new Stack object, another step, a chosen target gone, a hidden card shown) is a different
          * decision: the player never saw that point.
@@ -2835,15 +2857,8 @@ class GameDevice(
         }
 
         /** Whether [a] and [b] are equal but for what never makes a decision another ([sameDecision]): the logged events, the
-         * timestamp counter and the order of the libraries. Every other field of [GameState] is compared. */
-        private fun sameDecisionPoint(a: GameState, b: GameState): Boolean {
-            fun players(s: GameState) = s.players.map { it.copy(library = it.library.sortedBy(ObjectId::toString)) }
-            return players(a) == players(b) && a.objects == b.objects && a.battlefield == b.battlefield && a.stack == b.stack &&
-                a.exile == b.exile && a.command == b.command && a.stackItems == b.stackItems && a.effects == b.effects &&
-                a.delayedTriggers == b.delayedTriggers && a.turn == b.turn && a.priority == b.priority && a.combat == b.combat &&
-                a.ledger == b.ledger && a.pending == b.pending && a.inputCount == b.inputCount && a.triggered == b.triggered &&
-                a.skipFirstDraw == b.skipFirstDraw
-        }
+         * timestamp counter and the order of the libraries ([Host.samePosition]). */
+        private fun sameDecisionPoint(a: GameState, b: GameState): Boolean = Host.samePosition(a, b)
 
         /**
          * SYS-011 (smoke 2026-11-04): whether End turn tapped on the board [seen] still ends the same turn on [now], the

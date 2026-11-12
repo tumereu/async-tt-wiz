@@ -1,5 +1,8 @@
 package arcanum.engine.sba
 
+import arcanum.engine.state.castOrNone
+import arcanum.engine.state.copyOfCard
+import arcanum.engine.state.deathtouchDamage
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.CounterKind
@@ -63,7 +66,7 @@ internal object StateBasedActions {
         state.players.filter { !it.lost }.forEach { p ->
             view.players[p.id]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.GetsDesignation)?.designation }.distinct()
                 .filter { it !in state.player(p.id).designations }
-                .forEach { act.record(Change.PlayerDesignation(p.id, it, before = false, after = true)) }
+                .forEach { act.record(arcanum.engine.change.Changes.designation(p.id, it, true)) }
         }
         // CR 702.179a: start your engines! gives a player with no speed speed 1 (a state-based action)
         arcanum.engine.turn.Speed.check(act, view)
@@ -94,12 +97,12 @@ internal object StateBasedActions {
                 // "You don't lose the game for having 0 or less life."
                 p.life <= 0 && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.NoLossForZeroLife } ->
                     p.id to arcanum.engine.setup.LossReason.ZeroLife
-                (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 -> p.id to arcanum.engine.setup.LossReason.EmptyLibrary
+                p.id in state.emptyDraws -> p.id to arcanum.engine.setup.LossReason.EmptyLibrary
                 p.counters(CounterKind.Poison) >= 10 -> p.id to arcanum.engine.setup.LossReason.Poison
                 else -> null
             }
         }
-        val emptyDraws = state.players.filter { (it.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 }
+        val emptyDraws = state.emptyDraws
 
         // CR 704.5d: a token in a zone other than the battlefield ceases to exist
         val strayTokens = state.objects.values.filter { it.token && it.zone != Zone.Battlefield } +
@@ -174,8 +177,8 @@ internal object StateBasedActions {
             }
 
         // CR 704.3: all at once
-        losers.forEach { (player, reason) -> act.record(Change.Lost(player, false, true, reason)) }
-        emptyDraws.forEach { p -> act.record(Change.Ledger(p.id, Actions.EMPTY_DRAW, p.ledger[Actions.EMPTY_DRAW] ?: 0, 0)) }
+        losers.forEach { (player, reason) -> act.record(Change.Lost(player, null, reason)) }
+        emptyDraws.forEach { p -> act.record(Change.EmptyLibraryDraw(p, true, false)) }
         if (strayTokens.isNotEmpty()) act.record(Change.Removed(strayTokens.map { Placed(it, state.positionOf(it.id)) }
             .sortedByDescending { it.index }.let { placed -> recomputeIndexes(act, placed) }))
         removedCounters.forEach { (id, plus, n) ->
@@ -200,7 +203,7 @@ internal object StateBasedActions {
         /** It ceases to be bestowed: the effect making it an Aura ends (it is a creature again). */
         fun cease(act: Act, id: ObjectId) {
             val o = act.state.objOrThrow(id)
-            if (o.bestowed) act.record(Change.Facts(id, o.facts, o.facts.copy(alternative = null)))
+            if (o.bestowed) arcanum.engine.change.Changes.cast(act.state, id, o.castOrNone.copy(alternative = null))?.let(act::record)
         }
     }
 

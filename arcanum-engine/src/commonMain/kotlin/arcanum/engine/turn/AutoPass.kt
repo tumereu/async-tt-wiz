@@ -18,23 +18,24 @@ import arcanum.engine.state.PlayerId
  * outcome and performs [Input.PassPriority] while it is true.
  */
 internal object AutoPass {
-    fun shouldPass(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): Boolean = check(state, player, view).asSet
+    fun shouldPass(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()): Boolean =
+        check(state, player, view, prefs).asSet
 
     /** [shouldPass] with the deciding player's setting as it is ([PassCheck.asSet]) and with [player]'s own "Skip when I
      * have no choice" on ([PassCheck.ownSkipOn]): one search of the options for both, on one view of [state] ([view] when
      * the caller has it). */
-    fun check(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): PassCheck {
+    fun check(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()): PassCheck {
         if (GameEnd.over(state) || !state.started || state.pending != null || state.priority.holder != player) return PassCheck.NONE
         state.players.firstOrNull { it.id == player }?.takeUnless { it.lost } ?: return PassCheck.NONE
-        val snap = Options.snapshot(state, view)
+        val snap = Options.snapshot(state, view, prefs)
         // Nothing but passing: playing mana abilities alone does nothing at priority (the mana empties, CR 106.4)
-        if (Options.any(state, player, snap.view) { it !is Input.PassPriority && !manaAbility(snap, it) }) return PassCheck.NONE
+        if (Options.any(state, player, snap.view, prefs) { it !is Input.PassPriority && !manaAbility(snap, it) }) return PassCheck.NONE
         // Cards only they may see that could let them act: a card in hand, a face-down permanent to turn face up
         // (CR 702.37e), a card they may look at and play; not cards outside the game (a revealed companion is public)
         val hidden = Knowledge.privateTo(state, snap.view, player).filter { state.obj(it)?.zone != Zone.Outside }
         // CR 723.5: a controlled player's priority is passed the way their controller would have it
         val decider = Control.decider(state, player)
-        val setting = state.player(decider).skipWhenNoChoice
+        val setting = prefs.skipsWhenNoChoice(decider)
         return PassCheck(setting || hidden.isEmpty(), decider == player || setting || hidden.isEmpty())
     }
 

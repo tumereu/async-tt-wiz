@@ -42,7 +42,7 @@ class RevealStopTest {
         val cast = device(bob).act(Input.Cast(bob, hand(device(bob).model, bob, insight))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first()
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first()
         }
         assertIs<GameDevice.Acted.Sent>(cast)
     }
@@ -209,7 +209,7 @@ class RevealStopTest {
             val cast = bobs.act(Input.Cast(sim.bob, hand(bobs.model, sim.bob, card))) { m ->
                 val d = m.engine.pending?.decision
                 if (d == null || d is Decision.Random || d.player != sim.bob) null
-                else Engine.options(m.engine, sim.bob).filterIsInstance<Input.Answer>().let { answers ->
+                else Engine.options(m.engine, sim.bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().let { answers ->
                     answers.firstOrNull { (it.answer as? arcanum.engine.decision.Answer.Targets)?.chosen == listOf(arcanum.engine.state.TargetRef.Player(sim.bob)) } ?: answers.first()
                 }
             }
@@ -219,7 +219,7 @@ class RevealStopTest {
             repeat(4) {
                 val d = bobs.model.engine.pending?.decision
                 if (d != null && d !is Decision.Random && d.player == sim.bob) {
-                    bobs.act(Engine.options(bobs.model.engine, sim.bob).filterIsInstance<Input.Answer>().first())
+                    bobs.act(Engine.options(bobs.model.engine, sim.bob, org.asyncttwiz.protocol.game.EnginePreferences.of(bobs.model.engine)).filterIsInstance<Input.Answer>().first())
                     sim.settle()
                 }
             }
@@ -250,7 +250,7 @@ class RevealStopTest {
                 val s = bobs.model.engine
                 val creature = s.battlefield.firstOrNull { s.obj(it)?.controller == sim.bob && s.obj(it)?.tapped != true &&
                     s.obj(it)?.definition?.faces?.first()?.name == mapmaker }
-                val attack = Engine.options(s, sim.bob).filterIsInstance<Input.DeclareAttackers>().isNotEmpty()
+                val attack = Engine.options(s, sim.bob, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.DeclareAttackers>().isNotEmpty()
                 when {
                     bobs.status is GameDevice.Status.Waiting -> bobs.assume()
                     attack && !attacked && creature != null -> { attacked = true

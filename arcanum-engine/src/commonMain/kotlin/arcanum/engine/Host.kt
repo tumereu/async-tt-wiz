@@ -16,27 +16,31 @@ object Host {
     /**
      * Whether a host passes priority for [player] now (I-D3, I-D18): they hold it, nothing is pending, and [Engine.options]
      * offers them nothing but passing (mana abilities aside). With their "Skip when I have no choice" setting
-     * ([arcanum.engine.state.PlayerState.skipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
+     * ([Preferences.noSkipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
      * only they may see (an empty hand and no face-down permanent: an instant they can't afford is theirs to pass with).
      * The engine never
      * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time. While
      * another player controls [player] (CR 723), the controller's setting counts ([decider]).
      */
-    fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
+    fun shouldPassFor(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): Boolean =
+        arcanum.engine.turn.AutoPass.shouldPass(state, player, prefs = prefs)
 
     /** [shouldPassFor] with [view], as [passCheck]'s. */
-    fun shouldPassFor(state: GameState, player: PlayerId, view: View?): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player, view)
+    fun shouldPassFor(state: GameState, player: PlayerId, view: View?, prefs: Preferences = Preferences()): Boolean =
+        arcanum.engine.turn.AutoPass.shouldPass(state, player, view, prefs)
 
     /**
      * [shouldPassFor] two ways from one search of [Engine.options] (a host with its own "pass when I have no choice" asks both on
      * the same state): with the deciding player's setting as it is ([PassCheck.asSet], the same as [shouldPassFor]) and
      * as if [player]'s own setting were on ([PassCheck.ownSkipOn]).
      */
-    fun passCheck(state: GameState, player: PlayerId): PassCheck = arcanum.engine.turn.AutoPass.check(state, player)
+    fun passCheck(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): PassCheck =
+        arcanum.engine.turn.AutoPass.check(state, player, prefs = prefs)
 
     /** [passCheck] with [view], [state]'s view ([Engine.view] of [state] as it is now) when the caller already has it: the same
      * result without working the layers out again for the search. A view of another state gives wrong results. */
-    fun passCheck(state: GameState, player: PlayerId, view: View?): PassCheck = arcanum.engine.turn.AutoPass.check(state, player, view)
+    fun passCheck(state: GameState, player: PlayerId, view: View?, prefs: Preferences = Preferences()): PassCheck =
+        arcanum.engine.turn.AutoPass.check(state, player, view, prefs)
 
     /**
      * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or
@@ -124,4 +128,12 @@ object Host {
         }
         return if (after == library) null else Change.Reorder(arcanum.api.Zone.Library, player, library, after)
     }
+
+    /**
+     * Whether [a] and [b] are the same game position: equal in everything but the tagged events they keep, the timestamp counter
+     * and the order of the libraries (the host's randomness, D25). Everything else the engine decides with (the objects, zones,
+     * Stack, effects, turn, priority, statuses, the open decision, its bookkeeping, the input count) is compared: a host that
+     * keeps a decision asked on one state for another asks this.
+     */
+    fun samePosition(a: GameState, b: GameState): Boolean = a.samePosition(b)
 }

@@ -170,7 +170,7 @@ internal fun Scenario.ringBearer(player: ScenarioPlayer = alice): String? = stat
 }?.let { nameOf(state.objOrThrow(it)) }
 
 /** How many times the Ring has tempted [player] (CR 701.54c). */
-internal fun Scenario.temptations(player: ScenarioPlayer = alice): Int = state.player(player.id).ledger["ring-tempted"] ?: 0
+internal fun Scenario.temptations(player: ScenarioPlayer = alice): Int = arcanum.engine.ring.TheRing.temptations(state, player.id)
 
 /** The tokens named [name] on the battlefield. */
 internal fun Scenario.tokens(name: String): List<arcanum.engine.state.ObjectId> =

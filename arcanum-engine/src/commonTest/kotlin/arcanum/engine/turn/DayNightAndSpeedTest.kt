@@ -29,7 +29,7 @@ class DayNightAndSpeedTest {
         III — You gain 3 life.
     """)
 
-    private fun dayNight(s: arcanum.engine.state.GameState) = s.ledger[Evaluator.DAY_NIGHT] ?: 0
+    private fun dayNight(s: arcanum.engine.state.GameState) = arcanum.engine.turn.DayNight.of(s)
 
     // CR 702.145d: a daybound permanent makes it day; CR 731.2a: a turn without spells makes it night, and the daybound
     // permanent transforms (702.145c); CR 731.2b: two spells in a turn make it day again, and it transforms back (702.145f)
@@ -61,7 +61,7 @@ class DayNightAndSpeedTest {
     fun daboundEntersTransformedAtNight() = scenario {
         alice.battlefield("Forest", "Forest")
         alice.hand(watcher)
-        change(Change.Ledger(null, Evaluator.DAY_NIGHT, 0, Evaluator.NIGHT))
+        change(Change.GameStatusChanged(null, arcanum.engine.state.GameStatus.DayNight(night = true)))
         alice.casts(watcher)
         allPass()
         expect { watcher.power shouldBe 4 }
@@ -90,7 +90,7 @@ class DayNightAndSpeedTest {
         alice.battlefield(kart, "Mountain")
         alice.hand("Storm Spark")
         settle()
-        change(Change.Ledger(alice.id, Speed.KEY, 1, 4))
+        change(Change.PlayerStatusChanged(alice.id, arcanum.engine.state.PlayerStatus.Speed(1), arcanum.engine.state.PlayerStatus.Speed(4)))
         alice.casts("Storm Spark", target = "bob")
         allPass()
         allPass()

@@ -45,7 +45,7 @@ internal object Epic {
                 lockedPlayers = listOf(player), source = item.id, controller = player, timestamp = ts, createdTurn = act.state.turn.number,
                 duration = Duration.Indefinitely)
         })
-        val frozen = item.copy(facts = item.facts ?: act.state.obj(item.id)?.facts,
+        val frozen = item.copy(cast = item.cast ?: act.state.obj(item.id)?.cast,
             snapshots = item.snapshots + listOfNotNull(act.snapshot(item.id)))
         val copy = Effect.CopySpell(Objects.Bound(SPELL), Players.You, newTargets = true, except = listOf(CopyException.WithoutKeyword(Keyword.Epic)))
         act.record(Change.DelayedTriggerAdded(act.state.nextTimestamp().let { ts ->

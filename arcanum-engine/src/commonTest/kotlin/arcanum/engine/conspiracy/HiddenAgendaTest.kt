@@ -40,10 +40,10 @@ class HiddenAgendaTest {
 
     private fun Scenario.conspiracy(name: String, vararg names: String): ObjectId {
         val id = put(alice, listOf(name), Zone.Command, faceDown = true).single()
-        var memory = Bindings.EMPTY
-        names.getOrNull(0)?.let { memory = memory.with(Conspiracies.CHOSEN_NAME, NamedValue.Name(it)) }
-        names.getOrNull(1)?.let { memory = memory.with(Conspiracies.SECOND_NAME, NamedValue.Name(it)) }
-        state._objects[id] = state.objOrThrow(id).copy(memory = memory)
+        var linked = Bindings.EMPTY
+        names.getOrNull(0)?.let { linked = linked.with(Conspiracies.CHOSEN_NAME, NamedValue.Name(it)) }
+        names.getOrNull(1)?.let { linked = linked.with(Conspiracies.SECOND_NAME, NamedValue.Name(it)) }
+        state._objects[id] = state.objOrThrow(id).copy(linked = linked)
         return id
     }
 
@@ -63,7 +63,7 @@ class HiddenAgendaTest {
         keep(bob)
         val o = state.command.map { state.objOrThrow(it) }.single()
         assertTrue(o.faceDown && o.owner == alice.id)
-        assertEquals(NamedValue.Name(bear), o.memory[Conspiracies.CHOSEN_NAME])
+        assertEquals(NamedValue.Name(bear), o.linked[Conspiracies.CHOSEN_NAME])
     }
 
     // CR 702.106c, 116.2j: any time she has priority alice turns it face up; CR 607.2d: then spells with the chosen name cost less

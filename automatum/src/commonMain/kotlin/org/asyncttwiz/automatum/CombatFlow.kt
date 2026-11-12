@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.CardType
 import arcanum.api.CostPart
 import arcanum.api.Keyword
@@ -211,7 +212,7 @@ object CombatFlow {
     private fun dealtIn(state: GameState): CombatDamageDealt? {
         val combat = state.combat ?: return null
         if (state.turn.step != TurnStep.CombatDamage && state.turn.step != TurnStep.EndOfCombat) return null
-        val log = state.log
+        val log = arcanum.engine.Inspect.events(state)
         val turn = state.turn.number
         // Back to the declaration of this combat's attackers
         var start = log.size
@@ -311,7 +312,7 @@ object CombatFlow {
         fun card(o: ObjectId) = ids.atw((o as ObjectId.Card).card)
         fun lane(t: TargetRef) = (t as? TargetRef.Object)?.id?.let(::card)
         for (p in s.players) {
-            val declarations = Engine.options(s, p.id).filter { it is Input.DeclareAttackers || it is Input.DeclareBlockers }
+            val declarations = Engine.options(s, p.id, EnginePreferences.of(s)).filter { it is Input.DeclareAttackers || it is Input.DeclareBlockers }
             if (declarations.isEmpty()) continue
             if (declarations.first() is Input.DeclareAttackers) {
                 val listed = declarations.filterIsInstance<Input.DeclareAttackers>()
@@ -612,7 +613,7 @@ object CombatFlow {
     fun divide(call: EngineRun, shares: Map<MtgRef, Int>? = null): Pending? {
         val d = call.working.pending?.decision as? Decision.Divide ?: throw IllegalArgumentException("No division is open")
         val answer = Answer.Division(shares?.map { (ref, amount) -> Share(call.ids.target(ref), amount) } ?: d.suggested)
-        Engine.perform(call.working, Input.Answer(d.id, answer))
+        Engine.perform(call.working, Input.Answer(d.id, answer), EnginePreferences.of(call.working))
         return call.perform(Input.Answer(d.id, answer))
     }
 
@@ -650,7 +651,7 @@ object CombatFlow {
                         Input.Answer(d.id, Answer.Division(d.suggested))
                     } else {
                         val wanted = divisions[division.source]?.map { (ref, n) -> Share(ids.target(ref), n) }
-                        val shares = wanted?.takeIf { w -> runCatching { Engine.perform(s, Input.Answer(d.id, Answer.Division(w))) }.isSuccess } ?: d.suggested
+                        val shares = wanted?.takeIf { w -> runCatching { Engine.perform(s, Input.Answer(d.id, Answer.Division(w)), EnginePreferences.of(s)) }.isSuccess } ?: d.suggested
                         asked += division to shares.associate { ids.ref(it.target) to it.amount }
                         Input.Answer(d.id, Answer.Division(shares))
                     }
@@ -660,7 +661,7 @@ object CombatFlow {
                     when {
                         holder != null -> Input.PassPriority(holder)
                         s.turn.step == TurnStep.DeclareBlockers -> {
-                            val defender = s.players.firstOrNull { p -> Engine.options(s, p.id).any { it is Input.DeclareBlockers } } ?: return null
+                            val defender = s.players.firstOrNull { p -> Engine.options(s, p.id, EnginePreferences.of(s)).any { it is Input.DeclareBlockers } } ?: return null
                             Input.DeclareBlockers(defender.id, blocks.orEmpty().map { Block(objectOf(s, ids, it.blockerId), objectOf(s, ids, it.attackerId)) })
                         }
                         else -> return null
@@ -670,10 +671,10 @@ object CombatFlow {
                 is Decision.ManaPayment -> { assumed = true; Input.Answer(d.id, Answer.ManaPayment(d.suggestion)) }
                 else -> {
                     assumed = true
-                    Engine.options(s, d.player).filterIsInstance<Input.Answer>().firstOrNull() ?: return null
+                    Engine.options(s, d.player, EnginePreferences.of(s)).filterIsInstance<Input.Answer>().firstOrNull() ?: return null
                 }
             }
-            val outcome = try { Engine.perform(s, input) } catch (_: IllegalArgumentException) { return null }
+            val outcome = try { Engine.perform(s, input, EnginePreferences.of(s)) } catch (_: IllegalArgumentException) { return null }
             var final = false
             for (c in outcome.changes) {
                 s.apply(c)
@@ -729,7 +730,7 @@ object CombatFlow {
 
     /** The engine's reason for refusing [input] in [s], or null when it takes it. */
     private fun refusal(s: GameState, input: Input): String? = try {
-        Engine.perform(s, input)
+        Engine.perform(s, input, EnginePreferences.of(s))
         null
     } catch (problem: IllegalArgumentException) {
         problem.message ?: "Not allowed"

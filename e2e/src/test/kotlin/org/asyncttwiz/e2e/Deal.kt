@@ -1,7 +1,6 @@
 package org.asyncttwiz.e2e
 
 import arcanum.engine.Engine
-import arcanum.engine.change.Changes
 import arcanum.engine.input.Input
 import arcanum.engine.setup.DeckCard
 import arcanum.engine.setup.Seat
@@ -33,7 +32,6 @@ class Deal private constructor(private val hands: Map<String, List<String>>, pri
                 Seat(PlayerId(account.id), cards("", deck.entries), cards("side/", deck.side) + cards("maybe/", deck.maybe))
             }
             val engine = Engine.newGame(seats)
-            for (p in engine.players.toList()) engine.apply(Changes.skipWhenNoChoice(engine, p.id, false))
             val model = GameModel(engine, TableState(secret = LineRandom.secret(java.util.HexFormat.of().parseHex(secret))))
             EventBuilder(model, "deal", "root", starter.id).run {
                 perform(Input.StartGame(StartOptions(startingPlayer = PlayerId(starter.id), simultaneousMulligans = true, freeFirstMulligan = true)))

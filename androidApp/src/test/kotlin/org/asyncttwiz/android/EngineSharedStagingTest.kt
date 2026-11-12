@@ -65,7 +65,7 @@ class EngineSharedStagingTest {
         settle()
         // Bob arranges a block: Alice's table shows it while he decides
         val bs = bob.device.model.engine
-        assertTrue(Engine.options(bs, other).any { it is Input.DeclareBlockers }, "Bob declares blockers")
+        assertTrue(Engine.options(bs, other, org.asyncttwiz.protocol.game.EnginePreferences.of(bs)).any { it is Input.DeclareBlockers }, "Bob declares blockers")
         val blocker = creatures(bs, other, ready = false).first { bs.obj(it)?.tapped == false }
         val blocks = listOf(Block(blocker, attacker))
         assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.BlockDraft(null, blocks))))
@@ -95,7 +95,7 @@ class EngineSharedStagingTest {
         repeat(30) {
             settle()
             val bs = bob.device.model.engine
-            if (bob.device.status == GameDevice.Status.YourMove && Engine.options(bs, PlayerId(f.b)).any { it is Input.DeclareBlockers })
+            if (bob.device.status == GameDevice.Status.YourMove && Engine.options(bs, PlayerId(f.b), org.asyncttwiz.protocol.game.EnginePreferences.of(bs)).any { it is Input.DeclareBlockers })
                 bob.send(listOf(Input.DeclareBlockers(PlayerId(f.b), emptyList())))
             else if (bob.device.status == GameDevice.Status.YourMove && bs.priority.holder == PlayerId(f.b)) bob.pass()
             else if (alice.device.status == GameDevice.Status.YourMove && alice.device.model.engine.priority.holder == me &&
@@ -119,7 +119,7 @@ class EngineSharedStagingTest {
         assertIs<GameDevice.Acted.Sent>(alice.send(listOf(Input.DeclareAttackers(me, listOf(Attack(attacker, TargetRef.Player(other)))))))
         settle()
         val bs = bob.device.model.engine
-        assertTrue(Engine.options(bs, other).any { it is Input.DeclareBlockers }, "Bob declares blockers")
+        assertTrue(Engine.options(bs, other, org.asyncttwiz.protocol.game.EnginePreferences.of(bs)).any { it is Input.DeclareBlockers }, "Bob declares blockers")
         val blocks = listOf(Block(creatures(bs, other, ready = false).first { bs.obj(it)?.tapped == false }, attacker))
         assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.BlockDraft(null, blocks))))
         settle()

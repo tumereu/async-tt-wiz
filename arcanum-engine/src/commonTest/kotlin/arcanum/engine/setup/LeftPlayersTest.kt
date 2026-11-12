@@ -23,7 +23,7 @@ class LeftPlayersTest {
     /** An act on the scenario's state after [left] left the game, with the [answers] given so far. */
     private fun Scenario.actAfter(left: PlayerId, answers: List<Answer> = emptyList()): Act {
         val s = state.deepCopy()
-        s.apply(Change.Lost(left, false, true))
+        s.apply(Change.Lost(left, null, arcanum.engine.setup.LossReason.Conceded))
         return Act(Recorder(s), Asker(answers, "test"))
     }
 

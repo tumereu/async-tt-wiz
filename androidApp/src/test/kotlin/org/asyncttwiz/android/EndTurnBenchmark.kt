@@ -242,13 +242,13 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
     private val snapshot: EngineSnapshot = run {
         val model = GameModel(Engine.newGame(listOf(a, b).map { p ->
             Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) })
-        }).also { s -> s.players.toList().forEach { p -> s.apply(arcanum.engine.change.Changes.skipWhenNoChoice(s, p.id, false)) } },
+        }),
             TableState(secret = LineRandom.secret(ByteArray(32) { 5 })))
         fun event(id: String, parent: String, author: String, input: (GameState) -> Input) = EventBuilder(model, f.id(id), f.id(parent), author).run {
             perform(input(model.engine)); answerRandoms(); build()
         }
         fun keep(p: String): (GameState) -> Input = { s ->
-            Engine.options(s, PlayerId(p)).first { i ->
+            Engine.options(s, PlayerId(p), org.asyncttwiz.protocol.game.EnginePreferences.of(s)).first { i ->
                 (i is Input.SetupAnswer && i.player == PlayerId(p) && i.answer == arcanum.engine.decision.Answer.Option("Keep")) ||
                     (i is Input.Answer && i.answer == arcanum.engine.decision.Answer.Option("Keep"))
             }
@@ -278,8 +278,8 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
         }
         val index = s.players.indexOfFirst { it.id == player }
         val p = s.players[index]
-        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand - moved.toSet(),
-            libraryPlaces = p.libraryPlaces - moved.toSet())
+        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand - moved.toSet())
+        s.setup.setLibraryPlaces(player, s.setup.libraryPlaces(player) - moved.toSet())
         val creatures = moved.filter { s.obj(it)!!.definition!!.faces[0].types.contains(arcanum.api.CardType.Creature) }
         var next = 0
         for (id in moved) {
@@ -302,7 +302,8 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
         }
         val index = s.players.indexOfFirst { it.id == player }
         val p = s.players[index]
-        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand + moved, libraryPlaces = p.libraryPlaces - moved.toSet())
+        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand + moved)
+        s.setup.setLibraryPlaces(player, s.setup.libraryPlaces(player) - moved.toSet())
         for (id in moved) s.setup.objects[id] = s.obj(id)!!.copy(zone = Zone.Hand)
     }
 

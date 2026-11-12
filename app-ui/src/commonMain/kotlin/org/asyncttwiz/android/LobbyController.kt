@@ -22,7 +22,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     /** LOB-146: where the account's settings are read (the table's "Your move" sound): the app's account service. */
     val accountOrigin: String = org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN,
     /** DRF-105, DRF-166: the pods' service, for a pod game's deck renamed or given another cover from its lobby. */
-    private val podApi: Pods? = null) : AutoCloseable {
+    private val podApi: Pods? = null,
+    /** CR 707.12: the cards engine games name for the engine: the phone's card records. */
+    namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -41,7 +43,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (command.action !is GameAction.Submit && !command.action.isEngine) refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, now = clock,
         personalChat = personalChat,
-        openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected }) }
+        openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected }, namedCards = namedCards) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     private val scope = object : LobbyScope {
         override var state: LobbyState

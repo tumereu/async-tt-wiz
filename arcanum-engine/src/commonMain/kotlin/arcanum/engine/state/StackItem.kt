@@ -46,10 +46,10 @@ data class StackItem(
     val delayedTrigger: EffectId? = null,
     /** CR 613.7d: when it was put on the Stack. */
     val timestamp: Long,
-    /** For a copy of a spell (CR 707.10): its own facts, as a spell card's are on its object. It copies X, the modes
+    /** For a copy of a spell (CR 707.10): its own cast facts, as a spell card's are on its object. It copies X, the modes
      * and the additional and alternative costs paid (and the objects that paid them); it wasn't cast and no mana was
      * spent to cast it. Null for a spell (its card holds them) and for abilities. */
-    val facts: ObjectFacts? = null,
+    val cast: CastFacts? = null,
 )
 
 /** What kind of Stack object a [StackItem] is (CR 112, 113.7, 707.10). */
@@ -58,7 +58,7 @@ sealed interface StackItemKind {
     /** A spell from a cast card (CR 112.1). */
     @Serializable @SerialName("spell") data object Spell : StackItemKind
     /** A copy of a spell (CR 707.10): not a card, a spell of its own (it is "this spell" when it resolves, with its
-     * own [StackItem.facts]); ceases to exist when it leaves the Stack (CR 707.10a, 704.5e). */
+     * own [StackItem.cast]); ceases to exist when it leaves the Stack (CR 707.10a, 704.5e). */
     @Serializable @SerialName("spell-copy") data class SpellCopy(
         val copied: ObjectId,
         // spm
@@ -113,10 +113,19 @@ data class ObjectSnapshot(
     val tapped: Boolean = false,
     val token: Boolean = false,
     val attachedTo: TargetRef? = null,
-    val facts: ObjectFacts = ObjectFacts(),
+    /** How it was cast ([GameObject.cast]). */
+    val cast: CastFacts? = null,
     /** Its card memory (D22): what its linked abilities remembered (CR 607.2a), e.g. the card it exiled. */
-    val memory: Bindings = Bindings.EMPTY,
+    val linked: Bindings = Bindings.EMPTY,
+    /** Its statuses ([GameObject.statuses]) but those of copying and merging, which its [characteristics] already show
+     * ([snapshotStatuses]). */
+    val statuses: List<ObjectStatus> = emptyList(),
     // fra
     /** It was an attacking creature ("if it wasn't attacking", CR 608.2h). */
     val attacking: Boolean = false,
 )
+
+/** The statuses of [o] an [ObjectSnapshot] keeps: all but those of copying and merging, which its characteristics show. */
+internal fun snapshotStatuses(o: GameObject): List<ObjectStatus> =
+    if (o.statuses.isEmpty()) o.statuses
+    else o.statuses.filter { it !is ObjectStatus.Merged && it !is ObjectStatus.FixedCopies && it !is ObjectStatus.GainedInCopying }

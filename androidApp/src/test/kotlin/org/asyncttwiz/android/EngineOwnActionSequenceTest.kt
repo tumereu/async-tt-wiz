@@ -94,20 +94,20 @@ class EngineOwnActionSequenceTest {
     }
 
     private fun option(game: EngineGame, kind: (Input) -> Boolean): Input =
-        game.read { d -> Engine.options(d.model.engine, PlayerId(f.a)).first(kind) }
+        game.read { d -> Engine.options(d.model.engine, PlayerId(f.a), org.asyncttwiz.protocol.game.EnginePreferences.of(d.model.engine)).first(kind) }
 
     /** A Storm Spark cast with its answers (its target, its mana), as the cast panel makes them. */
     private fun cast(game: EngineGame): List<Input> = game.read { d ->
         val me = PlayerId(f.a)
         val copy = d.model.engine.deepCopy()
-        var input = Engine.options(copy, me).first { it is Input.Cast }
+        var input = Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).first { it is Input.Cast }
         val inputs = mutableListOf(input)
         while (true) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val decision = copy.pending?.decision ?: break
             if (decision is Decision.Random || Host.decider(copy, decision.player) != me) break
             input = if (decision is Decision.ManaPayment) Input.Answer(decision.id, Answer.ManaPayment(decision.suggestion))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == decision.id }
+                else Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == decision.id }
             inputs += input
         }
         inputs

@@ -757,7 +757,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
         // here, with no button (nothing to take back); both go to the lobby once both OKs stand, as on a result the rules gave
         is GameDevice.Status.Over -> if (!(status.final && status.ownOk)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner?.value
-            val causes = shown.engine.players.mapNotNull { p -> p.lossReason?.let { org.asyncttwiz.protocol.lossCause(it) }?.let { p.id.value to it } }.toMap()
+            val causes = shown.engine.players.mapNotNull { p -> p.loss?.let { org.asyncttwiz.protocol.lossCause(it) }?.let { p.id.value to it } }.toMap()
             val text = GameEndText.of(won, status.ending, causes, routes.viewer, names)
             val ended = status.final && status.endedBy == PlayerId(routes.viewer)
             GameEndDialog(text, if (status.ownOk || ended) "Waiting for $opponent to acknowledge" else null,

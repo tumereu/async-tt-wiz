@@ -1,5 +1,11 @@
 package arcanum.engine.resolution
 
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.withStatus
+import arcanum.engine.state.copyOfCard
+import arcanum.engine.state.deathtouchDamage
+import arcanum.engine.state.goadedBy
+import arcanum.engine.state.mergedBelow
 import arcanum.api.Affected
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
@@ -217,7 +223,7 @@ internal object Effects {
                 val x = effect.x?.let { Meaning.CostX(scope.value(it)) }
                 act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOfNotNull(Meaning.TurnedFaceUp, x)))
                 // CR 708.2a: face down again later, by an effect that lists no characteristics, it is a plain 2/2 (no disguise's ward)
-                act.state.objOrThrow(id).let { now -> if (!now.facts.turnedFaceUp) act.record(Change.Facts(id, now.facts, now.facts.copy(turnedFaceUp = true))) }
+                arcanum.engine.change.Changes.status(act.state, id, arcanum.engine.state.ObjectStatus.TurnedFaceUp.key, arcanum.engine.state.ObjectStatus.TurnedFaceUp)?.let(act::record)
                 // CR 701.40a, 701.58a: what lasts only while it is face down ends
                 o.marks.filter { arcanum.api.MarkClear.TurnedFaceUp in arcanum.api.MarkRules.of(it).clears }.forEach { Actions.tapStatus(act, id, StatusFlag.Marked(it), false) }
                 // CR 613.7f: it gets a new timestamp
@@ -239,7 +245,7 @@ internal object Effects {
                 val phased = onBattlefield(scope, effect.objects).filter { act.state.obj(it)?.phasedOut == false }
                 phased.forEach {
                     Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
-                    if (until != null) act.state.objOrThrow(it).let { o -> act.record(Change.Facts(it, o.facts, o.facts.copy(heldPhasedOut = true))) }
+                    if (until != null) arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, arcanum.engine.state.ObjectStatus.HeldPhasedOut)?.let(act::record)
                 }
                 scope.bind(effect.bind, NamedValue.Objects(phased))
                 if (until != null && phased.isNotEmpty()) createDelayed(scope,
@@ -251,7 +257,7 @@ internal object Effects {
             // mh2: phasing in (CR 702.26c)
             is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }.forEach {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
-                act.state.objOrThrow(it).let { o -> if (o.facts.heldPhasedOut) act.record(Change.Facts(it, o.facts, o.facts.copy(heldPhasedOut = false))) }
+                arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, null)?.let(act::record)
             }
             // A mark goes only where it can live (a warped or plotted card in exile, CR 702.185b, 702.170c; a suspected permanent, 701.60b)
             is Effect.Mark -> {
@@ -342,13 +348,13 @@ internal object Effects {
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)
-            // blb: CR 716.2a, b: the level is a designation of the permanent, kept as its memory
+            // blb: CR 716.2a, b: the level is a designation of the permanent, kept as its status
             is Effect.SetClassLevel -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.obj(id) ?: return@forEach
-                val before = o.memory[arcanum.engine.query.Evaluator.CLASS_LEVEL]
-                val after = arcanum.engine.state.NamedValue.Number(effect.level)
+                val before = o.statuses.firstOrNull { it is arcanum.engine.state.ObjectStatus.ClassLevel }
+                val after = arcanum.engine.state.ObjectStatus.ClassLevel(effect.level)
                 if (before != after) {
-                    act.record(Change.Memory(id, arcanum.engine.query.Evaluator.CLASS_LEVEL, before, after))
+                    act.record(Change.ObjectStatusChanged(id, before, after))
                     act.record(Change.Happened(GameEvent.BecameLevel(id, effect.level)))
                 }
             }
@@ -595,7 +601,7 @@ internal object Effects {
         if (act.view().players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseGame }) return
         // CR 104.3e: the loss names the effect's source, as the name it had while its instructions run
         val card = act.recorder.by?.name ?: scope.cause.source?.let { act.view()[it]?.characteristics?.name }
-        act.record(Change.Lost(player, false, true, arcanum.engine.setup.LossReason.Effect(card)))
+        act.record(Change.Lost(player, null, arcanum.engine.setup.LossReason.Effect(card)))
     }
 
     // ---- Damage
@@ -631,7 +637,7 @@ internal object Effects {
         val definition = (act.ask { Decision.NamedCard(it, owner, scope.self, name) } as Answer.NamedCard).definition
         val creator = TokenIds.created("named-copy", act.state.nextTimestamp())
         val copy = GameObject(id = ObjectId.Card(TokenIds.token(creator, 0), 0), owner = owner, zone = Zone.Exile, definition = definition,
-            copyOfCard = true, timestamp = act.state.nextTimestamp())
+            statuses = listOf(arcanum.engine.state.ObjectStatus.CopyOfCard), timestamp = act.state.nextTimestamp())
         act.record(Change.Created(listOf(Placed(copy, act.state.exile.size)), listOf(Meaning.CardCopied)))
         scope.bind(effect.bind, NamedValue.Objects(listOf(copy.id)))
     }
@@ -645,7 +651,7 @@ internal object Effects {
             GameObject(
                 id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = owner, zone = card.zone,
                 // A card outside the battlefield and the Stack has its printed copiable values
-                definition = card.definition, copyOfCard = true, timestamp = first + i,
+                definition = card.definition, statuses = listOf(arcanum.engine.state.ObjectStatus.CopyOfCard), timestamp = first + i,
             )
         }
         if (copies.isNotEmpty()) {
@@ -958,7 +964,7 @@ internal object Effects {
         val lone = act.state.objOrThrow(other.id)
         act.record(Change.Removed(listOf(Placed(lone, act.state.zone(Zone.Exile, lone.owner).indexOf(lone.id))), listOf(Meaning.Merged)))
         val part = arcanum.engine.state.MergedPart(lone.id as ObjectId.Card, lone.owner, lone.definition, 0, lone.token, lone.copyOfCard)
-        act.record(Change.ObjectUpdated(now, now.copy(mergedBelow = now.mergedBelow + part)))
+        act.record(Change.ObjectUpdated(now, arcanum.engine.state.ObjectStatus.Merged(now.mergedAbove, now.mergedBelow + part).let { now.withStatus(it.key, it) }))
     }
 
     private fun copySpell(scope: Scope, effect: Effect.CopySpell) {
@@ -1029,7 +1035,7 @@ internal object Effects {
             } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
-                facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
+                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else original.cast)
             act.record(Change.StackItemAdded(copy, act.state.stack.size))
             act.record(Change.Happened(GameEvent.Copied(controller, copyId)))
         }
@@ -1039,7 +1045,7 @@ internal object Effects {
     /** CR 707.10: a copy of a spell copies X, the modes chosen and the additional and alternative costs paid (and the
      * objects used to pay them); it isn't cast, so it wasn't cast from anywhere and no mana was spent to cast it (the
      * Dawnglow Infusion example). */
-    private fun copiedFacts(of: arcanum.engine.state.ObjectFacts?) = arcanum.engine.state.ObjectFacts(
+    private fun copiedFacts(of: arcanum.engine.state.CastFacts?) = arcanum.engine.state.CastFacts(
         x = of?.x, paid = of?.paid.orEmpty(), alternative = of?.alternative, modesChosen = of?.modesChosen.orEmpty(),
         paidWith = of?.paidWith ?: arcanum.engine.state.Bindings.EMPTY,
     )
@@ -1361,7 +1367,7 @@ internal object Effects {
         val act = scope.act
         val self = scope.self ?: return
         val o = act.state.obj(self) ?: return
-        val before = o.memory[key]
+        val before = o.linked[key]
         val old = (before as? NamedValue.Objects)?.ids.orEmpty()
         val after = NamedValue.Objects(if (replace) ids else (old + ids).distinct())
         if (after != before) act.record(Change.Memory(self, key, before, after))
@@ -1371,7 +1377,7 @@ internal object Effects {
         val act = scope.act
         val self = scope.self ?: return
         val o = act.state.obj(self) ?: return
-        val before = o.memory[key] ?: return
+        val before = o.linked[key] ?: return
         val after = if (ids == null) null else (before as? NamedValue.Objects)?.let { NamedValue.Objects(it.ids - ids.toSet()) }
         act.record(Change.Memory(self, key, before, after))
     }
@@ -1380,9 +1386,9 @@ internal object Effects {
     private fun designate(scope: Scope, player: PlayerId, designation: Designation) {
         val act = scope.act
         act.state.players.filter { it.id != player && designation in it.designations }.forEach {
-            act.record(Change.PlayerDesignation(it.id, designation, true, false))
+            act.record(arcanum.engine.change.Changes.designation(it.id, designation, false))
         }
-        if (designation !in act.state.player(player).designations) act.record(Change.PlayerDesignation(player, designation, false, true))
+        if (designation !in act.state.player(player).designations) act.record(arcanum.engine.change.Changes.designation(player, designation, true))
         // CR 726.2, 726.5: taking the initiative triggers, also for the player who has it
         if (designation == Designation.Initiative) act.record(Change.Happened(GameEvent.TookInitiative(player)))
     }
@@ -1416,7 +1422,7 @@ internal object Effects {
      */
     private fun conniveOne(scope: Scope, action: KeywordAction.Connive, id: ObjectId) {
         val act = scope.act
-        val applied = act.view().rules.firstOrNull { a ->
+        val applied = act.view().game.rules.firstOrNull { a ->
             val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
             val event = m.event as? arcanum.api.EventPattern.Connive ?: return@firstOrNull false
             m.instead != null && scope.names[conniveGuard(a)] == null &&
@@ -1580,7 +1586,7 @@ internal object Effects {
             }
             is KeywordAction.Goad -> onBattlefield(scope, action.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (scope.you !in o.goadedBy) act.record(Change.ObjectUpdated(o, o.copy(goadedBy = o.goadedBy + scope.you)))
+                if (scope.you !in o.goadedBy) act.record(Change.ObjectUpdated(o, arcanum.engine.state.ObjectStatus.Goaded(o.goadedBy + scope.you).let { o.withStatus(it.key, it) }))
             }
             // CR 701.37a: if it isn't monstrous, put N +1/+1 counters on it and it becomes monstrous
             is KeywordAction.Monstrosity -> scope.self?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield }?.let { id ->

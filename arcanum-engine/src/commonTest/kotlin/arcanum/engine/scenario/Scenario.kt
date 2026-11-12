@@ -1,5 +1,7 @@
 package arcanum.engine.scenario
 
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.mergedBelow
 import arcanum.api.CardDefinition
 import arcanum.api.CounterKind
 import arcanum.api.Mechanic
@@ -76,6 +78,9 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     /** All changes applied since setup ended, in order. */
     val applied = mutableListOf<Change>()
+
+    /** The players' preferences every input is performed with ([ScenarioPlayer.skipWhenNoChoice]). */
+    var prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()
     private var setupState: GameState? = null
 
     /** The state after setup. */
@@ -265,7 +270,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         if (driving && input is Input.Answer) return driveAnswer(input)
         startMoves()
         val before = state.deepCopy()
-        val outcome = Engine.perform(state, input)
+        val outcome = Engine.perform(state, input, prefs)
         assertEquals(before, state, "Engine.perform changed the state it was given (D56)")
         outcome.changes.forEach { apply(it) }
         // Outcome.view, the working copy's view handed back, is the view of the state after the changes
@@ -285,7 +290,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val json = kotlinx.serialization.json.Json
         val restored = json.decodeFromString(GameState.serializer(), json.encodeToString(GameState.serializer(), state))
         assertEquals(state, restored, "The state waiting for the host changed through JSON")
-        assertEquals(Engine.perform(state, answer), Engine.perform(restored, answer), "Another outcome after JSON (D58)")
+        assertEquals(Engine.perform(state, answer, prefs), Engine.perform(restored, answer, prefs), "Another outcome after JSON (D58)")
         hostAnswersThroughJson++
     }
 
@@ -353,7 +358,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         startMoves()
         driving = true
         val before = state.deepCopy()
-        val recorder = arcanum.engine.change.Recorder(state.deepCopy())
+        val recorder = arcanum.engine.change.Recorder(state.deepCopy(), prefs = prefs)
         var progress = block(recorder)
         if (progress is arcanum.engine.Progress.Done) progress = arcanum.engine.Perform.settle(recorder) ?: arcanum.engine.Progress.Done
         val waiting = progress as? arcanum.engine.Progress.Waiting
@@ -414,7 +419,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     /** Declares no attackers or no blockers for every player the game waits for (CR 508.1, 509.1). */
     fun declareNone() {
-        val inputs = players.flatMap { p -> Engine.options(state, p.id) }.filter {
+        val inputs = players.flatMap { p -> Engine.options(state, p.id, prefs) }.filter {
             (it is Input.DeclareAttackers && it.attacks.isEmpty()) || (it is Input.DeclareBlockers && it.blocks.isEmpty())
         }
         if (inputs.isEmpty()) fail("Nobody has priority and no declaration is awaited in ${state.turn}")

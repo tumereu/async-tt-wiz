@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -41,7 +42,7 @@ object AutomatumOpening {
         val stage = (pending.continuation as? Continuation.Setup)?.stage as? SetupStage.Bottom ?: return 0
         if (me !in stage.mulligans.taking || me in stage.done) return 0
         (pending.decision as? Decision.ChooseObjects)?.takeIf { Host.decider(s, it.player) == me }?.let { return it.min }
-        return Engine.options(s, me).firstNotNullOfOrNull { input ->
+        return Engine.options(s, me, EnginePreferences.of(s)).firstNotNullOfOrNull { input ->
             ((input as? Input.SetupAnswer)?.takeIf { it.player == me }?.answer as? Answer.Objects)?.chosen?.size
         } ?: 0
     }

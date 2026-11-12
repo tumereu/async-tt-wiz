@@ -729,7 +729,7 @@ internal object Mana {
         private val specials: List<Payer> = capped(specialPayers(snap, player, ways, reserved.tapped).filter { p -> removed.none { it == p.use } }, ways)
         /** Anything that may change what a source's damage does to its controller means its damage can't deny anything (CR 615, 616, 702.15,
          * 702.16e): a replacement of damage, prevention (static or an effect's, a shield too, CR 615.7), a player's protection, lifelink on a source. */
-        val damageSure = snap.view.rules.none { it.mechanic is Mechanic.Prevention || (it.mechanic as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage } &&
+        val damageSure = snap.view.game.rules.none { it.mechanic is Mechanic.Prevention || (it.mechanic as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage } &&
             snap.state.effects.values.none { e -> e.mechanics.any { it is Mechanic.Prevention || (it as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage } } &&
             snap.view.players[player]?.mechanics.orEmpty().none { it.mechanic is Mechanic.Protection } &&
             all.none { s -> s.damage > 0 && snap.view[s.id]?.characteristics?.hasKeyword(arcanum.api.Keyword.Lifelink) == true }

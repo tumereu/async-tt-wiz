@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.TurnStep
 import arcanum.engine.CastScreen
 import arcanum.engine.Engine
@@ -63,8 +64,8 @@ class SharedFlow private constructor(
     /** The player who declares attackers or blockers now (CR 508.1, 509.1): nobody holds priority until they do; null
      * when no declaration is awaited. */
     val declaring: String? get() = state.takeIf { it.pending == null && it.result == null && it.priority.holder == null }?.let { s ->
-        Engine.options(s, s.turn.active).firstOrNull { it is Input.DeclareAttackers }?.let { s.turn.active.value }
-            ?: s.players.firstOrNull { p -> Engine.options(s, p.id).any { it is Input.DeclareBlockers } }?.id?.value
+        Engine.options(s, s.turn.active, EnginePreferences.of(s)).firstOrNull { it is Input.DeclareAttackers }?.let { s.turn.active.value }
+            ?: s.players.firstOrNull { p -> Engine.options(s, p.id, EnginePreferences.of(s)).any { it is Input.DeclareBlockers } }?.id?.value
     }
 
     /** The top of the Stack, which resolves next (CR 405.5); null when the Stack is empty. */
@@ -92,7 +93,7 @@ class SharedFlow private constructor(
     fun declare(autotap: Boolean = false, pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }): EngineRun = call().apply {
         val (attacks, blocks) = CombatFlow.lanes(board.combat)
         // CMB-036–CMB-038: with the attacker's choices; CMB-037: with [autotap] the costs' mana is paid by itself (I-D47)
-        if (Engine.options(working, working.turn.active).any { it is Input.DeclareAttackers })
+        if (Engine.options(working, working.turn.active, EnginePreferences.of(working)).any { it is Input.DeclareAttackers })
             CombatFlow.declareAttackers(this, CombatFlow.withChoices(attacks, board), autotap, pick)
         else CombatFlow.declareBlockers(this, blocks, autotap, pick)
     }
@@ -182,7 +183,7 @@ class SharedFlow private constructor(
     private val listed: List<Answer> by lazy {
         val open = decision ?: return@lazy emptyList()
         ShownAnswers.of(state, open,
-            Engine.options(state, open.player).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.map { it.answer })
+            Engine.options(state, open.player, EnginePreferences.of(state)).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.map { it.answer })
     }
 
     /**
@@ -242,7 +243,7 @@ class SharedFlow private constructor(
         val open = decision as? Decision.ManaPayment
         if (open == null && payment == null) return false
         val pays = try {
-            if (open != null) Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses))) else payMay(uses)
+            if (open != null) Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses)), EnginePreferences.of(state)) else payMay(uses)
             true
         } catch (_: IllegalArgumentException) {
             false

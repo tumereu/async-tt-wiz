@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.engine.Engine
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -137,6 +138,6 @@ class GameLog(gameId: String, private val me: PlayerId) {
         private const val MAX_DECISION = 800
 
         /** What [Engine.options] lists now, for the report's last board; none when it can't be worked out. */
-        fun options(state: GameState, me: PlayerId): List<Input> = runCatching { Engine.options(state, me) }.getOrDefault(emptyList())
+        fun options(state: GameState, me: PlayerId): List<Input> = runCatching { Engine.options(state, me, EnginePreferences.of(state)) }.getOrDefault(emptyList())
     }
 }

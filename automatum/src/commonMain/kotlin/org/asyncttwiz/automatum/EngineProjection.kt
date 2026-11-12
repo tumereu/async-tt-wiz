@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import arcanum.engine.state.status
 import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.Host
@@ -82,15 +83,15 @@ object EngineProjection {
 
         // What made each token, while the log still says (this and last turn): for its picture (SYS-072)
         val madeBy = HashMap<ObjectId, arcanum.engine.change.CausedBy?>()
-        for (logged in state.log) (logged.change as? Change.Created)?.let { c -> c.objects.forEach { madeBy[it.obj.id] = c.by } }
+        for (logged in arcanum.engine.Inspect.events(state)) (logged.change as? Change.Created)?.let { c -> c.objects.forEach { madeBy[it.obj.id] = c.by } }
         // Card data of an object: the prepared card's, else made from its engine definition (tokens, copies); a token is
         // drawn with the picture of its best matching token printing (SYS-072)
         val digests = HashMap<ObjectId, String>()
         fun digestOf(obj: GameObject): String = digests.getOrPut(obj.id) {
             val prepared = byCard[obj.card.value]
-            if (prepared != null && !obj.token && !obj.copyOfCard) return@getOrPut prepared.definition
+            if (prepared != null && !obj.token && !obj.isCopyOfCard) return@getOrPut prepared.definition
             val definition = obj.definition ?: return@getOrPut prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
-            val made = AtwTokens.submitted(definition, token = true, gained = obj.gainedInCopying)
+            val made = AtwTokens.submitted(definition, token = true, gained = obj.statuses.status<arcanum.engine.state.ObjectStatus.GainedInCopying>()?.abilities.orEmpty())
             // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
             // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
             val shown = copied(made, base)
@@ -112,7 +113,7 @@ object EngineProjection {
 
         // Where a spell's card came from (its last move to the Stack), so it stays there (STK-001)
         val castFrom = mutableMapOf<ObjectId, Zone>()
-        for (logged in state.log) {
+        for (logged in arcanum.engine.Inspect.events(state)) {
             val change = logged.change as? Change.ZoneChange ?: continue
             for (move in change.moves) if (move.to == Zone.Stack) castFrom[move.after.id] = move.from
         }
@@ -156,7 +157,7 @@ object EngineProjection {
                 id = obj.card.value, definition = digest, owner = obj.owner.value, containerId = target.id,
                 faceId = faceIdOf(obj, digest),
                 covered = !seen || obj.faceDown, tapped = obj.tapped,
-                token = obj.token || obj.copyOfCard,
+                token = obj.token || obj.isCopyOfCard,
                 explicitlyCovered = obj.faceDown,
                 knownToAll = seen && hiddenZone && !(playZone == PlayZone.HAND && obj.owner == me),
                 damage = obj.damage.takeIf { it > 0 }?.toString().orEmpty(),
@@ -168,7 +169,7 @@ object EngineProjection {
             // SYS-074 (Arena style, TBL-053): a merged permanent's other cards lie on its Battlefield behind it, as cards
             // attached to it (no permanents of their own). The card in front shows the top card's picture: merged on top,
             // the permanent's own card and its top component swap pictures
-            val parts = if (playZone == PlayZone.BATTLEFIELD) obj.mergedAbove + obj.mergedBelow else emptyList()
+            val parts = if (playZone == PlayZone.BATTLEFIELD) obj.statuses.status<arcanum.engine.state.ObjectStatus.Merged>()?.let { it.above + it.below }.orEmpty() else emptyList()
             fun partShown(part: arcanum.engine.state.MergedPart): Pair<String, String> {
                 val prepared = byCard[part.id.card.value]
                 val partDigest = if (prepared != null && !part.token && !part.copyOfCard) prepared.definition
@@ -177,7 +178,7 @@ object EngineProjection {
                 val faces = definitions[partDigest]?.definition?.faces.orEmpty()
                 return partDigest to ((faces.getOrNull(part.face) ?: faces.firstOrNull())?.faceId ?: "")
             }
-            val top = obj.mergedAbove.firstOrNull()?.takeIf { playZone == PlayZone.BATTLEFIELD }
+            val top = obj.statuses.status<arcanum.engine.state.ObjectStatus.Merged>()?.above?.firstOrNull()?.takeIf { playZone == PlayZone.BATTLEFIELD }
             add(target.id, obj, top?.let { partShown(it).let { (d, f) -> card.copy(definition = d, faceId = f) } } ?: card)
             for (part in parts) {
                 val (partDigest, partFace) = if (part == top) card.definition to card.faceId else partShown(part)
@@ -250,10 +251,10 @@ object EngineProjection {
 
         val players = board0.players.map { p ->
             val engine = state.players.firstOrNull { it.id.value == p.accountId }
-            val opening = state.turn.number == 0 && state.log.none { l ->
+            val opening = state.turn.number == 0 && arcanum.engine.Inspect.events(state).none { l ->
                 (l.change as? Change.Happened)?.event.let { it is arcanum.engine.change.GameEvent.Kept && it.player.value == p.accountId }
             }
-            val mulligans = state.log.count { l ->
+            val mulligans = arcanum.engine.Inspect.events(state).count { l ->
                 (l.change as? Change.Happened)?.event.let { it is arcanum.engine.change.GameEvent.Mulliganed && it.player.value == p.accountId }
             }
             p.copy(life = (engine?.life ?: 20).toString(), counters = emptyMap(), status = if (opening) PlayerStatus.OPENING else "",
@@ -397,7 +398,7 @@ object EngineProjection {
     fun dungeon(state: GameState, player: String): ShownDungeon? {
         val obj = state.command.mapNotNull { state.objects[it] }.firstOrNull { it.owner.value == player && isDungeon(it) } ?: return null
         val face = obj.definition?.faces?.firstOrNull() ?: return null
-        val room = Inspect.ventureRoom(state, obj.id)?.let { face.rooms.getOrNull(it)?.name }.orEmpty()
+        val room = obj.takeIf { it.zone == arcanum.api.Zone.Command }?.statuses?.status<arcanum.engine.state.ObjectStatus.VentureRoom>()?.room?.let { face.rooms.getOrNull(it)?.name }.orEmpty()
         return ShownDungeon(obj.card.value, face.name, room)
     }
 
@@ -418,3 +419,6 @@ object EngineProjection {
         SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 }
+
+/** A copy of a card (CR 707.12), not a card ([arcanum.engine.state.ObjectStatus.CopyOfCard]). */
+private val GameObject.isCopyOfCard: Boolean get() = statuses.status<arcanum.engine.state.ObjectStatus.CopyOfCard>() != null

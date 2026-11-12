@@ -238,7 +238,7 @@ class EngineTableGesturesTest {
             kit.state().turn.step != TurnStep.DeclareBlockers
         }
         assertNull(toolkit.combat.selected, "it lasts only for its combat step")
-        assertTrue(Engine.options(kit.state(), kit.me).none { it is Input.DeclareAttackers })
+        assertTrue(Engine.options(kit.state(), kit.me, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.state())).none { it is Input.DeclareAttackers })
     }
 
     // CMB-003, CMB-032, CMB-028 (owner, 2026-11-06): while attackers are declared, a staged attacker's copy is selected by

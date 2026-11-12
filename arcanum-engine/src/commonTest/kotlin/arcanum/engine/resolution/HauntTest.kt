@@ -38,7 +38,7 @@ class HauntTest {
         allPass()
         expect { alice.exile has specter }
         val exiled = state.objOrThrow(card(specter))
-        assertEquals(listOf(card(bear)), (exiled.memory[Keyword.Haunt.id] as NamedValue.Objects).ids)
+        assertEquals(listOf(card(bear)), (exiled.linked[Keyword.Haunt.id] as NamedValue.Objects).ids)
         alice.casts("Storm Spark", target = bear)
         allPass()
         targetAnswer("bob")

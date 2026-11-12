@@ -155,7 +155,7 @@ class EngineChoiceScreenTest {
         kit.tap(kit.item(attacker))
         kit.settle()
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Attack (1)")
-        fun bobBlocks() = Engine.options(kit.bob.device.model.engine, other).any { it is Input.DeclareBlockers }
+        fun bobBlocks() = Engine.options(kit.bob.device.model.engine, other, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         kit.playOn("Bob declaring blockers", bobActs = false) {
             // Bob lets the attack go on to his blocks (his pass after it was assumed at once: he confirms it, HIS-096)
             (kit.bob.device.status as? GameDevice.Status.Stopped)?.let { kit.bob.act(it.assumed) }

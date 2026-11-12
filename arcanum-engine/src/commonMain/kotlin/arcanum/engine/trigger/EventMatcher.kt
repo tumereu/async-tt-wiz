@@ -1,5 +1,6 @@
 package arcanum.engine.trigger
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.EventPattern
 import arcanum.api.EventRole
 import arcanum.api.KeywordActionKind
@@ -65,7 +66,7 @@ internal object EventMatcher {
         }
         is EventPattern.Cast -> if (isCast(change)) {
             val item = (change as Change.StackItemAdded).item
-            val from = e.board.state.obj(item.id)?.facts?.castFrom
+            val from = e.board.state.obj(item.id)?.castOrNone?.castFrom
             // fra backfill: an earlier cast this turn, counted for "your first … spell each turn" once that spell has
             // left the Stack, was a spell as it was cast (CR 601.2a)
             val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)
@@ -187,7 +188,7 @@ internal object EventMatcher {
             (pattern.from == null || e.matches(pattern.from!!, c.from)) && (pattern.to == null || e.matches(pattern.to!!, c.to)) && e.matches(pattern.objects, c.id)
         }?.let { c -> listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOf(c.to))) }.orEmpty()
         // fin: a player losing the game (CR 104.3)
-        is EventPattern.LoseGame -> (change as? Change.Lost)?.takeIf { !it.before && it.after && e.matches(pattern.players, it.player) }
+        is EventPattern.LoseGame -> (change as? Change.Lost)?.takeIf { it.before == null && it.after != null && e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         // fin: a mill about to happen (replacements of it, CR 614.1a)
         is EventPattern.Mill -> ((change as? Change.Happened)?.event as? GameEvent.Milling)?.takeIf { e.matches(pattern.players, it.player) }

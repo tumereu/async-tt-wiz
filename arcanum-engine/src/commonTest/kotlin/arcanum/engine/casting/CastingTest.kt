@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.CardType
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -48,7 +49,7 @@ class CastingTest {
         assertEquals(listOf(Meaning.Cast), added.meanings)
         assertEquals(StackItemKind.Spell, added.item.kind)
         assertEquals(listOf(TargetRef.Player(bob.id)), added.item.targets["any"])
-        assertEquals(Zone.Hand, state.objOrThrow(card("Storm Spark")).facts.castFrom)
+        assertEquals(Zone.Hand, state.objOrThrow(card("Storm Spark")).castOrNone.castFrom)
     }
 
     // CR 117.3c: the caster receives priority after casting
@@ -371,7 +372,7 @@ class CastingTest {
         alice.casts("Doomfire", x = 3, target = "bob")
         val item = state.stackItems[card("Doomfire")]!!
         assertEquals(3, item.announced["X"])
-        assertEquals(3, state.objOrThrow(card("Doomfire")).facts.x)
+        assertEquals(3, state.objOrThrow(card("Doomfire")).castOrNone.x)
         expect { listOf(0, 1, 2, 3).all { card("Mountain", it).tapped } shouldBe true }
     }
 

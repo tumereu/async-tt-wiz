@@ -57,16 +57,16 @@ import arcanum.engine.view.Subtypes
  */
 internal object Options {
     /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
-    fun of(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): List<Input> {
+    fun of(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, prefs: Preferences = Preferences()): List<Input> {
         EngineProbes.optionsSearched?.invoke()
-        return search(state, player, view)
+        return search(state, player, view, prefs)
     }
 
     /** [of] without counting the search ([EngineProbes.optionsSearched]): for a search already counted. */
-    private fun search(state: GameState, player: PlayerId, view: arcanum.engine.view.View?): List<Input> {
+    private fun search(state: GameState, player: PlayerId, view: arcanum.engine.view.View?, prefs: Preferences): List<Input> {
         // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
-        val snap = snapshot(state, view)
+        val snap = snapshot(state, view, prefs)
         state.pending?.let { return answers(snap, it, player) + arcanum.engine.setup.Setup.earlyAnswers(state, it, player) }
         // CR 103: a game made by Engine.newGame starts with Input.StartGame
         if (!state.started) return listOf(Input.StartGame())
@@ -85,18 +85,20 @@ internal object Options {
      * first one found and [predicate] (cheap) is asked before the trial cast or activation of each spell and ability (a
      * host asks this after every outcome, [AutoPass]).
      */
-    fun any(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, predicate: (Input) -> Boolean): Boolean {
+    fun any(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, prefs: Preferences = Preferences(),
+        predicate: (Input) -> Boolean): Boolean {
         EngineProbes.optionsSearched?.invoke()
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost || state.pending != null || !state.started ||
-            Combat.waitingForDeclaration(state) || state.priority.holder != player) return search(state, player, view).any(predicate)
-        val snap = snapshot(state, view)
+            Combat.waitingForDeclaration(state) || state.priority.holder != player) return search(state, player, view, prefs).any(predicate)
+        val snap = snapshot(state, view, prefs)
         return predicate(Input.PassPriority(player)) || lands(snap, player).any(predicate) ||
             spellWays(snap, player).any { predicate(it) && startable(snap, it) } ||
             abilityWays(snap, player).any { predicate(it) && startable(snap, it) }
     }
 
     /** A snapshot of [state] with [view], its view, when the caller has it (else worked out when first needed). */
-    fun snapshot(state: GameState, view: arcanum.engine.view.View?): Snapshot = if (view == null) Snapshot(state) else Snapshot(state) { view }
+    fun snapshot(state: GameState, view: arcanum.engine.view.View?, prefs: Preferences = Preferences()): Snapshot =
+        if (view == null) Snapshot(state, prefs) else Snapshot(state, prefs) { view }
 
     /** Whether [Engine.perform] accepts [input] in the snapshot's state (its view worked out once for every input tried). */
     private fun accepted(snap: Snapshot, input: Input): Boolean = performed(snap, input) != null
@@ -104,7 +106,7 @@ internal object Options {
     /** [Engine.perform] of [input] on a working copy of the snapshot's state: the copy as it leaves it and the decision
      * it waits for, or null when refused. */
     private fun performed(snap: Snapshot, input: Input): Pair<GameState, Pending?>? = try {
-        val recorder = Recorder(snap.state.deepCopy(), snap.view)
+        val recorder = Recorder(snap.state.deepCopy(), snap.view, snap.prefs)
         recorder.state to Perform.runOn(recorder, input).pending
     } catch (e: IllegalArgumentException) {
         null
@@ -120,7 +122,7 @@ internal object Options {
      * (a later target that depends on an earlier one or on X, CR 601.2c; a cost the payment can't make, CR 118.3; the
      * target that makes it cheap enough, CR 601.2f), looking ahead within [budget].
      */
-    private fun goesOn(state: GameState, pending: Pending?, budget: Budget = Budget()): Boolean {
+    private fun goesOn(state: GameState, pending: Pending?, budget: Budget = Budget(), prefs: Preferences = Preferences()): Boolean {
         val c = pending?.continuation as? Continuation.Announcing ?: return true
         if (c.choices.paying != null) return true
         if (!payableYet(Plan(state, c))) return false
@@ -128,7 +130,7 @@ internal object Options {
         if (d is Decision.Random || d is Decision.NamedCard) return true
         // The payment itself: [payableYet] says a way may exist; finding it is the player's and Autotap's (CR 601.2g-h)
         if (d is Decision.ManaPayment) return true
-        val snap = Snapshot(state)
+        val snap = Snapshot(state, prefs = prefs)
         if (d is Decision.Announce) return announced(snap, pending, 1, budget).isNotEmpty()
         // A sample that fails isn't proof (deny only with proof)
         return tries(snap, pending).any { goesOnAfter(snap, pending, it, budget) } || !everyTried(d, pending)
@@ -147,7 +149,7 @@ internal object Options {
     private fun goesOnAfter(snap: Snapshot, pending: Pending, answer: Answer, budget: Budget = Budget()): Boolean {
         if (budget.left-- <= 0) return true
         val (after, next) = performed(snap, Input.Answer(pending.decision.id, answer)) ?: return false
-        return goesOn(after, next, budget)
+        return goesOn(after, next, budget, snap.prefs)
     }
 
     /**
@@ -646,7 +648,7 @@ internal object Options {
      * (X as 0, §7.8; convoke and delve counted), and its decisions have answers that lead to the end.
      */
     private fun startable(snap: Snapshot, input: Input): Boolean {
-        val recorder = Recorder(snap.state.deepCopy(), snap.view)
+        val recorder = Recorder(snap.state.deepCopy(), snap.view, snap.prefs)
         val progress = try {
             when (input) {
                 is Input.Cast -> Casting.cast(recorder, input)
@@ -659,7 +661,7 @@ internal object Options {
         val pending = (progress as? Progress.Waiting)?.pending ?: return true
         // As [Engine.perform] leaves it: waiting for the decision, so its answers can be tried
         recorder.record(arcanum.engine.change.Changes.pending(recorder.state, pending))
-        return goesOn(recorder.state, pending)
+        return goesOn(recorder.state, pending, prefs = snap.prefs)
     }
 
     private fun abilities(snap: Snapshot, player: PlayerId): List<Input> = abilityWays(snap, player).filter { startable(snap, it) }.toList()

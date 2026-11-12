@@ -66,7 +66,7 @@ class EngineOwnActionPartsTest {
 
     /** Plays a land from Alice's hand (one the engine offers her: the only own action made). */
     private fun playLand(game: EngineGame): GameDevice.Acted {
-        val land = game.read { d -> arcanum.engine.Engine.options(d.model.engine, PlayerId(f.a)).first { it is Input.PlayLand } }
+        val land = game.read { d -> arcanum.engine.Engine.options(d.model.engine, PlayerId(f.a), org.asyncttwiz.protocol.game.EnginePreferences.of(d.model.engine)).first { it is Input.PlayLand } }
         return game.act(land)
     }
 

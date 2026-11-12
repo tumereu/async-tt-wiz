@@ -81,6 +81,6 @@ class HarnessTest {
         val view = view()
         assertTrue(view[card("Elvish Seer")]!!.mechanics.any { it.mechanic is Mechanic.CantBlock })
         assertFalse(view[card("Umbral Elves")]!!.mechanics.any { it.mechanic is Mechanic.CantBlock })
-        assertTrue(view.rules.none { it.mechanic is Mechanic.CantBlock })
+        assertTrue(view.game.rules.none { it.mechanic is Mechanic.CantBlock })
     }
 }

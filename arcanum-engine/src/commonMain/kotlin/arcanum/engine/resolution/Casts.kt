@@ -1,5 +1,6 @@
 package arcanum.engine.resolution
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Effect
@@ -69,8 +70,8 @@ internal object Casts {
             val o = source?.let { act.state.obj(it) }
             val turn = act.state.turn.number
             val used = buildSet {
-                if (m.onlyUnchosen) addAll(o?.facts?.modesChosen.orEmpty())
-                if (m.onlyUnchosenThisTurn) o?.facts?.modeTurns.orEmpty().filter { it.turn == turn }.forEach { add(it.key.toInt()) }
+                if (m.onlyUnchosen) addAll(o?.castOrNone?.modesChosen.orEmpty())
+                if (m.onlyUnchosenThisTurn) o?.uses?.modeTurns.orEmpty().filter { it.turn == turn }.forEach { add(it.key.toInt()) }
             }
             val ev = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
             // CR 700.2b: a mode that couldn't choose its targets can't be chosen; with too few left, the ability is removed from the Stack
@@ -93,10 +94,9 @@ internal object Casts {
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
             require(chosen.none { it in illegal }) { "Mode without legal targets: $chosen" }
             if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {
-                act.record(Change.Facts(o.id, o.facts, o.facts.copy(
-                    modesChosen = (o.facts.modesChosen + chosen).distinct(),
-                    modeTurns = o.facts.modeTurns.filter { it.turn == turn } + chosen.distinct().map { TurnCount(it.toString(), turn, 1) },
-                )))
+                arcanum.engine.change.Changes.cast(act.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + chosen).distinct()))?.let(act::record)
+                act.record(arcanum.engine.change.Changes.uses(act.state, o.id, o.uses.copy(
+                    modeTurns = o.uses.modeTurns.filter { it.turn == turn } + chosen.distinct().map { TurnCount(it.toString(), turn, 1) })))
             }
             chosen
         }.orEmpty()

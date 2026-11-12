@@ -59,6 +59,35 @@ class CatalogCardNames(private val services: AppServices) : CardNameSuggestions 
     }
 }
 
+/**
+ * "Create a copy of the card with the chosen name" (CR 707.12): the card named so in the device's card records ([repository]), built
+ * as a deck's cards are (the printing's card data, then the parser, [namedCardDefinition]). Blocking: the device's engine thread
+ * asks it. Nothing while the records aren't installed.
+ */
+class CatalogNamedCards(private val repository: () -> org.asyncttwiz.storage.CardCatalog) : org.asyncttwiz.protocol.game.NamedCards {
+    override fun definition(name: String): arcanum.api.CardDefinition? {
+        val quoted = "\"" + name.replace("\"", "") + "\""
+        val page = repository().searchCards("!$quoted", limit = NAMED_CARDS, budget = 20_000) as? CatalogCardSearch.Page ?: return null
+        return namedCardDefinition(page.cards, page.metadata, name)
+    }
+}
+
+/** The engine definition of the card named [name] among [cards] (a card search's, with the records' [metadata]): the first
+ * card that isn't a token whose name, or one of whose names, is [name], built as a deck's card is; null when there is none or
+ * its card data can't be read. */
+fun namedCardDefinition(cards: List<CatalogCard>, metadata: org.asyncttwiz.storage.CatalogMetadata?, name: String): arcanum.api.CardDefinition? {
+    val folded = CardSearchRules.foldName(name)
+    val card = cards.filterNot { it.printing.token }.firstOrNull { card ->
+        CardSearchRules.foldName(card.name) == folded || card.namedParts().any { CardSearchRules.foldName(it.name) == folded }
+    } ?: return null
+    val definition = org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
+        org.asyncttwiz.storage.ResolvedDeckEntry(org.asyncttwiz.storage.DeckSection.MAINBOARD, 1, card.faces, emptyList()).definition(metadata))
+    return org.asyncttwiz.protocol.game.GameCards.parse(definition).definition
+}
+
+/** The cards a named card's search brings: the card, its printings' variants. */
+private const val NAMED_CARDS = 10
+
 /** The names for [text] by [search], the card search: the cards with exactly that name too, as any number of cards before them by
  * name may contain it ("Fire" among the cards with "fire" in their names), and [catalogNames] puts their names first. */
 fun searchedNames(text: String, filter: ObjectFilter, search: (String) -> List<CatalogCard>): List<String> {

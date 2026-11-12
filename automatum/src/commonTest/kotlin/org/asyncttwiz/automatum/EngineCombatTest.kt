@@ -184,7 +184,7 @@ class EngineCombatTest {
         val (bobBear) = table.put(bob, Zone.Battlefield, "Stout Bear")
         val state = table.state()
         val siegeObj = table.obj(siege)
-        state.setup.objects[siegeObj] = state.objects.getValue(siegeObj).copy(protector = PlayerId(bob),
+        state.setup.objects[siegeObj] = state.objects.getValue(siegeObj).copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Protector(PlayerId(bob))),
             counters = listOf(CounterEntry(CounterKind.Defense, 3, 1)))
         val choices = CombatFlow.choices(run(state))
         assertEquals(listOf(null, siege), choices.attacks.getValue(bear), "the player and the Siege")

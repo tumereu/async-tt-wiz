@@ -1,5 +1,12 @@
 package arcanum.engine.action
 
+import arcanum.engine.state.castOrNone
+import arcanum.engine.state.dealtCombatDamage
+import arcanum.engine.state.dealtDamage
+import arcanum.engine.state.deathtouchDamage
+import arcanum.engine.state.flippedStatus
+import arcanum.engine.state.gaining
+import arcanum.engine.state.withStatus
 import arcanum.api.Affected
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
@@ -318,8 +325,8 @@ internal object Actions {
             )
             val moved = zc.moves.single().let { mv ->
                 var after = mv.after
-                if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
-                protectors[m.id]?.let { if (toBattlefield) after = after.copy(protector = it) }
+                if (m.memory.values.isNotEmpty()) after = after.copy(linked = m.memory)
+                protectors[m.id]?.let { if (toBattlefield) after = after.withStatus(arcanum.engine.state.ObjectStatus.Protector(it).key, arcanum.engine.state.ObjectStatus.Protector(it)) }
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && (before.definition.layout == Layout.Transform || before.definition.layout is Layout.Meld)) after = after.copy(face = 1)
                 // CR 702.145b: at night a daybound card enters transformed
@@ -329,8 +336,11 @@ internal object Actions {
                     after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
                 // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
-                if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
-                    facts = m.marks.fold(after.facts) { facts, mark -> gained(act, m.id, mark, emptyList())?.let(facts::gaining) ?: facts })
+                if (!toBattlefield && m.marks.isNotEmpty()) {
+                    after = after.copy(marks = (after.marks + m.marks).distinct())
+                    m.marks.forEach { mark -> gained(act, m.id, mark, emptyList())?.let { record ->
+                        after = after.withStatus(arcanum.engine.state.ObjectStatus.MarksGained(emptyList()).key, after.gaining(record)) } }
+                }
                 mv.copy(after = after, seen = snapshots[m.id])
             }
             scratch.apply(Change.ZoneChange(listOf(moved)))
@@ -400,7 +410,7 @@ internal object Actions {
         val face = enteringFace(act, o, m) ?: return emptyList()
         fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
         // CR 702.150a: compleated: two fewer for each Phyrexian symbol paid with life
-        val compleated = if (face.abilities.any { it == arcanum.api.Keyword.Compleated }) 2 * o.facts.phyrexianPaidWithLife else 0
+        val compleated = if (face.abilities.any { it == arcanum.api.Keyword.Compleated }) 2 * o.castOrNone.phyrexianPaidWithLife else 0
         return listOfNotNull(
             (CounterKind.Loyalty to amount(face.loyalty) - compleated).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
             (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
@@ -534,8 +544,10 @@ internal object Actions {
         dealt.map { it.source }.distinct().forEach { source ->
             val o = act.obj(source) ?: return@forEach
             val combat = dealt.any { it.source == source && it.combat }
-            val facts = o.facts.copy(dealtDamage = true, dealtCombatDamage = o.facts.dealtCombatDamage || combat)
-            if (facts != o.facts) act.record(Change.ObjectUpdated(o, o.copy(facts = facts)))
+            var after = o
+            if (!o.dealtDamage) after = after.withStatus(arcanum.engine.state.ObjectStatus.DealtDamage.key, arcanum.engine.state.ObjectStatus.DealtDamage)
+            if (combat && !o.dealtCombatDamage) after = after.withStatus(arcanum.engine.state.ObjectStatus.DealtCombatDamage.key, arcanum.engine.state.ObjectStatus.DealtCombatDamage)
+            if (after != o) act.record(Change.ObjectUpdated(o, after))
         }
         var excess = 0
         val excessTo = mutableMapOf<TargetRef, Int>()
@@ -644,7 +656,7 @@ internal object Actions {
     private fun unpreventable(act: Act, d: DamageDealt): Boolean {
         val board = act.board()
         val proposed = Change.Damage(listOf(d))
-        return act.view().rules.any { applied ->
+        return act.view().game.rules.any { applied ->
             val m = applied.mechanic as? Mechanic.DamageCantBePrevented ?: return@any false
             arcanum.engine.trigger.EventMatcher.instances(Evaluator(board, Context(applied.controller, applied.source, applied.names)),
                 m.event, proposed, proposed = true).isNotEmpty()
@@ -670,7 +682,7 @@ internal object Actions {
                     key = "protection:${pv.id}:$i", prevention = Prevention.Protection(p.from, TargetRef.Player(pv.id)))
             }
         }
-        val effects = view.rules.mapIndexedNotNull { i, applied ->
+        val effects = view.game.rules.mapIndexedNotNull { i, applied ->
             val m = applied.mechanic as? Mechanic.Prevention ?: return@mapIndexedNotNull null
             if (applied.effect != null && act.state.effects[applied.effect]?.amountLeft != null) return@mapIndexedNotNull null
             Replacement(Mechanic.Replacement(m.event), applied.controller, applied.source, applied.names, applied.effect, own = false,
@@ -830,7 +842,7 @@ internal object Actions {
      */
     fun createTokens(
         act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean = false,
-        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.ObjectFacts? = null,
+        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null,
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
@@ -843,9 +855,11 @@ internal object Actions {
                 val i = n++
                 GameObject(
                     id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = controller, controller = controller,
-                    zone = Zone.Battlefield, definition = f.definition, face = f.up, gainedInCopying = f.gained, token = true, tapped = tapped,
+                    zone = Zone.Battlefield, definition = f.definition, face = f.up, token = true, tapped = tapped,
                     timestamp = first + i, controlSince = ControlSince(controller, act.state.turn.number), attachedTo = attachTo,
-                ).let { o -> if (fromSpellCopy != null) o.copy(facts = fromSpellCopy) else o }
+                    cast = arcanum.engine.state.castFacts(fromSpellCopy),
+                    statuses = if (f.gained.isEmpty()) emptyList() else listOf(arcanum.engine.state.ObjectStatus.GainedInCopying(f.gained)),
+                )
             }
         }
         val specs = if (fromSpellCopy != null) listOf(values to count) else Replacements.apply(act, cause, listOf(values to count), controller, null,
@@ -958,8 +972,7 @@ internal object Actions {
             if (top == null && Replacements.replaceEmptyDraw(act, cause, player) { r, instance -> runInstead(act, r, instance) }) return@repeat
             if (top == null) {
                 // CR 121.4, 704.5b
-                val before = act.state.player(player).ledger[EMPTY_DRAW] ?: 0
-                act.record(Change.Ledger(player, EMPTY_DRAW, before, before + 1))
+                if (player !in act.state.emptyDraws) act.record(Change.EmptyLibraryDraw(player, false, true))
                 return drawn
             }
             drawn += move(act, cause, listOf(PlannedMove(top, Zone.Hand, meanings = listOf(Meaning.Drew))))
@@ -986,9 +999,6 @@ internal object Actions {
     private fun drawsThisTurn(act: Act, player: PlayerId): Int = act.state.eventsOf(act.state.turn.number).count { c ->
         c is Change.ZoneChange && c.moves.any { Meaning.Drew in it.meanings && it.before.owner == player }
     }
-
-    /** Ledger key of a player who drew from an empty library since state-based actions were last checked. */
-    const val EMPTY_DRAW = arcanum.engine.turn.Steps.EMPTY_LIBRARY_DRAW
 
     /** [player] mills [count] (CR 701.17): the top cards into the graveyard as one event. */
     fun mill(act: Act, cause: Cause?, player: PlayerId, count: Int): Map<ObjectId, ObjectId> {
@@ -1043,7 +1053,7 @@ internal object Actions {
         // A mark whose turn is kept (CR 702.143d, 702.170d: a card that became foretold or plotted is castable on later turns)
         if (on && now != on && flag is StatusFlag.Marked) gained(act, id, flag.mark, given)?.let { record ->
             val marked = act.state.objOrThrow(id)
-            act.record(Change.Facts(id, marked.facts, marked.facts.gaining(record)))
+            arcanum.engine.change.Changes.status(act.state, id, arcanum.engine.state.ObjectStatus.MarksGained(emptyList()).key, marked.gaining(record))?.let(act::record)
         }
     }
 

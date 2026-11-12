@@ -1,5 +1,9 @@
 package arcanum.engine.turn
 
+import arcanum.engine.state.withStatus
+import arcanum.engine.state.deathtouchDamage
+import arcanum.engine.state.goadedBy
+import arcanum.engine.state.heldPhasedOut
 import arcanum.api.CounterKind
 import arcanum.api.Duration
 import arcanum.api.Mechanic
@@ -41,10 +45,6 @@ internal object Steps {
         TurnStep.DeclareAttackers, TurnStep.DeclareBlockers, TurnStep.CombatDamage, TurnStep.EndOfCombat,
         TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup,
     )
-
-    /** The player ledger key set when a player had to draw from an empty library; they lose at the next state-based
-     * action check (CR 704.5b), which clears it. */
-    const val EMPTY_LIBRARY_DRAW = "\$drew-from-empty-library"
 
     /** What a step's turn-based actions lead to. */
     private sealed interface Next {
@@ -213,7 +213,7 @@ internal object Steps {
         endEffects(recorder, onlyController = next) { d, _ -> d == Duration.UntilYourNextTurn }
         (passedOver + next).forEach { goader ->
             recorder.state.objects.values.filter { goader in it.goadedBy }.forEach { o ->
-                recorder.record(Change.ObjectUpdated(o, o.copy(goadedBy = o.goadedBy - goader)))
+                recorder.record(Change.ObjectUpdated(o, (o.goadedBy - goader).let { by -> o.withStatus(arcanum.engine.state.ObjectStatus.Goaded(by).key, arcanum.engine.state.ObjectStatus.Goaded(by).takeIf { by.isNotEmpty() }) }))
             }
         }
         endEffects(recorder) { d, you -> d is Duration.UntilStep && d.step == TurnStep.Untap && untilStepMatches(recorder.state, d, you) }
@@ -280,7 +280,7 @@ internal object Steps {
         s.battlefield.toList().forEach { id ->
             val o = s.obj(id) ?: return@forEach
             val controller = o.controller ?: o.owner
-            if (o.phasedOut && controller == active && !o.facts.heldPhasedOut /* mh2 */) {
+            if (o.phasedOut && controller == active && !o.heldPhasedOut /* mh2 */) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, true, false, listOf(Meaning.PhasedIn)))
             } else if (!o.phasedOut && snap.board.controller(id) == active && hasPhasing(snap, id)) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, false, true, listOf(Meaning.PhasedOut)))

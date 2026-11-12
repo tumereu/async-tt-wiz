@@ -19,7 +19,7 @@ object Attention {
         state.priority.holder?.let { return Host.decider(state, it) }
         if (!state.started) return null
         return state.players.firstOrNull { p ->
-            !p.lost && Engine.options(state, p.id).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers }
+            !p.lost && Engine.options(state, p.id, EnginePreferences.of(state)).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers }
         }?.id
     }
 }

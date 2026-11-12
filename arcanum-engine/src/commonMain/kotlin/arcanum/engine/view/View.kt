@@ -29,9 +29,8 @@ data class View(
     /** Cards, tokens and copies of spells, in any zone; abilities on the Stack have no characteristics. */
     val objects: Map<ObjectId, ObjectView>,
     val players: Map<PlayerId, PlayerView>,
-    /** Rules of the game from static abilities and effects with their own scope: replacements, prevention, cost
-     * changes, "triggers an additional time", "damage can't be prevented", effects on the next spells (CR 613.11). */
-    val rules: List<AppliedMechanic>,
+    /** The game as a whole: its statuses and the rules in force. */
+    val game: GameView,
 ) {
     operator fun get(id: ObjectId): ObjectView? = objects[id]
 }
@@ -59,6 +58,9 @@ data class ObjectView(
     /** Its copiable values as a whole (CR 707.2): layout and all faces, printed or copied, before its Room's doors lock
      * anything (CR 709.5). */
     val copiable: arcanum.engine.state.CopiableValues? = null,
+    /** Its statuses ([GameObject.statuses]) with those the view derives: a Class on the battlefield that has gained no level
+     * shows level 1 ([arcanum.engine.state.ObjectStatus.ClassLevel], CR 716.2a). */
+    val statuses: List<arcanum.engine.state.ObjectStatus> = emptyList(),
 ) {
     val name: String? get() = characteristics?.name
     val power: Int? get() = characteristics?.power
@@ -67,9 +69,23 @@ data class ObjectView(
     fun has(mechanic: (Mechanic) -> Boolean): Boolean = mechanics.any { mechanic(it.mechanic) }
 }
 
-/** A player as the view sees it: the rules applied to them (CR 613.10). */
+/** A player as the view sees it: their [life] total, the rules applied to them (CR 613.10) and their statuses
+ * ([arcanum.engine.state.PlayerStatus]: speed, the Ring, dungeons completed, designations). */
 @Serializable
-data class PlayerView(val id: PlayerId, val mechanics: List<AppliedMechanic>)
+data class PlayerView(
+    val id: PlayerId,
+    val life: Int,
+    val mechanics: List<AppliedMechanic>,
+    val statuses: List<arcanum.engine.state.PlayerStatus> = emptyList(),
+)
+
+/**
+ * The game as the view sees it: its [statuses] ([arcanum.engine.state.GameStatus]: day or night) and the [rules] of the game
+ * from static abilities and effects with their own scope: replacements, prevention, cost changes, "triggers an additional
+ * time", "damage can't be prevented", effects on the next spells (CR 613.11).
+ */
+@Serializable
+data class GameView(val statuses: List<arcanum.engine.state.GameStatus>, val rules: List<AppliedMechanic>)
 
 /** A [mechanic] in force, with where it comes from: a static ability ([source], [origin]) or an effect object
  * ([effect]); [controller] is its "you" (CR 109.5) and [names] the names it uses. */

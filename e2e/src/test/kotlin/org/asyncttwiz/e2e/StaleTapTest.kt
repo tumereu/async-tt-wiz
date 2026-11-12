@@ -104,7 +104,7 @@ class StaleTapTest : E2e() {
 
     /** The Altar's activation sacrificing the Martyr, with Alice's own answers, as the table makes it. */
     private fun activation(s: GameState): List<Input> =
-        withAnswers(s, assertNotNull(Engine.options(s, alice.me).filterIsInstance<Input.Activate>().firstOrNull(), "the Altar's ability"))
+        withAnswers(s, assertNotNull(Engine.options(s, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Activate>().firstOrNull(), "the Altar's ability"))
 
     /** [first] with Alice's own answers to what it asks, as the table makes them. */
     private fun withAnswers(s: GameState, first: Input): List<Input> {
@@ -112,10 +112,10 @@ class StaleTapTest : E2e() {
         val inputs = mutableListOf(first)
         var input: Input = first
         repeat(10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != alice.me) return inputs
-            input = Engine.options(copy, alice.me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            input = Engine.options(copy, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input
         }
         return inputs

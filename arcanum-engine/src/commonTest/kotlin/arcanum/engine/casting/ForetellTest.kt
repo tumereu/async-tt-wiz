@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.gained
 import arcanum.api.ObjectMark
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -42,7 +43,7 @@ class ForetellTest {
         val o = state.objOrThrow(card(tidings))
         assertTrue(o.faceDown)
         assertTrue(ObjectMark.Foretold in o.marks)
-        assertEquals(state.turn.number, o.facts.gained(ObjectMark.Foretold)?.turn)
+        assertEquals(state.turn.number, o.gained(ObjectMark.Foretold)?.turn)
         // CR 117.3c: a special action keeps priority
         assertEquals(alice.id, state.priority.holder)
     }

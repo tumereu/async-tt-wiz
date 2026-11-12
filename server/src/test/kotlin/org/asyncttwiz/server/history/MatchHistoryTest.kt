@@ -109,7 +109,7 @@ class MatchHistoryTest {
         val alice = PlayerId(a.account.accountId); val bob = PlayerId(b.account.accountId)
         fun ended(vararg losses: Pair<PlayerId, LossReason>): MatchRecord {
             val state = Engine.newGame(listOf(alice, bob).map { p -> Seat(p, List(7) { DeckCard(CardId("${p.value}.$it"), Cards.definition("Forest")) }) })
-            for ((player, reason) in losses) state.apply(Change.Lost(player, false, true, reason))
+            for ((player, reason) in losses) state.apply(Change.Lost(player, null, reason))
             val facts = EngineGames.MatchFacts.of(state, Engine.result(state)!!, null, null, mapOf(alice.value to 1, bob.value to 0))
             val play = UUID.randomUUID()
             w.sql { MatchRecords.finished(it, m.summary(), play, facts, OffsetDateTime.now(ZoneOffset.UTC)) }

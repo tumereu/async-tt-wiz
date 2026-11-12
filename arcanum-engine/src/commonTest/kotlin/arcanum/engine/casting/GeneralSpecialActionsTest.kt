@@ -95,7 +95,7 @@ class GeneralSpecialActionsTest {
         listOf(FaceDefinition(name, types = types.toList().ifEmpty { listOf(CardType.Artifact) }, abilities = listOf(action)))))
 
     private fun Scenario.actionOf(id: ObjectId): AbilityOrigin = AbilityOrigin.Printed(0, 0).also { printed ->
-        assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().any { it.source == id && it.ability == printed }, "offered")
+        assertTrue(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().any { it.source == id && it.ability == printed }, "offered")
     }
 
     // ---- Turning face up: every way, one path, the table saying what goes
@@ -172,7 +172,7 @@ class GeneralSpecialActionsTest {
         assertTrue(state.objOrThrow(id).faceDown)
         assertFalse(view()[id]!!.characteristics!!.hasKeyword(Keyword.Ward), "turned face down again: no ward")
         // CR 701.40b, 701.58b: and it can't be turned up for its mana cost again
-        assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().none { it.source == id && it.ability == AbilityOrigin.Rule("manifested") })
+        assertTrue(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().none { it.source == id && it.ability == AbilityOrigin.Rule("manifested") })
     }
 
     // The table says which marks go as a permanent is turned face up, and the engine does exactly that: a mark without the rule stays
@@ -273,7 +273,7 @@ class GeneralSpecialActionsTest {
         alice.activates(manifester)
         allPass()
         val manifested = state.battlefield.first { state.objOrThrow(it).faceDown && it != masked }
-        val offered = Engine.options(state, alice.id).filterIsInstance<Input.Activate>().filter { it.ability is AbilityOrigin.Rule }
+        val offered = Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().filter { it.ability is AbilityOrigin.Rule }
         assertEquals(setOf(
             manifested to AbilityOrigin.Rule("manifested"),
             card(room) to AbilityOrigin.Rule("unlock-left"), card(room) to AbilityOrigin.Rule("unlock-right"),
@@ -285,7 +285,7 @@ class GeneralSpecialActionsTest {
             assertEquals(input.ability, SpecialActions.of(snap, input.source).single { it.origin == input.ability }.origin)
         }
         // CR 702.37e, 708.2a: a face-down permanent's card offers its own: its characteristics show no abilities
-        assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().any { it.source == masked && it.ability !is AbilityOrigin.Rule })
+        assertTrue(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().any { it.source == masked && it.ability !is AbilityOrigin.Rule })
     }
 
     // CR 708.7, 116.2j: off the battlefield only a conspiracy in the command zone is turned face up (HiddenAgendaTest): a card elsewhere isn't
@@ -395,7 +395,7 @@ class GeneralSpecialActionsTest {
         val desk = Cards.invent("Quiet Desk", "{0}", "Artifact", "Collect evidence 4: You gain 3 life.")
         alice.battlefield(desk)
         alice.graveyard(one, four)
-        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(desk) })
+        perform(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().single { it.source == card(desk) })
         val choice = decision<Decision.ChooseObjects>()
         assertEquals(1 to null, choice.min to choice.max)
         assertEquals(Total(NumericProperty.ManaValue, Value.Fixed(4)), choice.total)
@@ -412,7 +412,7 @@ class GeneralSpecialActionsTest {
     fun crewCarriesItsTotal() = scenario {
         val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
         alice.battlefield(skiff, one, two)
-        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        perform(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
         val choice = decision<Decision.ChooseObjects>()
         assertEquals(Total(NumericProperty.PowerFor(Keyword.Crew.Kind), Value.Fixed(2)), choice.total)
         assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(one)))) }
@@ -431,7 +431,7 @@ class GeneralSpecialActionsTest {
         val skiff = Cards.invent("Quiet Skiff", "{0}", "Artifact — Vehicle", "Crew 2", "3/3")
         alice.battlefield(skiff, eager)
         expect { eager.power shouldBe 1 }
-        perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
+        perform(Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
         assertTrue(CastScreen.selection(state, listOf(TargetRef.Object(card(eager)))).done)
         answer(Answer.Objects(listOf(card(eager))))
         assertTrue(state.objOrThrow(card(eager)).tapped)
@@ -490,7 +490,7 @@ class GeneralSpecialActionsTest {
         answer(Answer.YesNo(true))
         val choice = decision<Decision.ChooseObjects>()
         val all = setOf(card(one), card(three))
-        assertEquals(all, Engine.options(state, alice.id).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen.toSet() }.single())
+        assertEquals(all, Engine.options(state, alice.id, prefs).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen.toSet() }.single())
         assertFailsWith<IllegalArgumentException> { answer(Answer.Objects(listOf(card(three)))) }
         assertEquals(choice, pending)
         answer(Answer.Objects(listOf(card(three), card(one))))
@@ -508,7 +508,7 @@ class GeneralSpecialActionsTest {
         alice.graveyard(one, two, two, four)
         toTheChoice()
         answer(Answer.YesNo(true))
-        val listed = Engine.options(state, alice.id).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen }
+        val listed = Engine.options(state, alice.id, prefs).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Objects).chosen }
         assertTrue(listed.isNotEmpty())
         val mv = mapOf(card(one) to 1, card(four) to 4).withDefault { 2 }
         assertTrue(listed.all { answer -> answer.sumOf { mv.getValue(it) } >= 4 }, "$listed")

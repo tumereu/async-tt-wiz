@@ -176,6 +176,10 @@ data class Choices(
     val paying: Paying? = null,
     /** Assist (CR 702.132a): the player chosen to help pay, how much of the generic mana they pay and with what. */
     val assist: Assisting? = null,
+    /** An ability's: the id its Stack item gets (CR 602.2a: it is created on the Stack as it is announced). */
+    val item: String? = null,
+    /** A spell's: the zone its card was cast from (CR 601.2a), before the card moved to the Stack. */
+    val from: arcanum.api.Zone? = null,
 )
 
 /** Assist (CR 702.132a): [player] chosen to help pay (null: nobody), the [amount] of generic mana they pay (once they chose), and

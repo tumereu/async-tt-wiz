@@ -60,7 +60,7 @@ class ViewRulesTest {
     fun replacementsAreGameRules() = scenario {
         alice.battlefield("Nutcracker, Squirrel Marshal")
         expect {
-            val rule = view.rules.single { it.mechanic is Mechanic.Replacement }
+            val rule = view.game.rules.single { it.mechanic is Mechanic.Replacement }
             rule.source shouldBe card("Nutcracker, Squirrel Marshal").id
             rule.controller shouldBe alice.id
         }

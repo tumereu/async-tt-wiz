@@ -44,11 +44,11 @@ class ExtraTurnScenarioTest {
         val inputs = mutableListOf(input)
         var next = input
         while (true) {
-            Engine.perform(copy, next).changes.forEach(copy::apply)
+            Engine.perform(copy, next, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != a) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-                else Engine.options(copy, a).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else Engine.options(copy, a, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
     }
@@ -72,7 +72,7 @@ class ExtraTurnScenarioTest {
         assertIs<GameDevice.Acted.Sent>(alice.send(listOf(Input.PlayLand(a, named(alice.device.model.engine, "Mountain")))))
         sim.flush(f.a)
         val s = alice.device.model.engine
-        val stride = assertNotNull(Engine.options(s, a).filterIsInstance<Input.Cast>().firstOrNull {
+        val stride = assertNotNull(Engine.options(s, a, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull {
             s.obj(it.card)?.definition?.faces?.first()?.name == "Ember Stride" })
         assertIs<GameDevice.Acted.Sent>(alice.send(cast(s, stride)))
         sim.flush(f.a)

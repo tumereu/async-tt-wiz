@@ -1,5 +1,7 @@
 package arcanum.engine.view
 
+import arcanum.engine.state.withStatus
+import arcanum.engine.state.fixedCopies
 import arcanum.engine.change.Change
 import arcanum.engine.change.Recorder
 
@@ -16,7 +18,7 @@ internal object StaticCopies {
         state.battlefield.forEach { id ->
             val now = copiable.fixedCopiesNow(id) ?: return@forEach
             val o = state.objOrThrow(id)
-            if (now != o.fixedCopies) recorder.record(Change.ObjectUpdated(o, o.copy(fixedCopies = now)))
+            if (now != o.fixedCopies) recorder.record(Change.ObjectUpdated(o, o.withStatus(arcanum.engine.state.ObjectStatus.FixedCopies(now).key, arcanum.engine.state.ObjectStatus.FixedCopies(now).takeIf { now.isNotEmpty() })))
         }
     }
 }

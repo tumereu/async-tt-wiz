@@ -106,7 +106,8 @@ internal fun Scenario.speedOf(player: arcanum.engine.scenario.ScenarioPlayer): I
 
 /** [player]'s speed becomes [speed] (CR 702.179). */
 internal fun Scenario.setSpeed(player: arcanum.engine.scenario.ScenarioPlayer, speed: Int) =
-    change(arcanum.engine.change.Change.Ledger(player.id, arcanum.engine.turn.Speed.KEY, speedOf(player), speed))
+    change(arcanum.engine.change.Change.PlayerStatusChanged(player.id, speedOf(player).takeIf { it > 0 }?.let { arcanum.engine.state.PlayerStatus.Speed(it) },
+        speed.takeIf { it > 0 }?.let { arcanum.engine.state.PlayerStatus.Speed(it) }))
 
 /** [player] activates the [ability]th activated ability of the [index]th card named [name] (from 0, in setup order): for two cards of one
  * name in different zones. */

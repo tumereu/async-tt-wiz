@@ -45,8 +45,9 @@ internal object LibraryPlaces {
     private fun set(recorder: Recorder, player: PlayerId, update: (Map<ObjectId, Int>) -> Map<ObjectId, Int>) {
         val p = recorder.state.player(player)
         val library = p.library.toSet()
-        val after = update(p.libraryPlaces).filterKeys { it in library }
-        if (after != p.libraryPlaces) recorder.append(Change.LibraryPlaces(player, p.libraryPlaces, after))
+        val before = recorder.state.libraryPlaces(player)
+        val after = update(before).filterKeys { it in library }
+        if (after != before) recorder.append(Change.LibraryPlaces(player, before, after))
     }
 
     /**
@@ -56,10 +57,11 @@ internal object LibraryPlaces {
      */
     fun unknownParts(state: GameState, player: PlayerId, lookable: Set<ObjectId>): List<List<ObjectId>> {
         val p = state.player(player)
+        val places = state.libraryPlaces(player)
         val parts = linkedMapOf<Int, MutableList<ObjectId>>()
         for (id in p.library) {
             if (id in lookable) continue
-            val place = p.libraryPlaces[id]
+            val place = places[id]
             if (place == KNOWN) continue
             parts.getOrPut(place ?: -1) { mutableListOf() } += id
         }

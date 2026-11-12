@@ -1,7 +1,7 @@
 package org.asyncttwiz.server.game
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.engine.Engine
-import arcanum.engine.change.Changes
 import arcanum.engine.input.Input
 import arcanum.engine.setup.Seat
 import arcanum.engine.setup.StartOptions
@@ -147,7 +147,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
                     p.id -> org.asyncttwiz.protocol.SuggestedResult.WIN
                     else -> org.asyncttwiz.protocol.SuggestedResult.LOSS
                 } }
-                val reasons = engine.players.mapNotNull { p -> p.lossReason?.let { p.id.value to it } }.toMap()
+                val reasons = engine.players.mapNotNull { p -> p.loss?.let { p.id.value to it } }.toMap()
                 val ending = when {
                     conceded != null -> org.asyncttwiz.protocol.MatchEnding.Conceded(conceded.value)
                     agreement != null -> org.asyncttwiz.protocol.MatchEnding.Agreed(agreement.second)
@@ -236,14 +236,13 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
 
     /**
      * Starts [play]'s engine history from [seats] (account ids as players): the state before the game is the root's
-     * checkpoint (every player's "Skip when I have no choice" off in the shared state, I-D56 §13; the game's random
+     * checkpoint (every player's "Skip when I have no choice" off in the shared engine, [EnginePreferences], I-D56 §13; the game's random
      * secret in its table state, §9), and the first event, by [author], starts it ([Input.StartGame] with mulligans in
      * any order and line 0's random answers). Both players' local heads are at it.
      */
     fun start(sql: DSLContext, play: UUID, seats: List<Seat>, starter: PlayerId?, author: UUID, live: (UUID) -> Boolean): Outcome {
         any = true
         val engine = Engine.newGame(seats)
-        for (p in engine.players) engine.apply(Changes.skipWhenNoChoice(engine, p.id, false))
         val initial = GameModel(engine, TableState(secret = LineRandom.secret(secret())))
         val rootId = UUID.randomUUID()
         val store = EngineHistoryStore.create(sql, play, rootId, GameDefinitions.of(initial.engine), initial)
@@ -614,7 +613,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
 
     /** Each player's mulligans taken in the opening (CR 103.5), from the engine's log of this and last turn. */
     private fun loggedMulligans(engine: arcanum.engine.state.GameState): Map<String, Int> = engine.players.associate { p ->
-        p.id.value to (engine.log.mapNotNull { ((it.change as? arcanum.engine.change.Change.Happened)?.event as?
+        p.id.value to (arcanum.engine.Inspect.events(engine).mapNotNull { ((it.change as? arcanum.engine.change.Change.Happened)?.event as?
             arcanum.engine.change.GameEvent.Mulliganed)?.takeIf { m -> m.player == p.id }?.count }.maxOrNull() ?: 0)
     }
 
@@ -722,7 +721,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             d != null && s.turn.number == 0 -> "keep"
             d != null -> "choice"
             org.asyncttwiz.protocol.game.Stops.stop(s, player) -> "stop"
-            Engine.options(s, player).any { it is Input.DeclareBlockers } -> "blocks"
+            Engine.options(s, player, EnginePreferences.of(s)).any { it is Input.DeclareBlockers } -> "blocks"
             org.asyncttwiz.protocol.game.Stops.pause(s, player) -> "pause"
             else -> "priority"
         }

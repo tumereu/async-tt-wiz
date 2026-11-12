@@ -1,5 +1,10 @@
 package arcanum.engine.mutate
 
+import arcanum.engine.state.withStatus
+import arcanum.engine.state.castOrNone
+import arcanum.engine.state.copyOfCard
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.mergedBelow
 import arcanum.api.CardType
 import arcanum.api.Keyword
 import arcanum.api.ObjectFilter
@@ -42,7 +47,7 @@ internal object Mutate {
         ObjectFilter.OwnedBy(PlayerFilter.Is(Players.OwnerOf(Objects.Self)))))), min = Value.Fixed(1), max = Value.Fixed(1))
 
     /** A mutating creature spell (CR 702.140a): cast for its mutate cost, on the Stack. */
-    fun mutating(o: GameObject): Boolean = o.zone == Zone.Stack && o.facts.alternative?.keyword == Keyword.Mutate.Kind
+    fun mutating(o: GameObject): Boolean = o.zone == Zone.Stack && o.castOrNone.alternative?.keyword == Keyword.Mutate.Kind
 
     /**
      * CR 702.140b, c: as the mutating creature spell [card] resolves, if its target is legal it merges with it (its controller choosing
@@ -62,8 +67,9 @@ internal object Mutate {
         val part = MergedPart(spell.id, spell.owner, spell.definition, spell.face, spell.token, spell.copyOfCard, act.state.nextTimestamp())
         // CR 730.2b: it leaves the Stack and becomes part of the permanent, which hasn't entered
         act.record(Change.Removed(listOf(Placed(spell, act.state.stack.indexOf(spell.id))), listOf(Meaning.Merged)))
-        act.record(Change.ObjectUpdated(now, if (onTop) now.copy(mergedAbove = listOf(part) + now.mergedAbove, faceDown = false)
-            else now.copy(mergedBelow = now.mergedBelow + part)))
+        val merged = if (onTop) arcanum.engine.state.ObjectStatus.Merged(listOf(part) + now.mergedAbove, now.mergedBelow)
+            else arcanum.engine.state.ObjectStatus.Merged(now.mergedAbove, now.mergedBelow + part)
+        act.record(Change.ObjectUpdated(now, now.withStatus(merged.key, merged).let { if (onTop) it.copy(faceDown = false) else it }))
         act.record(Change.Happened(GameEvent.Mutated(now.id, spell.id, onTop)))
         return true
     }

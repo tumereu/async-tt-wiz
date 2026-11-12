@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.KeywordKind
 import arcanum.api.PlayKind
 import arcanum.api.Zone
@@ -91,15 +92,15 @@ internal object Casting {
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
         // is known as its costs are determined (CR 601.2b, f)
         recorder.state.objOrThrow(onStack).let { moved ->
-            recorder.record(Change.Facts(onStack, moved.facts, moved.facts.copy(castFrom = o.zone, fused = way.fused)))
+            arcanum.engine.change.Changes.cast(recorder.state, onStack, moved.castOrNone.copy(castFrom = o.zone, fused = way.fused))?.let(recorder::record)
         }
-        var names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))
+        var names = Bindings.EMPTY
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
         // gtc: a fused split spell is both halves, left then right (CR 702.102d): as its two "modes", both chosen
         if (way.fused) names = names.with(Plan.MODES_ASKED, NamedValue.Number(1))
         val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay,
             alternativeAsCast = alternative?.second), AnnounceStage.Modes,
-            Choices(names = names, modes = if (way.fused) listOf(0, 1) else emptyList()))
+            Choices(names = names, modes = if (way.fused) listOf(0, 1) else emptyList(), from = o.zone))
         return advance(recorder, c, start)
     }
 
@@ -110,7 +111,7 @@ internal object Casting {
         // CR 602.2a: the ability is created on the Stack (its item is added once its costs are paid)
         val id = "a${recorder.state.nextTimestamp()}.${recorder.state.stack.size}"
         val c = Continuation.Announcing(input.player, Announced.Ability(input.source, input.ability, instance.ability),
-            AnnounceStage.Modes, Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
+            AnnounceStage.Modes, Choices(item = id))
         return advance(recorder, c, from)
     }
 
@@ -206,13 +207,13 @@ internal object Casting {
         if (face != now.face) act.record(Change.Face(onStack, now.face, face))
         // As for a cast with priority: from here on it is a spell cast from where its card was (CR 601.2a), so an
         // alternative cost for "a spell you cast from exile" still applies as its costs are determined (CR 601.2b, f)
-        act.record(Change.Facts(onStack, now.facts, now.facts.copy(castFrom = o.zone)))
+        arcanum.engine.change.Changes.cast(act.state, onStack, now.castOrNone.copy(castFrom = o.zone))?.let(act::record)
         // fin: "mana of any type can be spent to cast that spell" (CR 609.4b)
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
             holder = arcanum.api.PlayerFilter.You, manaAsAnyColor = manaAsAnyType)
         var asked = false
         var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face, alternative = alternative), terms, byEffect = true), AnnounceStage.Modes,
-            Choices(names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))))
+            Choices(from = o.zone))
         while (true) {
             val plan = Plan(act.state, c)
             val q = plan.next()

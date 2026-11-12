@@ -80,9 +80,9 @@ class SkipWhenNoChoiceTest {
         bob.battlefield("Island")
         bob.hand("Denial")
         aliceSparksBob()
-        assertTrue(Engine.options(state, bob.id).any { it is Input.Activate }, "his Island's mana ability is listed")
-        assertEquals(on, Host.shouldPassFor(state, bob.id), "on=$on")
-        assertFalse(Host.shouldPassFor(state, alice.id), "only the holder is passed for")
+        assertTrue(Engine.options(state, bob.id, prefs).any { it is Input.Activate }, "his Island's mana ability is listed")
+        assertEquals(on, Host.shouldPassFor(state, bob.id, prefs), "on=$on")
+        assertFalse(Host.shouldPassFor(state, alice.id, prefs), "only the holder is passed for")
     }
 
     /** [Host.passCheck] answers [Host.shouldPassFor] as set and with bob's own setting on, from one search: the
@@ -94,14 +94,11 @@ class SkipWhenNoChoiceTest {
         bob.battlefield("Island")
         bob.hand("Denial")
         aliceSparksBob()
-        val check = Host.passCheck(state, bob.id)
-        assertEquals(Host.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on")
-        val skip = Changes.skipWhenNoChoice(state, bob.id, true)
-        state.apply(skip)
-        val withSkip = Host.shouldPassFor(state, bob.id)
-        state.revert(skip)
+        val check = Host.passCheck(state, bob.id, prefs)
+        assertEquals(Host.shouldPassFor(state, bob.id, prefs), check.asSet, "as set, on=$on")
+        val withSkip = Host.shouldPassFor(state, bob.id, arcanum.engine.Preferences(prefs.noSkipWhenNoChoice - bob.id))
         assertEquals(withSkip, check.ownSkipOn, "own skip on, on=$on")
-        assertEquals(arcanum.engine.PassCheck.NONE, Host.passCheck(state, alice.id), "only the holder")
+        assertEquals(arcanum.engine.PassCheck.NONE, Host.passCheck(state, alice.id, prefs), "only the holder")
     }
 
     /** With an empty hand nothing hidden decides: priority is passed for bob whatever his setting. */
@@ -111,7 +108,7 @@ class SkipWhenNoChoiceTest {
         bob.skipWhenNoChoice = on
         bob.battlefield("Island")
         aliceSparksBob()
-        assertTrue(Host.shouldPassFor(state, bob.id))
+        assertTrue(Host.shouldPassFor(state, bob.id, prefs))
     }
 
     /** A face-down permanent is a card only its controller sees (CR 708.5): off, bob passes himself. */
@@ -121,7 +118,7 @@ class SkipWhenNoChoiceTest {
         bob.skipWhenNoChoice = on
         bob.battlefield("Undead Soothsayer", faceDown = true)
         aliceSparksBob()
-        assertEquals(on, Host.shouldPassFor(state, bob.id), "on=$on")
+        assertEquals(on, Host.shouldPassFor(state, bob.id, prefs), "on=$on")
     }
 
     /** A host passes for each player while [Host.shouldPassFor] says so: on, the spell resolves at once although bob
@@ -135,7 +132,7 @@ class SkipWhenNoChoiceTest {
             alice.battlefield("Mountain")
             alice.hand("Storm Spark")
             alice.casts("Storm Spark", target = "bob")
-            while (state.stack.isNotEmpty() && pending == null && state.priority.holder?.let { Host.shouldPassFor(state, it) } == true) passPriority()
+            while (state.stack.isNotEmpty() && pending == null && state.priority.holder?.let { Host.shouldPassFor(state, it, prefs) } == true) passPriority()
             if (on) {
                 expect { bob.life shouldBe 17 }
             } else {
@@ -166,9 +163,9 @@ class SkipWhenNoChoiceTest {
             assertFalse(may.payable)
             (pending as? Decision.May)?.let { d ->
                 val no = Input.Answer(d.id, Answer.YesNo(false))
-                assertEquals(listOf(no), Engine.options(state, alice.id))
-                assertEquals(listOf(no), Engine.options(state, bob.id))
-                assertFailsWith<IllegalArgumentException> { Engine.perform(state, Input.Answer(d.id, Answer.YesNo(true))) }
+                assertEquals(listOf(no), Engine.options(state, alice.id, prefs))
+                assertEquals(listOf(no), Engine.options(state, bob.id, prefs))
+                assertFailsWith<IllegalArgumentException> { Engine.perform(state, Input.Answer(d.id, Answer.YesNo(true)), prefs) }
             }
             alice.answers(Answer.YesNo(false))
         }
@@ -227,7 +224,7 @@ class SkipWhenNoChoiceTest {
             val choice = pending as? Decision.ChooseObjects ?: fail("Expected the choice to be asked: $pending")
             assertEquals(Triple(emptyList(), 0, 0), Triple(choice.options, choice.min, choice.max))
             (pending as? Decision.ChooseObjects)?.let { d ->
-                assertEquals(listOf<Input>(Input.Answer(d.id, Answer.Objects(emptyList()))), Engine.options(state, alice.id))
+                assertEquals(listOf<Input>(Input.Answer(d.id, Answer.Objects(emptyList()))), Engine.options(state, alice.id, prefs))
             }
             alice.answers(Answer.Objects(emptyList()))
         }
@@ -314,12 +311,12 @@ class SkipWhenNoChoiceTest {
 
     // ---- The setting in the state
 
-    /** A host turns the setting off mid-game with a change of its own, which reverts (D59). */
-    // I-D18, D59
+    /** A host turns the setting off mid-game: the inputs after it are performed with it off. */
+    // I-D18
     @Test
     fun aHostChangesTheSetting() = scenario {
         alice.hand("Gemstone Charm", "Storm Spark")
-        change(Changes.skipWhenNoChoice(state, alice.id, false))
+        alice.skipWhenNoChoice = false
         assertFalse(alice.skipWhenNoChoice)
         alice.casts("Gemstone Charm")
         allPass()
@@ -327,19 +324,17 @@ class SkipWhenNoChoiceTest {
         alice.answers(Answer.YesNo(false))
     }
 
-    /** The setting, its change and an asked cost go through JSON unchanged; on, the default, isn't written. */
+    /** The setting (the preferences a host passes) and an asked cost go through JSON unchanged; on, the default, isn't written. */
     // I-D18, D58
     @Test
     fun theSettingGoesThroughJson() = scenario {
         bob.skipWhenNoChoice = false
         alice.hand("Gemstone Charm", "Storm Spark")
         alice.skipWhenNoChoice = false
-        val json = Json.encodeToString(GameState.serializer(), state)
-        assertEquals(state, Json.decodeFromString(GameState.serializer(), json))
-        assertEquals(2, Regex("\"skipWhenNoChoice\":false").findAll(json).count())
-        assertFalse("skipWhenNoChoice\":true" in json)
-        val change: Change = Changes.skipWhenNoChoice(state, bob.id, true)
-        assertEquals(change, Json.decodeFromString(Change.serializer(), Json.encodeToString(Change.serializer(), change)))
+        val json = Json.encodeToString(arcanum.engine.Preferences.serializer(), prefs)
+        assertEquals(prefs, Json.decodeFromString(arcanum.engine.Preferences.serializer(), json))
+        assertEquals(setOf(alice.id, bob.id), prefs.noSkipWhenNoChoice)
+        assertEquals("{}", Json.encodeToString(arcanum.engine.Preferences.serializer(), arcanum.engine.Preferences()))
         alice.casts("Gemstone Charm")
         allPass()
         val restored = Json.decodeFromString(GameState.serializer(), Json.encodeToString(GameState.serializer(), state))

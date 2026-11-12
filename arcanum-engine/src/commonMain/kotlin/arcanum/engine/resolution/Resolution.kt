@@ -1,5 +1,6 @@
 package arcanum.engine.resolution
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Instructions
@@ -164,8 +165,8 @@ internal object Resolution {
         val origin = item.origin ?: return
         val o = item.source?.let { act.state.obj(it) } ?: return
         val key = arcanum.engine.trigger.Triggers.actionKey(origin, item.controller)
-        act.record(Change.Facts(o.id, o.facts, o.facts.copy(
-            activations = arcanum.engine.casting.Legality.counted(o.facts.activations, key, act.state.turn.number))))
+        act.record(arcanum.engine.change.Changes.uses(act.state, o.id, o.uses.copy(
+            activations = arcanum.engine.casting.Legality.counted(o.uses.activations, key, act.state.turn.number))))
     }
 
     /**
@@ -223,11 +224,11 @@ internal object Resolution {
             val o = act.state.obj(source) ?: return@let
             val turn = act.state.turn.number
             val key = origin.key
-            val count = (o.facts.resolutions.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
-            val resolutions = o.facts.resolutions.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
-            act.record(Change.Facts(source, o.facts, o.facts.copy(resolutions = resolutions)))
+            val count = (o.uses.resolutions.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
+            val resolutions = o.uses.resolutions.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
+            act.record(arcanum.engine.change.Changes.uses(act.state, source, o.uses.copy(resolutions = resolutions)))
             names = names.with(Evaluator.USES_RESOLVED, NamedValue.Number(count))
-            val activated = o.facts.activations.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0
+            val activated = o.uses.activations.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0
             names = names.with(Evaluator.USES_ACTIVATED, NamedValue.Number(activated))
         }
         return names
@@ -242,7 +243,7 @@ internal object Resolution {
         if (item.kind == StackItemKind.Spell || item.kind is StackItemKind.SpellCopy) {
             val types = act.view()[item.id]?.characteristics?.types.orEmpty()
             if (types.none { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }) return false
-            val facts = item.facts ?: act.state.obj(item.id)?.facts ?: return false
+            val facts = item.cast ?: act.state.obj(item.id)?.cast ?: return false
             return facts.paid.any { it.keyword == arcanum.api.Keyword.Gift.Kind && it.times > 0 }
         }
         val origin = item.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return false
@@ -275,7 +276,7 @@ internal object Resolution {
         finishLeaving(act, item, fizzled)
         resolvedNames.forEach { name ->
             val key = arcanum.engine.query.Evaluator.resolvedKey(name)
-            val before = act.state.player(item.controller).ledger[key] ?: 0
+            val before = act.state.ledgers[item.controller]?.get(key) ?: 0
             act.record(Change.Ledger(item.controller, key, before, before + 1))
         }
     }
@@ -305,7 +306,7 @@ internal object Resolution {
                 val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
                 act.record(Change.StackItemRemoved(item, act.state.stack.indexOf(item.id), listOf(meaning)))
                 Actions.createTokens(act, causeOf(item), values, 1, item.controller, attachTo = attachTo,
-                    fromSpellCopy = item.facts ?: arcanum.engine.state.ObjectFacts())
+                    fromSpellCopy = item.cast)
                 return
             }
         }
@@ -321,7 +322,7 @@ internal object Resolution {
             if (arcanum.engine.mutate.Mutate.mutating(card) && arcanum.engine.mutate.Mutate.resolve(act, item, card)) return
             val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
             // msh: sneak (CR 702.190b): tapped and attacking what the returned creature attacked
-            val sneaked = card.facts.alternative?.keyword == arcanum.api.Keyword.Sneak.Kind
+            val sneaked = card.castOrNone.alternative?.keyword == arcanum.api.Keyword.Sneak.Kind
             val attacking = if (!sneaked) null else (item.names[arcanum.api.KeywordExpansions.SNEAK_RETURNED] as? NamedValue.Objects)?.ids
                 ?.let { returned -> arcanum.engine.combat.Combat.lastTarget(act.state, returned) }
                 ?: act.state.opponents(item.controller).firstOrNull()?.let { TargetRef.Player(it) }.takeIf { sneaked }
@@ -367,7 +368,7 @@ internal object Resolution {
         // fin: CR 724.1b: the spell that ended the turn is exiled as it leaves
         if (act.state.turn.endingTurn) return Zone.Exile
         val o = act.state.obj(item.id) ?: return Zone.Graveyard
-        val from = o.facts.castFrom ?: return Zone.Graveyard
+        val from = o.castOrNone.castFrom ?: return Zone.Graveyard
         val permissions = act.view()[item.id]?.characteristics?.abilities.orEmpty()
             .flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.MayPlay>()
         val permission = permissions.firstOrNull { it.from == from && it.then != null } ?: return Zone.Graveyard

@@ -49,7 +49,7 @@ class SameDecisionRulesTest {
         game.tick(2_000)
         if (land) {
             val s = game.device.model.engine
-            val mountain = assertNotNull(Engine.options(s, alice).filterIsInstance<Input.PlayLand>().firstOrNull(), "a Mountain in hand")
+            val mountain = assertNotNull(Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.PlayLand>().firstOrNull(), "a Mountain in hand")
             assertIs<GameDevice.Acted.Sent>(game.send(listOf(mountain)))
         }
         val shown = assertNotNull(game.shown)
@@ -60,16 +60,16 @@ class SameDecisionRulesTest {
 
     /** Spark's cast with Alice's own answers (its first target, the suggested payment), as the cast panel makes it. */
     private fun spark(s: GameState): List<Input> {
-        val cast = assertNotNull(Engine.options(s, alice).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
+        val cast = assertNotNull(Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
         val copy = s.deepCopy()
         val inputs = mutableListOf<Input>(cast)
         var input: Input = cast
         repeat(10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != alice) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-            else Engine.options(copy, alice).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
+            else Engine.options(copy, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
                 .first()
             inputs += input
         }
@@ -87,7 +87,7 @@ class SameDecisionRulesTest {
         assertFalse(GameDevice.sameEndTurn(s, s.deepCopy().also { it.setup.turn = it.turn.copy(number = it.turn.number + 1, active = bob) }, alice),
             "Bob's turn")
         assertFalse(GameDevice.sameEndTurn(s, combat, bob), "not Bob's own turn")
-        val cast = s.deepCopy().also { c -> for (input in spark(s)) Engine.perform(c, input).changes.forEach(c::apply) }
+        val cast = s.deepCopy().also { c -> for (input in spark(s)) Engine.perform(c, input, org.asyncttwiz.protocol.game.EnginePreferences.of(c)).changes.forEach(c::apply) }
         assertTrue(cast.stack.isNotEmpty(), "Storm Spark on the Stack")
         assertTrue(GameDevice.sameEndTurn(s, cast, alice), "her own spell")
         val theirs = cast.deepCopy().also { c -> c.setup.stackItems.replaceAll { _, item -> item.copy(controller = bob) } }
@@ -141,13 +141,13 @@ class SameDecisionRulesTest {
                 if (g.device.status != GameDevice.Status.YourMove && g.device.status !is GameDevice.Status.Stopped) continue
                 val m = g.device.model.engine
                 val me = g.device.me
-                val land = Engine.options(m, me).filterIsInstance<Input.PlayLand>().firstOrNull()
+                val land = Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).filterIsInstance<Input.PlayLand>().firstOrNull()
                 when {
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain && land != null &&
                         (m.turn.landsPlayed[me] ?: 0) == 0 -> g.send(listOf(land))
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain -> g.endTurn()
                     m.priority.holder == me -> g.pass()
-                    Engine.options(m, me).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
+                    Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
                 }
             }
         }

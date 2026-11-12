@@ -273,6 +273,24 @@ class Mh2MulticoloredScenariosTest {
         kotlin.test.assertTrue(p.unmaking !in d.options && d.options.size == 5, "${d.options}")
     }
 
+    /** The engine asks the host for the named card, which it has no card of its own for, of the copy's owner; the copy, in exile,
+     * is a copy of the card the host gives, not a card. */
+    // CR 707.12, 704.5e
+    @Test
+    fun gorvanHalfEyeAsksTheHostForTheNamedCard() = scenario {
+        alice.battlefield("Plains", "Plains", "Forest", s.gorvanHalfEye)
+        bob.battlefield(p.trinket)
+        alice.activates(s.gorvanHalfEye)
+        playOut(p.trinket, options = listOf(p.unmaking))
+        val asked = applied.filterIsInstance<arcanum.engine.change.Change.PendingSet>().mapNotNull { it.after?.decision as? Decision.NamedCard }
+        kotlin.test.assertEquals(listOf(p.unmaking), asked.map { it.name })
+        kotlin.test.assertEquals(alice.id, asked.single().player)
+        val made = applied.filterIsInstance<arcanum.engine.change.Change.Created>().flatMap { it.objects }.map { it.obj }
+            .single { it.definition.faces.first().name == p.unmaking }
+        kotlin.test.assertEquals(arcanum.api.Zone.Exile, made.zone)
+        kotlin.test.assertEquals(listOf<arcanum.engine.state.ObjectStatus>(arcanum.engine.state.ObjectStatus.CopyOfCard), made.statuses)
+    }
+
     // ---- Chunk 12
 
     /** A red spell costs {1} less. */

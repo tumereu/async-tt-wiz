@@ -38,7 +38,12 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
 }
 
 /** A state and its view, worked out once for a step of a flow. */
-internal class Snapshot(val state: GameState, private val viewOf: () -> View = { Layers.view(state) }) {
+internal class Snapshot(
+    val state: GameState,
+    /** The players' preferences trial inputs are performed with ([arcanum.engine.Engine.options]). */
+    val prefs: arcanum.engine.Preferences = arcanum.engine.Preferences(),
+    private val viewOf: () -> View = { Layers.view(state) },
+) {
     val view: View by lazy { viewOf() }
     val board: ViewBoard by lazy { ViewBoard(state, view) }
 
@@ -54,7 +59,7 @@ internal class Snapshot(val state: GameState, private val viewOf: () -> View = {
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = board.controller(id), zone = o.zone,
             characteristics = view[id]?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
-            token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
+            token = o.token, attachedTo = o.attachedTo, cast = o.cast, linked = o.linked, statuses = arcanum.engine.state.snapshotStatuses(o),
             attacking = state.combat?.attackers.orEmpty().any { it.id == id },
         )
     }

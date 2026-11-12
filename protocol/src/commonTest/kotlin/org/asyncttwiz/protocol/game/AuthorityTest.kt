@@ -1,5 +1,8 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.protocol.game
 
+import arcanum.engine.state.setup
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.Host
@@ -310,7 +313,7 @@ class AuthorityTest {
         server.act(bob, Input.PassPriority(bob)).getOrThrow()
         assertEquals(2, server.history.store.node(server.head)!!.event.startsLine)
         assertEquals(bottom, server.state().engine.player(bob).library.last())
-        val places = server.state().engine.player(bob).let { p -> p.libraryPlaces.filterKeys { it in p.library } }
+        val places = server.state().engine.let { s -> s.setup.libraryPlaces(bob).filterKeys { it in s.player(bob).library } }
         assertEquals(mapOf<ObjectId, Int>(bottom to 0), places)
         // Once Alice confirmed Bob's assumption, undoing past it is a request too
         server.seen(alice, server.head)
@@ -377,7 +380,7 @@ class AuthorityTest {
             while (events < 120 && Engine.result(server.state().engine) == null) {
                 val state = server.state().engine
                 val me = Attention.of(state) ?: break
-                val listed = Engine.options(state, me).filter { it !is Input.Concede && Authority.mayMake(state, it, me) }
+                val listed = Engine.options(state, me, org.asyncttwiz.protocol.game.EnginePreferences.of(state)).filter { it !is Input.Concede && Authority.mayMake(state, it, me) }
                 val input = listed.randomOrNull(rnd) ?: break
                 server.act(me, input).getOrThrow()
                 server.heads.keys.toList().forEach { server.seen(it, server.head) }
@@ -464,7 +467,7 @@ class AuthorityTest {
         val bob = server.bob
         val head = server.head
         val mountain = hand(server.state(), bob, "Mountain")
-        assertTrue(Engine.options(server.state().engine, bob).none { it is Input.PlayLand }, "not offered")
+        assertTrue(Engine.options(server.state().engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(server.state().engine)).none { it is Input.PlayLand }, "not offered")
         val refused = server.submit(Submission("second-land", head, listOf(Act.Perform(Input.PlayLand(bob, mountain)))), bob)
             .exceptionOrNull()
         assertIs<Refusal>(refused)

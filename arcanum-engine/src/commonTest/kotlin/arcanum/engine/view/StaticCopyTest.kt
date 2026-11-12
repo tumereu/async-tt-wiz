@@ -1,5 +1,6 @@
 package arcanum.engine.view
 
+import arcanum.engine.state.fixedCopies
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Mechanic

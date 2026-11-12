@@ -1,5 +1,6 @@
 package arcanum.engine.mana
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Color
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
@@ -191,7 +192,7 @@ class ManaTest {
         alice.hand("Haven Warden")
         Cards.definition("Haven Warden")
         alice.casts("Haven Warden")
-        val spent = state.objOrThrow(card("Haven Warden")).facts.manaSpent
+        val spent = state.objOrThrow(card("Haven Warden")).castOrNone.manaSpent
         assertEquals(2, spent.sumOf { it.amount })
     }
 

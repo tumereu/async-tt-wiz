@@ -26,7 +26,7 @@ class UndoRuleTest {
         while (true) {
             val s = model.engine
             if (s.pending == null && s.priority.holder == s.turn.active && s.battlefield.size >= 2)
-                Engine.options(s, s.turn.active).filterIsInstance<Input.PlayLand>().firstOrNull()?.let { return it }
+                Engine.options(s, s.turn.active, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.PlayLand>().firstOrNull()?.let { return it }
             parent = games.next(model, parent).id
         }
     }
@@ -76,7 +76,7 @@ class UndoRuleTest {
         // ... but a table-only event before it is free to go: no engine input reads the table
         val obj = model.engine.battlefield.last()
         val placing = event { table(stage(obj)) }
-        val any = model.engine.players.flatMap { Engine.options(model.engine, it.id) }.first { it !is Input.Concede }
+        val any = model.engine.players.flatMap { Engine.options(model.engine, it.id, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)) }.first { it !is Input.Concede }
         val pass2 = event { perform(any) }
         assertNull(UndoRule.blocking(placing, listOf(pass2)))
     }

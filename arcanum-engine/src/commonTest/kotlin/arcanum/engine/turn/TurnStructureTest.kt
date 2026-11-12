@@ -201,7 +201,7 @@ class TurnStructureTest {
     // CR 101.4, 500.1: a player who lost takes no turns
     @Test
     fun lostPlayersAreSkipped() = scenario(players = 3) {
-        state.updatePlayer(bob.id) { it.copy(lost = true) }
+        state.updatePlayer(bob.id) { it.copy(loss = arcanum.engine.setup.LossReason.Conceded) }
         advanceTo(TurnStep.Upkeep, turn = 2)
         assertEquals(carol.id, state.turn.active)
     }
@@ -209,7 +209,7 @@ class TurnStructureTest {
     // CR 117.3d: priority skips a player who lost; all remaining players passing ends the step
     @Test
     fun priorityGoesAroundThePlayersStillIn() = scenario(players = 3) {
-        state.updatePlayer(bob.id) { it.copy(lost = true) }
+        state.updatePlayer(bob.id) { it.copy(loss = arcanum.engine.setup.LossReason.Conceded) }
         alice.passes()
         assertEquals(carol.id, state.priority.holder)
         carol.passes()

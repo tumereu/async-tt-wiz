@@ -63,7 +63,7 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
         val d = state.pending?.decision
         check(d !is Decision.NamedCard) { "no card is named here: $d" }
         if (state.turn.number == 0 && d == null) return Input.StartGame()
-        val listed = state.players.flatMap { Engine.options(state, it.id) }.distinct().filter { it !is Input.Concede }
+        val listed = state.players.flatMap { Engine.options(state, it.id, org.asyncttwiz.protocol.game.EnginePreferences.of(state)) }.distinct().filter { it !is Input.Concede }
         check(listed.isNotEmpty()) { "stuck at ${d ?: state.turn}" }
         if (d != null) return listed.random(rnd)
         val doing = listed.filterNot { it is Input.PassPriority || (it is Input.DeclareAttackers && it.attacks.isEmpty()) ||

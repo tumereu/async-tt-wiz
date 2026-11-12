@@ -101,8 +101,7 @@ internal object TestEngineState {
         fun byTimestamp(zone: Zone) = objects.values.filter { it.zone == zone }.sortedWith(order).map { it.id }
         val players = board.players.map { p ->
             PlayerState(id = PlayerId(p.accountId), life = p.life.toInt(), library = ordered(PlayZone.LIBRARY, p.accountId),
-                hand = ordered(PlayZone.HAND, p.accountId), graveyard = ordered(PlayZone.GRAVEYARD, p.accountId),
-                skipWhenNoChoice = p.skipWhenNoChoice)
+                hand = ordered(PlayZone.HAND, p.accountId), graveyard = ordered(PlayZone.GRAVEYARD, p.accountId))
         }
         val position = TurnPosition.of(board.turn)!!
         val number = board.turn.number.toInt()

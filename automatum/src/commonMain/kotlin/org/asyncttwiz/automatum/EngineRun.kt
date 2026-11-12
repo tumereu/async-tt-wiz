@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.engine.Engine
 import arcanum.engine.Outcome
 import arcanum.engine.Pending
@@ -105,7 +106,7 @@ class EngineRun(
     }
 
     /** The engine's outcome of [input] on [working], nothing applied yet. */
-    private fun performed(input: Input): Outcome = Engine.perform(working, input)
+    private fun performed(input: Input): Outcome = Engine.perform(working, input, EnginePreferences.of(working))
 
     private fun run(input: Input) {
         val outcome = performed(input)

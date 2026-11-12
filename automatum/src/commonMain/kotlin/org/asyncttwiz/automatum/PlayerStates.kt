@@ -3,10 +3,10 @@ package org.asyncttwiz.automatum
 import arcanum.api.CounterKind
 import arcanum.api.Designation
 import arcanum.api.RulesGlossary
-import arcanum.engine.Inspect
 import arcanum.engine.state.GameState
+import arcanum.engine.state.GameStatus
 import arcanum.engine.state.PlayerId
-import arcanum.engine.view.DayOrNight
+import arcanum.engine.state.PlayerStatus
 
 /** One state of a player or the game as its chip reads it ("Monarch", "Ring 2/4"), with what it means ([explanation], null
  * for a counter the rules give no meaning of its own), for a hold, and the [glyph] its round chip shows (TRN-072). */
@@ -42,19 +42,31 @@ object PlayerStates {
     fun of(state: GameState, account: String): List<StateChip> {
         val id = PlayerId(account)
         val player = state.players.firstOrNull { it.id == id } ?: return emptyList()
+        // The player's statuses (the same values their view has, [arcanum.engine.view.PlayerView.statuses])
+        // Designations in the order TRN-072 lists them: Monarch, Initiative, City's blessing, Enduring story
+        val designations = arrayOfNulls<StateChip>(4)
+        var speed: StateChip? = null
+        var ring: StateChip? = null
+        var dungeons: StateChip? = null
+        for (status in player.statuses) when (status) {
+            is PlayerStatus.Designated -> when (status.designation) {
+                Designation.Monarch -> designations[0] = chip("Monarch", "monarch", "M")
+                Designation.Initiative -> designations[1] = chip("Initiative", "initiative", "I")
+                Designation.CitysBlessing -> designations[2] = chip("City's blessing", "citys-blessing", "C")
+                Designation.EnduringStory -> designations[3] = chip("Enduring story", "enduring-story", "St")
+            }
+            is PlayerStatus.Speed -> speed = status.value.takeIf { it > 0 }?.let { chip("Speed $it", "speed", "S$it") }
+            is PlayerStatus.RingTempted -> ring = status.times.takeIf { it > 0 }?.coerceAtMost(RING_LEVELS)?.let { level ->
+                chip("Ring $level/$RING_LEVELS", "the-ring", "R$level") }
+            is PlayerStatus.DungeonsCompleted -> dungeons = status.count.takeIf { it > 0 }?.let { chip("Dungeons $it", "dungeons-completed", "D$it") }
+        }
         val chips = buildList {
-            for (designation in player.designations) add(when (designation) {
-                Designation.Monarch -> chip("Monarch", "monarch", "M")
-                Designation.Initiative -> chip("Initiative", "initiative", "I")
-                Designation.CitysBlessing -> chip("City's blessing", "citys-blessing", "C")
-                Designation.EnduringStory -> chip("Enduring story", "enduring-story", "St")
-            })
-            Inspect.speed(state, id).takeIf { it > 0 }?.let { add(chip("Speed $it", "speed", "S$it")) }
-            Inspect.ringTemptations(state, id).takeIf { it > 0 }?.coerceAtMost(RING_LEVELS)?.let { level ->
-                add(chip("Ring $level/$RING_LEVELS", "the-ring", "R$level")) }
+            designations.forEach { it?.let(::add) }
+            speed?.let(::add)
+            ring?.let(::add)
             val taken = mapNotNullTo(HashSet()) { (it.glyph as? StateGlyph.Letters)?.text?.takeWhile(Char::isLetter) }
             for (entry in player.counters) if (entry.count != 0) add(counter(entry.kind, entry.count, taken))
-            Inspect.dungeonsCompleted(state, id).takeIf { it > 0 }?.let { add(chip("Dungeons $it", "dungeons-completed", "D$it")) }
+            dungeons?.let(::add)
             state.turn.extraTurns.count { it == id }.takeIf { it > 0 }?.let {
                 add(chip(if (it == 1) "Extra turn" else "Extra turns $it", "extra-turn", if (it == 1) "+T" else "+${it}T")) }
             state.turn.skippedTurns.count { it == id }.takeIf { it > 0 }?.let {
@@ -64,10 +76,13 @@ object PlayerStates {
     }
 
     /** TRN-073: "Day" or "Night" (CR 731), null while it is neither. */
-    fun dayOrNight(state: GameState): StateChip? = when (Inspect.dayOrNight(state)) {
-        DayOrNight.Day -> StateChip("Day", RulesGlossary.state("day"), StateGlyph.Day)
-        DayOrNight.Night -> StateChip("Night", RulesGlossary.state("night"), StateGlyph.Night)
-        null -> null
+    fun dayOrNight(state: GameState): StateChip? {
+        var chip: StateChip? = null
+        for (status in state.statuses) when (status) {
+            is GameStatus.DayNight -> chip = if (status.night) StateChip("Night", RulesGlossary.state("night"), StateGlyph.Night)
+                else StateChip("Day", RulesGlossary.state("day"), StateGlyph.Day)
+        }
+        return chip
     }
 
     private fun chip(label: String, id: String, letters: String) = StateChip(label, RulesGlossary.state(id), StateGlyph.Letters(letters))

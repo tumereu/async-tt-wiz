@@ -64,13 +64,13 @@ class EngineCastAnimationTest {
         val hand = game.read { d -> d.model.engine.player(me).hand.toList() }
         assertTrue(hand.any { game.act(Input.PlayLand(me, it)).let { a -> a is GameDevice.Acted.Sent || a == GameDevice.Acted.Made } })
         val s = game.read { it.model.engine.deepCopy() }
-        val cast = Engine.options(s, me).filterIsInstance<Input.Cast>().first { c ->
+        val cast = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().first { c ->
             s.objects[c.card]?.definition?.faces?.firstOrNull()?.name == "Ember Herald" }
         val inputs = mutableListOf<Input>(cast)
         val copy = s.deepCopy()
         var input: Input = cast
         while (true) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion)) else break
             inputs += input
@@ -157,9 +157,9 @@ class EngineCastAnimationTest {
         assertTrue(hand.any { game.act(Input.PlayLand(me, it)).let { a -> a is GameDevice.Acted.Sent || a == GameDevice.Acted.Made } })
         published.clear()
         val s = game.read { it.model.engine.deepCopy() }
-        val cast = Engine.options(s, me).filterIsInstance<Input.Cast>().first { c ->
+        val cast = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().first { c ->
             s.objects[c.card]?.definition?.faces?.firstOrNull()?.name == "Ember Herald" }
-        val d = s.deepCopy().also { Engine.perform(it, cast).changes.forEach(it::apply) }.pending?.decision as Decision.ManaPayment
+        val d = s.deepCopy().also { Engine.perform(it, cast, org.asyncttwiz.protocol.game.EnginePreferences.of(it)).changes.forEach(it::apply) }.pending?.decision as Decision.ManaPayment
         game.send(listOf(cast, Input.Answer(d.id, Answer.ManaPayment(d.suggestion))))
         assertEquals(2, published.size, "the cast at once, then its outcome: ${published.map { it.status }}")
         assertEquals(GameDevice.Status.YourMove, published.first().status, "the cast's own board keeps the panels as they were")

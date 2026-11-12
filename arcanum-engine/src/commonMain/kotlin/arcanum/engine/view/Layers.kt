@@ -822,6 +822,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                 id = o.id, owner = o.owner, controller = controller, zone = o.zone,
                 characteristics = board.work[o.id]?.chars, mechanics = objectMechanics[o.id].orEmpty(),
                 summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id], copiable = copiable.values(o.id),
+                statuses = viewStatuses(o),
             )
         }
         state.stackItems.values.filter { it.kind is StackItemKind.SpellCopy }.forEach { item ->
@@ -831,8 +832,15 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                 summoningSick = false, obj = null, base = initial[item.id], copiable = copiable.values(item.id),
             )
         }
-        val players = state.players.associate { it.id to PlayerView(it.id, playerMechanics[it.id].orEmpty()) }
-        return View(objects, players, rules)
+        val players = state.players.associate { it.id to PlayerView(it.id, it.life, playerMechanics[it.id].orEmpty(), it.statuses) }
+        return View(objects, players, GameView(state.statuses, rules))
+    }
+
+    /** [o]'s statuses with those the view derives: level 1 for a Class on the battlefield that has gained none (CR 716.2a). */
+    private fun viewStatuses(o: arcanum.engine.state.GameObject): List<arcanum.engine.state.ObjectStatus> {
+        if (o.zone != Zone.Battlefield || o.statuses.any { it is arcanum.engine.state.ObjectStatus.ClassLevel } ||
+            arcanum.api.Subtype("Class") !in o.definition.faces.getOrNull(o.face)?.subtypes.orEmpty()) return o.statuses
+        return (o.statuses + arcanum.engine.state.ObjectStatus.ClassLevel(1)).sortedBy { it.key }
     }
 
     /** The objects a rule applies to; a permission "any player may …" ([arcanum.api.Players.Holder]) to the cards each

@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.engine.Engine
 import arcanum.engine.Pending
 import arcanum.engine.decision.Answer
@@ -75,7 +76,7 @@ object StepFlow {
     fun answer(call: EngineRun, answer: Answer): Pending? {
         val open = requireNotNull(call.working.pending?.decision) { "No decision is open" }
         // Checked first, so a refusal leaves the call as it was
-        Engine.perform(call.working, Input.Answer(open.id, answer))
+        Engine.perform(call.working, Input.Answer(open.id, answer), EnginePreferences.of(call.working))
         return call.perform(Input.Answer(open.id, answer))
     }
 

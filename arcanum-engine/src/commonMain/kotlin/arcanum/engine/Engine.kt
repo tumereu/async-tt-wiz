@@ -27,12 +27,15 @@ object Engine {
      * players, and the game rules in force (P3). A pure function of [state]. */
     fun view(state: GameState): View = Layers.view(state)
 
-    /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
-    fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
+    /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. [prefs]: the players'
+     * preferences, the same on every host that performs for them. */
+    fun options(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): List<Input> =
+        Options.of(state, player, prefs = prefs)
 
     /** [options] with [view], [state]'s view ([Engine.view] of [state] as it is now) when the caller already has it: the same
      * list without working the layers out again for the search. A view of another state gives wrong results. */
-    fun options(state: GameState, player: PlayerId, view: View?): List<Input> = Options.of(state, player, view)
+    fun options(state: GameState, player: PlayerId, view: View?, prefs: Preferences = Preferences()): List<Input> =
+        Options.of(state, player, view, prefs)
 
     /**
      * Performs [input] on a copy of [state] and returns what changed, up to the next decision (D58): after every input
@@ -42,19 +45,21 @@ object Engine {
      * ([arcanum.engine.decision.LoopStop.Cap]) instead of hanging: continue, or end the game as a draw (CR 104.4b).
      *
      * [trace] gets one [TraceEntry] for the call (the input, what it did or why it was refused, how long it took) for a
-     * host's logs and bug reports; the default records nothing and costs nothing.
+     * host's logs and bug reports; the default records nothing and costs nothing. [prefs]: the players' preferences, which must
+     * be the same on every host that performs for them (the device, the other players' devices, a server).
      *
      * The [Outcome] carries the view of the state after its changes when the engine has it ([Outcome.view]).
      */
-    fun perform(state: GameState, input: Input, trace: EngineTrace = EngineTrace.None): Outcome = Perform.run(state, input, trace = trace)
+    fun perform(state: GameState, input: Input, prefs: Preferences = Preferences(), trace: EngineTrace = EngineTrace.None): Outcome =
+        Perform.run(state, input, prefs, trace = trace)
 
     /**
      * [perform] with [view], [state]'s view ([Engine.view] of [state] as it is now) when the caller already has it, so the engine
      * doesn't work it out again (null: worked out when needed, as [perform]). The same outcome; a view of another state
      * gives wrong results.
      */
-    fun perform(state: GameState, input: Input, view: View?, trace: EngineTrace = EngineTrace.None): Outcome =
-        Perform.run(state, input, view = view, trace = trace)
+    fun perform(state: GameState, input: Input, view: View?, prefs: Preferences = Preferences(), trace: EngineTrace = EngineTrace.None): Outcome =
+        Perform.run(state, input, prefs, view, trace)
 
     /**
      * A game before it begins (CR 103): [seats] in seat order with their decks as libraries in the order given and their
@@ -83,6 +88,25 @@ data class Outcome(val changes: List<Change>, val pending: Pending?) {
     @kotlinx.serialization.Transient
     var view: View? = null
         internal set
+}
+
+/**
+ * The players' preferences that change what the engine asks or passes for them, given to [Engine.options], [Engine.perform] and
+ * [Host]'s pass checks. A host must give the same preferences on every host that performs for the same players (a device, the
+ * other players' devices, a server), so that each works the game out the same way.
+ */
+@Serializable
+data class Preferences(
+    /**
+     * The players who turned "Skip when I have no choice" off (I-D18; on by default): for them, a question that leaves nothing to
+     * choose, or a pass, that depends on cards only they may see (their hand, face-down cards) is asked instead of skipped, so
+     * how fast the game goes on tells the other players nothing about those cards. Skips that depend on nothing hidden stay
+     * automatic either way (P5).
+     */
+    val noSkipWhenNoChoice: Set<PlayerId> = emptySet(),
+) {
+    /** Whether the engine skips [player]'s questions that leave nothing to choose ("Skip when I have no choice" on). */
+    fun skipsWhenNoChoice(player: PlayerId): Boolean = player !in noSkipWhenNoChoice
 }
 
 /** [Host.passCheck]: whether a host passes priority for a player with the deciding player's "Skip when I have no

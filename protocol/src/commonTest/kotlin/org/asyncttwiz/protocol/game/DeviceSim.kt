@@ -163,7 +163,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         for (event in server.line()) {
             for ((i, step) in event.engine?.steps.orEmpty().withIndex()) {
                 val input = step.input
-                val changes = if (input == null) step.changes else try { Engine.perform(state, input).changes }
+                val changes = if (input == null) step.changes else try { Engine.perform(state, input, org.asyncttwiz.protocol.game.EnginePreferences.of(state)).changes }
                     catch (e: RuntimeException) { out += "${event.id} step $i refused: ${e.message}"; return out }
                 if (changes != step.changes) { out += "${event.id} step $i made differently"; return out }
                 changes.forEach(state::apply)
@@ -315,7 +315,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     /** [p]'s keep, or the first answer listed for [p]'s open decision. */
     fun keep(p: PlayerId): Input {
         val s = device(p).model.engine
-        return Engine.options(s, p).first { it is Input.SetupAnswer && it.answer == Answer.Option("Keep") ||
+        return Engine.options(s, p, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).first { it is Input.SetupAnswer && it.answer == Answer.Option("Keep") ||
             it is Input.Answer && it.answer == Answer.Option("Keep") }
     }
 
@@ -323,6 +323,6 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     fun flow(player: PlayerId, rnd: Random): (GameModel) -> Input? = { model ->
         val d = model.engine.pending?.decision
         if (d == null || d is Decision.Random || Host.decider(model.engine, d.player) != player) null
-        else Engine.options(model.engine, player).filterIsInstance<Input.Answer>().randomOrNull(rnd)
+        else Engine.options(model.engine, player, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)).filterIsInstance<Input.Answer>().randomOrNull(rnd)
     }
 }

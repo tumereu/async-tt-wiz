@@ -69,13 +69,13 @@ class SameBoardRuleTest {
                 if (g.device.status != GameDevice.Status.YourMove && g.device.status !is GameDevice.Status.Stopped) continue
                 val m = g.device.model.engine
                 val me = g.device.me
-                val land = Engine.options(m, me).filterIsInstance<Input.PlayLand>().firstOrNull()
+                val land = Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).filterIsInstance<Input.PlayLand>().firstOrNull()
                 when {
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain && land != null &&
                         (m.turn.landsPlayed[me] ?: 0) == 0 -> g.send(listOf(land))
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain -> g.endTurn()
                     m.priority.holder == me -> g.pass()
-                    Engine.options(m, me).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
+                    Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
                 }
             }
         }
@@ -86,16 +86,16 @@ class SameBoardRuleTest {
 
     /** A Storm Spark cast by [player] with their own answers (the first target, the suggested payment). */
     private fun spark(s: GameState, player: PlayerId): List<Input> {
-        val cast = assertNotNull(Engine.options(s, player).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
+        val cast = assertNotNull(Engine.options(s, player, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
         val copy = s.deepCopy()
         val inputs = mutableListOf<Input>(cast)
         var input: Input = cast
         repeat(10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != player) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-            else Engine.options(copy, player).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            else Engine.options(copy, player, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input
         }
         return inputs

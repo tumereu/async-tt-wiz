@@ -74,12 +74,12 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
         val inputs = mutableListOf(input)
         var next = input
         while (true) {
-            Engine.perform(copy, next).changes.forEach(copy::apply)
+            Engine.perform(copy, next, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != me) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else if (d is Decision.Targets && target != null) Input.Answer(d.id, Answer.Targets(listOf(target)))
-                else choose(d)?.let { Input.Answer(d.id, it) } ?: Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else choose(d)?.let { Input.Answer(d.id, it) } ?: Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
     }
@@ -94,7 +94,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
                 if (game.device.status != GameDevice.Status.YourMove && game.device.status !is GameDevice.Status.Stopped) continue
                 val s = game.device.model.engine
                 val me = game.device.me
-                val options = Engine.options(s, me)
+                val options = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s))
                 when {
                     options.any { it is Input.DeclareAttackers } -> if (me == this.me && done(s)) return
                         else game.send(listOf(Input.DeclareAttackers(me, emptyList())))

@@ -109,13 +109,13 @@ class CoreLoopTest : E2e() {
         assertEquals("To combat", alice.stepArrow())
         alice.tap("To combat")
         waitUntil("Alice declaring attackers", along = listOf(bob)) {
-            Engine.options(alice.state, alice.me).any { it is Input.DeclareAttackers }
+            Engine.options(alice.state, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(alice.state)).any { it is Input.DeclareAttackers }
         }
         assertEquals(TurnStep.DeclareAttackers, alice.state.turn.step)
         assertEquals("No attack", alice.stepArrow())
         alice.tap("No attack")
         waitUntil("the attack declared", along = listOf(bob)) {
-            alice.state.turn.step != TurnStep.DeclareAttackers || Engine.options(alice.state, alice.me).none { it is Input.DeclareAttackers }
+            alice.state.turn.step != TurnStep.DeclareAttackers || Engine.options(alice.state, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(alice.state)).none { it is Input.DeclareAttackers }
         }
         assertFalse(alice.refusalSeen, "no refusal")
     }

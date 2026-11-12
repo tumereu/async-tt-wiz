@@ -38,12 +38,15 @@ internal sealed interface Progress {
 internal object Perform {
     /** [view], when given, is [state]'s view (worked out once by a caller that performs several inputs on it). [trace]
      * gets one entry for the call ([EngineTrace]); with [EngineTrace.None] nothing is timed or made. */
-    fun run(state: GameState, input: Input, view: arcanum.engine.view.View? = null, trace: EngineTrace = EngineTrace.None): Outcome {
-        if (trace === EngineTrace.None) return untraced(state, input, view) { }
+    fun run(
+        state: GameState, input: Input, prefs: Preferences = Preferences(), view: arcanum.engine.view.View? = null,
+        trace: EngineTrace = EngineTrace.None,
+    ): Outcome {
+        if (trace === EngineTrace.None) return untraced(state, input, view, prefs) { }
         val mark = TimeSource.Monotonic.markNow()
         var recorder: Recorder? = null
         val outcome = try {
-            untraced(state, input, view) { recorder = it }
+            untraced(state, input, view, prefs) { recorder = it }
         } catch (refused: Throwable) {
             trace.record(TraceEntry.Refused(input, refused.message.orEmpty().take(MAX_REASON), refused::class.simpleName ?: "Throwable",
                 mark.elapsedNow().inWholeMicroseconds))
@@ -56,11 +59,13 @@ internal object Perform {
         return outcome
     }
 
-    private inline fun untraced(state: GameState, input: Input, view: arcanum.engine.view.View?, made: (Recorder) -> Unit): Outcome {
+    private inline fun untraced(
+        state: GameState, input: Input, view: arcanum.engine.view.View?, prefs: Preferences, made: (Recorder) -> Unit,
+    ): Outcome {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
-        if (input is Input.Concede) return GameEnd.concede(state, input)
-        if (input is Input.AgreedResult) return GameEnd.agree(state, input)
-        val recorder = Recorder(state.deepCopy(), view).also(made)
+        if (input is Input.Concede) return GameEnd.concede(state, input, prefs)
+        if (input is Input.AgreedResult) return GameEnd.agree(state, input, prefs)
+        val recorder = Recorder(state.deepCopy(), view, prefs).also(made)
         // The working copy's view, when kept to the end, is the view of the state after the changes (Outcome.view)
         return runOn(recorder, input).also { it.view = recorder.state.viewCache?.view }
     }

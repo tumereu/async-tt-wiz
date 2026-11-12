@@ -58,19 +58,19 @@ internal object Conspiracies {
     private fun chooseNames(act: Act, player: PlayerId, id: ObjectId) {
         val count = agendas(act.state.obj(id))
         val first = act.chooseCardName(player, id, ObjectFilter.Any)
-        act.record(Change.Memory(id, CHOSEN_NAME, act.state.objOrThrow(id).memory[CHOSEN_NAME], NamedValue.Name(first)))
+        act.record(Change.Memory(id, CHOSEN_NAME, act.state.objOrThrow(id).linked[CHOSEN_NAME], NamedValue.Name(first)))
         if (count < 2) return
         var second = act.chooseCardName(player, id, ObjectFilter.Any)
         // CR 702.106f: two different names
         if (second == first) second = act.chooseCardName(player, id, ObjectFilter.Not(ObjectFilter.Named(first)))
-        act.record(Change.Memory(id, SECOND_NAME, act.state.objOrThrow(id).memory[SECOND_NAME], NamedValue.Name(second)))
+        act.record(Change.Memory(id, SECOND_NAME, act.state.objOrThrow(id).linked[SECOND_NAME], NamedValue.Name(second)))
     }
 
     /** CR 702.106c: [id] was turned face up, revealing its chosen name(s): asked of its owner when none was chosen yet. */
     fun revealed(act: Act, id: ObjectId) {
         val o = act.state.obj(id) ?: return
         if (o.zone != Zone.Command || agendas(o) == 0) return
-        if (o.memory[CHOSEN_NAME] == null) chooseNames(act, o.owner, id)
+        if (o.linked[CHOSEN_NAME] == null) chooseNames(act, o.owner, id)
         act.record(Change.Happened(GameEvent.Revealed(o.owner, listOf(id))))
     }
 }

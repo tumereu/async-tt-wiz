@@ -168,7 +168,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun flow(player: PlayerId, choose: (Decision, List<Input.Answer>) -> Input.Answer? = { _, a -> a.firstOrNull() }): (GameModel) -> Input? = { model ->
         val d = model.engine.pending?.decision
         if (d == null || d is Decision.Random || Host.decider(model.engine, d.player) != player) null
-        else choose(d, Engine.options(model.engine, player).filterIsInstance<Input.Answer>())
+        else choose(d, Engine.options(model.engine, player, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)).filterIsInstance<Input.Answer>())
     }
 
     /** Plays the opening: [starter] keeps, then assumes the other player's keep (I-D56 §3, kind 3). */
@@ -183,10 +183,6 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     companion object {
         /** The game before it starts: every player's "Skip when I have no choice" off in the shared state (I-D56 §13),
          * the game's secret in the table state. */
-        fun initial(games: EngineGames): GameModel {
-            val model = games.model()
-            for (p in model.engine.players) model.engine.apply(arcanum.engine.change.Changes.skipWhenNoChoice(model.engine, p.id, false))
-            return model
-        }
+        fun initial(games: EngineGames): GameModel = games.model()
     }
 }

@@ -70,7 +70,7 @@ class EngineHistoryShownTest {
     }
 
     private fun playLand(sim: EngineAppSim, game: EngineGame): ObjectId {
-        val land = assertNotNull(Engine.options(game.device.model.engine, PlayerId(game.me)).filterIsInstance<Input.PlayLand>().firstOrNull())
+        val land = assertNotNull(Engine.options(game.device.model.engine, PlayerId(game.me), org.asyncttwiz.protocol.game.EnginePreferences.of(game.device.model.engine)).filterIsInstance<Input.PlayLand>().firstOrNull())
         assertIs<GameDevice.Acted.Sent>(game.send(listOf(land)))
         sim.flush(game.me)
         return land.card

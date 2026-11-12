@@ -1,5 +1,7 @@
 package arcanum.engine.foretell
 
+import arcanum.engine.state.gained
+import arcanum.engine.state.prepareSpellOf
 import arcanum.api.Cost
 import arcanum.api.HasCost
 import arcanum.api.Keyword
@@ -37,7 +39,7 @@ internal object MarkCasts {
         state: GameState, controllerOf: (ObjectId) -> PlayerId?, abilitiesOf: (ObjectId) -> List<arcanum.api.Ability> = { emptyList() },
     ): Map<ObjectId, List<AppliedMechanic>> = state.exile.mapNotNull { id ->
         val o = state.obj(id) ?: return@mapNotNull null
-        val own = o.marks.flatMap { mark -> o.facts.gained(mark).let { ownPermissions(state, o, MarkRules.of(mark), it?.turn, it?.costs.orEmpty(), abilitiesOf(id)) } }
+        val own = o.marks.flatMap { mark -> o.gained(mark).let { ownPermissions(state, o, MarkRules.of(mark), it?.turn, it?.costs.orEmpty(), abilitiesOf(id)) } }
         val all = copyPermission(state, o, controllerOf) + own
         if (all.isEmpty()) null else id to all
     }.toMap()

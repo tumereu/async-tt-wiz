@@ -1,5 +1,6 @@
 package arcanum.engine.resolution
 
+import arcanum.engine.state.goadedBy
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardDefinition
@@ -385,10 +386,10 @@ class HandWrittenEffectsTest {
 
         alice.activatesWithoutCosts(rememberIt, target = "Elvish Seer")
         resolve()
-        assertEquals(NamedValue.Objects(listOf(card("Elvish Seer"))), state.objOrThrow(card(rememberIt)).memory["kept"])
+        assertEquals(NamedValue.Objects(listOf(card("Elvish Seer"))), state.objOrThrow(card(rememberIt)).linked["kept"])
         alice.activatesWithoutCosts(rememberIt, ability = 1)
         resolve()
-        assertEquals(null, state.objOrThrow(card(rememberIt)).memory["kept"])
+        assertEquals(null, state.objOrThrow(card(rememberIt)).linked["kept"])
     }
 
     // CR 500.8: the added phases come directly after this one, then the turn goes on where it was

@@ -1,5 +1,6 @@
 package arcanum.engine.mutate
 
+import arcanum.engine.state.mergedAbove
 import arcanum.engine.change.Change
 import arcanum.api.Ability
 import arcanum.api.Keyword

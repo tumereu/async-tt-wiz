@@ -54,7 +54,7 @@ class GameDeviceTest {
         val cast = device(bob).act(Input.Cast(bob, hand(device(bob).model, bob, spell))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().let { answers ->
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().let { answers ->
                 if (d is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
             }
         }
@@ -246,7 +246,7 @@ class GameDeviceTest {
         assertIs<Input.PassPriority>(stop.assumed)
         val cast = device.act(Input.Cast(alice, hand(device.model, alice, glimmer))) { m ->
             m.engine.pending?.decision?.takeIf { it.player == alice && it !is Decision.Random }?.let { open ->
-                Engine.options(m.engine, alice).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                Engine.options(m.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
         }
         assertIs<GameDevice.Acted.Sent>(cast)
         assertTrue(!device.session.behind, "the discarded line is gone from her device")
@@ -512,7 +512,7 @@ class GameDeviceTest {
         sim.settle()
         while (bobs.status == GameDevice.Status.YourMove && bobs.model.engine.pending != null) {
             val d = bobs.model.engine.pending!!.decision
-            bobs.act(Engine.options(bobs.model.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == d.id })
+            bobs.act(Engine.options(bobs.model.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(bobs.model.engine)).filterIsInstance<Input.Answer>().first { it.decision == d.id })
             sim.settle()
         }
         val undo = bobs.undo(beforeCast)
@@ -904,7 +904,7 @@ class GameDeviceTest {
             assertIs<GameDevice.Acted.Sent>(d.act(Input.PlayLand(p, hand(d.model, p, "Forest"))))
             assertIs<GameDevice.Acted.Sent>(d.act(Input.Cast(p, hand(d.model, p, "Elvish Seer")), follow = { m ->
                 m.engine.pending?.decision?.takeIf { it.player == p && it !is Decision.Random }?.let { open ->
-                    Engine.options(m.engine, p).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                    Engine.options(m.engine, p, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
             }))
             settle()
             d.endTurn(now)
@@ -1210,7 +1210,7 @@ class GameDeviceTest {
         assertEquals(GameDevice.Status.YourMove, bobs.status)
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Elvish Seer")), follow = { m ->
             m.engine.pending?.decision?.takeIf { it.player == bob && it !is Decision.Random }?.let { open ->
-                Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
         }))
         sim.settle()
         val m = bobs.model.engine

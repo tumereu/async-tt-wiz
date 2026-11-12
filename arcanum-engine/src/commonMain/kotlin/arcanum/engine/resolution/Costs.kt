@@ -236,7 +236,7 @@ internal object Costs {
                     val value = NamedValue.Objects(moved.values.toList())
                     val entering = scope.entering
                     if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(key, value))
-                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.memory[key], value)) } }
+                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.linked[key], value)) } }
                 }
             }
             is CostPart.ReturnToHand -> {

@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
@@ -144,7 +145,7 @@ object PreAnswers {
                 Answer.Division(early.shares.map { Share(ids.target(it.target), it.amount) })
             else -> return null
         }
-        return answer.takeIf { runCatching { Engine.perform(state, Input.Answer(decision.id, it)) }.isSuccess }
+        return answer.takeIf { runCatching { Engine.perform(state, Input.Answer(decision.id, it), EnginePreferences.of(state)) }.isSuccess }
     }
 
     /** The early answer to the decision open in [call]'s state that the engine takes, if any (#8: one given while the

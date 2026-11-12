@@ -219,7 +219,7 @@ class ComputedBoard private constructor(
         val state = state ?: return emptyMap()
         return cardIds.filter { it in cards }.mapNotNull { card ->
             val o = objectOf(card)?.let { state.obj(it) } ?: return@mapNotNull null
-            CardStates.lines(state, o, viewer, names).takeIf { it.isNotEmpty() }?.let { card to it }
+            CardStates.lines(state, o, view?.get(o.id)?.statuses ?: o.statuses, viewer, names).takeIf { it.isNotEmpty() }?.let { card to it }
         }.toMap()
     }
 
@@ -332,13 +332,13 @@ class ComputedBoard private constructor(
                     counters = shownCounters(card.typedCounters),
                     primary = primaryCounter(chars, shownCounters(card.typedCounters)),
                     keywords = chars.keywords.map(Keyword::text),
-                    states = o.obj?.let { CardStates.words(state, it) }.orEmpty(),
+                    states = o.obj?.let { CardStates.words(it, o.statuses) }.orEmpty(),
                 )
             }
             val exile = board.containers.filter { it.zone == PlayZone.EXILE }.flatMap { it.cards }.toSet()
             val exileStates = board.cards.filter { it.id in exile }.mapNotNull { card ->
                 val o = state.obj(ObjectId.Card(ids.engine(card.id), card.zoneChanges)) ?: return@mapNotNull null
-                if (o.marks.isEmpty()) null else CardStates.words(state, o).takeIf { it.isNotEmpty() }?.let { card.id to it }
+                if (o.marks.isEmpty()) null else CardStates.words(o, view[o.id]?.statuses ?: o.statuses).takeIf { it.isNotEmpty() }?.let { card.id to it }
             }.toMap()
             return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates)
         }

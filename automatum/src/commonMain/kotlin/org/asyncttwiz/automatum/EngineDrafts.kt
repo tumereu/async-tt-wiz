@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.Mechanic
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
@@ -45,7 +46,7 @@ object EngineDrafts {
         val table = model.table
         val me = PlayerId(viewer)
         val out = mutableListOf<TableChange>()
-        val options = runCatching { Engine.options(s, s.turn.active) + s.players.filter { it.id != s.turn.active }.flatMap { Engine.options(s, it.id) } }
+        val options = runCatching { Engine.options(s, s.turn.active, EnginePreferences.of(s)) + s.players.filter { it.id != s.turn.active }.flatMap { Engine.options(s, it.id, EnginePreferences.of(s)) } }
             .getOrDefault(emptyList())
         val (lanes, blocks) = CombatFlow.lanes(staged.combat)
         if (options.any { it is Input.DeclareAttackers }) {

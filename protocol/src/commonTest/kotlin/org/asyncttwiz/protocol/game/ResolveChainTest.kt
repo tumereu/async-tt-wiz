@@ -33,7 +33,7 @@ class ResolveChainTest {
     private fun first(player: PlayerId): (GameModel) -> Input? = { m ->
         val d = m.engine.pending?.decision
         if (d == null || d is Decision.Random || d.player != player) null
-        else Engine.options(m.engine, player).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+        else Engine.options(m.engine, player, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
     }
 
     private fun inputOf(e: GameEvent): Input? = e.engine?.steps?.firstNotNullOfOrNull { it.input }
@@ -61,7 +61,7 @@ class ResolveChainTest {
             a.advance(sim.now)
         }
         a.settings(PlaySettings(mode = mode))
-        val activate = Engine.options(a.model.engine, alice).filterIsInstance<Input.Activate>().single()
+        val activate = Engine.options(a.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(a.model.engine)).filterIsInstance<Input.Activate>().single()
         assertIs<GameDevice.Acted.Sent>(a.act(activate, follow = first(alice)))
         a.advance(sim.now)
         assertEquals(2, a.model.engine.stack.size, "her trigger above her ability")

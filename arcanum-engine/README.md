@@ -33,15 +33,18 @@ CombatDeclarations.blockCosts(state, blocks[, view]): List<CombatCost>   // the 
 Inspect.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Inspect.explain(state, ids): Map<ObjectId, Explanation> // the same for several objects, one run of the layers
 Inspect.restrictions(state, view, id): List<AppliedRestriction> // what continuous effects tell it it can't or must do ("can't block"), from the view at hand
-Inspect.speed(state, player), ringTemptations(state, player), dungeonsCompleted(state, player): Int // rules state kept for a player
-Inspect.dayOrNight(state): DayOrNight?            // CR 731; null while it is neither
-Inspect.classLevel(state, id): Int?               // the level a Class has gained (CR 716.2)
+Inspect.events(state): List<LoggedChange>        // the tagged events the state keeps (D33), for a host's history and displays
+// the rules state kept for objects, players and the game: typed statuses in the view (stored ones on the state too)
+view[id].statuses: List<ObjectStatus>             // ClassLevel (1 for a Class without one stored, CR 716.2), VentureRoom, Goaded, Protector, …
+view.players[p].statuses: List<PlayerStatus>      // Speed, RingTempted, DungeonsCompleted, Designated(designation)
+view.game.statuses: List<GameStatus>              // DayNight (CR 731); none while it is neither; view.game.rules: the rules in force
 Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
 
 // a host running games
 Host.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (display)
-Host.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
-Host.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
+Host.shouldPassFor(state, player[, view], prefs): Boolean // a host passes priority for this player now (I-D3, I-D18)
+Host.passCheck(state, player[, view], prefs): PassCheck // shouldPassFor as set and with the player's own skip on, one search
+Host.samePosition(a, b): Boolean               // the same game position but for the tagged events, the timestamp counter and library order
 Host.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
 Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them
 Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
@@ -89,13 +92,20 @@ seeded random games of cube cards, failing on any open player decision without a
   `List` and `Map`, changed only by `apply` and `revert`; inside, mutable collections copied once per `perform`): players in turn order with their zones,
   life, counters, mana pool; every card/token object by `ObjectId` (`Card(card, zoneChanges)`
   or `StackItem(id)`, D21/D35) with owner, controller, zone, face, status, counters, damage,
-  attachment, timestamp (D34), control start (CR 302.6), card memory and per-instance facts
-  (D22/D41); every object has its definition (full information); Stack items with targets, modes, X,
-  names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority;
-  ledgers; the tagged event log (D33); the open `Pending`; `inputCount`, the inputs performed so far (`Change.InputCounted`,
-  the first change of every input's outcome, taken back with it). `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
+  attachment, timestamp (D34), control start (CR 302.6), marks, linked-ability memory (`linked`, CR 607), how it was cast
+  (`cast: CastFacts?`, D22) and its statuses; every object has its definition (full information); Stack items with targets, modes, X,
+  names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority; the game's statuses; the open `Pending`.
+  Statuses (`ObjectStatus`, `PlayerStatus`, `GameStatus`: sealed, serializable, one of each key per holder in key order, stored only
+  when not at their default) hold the mechanics the engine codes by hand with their values (speed, the Ring, designations, day and
+  night, a Class's level, a venture marker, goad, a battle's protector, merged components, soulbond pairs, …); each family changes
+  by its own `Change` (`ObjectStatusChanged`, `PlayerStatusChanged`, `GameStatusChanged`), how an object was cast by
+  `CastFactsChanged`, a player's loss by `Lost` (its `LossReason`). Internal to the engine: the history (the tagged event log,
+  D33, which a host reads with `Inspect.events`; card-defined ledgers, D22) and the engine's bookkeeping (the timestamp counter,
+  readable as `timestampCounter`; `inputCount`, the inputs performed so far (`Change.InputCounted`, the first change of every
+  input's outcome, taken back with it); triggers waiting; library places; empty-library draws; mana spent on spells this turn;
+  each object's per-turn use counts, `Change.UsesCounted`). `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
   the creation's timestamp, so every host derives the same ones.
-  Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
+  Each library's known places (bookkeeping, CR 401.2): cards put at a known place, looked at or
   revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
   (`Change.LibraryPlaces`); with full information the engine records what a player looked at as `Change.Shown`
   (changes nothing; `Host.revealed` reads it).
@@ -186,8 +196,8 @@ revealed (CR 708.9),
 priority they held passes on, their turn goes on without them (CR 800.4j), and their decisions are made by others or not at
 all (CR 800.4f–h, see Status).
 
-Why each player lost is kept with them: `PlayerState.lossReason` (a sealed `LossReason`, null while they haven't lost),
-set and taken back with the `Change.Lost` that carries it: `ZeroLife` (CR 704.5a), `EmptyLibrary` (704.5b), `Poison`
+Why each player lost is kept with them: `PlayerState.loss` (a sealed `LossReason`, null while they haven't lost; `lost` reads it),
+set and taken back with the `Change.Lost` that carries it as its after-value: `ZeroLife` (CR 704.5a), `EmptyLibrary` (704.5b), `Poison`
 (704.5c), `Effect(card)` (an effect said they lose, or that another player wins, naming its source, CR 104.3e, 104.2b),
 `Conceded` (CR 104.3a), `Agreed` (`Input.AgreedResult`) and `Loop` (a mandatory loop's draw, CR 104.4b). A player who
 loses to several state-based actions at once gets the first listed in CR 704.5; in a draw by everyone losing at once
@@ -254,9 +264,10 @@ both players who is controlling whom while `TurnState.controlled` is in force.
 
 ## Skip when I have no choice (I-D18)
 
-Each player has a setting in the state, `PlayerState.skipWhenNoChoice` (on by default; a host changes it with
-`Change.SkipWhenNoChoice`, `Changes.skipWhenNoChoice`). The engine never passes priority by itself: a host asks
-`Host.shouldPassFor(state, player)` after each outcome and performs `PassPriority` while it says so. It is true when the
+Each player has a setting the host passes with every call that reads it, `Preferences.noSkipWhenNoChoice` (on by default:
+nobody listed) to `Engine.options`, `Engine.perform`, `Host.shouldPassFor` and `Host.passCheck`; every host that performs for the
+same players must give the same preferences. The engine never passes priority by itself: a host asks
+`Host.shouldPassFor(state, player, prefs)` after each outcome and performs `PassPriority` while it says so. It is true when the
 player holds priority, nothing is pending and `options` offers nothing but passing (mana abilities aside); on, that is
 enough; off, only when the player has no card only they may see (`Knowledge.privateTo`: hand, face-down permanents and
 spells, cards only they may look at; not cards outside the game), so an instant they can't afford is theirs to pass
@@ -526,16 +537,15 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold,
   has printed, has now in exile, or an effect gave it as it became foretold (`Effect.Mark.cost`, CR 702.143d; "its mana cost reduced by {2}" is
   `CostPart.ItsManaCostLess`), CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
-  gained in one record (`ObjectFacts.marksGained`, read by
-  `ObjectFacts.gained`), disguise and cloak (face-down with ward
-  {2}, `Copiable.faceDown`; not once turned face up, `ObjectFacts.turnedFaceUp`, CR 708.2a), manifest (a manifested or cloaked instant or
+  gained in one record (`ObjectStatus.MarksGained`), disguise and cloak (face-down with ward
+  {2}, `Copiable.faceDown`; not once turned face up, `ObjectStatus.TurnedFaceUp`, CR 708.2a), manifest (a manifested or cloaked instant or
   sorcery card an effect would turn face up is revealed and stays face down, CR 701.40g, 701.58g), static copy effects (the values fixed as
-  each first applies, `GameObject.fixedCopies`, recorded with the checks before priority by `view/StaticCopies`, CR 707.2c), backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
+  each first applies, `ObjectStatus.FixedCopies`, recorded with the checks before priority by `view/StaticCopies`, CR 707.2c), backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
-  transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: game ledger, untap check CR 731.2, daybound and nightbound
-  transforming and entering transformed), speed (`turn/Speed`: player ledger, start your engines! as a state-based action, the
+  transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: `GameStatus.DayNight`, untap check CR 731.2, daybound and nightbound
+  transforming and entering transformed), speed (`turn/Speed`: `PlayerStatus.Speed`, start your engines! as a state-based action, the
   inherent once-each-turn trigger as a sourceless repeating delayed trigger, max speed), compleated (Phyrexian symbols paid with
-  life, `ObjectFacts.phyrexianPaidWithLife`), read ahead (the lore counters chosen as it enters; only that chapter triggers that
+  life, `CastFacts.phyrexianPaidWithLife`), read ahead (the lore counters chosen as it enters; only that chapter triggers that
   turn), doubling mana, time travel, and controlling another player (above).
 - Done, by-hand mechanics, second round (2026-11-03, scenarios in `ring/TheRingTest`, `combat/EnlistTest`, `soulbond/SoulbondTest`,
   `resolution/HauntTest`, `casting/ReadWordingsScenariosTest`): the Ring tempting you (`ring/TheRing`, CR 701.54: the emblem The Ring
@@ -544,8 +554,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   optional cost to attack, CR 508.1g: `Attack.enlisted` names the creatures tapped, one per enlist ability, checked with the
   declaration; the linked trigger reads `EventPattern.Enlists`; `options` lists a declaration with each attacker enlisting what it can;
   two enlist abilities on one creature both trigger for each creature enlisted, a simplification of 702.154d);
-  soulbond (`soulbond/Soulbond`, CR 702.95: `Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`, the pair kept in both
-  creatures' memory and ended with the state-based actions, 702.95e); haunt (CR 702.55: `Effect.Haunt` exiles the card haunting the target, kept as
+  soulbond (`soulbond/Soulbond`, CR 702.95: `Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`, the pair kept as both
+  creatures' `ObjectStatus.PairedWith` and ended with the state-based actions, 702.95e); haunt (CR 702.55: `Effect.Haunt` exiles the card haunting the target, kept as
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
@@ -570,13 +580,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player spends their mana
   to cast the spell, so mana restricted to such spells pays (CR 106.6); one who leaves the game before the cast finishes pays
   nothing and nobody else is asked (CR 800.4f): the caster pays the whole cost. Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
-  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
+  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game is put into the command zone with the venture marker (the dungeon's `ObjectStatus.VentureRoom`) on its topmost room; each
   venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
-  ledger. "Venture into Undercity" only chooses Undercity dungeons, and a dungeon with `Mechanic.OnlyVentureInto` ("You can't
-  enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; `Inspect.ventureRoom`
-  says which room a dungeon's marker is on (a host's display). Every room effect of the dungeons in the card data is carried out
+  `PlayerStatus.DungeonsCompleted`. "Venture into Undercity" only chooses Undercity dungeons, and a dungeon with `Mechanic.OnlyVentureInto` ("You can't
+  enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; its
+  `ObjectStatus.VentureRoom` says which room a dungeon's marker is on (a host's display). Every room effect of the dungeons in the card data is carried out
   (scenarios on invented rooms with the printed templates in `dungeon/DungeonRoomsTest`; `SUPPORT_VERSION` 9). The initiative's three inherent triggers (CR 726.2: upkeep, combat
   damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers; when
   its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (726.4).

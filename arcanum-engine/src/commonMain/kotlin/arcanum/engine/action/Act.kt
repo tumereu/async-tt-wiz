@@ -114,7 +114,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = v?.controller ?: o.controller, zone = o.zone,
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
-            token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
+            token = o.token, attachedTo = o.attachedTo, cast = o.cast, linked = o.linked, statuses = arcanum.engine.state.snapshotStatuses(o),
             attacking = state.combat?.attackers.orEmpty().any { it.id == id },
         )
     }
@@ -124,7 +124,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         val item = state.stackItems[id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy } ?: return null
         val v = view()[id]
         return ObjectSnapshot(id = id, owner = item.controller, controller = v?.controller ?: item.controller, zone = arcanum.api.Zone.Stack,
-            characteristics = v?.characteristics, facts = item.facts ?: arcanum.engine.state.ObjectFacts())
+            characteristics = v?.characteristics, cast = item.cast)
     }
 
     // ---- Decisions (each asked only when there is a choice, P5)
@@ -154,7 +154,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** I-D18: [player] is asked a decision the rules leave them no choice in when they turned "Skip when I have no
      * choice" off and the skip depends on cards only they may see ([hiddenDecides]). */
-    fun asksAnyway(player: PlayerId, hiddenDecides: Boolean): Boolean = hiddenDecides && !state.player(player).skipWhenNoChoice
+    fun asksAnyway(player: PlayerId, hiddenDecides: Boolean): Boolean = hiddenDecides && !recorder.prefs.skipsWhenNoChoice(player)
 
     /** A cost [player] can't pay ("you may discard a land card", CR 118.3): asked anyway when [asksAnyway] (I-D18), with
      * only "no" accepted ([Decision.May.payable]). */

@@ -34,7 +34,7 @@ import arcanum.engine.view.AbilityOrigin
  * they may look at it while it stays in exile, and after that turn has ended cast it for any foretell cost it has rather than
  * its mana cost (702.143a). The special action is [AbilityOrigin.Rule] [RULE], so it is taken without the card being revealed;
  * the foretold card is
- * [ObjectMark.Foretold] with the turn and the costs it had in [arcanum.engine.state.ObjectFacts.marksGained] (CR 702.143e), and
+ * [ObjectMark.Foretold] with the turn and the costs it had in [arcanum.engine.state.ObjectStatus.MarksGained] (CR 702.143e), and
  * [MarkCasts] gives the permission.
  *
  * {2} and "during their turn" are the rule; effects change them the way they change activations, naming foretelling with

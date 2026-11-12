@@ -857,7 +857,7 @@ class CombatTest {
     @Test
     fun cantAttackALostPlayer() = scenario(players = 3) {
         alice.battlefield("Thicketwood Elves")
-        state.updatePlayer(bob.id) { it.copy(lost = true) }
+        state.updatePlayer(bob.id) { it.copy(loss = arcanum.engine.setup.LossReason.Conceded) }
         toAttackers()
         assertFailsWith<IllegalArgumentException> { alice.attacks("Thicketwood Elves", defender = "bob") }
         alice.attacks("Thicketwood Elves", defender = "carol")

@@ -86,7 +86,7 @@ class EngineOnServerSpikeTest {
             if (d is Decision.Random) return Input.Answer(d.id, random(d.what))
             check(d !is Decision.NamedCard) { "no card is named here: $d" }
             if (state.turn.number == 0 && d == null) return Input.StartGame()
-            val listed = state.players.flatMap { Engine.options(state, it.id) }.distinct()
+            val listed = state.players.flatMap { Engine.options(state, it.id, org.asyncttwiz.protocol.game.EnginePreferences.of(state)) }.distinct()
             check(listed.isNotEmpty()) { "stuck at ${d ?: state.turn}" }
             if (d != null) return listed.random(rnd)
             val doing = listed.filterNot { it is Input.PassPriority || (it is Input.DeclareAttackers && it.attacks.isEmpty()) ||
@@ -122,7 +122,7 @@ class EngineOnServerSpikeTest {
             val input = script?.get(inputs) ?: chooser.next(state)
             played += input
             val t0 = System.nanoTime()
-            val outcome = Engine.perform(state, input)
+            val outcome = Engine.perform(state, input, org.asyncttwiz.protocol.game.EnginePreferences.of(state))
             val t1 = System.nanoTime()
             outcome.changes.forEach { state.apply(it) }
             val t2 = System.nanoTime()
@@ -197,14 +197,14 @@ class EngineOnServerSpikeTest {
             "bytes median ${samples.bytes.map { it.toLong() }.pct(0.5)}, p95 ${samples.bytes.map { it.toLong() }.pct(0.95)}, max ${samples.bytes.max()}, " +
             "total ${samples.bytes.sum() / 1024} KiB (inline definitions: ${samples.inlineBytes.sum() / 1024} KiB)")
         // Checkpoints: the whole state of the longest game as stored (definitions once per game)
-        val longest = finalStates.maxBy { it.log.size }
+        val longest = finalStates.maxBy { arcanum.engine.Inspect.events(it).size }
         val model = GameModel(longest, TableState())
         val codec = EngineJson(GameDefinitions.of(longest))
         var encoded = ""
         val enc = timeUs(checkpointRuns) { encoded = codec.encodeModel(model) }
         val dec = timeUs(checkpointRuns) { codec.decodeModel(encoded) }
         val copy = timeUs(checkpointRuns) { longest.deepCopy() }
-        println("SPIKE checkpoint of a turn-${longest.turn.number} state (${longest.objects.size} objects, log ${longest.log.size}): " +
+        println("SPIKE checkpoint of a turn-${longest.turn.number} state (${longest.objects.size} objects, log ${arcanum.engine.Inspect.events(longest).size}): " +
             "${encoded.length / 1024} KiB, encode ${stats(enc)}; decode ${stats(dec)}; deepCopy ${stats(copy)}; " +
             "definitions ${codec.definitions.size}, ${codec.encodeDefinitions().length / 1024} KiB once per game")
         // As GameModel keeps it: logged changes older than last turn dropped (what a stored checkpoint holds)
@@ -212,7 +212,7 @@ class EngineOnServerSpikeTest {
         var stored = ""
         val encTrimmed = timeUs(checkpointRuns) { stored = codec.encodeModel(trimmed) }
         val decTrimmed = timeUs(checkpointRuns) { codec.decodeModel(stored) }
-        println("SPIKE checkpoint as stored (log of this and last turn: ${trimmed.engine.log.size}): ${stored.length / 1024} KiB, " +
+        println("SPIKE checkpoint as stored (log of this and last turn: ${arcanum.engine.Inspect.events(trimmed.engine).size}): ${stored.length / 1024} KiB, " +
             "encode ${stats(encTrimmed)}; decode ${stats(decTrimmed)}")
 
         heavy()
@@ -261,11 +261,11 @@ class EngineOnServerSpikeTest {
             "${runs.first().second} changes")
     }
 
-    private fun GameState.go(input: Input): Outcome = Engine.perform(this, input).also { o -> o.changes.forEach { apply(it) } }
+    private fun GameState.go(input: Input): Outcome = Engine.perform(this, input, org.asyncttwiz.protocol.game.EnginePreferences.of(this)).also { o -> o.changes.forEach { apply(it) } }
 
     private fun timed(state: GameState, input: Input): Pair<Long, Int> {
         val t = System.nanoTime()
-        val o = Engine.perform(state, input)
+        val o = Engine.perform(state, input, org.asyncttwiz.protocol.game.EnginePreferences.of(state))
         val us = (System.nanoTime() - t) / 1000
         o.changes.forEach { state.apply(it) }
         return us to o.changes.size
@@ -356,17 +356,17 @@ class EngineOnServerSpikeTest {
         }
         heavyCase("declare 20 attackers", combat) { s ->
             s.go(Input.PassPriority(alice)); s.go(Input.PassPriority(bob))
-            val attack = Engine.options(s, alice).filterIsInstance<Input.DeclareAttackers>().maxBy { it.attacks.size }
+            val attack = Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.DeclareAttackers>().maxBy { it.attacks.size }
             timed(s, attack)
         }
         heavyCase("declare 20 blockers and deal combat damage", combat) { s ->
             s.go(Input.PassPriority(alice)); s.go(Input.PassPriority(bob))
-            s.go(Engine.options(s, alice).filterIsInstance<Input.DeclareAttackers>().maxBy { it.attacks.size })
+            s.go(Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.DeclareAttackers>().maxBy { it.attacks.size })
             while (s.turn.step != TurnStep.DeclareBlockers || s.pending != null) {
                 val p = s.priority.holder ?: break
                 s.go(Input.PassPriority(p))
             }
-            val block = Engine.options(s, bob).filterIsInstance<Input.DeclareBlockers>().maxBy { it.blocks.size }
+            val block = Engine.options(s, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.DeclareBlockers>().maxBy { it.blocks.size }
             val t = System.nanoTime()
             var changes = s.go(block).changes.size
             while (s.turn.step != TurnStep.EndOfCombat && s.priority.holder != null && s.pending == null) {

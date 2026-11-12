@@ -68,7 +68,7 @@ class GameEventTest {
         val snapshot = model.copy()
         // A pass that fits, then changes made for another state: the pass's changes are taken back too
         val pass = arcanum.engine.input.Input.PassPriority(model.engine.priority.holder!!)
-        val fits = EngineStep(pass, arcanum.engine.Engine.perform(model.engine, pass).changes)
+        val fits = EngineStep(pass, arcanum.engine.Engine.perform(model.engine, pass, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)).changes)
         val mixed = GameEvent("x", parent, "alice", EnginePart(model.engine.timestampCounter, listOf(fits) + engineEvent.engine!!.steps))
         assertFailsWith<RuntimeException> { model.apply(mixed) }
         assertTrue(model.sameAs(snapshot))

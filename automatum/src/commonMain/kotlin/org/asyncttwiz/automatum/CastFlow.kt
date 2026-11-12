@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Keyword
@@ -83,7 +84,7 @@ class CastFlow private constructor(
     fun answer(answer: Answer): CastFlow {
         val open = requireNotNull(pending) { "Nothing to answer" }
         // Checked on the current state first, so a refusal doesn't cost a replay
-        Engine.perform(call.working, Input.Answer(open.id, answer))
+        Engine.perform(call.working, Input.Answer(open.id, answer), EnginePreferences.of(call.working))
         return replayOn(begin, answers + answer, strict = true)
     }
 
@@ -121,7 +122,7 @@ class CastFlow private constructor(
     fun pays(uses: List<arcanum.engine.decision.ManaUse>): Boolean {
         val open = pending as? Decision.ManaPayment ?: return false
         return try {
-            Engine.perform(call.working, Input.Answer(open.id, Answer.ManaPayment(uses)))
+            Engine.perform(call.working, Input.Answer(open.id, Answer.ManaPayment(uses)), EnginePreferences.of(call.working))
             true
         } catch (_: IllegalArgumentException) {
             false
@@ -145,7 +146,7 @@ class CastFlow private constructor(
      * and creature types only of objects the player may see ([ShownAnswers], I-D27). */
     fun listedAnswers(): List<Answer> {
         val open = pending ?: return emptyList()
-        return ShownAnswers.of(call.working, open, Engine.options(call.working, open.player).filterIsInstance<Input.Answer>()
+        return ShownAnswers.of(call.working, open, Engine.options(call.working, open.player, EnginePreferences.of(call.working)).filterIsInstance<Input.Answer>()
             .filter { it.decision == open.id }.map { it.answer })
     }
 
@@ -236,7 +237,7 @@ class CastFlow private constructor(
                 val open = call.pending?.takeIf { private(it.continuation) }?.decision ?: break
                 try {
                     // Checked before anything changes: a refused answer leaves the call as it was
-                    Engine.perform(call.working, Input.Answer(open.id, answer))
+                    Engine.perform(call.working, Input.Answer(open.id, answer), EnginePreferences.of(call.working))
                 } catch (problem: IllegalArgumentException) {
                     if (strict) throw problem else break
                 }
@@ -305,7 +306,7 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>) {
         private fun of(state: GameState, ids: CardIds, viewer: String, view: View?): HandPlays {
             val hand = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().toSet()
             val byCard = LinkedHashMap<String, MutableList<Input>>()
-            for (input in Engine.options(state, PlayerId(viewer), view)) {
+            for (input in Engine.options(state, PlayerId(viewer), view, EnginePreferences.of(state))) {
                 val card = when (input) {
                     is Input.Cast -> input.card
                     is Input.PlayLand -> input.card

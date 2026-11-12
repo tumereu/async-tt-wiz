@@ -59,7 +59,7 @@ class PlayShowTest {
         val cast = device(bob).act(Input.Cast(bob, hand(device(bob).model, bob, card))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first()
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first()
         }
         assertIs<GameDevice.Acted.Sent>(cast)
     }
@@ -156,7 +156,7 @@ class PlayShowTest {
         val bobs = sim.device(sim.bob)
         val order = assertIs<Decision.OrderTriggers>(bobs.model.engine.pending?.decision, "Bob orders his triggers")
         sim.showing()
-        assertIs<GameDevice.Acted.Sent>(bobs.act(Engine.options(bobs.model.engine, sim.bob).filterIsInstance<Input.Answer>()
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Engine.options(bobs.model.engine, sim.bob, org.asyncttwiz.protocol.game.EnginePreferences.of(bobs.model.engine)).filterIsInstance<Input.Answer>()
             .first { it.decision == order.id }))
         sim.settle()
         val alices = sim.device(sim.alice)

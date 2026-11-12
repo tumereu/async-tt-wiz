@@ -39,7 +39,7 @@ class SplitCardNamesTest {
         val id = card(split)
         val self = card(rememberer) as arcanum.engine.state.ObjectId.Card
         fun remembered(name: String): Boolean {
-            state._objects[self] = state.objOrThrow(self).copy(memory = Bindings(mapOf("word" to NamedValue.Name(name))))
+            state._objects[self] = state.objOrThrow(self).copy(linked = Bindings(mapOf("word" to NamedValue.Name(name))))
             return Snapshot(state).evaluator(alice.id, self = self).matches(ObjectFilter.RememberedName("word"), id)
         }
         assertTrue(remembered("Mirth"))

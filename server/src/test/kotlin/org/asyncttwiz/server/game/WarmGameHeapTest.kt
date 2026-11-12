@@ -102,7 +102,7 @@ class WarmGameHeapTest {
         val whole = perCopy(copies) { kept(game, turn) }
         val state = perCopy(copies) { kept(game, turn).model }
         val definitions = perCopy(copies) { kept(game, turn).codec }
-        println("WARMHEAP turn $turn (${sample.model.engine.objects.size} objects, log ${sample.model.engine.log.size}, " +
+        println("WARMHEAP turn $turn (${sample.model.engine.objects.size} objects, log ${arcanum.engine.Inspect.events(sample.model.engine).size}, " +
             "events ${game.turns.count { it <= turn }}, cached ${sample.events.size}, definitions ${sample.codec.definitions.size}): " +
             "kept game $whole KiB: state $state KiB, decoded definitions $definitions KiB, cached events ${whole - state - definitions} KiB " +
             "(over $copies copies; the state's checkpoint ${sample.codec.encodeModel(sample.model).length / 1024} KiB as JSON)")

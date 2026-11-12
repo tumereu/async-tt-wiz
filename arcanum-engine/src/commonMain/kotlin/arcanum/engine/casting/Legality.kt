@@ -99,7 +99,7 @@ internal object Legality {
     private fun usedThisTurn(snap: Snapshot, applied: AppliedMechanic): Int {
         val source = applied.source ?: return 0
         val key = PERMISSION_PREFIX + (applied.origin?.key ?: applied.effect?.value ?: "")
-        return snap.state.obj(source)?.facts?.activations.orEmpty()
+        return snap.state.obj(source)?.uses?.activations.orEmpty()
             .filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
     }
 
@@ -305,7 +305,7 @@ internal object Legality {
         }
         // msh: "the next red or green creature spell you cast this turn can be cast without paying its mana cost": an
         // effect's alternative cost for the next spells (CR 611.2f), tested on the card as the spell it would be (CR 601.2a)
-        val next = snap.view.rules.mapNotNull { applied ->
+        val next = snap.view.game.rules.mapNotNull { applied ->
             val m = applied.mechanic as? Mechanic.AlternativeCost ?: return@mapNotNull null
             val id = applied.effect ?: return@mapNotNull null
             val effect = snap.state.effects[id]?.takeIf { it.affects is arcanum.api.Affected.NextSpells } ?: return@mapNotNull null
@@ -398,10 +398,10 @@ internal object Legality {
     } ?: 0
 
     fun activationsThisTurn(snap: Snapshot, source: ObjectId, key: String): Int =
-        snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
+        snap.state.obj(source)?.uses?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
 
     private fun activationsEver(snap: Snapshot, source: ObjectId, key: String): Int =
-        snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key }.sumOf { it.count }
+        snap.state.obj(source)?.uses?.activations.orEmpty().filter { it.key == key }.sumOf { it.count }
 
     /** [counts] with one more use of [key] this turn. */
     fun counted(counts: List<TurnCount>, key: String, turn: Int): List<TurnCount> {

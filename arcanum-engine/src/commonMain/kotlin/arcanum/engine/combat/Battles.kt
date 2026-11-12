@@ -1,5 +1,7 @@
 package arcanum.engine.combat
 
+import arcanum.engine.state.withStatus
+import arcanum.engine.state.protector
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.CounterKind
@@ -26,7 +28,7 @@ import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.View
 
 /**
- * Battles (CR 310): each has a protector ([arcanum.engine.state.GameObject.protector]) chosen as it enters by its controller
+ * Battles (CR 310): each has a protector ([arcanum.engine.state.ObjectStatus.Protector]) chosen as it enters by its controller
  * (310.9a: a Siege's among their opponents, 310.12a; one with no battle type is its controller's) and again by the state-based
  * actions when it has none or one who can't be (704.5x, y; none possible: its owner's graveyard). It can be attacked by an
  * attacking player its protector is defending for, never by its protector (310.9b); only its protector blocks creatures
@@ -90,7 +92,7 @@ internal object Battles {
             if (ok || (current == null && id in attacked)) return@forEach
             val chosen = if (options.size <= 1) options.firstOrNull() else act.choosePlayer(controller, id, options)
             if (chosen == null) gone += id
-            else act.record(Change.ObjectUpdated(o, o.copy(protector = chosen)))
+            else act.record(Change.ObjectUpdated(o, o.withStatus(arcanum.engine.state.ObjectStatus.Protector(chosen).key, arcanum.engine.state.ObjectStatus.Protector(chosen))))
         }
         return gone
     }

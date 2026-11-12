@@ -16,6 +16,8 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+- Arcanum engine API rework (owner, 2026-11-12): queue after the next production deployment. Small core `Engine`, the other functions grouped, typed status lists instead of text-keyed ledgers and set-tagged fields, `GameState` changeable only by the engine, per-viewer states removed. Phases, performance guard and the one approved game wipe: `docs/specs/arcanum-engine-api.md`. No catalog entries change.
+
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - "Your move" sound on the web client (LOB-146, TRN-075; built for Android 2026-11-11): the browser side of `playPcm` (the sounds are made in common code), playing also in a background tab.

@@ -25,7 +25,7 @@ class SerialTasks(private val scope: CoroutineScope, private val capacity: Int =
     /** Queues [task]; false (and not run) after a shutdown. */
     fun submit(task: suspend CoroutineScope.() -> Unit): Boolean {
         if (isShutdown) return false
-        if (waiting.size >= capacity) waiting.removeFirst()
+        if (waiting.size >= capacity) waiting.removeFirstOrNull()
         waiting.addLast(task)
         if (runner?.isActive != true) runner = scope.launch { drain() }
         return true

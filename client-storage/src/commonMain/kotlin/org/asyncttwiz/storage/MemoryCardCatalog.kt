@@ -351,7 +351,7 @@ class MemoryCardCatalogBuilder {
         }
         val queue = ArrayDeque(broken)
         while (queue.isNotEmpty()) {
-            val id = queue.removeFirst()
+            val id = queue.removeFirstOrNull() ?: break
             val neighbours = byId[id]?.others.orEmpty() + linkedFrom[id].orEmpty()
             neighbours.forEach { if (broken.add(it)) queue += it }
         }

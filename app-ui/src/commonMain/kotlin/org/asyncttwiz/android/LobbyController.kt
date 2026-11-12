@@ -20,7 +20,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     /** The main thread's clock [engineTicks] run on: by default the main looper's handler. */
     private val delayed: MainDelayed = mainLooperDelayed,
     /** LOB-146: where the account's settings are read (the table's "Your move" sound): the app's account service. */
-    val accountOrigin: String = org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN) : AutoCloseable {
+    val accountOrigin: String = org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN,
+    /** DRF-105, DRF-166: the pods' service, for a pod game's deck renamed or given another cover from its lobby. */
+    private val podApi: Pods? = null) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -63,6 +65,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue) { cardRecords }
     private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
+    private val podDeck: LobbyPodDeck = LobbyPodDeck(scope, podApi, credential, worker, post, session)
     /** Game history: records of the account, a game and a pod (read on demand). */
     val history = HistoryController(api, credential, worker, post)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
@@ -251,6 +254,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
     fun undoPreparation(): Boolean = preparationActions.undoPreparation()
     fun prepareDeck() = preparationActions.prepareDeck()
+    /** DRF-105, DRF-166: the open pod game's own deck can be renamed and given another cover from its lobby. */
+    fun podDeckEditable(): Boolean = podDeck.available()
+    fun renamePodDeck(name: String) = podDeck.rename(name)
+    fun coverPodDeck(definition: String) = podDeck.cover(definition)
     fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? =
         preparationActions.captureTransfer(definition, source, all)
     fun transfer(captured: PreparedTransfer): Boolean = preparationActions.transfer(captured)
@@ -314,5 +321,5 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (refresher.inForeground && !state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) = refresher.refresh(background)
-    override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close(); deckApi?.close() }; worker.shutdown() }
+    override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close(); deckApi?.close(); podApi?.close() }; worker.shutdown() }
 }

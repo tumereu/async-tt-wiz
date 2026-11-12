@@ -67,7 +67,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Deck preparation for a game
 
-- **LOB-047** "Prepare deck" opens one scrolling page with green Mainboard · N and blue Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051; empty groups left out, cards sorted by name) and ×N badges for copies. A deck's Maybe cards are not shown there; they come along to the game unchanged, outside the game (LOB-141). (r60)
+- **LOB-047** "Prepare deck" opens one scrolling page with green Mainboard · N and blue Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051; empty groups left out, cards sorted by name) and ×N badges for copies. A deck's Maybe cards are not shown there; they come along to the game unchanged, outside the game (LOB-141). In a pod game the header shows your deck's private name with its cover thumbnail and a pen at the header's end: a tap on the cover lists the deck's Main and Side cards (basics not among them) to choose it from, the pen renames it, as in Build and also after submitting (DRF-105, DRF-166). (r70)
 - **LOB-048** Swipe a card sideways (20 dp), either way, to move one copy to the other section (SYS-083); hold to inspect it; tap for "Move one to…" and "Move all N to…". (r62)
 - **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards one at a time. (r55)
 - **LOB-050** A short fading line under the title says what you last moved ("2× Opt → Sideboard"); while disconnected it reads "Disconnected · preparation is read-only". (r21)

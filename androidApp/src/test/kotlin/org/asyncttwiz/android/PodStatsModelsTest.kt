@@ -160,6 +160,31 @@ class PodStatsModelsTest {
         assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).types.isEmpty())
     }
 
+    // DRF-180: subtypes of Main cards' front type lines and the basics' land types, most common first; Side, Maybe and the
+    // back face (an adventure) not counted
+    @Test fun subtypeCountsComeFromFrontTypeLinesOfMainCardsAndBasicsMostCommonFirst() {
+        val definitions = mapOf(
+            "golem" to card("Golem", "Legendary Artifact Creature — Golem Construct"),
+            "elf" to card("Elf", "Creature — Elf Druid"),
+            "adventure" to card("Giant", "Creature — Giant // Sorcery — Adventure"),
+            "hyphen" to card("Dual", "Land - Island Swamp"),
+            "aura" to card("Aura", "Enchantment — Aura"),
+            "side" to card("Side", "Creature — Goblin"),
+        )
+        val copies = listOf("g" to "golem", "e1" to "elf", "e2" to "elf", "a" to "adventure", "h" to "hyphen", "n" to "aura",
+            "s" to "side", "t" to "side").associate { (id, digest) -> id to DraftCopy(id, digest) }
+        val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it, when (it) {
+            "s" -> PodDeckCategory.SIDE
+            "t" -> PodDeckCategory.MAYBE
+            else -> PodDeckCategory.MAIN
+        }) }, PodDeckBasics(plains = 2, island = 1))
+        assertEquals(listOf("Druid" to 2L, "Elf" to 2L, "Island" to 2L, "Plains" to 2L, "Aura" to 1L, "Construct" to 1L, "Giant" to 1L,
+            "Golem" to 1L, "Swamp" to 1L), podStats(build, copies, definitions).subtypes)
+        assertEquals(listOf("Golem", "Construct"), podStatsSubtypeWords("Legendary Artifact Creature — Golem Construct"))
+        assertEquals(emptyList(), podStatsSubtypeWords("Instant"))
+        assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).subtypes.isEmpty())
+    }
+
     // DRF-118
     @Test fun notesSanitizeAndCountersStayWithinTheirRange() {
         val notes = PodDeckNotes("a\r\nb\tc\u0000", listOf(1, 2, 3)).podNotesSanitized()

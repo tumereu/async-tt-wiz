@@ -109,6 +109,7 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
                 preferences.edit().putString("id", it).apply()
             }
         }, deckApi = DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+        podApi = PodApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         activityTarget = { token, route ->
             try { ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.target(token, route) } }
             catch (failure: ActivityFetchFailure) {

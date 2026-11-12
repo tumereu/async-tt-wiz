@@ -10,6 +10,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -86,6 +87,7 @@ fun PodStatsView(
                 }
             }
             if (stats.types.isNotEmpty()) item { PodStatsTypes(stats.types) }
+            if (stats.subtypes.isNotEmpty()) item { PodStatsSubtypes(stats.subtypes) }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     PodStatsMana(stats, Modifier.weight(1f))
@@ -121,6 +123,34 @@ private fun PodStatsTypes(types: List<Pair<String, Long>>) {
                 append("$name ")
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$count") }
             }, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
+/** DRF-180: how many subtypes show before the rest go behind "+N more" (all of them when only one more would hide). */
+const val POD_STATS_SUBTYPES_SHOWN = 6
+
+/**
+ * DRF-180 (owner, 2026-11-11): Main copies per subtype as "Elf 4" chips like the type row's, most common first: the first
+ * [POD_STATS_SUBTYPES_SHOWN], then a "+N more" chip whose tap shows the rest, and "Fewer" after them to hide them again.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PodStatsSubtypes(subtypes: List<Pair<String, Long>>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val folds = subtypes.size > POD_STATS_SUBTYPES_SHOWN + 1
+    val shown = if (folds && !expanded) subtypes.take(POD_STATS_SUBTYPES_SHOWN) else subtypes
+    FlowRow(Modifier.fillMaxWidth().testTag("pod-stats-subtypes"),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for ((name, count) in shown) PodStatsChip(Modifier.testTag("pod-stats-subtype-$name").semantics(mergeDescendants = true) {}) {
+            Text(buildAnnotatedString {
+                append("$name ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$count") }
+            }, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+        if (folds) PodStatsChip(Modifier.testTag("pod-stats-subtypes-more").clickable { expanded = !expanded }) {
+            Text(if (expanded) "Fewer" else "+${subtypes.size - POD_STATS_SUBTYPES_SHOWN} more",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         }
     }
 }

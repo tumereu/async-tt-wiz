@@ -405,8 +405,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
-            // DRF-165: on the Draft tab History is above the pack; on the others, while building and after, it is up here.
-            if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
+            // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.
+            if (detail.settings.mode.packPassing) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
             PodChatButton(controller, detail.id, accountId)
             PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
                 historyColumns.takeIf { detail.settings.mode.packPassing })
@@ -417,9 +417,6 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
         if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
             PodPicksButton(detail, accountId, definitions)
-        // DRF-165: Booster and Glimpse show your own picks with their packs.
-        if (selected == PodTab.DRAFT && detail.settings.mode.packPassing && detail.phase == PodPhase.DRAFTING)
-            PodHistoryButton(controller, detail, accountId, definitions, historyColumns)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 // Section 3.6: pod picks wait for the card records

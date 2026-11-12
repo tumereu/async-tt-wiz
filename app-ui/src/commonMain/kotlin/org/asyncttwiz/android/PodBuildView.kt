@@ -292,31 +292,9 @@ fun PodBuildView(
         DialogCancelButton("Cancel", { confirmSubmit = false })
         DialogMainButton("Submit", { confirmSubmit = false; onSubmit() }, icon = "send")
     })
-    if (naming) {
-        val name = rememberDialogField(deckName)
-        val save = { onRename(name.text.trim()); naming = false }
-        ScreenDialog({ naming = false }, title = "Deck name", actions = {
-            DialogCancelButton("Cancel", { naming = false })
-            DialogMainButton("Save name", save, enabled = name.text.isNotBlank(), icon = "rename")
-        }) {
-            OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
-                singleLine = true, label = { Text("Name") }, keyboardOptions = imeOptions(ImeAction.Done),
-                keyboardActions = submitKeyboardActions(name.text.isNotBlank(), submit = save))
-        }
-    }
-    if (choosingCover) ScreenDialog({ choosingCover = false }, Modifier.testTag("pod-build-cover-dialog"), title = "Choose cover",
-        actions = { DialogCancelButton("Cancel", { choosingCover = false }) }) {
-        // LOB-058, DRF-166 (owner playtest 2026-11-09): listed alphabetically
-        coverChoices.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { definitions[it]?.name.orEmpty() }).forEach { digest ->
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("pod-build-cover-$digest")
-                .clickable { onCover(digest); choosingCover = false }.padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val card = definitions[digest]
-                PodBuildCoverThumbnail(card)
-                Text(card?.name ?: "Card", Modifier.weight(1f))
-                if (digest == cover) EntryIcon("Selected cover", "ready")
-            }
-        }
+    if (naming) PodDeckNameDialog(deckName, { onRename(it); naming = false }) { naming = false }
+    if (choosingCover) PodDeckCoverDialog(coverChoices, definitions, cover, "pod-build-cover", { onCover(it); choosingCover = false }) {
+        choosingCover = false
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
     feed?.let { current ->
@@ -329,9 +307,46 @@ fun PodBuildView(
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
 }
 
+/** The pod deck's name dialog (DRF-105), from Build or a pod game's Prepare deck: [current] to start from, [onSave] with
+ * the trimmed name. */
+@Composable
+internal fun PodDeckNameDialog(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    val name = rememberDialogField(current)
+    val save = { onSave(name.text.trim()) }
+    ScreenDialog(onDismiss, title = "Deck name", actions = {
+        DialogCancelButton("Cancel", onDismiss)
+        DialogMainButton("Save name", save, enabled = name.text.isNotBlank(), icon = "rename")
+    }) {
+        OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
+            singleLine = true, label = { Text("Name") }, keyboardOptions = imeOptions(ImeAction.Done),
+            keyboardActions = submitKeyboardActions(name.text.isNotBlank(), submit = save))
+    }
+}
+
+/** The pod deck's cover chooser (DRF-166), from Build or a pod game's Prepare deck: [choices] (digests) listed
+ * alphabetically, [cover] marked; tagged [tag]-dialog and [tag]-<digest>. */
+@Composable
+internal fun PodDeckCoverDialog(choices: List<String>, definitions: Map<String, CardDefinition>, cover: String?, tag: String,
+    onChoose: (String) -> Unit, onDismiss: () -> Unit) {
+    ScreenDialog(onDismiss, Modifier.testTag("$tag-dialog"), title = "Choose cover",
+        actions = { DialogCancelButton("Cancel", onDismiss) }) {
+        // LOB-058, DRF-166 (owner playtest 2026-11-09): listed alphabetically
+        choices.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { definitions[it]?.name.orEmpty() }).forEach { digest ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-$digest")
+                .clickable { onChoose(digest) }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val card = definitions[digest]
+                PodBuildCoverThumbnail(card)
+                Text(card?.name ?: "Card", Modifier.weight(1f))
+                if (digest == cover) EntryIcon("Selected cover", "ready")
+            }
+        }
+    }
+}
+
 /** A deck cover's picture in the Build's name row and its chooser (DRF-166), as a saved deck's header draws it. */
 @Composable
-private fun PodBuildCoverThumbnail(card: CardDefinition?, modifier: Modifier = Modifier) {
+internal fun PodBuildCoverThumbnail(card: CardDefinition?, modifier: Modifier = Modifier) {
     val face = card?.faces?.firstOrNull()
     // A 48 dp touch target with the picture at its start, in line with the Build's other content (DRF-097)
     Box(modifier.size(48.dp), contentAlignment = Alignment.CenterStart) {

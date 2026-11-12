@@ -1,0 +1,1 @@
+fix: When your spell makes the other player reveal cards, the reveal panel now says that they revealed them, not you.

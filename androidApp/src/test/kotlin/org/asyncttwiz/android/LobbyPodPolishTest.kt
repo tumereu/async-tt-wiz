@@ -61,6 +61,54 @@ class LobbyPodPolishTest {
         } finally { fixture.lobby.close() }
     }
 
+    // LOB-047, DRF-105, DRF-166 (owner, 2026-11-11): Prepare deck of a pod game has the deck's cover thumbnail and a pen in its
+    // header beside the private name: the cover lists the deck's Main and Side cards alphabetically, the pen opens the name
+    @Test fun podPreparationRenamesTheDeckAndChoosesItsCover() {
+        val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }
+        val pods = java.lang.reflect.Proxy.newProxyInstance(Pods::class.java.classLoader, arrayOf(Pods::class.java)) { _, method, _ ->
+            error("Screenshot attempted ${method.name}")
+        } as Pods
+        val worker = object : java.util.concurrent.AbstractExecutorService() {
+            override fun execute(command: Runnable) = Unit
+            override fun shutdown() = Unit
+            override fun shutdownNow() = mutableListOf<Runnable>()
+            override fun isShutdown() = false
+            override fun isTerminated() = false
+            override fun awaitTermination(timeout: Long, unit: java.util.concurrent.TimeUnit) = true
+        }
+        val lobby = LobbyController(java.lang.reflect.Proxy.newProxyInstance(Lobbies::class.java.classLoader, arrayOf(Lobbies::class.java)) { _, method, _ ->
+            error("Screenshot attempted ${method.name}")
+        } as Lobbies, { "fixture" }, worker, { it() }, accountId = { "a" }, podApi = pods)
+        val state = fixture.lobby.state
+        val preparation = state.preparation!!
+        val sentinel = preparation.definitions.first { it.definition.name == "Meadow Sentinel" }.digest
+        lobby.seed(state.copy(detail = state.detail!!.copy(podId = "pod-1", podName = "Cube night"), ownPodDeckName = "Cube night deck",
+            preparation = preparation.copy(podRules = PodGameRules(), players = preparation.players.map { player ->
+                player.copy(deck = player.deck?.copy(cover = sentinel)) })))
+        try {
+            compose.setContent { ScreenTheme { PreparationScreen(lobby, "a", false) } }
+            compose.onNodeWithText("Cube night deck").assertIsDisplayed()
+            compose.onNodeWithTag("preparation-cover").assertIsDisplayed().assertHasClickAction()
+            compose.onNodeWithTag("preparation-rename").assertIsDisplayed()
+            compose.onRoot().captureShot("$SCREENSHOTS/prepare-pod-deck-header.png", "Prepare deck of a pod game in its lobby: the " +
+                "header shows the private deck name with the deck's cover thumbnail and a pen beside it, to choose another cover " +
+                "or rename the deck, also after submitting.")
+            compose.onNodeWithTag("preparation-cover").performClick()
+            val names = listOf("Aegis Ward", "Ember Adept", "Meadow Sentinel", "Quiet Grove", "Training Land")
+            val tops = names.map { name ->
+                val digest = preparation.definitions.first { it.definition.name == name }.digest
+                compose.onNodeWithTag("preparation-cover-$digest").assertIsDisplayed().getUnclippedBoundsInRoot().top
+            }
+            assertEquals(tops.sorted(), tops, "listed alphabetically")
+            compose.onNode(hasTestTag("preparation-cover-$sentinel") and hasAnyDescendant(hasContentDescription("Selected cover")), useUnmergedTree = true)
+                .assertExists()
+            compose.onNodeWithText("Cancel").performClick()
+            compose.onNodeWithTag("preparation-rename").performClick()
+            compose.onNodeWithText("Deck name").assertIsDisplayed()
+            compose.onNodeWithText("Save name").assertIsDisplayed()
+        } finally { lobby.close(); fixture.lobby.close() }
+    }
+
     @Test fun unloadedLobbyCoverUsesSmallEllipsizedTextInsideACardShape() {
         val fixture = ScreenFixtures().also { it.configure("ready-waiting") }
         val name = "Lingering Souls with an unusually long card name that must not overflow the cover".repeat(2)

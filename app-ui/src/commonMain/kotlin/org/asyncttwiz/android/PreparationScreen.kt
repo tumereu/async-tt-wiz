@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -59,7 +60,34 @@ fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boo
             override fun move(digest: String, source: SavedDeckSection, all: Boolean) =
                 controller.captureTransfer(digest, source, all)?.let(controller::transfer) == true
         }, undo = if (undo == null) null else ({ controller.undoPreparation() }),
-        undoEnabled = connected, navigation = hamburger)
+        undoEnabled = connected, navigation = hamburger, actions = {
+            if (controller.podDeckEditable()) PodDeckHeaderActions(controller, deck, definitions, state.ownPodDeckName.orEmpty())
+        })
+}
+
+/**
+ * DRF-105, DRF-166 (owner, 2026-11-11): a pod game's own deck, also after submitting, renamed (the pen) or given another
+ * cover (its thumbnail: a tap lists the deck's Main and Side cards, basics not among them) from Prepare deck; the pod deck
+ * changes, and with it this game's lobby.
+ */
+@Composable
+private fun PodDeckHeaderActions(controller: LobbyController, deck: PreparedDeck, definitions: Map<String, CardDefinition>, name: String) {
+    var naming by remember { mutableStateOf(false) }
+    var choosingCover by remember { mutableStateOf(false) }
+    val choices = remember(deck) {
+        deck.entries.filter { it.suppliedBasic == null && it.section != SavedDeckSection.MAYBEBOARD }.map { it.definition }.distinct()
+    }
+    val cover = deck.cover?.takeIf { it in choices } ?: choices.firstOrNull()
+    PodBuildCoverThumbnail(cover?.let(definitions::get), Modifier.testTag("preparation-cover")
+        .clickable(enabled = choices.isNotEmpty(), onClickLabel = "Choose deck cover") { choosingCover = true }
+        .semantics { contentDescription = "Choose deck cover" })
+    HoldTip("Name deck") {
+        IconButton({ naming = true }, Modifier.testTag("preparation-rename")) { EntryIcon("Name deck", "edit") }
+    }
+    if (naming) PodDeckNameDialog(name, { controller.renamePodDeck(it); naming = false }) { naming = false }
+    if (choosingCover) PodDeckCoverDialog(choices, definitions, cover, "preparation-cover", { controller.coverPodDeck(it); choosingCover = false }) {
+        choosingCover = false
+    }
 }
 
 /** One section of a preparation screen: its cards and the section a swipe moves them to. */

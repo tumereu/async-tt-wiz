@@ -1,0 +1,1 @@
+add: Draft Stats counts your deck's creature types and other subtypes (Elf, Equipment, Aura and so on), most common first; tap "more" to see them all.

@@ -40,7 +40,12 @@ class DraftHistoryTest : E2e() {
             player.tagged("menu-PODS").performClick()
             waitUntil("the pod in ${player.name}'s list") { player.showsText(name) }
             player.text(name).performScrollTo().performClick()
-            waitUntil("${player.name}'s History button") { player.shows(hasTestTag("pod-history")) }
+            waitUntil("${player.name}'s History button") { player.shows(hasTestTag("pod-history")) && player.shows(hasTestTag("pod-tabs")) }
+            // DRF-165 (owner, 2026-11-11): on the Draft tab too History is the icon in the pod's header, above the tabs;
+            // the Draft tab has no History button of its own
+            val icon = player.tagged("pod-history").fetchSemanticsNode().boundsInRoot
+            kotlin.test.assertTrue(icon.bottom <= player.tagged("pod-tabs").fetchSemanticsNode().boundsInRoot.top, "in the header: ${player.screen()}")
+            kotlin.test.assertFalse(player.shows(hasText("History")), "no History button on the Draft tab: ${player.screen()}")
             player.tagged("pod-history").performClick()
             waitUntil("${player.name}'s draft history") {
                 player.pods.history?.picks?.filter { !it.automatic }?.map { it.kept.single() } == kept.getValue(player.id) &&

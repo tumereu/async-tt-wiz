@@ -225,3 +225,5 @@ number	item	screenshot	catalog	decisions	sequence
 224	On a smaller phone: the other player's hand as a fan in their row, the open band leaving their lands in view	combat-band/staged-small-phone.png	ZON-001 TRN-034 CMB-007	
 225	Settings: the Edge to edge switch (the table in the camera's strip)	settings/settings-portrait-full-top.png	SYS-085	
 226	Which pick is which: the equip target named after "Equip", the sacrifice's phrase lit, the picked card's role chip	table-pick/equip-sacrifice-bar.png	STK-047	Targets	
+227	Draft: Stats subtype counts, the rest behind "+4 more"	pod-stats-subtypes.png	DRF-180 DRF-112		
+228	Draft: Prepare deck of a pod game, the deck's cover and a pen to rename it	prepare-pod-deck-header.png	LOB-047 DRF-105 DRF-166		

@@ -402,6 +402,8 @@ internal object Filters {
             "multicolored" -> return ObjectFilter.Multicolored
             // gtc chunk 06: "blocked creature" (CR 509.1h)
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
+            // mom chunk 02: "transformed permanent": a double-faced permanent with its back face up (CR 701.27g)
+            "transformed" -> return ObjectFilter.HasStatus(arcanum.api.Status.Transformed)
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         // chunk 50: "historic": artifacts, legendaries and Sagas (CR 700.6)
@@ -598,6 +600,10 @@ internal object Events {
                 from = Zone.Library, to = Zone.Graveyard)
         }
         // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
+        // mom chunk 02: "this creature becomes blocked by a creature" (once per blocker, CR 509.3d)
+        BECOMES_BLOCKED_BY.matchEntire(text)?.let { m ->
+            return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, Filters.noun(m.groupValues[2]) ?: return null, perBlocker = true)
+        }
         BECOMES_BLOCKED.matchEntire(text)?.let { m -> return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Any) }
         // dsk chunk 11: "one or more creatures die" (a batch), "an opponent draws a card"
         DIE_PLURAL.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard) }
@@ -615,6 +621,10 @@ internal object Events {
         YOU_CAST_SPELL_WITH.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1] + " " + m.groupValues[2]) ?: return null, by = PlayerFilter.You) }
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
         if (text == "you lose life") return EventPattern.LoseLife(PlayerFilter.You)
+        // mom chunk 02: "a source deals damage to Rona" (any source, CR 120.1)
+        A_SOURCE_DEALS_DAMAGE_TO_OBJECT.matchEntire(text)?.let { m ->
+            subject(m.groupValues[1], self)?.let { return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = it)) }
+        }
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
         SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m ->
             val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return null
@@ -903,6 +913,7 @@ internal object Events {
     // dsk chunk 11
     private val DIE_PLURAL = Regex("""(one or more .+) die""")
     private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
+    private val BECOMES_BLOCKED_BY = Regex("""(.+) becomes blocked by an? (.+)""")
     // dsk chunk 12
     private val BECOMES_TARGET_OF_OPPONENTS = Regex("""(.+) becomes the target of a spell or ability an opponent controls""")
     private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(one or more .+) are put into your graveyard from your library""")
@@ -913,6 +924,7 @@ internal object Events {
     // blb gaps 2
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
+    private val A_SOURCE_DEALS_DAMAGE_TO_OBJECT = Regex("""a source deals damage to (.+)""")
     private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
     // dsk chunk 06
     private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")

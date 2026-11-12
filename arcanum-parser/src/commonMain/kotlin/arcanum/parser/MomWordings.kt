@@ -21,6 +21,16 @@ internal object Mom {
     // mom chunk 01: Etali, Primal Conqueror
     val EACH_PLAYER_EXILES_UNTIL_CAST_ANY = Regex("""Each player exiles cards from the top of their library until they exile an? ((\w+) card)\. You may cast any number of spells from among the \2 cards exiled this way without paying their mana costs\.""")
     // mom chunk 01: Invasion of Gobakhan
+    // mom chunk 02: Awakened Skyclave
+    val AS_LONG_AS_ON_BATTLEFIELD_ITS_A = Regex("""As long as (.+?) is on the battlefield, it's an? (\w+) in addition to its other types\.""")
+    // mom chunk 02: Invasion of Tarkir
+    val REVEAL_ANY_NUMBER_WHEN_YOU_DO_DEALS_X_PLUS = Regex("""Reveal any number of (.+?) cards from your hand\. When you do, (.+?) deals X plus (\d+) damage to (any (?:other )?target), where X is the number of cards revealed this way\.""")
+    // mom chunk 02: Rona, Tolarian Obliterator
+    val EXILES_AT_RANDOM_LAND_OR_CAST = Regex("""(.+?) exiles a card from their hand at random\. If it's an? (.+?) card, you may put it onto the battlefield under your control\. Otherwise, you may cast it without paying its mana cost\.""")
+    // mom chunk 02: Furnace-Blessed Conqueror
+    val ATTACKING_COPY_COUNTERS_SACRIFICE_AT_END = Regex("""[Cc]reate a tapped and attacking token that's a copy of (.+?)\. Put a \+1/\+1 counter on that token for each \+1/\+1 counter on (.+?)\. Sacrifice that token at the beginning of the next end step\.""")
+    // mom chunk 02: The Great Work
+    val UNTIL_EOT_CAST_FROM_ANY_GRAVEYARD = Regex("""Until end of turn, you may cast (.+?) spells from any graveyard\.""")
     val LOOK_AT_HAND_EXILE_OWNER_MAY_PLAY = Regex("""Look at target opponent's hand\. You may exile an? (.+? card) from it\. For as long as that card remains exiled, its owner may play it\. A spell cast this way costs ((?:\{[^}]+\})+) more to cast\.""")
 }
 

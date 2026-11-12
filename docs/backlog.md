@@ -16,8 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Arcanum engine API rework (owner, 2026-11-12): queue after the next production deployment. Small core `Engine`, the other functions grouped, typed status lists instead of text-keyed ledgers and set-tagged fields, `GameState` changeable only by the engine, per-viewer states removed. Phases, performance guard and the one approved game wipe: `docs/specs/arcanum-engine-api.md`. No catalog entries change.
-
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - "Your move" sound on the web client (LOB-146, TRN-075; built for Android 2026-11-11): the browser side of `playPcm` (the sounds are made in common code), playing also in a background tab.
@@ -81,7 +79,7 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Needs discussion
 
-- Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and is settled in `docs/specs/arcanum-engine-api.md`. Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
+- Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 
 
 - "Can't do" explainer (owner, 2026-11-08; TBL-118 today says nothing by design): a short-lived chip or bubble rising from a shaken card, saying in one plain line why ("Costs more than you can pay"). Maybe for every shake, starting from castability's unselectable targets. Where it shows and how long are undecided; the engine's refusal reasons are technical, so the wording needs its own step. Also (report 82PG8P): warn, never block, before paying for an ability that would do nothing right now (Frodo's first ability when he is no longer a Citizen; legal, checked when it resolves, and the type may still change in response).

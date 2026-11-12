@@ -10,10 +10,11 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 ```kotlin
 // the core
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
-Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
-Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
-Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
+Engine.options(state, player[, view], prefs): List<Input> // what a player may do now: exact (every input listed is accepted)
+Engine.perform(state, input[, view], prefs, trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
+Engine.newGame(seats, startingLife, skipFirstDraw): GameState // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
+Preferences(noSkipWhenNoChoice)                  // the players' settings, given to every call that reads them (see Skip when I have no choice)
 
 // a host's cast and activation screens
 CastScreen.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
@@ -222,8 +223,8 @@ loses to several state-based actions at once gets the first listed in CR 704.5; 
 
 ## Hidden information
 
-The state always has full information, as a host knows the game (D60 as revised by the API rework: no per-viewer
-states). Hidden information is display: what a host shows each player.
+The state always has full information, as a host knows the game (D60's per-viewer states were removed in the API
+rework, 2026-11-12). Hidden information is display: what a host shows each player.
 
 - **What each player may see:** `Host.visible(state, player)`: public cards, their own hand and cards outside the
   game, face-down cards they control, cards an ability lets them look at any time (CR 401.5). A face-down permanent
@@ -257,8 +258,7 @@ and every decision, option and input stays theirs (`Decision.player`, `Input.pla
 
 What the host does (the ATW side, a follow-up): route each decision of the controlled player and their priority, casts,
 activations, attacks and blocks to the decider (`options(state, player)` are offered to the decider, inputs performed as
-`player`); show the decider the controlled player's hidden cards (`visible`; a host keeping one state per player shows the
-decider the controlled player's own state, or fills those cards into the decider's view); never let the controller concede
+`player`); show the decider the controlled player's hidden cards (`visible`); never let the controller concede
 for them (723.6: `Input.Concede` only from the player themself) or make choices no rule or object calls for (723.5b); and show
 both players who is controlling whom while `TurnState.controlled` is in force.
 
@@ -286,7 +286,7 @@ resolution (`Step.Choose`), discards with a filter, costs paid on resolution and
 the start; not casting and activating, which the player does themselves.
 
 Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
-allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with
+allowed values, counts, uniqueness, zones): a wrong one is refused with
 `IllegalArgumentException`.
 
 ## Tracing
@@ -563,7 +563,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
-  other components in `GameObject.mergedAbove` / `mergedBelow` as `MergedPart`s: layer 1 gives it the topmost component's
+  other components in its `ObjectStatus.Merged(above, below)` as `MergedPart`s: layer 1 gives it the topmost component's
   characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
   topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
   after its own card, 730.3; merged on top of a face-down permanent it is face up and its card shown to everyone, 730.2e;
@@ -612,7 +612,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   abilities are done as the action, the source as "this" (CR 701.43a, b); an exerted permanent's "doesn't untap" now ends after its
   controller's next untap step (the step's player read with the effect's names). `options` lists, beside the plain declarations, one
   with every optional cost paid, one with enlisting and one with a band.
-  Battles (`combat/Battles`, CR 310, scenarios in `combat/BattleTest`): a battle's protector (`GameObject.protector`) is chosen as
+  Battles (`combat/Battles`, CR 310, scenarios in `combat/BattleTest`): a battle's protector (`ObjectStatus.Protector`) is chosen as
   it enters by its controller (a Siege's among their opponents, 310.12a; one with no battle type is its controller's, 310.9a) and
   by the state-based actions when it has none or one who can't be (704.5x, y; none possible: the graveyard). Battles are attack
   targets of players their protector defends against, a Siege of its own controller's too, never of the protector (310.9b, 508.1b);
@@ -629,8 +629,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Decision.ChooseOption.naming` says which card, so other players aren't listed answers naming a card hidden from them, P7):
   the action is taken, then the player declares, in any round; the starting hand size is a player's own
   (`StartOptions.handSizes`, CR 103.5a) or everyone's, changed by `Mechanic.StartingHandSize` effects (a conspiracy in the command
-  zone), for draws, mulligans and the zero-card limit. In another player's view the hidden hand's cards offer no such action (the
-  host takes the declaration from the player's own state). Decisions of a player who left (`setup/LeftPlayers`, CR 800.4f–h,
+  zone), for draws, mulligans and the zero-card limit. Decisions of a player who left (`setup/LeftPlayers`, CR 800.4f–h,
   scenarios in `setup/LeftPlayersTest`): every question a flow asks goes through `Act.ask`, which decides one of a player who
   left: a cost they'd choose whether to pay isn't paid, without asking (800.4f); another choice an object asks of them is made by
   a player its controller chooses (another opponent of the controller if possible; one possible player: no question, 800.4g);

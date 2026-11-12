@@ -76,7 +76,7 @@ that exist today.
 | D19 | **Resolved references (API review, scenario 1):** card definitions never name specific objects; what they select is worked out at the CR-defined moment (targets when put on the Stack, other sets on resolution). What the engine stores names objects and players by id: a **Stack item** (ability of which card, controller, targets, X, modes) and an **effect object** (mechanics, locked-in affected objects, duration, source, controller, timestamp). Effect objects are arcanum types; the host stores and shows them without knowing their contents. Which parts lock in follows the CR (characteristic and control changes lock their set, rule changes keep applying to new objects, numbers lock at resolution, CR 611.2c, 608.2h). "You" is the controller of the Stack item or effect object, captured when it is created; for static abilities, the source's controller (CR 109.5). |
 | D20 | **One switch: Automatum on or off for the whole game** (replaces the separate game, player and card switches of D2, D7 and P4). No fine-grained control such as editing parts of an effect object. Turning it on may come with further restrictions (e.g. no manually created Stack entries) for anything that can't be brought in line with automation; these become clear when that part is built. *(Superseded by I-D52: no switch.)* |
 | D21 | **Object identity (API review, scenario 3):** an object id is `ObjectId(card, zoneChanges)`, worked out by the engine: every zone change makes a new id (CR 400.7), so the engine knows the ids a resolution creates before the host applies it. A stale id (its object left the zone) reads as last known information and can't be acted on (CR 608.2h, 400.7). Effects that produce objects name them: one `bind` when the effect doesn't change ids (create token, copy, search), one bind per id stage when it does (`preBind`/`postBind` for a single move; more if an effect changes an id more than once). Zone-change triggers offer the "before" and "after" ids. Stored Stack items and effect objects carry snapshots of the stale ids they refer to. "Enters with counters" is part of the move, not a later step (CR 122.6). |
-| D22 | **Game history as ledgers (API review, scenario 4):** the engine stays stateless; what it needs from earlier in the game ("a creature died this turn", "your second spell", activation limits, mana spent, "if it was kicked") is kept by the host as **ledgers** at three scopes: game, player, and object instance (keyed by object id, so a zone change starts fresh). The engine defines the ledger keys and how each event changes them; changes are increments, decrements and set additions/removals where possible, so undo works. "This turn" ledgers reset at the turn's start, and the previous turn's are kept for "last turn" texts. A resolving permanent spell keeps the cast part of its ledger (CR 400.7d). If undo removes something a later automated result depended on, players fix it by hand. |
+| D22 | **Game history as ledgers (API review, scenario 4):** the engine stays stateless; what it needs from earlier in the game ("a creature died this turn", "your second spell", activation limits, mana spent, "if it was kicked") is kept by the host as **ledgers** at three scopes: game, player, and object instance (keyed by object id, so a zone change starts fresh). The engine defines the ledger keys and how each event changes them; changes are increments, decrements and set additions/removals where possible, so undo works. "This turn" ledgers reset at the turn's start, and the previous turn's are kept for "last turn" texts. A resolving permanent spell keeps the cast part of its ledger (CR 400.7d). If undo removes something a later automated result depended on, players fix it by hand. *(Engine API rework, 2026-11-12: only ledgers named by card definitions remain; the engine's own values are typed statuses, §7.0.)* |
 | D23 | **Easiest first on definition updates (for now):** a definition update may break or wipe running games until the owner says otherwise. Stack items carry a copy of the ability they run (granted abilities have no place on the card anyway); other references to an ability use its position. Schema versioning of stored definitions is parked. |
 | D24 | **Object model ("properties"):** everything an object has: its **characteristics** (CR 109.3: name, mana cost, colours, types, P/T, loyalty, defense, and its **abilities**: spell, activated, triggered, static, with keywords as labels on these), **applied mechanics** from effects of other sources that are not abilities ("can't be blocked" from an Aura, CR 113.12), **status** (tapped, flipped, face down, phased out), and counters, damage, controller, attachments and designations. Mechanics that are only the meaning of a keyword (deathtouch, lifelink, first strike, …) are **keyword-only**: they come only from the keyword table, so "has deathtouch" is always a granted ability that "loses all abilities" removes (CR 613.1f). |
 | D25 | **Randomness is a decision answered by the host** (API review, scenario 7): coin flips, die rolls and random picks pause resolution like a player choice, but the host answers at once, inside the same batch, by the client sending it. Shuffles are effects the host performs with its own shuffle; the engine asks which cards are where only when an effect looks at them. Answers are addressed by position (D23). **Secret choices** ("each player secretly chooses") stay manual for now: they need a stored answer one player can't read, which the host doesn't have yet. |
@@ -110,11 +110,11 @@ that exist today.
 | D53 | **One shape for cost changes (owner, 2026-11-01):** `CostChange` is a sealed `More(mana, times)` / `Less(mana, times)` with the actual symbols ("{1}", "{W}{B}") and a count, used by both `ActivationRules.costChange` and `Mechanic.CostChange` (which keeps what it affects and its minimum); the engine applies CR 118.7 to the symbols. Replaces the bare generic `Value` and the separate `change`/`mana` fields. |
 | D54 | **Mana abilities are derived (owner, 2026-11-01):** no stored flag; `Ability.isManaAbility()` in arcanum-api decides by CR 605.1a/b from the ability's shape (no target, could add mana, not loyalty, no card moved to or from a library; triggered: triggers from a mana ability or mana being added). |
 | D55 | **Card type references (owner, 2026-11-01):** card types can be referenced like subtypes and colours: `CardTypeRef` `Literal` / `Chosen` / `Remembered`, taken by `ObjectFilter.Type` (which keeps a constructor for a written-out `CardType`); `Choice.CardType(among)` chooses one from a fixed list ("Choose artifact, creature, or land"). |
-| D56 | **Engine API (owner, 2026-11-01):** `Engine.view(state)`, `Engine.options(state, player)`, `Engine.perform(state, input): Outcome(changes, pending)`. `GameState` is mutable for speed but the engine never mutates it: `perform` works on its own copy and returns changes; holders apply them with the library's `GameState.apply(change)` (§7.0). |
+| D56 | **Engine API (owner, 2026-11-01):** `Engine.view(state)`, `Engine.options(state, player)`, `Engine.perform(state, input): Outcome(changes, pending)`. `GameState` is mutable for speed but the engine never mutates it: `perform` works on its own copy and returns changes; holders apply them with the library's `GameState.apply(change)` (§7.0). *(Since the engine API rework, 2026-11-12, `GameState` is read-only outside the engine.)* |
 | D57 | **Priority is in the engine** (owner, 2026-11-01): it is MTG, not ATW. The state holds the priority holder and the passes in a row; `PassPriority` resolves the top of the Stack when all pass in succession (CR 117.4) or moves to the next step (CR 500.2). Changes show every priority pass and grant. How ATW drives it is decided with the integration. |
 | D58 | **Partial progress is a continuation** (owner, 2026-11-01; refines D31): an open cast, resolution or trigger placement is a serializable `Continuation` the host stores as-is and passes back; `Pending(decision, continuation)` names the deciding player. Changes made before a decision are returned and applied at once (one host batch per call, undoable per step). `Cancel` rewinds a whole cast (CR 601.2). |
 | D59 | **Every change is reversible** (owner, 2026-11-01): each `Change` carries its before-values, so `GameState.revert(change)` is as mechanical as `apply`. Exceptions by design: the timestamp counter never goes back (D34), seen information stays seen, an undone random result is asked again on redo. Every scenario test checks apply-then-revert gives back the starting state. |
-| D60 | **Hidden information** (owner, 2026-11-01): the state is one caller's view; unknown cards are marked unknown. An effect that needs a card's identity (search, look, reveal, "if it's a land", random discard, choosing from a revealed hand) stops with a `HostFill` request the host answers; a plain draw needs none. |
+| D60 | **Hidden information** (owner, 2026-11-01): the state is one caller's view; unknown cards are marked unknown. An effect that needs a card's identity (search, look, reveal, "if it's a land", random discard, choosing from a revealed hand) stops with a `HostFill` request the host answers; a plain draw needs none. *(Replaced by the engine API rework, 2026-11-12: the state always has full information and hidden information is display, §7.0.)* |
 | D61 | **Overnight engine build (owner, 2026-11-01):** N players in turn order from the start (APNAP, CR 101.4); game setup (decks, opening hands, mulligans) after the engine; manual parts stop with a `Manual(text)` decision answered "done"; scenario tests use the invented cube cards by name, read as setup → moves → expectations with CR comments, and script or seed random results; commits pushed to origin as backup. |
 | D62 | **No engine version per game (owner, 2026-11-02; replaces D38's version part):** ATW keeps one compatible app/server version at a time with forced updates, so games don't store an engine or definition version and the server doesn't check one. New event kinds bump ATW's gameplay rules version as usual (SYS-031). An engine or parser update that breaks stored engine data in running games (Stack items, effect objects, the open flow) may clear that data or wipe games, with the owner's permission (D23, AGENTS.md). |
 | D63 | **Full support for chosen sets (owner, 2026-11-02):** the goal is playing with Automatum on all the time, so every card of a real MTG set we choose (Bloomburrow, Duskmourn, …) is fully supported — no card left manual. The Powered Synergy Cube's two unsupported un-cards (D48) will be replaced in the owner's cube. |
@@ -170,8 +170,8 @@ ATW table ──► ATW integration ──► engine game state (MTG terms) ─�
   - **Game state in MTG terms**: players, zones, objects with their printed
     characteristics, counters, damage, tapped/face-down state, attachments, the
     Stack with its choices, turn and step, and the stored effect objects (P2).
-    Objects the caller can't see are **unknown objects** (an opponent's hand card,
-    an unknown library card), explicitly marked as such.
+    The state has full information; what a player may see is the host's display
+    (§7.0).
   - **Calls**: derive the view; list what a player can do; start an action (cast,
     activate, resolve, attack damage); react to events that just happened.
   - **Results**: either a **decision request** (choose targets for slot `t` among
@@ -310,84 +310,105 @@ engine cannot represent yet (left manual until the engine supports it).
 
 ### 7.0 Engine API (D56–D61)
 
+Settled in the engine API rework (owner, 2026-11-12): a small core, the rest grouped by who uses it, typed statuses
+for mechanic state, and a state only the engine changes. `arcanum-engine/README.md` lists every function.
+
 ```kotlin
-object Engine {
-    fun view(state: GameState): View                              // derived characteristics (layers, CR 613), per object
-    fun options(state: GameState, player: PlayerId): List<Input>  // what a player may do now
-    fun perform(state: GameState, input: Input): Outcome          // reads state, never writes it
-    fun shouldPassFor(state: GameState, player: PlayerId): Boolean // a host passes priority for them now (I-D18)
+object Engine {                                    // the core, nothing else
+    fun newGame(seats: List<Seat>, startingLife: Int = 20, skipFirstDraw: Boolean = seats.size == 2): GameState
+    fun view(state: GameState): View               // characteristics after layers (CR 613), statuses, rules in force
+    fun options(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): List<Input>
+    fun perform(state: GameState, input: Input, prefs: Preferences = Preferences(), trace: EngineTrace = EngineTrace.None): Outcome
+    fun result(state: GameState): GameResult?
 }
-data class Outcome(val changes: List<Change>, val pending: Pending?)
-data class Pending(val decision: Decision, val continuation: Continuation)
-fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // the only mutators
+data class Outcome(val changes: List<Change>, val pending: Pending?)   // reads state, never writes it (D56)
+data class Pending(val decision: Decision, val continuation: Continuation)   // D58
+data class Preferences(val noSkipWhenNoChoice: Set<PlayerId> = emptySet())
+fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // the only mutators (D59)
 ```
 
-- **GameState** (serializable): players (life, poison and other player counters, mana pool), objects by id
-  (`ObjectId(card, zoneChanges)` and Stack item ids, D21/D35) with owner, controller, zone, position, definition
-  reference, status, counters, damage, attachments, timestamp (D34); turn, step, active player, turn order; priority
-  holder and passes in a row; the Stack as structured items (ability, controller, targets, modes, X, LKI); effect
-  objects (D19, D26); delayed triggers; ledgers (D22); this turn's tagged events (D33); the open continuation.
-  Unknown objects are marked (D60).
-- **Inputs:** `PlayLand`, `Cast(card, way)`, `Activate(object, ability)`, `PassPriority(player)`,
-  `DeclareAttackers`, `DeclareBlockers`, `Answer(decision, answer)`, `Cancel`, `StartGame(options)`,
-  `Concede(player)`. While a continuation is open only its `Answer` (or `Cancel` for a cast) is accepted, and
-  `Concede`.
+| Group | For | Functions |
+| --- | --- | --- |
+| `CastScreen` | a host's cast and activation screens | `castCosts`, `selection`, `finishable`, `finishableWith`, `fillPayment`, `announcedMayPay`, `anyReduction`, `refusal` |
+| `CombatDeclarations` | declaring attackers and blockers | `attackCosts`, `blockCosts` |
+| `Inspect` | a host's Inspect | `explain` (one object or several), `restrictions`, `lastKnown`, `events` |
+| `Host` | a host running games | `shouldPassFor`, `passCheck`, `decider`, `loopKey`, `visible`, `revealed`, `unknownOrder`, `reorderUnknown`, `samePosition` |
+| `CardSupport` | which cards are played fully | `manualParts`, `SUPPORT_VERSION` |
+| `EngineProbes` | tests and measurements | `layersWorkedOut`, `statesCopied`, `optionsSearched` |
+
+`options`, `perform`, the pass checks, `visible` and `revealed` have overloads taking the view the caller already has,
+so the layers aren't worked out again. Values the engine keeps for a mechanic are read from the view's statuses; there
+are no per-mechanic functions (the earlier `speed`, `ringTemptations`, `dungeonsCompleted`, `dayOrNight`,
+`classLevel` and `ventureRoom` are gone).
+
+- **GameState** (serializable) holds the whole game with full information: players in turn order (life, counters,
+  mana pool, their zones, `loss: LossReason?`, statuses), every object by id (`ObjectId.Card(card, zoneChanges)` and
+  Stack item ids, D21/D35) with owner, controller, zone, definition, face, tapped, face down, phased out, counters,
+  damage, attachment, timestamp (D34), control start, marks, linked-ability memory (`linked`, CR 607), how it was cast
+  (`CastFacts`) and statuses; the Stack's items (targets, modes, X, snapshots); effect objects (D19, D26); delayed
+  triggers; turn, priority and combat; the game's statuses; the open `Pending`. Internal to the engine: the history
+  (tagged events, D33, which a host reads with `Inspect.events`; ledgers named by card definitions, D22) and its
+  bookkeeping (timestamp counter, input count, waiting triggers, library places, per-object use counts per turn).
+- **Read-only outside the engine:** the constructor and setters are internal and the collections are read as `List`
+  and `Map`; only `apply` and `revert` change a state. Inside, the collections stay mutable and are copied once per
+  `perform`, for speed (no persistent collections). Hosts start with `newGame` and then perform inputs; there is no
+  public way to build a game in the middle. Tests outside the engine build boards with an opt-in API
+  (`@ArcanumTestSetup`: `GameState.of`, `GameState.start`, `state.setup`), and the build check
+  `checkArcanumTestSetup` fails when main code opts in; the engine's own scenario harness uses internal access.
+- **Where state goes:** a field when every permanent can have it and the engine reads it on most passes (tapped, face
+  down, phased out, counters, damage, attachment, timestamp, control start); `marks` for flags defined as data in
+  arcanum-api (`MarkRules`), which the parser adds without engine code; `ObjectStatus`, `PlayerStatus` or `GameStatus`
+  (sealed, serializable, one of each key per holder, stored only when not at the default) for mechanics the engine
+  codes by hand, with their values (speed, the Ring, designations, day and night, a Class's level, the venture marker,
+  goad, merged components, soulbond pairs, …): adding one adds a subclass, and neither `Engine` nor the state classes
+  change. The view shows the stored statuses plus derived ones (a Class without a stored level shows level 1). No engine
+  value is kept under a text key; what is stored by name is card-defined: linked-ability memory and ledgers named by a
+  definition. This replaces D22's engine-defined ledger keys.
+- **Inputs:** `PlayLand`, `Cast(card, way)`, `Activate`, `PassPriority`, `DeclareAttackers`, `DeclareBlockers`,
+  `Answer`, `Cancel`, `StartGame(options)`, `SetupAnswer`, `Concede`, and the host's `MandatoryLoop` and
+  `AgreedResult`. While a continuation is open only its `Answer` (or `Cancel` for a cast) is accepted, and `Concede`.
 - **Changes** are MTG-level, tagged with their meaning (cast, resolved, died, sacrificed, destroyed, discarded, drew,
   …), and carry before- and after-values (D59): moves (with old and new id and position), damage, life, counters,
   tap state, tokens, effect objects added/ended, Stack pushes/resolutions, mana added/spent, priority passes and
-  grants, step changes, ledger changes, continuation set/cleared, player lost. For history lines, changes made by a
-  spell's or ability's instructions name what made them (`CausedBy`: source, its name then, controller, Stack item);
-  damage names its source as it was.
+  grants, step changes, status changes (one kind per family: `ObjectStatusChanged`, `PlayerStatusChanged`,
+  `GameStatusChanged`), cast facts, continuation set/cleared, a player's loss with its `LossReason`, and the engine's
+  bookkeeping. For history lines, changes made by a spell's or ability's instructions name what made them (`CausedBy`:
+  source, its name then, controller, Stack item); damage names its source as it was.
 - **After every input** the engine applies state-based actions, puts triggered abilities on the Stack (asking only
   when there is a choice: order, targets, modes) and gives priority, all inside the same call (P5).
 - **Decisions:** targets, modes, X, mana payment (with a suggested tapping), may, choose objects, choose option,
-  choose colour/type/name/number, divide, order triggers, order replacements, legend rule, random (answered by the
-  host, D25), host fill (D60), steps done in another player's view (`OtherView`, D60/D31), manual (`Manual(text)`,
-  answered "done"). Decisions carry text for people: "you may" prompts and choices are the sentence of the ability's
-  printed text, modes and triggers to order their printed lines (the parser keeps each ability's and mode's text).
-- **Starting a game** (D61): `Engine.newGame(seats, startingLife)` builds the state before the game (decks as
-  libraries, sideboards outside the game, CR 103.2a, 103.4); `StartGame(options)` runs CR 103 as committed stages:
-  the starting player (given, or chosen by a given chooser or by a player a host die roll picks, CR 103.1), companion
-  reveals (CR 103.2b), host shuffles (D25), opening hands and London mulligans (CR 103.5, the first free in
+  choose colour/type/name/number/player, divide, order triggers, order replacements, legend rule, random (answered by
+  the host, D25), a card by name (`NamedCard`, answered by the host with the card: the engine has no cards of its
+  own). Decisions carry text for people: "you may" prompts and choices are the sentence of the ability's printed text,
+  modes and triggers to order their printed lines (the parser keeps each ability's and mode's text).
+- **Starting a game** (D61): `Engine.newGame(seats, startingLife, skipFirstDraw)` builds the state before the game
+  (decks as libraries, sideboards outside the game, CR 103.2a, 103.4); `StartGame(options)` runs CR 103 as committed
+  stages: the starting player (given, or chosen by a given chooser or by a player a host die roll picks, CR 103.1),
+  companion reveals (CR 103.2b), host shuffles (D25), opening hands and London mulligans (CR 103.5, the first free in
   multiplayer), then turn 1 from its upkeep, the starting player skipping the draw in two-player games (CR 103.8).
   `Concede(player)` works at any time (CR 104.3a); the game ends when one player is left, or in a draw (CR 104.2a,
   104.4a), after which `options` are empty; a player leaving a game that goes on takes their objects with them
   (CR 800.4a).
-- **Hidden information** (refines D60): the state is one viewer's view (`GameState.viewer`; none: full information,
-  as a host knows the game). One rule: whenever an effect or rule makes a hidden card's identity matter or visible
-  (put into a graveyard, the Stack, exile or the battlefield face up; revealed; looked at; drawn by the viewer; picked
-  at random; a face-down card leaving or turning face up, CR 708.9; a card its controller may look at any time,
-  CR 401.5), the engine asks the host to fill exactly those cards (`HostFill`, public or for one player) before going
-  on, so replacements and triggers see them. When cards become hidden from the viewer (put into a hand the viewer
-  can't see, turned face down where the viewer can't look, shuffled or put in a random order), the engine forgets
-  them; a shuffle or random order in a viewer's state asks the host for new ids instead of an order, so their order
-  can't be tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. A face-down
-  permanent is a nameless 2/2 creature even unseen (CR 708.2a); "at random" is a host random pick (D25). Decisions
-  and changes name only what their player and the viewer may know: other players aren't offered answers naming cards
-  hidden from them, and `Engine.visible(state, player)` says what a host may show a player. A host may keep one state
-  per player: it forwards each player's inputs to the others' states. Another player's land play, cast or activation
-  of a card the viewer doesn't know asks a public fill of that card (it becomes public as it is played, CR 305.1,
-  601.2a, 602.2a) and goes on; `options` lists only what the viewer's state can check. A resolution that reaches
-  cards only another player may look at (their search, scry, surveil, look, a choice among hidden cards) is done in
-  that player's view (D31): it waits on `OtherView(player, objects)`, the host has the player decide in their own state
-  and answers with the identities of `objects` and that player's answers there; the engine works each step out with
-  them and keeps none (the identities aren't in the state or the changes; cards the viewer then sees, put into a
-  public zone or revealed, are filled in as they are), committing step by step; `Engine.otherViewDecision` shows a
-  host that doesn't keep the player's state what they face. Not yet: a face-down cast of a card unknown to the view
-  (filled publicly), private looks outside a resolution (a companion check at the start).
-- **Skip when I have no choice** (I-D18, refines D57 and P5): a per-player setting in the state
-  (`PlayerState.skipWhenNoChoice`, on by default, changed by a host's `Change.SkipWhenNoChoice`). The engine never
-  passes priority by itself; `Engine.shouldPassFor(state, player)` tells a host to pass for a player who holds priority
+- **Hidden information** (replaces D60's per-viewer states): the engine performs only on full-information states, as
+  a host knows the game; what each player is shown is display. `Host.visible(state, player)` says which objects'
+  identity a player may know (public cards, their own hand and cards outside the game, face-down cards they control,
+  cards they may look at any time, CR 401.5); a face-down permanent is a nameless 2/2 creature for everyone
+  (CR 708.2a). An effect that looks at hidden cards records `Change.Shown(to, ids)`, and `Host.revealed` tells a host
+  which cards some changes showed a player that they couldn't see before. Other players aren't offered answers
+  naming cards hidden from them, and a pending decision over such cards is shown only to its player. A host keeps
+  the library's unknown order random with `Host.unknownOrder` and `reorderUnknown` (D25).
+- **Skip when I have no choice** (I-D18, refines D57 and P5): a per-player setting the host passes in `Preferences`
+  to `options`, `perform` and the pass checks (on by default; `noSkipWhenNoChoice` lists the players who turned it
+  off). Every host that performs for the same players must give the same preferences. The engine never passes
+  priority by itself; `Host.shouldPassFor(state, player, prefs)` tells a host to pass for a player who holds priority
   and can do nothing but pass (mana abilities aside): on, always; off, only when no card only they may see (hand,
-  face-down cards, cards only they may look at) could have let them act; never while such cards are unknown in the
-  state (D60). Inside a flow, a question with nothing to choose is skipped when on; off, when the skip depends on the
-  player's hidden cards (a card of the choice's pool in a hidden zone could be offered or not by what card it is), it is
-  asked with only its forced answer (a choice offering exactly the forced cards, or `May(payable = false)` for a cost
-  they can't pay). Unknown cards such a skip depends on are filled in for the player first, either way. Skips that
-  depend on nothing hidden stay automatic (P5).
+  face-down cards, cards only they may look at) could have let them act. Inside a flow, a question with nothing to
+  choose is skipped when on; off, when the skip depends on the player's hidden cards (a card of the choice's pool in a
+  hidden zone could be offered or not by what card it is), it is asked with only its forced answer (a choice offering
+  exactly the forced cards, or `May(payable = false)` for a cost they can't pay). Skips that depend on nothing hidden
+  stay automatic (P5).
 - **Answers** are checked on one path against what their decision asked (kind, allowed values, counts, uniqueness,
-  zones, exactly the filled objects, new ids): a wrong one is refused with `IllegalArgumentException` and changes
-  nothing, never a crash.
+  zones): a wrong one is refused with `IllegalArgumentException` and changes nothing, never a crash.
 
 ### 7.1 Derived view (layers)
 
@@ -432,8 +453,8 @@ Resolving a Stack entry evaluates its definition against the current state with 
 entry's recorded choices: illegal targets are dropped (CR 608.2b) and the spell
 fizzles when all are gone. Choices made during resolution ("you may", "choose a
 card") are asked from the right player; everything else applies automatically (P5).
-Effects that need hidden information (search, reveal, random discard) produce the
-existing library/hand actions where the server fills in the hidden part.
+Effects that need hidden information (search, reveal, random discard) are worked out
+on the full-information state; what each player is shown of them is display (§7.0).
 
 Effects with a duration create **effect objects** (§8) that end on their own:
 until-end-of-turn effects in the cleanup step, "for as long as" effects when their
@@ -483,11 +504,11 @@ automatically.
 
 ### 7.7 Hidden information
 
-The engine sees only what its caller sees (unknown objects, §4.1). It never reveals
-anything by itself: an effect that needs hidden information is either done through a
-server-filled action or asked from the player who can see it. Choices the opponent
-must make (e.g. "discard a card") are shared pending decisions (§8); deciding one for
-them follows §7.9.
+The engine works on full-information states; hidden information is what a host shows
+each player (§7.0, "Hidden information"). A choice among hidden cards is asked of the
+player who may see them, and other players aren't offered answers naming such cards.
+Choices the opponent must make (e.g. "discard a card") are pending decisions answered
+only by that player (I-D56).
 
 ### 7.8 Mana payment
 

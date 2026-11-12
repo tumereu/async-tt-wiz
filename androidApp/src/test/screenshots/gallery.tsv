@@ -230,3 +230,4 @@ number	item	screenshot	catalog	decisions	sequence
 229	Effects marker: a violet sparkle on a card an effect changes	states/effects-marker.png	TBL-136 TBL-104	
 230	Saved cube view: warning sign on cards Automatum can't play yet	non-gameplay/cube-detail-unsupported-portrait.png	DRF-161 LOB-144		
 231	A graveyard holding a target glows and pulses while it is picked	table-pick/pile-choice-glow.png	STK-047		
+232	Plays put on the Stack in one go fly in and pile up large in the middle	engine/play-show-pile.png	HIS-112 HIS-021		

@@ -2,6 +2,21 @@ package arcanum.parser
 
 /** Wordings first met in Innistrad (ISD). */
 internal object Isd {
+    // isd chunk 06: Manor Gargoyle
+    val LOSES_KEYWORDS = Regex("""loses? ([a-z][a-z ,]*)""")
+    // isd chunk 06: Mirror-Mad Phantasm
+    val OWNER_SHUFFLES_SELF_REVEALS_UNTIL_NAMED = Regex("""(.+?)'s owner shuffles it into their library\. If that player does, they reveal cards from the top of that library until a card named (.+?) is revealed\. The player puts that card onto the battlefield and all other cards revealed this way into their graveyard\.""")
+    // isd chunk 06: Evil Twin
+    val WITH_SAME_NAME_AS_SELF = Regex("""(.+) with the same name as this (?:creature|permanent)""")
+    // isd chunk 06: Grimoire of the Dead
+    val COST_AND_SACRIFICE_IT = Regex("""(.+) and sacrifice it""")
+    // isd chunk 06: Essence of the Wild
+    val ENTER_AS_COPY_OF_SELF = Regex("""([A-Z][^.]+? you control) enter as a copy of (.+)\.""")
+    // isd chunk 06: Unbreathing Horde
+    val WOULD_BE_DEALT_DAMAGE_PREVENT_AND = Regex("""If (.+?) would be dealt damage, prevent that damage and (.+)\.""")
+    // isd chunk 06: Kessig Cagebreakers
+    val CREATE_TAPPED_AND_ATTACKING_FOR_EACH = Regex("""[Cc]reate (an? .+? token) that's tapped and attacking for each (.+)\.""")
+    val HAS_KEYWORD = Regex("""(it|this \w+) has ([a-z][a-z ]*)""")
     // isd chunk 01: Memory's Journey
     val TARGET_PLAYER_SHUFFLES_UP_TO_FROM_GRAVEYARD = Regex("""Target player shuffles up to (\w+) target cards from their graveyard into their library\.""")
     // isd chunk 01: Divine Reckoning: "Each player chooses a creature they control. Destroy the rest." (the rest of that kind of permanent)
@@ -51,6 +66,10 @@ internal object IsdPhrases {
 
     /** isd chunk 02: "creatures other than Werewolves and Wolves": the kind, but none of the listed kinds. */
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
+        // isd chunk 06: "creature with the same name as this creature" (Evil Twin's granted ability; the name it has now, CR 201.2)
+        Isd.WITH_SAME_NAME_AS_SELF.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, arcanum.api.ObjectFilter.SameNameAs(arcanum.api.Objects.Self))
+        }
         val m = Isd.OTHER_THAN.matchEntire(phrase) ?: return null
         val base = Filters.noun(m.groupValues[1]) ?: return null
         val excluded = m.groupValues[2].split(" and ", " or ", ", ").map { Filters.noun(it.trim().removePrefix("and ").removePrefix("or ")) ?: return null }
@@ -68,6 +87,11 @@ internal object IsdPhrases {
         Isd.DIDNT_ATTACK_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self,
                 arcanum.api.ObjectFilter.ThisTurn(arcanum.api.EventPattern.Attack(arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self)))))
+        }
+        // isd chunk 06: "it has defender", "this creature has flying" (CR 702.3)
+        Isd.HAS_KEYWORD.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let { m ->
+            val keyword = OracleParser.keyword(m.groupValues[2]) ?: return null
+            return arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, arcanum.api.ObjectFilter.HasKeyword(keyword.kind))
         }
         return null
     }

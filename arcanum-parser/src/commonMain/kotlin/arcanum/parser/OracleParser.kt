@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 82
+    const val VERSION: Int = 83
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -544,6 +544,11 @@ object OracleParser {
         // dgm: "protection from white and from black" is two protection abilities (CR 702.16g); mh2 chunk 02: also first on its line
         val split = parts.flatMap { p ->
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
+        }.fold(mutableListOf<String>()) { out, p ->
+            // isd chunk 06: "Protection from Vampires, from Werewolves, and from Zombies": one protection ability each (CR 702.16g)
+            val more = PROTECTION_LIST_ITEM.matchEntire(p)?.takeIf { out.lastOrNull()?.let { PROTECTION.matchEntire(it) } != null }
+            out += more?.let { "protection from " + it.groupValues[1] } ?: p
+            out
         }
         val first = keyword(split.first()) ?: return null
         return listOf(first) + split.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
@@ -737,7 +742,9 @@ object OracleParser {
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
-    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
+    // isd chunk 06: also a creature type, "protection from Zombies" (CR 702.16a)
+    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+)""")
+    private val PROTECTION_LIST_ITEM = Regex("""(?:and )?from ([A-Za-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06

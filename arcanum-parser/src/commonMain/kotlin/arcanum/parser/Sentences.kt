@@ -2041,6 +2041,11 @@ internal class Sentences(
         COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
         }
+        // isd chunk 06: "other Zombie you control and each Zombie card in your graveyard": both counted
+        phrase.split(" and each ").takeIf { it.size == 2 }?.let { (a, b) ->
+            val first = Filters.objects(a, self); val second = Filters.objects(b, self)
+            if (first != null && second != null) return Value.Sum(listOf(Value.Count(first), Value.Count(second)))
+        }
         // chunk 52: "instant and sorcery card in your graveyard": each card that is either
         return (Filters.objects(phrase, self) ?: Filters.objects(phrase.replace(" and ", " or "), self))?.let { Value.Count(it) }
     }
@@ -2593,6 +2598,7 @@ internal class Sentences(
         mshCostPart(text)?.let { return it } // msh
         hobCostPart(text)?.let { return it } // hob
         fraCostPart(text)?.let { return it } // fra
+        isdCostPart(text)?.let { return it } // isd
         // fdn chunk 08: "Remove six counters from among creatures you control" (any kinds, spread as the payer chooses, CR 118.3, 601.2h)
         Fdn.REMOVE_COUNTERS_FROM_AMONG.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -7131,6 +7137,11 @@ internal class Sentences(
             return listOf(Mechanic.ModifyPowerToughness(xOrChange(m.groupValues[1]) ?: return null, xOrChange(m.groupValues[2]) ?: return null))
         }
         Gtc.CANT_BE_BLOCKED_BY.matchEntire(text)?.let { m -> return listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[1]) ?: return null)) }
+        // isd chunk 06: "loses defender" (CR 613.1f)
+        Isd.LOSES_KEYWORDS.matchEntire(text)?.let { m ->
+            val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) }
+            if (keywords.all { it != null }) return keywords.map { Mechanic.LoseAbilities(it!!.kind) }
+        }
         return when (text) {
             "can't block" -> listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any))
             "can't be blocked" -> listOf(Mechanic.CantBeBlocked)
@@ -9064,6 +9075,8 @@ internal class Sentences(
             val objects = when {
                 isSelf(what) -> Objects.Self
                 what.startsWith("each ") -> Objects.Each(Filters.noun(what.removePrefix("each ")) ?: return null)
+                // isd chunk 06: "Regenerate all Werewolf creatures you control."
+                what.startsWith("all ") -> Objects.Each(Filters.noun(what.removePrefix("all ")) ?: return null)
                 what.startsWith("target ") -> context.target(Filters.slotName(what.removePrefix("target ")), Filters.noun(what.removePrefix("target ")) ?: return null)
                 else -> return null
             }
@@ -9499,12 +9512,16 @@ internal class Sentences(
         // rtr chunk 05: "That creature is a black Zombie in addition to its other colors and types." after a delayed return to the
         // battlefield: what it is as it enters (CR 611.2e), for good
         Rtr.THAT_CREATURE_IS_IN_ADDITION.matchEntire(sentence)?.let { m ->
-            val delayed = last as? Effect.CreateDelayedTrigger ?: return null
-            val move = ((delayed.instructions.steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Battlefield } ?: return null
             val color = Tokens.color(m.groupValues[1]) ?: return null
-            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val subtype = m.groupValues[2].let { if (sentence.startsWith("They're")) it.removeSuffix("s") else it }.takeIf { it in RulesWords.subtypes } ?: return null
             val entersAs = listOf(Mechanic.SetColors(listOf(ColorRef.Literal(color)), add = true),
                 Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))))
+            // isd chunk 06: right after "Put all creature cards from all graveyards onto the battlefield under your control." (CR 611.2e)
+            (last as? Effect.Move)?.takeIf { it.to.zone == Zone.Battlefield }?.let { move ->
+                return steps.dropLast(1) + Step.Do(move.copy(to = move.to.copy(entersAs = move.to.entersAs + entersAs)))
+            }
+            val delayed = last as? Effect.CreateDelayedTrigger ?: return null
+            val move = ((delayed.instructions.steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Battlefield } ?: return null
             val moved = move.copy(to = move.to.copy(entersAs = move.to.entersAs + entersAs))
             return steps.dropLast(1) + Step.Do(delayed.copy(instructions = delayed.instructions.copy(steps = delayed.instructions.steps.dropLast(1) + Step.Do(moved))))
         }
@@ -10852,7 +10869,8 @@ internal class Sentences(
         val PUT_COUNTERS_ON_TARGET = Regex("""Put (X|\w+) (\S+) counters? on target (.+)\.""")
         val EXILE_TOP_CARDS = Regex("""Exile the top (X|\w+) cards of your library\.""")
         val SELF_DEALS_DAMAGE_TO_TARGET_PLAYER_OR_PLANESWALKER = Regex("""(.+) deals (X|\d+) damage to target ((?:player|opponent) or planeswalker)\.""")
-        val THAT_CREATURE_IS_IN_ADDITION = Regex("""That creature is an? (\w+) ([A-Z]\w*) in addition to its other colors and types\.""")
+        // isd chunk 06: also "They're black Zombies in addition to their other colors and types." (Grimoire of the Dead)
+        val THAT_CREATURE_IS_IN_ADDITION = Regex("""(?:That creature is an?|They're) (\w+) ([A-Z]\w*) in addition to (?:its|their) other colors and types\.""")
         val ENTERS_WITH_X_COUNTERS = Regex("""(.+) enters with X (\S+) counters on it, where X is (.+)\.""")
         // rtr chunk 06
         val HAS_KEYWORDS_AS_LONG_AS_COUNTER = Regex("""(.+) has ([a-z ,]+) as long as it has an? (\S+) counter on it\.""")
@@ -15590,6 +15608,14 @@ internal class Sentences(
 
     /** isd: single-sentence effects. */
     private fun isdEffect(sentence: String, context: Context): List<Step>? {
+        // isd chunk 06: "create a 2/2 green Wolf creature token that's tapped and attacking for each creature card in your graveyard" (CR 508.4:
+        // not declared as attackers; their controller chooses what each attacks)
+        Isd.CREATE_TAPPED_AND_ATTACKING_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val (one, token) = Tokens.spec(m.groupValues[1]) ?: return@let
+            if (one != 1) return@let
+            val count = perEach(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.CreateToken(token, count, Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen)))
+        }
         // isd chunk 03: "this Aura deals 1 damage to that player or a planeswalker that player controls." (not targeted: the controller
         // chooses on resolution, a planeswalker of that player's or the player, CR 608.2d)
         Isd.DEALS_TO_THAT_PLAYER_OR_THEIR_PLANESWALKER.matchEntire(sentence)?.let { m ->
@@ -15629,6 +15655,22 @@ internal class Sentences(
 
     /** isd: static abilities. */
     private fun isdStatic(line: String): Ability? {
+        // isd chunk 06: "If this creature would be dealt damage, prevent that damage and remove a +1/+1 counter from it." (the prevention, then
+        // the rest as part of the same effect, CR 615.5)
+        Isd.WOULD_BE_DEALT_DAMAGE_PREVENT_AND.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val rest = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }.replace(Regex(""" (?:from|on) it$"""), " from this permanent") + ".", Context()) ?: return@let
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))),
+                additional = Instructions(steps = rest))), affects = Affected.Objects(Objects.Self))
+        }
+        // isd chunk 06: "Creatures you control enter as a copy of this creature." (a replacement on how they enter, CR 614.1c, 707.9; not optional)
+        Isd.ENTER_AS_COPY_OF_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, to = Zone.Battlefield),
+                modify = listOf(Modification.EntersAsCopy(ObjectFilter.Is(Objects.Self), optional = false)))), affects = Affected.Objects(Objects.Self))
+        }
+        // isd chunk 06: "Spells with the chosen name can't be cast." (by any player, CR 101.2; the name chosen as it entered, CR 607.2d)
+        if (line == "Spells with the chosen name can't be cast.")
+            return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.RememberedName("name"))), affects = Affected.Players(Players.Each(PlayerFilter.Any)))
         // isd chunk 05: "If a Zombie you control would deal combat damage to a player, instead that player mills that many cards." (a
         // replacement: the damage isn't dealt, CR 614.1a; "that player" is the player it would be dealt to, "that many" its amount)
         Isd.WOULD_DEAL_DAMAGE_TO_PLAYER_INSTEAD.matchEntire(line)?.let { m ->
@@ -15709,7 +15751,30 @@ internal class Sentences(
     }
 
     /** isd: whole multi-sentence effects. */
+    /** isd: cost parts. */
+    private fun isdCostPart(text: String): List<CostPart>? {
+        // isd chunk 06: "Remove three study counters from Grimoire of the Dead and sacrifice it": both, on this permanent (CR 118.3)
+        Isd.COST_AND_SACRIFICE_IT.matchEntire(text)?.let { m ->
+            val first = costPart(m.groupValues[1]) ?: return null
+            val onSelf = first.all { (it is CostPart.RemoveCounters && it.from == CostObjects.Self) || (it is CostPart.PutCounters && it.on == CostObjects.Self) ||
+                it == CostPart.TapSelf || it == CostPart.UntapSelf }
+            return if (onSelf) first + CostPart.Sacrifice(CostObjects.Self) else null
+        }
+        return null
+    }
+
     private fun isdWhole(text: String, context: Context): List<Step>? {
+        // isd chunk 06: "This creature's owner shuffles it into their library. If that player does, they reveal cards from the top of that library
+        // until a card named X is revealed. The player puts that card onto the battlefield and all other cards revealed this way into their
+        // graveyard." (the owner puts it onto the battlefield under their control, CR 110.2a; "If that player does" = it was shuffled in, CR 701.24)
+        Isd.OWNER_SHUFFLES_SELF_REVEALS_UNTIL_NAMED.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val owner = Players.OwnerOf(Objects.Self)
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Library), postBind = "shuffled")), Step.Do(Effect.Shuffle(owner)),
+                Step.If(arcanum.api.Condition.NonEmpty("shuffled"), then = listOf(
+                    Step.Do(Effect.RevealUntil(ObjectFilter.Named(m.groupValues[2]), owner, Value.Fixed(1), reveal = true, foundBind = "found", restBind = "rest")),
+                    Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, controller = owner))),
+                    Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Graveyard))))))
+        }
         // isd chunk 04: "defending player reveals cards from the top of their library until they reveal a land card. The creature gets +1/+0
         // until end of turn for each card revealed this way. That player puts the revealed cards into their graveyard." (every card turned
         // over counts, the land too, CR 701.20a; "the creature" is the trigger's object)
@@ -20809,7 +20874,8 @@ internal class Sentences(
             val died = Regex("""(\w+) that died this turn""").matchEntire(m.groupValues[3])?.let { d ->
                 amountOf(Conditions.condition("a ${d.groupValues[1]} died this turn", self) ?: return null) ?: return null
             }
-            val count = died ?: Value.Count(Objects.Each(Filters.noun(m.groupValues[3]) ?: return null))
+            // isd chunk 06: "for each other Zombie you control and each Zombie card in your graveyard" (both counted)
+            val count = died ?: Filters.noun(m.groupValues[3])?.let { Value.Count(Objects.Each(it)) } ?: perEach(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(entersSelf, modify = listOf(Modification.EntersWithCounters(kind, count)))),
                 affects = Affected.Objects(Objects.Self))
         }

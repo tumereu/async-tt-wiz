@@ -270,6 +270,36 @@ class PodChallengeTest {
         checkHeads()
     }
 
+    // DRF-105, DRF-166, LOB-047 (owner, 2026-11-11): after submitting, the deck renamed or given another cover (from Prepare
+    // deck in a pod game's lobby) changes the pod deck and every one of the member's games of the pod still in its lobby, the
+    // cover as a revision of each game; the private name stays out of the revisions
+    @Test fun `a submitted pod deck renamed or given another cover changes its games in the lobby`() = fixture(uniqueCards = true) { f ->
+        val pod = f.pod()
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val game = f.challenge(pod)
+        // Bob's challenge, which Alice accepted (her deck is prepared on accepting)
+        val other = f.challenge(pod, f.b, f.a)
+        f.stream(f.a, other).execute(GameAction.AcceptInvitation)
+        val attempt = f.detail(f.a, pod).draftAttemptId!!
+        fun aDeck(of: GameSummary) = f.games.head(f.a, of.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
+        val cover = f.detail(f.a, pod).let { detail -> detail.build!!.copies.map { copy -> detail.draft!!.pool.first { it.id == copy.copyId }.definition } }
+            .first { it != aDeck(game).cover }
+        val revisions = f.games.revisions(f.a, game.id, "0").revisions.size
+        val name = "Renamed after submitting"
+        assertEquals(200, f.pods.deckName(f.a, pod, SetPodDeckName(id(), attempt, name)).status)
+        assertEquals(200, f.pods.deckCover(f.a, pod, SetPodDeckCover(id(), attempt, cover)).status)
+        for (each in listOf(game, other)) {
+            assertEquals(name, f.games.head(f.a, each.id).ownPodDeckName)
+            assertEquals(cover, aDeck(each).cover)
+        }
+        assertEquals(name, f.detail(f.a, pod).deckName)
+        val after = f.games.revisions(f.a, game.id, "0").revisions
+        assertEquals(revisions + 2, after.size, "one revision for the name, one for the cover")
+        assertEquals(cover, after.last().preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!.cover)
+        assertTrue(after.map(GameWire::encode).none { name in it }, "the private name stays out of revisions")
+        assertNotEquals(name, f.games.head(f.b, game.id).ownPodDeckName)
+    }
+
     // DRF-125
     @Test fun `a shown pod deck sends its private name to the opponent only while shown`() = fixture { f ->
         val pod = f.pod()

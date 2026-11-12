@@ -24,10 +24,6 @@ Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client
 - Crash-safety leftovers (2026-11-11, from the client pass): `!!` are gone from client code (checkClientNotNull), but not every throwing lookup was reviewed: app-ui's `BasicTableController`, `TablePresentation.cardForActions` and the `players.single` calls (these also assume two players; fix them for 3+ with the Commander work) and other `first()`/`single()`/`getValue`/`error()`/`check()` reachable from UI state. The table scene's own fallback keeps drawing safe meanwhile. Review them with the same rule (provable by types, or fallback + `Faults.report`).
 - Server and engine non-null hygiene (owner, 2026-11-11, lower priority): jOOQ code generation makes NOT NULL columns non-null types, removing most of the server's ~440 `row.get(...)!!`; the engine's ~107 `!!` are read in the owner's engine review (Needs discussion), not swept blindly.
 
-Playtest notes (owner, 2026-11-11 evening): before web step 3, after the client crash-safety pass. The web wireframes show the same changes.
-
-- Draft pods: after submitting a deck you can still rename it and change its cover art (from Prepare deck in the game lobby).
-
 Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, tokens in Inspect, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
 
 Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):

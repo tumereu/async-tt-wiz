@@ -98,7 +98,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         worker("lobby"), post, openGame = { auth.push(ShellDestination.GAMES) }, gameConnection = connection,
         accountId = { auth.state.account?.accountId }, authenticationRequired = ::authenticationRequired,
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
-        accountOrigin = link.origin,
+        accountOrigin = link.origin, podApi = PodApi(link.origin, authenticationRequired = ::authenticationRequired),
         clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker)
     /** Holds the card catalog's download until the test lets it through ([holdCatalog]). */
     val catalogGate = java.util.concurrent.CountDownLatch(if (holdCatalog) 1 else 0)

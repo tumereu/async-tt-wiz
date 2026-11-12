@@ -613,6 +613,7 @@ class PodService(private val runtime: ServiceRuntime) {
             // The draft deck kept from this membership's submitted deck follows the private name.
             if (members(sql, row.id!!).first { it.accountId == owner }.submittedDeck != null)
                 DraftDeckStore.rename(sql, owner, row.id!!, input.name)
+            followInLobbies(sql, row.id!!, owner, name = input.name)
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -627,8 +628,44 @@ class PodService(private val runtime: ServiceRuntime) {
                 .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // The draft deck kept from this membership's submitted deck follows the cover, as it does the name.
             if (member.submittedDeck != null) DraftDeckStore.cover(sql, owner, row.id!!, input.definition)
+            followInLobbies(sql, row.id!!, owner, cover = input.definition)
             save(sql, row); detail(sql, row, owner)
         }
+
+    /**
+     * DRF-105, DRF-166 (owner, 2026-11-11): the member's games of [pod] still in their lobby follow the private deck [name]
+     * or [cover] (changed in Build or from Prepare deck in such a game's lobby, also after submitting): their
+     * preparation's pod deck name and the prepared deck's cover (a card of its own), each game's change published as a
+     * revision of it. Games in play or ended keep theirs. The pod lock is held; games are locked in identity order.
+     */
+    private fun followInLobbies(sql: DSLContext, pod: UUID, owner: UUID, name: String? = null, cover: String? = null) {
+        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY"))
+            .and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner))).orderBy(GAME.ID).forUpdate().fetch()
+        for (game in games) {
+            val preparation = sql.selectFrom(PLAYER_PREPARATION).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
+                .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).fetchOne() ?: continue
+            val deck = preparation.deck?.let { StoredData.decode("game preparation", game.id) { GameWire.json.decodeFromString<PreparedDeck>(it) } } ?: continue
+            var changed = false
+            if (name != null && preparation.podDeckName != name) {
+                sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.POD_DECK_NAME, name).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
+                    .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
+                changed = true
+            }
+            if (cover != null && deck.cover != cover && deck.entries.any { it.definition == cover }) {
+                sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK, GameWire.json.encodeToString(deck.copy(cover = cover)))
+                    .where(PLAYER_PREPARATION.GAME_ID.eq(game.id)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
+                changed = true
+            }
+            if (!changed) continue
+            sql.update(GAME).set(GAME.REVISION, game.revision!! + 1).set(GAME.UPDATED_AT, DSL.currentOffsetDateTime())
+                .where(GAME.ID.eq(game.id)).execute()
+            val summary = LobbyService(runtime).summary(sql, game.id!!)
+            val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
+                owner.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
+            sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
+                .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+        }
+    }
 
     private fun coverChoices(row: PodRecord, build: PodDeckBuild): List<String> {
         val definitions = copies(row).associate { it.id to it.definition }

@@ -54,6 +54,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private val preparations = PreparationIntents()
     private val ownPodDeckNames = mutableMapOf<String, String>()
     fun ownPodDeckName(gameId: String): String? = ownPodDeckNames[gameId]
+    /** The server took the player's new private pod deck [name] for [gameId] (DRF-105, from its lobby): shown until the
+     * next head says it again. */
+    fun podDeckNamed(gameId: String, name: String) { if (gameId in streams) ownPodDeckNames[gameId] = name }
     /** The opponent's presence per game while this connection is up; dropped on disconnect so it never goes stale. */
     private val presences = mutableMapOf<String, ReceivedPresence>()
     fun opponentPresence(gameId: String): ReceivedPresence? = presences[gameId]

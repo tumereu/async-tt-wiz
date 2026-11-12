@@ -39,7 +39,7 @@ class DraftStatsFlowTest : E2e() {
         waitUntil("Alice's Stats") { alice.shows(hasTestTag("pod-stats")) }
         // DRF-180: the subtype row under the types counts the Mountain's land type
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-subtypes"))
-        waitUntil("the Mountain in the subtype row") { alice.shows(hasTestTag("pod-stats-subtype-Mountain") and hasText("Mountain 1")) }
+        waitUntil("the Mountain in the subtype row") { alice.shows(hasTestTag("pod-stats-subtype-Mountain") and hasAnyDescendant(hasText("Mountain 1"))) }
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-sources"))
         waitUntil("the Mountain and the rock as red sources, with no pips") {
             alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("2 sources · 100%"))) &&

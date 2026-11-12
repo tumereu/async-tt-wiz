@@ -1,0 +1,1 @@
+add: In a draft game's lobby, Prepare deck lets you rename your deck and choose its cover picture, also after you submitted it.

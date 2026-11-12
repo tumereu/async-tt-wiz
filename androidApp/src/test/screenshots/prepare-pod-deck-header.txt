@@ -1,0 +1,1 @@
+Prepare deck of a pod game in its lobby: the header shows the private deck name with the deck's cover thumbnail and a pen beside it, to choose another cover or rename the deck, also after submitting.

@@ -226,3 +226,4 @@ number	item	screenshot	catalog	decisions	sequence
 225	Settings: the Edge to edge switch (the table in the camera's strip)	settings/settings-portrait-full-top.png	SYS-085	
 226	Which pick is which: the equip target named after "Equip", the sacrifice's phrase lit, the picked card's role chip	table-pick/equip-sacrifice-bar.png	STK-047	Targets	
 227	Draft: Stats subtype counts, the rest behind "+4 more"	pod-stats-subtypes.png	DRF-180 DRF-112		
+228	Draft: Prepare deck of a pod game, the deck's cover and a pen to rename it	prepare-pod-deck-header.png	LOB-047 DRF-105 DRF-166		

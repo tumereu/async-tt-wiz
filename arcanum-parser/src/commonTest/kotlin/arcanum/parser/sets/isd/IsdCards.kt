@@ -227,3 +227,10 @@ val wolf: TokenSpec = creatureToken("Wolf", listOf(Color.Green), 2, 2)
 val vampire2: TokenSpec = creatureToken("Vampire", listOf(Color.Black), 2, 2, abilities = listOf(Keyword.Flying))
 /** "if you control N or more [filter]" */
 fun youControl(filter: ObjectFilter, atLeast: Int): Condition = Condition.Exists(and(filter, you), atLeast = atLeast)
+val isSelf: ObjectFilter = ObjectFilter.Is(Objects.Self)
+/** "This land enters tapped." */
+val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(isSelf, to = Zone.Battlefield),
+    modify = listOf(arcanum.api.Modification.EntersTapped))), affects = Affected.Objects(Objects.Self))
+/** "{T}: Add {A} or {B}." */
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { arcanum.api.ColorRef.Literal(it) })), Players.You)))

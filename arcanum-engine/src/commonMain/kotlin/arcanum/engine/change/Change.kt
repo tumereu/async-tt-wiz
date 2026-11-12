@@ -28,7 +28,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * One MTG-level change to a [arcanum.engine.state.GameState] (D56, D59): a zone change, a tap, counters, life, mana,
- * Stack items, effect objects, steps and priority, ledgers, the open continuation. Each carries its before- and
+ * Stack items, effect objects, steps and priority, statuses, the open continuation, the engine's bookkeeping. Each carries its before- and
  * after-values, so [arcanum.engine.state.GameState.apply] and [arcanum.engine.state.GameState.revert] are mechanical. Event changes carry
  * their Magic meaning ([Meaning]: cast, died, sacrificed, drew, …) and are logged as the turn's tagged events (D33);
  * [isEvent] says which. [Reverted] takes a change back inside a batch (cancelling a cast, D58).

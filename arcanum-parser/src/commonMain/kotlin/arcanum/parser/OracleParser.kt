@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 84
+    const val VERSION: Int = 85
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -51,10 +51,9 @@ object OracleParser {
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
-            // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
-            // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
+            // sos chunk 08, tla chunk 01, isd chunk 10: "As an additional cost to cast this spell, pay X life | waterbend {X} | exile X cards from your
+            // graveyard." (X announced as it is cast, CR 601.2b, 107.3)
+            (isSpell && ADDITIONAL_COST_X.containsMatchIn(card.text))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -122,6 +121,7 @@ object OracleParser {
     private fun meldPartner(text: String): String? =
         (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
 
+    private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, [^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
     private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 

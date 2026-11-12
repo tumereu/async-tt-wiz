@@ -40,6 +40,13 @@ class StaticCopyTest {
         assertTrue(c?.hasKeyword(arcanum.api.Keyword.Vigilance) == true)
         // the enchanted creature itself is a creature you control too, a copy of itself
         assertEquals(bear, view()[card(bear)]?.characteristics?.name)
+        // Inspect lists the copy as the Aura's static ability, copying the Bear (CR 613.2a)
+        val copy = arcanum.engine.Inspect.explain(state, oxId)!!.copies.single()
+        assertEquals(card(charm), (copy.source as EffectSource.StaticAbility).obj)
+        assertEquals(card(charm), copy.madeBy)
+        assertEquals(card(bear), copy.original)
+        assertEquals(bear, copy.name)
+        assertEquals(null, copy.duration)
     }
 
     // CR 611.3a: a static ability's effect ends once it stops functioning: the Aura gone, the Ox is itself again

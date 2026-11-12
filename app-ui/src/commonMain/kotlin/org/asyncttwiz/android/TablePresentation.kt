@@ -177,6 +177,9 @@ data class TableItem(
     val automatumState: Boolean = false,
     /** TBL-135 (owner, 2026-11-11): its counters but the one its corner shows, as bubbles on its art ([CounterBubbles]). */
     val counterBubbles: List<org.asyncttwiz.automatum.ShownCounter> = emptyList(),
+    /** TBL-136 (owner, 2026-11-12): a continuous effect other than counters applies to it: a violet sparkle in its top-left
+     * corner ([org.asyncttwiz.automatum.ComputedBoard.withEffects]). */
+    val effectsMarker: Boolean = false,
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
@@ -586,6 +589,8 @@ object TablePresentation {
                     (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
                     // TBL-024: its damage badge read aloud too
                     (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "") +
+                    // TBL-136: its effects marker read aloud too
+                    (if (auto != null && card.id in computed.withEffects) ", changed by effects" else "") +
                     // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
                     auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
@@ -601,7 +606,7 @@ object TablePresentation {
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
                     cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
-                    counterBubbles = auto?.bubbles.orEmpty(),
+                    counterBubbles = auto?.bubbles.orEmpty(), effectsMarker = auto != null && card.id in computed.withEffects,
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }

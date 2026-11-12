@@ -24,6 +24,26 @@ data class Explanation(
     /** The continuous effects that changed the object, one entry each with its steps in every layer, in the order each
      * was first applied: what a host lists as "+3/+3 and trample until end of turn". */
     val effects: List<AppliedEffect> = emptyList(),
+    /** The copy effects that made [base] what it copies (layer 1, CR 613.2a, 707.2), in timestamp order (CR 613.7): what a
+     * host lists as "Copy of Ember Cub". The values they give are in [base]; none for an object face down (CR 708.2a). */
+    val copies: List<AppliedCopy> = emptyList(),
+)
+
+/**
+ * One copy effect on an explained object ([Explanation.copies]): its [source] (an effect object, or a static ability that
+ * says the object is a copy), the object that made it ([madeBy]), how long it lasts ([duration]: an effect object's; null for
+ * a static ability), its [timestamp], the object it copies ([original], when known; it may no longer exist) and the name of
+ * the values it copies ([name]: the copiable values fixed as it started, CR 707.2b, or the original's now; null when they
+ * have none).
+ */
+@Serializable
+data class AppliedCopy(
+    val source: EffectSource,
+    val madeBy: ObjectId?,
+    val duration: Duration?,
+    val timestamp: Long,
+    val original: ObjectId?,
+    val name: String?,
 )
 
 /**

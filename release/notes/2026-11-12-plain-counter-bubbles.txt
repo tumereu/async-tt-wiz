@@ -1,0 +1,1 @@
+mod: Counters without a colour of their own show only their number.

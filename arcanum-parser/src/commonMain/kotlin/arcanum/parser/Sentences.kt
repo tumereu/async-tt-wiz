@@ -4064,6 +4064,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        woeEffect(sentence, context)?.let { return it } // woe
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
@@ -4552,7 +4553,9 @@ internal class Sentences(
         }
         PLAYERS_DRAW.matchEntire(sentence)?.let { m ->
             val players = Filters.players(m.groupValues[1]) ?: return null
-            val steps = mutableListOf<Step>(Step.Do(Effect.Draw(players, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            // woe chunk 01: "you draw an additional card" (one more card, in a draw-step trigger)
+            val n = if (m.groupValues[2] == "an additional") 1 else Numbers.count(m.groupValues[2]) ?: return null
+            val steps = mutableListOf<Step>(Step.Do(Effect.Draw(players, Value.Fixed(n))))
             if (m.groupValues[3].isNotEmpty())
                 steps += Step.Do(Effect.Discard(players, Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null), random = m.groupValues[4].isNotEmpty(), filter = ObjectFilter.Any))
             if (m.groupValues[5].isNotEmpty()) steps += Step.Do(Effect.LoseLife(players, Value.Fixed(m.groupValues[5].toInt())))
@@ -11073,7 +11076,7 @@ internal class Sentences(
         val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?)(, reveal (?:it|that card))?, put (?:it|that card) (onto the battlefield(?: tapped)?|into your hand|into your graveyard)(, discard a card at random)?, then shuffle\.""")
         val SEARCH_TO_TOP = Regex("""Search your library for (.+?), (reveal it, )?then shuffle and put that card on top\.""")
         val PUT_FROM_HAND_ON_TOP = Regex("""Put (\w+) cards? from your hand on top of your library(?: in any order)?\.""")
-        val PLAYERS_DRAW = Regex("""(Each player|You) draws? (\w+) cards?(?:, then discards? (\w+) cards?( at random)?)?(?: and loses? (\d+) life)?\.""")
+        val PLAYERS_DRAW = Regex("""(Each player|You) draws? (an additional|\w+) cards?(?:, then discards? (\w+) cards?( at random)?)?(?: and loses? (\d+) life)?\.""")
         val EACH_PLAYER_DISCARDS_HAND_DRAWS = Regex("""Each player discards their hand, then draws (\w+) cards\.""")
         val DISCARD_UNLESS_ATTACKED = Regex("""Discard (a|one|two) cards? unless you attacked this turn\.""")
         val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+)\.""")
@@ -15671,6 +15674,31 @@ internal class Sentences(
         return null
     }
 
+    /** woe: effect sentences, tried first in [effectRules]. */
+    private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe chunk 01: "For each creature your opponents control, create a Cursed Role token attached to that creature."; "For each of those
+        // creatures, create a Monster Role token attached to it." (the earlier target's objects)
+        Woe.FOR_EACH_CREATE_ATTACHED.matchEntire(sentence)?.let { m ->
+            val each = if (m.groupValues[1] == "of those creatures") context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }
+                ?.let { Objects.Target(it.name) } ?: return null else Filters.objects(m.groupValues[1]) ?: return null
+            val (count, token) = Tokens.spec(m.groupValues[2]) ?: return null
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(each), "creature", listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You,
+                attachedTo = Recipients(objects = Objects.Bound("creature")))))))
+        }
+        // woe chunk 01: "Create a Royal Role token attached to target creature you control.", "… attached to it." (the last object target, else
+        // the trigger's object); a token to be attached to nothing isn't created (CR 303.4i)
+        Woe.CREATE_ATTACHED_TO.matchEntire(sentence)?.let { m ->
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            val to = when (val phrase = m.groupValues[2]) {
+                "it" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it
+                "that creature" -> context.that ?: context.it
+                else -> eoeTarget(phrase, context)
+            } ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, attachedTo = Recipients(objects = to))))
+        }
+        return null
+    }
+
     /** inr: whole multi-sentence effects. */
     private fun inrWhole(text: String, context: Context): List<Step>? {
         // inr chunk 09: "that player copies that spell for each other creature they control that the spell could target. Each copy targets a
@@ -17882,9 +17910,10 @@ internal class Sentences(
             val noun = m.groupValues[2].removeSuffix("s")
             val name = spmNewSlotName(context, Filters.slotName(m.groupValues[2]))
             context.targets += spmSlot(name, Filters.noun(noun) ?: Filters.noun(m.groupValues[2]) ?: return null, min = 1, max = 2)
+            val bonus = if (m.groupValues[3].isEmpty()) emptyList()
+                else listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[3]) ?: return null, ptChange(m.groupValues[4]) ?: return null))
             return listOf(spmApply(Objects.Target(name), arcanum.api.Duration.EndOfTurn,
-                Mechanic.ModifyPowerToughness(ptChange(m.groupValues[3]) ?: return null, ptChange(m.groupValues[4]) ?: return null),
-                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)))
+                *(bonus + Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)).toTypedArray()))
         }
         // spm chunk 07: "One or two target creatures you control each get +1/+0 until end of turn. They each deal damage …": "they" are the
         // earlier targets (read by the dsk rule)

@@ -1426,7 +1426,8 @@ internal object Tokens {
         ), power = if (x) Value.Announced(name = "X") else null, toughness = if (x) Value.Announced(name = "X") else null)
     }
 
-    private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
+    // woe chunk 01: several words ("a Young Hero Role token", CR 111.10r)
+    private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+(?: [A-Z][a-z]+)*) tokens?""")
     private val COUNTED = Regex("""(a|an|one|two|three|four|five) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
     // chunk 26
     private val QUOTED = Regex(""""(.+)"""")

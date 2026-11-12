@@ -260,13 +260,20 @@ internal object MshPhrases {
         ObjectFilter.Not(ObjectFilter.Sub(arcanum.api.Subtype("Villain"))),
         ObjectFilter.Or(listOf(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Red)), ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.White))))))
 
+    private val ATTACHED_YOU_CONTROL = Regex("""(equipped|enchanted) (creature|permanent) you control""")
+
     /** msh nouns, tried first in [Filters.noun]. */
     fun noun(phrase: String): ObjectFilter? {
         // msh chunk 06: "creature you control that's attacking alone" (CR 506.5)
         ATTACKING_ALONE.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.AttackingAlone) }
-        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5)
-        if (phrase == "equipped creature you control") return Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
-            ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5); woe chunk 01: "enchanted creature you
+        // control", "enchanted permanent you control" (one with an Aura attached, CR 303.4; read as written before the eoe rewrite of "enchanted
+        // permanent" to "enchanted creature")
+        ATTACHED_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val noun = if (m.groupValues[2] == "creature") ObjectFilter.Type(arcanum.api.CardType.Creature) else ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            return Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(if (m.groupValues[1] == "equipped") "Equipment" else "Aura"))))
+        }
         // msh chunk 09: "nontoken artifact or creature": the adjective goes with both types
         NON_A_OR_B.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,

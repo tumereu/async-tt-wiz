@@ -920,6 +920,9 @@ internal object Effects {
         val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
+        // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
+        // became illegal) isn't created (CR 303.4i)
+        if (effect.attachedTo != null && attachTo == null) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         val created = scope.players(effect.controller).flatMap { p ->
             Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }

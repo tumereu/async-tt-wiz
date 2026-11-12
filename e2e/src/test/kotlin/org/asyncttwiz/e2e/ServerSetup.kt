@@ -31,7 +31,8 @@ class TestAccount(val name: String, val email: String, val token: String, val id
  */
 object ServerSetup {
     private val origin get() = E2eStack.origin
-    private const val PASSWORD = "e2e password 1"
+    /** The accounts' password (the web smoke signs in with it in the browser). */
+    const val PASSWORD = "e2e password 1"
 
     private var pair: Pair<TestAccount, TestAccount>? = null
     private const val ACCOUNTS = "atw.e2e.accounts"

@@ -167,6 +167,10 @@ fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier:
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
     Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // WEB-003: the web client's on-screen Back (Android has the system's)
+        LocalScreenBack.current?.let { back ->
+            HoldTip("Back") { IconButton(onClick = back, Modifier.testTag("screen-back")) { EntryIcon("Back", "back") } }
+        }
         if (navigation != null) HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
         Text(title, Modifier.weight(1f).then(titleModifier), style = MaterialTheme.typography.titleLarge,
             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -294,8 +298,12 @@ fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Mo
         containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { ButtonLabel(icon, label) }
 }
 
+/** The web client's on-screen Back in screen headers (WEB-003); null where the platform has its own Back (Android). */
+val LocalScreenBack = staticCompositionLocalOf<(() -> Unit)?> { null }
+
 fun screenIcon(kind: String): ImageVector = when (kind) {
     "menu" -> Icons.Outlined.Menu
+    "back" -> Icons.AutoMirrored.Outlined.ArrowBack
     "close" -> Icons.Outlined.Close
     "rotate" -> Icons.Outlined.Rotate90DegreesCw
     "cancel" -> Icons.Outlined.Cancel

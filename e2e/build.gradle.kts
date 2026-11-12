@@ -34,6 +34,11 @@ tasks.register<Test>("test") {
     // The server serves the invented test cards' card catalog (tests/fixtures/card-catalog)
     dependsOn(":catalog:testCardsCatalog")
     systemProperty("atw.e2e.catalogDir", rootProject.file("catalog/build/test-cards-catalog").absolutePath)
+    // The server also serves the web client's build (WEB_APP_DIR), which WebSmokeTest loads in Chrome
+    dependsOn(":webApp:webDist")
+    systemProperty("atw.e2e.webDir", rootProject.file("webApp/build/web").absolutePath)
+    // WebSmokeTest drives the installed Google Chrome: Playwright downloads no browser of its own
+    environment("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")
     systemProperty("atw.e2e.postgresImage", postgresImage)
     systemProperty("atw.e2e.output", layout.buildDirectory.dir("e2e").get().asFile.absolutePath)
     reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/test"))

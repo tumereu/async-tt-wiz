@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,7 +30,7 @@ import org.asyncttwiz.appui.screenHeightDp
 fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: (() -> Unit)?,
     importDeck: ((DeckDetail) -> Unit)? = null) {
     val state = controller.state
-    BackHandler { controller.back() }
+    ScreenBackHandler { controller.back() }
     val columns = rememberDeckViewColumns(DeckViewScreen.SAVED)
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()

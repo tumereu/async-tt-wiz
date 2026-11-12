@@ -50,6 +50,12 @@ compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+# The web shell's Back (web client step 3): Compose's own Back handling and the navigation events it is built on, at the
+# versions Compose Multiplatform brings.
+cmp-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "compose-multiplatform" }
+navigationevent = { module = "androidx.navigationevent:navigationevent", version = "1.0.1" }
+# The real-browser smoke of the web build (docs/specs/web-client.md §10, e2e/): Playwright driving the installed Chrome.
+playwright = { module = "com.microsoft.playwright:playwright", version = "1.63.0" }
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
 # On Android these point at androidx material-icons-extended (compose-bom's version) and androidx lifecycle (the app's).
 cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-extended", version = "1.7.3" }

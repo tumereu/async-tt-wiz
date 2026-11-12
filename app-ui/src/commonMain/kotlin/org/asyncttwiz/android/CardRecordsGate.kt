@@ -82,7 +82,7 @@ fun NeedsCardRecords(modifier: Modifier = Modifier, content: @Composable () -> U
  * placeholder; Back leaves it ([back]). */
 @Composable
 fun CardRecordsScreen(title: String, navigation: (() -> Unit)?, back: () -> Unit) {
-    org.asyncttwiz.appui.BackHandler(onBack = back)
+    org.asyncttwiz.appui.ScreenBackHandler(onBack = back)
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(title, navigation)
         CardRecordsPlaceholder(Modifier.weight(1f).fillMaxWidth().padding(16.dp))

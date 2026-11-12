@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,7 +26,13 @@ import org.asyncttwiz.storage.DeckSection
 fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
     importer: DeckImportController?, landscape: Boolean, navigation: (() -> Unit)?, catalog: CatalogViewModel?,
     draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
-    var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
+    // The web keeps the tab where its addresses read and set it (WEB-001: /cubes/<id>); Android keeps it here.
+    val shared = LocalCollectionTab.current
+    val own = remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
+    if (shared != null) remember(initiallyCubes) {
+        shared.value = initiallyCubes || cubes.state.selected != null || cubes.state.editing
+    }
+    var cubeTab by (shared ?: own)
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
         // A cube's cards need card records (section 3.6)
         if (!cardRecordsReady()) { CardRecordsScreen("Cube", navigation, cubes::back); return }
@@ -55,6 +62,9 @@ fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
         }
     }
 }
+
+/** Whether Manage decks shows its Cubes tab, where the platform keeps it (the web: by address); null keeps it in the screen. */
+val LocalCollectionTab = staticCompositionLocalOf<MutableState<Boolean>?> { null }
 
 @Composable
 private fun CubeCollection(controller: CubeController) {
@@ -90,7 +100,7 @@ private fun CubeCollection(controller: CubeController) {
 fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null,
     landscape: Boolean = false) {
     val state = controller.state
-    BackHandler { controller.back() }
+    ScreenBackHandler { controller.back() }
     if (state.editing) { CubeImportScreen(controller, navigation, landscape); return }
     val columns = rememberDeckViewColumns(DeckViewScreen.CUBE)
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }

@@ -343,6 +343,8 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.sqldelight.sqlite.driver)
     testRuntimeOnly(libs.sqlite.jdbc)
+    // e2e only: the web build's real-browser smoke (e2e/WebSmokeTest) drives Chrome through Playwright.
+    testImplementation(libs.playwright)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test)
     androidTestImplementation(libs.androidx.test.runner)

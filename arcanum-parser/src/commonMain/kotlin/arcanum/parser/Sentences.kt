@@ -62,6 +62,17 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        // isd chunk 03: "Enchanted creature gets +2/+2 as long as it's a Human. Otherwise, it can't attack or block." (two static abilities,
+        // one while the subject is of that kind and one while it isn't, CR 611.3a)
+        Isd.AS_LONG_AS_ITS_A_OTHERWISE.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1]
+            val objects = attachedSubject(subject) ?: Objects.Self.takeIf { isSelf(subject) } ?: return@let
+            val condition = arcanum.api.Condition.ObjectMatches(objects, Filters.noun(m.groupValues[3]) ?: return@let)
+            val first = line("$subject ${m.groupValues[2]}.") as? Ability.Static ?: return@let
+            val second = line("$subject ${m.groupValues[4]}.") as? Ability.Static ?: return@let
+            if (first.condition != null || second.condition != null) return@let
+            return listOf(first.copy(condition = condition), second.copy(condition = arcanum.api.Condition.Not(condition)))
+        }
         // inr chunk 09: "Grimgrin enters tapped and doesn't untap during your untap step." (two static abilities, CR 614.1c, 502.3)
         Inr.ENTERS_TAPPED_AND_DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val tapped = line("${m.groupValues[1]} enters tapped.")?.takeIf { it !is Ability.Unparsed } ?: return@let
@@ -1725,8 +1736,9 @@ internal class Sentences(
         if (Fdn.YOU_HAVE_HEXPROOF.matches(line))
             return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))), affects = Affected.Players(Players.You))
         // fdn chunk 10b: "Prevent all combat damage that would be dealt to and dealt by this creature." (CR 615.1): two preventions
-        Fdn.PREVENT_COMBAT_TO_AND_BY_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            val self = ObjectFilter.Is(Objects.Self)
+        // isd chunk 03: also "… enchanted creature." (a rule of the Aura's about the creature it enchants, CR 303.4)
+        Fdn.PREVENT_COMBAT_TO_AND_BY_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) || attachedSubject(it.groupValues[1]) != null }?.let {
+            val self = ObjectFilter.Is(attachedSubject(it.groupValues[1]) ?: Objects.Self)
             return Ability.Static(listOf(
                 Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = self), combat = true)),
                 Mechanic.Prevention(EventPattern.Damage(self, RecipientFilter(objects = ObjectFilter.Any, players = PlayerFilter.Any), combat = true))), affects = Affected.Objects(Objects.Self))
@@ -4620,6 +4632,12 @@ internal class Sentences(
         TARGET_PLAYER_MILLS.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
+        // isd chunk 03: "<players> mill(s) two cards." for any player phrase ("that player" at a Curse's upkeep trigger, "each player")
+        PLAYERS_MILL.matchEntire(sentence)?.let { m ->
+            val players = playersIn(m.groupValues[1], context)
+            val count = Numbers.count(m.groupValues[2])
+            if (players != null && count != null) return listOf(Step.Do(Effect.Mill(players, Value.Fixed(count))))
+        }
         LOOK_PUT_BACK.matchEntire(sentence)?.let { m ->
             return listOf(
                 Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), fromTop = true), bind = "seen", players = Players.You)),
@@ -5772,11 +5790,12 @@ internal class Sentences(
         // inr chunk 04: also "-X/-0" and "cards in your graveyard" (CR 208.1: the number is counted as it applies)
         Gtc.GETS_MINUS_X_CONTROLLERS_GRAVEYARD.matchEntire(line)?.let { m ->
             val subject = attachedSubject(m.groupValues[1]) ?: return null
-            val owner = ObjectFilter.OwnedBy(if (m.groupValues[4] == "your") PlayerFilter.You else PlayerFilter.Is(Players.ControllerOf(subject)))
-            val type = if (m.groupValues[3].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card) else Filters.noun(m.groupValues[3]) ?: return null
+            val owner = ObjectFilter.OwnedBy(if (m.groupValues[5] == "your") PlayerFilter.You else PlayerFilter.Is(Players.ControllerOf(subject)))
+            val type = if (m.groupValues[4].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card) else Filters.noun(m.groupValues[4]) ?: return null
             val count = Value.Count(Objects.Each(Filters.all(type, ObjectFilter.InZone(Zone.Graveyard), owner)))
-            val minus = Value.Times(count, -1)
-            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(minus, if (m.groupValues[2] == "X") minus else Value.Fixed(0))), affects = Affected.Objects(subject))
+            // isd chunk 03: "Enchanted creature gets +X/+X, where X is the number of creature cards in your graveyard."
+            val change = if (m.groupValues[2] == "-") Value.Times(count, -1) else count
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(change, if (m.groupValues[3] == "X") change else Value.Fixed(0))), affects = Affected.Objects(subject))
         }
         // gtc chunk 08: "This creature gets +1/+1 for each creature card in your opponents' graveyards."
         Gtc.GETS_FOR_EACH.matchEntire(line)?.let { m ->
@@ -6457,7 +6476,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CreateDelayedTrigger(trigger, inner, duration = eot, repeats = true)))
         }
         if (sentence == "That player loses 1 life." && context.event is EventPattern.ZoneChange) {
-            return listOf(Step.Do(Effect.LoseLife(Players.OwnerOf(Objects.EventObject(EventRole.After)), Value.Fixed(1))))
+            // isd chunk 03: a permanent entering is the player's who controls it ("a creature enchanted player controls enters", CR 110.2);
+            // a card put into a graveyard is its owner's (CR 404.1)
+            val after = Objects.EventObject(EventRole.After)
+            val player = if ((context.event as EventPattern.ZoneChange).to == Zone.Battlefield) Players.ControllerOf(after) else Players.OwnerOf(after)
+            return listOf(Step.Do(Effect.LoseLife(player, Value.Fixed(1))))
         }
         // gtc chunk 12: "each player reveals the top card of their library, loses life equal to that card's mana value, then puts it
         // into their hand." (each step together, CR 101.4)
@@ -11096,6 +11119,7 @@ internal class Sentences(
         val DISCARD_UNLESS_ATTACKED = Regex("""Discard (a|one|two) cards? unless you attacked this turn\.""")
         val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+)\.""")
         val TARGET_PLAYER_MILLS = Regex("""Target player mills (\w+) cards?\.""")
+        val PLAYERS_MILL = Regex("""([A-Za-z ]+?) mills? (\w+) cards?\.""")
         val LOOK_PUT_BACK = Regex("""Look at the top (\w+) cards of your library, then put them back in any order\.""")
         val TARGET_GETS_UNTIL_EOT = Regex("""Target (.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
@@ -15548,6 +15572,18 @@ internal class Sentences(
 
     /** isd: single-sentence effects. */
     private fun isdEffect(sentence: String, context: Context): List<Step>? {
+        // isd chunk 03: "this Aura deals 1 damage to that player or a planeswalker that player controls." (not targeted: the controller
+        // chooses on resolution, a planeswalker of that player's or the player, CR 608.2d)
+        Isd.DEALS_TO_THAT_PLAYER_OR_THEIR_PLANESWALKER.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return@let
+            val amount = Value.Fixed(m.groupValues[2].toInt())
+            val player = playersIn("that player", context) ?: return@let
+            val theirs = Filters.all(ObjectFilter.Type(arcanum.api.CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(theirs, Value.Fixed(0), Value.Fixed(1)), bind = "planeswalker", chooser = Players.You),
+                Step.If(arcanum.api.Condition.NonEmpty("planeswalker"),
+                    then = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Bound("planeswalker")), amount, source))),
+                    otherwise = listOf(Step.Do(Effect.DealDamage(Recipients(players = player), amount, source)))))
+        }
         // isd chunk 02: "Then if there are five or more hatchling counters on it, remove all of them and transform it." (the counters of that kind
         // on this permanent; the condition is checked as the ability resolves, CR 608.2c)
         Isd.THEN_IF_N_COUNTERS_REMOVE_ALL_AND.matchEntire(sentence)?.let { m ->
@@ -18745,11 +18781,14 @@ internal class Sentences(
             return listOf(eclUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(ptChange(m.groupValues[1]) ?: return null, ptChange(m.groupValues[2]) ?: return null),
                 Mechanic.LoseAllCreatureTypes))
         }
-        // ecl chunk 12: "Target opponent exiles two cards from their hand." (they choose, CR 701.13)
+        // ecl chunk 12: "Target opponent exiles two cards from their hand." (they choose, CR 701.13); isd chunk 03: "that player exiles two
+        // cards from their graveyard." (a Curse's upkeep trigger: the enchanted player)
         Ecl.TARGET_OPPONENT_EXILES_FROM_HAND.matchEntire(sentence)?.let { m ->
-            val n = eclN(m.groupValues[1]) ?: return null
-            val opponent = context.targetOpponent()
-            return listOf(Step.Choose(arcanum.api.Choice.Objects(handOf(opponent), Value.Fixed(n), Value.Fixed(n)), bind = "chosen", chooser = opponent),
+            val n = eclN(m.groupValues[2]) ?: return null
+            val player = playersIn(m.groupValues[1], context) ?: return null
+            val from = if (m.groupValues[3] == "hand") handOf(player)
+                else Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(from, Value.Fixed(n), Value.Fixed(n)), bind = "chosen", chooser = player),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
         }
         // ecl chunk 12: "Return two target creature cards that share a creature type from your graveyard to your hand."

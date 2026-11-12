@@ -12,7 +12,11 @@ internal object Isd {
     val OTHER_THAN = Regex("""(creatures?|permanents?) other than ([A-Z][\w-]+(?:(?:,| and| or) (?:and |or )?[A-Z][\w-]+)*)""")
     // isd chunk 02: Civilized Scholar
     val DIDNT_ATTACK_THIS_TURN = Regex("""(.+?) didn't attack this turn""")
-    val IF_A_CARD_IS_DISCARDED_THIS_WAY = Regex("""If an? (.+?) card is discarded this way, (.+)\.""")
+    // isd chunk 03: Bonds of Faith
+    val AS_LONG_AS_ITS_A_OTHERWISE = Regex("""(.+?) ((?:gets|has|can't) .+?) as long as it's an? ([A-Z]\w+)\. Otherwise, it (.+)\.""")
+    // isd chunk 03: Curse of the Pierced Heart
+    val DEALS_TO_THAT_PLAYER_OR_THEIR_PLANESWALKER = Regex("""(.+?) deals (\d+) damage to that player or a planeswalker that player controls\.""")
+        val IF_A_CARD_IS_DISCARDED_THIS_WAY = Regex("""If an? (.+?) card is discarded this way, (.+)\.""")
 }
 
 internal object IsdPhrases {

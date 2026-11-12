@@ -224,6 +224,8 @@ internal object Filters {
                 "that player controls" -> PlayerFilter.Is(Players.EventPlayer) // dsk chunk 07: in a trigger, the event's player
                 // dsk chunk 09: in an attack trigger of this creature (CR 506.2)
                 "defending player controls" -> PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))
+                // isd chunk 03: the player a Curse enchants (CR 303.4e)
+                "enchanted player controls" -> PlayerFilter.Is(Players.AttachedTo(Objects.Self))
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -443,7 +445,7 @@ internal object Filters {
     // blb chunk 10
     private val STATUS_ALTERNATIVES = Regex("""((?:attacking|blocking|tapped|untapped)(?:(?:, |,? or )(?:attacking|blocking|tapped|untapped))+) (.+)""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls|enchanted player controls)""")
     // dsk chunk 09
     private val OWNED = Regex("""(.+) you own""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
@@ -689,8 +691,10 @@ internal object Events {
                 from = Zone.Graveyard)
         }
         // chunk 26: "a creature you control deals combat damage to a player"
+        // isd chunk 03: "a creature deals combat damage to enchanted player" (a Curse's player, CR 303.4e)
         DEALS_COMBAT_DAMAGE_TO_A_PLAYER.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)
+            val to = if (m.groupValues[2] == "enchanted player") PlayerFilter.Is(Players.AttachedTo(Objects.Self)) else PlayerFilter.Any
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = to), combat = true)
         }
         // chunk 25: "you play a land" (CR 305.1)
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)
@@ -833,6 +837,9 @@ internal object Events {
             // gtc chunk 11: the upkeep of the player who controls the enchanted creature
             "the beginning of the upkeep of enchanted creature's controller" ->
                 return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(Objects.Self))))
+            // isd chunk 03: a Curse's enchanted player's upkeep (CR 303.4e: an Aura that enchants a player)
+            "the beginning of enchanted player's upkeep" ->
+                return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Is(Players.AttachedTo(Objects.Self)))
         }
         // gtc chunk 11: "a creature card is put into an opponent's graveyard from anywhere": a card goes to its owner's graveyard
         GTC_PUT_INTO_OPPONENTS_GRAVEYARD.matchEntire(text)?.let { m ->
@@ -933,7 +940,7 @@ internal object Events {
     private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
     // chunk 26
     private val LEAVE_YOUR_GRAVEYARD = Regex("""(.+) leaves? your graveyard""")
-    private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to a player""")
+    private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to (a player|enchanted player)""")
     // chunk 14
     private val PLAYER_CASTS = Regex("""a player casts an? (?:(.+) )?spell""")
     private val PLAYER_TAPS_FOR_MANA = Regex("""a player taps (.+) for mana""")

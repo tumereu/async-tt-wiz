@@ -14,17 +14,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The engine API rework's exact work count (owner, 2026-11-12; spec `docs/specs/arcanum-engine-api.md`, "Performance
- * guard"): fixed scenarios on the device's engine path ([EngineGame], the engine thread inline), each with the exact
- * number of full layer runs ([EngineProbes.layersWorkedOut]), state copies ([EngineProbes.statesCopied]) and option searches
+ * The engine's exact work count (owner, 2026-11-12), so that optimisations already made survive later changes: fixed
+ * scenarios on the device's engine path ([EngineGame], the engine thread inline), each with the exact number of full layer
+ * runs ([EngineProbes.layersWorkedOut]), state copies ([EngineProbes.statesCopied]) and option searches
  * ([EngineProbes.optionsSearched]) it costs, and the bytes ([org.asyncttwiz.protocol.game.EngineJson]) of the events it stores
  * and of the checkpoint after it. Counted, never timed.
  *
  * The rules for these numbers:
  * - A count going down: update the number in the same commit.
  * - A count going up: the test fails. Find the cause; don't just update the number.
- * - Byte sizes may change only where the stored format changes (the rework's Phases 3–4); give the old and new sizes,
- *   and growth over 5% needs the owner's approval.
+ * - Byte sizes may change only where the stored format changes; give the old and new sizes in the change's report, and
+ *   growth over 5% needs the owner's approval.
  */
 class EngineWorkCountTest {
     @Before fun clean() = AutomatumBoards.reset()

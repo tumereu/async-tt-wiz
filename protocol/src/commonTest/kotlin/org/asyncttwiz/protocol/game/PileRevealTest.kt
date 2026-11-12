@@ -46,7 +46,7 @@ class PileRevealTest {
         val acted = device(bob).act(input) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
         }
         assertIs<GameDevice.Acted.Sent>(acted)
         settle()
@@ -90,7 +90,7 @@ class PileRevealTest {
         val sim = sim(trinket, revival)
         sim.bobDoes(Input.Cast(sim.bob, sim.inHand(trinket)))
         val s = sim.device(sim.bob).model.engine
-        val sacrifice = Engine.options(s, sim.bob).filterIsInstance<Input.Activate>().first()
+        val sacrifice = Engine.options(s, sim.bob, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Activate>().first()
         sim.bobDoes(sacrifice)
         assertEquals(1, sim.graveyard(sim.bob).size, "the Trinket in his graveyard")
         sim.bobDoes(Input.Cast(sim.bob, sim.inHand(revival)))

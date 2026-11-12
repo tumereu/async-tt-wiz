@@ -272,7 +272,7 @@ class EngineTableScreenshotTest {
             sim.flush(f.a)
             sim.now += 1_000
         }
-        val land = Engine.options(alice.device.model.engine, PlayerId(f.a)).filterIsInstance<Input.PlayLand>().first()
+        val land = Engine.options(alice.device.model.engine, PlayerId(f.a), org.asyncttwiz.protocol.game.EnginePreferences.of(alice.device.model.engine)).filterIsInstance<Input.PlayLand>().first()
         assertIs<GameDevice.Acted.Sent>(alice.send(listOf(land)))
         sim.flush(f.a)
         val bob = sim.load(f.b)
@@ -346,12 +346,12 @@ class EngineTableScreenshotTest {
         val inputs = mutableListOf<Input>(Input.Cast(me, hand(game, "Storm Spark")))
         var next: Input = inputs.first()
         while (true) {
-            Engine.perform(copy, next).changes.forEach(copy::apply)
+            Engine.perform(copy, next, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
             if (d is Decision.Random || Host.decider(copy, d.player) != me) break
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else if (d is Decision.Targets) Input.Answer(d.id, Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(PlayerId(f.b)))))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
         assertIs<GameDevice.Acted.Sent>(game.send(inputs))
@@ -467,11 +467,11 @@ class EngineTableScreenshotTest {
         val inputs = mutableListOf<Input>(Input.Cast(me, card))
         var next: Input = inputs.first()
         while (true) {
-            Engine.perform(copy, next).changes.forEach(copy::apply)
+            Engine.perform(copy, next, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
             if (d is Decision.Random || Host.decider(copy, d.player) != me) break
             next = if (d is Decision.Targets) Input.Answer(d.id, Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(PlayerId(glance.b)))))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+                else Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
         assertIs<GameDevice.Acted.Sent>(game.send(inputs))
@@ -547,7 +547,7 @@ class EngineTableScreenshotTest {
         game.send(listOf(Input.PlayLand(me, named("Mountain"))))
         game.tick(3_000)
         val s = game.device.model.engine
-        val cast = Engine.options(s, me).filterIsInstance<Input.Cast>().first { s.obj(it.card)?.definition?.faces?.first()?.name == "Ember Herald" }
+        val cast = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().first { s.obj(it.card)?.definition?.faces?.first()?.name == "Ember Herald" }
         assertIs<GameDevice.Acted.Sent>(game.send(EngineCombatScenario(h).cast(s, me, cast)))
         game.tick(4_000)
         // Resolve the Herald (Bob's pass assumed): its trigger goes on the Stack and Alice keeps priority in Control

@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
@@ -85,7 +86,7 @@ class CardPlays private constructor(
 
         private fun of(state: GameState, ids: CardIds, viewer: String, view: View, visible: Set<ObjectId>): CardPlays {
             val me = PlayerId(viewer)
-            val options = Engine.options(state, me, view)
+            val options = Engine.options(state, me, view, EnginePreferences.of(state))
             val byCard = LinkedHashMap<String, MutableList<CardPlay>>()
             fun add(id: ObjectId.Card, play: CardPlay) { byCard.getOrPut(ids.atw(id.card)) { mutableListOf() } += play }
 

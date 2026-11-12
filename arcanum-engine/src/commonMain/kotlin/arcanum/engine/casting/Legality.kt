@@ -44,9 +44,8 @@ internal object Legality {
     /** Why [player] can't play the land [card] now, or null when they can (CR 305.1–305.3). */
     fun cantPlayLand(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int = 0): String? {
         val o = snap.state.obj(card) ?: return "no such card"
-        if (o.unknown) return "unknown card"
-        if (face != 0 && (o.definition?.layout != Layout.ModalDoubleFaced || face !in o.definition!!.faces.indices)) return "no face $face to play"
-        val types = if (face == 0) snap.view[card]?.characteristics?.types.orEmpty() else o.definition!!.faces[face].types
+        if (face != 0 && (o.definition.layout != Layout.ModalDoubleFaced || face !in o.definition.faces.indices)) return "no face $face to play"
+        val types = if (face == 0) snap.view[card]?.characteristics?.types.orEmpty() else o.definition.faces[face].types
         if (CardType.Land !in types) return "not a land"
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"
@@ -66,12 +65,12 @@ internal object Legality {
     // ---- Spells (CR 601.3)
 
     /** The face a spell has when cast [way] (CR 709.3, 715.3, 712.11). */
-    fun face(o: GameObject, way: CastWay): FaceDefinition? = o.definition?.faces?.getOrNull(way.face)
+    fun face(o: GameObject, way: CastWay): FaceDefinition? = o.definition.faces.getOrNull(way.face)
 
     /** Faces a card can be cast as: the front, the other half of a split card, an Adventure, a modal double-faced
      * card's back (CR 709.3, 715.3, 712.11). */
     fun castableFaces(o: GameObject): List<Int> {
-        val d = o.definition ?: return emptyList()
+        val d = o.definition
         return when (d.layout) {
             Layout.Split, Layout.Adventure, Layout.ModalDoubleFaced, Layout.Omen -> d.faces.indices.toList()
             else -> listOf(0)
@@ -100,7 +99,7 @@ internal object Legality {
     private fun usedThisTurn(snap: Snapshot, applied: AppliedMechanic): Int {
         val source = applied.source ?: return 0
         val key = PERMISSION_PREFIX + (applied.origin?.key ?: applied.effect?.value ?: "")
-        return snap.state.obj(source)?.facts?.activations.orEmpty()
+        return snap.state.obj(source)?.uses?.activations.orEmpty()
             .filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
     }
 
@@ -115,7 +114,7 @@ internal object Legality {
     // gtc
     /** Why [o] can't be cast fused (CR 702.102a): a split card with fuse, from its owner's hand, both halves at once. */
     private fun cantFuse(o: GameObject, way: CastWay, fromHand: Boolean, permitted: Boolean): String? {
-        val d = o.definition ?: return "no card"
+        val d = o.definition
         if (d.layout != arcanum.api.Layout.Split || d.faces.none { f -> f.abilities.any { it is Keyword.Fuse } }) return "it has no fuse"
         if (!fromHand || permitted) return "fused only from your hand (CR 702.102a)"
         if (way.face != 0 || way.alternative != null) return "a fused spell is both halves, for their mana costs"
@@ -124,13 +123,12 @@ internal object Legality {
 
     fun cantCast(snap: Snapshot, player: PlayerId, card: ObjectId, way: CastWay): String? {
         val o = snap.state.obj(card) ?: return "no such card"
-        if (o.unknown) return "unknown card"
         if (way.face !in castableFaces(o)) return "face ${way.face} can't be cast"
         val face = face(o, way) ?: return "no face ${way.face}"
         val chars = snap.view[card]?.characteristics
         val faceDown = alternative(snap, card, way, player)?.second?.faceDown == true
         val types = if (faceDown) listOf(CardType.Creature)
-            else if (way.fused) o.definition!!.faces.flatMap { it.types }.distinct().let { t -> if (CardType.Sorcery in t) t - CardType.Instant else t }
+            else if (way.fused) o.definition.faces.flatMap { it.types }.distinct().let { t -> if (CardType.Sorcery in t) t - CardType.Instant else t }
             else face.types
         if (CardType.Land in types) return "lands are played, not cast (CR 305.9)"
         if (!hasPriority(snap, player)) return "$player doesn't have priority"
@@ -190,8 +188,7 @@ internal object Legality {
      */
     fun cantCastByEffect(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int): String? {
         val o = snap.state.obj(card) ?: return "no such card"
-        if (o.unknown) return "unknown card"
-        val f = o.definition?.faces?.getOrNull(face) ?: return "no face $face"
+        val f = o.definition.faces.getOrNull(face) ?: return "no face $face"
         if (CardType.Land in f.types) return "lands are played, not cast (CR 305.9)"
         restriction(snap, player, card, timing = false)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
@@ -230,8 +227,7 @@ internal object Legality {
                 val root = (instance.origin as? arcanum.engine.view.AbilityOrigin.Expansion)?.let { instance.origin.root } ?: return@any false
                 snap.view[source]?.characteristics?.abilities.orEmpty().any { it.origin == root && (it.ability as? arcanum.api.Keyword)?.kind == kind }
             } ?: true
-            // D60: a card the state doesn't know is judged by the host that forwards the action
-            val sourceOk = filter.source?.let { snap.state.obj(source)?.unknown == true || snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
+            val sourceOk = filter.source?.let { snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
             keywordOk && sourceOk
         }
 
@@ -309,7 +305,7 @@ internal object Legality {
         }
         // msh: "the next red or green creature spell you cast this turn can be cast without paying its mana cost": an
         // effect's alternative cost for the next spells (CR 611.2f), tested on the card as the spell it would be (CR 601.2a)
-        val next = snap.view.rules.mapNotNull { applied ->
+        val next = snap.view.game.rules.mapNotNull { applied ->
             val m = applied.mechanic as? Mechanic.AlternativeCost ?: return@mapNotNull null
             val id = applied.effect ?: return@mapNotNull null
             val effect = snap.state.effects[id]?.takeIf { it.affects is arcanum.api.Affected.NextSpells } ?: return@mapNotNull null
@@ -402,10 +398,10 @@ internal object Legality {
     } ?: 0
 
     fun activationsThisTurn(snap: Snapshot, source: ObjectId, key: String): Int =
-        snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
+        snap.state.obj(source)?.uses?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }
 
     private fun activationsEver(snap: Snapshot, source: ObjectId, key: String): Int =
-        snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key }.sumOf { it.count }
+        snap.state.obj(source)?.uses?.activations.orEmpty().filter { it.key == key }.sumOf { it.count }
 
     /** [counts] with one more use of [key] this turn. */
     fun counted(counts: List<TurnCount>, key: String, turn: Int): List<TurnCount> {
@@ -425,5 +421,5 @@ internal object Legality {
     /** The origin of an ability instance by key, for lookups that survive the object changing zones. */
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
-            ?: SpecialActions.of(snap, id, forwarded = true).firstOrNull { it.origin == origin }
+            ?: SpecialActions.of(snap, id).firstOrNull { it.origin == origin }
 }

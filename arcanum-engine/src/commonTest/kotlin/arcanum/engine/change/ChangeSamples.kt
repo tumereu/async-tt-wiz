@@ -93,8 +93,6 @@ internal object ChangeSamples {
         val withDelayed = after(Change.DelayedTriggerAdded(delayed))
         val druidObject = base.objOrThrow(druid)
         val library = base.player(alice).library.map { base.objOrThrow(it) }
-        val unknown = base.objOrThrow(spark).copy(definition = null)
-        val withUnknown = base.deepCopy().also { it._objects[spark] = unknown }
 
         val samples = listOf(
             on(base, Changes.move(base, listOf(druid, forest), Zone.Graveyard)),
@@ -120,23 +118,25 @@ internal object ChangeSamples {
             on(base, Change.Attached(forest, null, TargetRef.Object(druid), base.objOrThrow(forest).timestamp, next)),
             on(base, Change.Restamped(druid, druidObject.timestamp, next)),
             on(base, Change.Memory(druid, "chosen", null, NamedValue.Colors(listOf(arcanum.api.Color.Green)))),
-            on(base, Change.Facts(druid, druidObject.facts, druidObject.facts.copy(x = 3))),
+            on(base, Change.CastFactsChanged(druid, druidObject.cast, arcanum.engine.state.CastFacts(x = 3))),
+            on(base, Change.UsesCounted(druid, druidObject.uses, arcanum.engine.state.UseCounts(activations = listOf(arcanum.engine.state.TurnCount("p0.0", 1, 1))))),
+            on(base, Change.ObjectStatusChanged(druid, null, arcanum.engine.state.ObjectStatus.ClassLevel(2))),
             on(base, Change.ControlStart(druid, druidObject.controlSince, ControlSince(bob, 1))),
-            on(base, Change.ObjectUpdated(druidObject, druidObject.copy(goadedBy = listOf(bob)))),
+            on(base, Change.ObjectUpdated(druidObject, druidObject.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(bob)))))),
             on(base, Changes.step(base, base.turn.copy(step = TurnStep.BeginningOfCombat), listOf(Meaning.StepBegan))),
             on(base, Changes.priority(base, PriorityState(bob, 1), listOf(Meaning.PriorityPassed))),
             on(base, Change.Combat(null, CombatState(listOf(Attacker(druid, TargetRef.Player(bob)))), listOf(Meaning.AttackersDeclared))),
-            on(base, Change.Ledger(null, "storm", 0, 2)),
-            on(base, Change.Ledger(alice, "expend", 0, 4)),
-            on(base, Change.Lost(bob, false, true)),
-            on(base, Change.PlayerDesignation(alice, Designation.Monarch, false, true)),
-            on(base, Change.SkipWhenNoChoice(bob, true, false)),
+            on(base, Change.Ledger(alice, "resolved:Storm Spark", 0, 1)),
+            on(base, Change.Lost(bob, null, arcanum.engine.setup.LossReason.Conceded)),
+            on(base, Change.PlayerStatusChanged(alice, null, arcanum.engine.state.PlayerStatus.Designated(Designation.Monarch))),
+            on(base, Change.PlayerStatusChanged(alice, null, arcanum.engine.state.PlayerStatus.Speed(2))),
+            on(base, Change.GameStatusChanged(null, arcanum.engine.state.GameStatus.DayNight(night = true))),
+            on(base, Change.EmptyLibraryDraw(bob, false, true)),
+            on(base, Change.SpentCounted(alice, null, arcanum.engine.state.SpentOnSpells(1, 3))),
             on(base, Change.Shuffle(alice, library, library.reversed().map { it.copy(id = it.id.next()) })),
             on(base, Change.Reorder(Zone.Library, alice, base.player(alice).library, base.player(alice).library.reversed())),
             on(base, Change.LibraryPlaces(alice, emptyMap(), mapOf(base.player(alice).library.first() to 0))),
             on(base, Change.Shown(alice, base.player(alice).library)),
-            on(withUnknown, Change.Filled(unknown, base.objOrThrow(spark))),
-            on(base, Change.Forgotten(base.objOrThrow(spark), unknown)),
             on(base, Change.Happened(GameEvent.CoinFlipped(alice, won = true))),
             on(base, Changes.pending(base, pending)),
             on(base, Change.InputCounted(base.inputCount, base.inputCount + 1)),

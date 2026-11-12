@@ -1,5 +1,6 @@
 package arcanum.engine.combat
 
+import arcanum.engine.state.goadedBy
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
@@ -26,7 +27,7 @@ class GoadAndAttackedPlaneswalkersTest {
     /** [by] goads [name] (CR 701.15a), made by hand as an effect would. */
     private fun Scenario.goad(name: String, by: PlayerId) {
         val o = state.objOrThrow(card(name))
-        change(Change.ObjectUpdated(o, o.copy(goadedBy = o.goadedBy + by)))
+        change(Change.ObjectUpdated(o, o.copy(statuses = o.statuses.filter { it !is arcanum.engine.state.ObjectStatus.Goaded } + arcanum.engine.state.ObjectStatus.Goaded(o.goadedBy + by))))
     }
 
     private fun Scenario.attack(name: String, target: TargetRef) =

@@ -36,7 +36,7 @@ class AutomatumGalleryTest {
     }
 
     /** The decision kinds the devices answer themselves, never shown to a player. */
-    private val answeredByDevices = setOf("Random", "HostFill", "OtherView")
+    private val answeredByDevices = setOf("Random", "NamedCard")
 
     @Test fun everyListedScreenshotIsThere() {
         // Numbers stay with their pictures (owner, 2026-11-10): increasing and never reused, so an item taken out leaves a gap

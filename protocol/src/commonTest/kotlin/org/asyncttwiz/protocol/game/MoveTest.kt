@@ -57,7 +57,7 @@ class MoveTest {
         assertIs<GameDevice.Acted.Sent>(d.act(Input.Cast(bob, hand(d.model, bob, "Storm Spark"))) { model ->
             val open = model.engine.pending?.decision
             if (open == null || open is Decision.Random || open.player != bob) null
-            else Engine.options(model.engine, bob).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.let { answers ->
+            else Engine.options(model.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.let { answers ->
                 if (open is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
             }
         })
@@ -74,7 +74,7 @@ class MoveTest {
         assertIs<Input.PassPriority>(assertIs<GameDevice.Status.Stopped>(device.status).assumed)
         assertIs<GameDevice.Acted.Sent>(device.act(Input.Cast(alice, hand(device.model, alice, GLIMMER))) { m ->
             m.engine.pending?.decision?.takeIf { it.player == alice && it !is Decision.Random }?.let { open ->
-                Engine.options(m.engine, alice).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                Engine.options(m.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
         })
     }
 
@@ -183,7 +183,7 @@ class MoveTest {
         assertIs<GameDevice.Acted.Sent>(d.act(Input.Cast(bob, hand(d.model, bob, "Cerebral Scan"))) { m ->
             val open = m.engine.pending?.decision
             if (open == null || open is Decision.Random || open.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().let { answers ->
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().let { answers ->
                 if (open is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
             }
         })
@@ -210,12 +210,12 @@ class MoveTest {
         bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island")))
         bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Glance Ahead"))) { m ->
             m.engine.pending?.decision?.takeIf { it.player == bob && it !is Decision.Random }?.let { open ->
-                Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
         }
         sim.settle()
         while (bobs.status == GameDevice.Status.YourMove && bobs.model.engine.pending != null) {
             val open = bobs.model.engine.pending!!.decision
-            bobs.act(Engine.options(bobs.model.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == open.id })
+            bobs.act(Engine.options(bobs.model.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(bobs.model.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id })
             sim.settle()
         }
         // Before the request (all delivered to Bob), as after a declined one
@@ -304,7 +304,7 @@ class MoveTest {
             assertIs<GameDevice.Acted.Sent>(d.act(Input.PlayLand(p, hand(d.model, p, "Forest"))))
             assertIs<GameDevice.Acted.Sent>(d.act(Input.Cast(p, hand(d.model, p, "Elvish Seer")), follow = { m ->
                 m.engine.pending?.decision?.takeIf { it.player == p && it !is Decision.Random }?.let { open ->
-                    Engine.options(m.engine, p).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+                    Engine.options(m.engine, p, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
             }))
             settle()
             d.endTurn(now)

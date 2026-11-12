@@ -261,7 +261,7 @@ internal object Triggers {
         val o = board.state.obj(id) ?: return board.snapshot(id)
         val v = board.view[id]
         return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
-            o.tapped, o.token, o.attachedTo, o.facts, o.memory, attacking = board.state.combat?.attackers.orEmpty().any { it.id == id })
+            o.tapped, o.token, o.attachedTo, o.cast, o.linked, arcanum.engine.state.snapshotStatuses(o), attacking = board.state.combat?.attackers.orEmpty().any { it.id == id })
     }
 
     /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the
@@ -272,12 +272,12 @@ internal object Triggers {
         // "This ability triggers only once": for as long as the object exists
         if (s.ability.once) {
             val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
-            val placed = state.obj(s.id)?.facts?.triggers?.filter { it.key == s.origin.key }?.sumOf { it.count } ?: 0
+            val placed = state.obj(s.id)?.uses?.triggers?.filter { it.key == s.origin.key }?.sumOf { it.count } ?: 0
             return instances.take((1 - placed - waiting).coerceAtLeast(0))
         }
         val limit = s.ability.perTurn ?: return instances
         val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
-        val placed = state.obj(s.id)?.facts?.triggers?.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
+        val placed = state.obj(s.id)?.uses?.triggers?.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
         return instances.take((limit - placed - waiting).coerceAtLeast(0))
     }
 
@@ -286,7 +286,7 @@ internal object Triggers {
      * (CR 603.2h): counted on the source object per turn number (D41). */
     fun actionTaken(state: GameState, source: ObjectId?, origin: AbilityOrigin?, player: PlayerId): Boolean {
         val key = actionKey(origin ?: return false, player)
-        return state.obj(source ?: return false)?.facts?.activations.orEmpty().any { it.key == key && it.turn == state.turn.number }
+        return state.obj(source ?: return false)?.uses?.activations.orEmpty().any { it.key == key && it.turn == state.turn.number }
     }
 
     /** The key under which a taken "Do this only once each turn" action is counted. */
@@ -368,7 +368,7 @@ internal object Triggers {
     /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield
      * don't cause abilities to trigger"); null when nothing of it is left. */
     private fun withoutMuted(state: GameState, view: View, change: Change): Change? {
-        val muting = view.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
+        val muting = view.game.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
         if (muting.isEmpty() || change !is Change.ZoneChange) return change
         val kept = change.moves.filter { mv ->
             muting.none { applied ->
@@ -390,13 +390,13 @@ internal object Triggers {
             view.players[p.id]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.GetsDesignation)?.designation }.distinct()
                 .filter { it !in p.designations }.map { p.id to it }
         }
-        missing.forEach { (player, designation) -> recorder.record(Change.PlayerDesignation(player, designation, before = false, after = true)) }
+        missing.forEach { (player, designation) -> recorder.record(arcanum.engine.change.Changes.designation(player, designation, true)) }
         return missing.isNotEmpty()
     }
 
     /** "Triggers an additional time" (CR 603.2d). */
     private fun additional(state: GameState, view: View, change: Change, found: List<WaitingTrigger>): List<WaitingTrigger> =
-        view.rules.flatMap { applied ->
+        view.game.rules.flatMap { applied ->
             val m = applied.mechanic as? Mechanic.TriggersAdditionalTime ?: return@flatMap emptyList()
             val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
             if (m.event != null && EventMatcher.instances(e, m.event!!, change).isEmpty()) return@flatMap emptyList()
@@ -542,9 +542,9 @@ internal object Triggers {
         val key = origin?.key ?: return
         val o = act.state.obj(source) ?: return
         val turn = act.state.turn.number
-        val count = (o.facts.triggers.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
-        val triggers = o.facts.triggers.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
-        act.record(Change.Facts(source, o.facts, o.facts.copy(triggers = triggers)))
+        val count = (o.uses.triggers.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
+        val triggers = o.uses.triggers.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
+        act.record(arcanum.engine.change.Changes.uses(act.state, source, o.uses.copy(triggers = triggers)))
     }
 
     /** CR 603.8: a state trigger triggers when its condition is true, and again only after it has left the Stack. */

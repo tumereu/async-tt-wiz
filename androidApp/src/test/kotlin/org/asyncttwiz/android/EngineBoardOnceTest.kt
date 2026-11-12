@@ -55,7 +55,7 @@ class EngineBoardOnceTest {
     }
 
     private fun option(game: EngineGame, kind: (Input) -> Boolean): Input =
-        game.read { d -> Engine.options(d.model.engine, PlayerId(f.a)).first(kind) }
+        game.read { d -> Engine.options(d.model.engine, PlayerId(f.a), org.asyncttwiz.protocol.game.EnginePreferences.of(d.model.engine)).first(kind) }
 
     /** The layer computations, boards built and the device's points worked out while [work] runs. */
     private fun counted(game: EngineGame, work: () -> Unit): Triple<Int, Int, Int> {

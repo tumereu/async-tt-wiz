@@ -32,19 +32,20 @@ fun GameState.Companion.of(
     turn: TurnState,
     priority: PriorityState = PriorityState(null),
     combat: CombatState? = null,
-    ledger: Map<String, Int> = emptyMap(),
+    statuses: List<GameStatus> = emptyList(),
     log: List<LoggedChange> = emptyList(),
     pending: Pending? = null,
     timestampCounter: Long = 0,
     inputCount: Int = 0,
     triggered: List<WaitingTrigger> = emptyList(),
     skipFirstDraw: Boolean = true,
-    viewer: PlayerId? = null,
 ): GameState = GameState(
-    players.toMutableList(), LinkedHashMap(objects), battlefield.toMutableList(), stack.toMutableList(), exile.toMutableList(),
-    command.toMutableList(), LinkedHashMap(stackItems), LinkedHashMap(effects), LinkedHashMap(delayedTriggers), turn, priority,
-    combat, LinkedHashMap(ledger), log.toMutableList(), pending, timestampCounter, inputCount, triggered.toMutableList(),
-    skipFirstDraw, viewer,
+    _players = players.toMutableList(), _objects = LinkedHashMap(objects), _battlefield = battlefield.toMutableList(),
+    _stack = stack.toMutableList(), _exile = exile.toMutableList(), _command = command.toMutableList(),
+    _stackItems = LinkedHashMap(stackItems), _effects = LinkedHashMap(effects), _delayedTriggers = LinkedHashMap(delayedTriggers),
+    _turn = turn, _priority = priority, _combat = combat, _statuses = statuses.sortedBy { it.key }, _pending = pending,
+    _skipFirstDraw = skipFirstDraw, _log = log.toMutableList(), _timestampCounter = timestampCounter, _inputCount = inputCount,
+    _triggered = triggered.toMutableList(),
 )
 
 /** A test board with [players] (in turn order) at [life], turn 1 of the first player in [step], nothing in any zone. */
@@ -76,9 +77,11 @@ class StateSetup internal constructor(private val state: GameState) {
     val stackItems: MutableMap<ObjectId, StackItem> get() = state._stackItems
     val effects: MutableMap<EffectId, EffectObject> get() = state._effects
     val delayedTriggers: MutableMap<EffectId, DelayedTrigger> get() = state._delayedTriggers
-    val ledger: MutableMap<String, Int> get() = state._ledger
     val log: MutableList<LoggedChange> get() = state._log
     val triggered: MutableList<WaitingTrigger> get() = state._triggered
+    var statuses: List<GameStatus>
+        get() = state._statuses
+        set(value) { state._statuses = value.sortedBy { it.key } }
     var turn: TurnState
         get() = state._turn
         set(value) { state._turn = value }
@@ -100,10 +103,28 @@ class StateSetup internal constructor(private val state: GameState) {
     var skipFirstDraw: Boolean
         get() = state._skipFirstDraw
         set(value) { state._skipFirstDraw = value }
-    var viewer: PlayerId?
-        get() = state._viewer
-        set(value) { state._viewer = value }
 
     /** Changes [id]'s player state. */
     fun player(id: PlayerId, change: (PlayerState) -> PlayerState) = state.updatePlayer(id, change)
+
+    /** [player]'s library places (the engine's bookkeeping of which library cards' places are known). */
+    fun libraryPlaces(player: PlayerId): Map<ObjectId, Int> = state.libraryPlaces(player)
+
+    /** Sets [player]'s library places. */
+    fun setLibraryPlaces(player: PlayerId, places: Map<ObjectId, Int>) {
+        state._libraryPlaces = if (places.isEmpty()) state._libraryPlaces - player else state._libraryPlaces + (player to places)
+    }
+
+    /** Players who drew from an empty library since the last state-based action check. */
+    var emptyDraws: List<PlayerId>
+        get() = state._emptyDraws
+        set(value) { state._emptyDraws = value }
+
+    /** [player]'s card-defined ledger (D22), by name. */
+    fun ledger(player: PlayerId): Map<String, Int> = state.ledgers[player].orEmpty()
+
+    /** Sets [player]'s card-defined ledger. */
+    fun setLedger(player: PlayerId, ledger: Map<String, Int>) {
+        state._ledgers = if (ledger.isEmpty()) state._ledgers - player else state._ledgers + (player to ledger)
+    }
 }

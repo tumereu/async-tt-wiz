@@ -26,7 +26,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** [Inspect.restrictions], [Inspect.speed], [Inspect.ringTemptations], [Inspect.dayOrNight], [Inspect.classLevel] and the
+/** [Inspect.restrictions], the statuses the view shows of players, the game and objects, and the
  * glossary of states: what the rules keep beyond characteristics, for a host's Inspect and chips. */
 class RestrictionsTest {
     private val cub = Cards.invent("Hollow Cub", "{1}{G}", "Creature — Bear", "", "2/2")
@@ -130,26 +130,25 @@ class RestrictionsTest {
     fun aPlayersAndTheGamesStates() = scenario {
         alice.battlefield("Swamp", cub)
         alice.hand(beckon)
-        assertEquals(0, Inspect.ringTemptations(state, alice.id))
-        assertEquals(0, Inspect.speed(state, alice.id))
-        assertNull(Inspect.dayOrNight(state))
-        change(Change.Ledger(alice.id, Speed.KEY, 0, 2))
-        assertEquals(2, Inspect.speed(state, alice.id))
+        assertEquals(emptyList(), view().players.getValue(alice.id).statuses)
+        assertEquals(emptyList(), view().game.statuses)
+        change(Change.PlayerStatusChanged(alice.id, null, arcanum.engine.state.PlayerStatus.Speed(2)))
+        assertEquals(listOf<arcanum.engine.state.PlayerStatus>(arcanum.engine.state.PlayerStatus.Speed(2)), view().players.getValue(alice.id).statuses)
         alice.casts(beckon)
         allPass()
-        assertEquals(1, Inspect.ringTemptations(state, alice.id))
-        change(Change.Ledger(null, Evaluator.DAY_NIGHT, 0, Evaluator.NIGHT))
-        assertEquals(DayOrNight.Night, Inspect.dayOrNight(state))
+        assertEquals(listOf(arcanum.engine.state.PlayerStatus.RingTempted(1), arcanum.engine.state.PlayerStatus.Speed(2)), view().players.getValue(alice.id).statuses)
+        change(Change.GameStatusChanged(null, arcanum.engine.state.GameStatus.DayNight(night = true)))
+        assertEquals(listOf<arcanum.engine.state.GameStatus>(arcanum.engine.state.GameStatus.DayNight(night = true)), view().game.statuses)
     }
 
     // CR 716.2: a Class is level 1 until it levels up
     @Test
     fun aClasssLevel() = scenario {
         alice.battlefield(tale, cub)
-        assertEquals(1, Inspect.classLevel(state, card(tale)))
-        assertNull(Inspect.classLevel(state, card(cub)))
-        change(Change.Memory(card(tale), Evaluator.CLASS_LEVEL, null, arcanum.engine.state.NamedValue.Number(2)))
-        assertEquals(2, Inspect.classLevel(state, card(tale)))
+        assertEquals(listOf<arcanum.engine.state.ObjectStatus>(arcanum.engine.state.ObjectStatus.ClassLevel(1)), view()[card(tale)]!!.statuses)
+        assertEquals(emptyList(), view()[card(cub)]!!.statuses)
+        change(Change.ObjectStatusChanged(card(tale), null, arcanum.engine.state.ObjectStatus.ClassLevel(2)))
+        assertEquals(listOf<arcanum.engine.state.ObjectStatus>(arcanum.engine.state.ObjectStatus.ClassLevel(2)), view()[card(tale)]!!.statuses)
     }
 
     // The glossary explains every mark and designation a host may show, in its own words

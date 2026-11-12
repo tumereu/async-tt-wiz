@@ -153,12 +153,12 @@ class DeviceSimulationTest {
     /** Blocks the device's player assumes: "No blocks" mostly, else some the engine lists. */
     private fun blocks(d: GameDevice, rnd: Random): List<arcanum.engine.input.Block> =
         if (rnd.nextInt(3) > 0) emptyList()
-        else Engine.options(d.model.engine, d.opponent).filterIsInstance<Input.DeclareBlockers>().randomOrNull(rnd)?.blocks.orEmpty()
+        else Engine.options(d.model.engine, d.opponent, org.asyncttwiz.protocol.game.EnginePreferences.of(d.model.engine)).filterIsInstance<Input.DeclareBlockers>().randomOrNull(rnd)?.blocks.orEmpty()
 
     /** At a decision stop: mostly the assumed answer (a confirmation), sometimes another one (a branch). */
     private fun answer(sim: DeviceSim, d: GameDevice, stop: GameDevice.Status.Stopped, rnd: Random, stats: Stats) {
         val s = d.model.engine
-        val others = Engine.options(s, d.me).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
+        val others = Engine.options(s, d.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
             Authority.mayMake(s, it, d.me, d.model.table) }
         val input = if (others.isEmpty() || rnd.nextInt(10) < 7) stop.assumed else others.random(rnd)
         // Sometimes as a flow (a draft at the stop: the same first input confirms, the rest is their next action)
@@ -199,7 +199,7 @@ class DeviceSimulationTest {
         if (rnd.nextInt(12) == 0 && d.undoTarget() != null) return undo(d, rnd, stats)
         if (rnd.nextInt(1_500) == 0) { d.concede(); return }
         if (s.priority.holder == d.me && s.pending == null && rnd.nextInt(12) == 0) { sim.endTurns[d.me] = s.turn.number; d.endTurn(sim.now); return }
-        val listed = Engine.options(s, d.me).filter { it !is Input.Concede && Authority.mayMake(s, it, d.me, d.model.table) }
+        val listed = Engine.options(s, d.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filter { it !is Input.Concede && Authority.mayMake(s, it, d.me, d.model.table) }
         if (listed.isEmpty()) return
         val doing = listed.filterNot { it is Input.PassPriority || (it is Input.DeclareAttackers && it.attacks.isEmpty()) ||
             (it is Input.DeclareBlockers && it.blocks.isEmpty()) }

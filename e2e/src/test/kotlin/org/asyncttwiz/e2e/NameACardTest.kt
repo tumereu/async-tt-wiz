@@ -48,7 +48,7 @@ class NameACardTest : E2e() {
         alice.node(ok() and isEnabled()).performClick()
         waitUntil("the Muzzle on the battlefield, Cinder Hound named", along = listOf(bob)) {
             alice.state.pending == null && alice.field("Ember Muzzle").isNotEmpty() &&
-                alice.state.obj(alice.field("Ember Muzzle").first())!!.memory.values.values.any { "Cinder Hound" in it.toString() }
+                alice.state.obj(alice.field("Ember Muzzle").first())!!.linked.values.values.any { "Cinder Hound" in it.toString() }
         }
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
@@ -75,7 +75,7 @@ class NameACardTest : E2e() {
         alice.node(ok() and isEnabled()).performClick()
         waitUntil("the Muzzle on the battlefield, Blaze named", along = listOf(bob)) {
             alice.state.pending == null && alice.field("Ember Muzzle").isNotEmpty() &&
-                alice.state.obj(alice.field("Ember Muzzle").first())!!.memory.values.values.any { "Blaze" in it.toString() }
+                alice.state.obj(alice.field("Ember Muzzle").first())!!.linked.values.values.any { "Blaze" in it.toString() }
         }
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }

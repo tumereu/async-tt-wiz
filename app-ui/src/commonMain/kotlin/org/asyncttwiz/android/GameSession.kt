@@ -25,7 +25,9 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Where engine games do their work (I-D56 step D2): the app's engine thread, or inline in tests. */
     private val engineWorker: EngineWorker = EngineWorker.Direct,
     /** Which engine games to load on the engine thread (the app: only the open one; switchreview #11). */
-    private val engineLoad: (String) -> Boolean = { true }) : AutoCloseable {
+    private val engineLoad: (String) -> Boolean = { true },
+    /** CR 707.12: the cards engine games name for the engine ([EngineGame]'s): the phone's card records. */
+    private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) : AutoCloseable {
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
     private var backgrounded = false
@@ -245,7 +247,7 @@ class GameSession(private val connection: GameConnection, private val credential
             engineHeads.remove(head.gameId); unopenable.remove(head.gameId)
             if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
                 onShown = { engineShown(head.gameId) },
-                pages = { through, done -> connection.historyPage(head.gameId, through, done) })
+                pages = { through, done -> connection.historyPage(head.gameId, through, done) }, namedCards = namedCards)
             else {
                 // Why an open game loads again (e2e CombatHoldTest, 2026-11-10: a load in the middle of play said nothing of it)
                 AppLog.info("engine", "Game ${head.gameId.take(8)} loads again from head ${head.engine?.headId?.take(8)} at revision " +

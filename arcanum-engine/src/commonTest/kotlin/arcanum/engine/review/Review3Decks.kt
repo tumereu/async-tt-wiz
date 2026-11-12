@@ -4,7 +4,7 @@ import arcanum.engine.state.PlayerId
 
 /**
  * Review 3: four themed 40-card decks of invented cube cards (16 basics of two colours and 24 cards), for long games
- * between each pair ([LongGame], [FakeHost]).
+ * between each pair ([LongGame]).
  */
 internal object Review3Decks {
     private fun lands(a: String, b: String) = List(8) { a } + List(8) { b }

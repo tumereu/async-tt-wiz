@@ -54,7 +54,7 @@ object NextStop {
     /** Whether [player] may declare their opening mulligan (or bottom choice) on [state] while the other player's is
      * the open decision (simultaneous mulligans, I-D54 §8): their move too. */
     fun declares(state: GameState, player: PlayerId): Boolean =
-        state.turn.number == 0 && state.pending != null && Engine.options(state, player).any { it is Input.SetupAnswer && it.player == player }
+        state.turn.number == 0 && state.pending != null && Engine.options(state, player, EnginePreferences.of(state)).any { it is Input.SetupAnswer && it.player == player }
 
     private fun aboutPlayer(state: GameState, input: Input, assumer: PlayerId?, player: PlayerId): Boolean =
         (WhoActs.playerOf(state, input) ?: state.players.firstOrNull { it.id != assumer }?.id) == player
@@ -75,7 +75,7 @@ object NextStop {
 
     /** Whether [player]'s own device passes for them on [state] under Auto-skip: [Host.shouldPassFor] with their
      * "Skip when I have no choice" on (the shared state keeps it off). */
-    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean = Host.passCheck(state, player).ownSkipOn
+    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean = Host.passCheck(state, player, EnginePreferences.of(state)).ownSkipOn
 }
 
 /**

@@ -35,7 +35,7 @@ class ControlPlayerTest {
         assertEquals(alice.id, Host.decider(state, alice.id))
         assertTrue(state.turn.controlNext.isEmpty())
         // Bob's options are still Bob's own inputs (his resources, CR 723.5a)
-        assertTrue(Engine.options(state, bob.id).all { it !is Input.PassPriority || it.player == bob.id })
+        assertTrue(Engine.options(state, bob.id, prefs).all { it !is Input.PassPriority || it.player == bob.id })
         // CR 723.1: until the next turn begins
         advanceTo(TurnStep.End, turn = 2)
         assertEquals(alice.id, Host.decider(state, bob.id))
@@ -101,8 +101,8 @@ class ControlPlayerTest {
         players.forEach { it.library("Island", "Island", "Island") }
         alice.casts(gambit, target = "bob")
         allPass()
-        change(Changes.skipWhenNoChoice(state, alice.id, false))
+        alice.skipWhenNoChoice = false
         advanceTo(TurnStep.Upkeep, turn = 2)
-        assertFalse(Host.shouldPassFor(state, bob.id))
+        assertFalse(Host.shouldPassFor(state, bob.id, prefs))
     }
 }

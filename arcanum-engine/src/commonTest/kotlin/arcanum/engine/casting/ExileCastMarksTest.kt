@@ -1,5 +1,7 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.gained
+import arcanum.engine.state.marksGained
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardDefinition
@@ -132,7 +134,7 @@ class ExileCastMarksTest {
         resolve()
         val id = card(tidings)
         assertTrue(ObjectMark.Foretold in state.objOrThrow(id).marks)
-        assertEquals(listOf(lessTwo), state.objOrThrow(id).facts.gained(ObjectMark.Foretold)?.costs)
+        assertEquals(listOf(lessTwo), state.objOrThrow(id).gained(ObjectMark.Foretold)?.costs)
         advanceTo(TurnStep.Upkeep, turn = 3)
         assertEquals("{1}{U}{U}", castsFor(id).toString())
     }
@@ -190,7 +192,7 @@ class ExileCastMarksTest {
         val o = state.objOrThrow(id)
         assertEquals(Zone.Exile, o.zone)
         assertTrue(ObjectMark.Plotted in o.marks, "marks=${o.marks}")
-        assertEquals(state.turn.number, o.facts.gained(ObjectMark.Plotted)?.turn)
+        assertEquals(state.turn.number, o.gained(ObjectMark.Plotted)?.turn)
         assertTrue(castsOf(id).isEmpty(), "not in the turn it became plotted")
         advanceTo(TurnStep.Upkeep, turn = 3)
         assertTrue(castsOf(id).isEmpty(), "only as a sorcery, even an instant")
@@ -303,7 +305,7 @@ class ExileCastMarksTest {
         alice.battlefield("Island", "Island")
         alice.hand(omens)
         alice.takesSpecialAction(omens, "foretell")
-        val facts = state.objOrThrow(card(omens)).facts
+        val facts = state.objOrThrow(card(omens))
         // Where the cost is printed (Cost.spans) is text only
         assertEquals(listOf(MarkGained(ObjectMark.Foretold, state.turn.number, listOf(mana("{1}{U}")))),
             facts.marksGained.map { it.copy(costs = it.costs.map { c -> c.copy(spans = emptyList()) }) })

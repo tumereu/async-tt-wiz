@@ -12,7 +12,7 @@ class Chunk12HarderCardFlowScenariosTest {
         alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest")
         alice.hand("Coda of Ruin")
         alice.graveyard("Elvish Hierophant", "Bull of the Pyre")
-        alice.library("Island", "Swamp", hidden = true)
+        alice.library("Island", "Swamp")
 
         alice.casts("Coda of Ruin", x = 3)
         allPass()
@@ -30,7 +30,7 @@ class Chunk12HarderCardFlowScenariosTest {
     fun codaOfRuinFromTheLibrary() = scenario {
         alice.battlefield("Forest", "Forest", "Forest")
         alice.hand("Coda of Ruin")
-        alice.library("Island", "Elvish Seer", "Canopy Visionary", hidden = true)
+        alice.library("Island", "Elvish Seer", "Canopy Visionary")
 
         alice.casts("Coda of Ruin", x = 1)
         allPass()
@@ -68,7 +68,7 @@ class Chunk12HarderCardFlowScenariosTest {
     fun verdantMoonsApex() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest")
         alice.hand("Verdant Moon's Apex")
-        alice.library("Myriad-Faced Shade", "Canopy Visionary", "Island", hidden = true)
+        alice.library("Myriad-Faced Shade", "Canopy Visionary", "Island")
 
         alice.casts("Verdant Moon's Apex", x = 3)
         allPass()

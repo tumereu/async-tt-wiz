@@ -7,8 +7,10 @@ import arcanum.engine.view.View
 
 /**
  * For a host's Inspect and the rules state it shows: where an object's characteristics come from, what continuous
- * effects tell it it can't or must do, what an object that no longer exists last was, and the values the engine keeps
- * for a player, an object or the game (speed, the Ring, dungeons, day and night, a Class's level, a venture marker).
+ * effects tell it it can't or must do, what an object that no longer exists last was, and the tagged events the state keeps.
+ * The values the engine keeps for a player, an object or the game (speed, the Ring, day and night, a Class's level, …) are
+ * their statuses ([arcanum.engine.view.ObjectView.statuses], [arcanum.engine.view.PlayerView.statuses],
+ * [arcanum.engine.view.GameView.statuses]).
  * Stateless, like [Engine]: it reads the [GameState] it is given and changes nothing.
  */
 object Inspect {
@@ -16,7 +18,7 @@ object Inspect {
      * Where object [id]'s characteristics come from (spec §7.1, a host's Inspect: "2/2 printed, +1/+1 from an anthem,
      * +3/+3 until end of turn"): its values after layer 1, then each continuous effect that changed them in the order
      * applied (CR 613), with what made it. Works the layers out afresh (one [Engine.view]'s cost). Null when [id] has no
-     * characteristics (an unknown object, D60, or no such object).
+     * characteristics (no such object).
      */
     fun explain(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.view.Explanation? = Layers.explain(state, id)
 
@@ -41,31 +43,7 @@ object Inspect {
      * it exists or when nothing is known of it; its characteristics have no name if it was face down. */
     fun lastKnown(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.state.ObjectSnapshot? = arcanum.engine.query.Lki.find(state, id)
 
-    /** [player]'s speed (CR 702.179): 1 to 4, 0 for a player with no speed. */
-    fun speed(state: GameState, player: PlayerId): Int = arcanum.engine.turn.Speed.of(state, player)
-
-    /** How many times the Ring has tempted [player] (CR 701.54c); 0: never. Its abilities stop growing at four. */
-    fun ringTemptations(state: GameState, player: PlayerId): Int = arcanum.engine.ring.TheRing.temptations(state, player)
-
-    /** How many dungeons [player] has completed this game (CR 309.6). */
-    fun dungeonsCompleted(state: GameState, player: PlayerId): Int = arcanum.engine.dungeon.Dungeons.completed(state, player)
-
-    /** Whether it is day or night (CR 731); null while it is neither, as a game starts. */
-    fun dayOrNight(state: GameState): arcanum.engine.view.DayOrNight? = when (arcanum.engine.turn.DayNight.of(state)) {
-        arcanum.engine.query.Evaluator.DAY -> arcanum.engine.view.DayOrNight.Day
-        arcanum.engine.query.Evaluator.NIGHT -> arcanum.engine.view.DayOrNight.Night
-        else -> null
-    }
-
-    /** The level a Class [id] has gained (CR 716.2, its level abilities): at least 1 for a Class on the battlefield; null for
-     * any other object or none. */
-    fun classLevel(state: GameState, id: arcanum.engine.state.ObjectId): Int? = state.obj(id)?.let { o ->
-        if (arcanum.api.Subtype("Class") !in o.definition?.faces?.getOrNull(o.face)?.subtypes.orEmpty() || o.zone != arcanum.api.Zone.Battlefield) null
-        else ((o.memory[arcanum.engine.query.Evaluator.CLASS_LEVEL] as? arcanum.engine.state.NamedValue.Number)?.value ?: 1).coerceAtLeast(1)
-    }
-
-    /** The room of dungeon [id] its owner's venture marker is on (CR 309.4), by index into its rooms
-     * ([arcanum.api.FaceDefinition.rooms]); null when it has no marker (not a dungeon in the command zone). */
-    fun ventureRoom(state: GameState, id: arcanum.engine.state.ObjectId): Int? =
-        state.objects[id]?.takeIf { it.zone == arcanum.api.Zone.Command }?.let(arcanum.engine.dungeon.Dungeons::room)
+    /** The tagged events (D33) the state keeps, oldest first, each with its turn: this and last turn's, and any older ones the
+     * host hasn't dropped ([GameState.forgetOlderTurns]). For a host's history and displays ("made by", mulligans). */
+    fun events(state: GameState): List<arcanum.engine.state.LoggedChange> = state.log
 }

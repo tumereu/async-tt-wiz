@@ -12,7 +12,7 @@ import arcanum.engine.state.PlayerId
  * - another choice an object asks of them is made by a player the object's controller chooses: another opponent of the
  *   controller when the one who left was one, if there is one, else any other player in the game (800.4g);
  * - a choice the rules ask of them (no source, or its controller left too) is made by the next player in turn order (800.4h).
- * Random results, host fills and other views stay the host's.
+ * Random results and named cards stay the host's.
  */
 internal object LeftPlayers {
     sealed interface Redirect {
@@ -27,7 +27,7 @@ internal object LeftPlayers {
     /** How [d] is decided when its player has left the game; null when they haven't (or the host answers it). */
     fun redirect(s: GameState, d: Decision): Redirect? {
         if (!s.player(d.player).lost) return null
-        if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return null
+        if (d is Decision.Random || d is Decision.NamedCard) return null
         // CR 800.4f: nor a payment they were making: it is never handed to another player (paid with the left player's objects)
         if (d is Decision.May && d.cost != null || d is Decision.ManaPayment) return Redirect.NotPaid
         val left = d.player
@@ -60,8 +60,7 @@ internal object LeftPlayers {
         is Decision.ChooseReplacement -> d.copy(id = id, player = player)
         is Decision.LegendRule -> d.copy(id = id, player = player)
         is Decision.Random -> d.copy(id = id, player = player)
-        is Decision.HostFill -> d.copy(id = id, player = player)
-        is Decision.OtherView -> d.copy(id = id, player = player)
+        is Decision.NamedCard -> d.copy(id = id, player = player)
         is Decision.Manual -> d.copy(id = id, player = player)
     }
 }

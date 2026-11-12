@@ -235,7 +235,7 @@ class LtrRedScenariosTest {
         assertEquals(1, tokens("Treasure Token").size)
         alice.activates(s.noriDwarfEmissary, target = p.ogre, choosing = listOf("Treasure Token"))
         playOut()
-        expect { assertTrue(p.ogre.view.obj!!.memory.values.isNotEmpty() || true) }
+        expect { assertTrue(p.ogre.view.obj!!.linked.values.isNotEmpty() || true) }
     }
 
     /** Pumped, it dies and deals its last power to an opponent's creature. */

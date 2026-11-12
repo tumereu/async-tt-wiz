@@ -1,5 +1,13 @@
 package arcanum.engine.query
 
+import arcanum.engine.state.copyOfCard
+import arcanum.engine.state.dealtCombatDamage
+import arcanum.engine.state.dealtDamage
+import arcanum.engine.state.goadedBy
+import arcanum.engine.state.mergedBelow
+import arcanum.engine.state.prepareSpellOf
+import arcanum.engine.state.protector
+import arcanum.engine.state.status
 import arcanum.api.Ability
 import arcanum.api.AbilityKind
 import arcanum.api.CardType
@@ -236,12 +244,20 @@ internal class Evaluator(val board: Board, val ctx: Context) {
      * exiled (CR 607.2a). */
     private fun selfMemory(key: String): NamedValue? = ctx.enteringMemory?.get(key) ?: ctx.self?.let { self ->
         val o = state.obj(self)
-        if (o != null) o.memory[key]
+        if (o != null) o.linked[key]
         else {
             board.readingLog()
-            (board.snapshot(self)?.memory?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
+            (board.snapshot(self)?.linked?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
         }
     }
+
+    /** The source's statuses; after it left its zone, those it had then (its last known information). */
+    private fun selfStatuses(): List<arcanum.engine.state.ObjectStatus> = ctx.self?.let { self ->
+        state.obj(self)?.statuses ?: run {
+            board.readingLog()
+            board.snapshot(self)?.statuses
+        }
+    }.orEmpty()
 
     // ---- Players
 
@@ -327,8 +343,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.OfColor -> colors(filter.color).any { c?.colors.orEmpty().contains(it) }
             // fra: a prepare spell (CR 722.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
-            ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
-            ObjectFilter.HasDealtDamage -> o?.facts?.dealtDamage == true // tdm
+            ObjectFilter.HasDealtCombatDamage -> o?.dealtCombatDamage == true
+            ObjectFilter.HasDealtDamage -> o?.dealtDamage == true // tdm
             // msh: the only creature declared as an attacker in this combat (CR 506.5)
             ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
             // msh: a target of one of these spells or abilities (CR 115.1)
@@ -523,16 +539,16 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     /** What happened to [id] as an object: a card's facts, a copy of a spell's own (CR 707.10), or as it last existed. */
-    private fun facts(id: ObjectId) = state.obj(id)?.facts ?: copyFacts(id) ?: lki(id)?.facts
+    private fun facts(id: ObjectId) = state.obj(id)?.cast ?: copyFacts(id) ?: lki(id)?.cast
 
-    private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.facts
+    private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.cast
 
     private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters
 
     /** tdm: the kinds of counters on [id] (CR 122.1). */
     private fun counterKinds(id: ObjectId) = counterList(id).orEmpty().filter { it.count > 0 }.map { it.kind }.distinct()
 
-    private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
+    private fun GameObject.printedTypes(): List<CardType> = definition.faces.getOrNull(face)?.types.orEmpty()
 
     /** [a] and [b] share [quality] ("share a color", "with the same power"). */
     fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
@@ -792,7 +808,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     fun manaValue(id: ObjectId, c: Characteristics): Int {
         val x = when {
             zoneOf(id) == Zone.Stack -> state.stackItems[id]?.announced?.get("X") ?: 0
-            else -> lki(id)?.takeIf { it.zone == Zone.Stack }?.facts?.x ?: 0
+            else -> lki(id)?.takeIf { it.zone == Zone.Stack }?.cast?.x ?: 0
         }
         return (frontFaceCost(id)?.let { c.copy(manaCost = it) } ?: c).manaValue(x)
     }
@@ -801,11 +817,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
      * one copying something (a back face included) has the copy's (0 for a back face, which has no mana cost). */
     private fun frontFaceCost(id: ObjectId): arcanum.api.ManaCost? {
         val o = state.obj(id) ?: return null
-        val definition = o.definition ?: return null
+        val definition = o.definition
         // fin: CR 202.3c, 712.8g: a melded permanent's mana value is the total of its two front faces'
         if (definition.layout is arcanum.api.Layout.Meld && o.face == 1 && o.zone == Zone.Battlefield)
             return arcanum.api.ManaCost(((definition.faces.first().manaCost?.symbols ?: emptyList()) +
-                o.mergedBelow.flatMap { it.definition?.faces?.firstOrNull()?.manaCost?.symbols.orEmpty() }))
+                o.mergedBelow.flatMap { it.definition.faces.firstOrNull()?.manaCost?.symbols.orEmpty() }))
         if (definition.layout != arcanum.api.Layout.Transform || o.face == 0 || o.faceDown) return null
         if (o.zone != Zone.Battlefield && o.zone != Zone.Stack) return null
         if (state.effects.values.any { e -> e.locked?.contains(id) == true && e.mechanics.any { it is arcanum.api.Mechanic.CopyOf } }) return null
@@ -884,31 +900,31 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
         // sos: paradigm (CR 702.192a): a spell with that name controlled by such a player resolved earlier this game
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
-            state.players.any { p -> matches(condition.controller, p.id) && (p.ledger[resolvedKey(name)] ?: 0) > 0 }
+            state.players.any { p -> matches(condition.controller, p.id) && (state.ledgers[p.id]?.get(resolvedKey(name)) ?: 0) > 0 }
         }
         // CR 702.179e: max speed is speed 4
         Condition.MaxSpeed -> arcanum.engine.turn.Speed.of(state, ctx.you) >= arcanum.engine.turn.Speed.MAX
-        // The revealed companion is set up before the game (CR 702.139a); the host marks it in card memory.
-        Condition.RevealedCompanion -> selfMemory(REVEALED_COMPANION) != null
+        // The revealed companion is set up before the game (CR 702.139a)
+        Condition.RevealedCompanion -> selfStatuses().status<arcanum.engine.state.ObjectStatus.RevealedCompanion>() != null
         is Condition.Chose -> (ctx.names[condition.name] as? NamedValue.Option)?.option == condition.option
         is Condition.ModeChosen -> ctx.stackItem?.modes?.contains(condition.index) == true
         // Checked by resolution against the Stack item's targets (CR 608.2b).
         is Condition.TargetsLegal ->
             (ctx.names[TARGETS_LEGAL_PREFIX + condition.slots.joinToString(",")] as? NamedValue.Number)?.value != 0
         is Condition.Searched -> ctx.names[SEARCHED_PREFIX + condition.name + ":" + condition.zone] != null
-        // A Class's level is card memory (CR 716); a leveler's is its level counters (CR 711.2)
+        // A Class's level is its status (CR 716); a leveler's is its level counters (CR 711.2)
         is Condition.ClassLevelAtLeast -> {
             val o = ctx.self?.let { state.obj(it) }
             val isClass = o?.definition?.faces?.getOrNull(o.face)?.subtypes?.contains(Subtype("Class")) == true
-            val level = if (isClass || o == null) boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) else o.counters(CounterKind.Level)
+            val level = if (isClass || o == null) (selfStatuses().status<arcanum.engine.state.ObjectStatus.ClassLevel>()?.level ?: 0).coerceAtLeast(1) else o.counters(CounterKind.Level)
             level >= condition.level
         }
         is Condition.Prime -> value(condition.value).let { n -> n >= 2 && (2..n / 2).none { n % it == 0 } }
         // hob
         is Condition.Odd -> value(condition.value) % 2 != 0
         is Condition.RememberedOption -> (selfMemory(condition.key) as? NamedValue.Option)?.option == condition.option
-        Condition.IsDay -> state.ledger[DAY_NIGHT] == DAY
-        Condition.IsNight -> state.ledger[DAY_NIGHT] == NIGHT
+        Condition.IsDay -> arcanum.engine.turn.DayNight.of(state) == DAY
+        Condition.IsNight -> arcanum.engine.turn.DayNight.of(state) == NIGHT
     }
 
     companion object {
@@ -926,10 +942,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         /** sos: the player ledger key counting resolutions of spells named [name] that player controlled (CR 702.192a). */
         fun resolvedKey(name: String): String = "resolved:$name"
 
-        /** Card memory keys and game ledger keys the engine itself uses. */
-        const val REVEALED_COMPANION = "\$revealed-companion"
-        const val CLASS_LEVEL = "\$class-level"
-        const val DAY_NIGHT = "\$day-night"
+        /** Day and night as [arcanum.engine.turn.DayNight.of] reads them (0: neither). */
         const val DAY = 1
         const val NIGHT = 2
 

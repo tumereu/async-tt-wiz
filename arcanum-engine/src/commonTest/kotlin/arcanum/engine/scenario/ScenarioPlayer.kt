@@ -1,5 +1,6 @@
 package arcanum.engine.scenario
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.CounterKind
 import arcanum.api.Zone
@@ -36,14 +37,9 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         scenario.put(this, names.toList(), Zone.Hand)
     }
 
-    /** Cards in hand the caller can't see (D60): the scenario's host knows them and fills them in when asked. */
-    fun hiddenHand(vararg names: String) {
-        scenario.put(this, names.toList(), Zone.Hand, hidden = true)
-    }
-
     /** Puts cards on top of the library: [top] first is the top card. */
-    fun library(vararg top: String, hidden: Boolean = false) {
-        top.reversed().forEach { scenario.put(this, listOf(it), Zone.Library, hidden = hidden, top = true) }
+    fun library(vararg top: String) {
+        top.reversed().forEach { scenario.put(this, listOf(it), Zone.Library, top = true) }
     }
 
     fun graveyard(vararg names: String) {
@@ -67,12 +63,13 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
             state.updatePlayerForSetup { it.copy(life = value) }
         }
 
-    /** "Skip when I have no choice" (I-D18): set during setup, read in expectations. */
+    /** "Skip when I have no choice" (I-D18): the scenario's [Scenario.prefs] for this player, which every input is performed
+     * with; set at any time, as a host passes it. */
     var skipWhenNoChoice: Boolean
-        get() = state.player(id).skipWhenNoChoice
+        get() = scenario.prefs.skipsWhenNoChoice(id)
         set(value) {
-            scenario.setup()
-            state.updatePlayerForSetup { it.copy(skipWhenNoChoice = value) }
+            val off = scenario.prefs.noSkipWhenNoChoice
+            scenario.prefs = arcanum.engine.Preferences(if (value) off - id else off + id)
         }
 
     /** Sets this player's counters of [kind] (poison, energy, …) during setup. */
@@ -179,7 +176,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
             val spell = arcanum.engine.action.Actions.move(act, null, listOf(arcanum.engine.action.PlannedMove(card, Zone.Stack, controller = id)))[card]!!
             val now = r.state.objOrThrow(spell)
             val paidCosts = paid + if (kicked > 0) listOf(arcanum.engine.state.PaidCost(arcanum.api.Keyword.Kicker.Kind, kicked)) else emptyList()
-            r.record(arcanum.engine.change.Change.Facts(spell, now.facts, now.facts.copy(castFrom = o.zone, x = x, modesChosen = modes, paid = paidCosts)))
+            arcanum.engine.change.Changes.cast(r.state, spell, now.castOrNone.copy(castFrom = o.zone, x = x, modesChosen = modes, paid = paidCosts))?.let(r::record)
             r.record(arcanum.engine.change.Change.StackItemAdded(arcanum.engine.state.StackItem(
                 id = spell, kind = arcanum.engine.state.StackItemKind.Spell, controller = id, source = spell, ability = ability,
                 origin = if (index >= 0) arcanum.engine.view.AbilityOrigin.Printed(o.face, index) else null,

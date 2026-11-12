@@ -78,15 +78,15 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
     /** [Host.passCheck] of [player] on the engine state (with [view]), kept until the next change. */
     fun passCheck(player: PlayerId): PassCheck {
         keptPasses[player]?.let { kept ->
-            if (checkKept) check(kept == Host.passCheck(engine, player)) { "A kept pass check differs from the state's" }
+            if (checkKept) check(kept == Host.passCheck(engine, player, EnginePreferences.of(engine))) { "A kept pass check differs from the state's" }
             return kept
         }
-        return Host.passCheck(engine, player, view()).also { if (keepViews) keptPasses[player] = it }
+        return Host.passCheck(engine, player, view(), EnginePreferences.of(engine)).also { if (keepViews) keptPasses[player] = it }
     }
 
     /** The kept outcome of [input] performed on the engine state as it is now ([EventBuilder.perform]), or null. */
     internal fun keptOutcome(input: Input): Outcome? = keptOutcomes[input]?.also { kept ->
-        if (checkKept) check(kept == Engine.perform(engine.deepCopy(), input)) { "A kept outcome differs from the state's" }
+        if (checkKept) check(kept == Engine.perform(engine.deepCopy(), input, EnginePreferences.of(engine))) { "A kept outcome differs from the state's" }
     }
 
     /** What is kept of the engine state as it is now ([restore] puts it back). */
@@ -189,7 +189,7 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         val keepFrom = turn - 1
         if (keepFrom <= floor) return
         // Turns only go up and entries are logged in order, so the dropped entries are the log's first ones
-        val dropped = engine.log.takeWhile { it.turn < keepFrom }
+        val dropped = arcanum.engine.Inspect.events(engine).takeWhile { it.turn < keepFrom }
         if (dropped.isNotEmpty()) changing()
         engine.forgetOlderTurns()
         kept.addLast(Drop(turn, floor, dropped))
@@ -277,7 +277,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         val random = model.engine.pending?.decision as? Decision.Random
         // The layers once per state (R2): the model's view of the state given, the outcome's of the state after it
         val kept = if (trace == EngineTrace.None) model.keptOutcome(input) else null
-        val outcome = kept ?: Engine.perform(model.engine, input, model.keptView(), trace)
+        val outcome = kept ?: Engine.perform(model.engine, input, model.keptView(), EnginePreferences.of(model.engine), trace)
         if (pristine && trace == EngineTrace.None) keptBefore.outcomes[input] = outcome
         pristine = false
         model.changing()

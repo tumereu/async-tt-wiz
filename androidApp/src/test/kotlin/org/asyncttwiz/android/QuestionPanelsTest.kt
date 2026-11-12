@@ -42,8 +42,8 @@ import androidx.compose.foundation.layout.width
  * that no game screenshot covers: the panel as Alice sees it above her hand, its source a Storm Spark of hers, asking
  * the question of an invented sentence. The kinds a game reaches are pictured elsewhere: May, ChooseOption,
  * ChooseObjects and OrderTriggers in OffspringForageWalkthroughTest, Targets and Modes in ChoiceSourceTest, Announce in
- * CastPanelChoicesTest, a combat Divide in EngineChoiceScreenTest. Random, HostFill and OtherView are never shown: the
- * devices answer them.
+ * CastPanelChoicesTest, a combat Divide in EngineChoiceScreenTest. Random and NamedCard are never shown: the host
+ * answers them.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

@@ -1,0 +1,1 @@
+fix: A card that makes a copy of a card you name now makes the copy, instead of leaving the game waiting.

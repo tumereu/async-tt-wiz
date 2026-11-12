@@ -1,5 +1,6 @@
 package arcanum.engine.soulbond
 
+import arcanum.engine.state.status
 import arcanum.api.CardType
 import arcanum.api.Zone
 import arcanum.engine.action.Act
@@ -12,20 +13,17 @@ import arcanum.engine.view.View
 
 /**
  * Pairing (soulbond, CR 702.95): two creatures are paired while both stay creatures on the battlefield under the control of the
- * player who paired them. Each keeps its partner in its memory under [PAIRED_WITH] and that player under [PAIRED_BY]; [check]
+ * player who paired them. Each keeps its partner and that player as its [arcanum.engine.state.ObjectStatus.PairedWith]; [check]
  * unpairs them, with the state-based actions, as soon as that stops being true (702.95e).
  */
 internal object Soulbond {
-    const val PAIRED_WITH: String = "\$paired-with"
-    const val PAIRED_BY: String = "\$paired-by"
-
     /** The creature [id] is paired with, while the pairing lasts. */
     fun partner(state: GameState, id: ObjectId): ObjectId? {
         val o = state.obj(id) ?: return null
         if (o.zone != Zone.Battlefield) return null
-        val other = (o.memory[PAIRED_WITH] as? NamedValue.Objects)?.ids?.singleOrNull() ?: return null
+        val other = o.statuses.status<arcanum.engine.state.ObjectStatus.PairedWith>()?.other ?: return null
         val p = state.obj(other)?.takeIf { it.zone == Zone.Battlefield } ?: return null
-        return other.takeIf { (p.memory[PAIRED_WITH] as? NamedValue.Objects)?.ids?.singleOrNull() == id }
+        return other.takeIf { p.statuses.status<arcanum.engine.state.ObjectStatus.PairedWith>()?.other == id }
     }
 
     /** CR 702.95a, c, d: [player] pairs [first] with one of [candidates] (chosen when there are several); nothing when either isn't a
@@ -38,8 +36,9 @@ internal object Soulbond {
         val options = candidates.filter { it != first && pairable(it) }
         val second = act.chooseObjects(player, source, options, 1, 1, "Pair with").firstOrNull() ?: return
         listOf(first to second, second to first).forEach { (a, b) ->
-            set(act, a, PAIRED_WITH, NamedValue.Objects(listOf(b)))
-            set(act, a, PAIRED_BY, NamedValue.Players(listOf(player)))
+            val before = act.state.objOrThrow(a).statuses.status<arcanum.engine.state.ObjectStatus.PairedWith>()
+            val after = arcanum.engine.state.ObjectStatus.PairedWith(b, player)
+            if (before != after) act.record(Change.ObjectStatusChanged(a, before, after))
         }
     }
 
@@ -47,8 +46,7 @@ internal object Soulbond {
     fun check(act: Act, view: View) {
         act.state.battlefield.forEach { id ->
             val o = act.state.obj(id) ?: return@forEach
-            if (o.memory[PAIRED_WITH] == null) return@forEach
-            val by = (o.memory[PAIRED_BY] as? NamedValue.Players)?.ids?.singleOrNull()
+            val by = (o.statuses.status<arcanum.engine.state.ObjectStatus.PairedWith>() ?: return@forEach).by
             val other = partner(act.state, id)
             val holds = other != null && listOf(id, other).all { view[it]?.controller == by && view[it]?.characteristics?.isType(CardType.Creature) == true }
             if (!holds) {
@@ -60,11 +58,6 @@ internal object Soulbond {
 
     private fun clear(act: Act, id: ObjectId) {
         val o = act.state.obj(id) ?: return
-        listOf(PAIRED_WITH, PAIRED_BY).forEach { key -> o.memory[key]?.let { act.record(Change.Memory(id, key, it, null)) } }
-    }
-
-    private fun set(act: Act, id: ObjectId, key: String, value: NamedValue) {
-        val before = act.state.objOrThrow(id).memory[key]
-        if (before != value) act.record(Change.Memory(id, key, before, value))
+        o.statuses.status<arcanum.engine.state.ObjectStatus.PairedWith>()?.let { act.record(Change.ObjectStatusChanged(id, it, null)) }
     }
 }

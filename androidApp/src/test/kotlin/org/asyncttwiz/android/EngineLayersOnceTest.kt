@@ -57,7 +57,7 @@ class EngineLayersOnceTest {
     }
 
     private fun playLand(game: EngineGame) {
-        val land = game.read { d -> Engine.options(d.model.engine, PlayerId(f.a)).first { it is Input.PlayLand } }
+        val land = game.read { d -> Engine.options(d.model.engine, PlayerId(f.a), org.asyncttwiz.protocol.game.EnginePreferences.of(d.model.engine)).first { it is Input.PlayLand } }
         game.act(land)
     }
 

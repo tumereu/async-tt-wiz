@@ -74,7 +74,7 @@ class AssumeModeTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Glance Ahead"))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().let { answers ->
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().let { answers ->
                 if (d is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
             }
         })
@@ -212,7 +212,7 @@ class AssumeModeTest {
                     ds.turn.number <= 2 && ds.battlefield.none { ds.obj(it)?.controller == acting } -> Input.Cast(acting, hand(d.model, acting, pup))
                 ds.priority.holder == acting -> Input.PassPriority(acting)
                 else -> {
-                    val options = Engine.options(ds, acting)
+                    val options = Engine.options(ds, acting, org.asyncttwiz.protocol.game.EnginePreferences.of(ds))
                     options.filterIsInstance<Input.DeclareAttackers>().let { attacks ->
                         if (ds.turn.number == 3) attacks.firstOrNull { it.attacks.size == 1 } else attacks.firstOrNull { it.attacks.isEmpty() }
                     } ?: options.filterIsInstance<Input.DeclareBlockers>().first { it.blocks.isEmpty() }
@@ -230,7 +230,7 @@ class AssumeModeTest {
         val bobs = sim.device(bob)
         if (aliceBlocks) {
             val alices = sim.device(alice)
-            val block = Engine.options(alices.model.engine, alice).filterIsInstance<Input.DeclareBlockers>().first { it.blocks.size == 1 }
+            val block = Engine.options(alices.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(alices.model.engine)).filterIsInstance<Input.DeclareBlockers>().first { it.blocks.size == 1 }
             assertIs<GameDevice.Acted.Sent>(alices.act(block))
             sim.flush(alice)
             sim.deliver(bob)

@@ -4,12 +4,11 @@ import arcanum.engine.cards.Cards
 import arcanum.engine.state.PlayerId
 import arcanum.parser.OracleCard
 import kotlin.test.Test
-import kotlin.test.assertTrue
 
 /**
- * Night review 2026-11-04: whole seeded games ([LongGame], [FakeHost]) of two decks built from the lane 2–4 mechanics (enlist, exert,
+ * Night review 2026-11-04: whole seeded games ([LongGame]) of two decks built from the lane 2–4 mechanics (enlist, exert,
  * banding, mutate, assist, epic, the Ring, soulbond, haunt, venture and the initiative, Sieges, costs to attack and block), with every
- * invariant checked after every input (D56, D58, D59, D60).
+ * invariant checked after every input (D56, D58, D59).
  */
 class NightReview4LongGamesTest {
     private object Lane {
@@ -86,32 +85,5 @@ class NightReview4LongGamesTest {
     fun laneDecksPlayWholeGames() {
         listOf(4101L, 4102L, 4103L).forEach { seed -> LongGame(seed, jsonEvery = 20, decks = Lane.match()).play() }
         listOf(4104L, 4105L).forEach { seed -> LongGame(seed, jsonEvery = 20, decks = Lane.swapped()).play() }
-    }
-
-    // D60: on each player's view, public cards known and hidden ones not
-    @Test
-    fun laneDecksOnAView() {
-        LongGame(4111L, jsonEvery = 20, viewer = PlayerId("bob"), decks = Lane.match()).play()
-        LongGame(4112L, jsonEvery = 20, viewer = PlayerId("alice"), decks = Lane.match()).play()
-    }
-
-    // D60, D35: a token's id (here the Ring's emblem, CR 701.54c) is the same in every view, so a host can keep the views in step: bob's
-    // "The Ring tempts you" spell is known in alice's view under another card id (new ids after a shuffle), and the emblem's id is
-    // derived from the resolving spell's id, so the views' emblems (and the Ring's triggers on the Stack) differ from the truth's
-    @Test
-    fun theRingsEmblemHasTheSameIdInEveryView() {
-        val host = FakeHost(4300L, Lane.match(), maxInputs = 600)
-        host.play()
-        assertTrue(host.views.all { it.diverged == null }, host.report())
-    }
-
-    // D58, D60, D31: a host keeps both views in step with the truth through the lane mechanics
-    @Test
-    fun aHostKeepsBothViewsInStep() {
-        val host = FakeHost(4121L, Lane.match(), optionsEvery = 30, maxInputs = 800)
-        host.play()
-        assertTrue(host.views.all { it.diverged == null }, host.report())
-        assertTrue(host.findings.keys.none { it.startsWith("public card") || it.startsWith("another player's hand") ||
-            it.startsWith("an option only") || it.startsWith("a card put into another") }, host.report())
     }
 }

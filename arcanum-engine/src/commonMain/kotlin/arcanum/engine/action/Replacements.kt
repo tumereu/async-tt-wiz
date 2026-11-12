@@ -80,7 +80,7 @@ internal object Replacements {
                     text = arcanum.engine.decision.Texts.of(item.ability))
             }
         }.orEmpty()
-        val rules = act.view().rules.mapIndexedNotNull { i, applied ->
+        val rules = act.view().game.rules.mapIndexedNotNull { i, applied ->
             val r = applied.mechanic as? Mechanic.Replacement ?: return@mapIndexedNotNull null
             val key = applied.effect?.let { "e:${it.value}:${applied.effect}" } ?: "s:${applied.source}:${applied.origin?.key}:$i"
             Replacement(r, applied.controller, applied.source, applied.names, applied.effect, own = false, key = "$key/${r.hashCode()}",

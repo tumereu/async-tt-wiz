@@ -128,8 +128,8 @@ class EngineBoardTest {
         val digests = table.board(start).cards.associate { it.id to it.definition }
         val host = start.objects.getValue(table.obj(bear))
         val merging = start.objects.getValue(table.obj(ogre))
-        start.setup.objects[host.id] = host.copy(mergedAbove = listOf(arcanum.engine.state.MergedPart(merging.id as arcanum.engine.state.ObjectId.Card,
-            merging.owner, merging.definition, timestamp = 99)))
+        start.setup.objects[host.id] = host.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Merged(above = listOf(arcanum.engine.state.MergedPart(merging.id as arcanum.engine.state.ObjectId.Card,
+            merging.owner, merging.definition, timestamp = 99)))))
         start.setup.objects.remove(merging.id)
         start.setup.battlefield.remove(merging.id)
         val board = table.board(start)

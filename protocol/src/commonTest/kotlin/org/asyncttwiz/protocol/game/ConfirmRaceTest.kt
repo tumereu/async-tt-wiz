@@ -58,7 +58,7 @@ class ConfirmRaceTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, demand))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().let { answers ->
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().let { answers ->
                 if (d is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
             }
         })
@@ -70,7 +70,7 @@ class ConfirmRaceTest {
         assertIs<GameDevice.Acted.Sent>(alices.act(Input.PassPriority(alice)))
         val discard = assertNotNull(alices.model.engine.pending?.decision, "her discard is open")
         assertEquals(alice, discard.player)
-        if (answer) assertIs<GameDevice.Acted.Sent>(alices.act(Engine.options(alices.model.engine, alice).filterIsInstance<Input.Answer>().first()))
+        if (answer) assertIs<GameDevice.Acted.Sent>(alices.act(Engine.options(alices.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(alices.model.engine)).filterIsInstance<Input.Answer>().first()))
         val mine = alices.session.pending.toList()
         // Bob's phone waits for her with Assume; he presses it
         sim.deliver(bob)
@@ -118,7 +118,7 @@ class ConfirmRaceTest {
         assertTrue(sim.device(bob).confirmed(assumption), "Bob's phone sees the assumption confirmed")
         assertTrue(mine.none { e -> sim.server.line().any { it.id == e.id } })
         // She discards on the board she had all along
-        assertIs<GameDevice.Acted.Sent>(alices.act(Engine.options(alices.model.engine, alice).filterIsInstance<Input.Answer>().first()))
+        assertIs<GameDevice.Acted.Sent>(alices.act(Engine.options(alices.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(alices.model.engine)).filterIsInstance<Input.Answer>().first()))
         sim.settle()
         assertEquals(0, sim.branches)
         assertEquals(sim.server.head, alices.session.head)

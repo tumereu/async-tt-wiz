@@ -1,5 +1,6 @@
 package arcanum.engine.cube
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.CostPart
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -142,7 +143,7 @@ class Chunk57UnCardsScenariosTest {
             "Mountain".tapped shouldBe true
             stack.names shouldBe listOf("Blast from Before")
         }
-        assertEqual(arcanum.api.Zone.Exile, state.objOrThrow(card("Blast from Before")).facts.castFrom)
+        assertEqual(arcanum.api.Zone.Exile, state.objOrThrow(card("Blast from Before")).castOrNone.castFrom)
         allPass()
         expect {
             bob.life shouldBe 18

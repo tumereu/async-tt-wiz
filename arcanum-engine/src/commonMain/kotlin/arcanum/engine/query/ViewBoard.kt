@@ -34,12 +34,13 @@ internal object Lki {
             when (val change = state.log[i].change) {
                 is Change.ZoneChange -> change.moves.firstOrNull { it.before.id == id }?.let { m ->
                     return m.seen ?: ObjectSnapshot(m.before.id, m.before.owner, m.before.controller, m.before.zone, printed(m.before),
-                        m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.facts, m.before.memory)
+                        m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.cast, m.before.linked,
+                        arcanum.engine.state.snapshotStatuses(m.before))
                 }
                 is Change.Removed -> change.objects.firstOrNull { it.obj.id == id }?.let { p ->
                     val o = p.obj
                     return ObjectSnapshot(o.id, o.owner, o.controller, o.zone, printed(o), o.counters, o.damage, o.tapped, o.token,
-                        o.attachedTo, o.facts, o.memory)
+                        o.attachedTo, o.cast, o.linked, arcanum.engine.state.snapshotStatuses(o))
                 }
                 else -> Unit
             }
@@ -68,14 +69,14 @@ internal object Lki {
     fun memory(state: GameState, id: ObjectId): arcanum.engine.state.Bindings? {
         for (i in state.log.indices.reversed()) {
             val change = state.log[i].change as? Change.ZoneChange ?: continue
-            change.moves.firstOrNull { it.before.id == id }?.let { return it.before.memory }
+            change.moves.firstOrNull { it.before.id == id }?.let { return it.before.linked }
         }
         return null
     }
 
     /** The printed characteristics of [o] (no continuous effects): the fallback when a move kept no snapshot. */
     fun printed(o: arcanum.engine.state.GameObject): Characteristics? {
-        val face = o.definition?.faces?.getOrNull(o.face) ?: return null
+        val face = o.definition.faces.getOrNull(o.face) ?: return null
         return arcanum.engine.view.Copiable.initial(o, listOf(arcanum.engine.view.IndexedFace(o.face, face)), null)
     }
 }

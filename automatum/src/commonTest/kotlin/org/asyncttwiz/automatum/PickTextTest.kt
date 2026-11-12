@@ -88,7 +88,7 @@ class PickTextTest {
         val (card) = table.put(alice, Zone.Hand, spark)
         val state = table.state()
         fun perform(input: Input): Decision {
-            val out = arcanum.engine.Engine.perform(state, input)
+            val out = arcanum.engine.Engine.perform(state, input, org.asyncttwiz.protocol.game.EnginePreferences.of(state))
             out.changes.forEach(state::apply)
             return assertNotNull(state.pending?.decision, "a decision open")
         }

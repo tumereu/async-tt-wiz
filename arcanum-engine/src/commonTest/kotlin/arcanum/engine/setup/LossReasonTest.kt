@@ -33,7 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
-/** Why each player lost ([LossReason], kept as [arcanum.engine.state.PlayerState.lossReason]): one test per way to lose. */
+/** Why each player lost ([LossReason], kept as [arcanum.engine.state.PlayerState.loss]): one test per way to lose. */
 class LossReasonTest {
     /** "Target player loses the game." (written by hand, as HandWrittenEffectsTest's) */
     private val doom = Cards.define("Test Doom", CardDefinition(Layout.Normal, listOf(FaceDefinition("Test Doom", ManaCost.parse("{1}"),
@@ -51,9 +51,9 @@ class LossReasonTest {
     fun zeroLife() = scenario {
         change(Changes.life(state, bob.id, -20))
         passPriority()
-        assertEquals(LossReason.ZeroLife, state.player(bob.id).lossReason)
-        assertNull(state.player(alice.id).lossReason)
-        assertEquals(LossReason.ZeroLife, applied.filterIsInstance<Change.Lost>().single().reason)
+        assertEquals(LossReason.ZeroLife, state.player(bob.id).loss)
+        assertNull(state.player(alice.id).loss)
+        assertEquals(LossReason.ZeroLife, applied.filterIsInstance<Change.Lost>().single().after)
     }
 
     // CR 104.3c, 704.5b: a player who drew from an empty library loses: their reason is the empty library
@@ -64,7 +64,7 @@ class LossReasonTest {
         keep(bob)
         repeat(4) { if (Engine.result(state) == null) playTurn() }
         assertEquals(GameResult.Won(alice.id), Engine.result(state))
-        assertEquals(LossReason.EmptyLibrary, state.player(bob.id).lossReason)
+        assertEquals(LossReason.EmptyLibrary, state.player(bob.id).loss)
     }
 
     // CR 104.3d, 704.5c: a player with ten or more poison counters loses: their reason is poison
@@ -72,7 +72,7 @@ class LossReasonTest {
     fun poison() = scenario {
         bob.counters(CounterKind.Poison, 10)
         passPriority()
-        assertEquals(LossReason.Poison, state.player(bob.id).lossReason)
+        assertEquals(LossReason.Poison, state.player(bob.id).loss)
     }
 
     // CR 704.5a, 704.5c: with 0 life and ten poison counters at once, the first state-based action listed names the loss
@@ -81,7 +81,7 @@ class LossReasonTest {
         bob.counters(CounterKind.Poison, 10)
         change(Changes.life(state, bob.id, -20))
         passPriority()
-        assertEquals(LossReason.ZeroLife, state.player(bob.id).lossReason)
+        assertEquals(LossReason.ZeroLife, state.player(bob.id).loss)
     }
 
     // CR 104.3e: an effect that says a player loses names its card
@@ -90,7 +90,7 @@ class LossReasonTest {
         alice.hand(doom)
         alice.castsWithoutCosts(doom, target = "bob")
         resolve()
-        assertEquals(LossReason.Effect("Test Doom"), state.player(bob.id).lossReason)
+        assertEquals(LossReason.Effect("Test Doom"), state.player(bob.id).loss)
     }
 
     // CR 104.2b, 104.3e: an effect that says a player wins makes the others lose, naming its card
@@ -100,23 +100,23 @@ class LossReasonTest {
         alice.castsWithoutCosts(triumph)
         resolve()
         assertEquals(GameResult.Won(alice.id), Engine.result(state))
-        assertEquals(LossReason.Effect("Test Triumph"), state.player(bob.id).lossReason)
+        assertEquals(LossReason.Effect("Test Triumph"), state.player(bob.id).loss)
     }
 
     // CR 104.3a: a player who concedes loses: their reason is the concession
     @Test
     fun conceding() = scenario {
         perform(Input.Concede(bob.id))
-        assertEquals(LossReason.Conceded, state.player(bob.id).lossReason)
-        assertNull(state.player(alice.id).lossReason)
+        assertEquals(LossReason.Conceded, state.player(bob.id).loss)
+        assertNull(state.player(alice.id).loss)
     }
 
     // CR 104.3a: an agreed win: the other players leave as agreed
     @Test
     fun anAgreedWin() = scenario {
         perform(Input.AgreedResult(GameResult.Won(alice.id)))
-        assertEquals(LossReason.Agreed, state.player(bob.id).lossReason)
-        assertNull(state.player(alice.id).lossReason)
+        assertEquals(LossReason.Agreed, state.player(bob.id).loss)
+        assertNull(state.player(alice.id).loss)
     }
 
     // CR 104.4i: an agreed draw: everyone leaves as agreed
@@ -124,7 +124,7 @@ class LossReasonTest {
     fun anAgreedDraw() = scenario {
         perform(Input.AgreedResult(GameResult.Draw))
         assertEquals(GameResult.Draw, Engine.result(state))
-        assertEquals(listOf(LossReason.Agreed, LossReason.Agreed), state.players.map { it.lossReason })
+        assertEquals(listOf(LossReason.Agreed, LossReason.Agreed), state.players.map { it.loss })
     }
 
     // CR 104.4a: everyone losing at once is a draw: each keeps their own reason
@@ -134,8 +134,8 @@ class LossReasonTest {
         change(Changes.life(state, alice.id, -20))
         passPriority()
         assertEquals(GameResult.Draw, Engine.result(state))
-        assertEquals(LossReason.ZeroLife, state.player(alice.id).lossReason)
-        assertEquals(LossReason.Poison, state.player(bob.id).lossReason)
+        assertEquals(LossReason.ZeroLife, state.player(alice.id).loss)
+        assertEquals(LossReason.Poison, state.player(bob.id).loss)
     }
 
     // CR 104.4b: a loop of mandatory actions ended as a draw: everyone's reason is the loop
@@ -147,7 +147,7 @@ class LossReasonTest {
         assertEquals(listOf(LoopStop.CONTINUE, LoopStop.DRAW), decision<Decision.ChooseOption>().options)
         answer(Answer.Option(LoopStop.DRAW))
         assertEquals(GameResult.Draw, Engine.result(state))
-        assertEquals(listOf(LossReason.Loop, LossReason.Loop), state.players.map { it.lossReason })
+        assertEquals(listOf(LossReason.Loop, LossReason.Loop), state.players.map { it.loss })
     }
 
     // CR 104.3: undoing a loss takes its reason back
@@ -156,9 +156,9 @@ class LossReasonTest {
         perform(Input.Concede(bob.id))
         val lost = applied.filterIsInstance<Change.Lost>().single()
         state.revert(lost)
-        assertNull(state.player(bob.id).lossReason)
+        assertNull(state.player(bob.id).loss)
         state.apply(lost)
-        assertIs<LossReason.Conceded>(state.player(bob.id).lossReason)
+        assertIs<LossReason.Conceded>(state.player(bob.id).loss)
     }
 
     /** "Whenever this creature becomes the target of a spell or ability, tap another target creature." (as LoopTest's) */

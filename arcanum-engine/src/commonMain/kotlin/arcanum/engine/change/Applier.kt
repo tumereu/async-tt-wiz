@@ -1,6 +1,14 @@
 package arcanum.engine.change
 
 import arcanum.engine.state.CounterEntry
+import arcanum.engine.state.GameStatus
+import arcanum.engine.state.ObjectStatus
+import arcanum.engine.state.PlayerStatus
+import arcanum.engine.state.deathtouchDamage
+import arcanum.engine.state.flag
+import arcanum.engine.state.status
+import arcanum.engine.state.statusOf
+import arcanum.engine.state.withStatus
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.LoggedChange
@@ -78,7 +86,9 @@ internal object Applier {
             is Change.Damage, is Change.Happened -> Unit
             is Change.DamageMarked -> updateObject(state, change.id) { o ->
                 check(o.damage == change.before && o.deathtouchDamage == change.deathtouchBefore) { "Damage on ${change.id} isn't ${change.before}" }
-                o.copy(damage = change.after, deathtouchDamage = change.deathtouchAfter)
+                val damaged = o.copy(damage = change.after)
+                if (change.deathtouchAfter == change.deathtouchBefore) damaged
+                else damaged.withStatus(ObjectStatus.DeathtouchDamage.key, flag(ObjectStatus.DeathtouchDamage, change.deathtouchAfter))
             }
             is Change.Life -> state.updatePlayer(change.player) { p ->
                 check(p.life == change.before) { "Life of ${change.player} isn't ${change.before}" }
@@ -141,13 +151,22 @@ internal object Applier {
                 o.copy(timestamp = change.after)
             }
             is Change.Memory -> updateObject(state, change.id) { o ->
-                check(o.memory[change.key] == change.before) { "Memory ${change.key} of ${change.id} isn't ${change.before}" }
-                val values = o.memory.values - change.key
-                o.copy(memory = arcanum.engine.state.Bindings(if (change.after == null) values else values + (change.key to change.after)))
+                check(o.linked[change.key] == change.before) { "Memory ${change.key} of ${change.id} isn't ${change.before}" }
+                val values = o.linked.values - change.key
+                o.copy(linked = arcanum.engine.state.Bindings(if (change.after == null) values else values + (change.key to change.after)))
             }
-            is Change.Facts -> updateObject(state, change.id) { o ->
-                check(o.facts == change.before) { "Facts of ${change.id} aren't as expected" }
-                o.copy(facts = change.after)
+            is Change.CastFactsChanged -> updateObject(state, change.id) { o ->
+                check(o.cast == change.before) { "Cast facts of ${change.id} aren't as expected" }
+                o.copy(cast = change.after)
+            }
+            is Change.UsesCounted -> updateObject(state, change.id) { o ->
+                check(o.uses == change.before) { "Use counts of ${change.id} aren't as expected" }
+                o.copy(uses = change.after)
+            }
+            is Change.ObjectStatusChanged -> updateObject(state, change.id) { o ->
+                val key = change.key
+                check(o.statuses.statusOf(key, ObjectStatus::key) == change.before) { "Status $key of ${change.id} isn't ${change.before}" }
+                o.withStatus(key, change.after)
             }
             is Change.ControlStart -> updateObject(state, change.id) { o ->
                 check(o.controlSince == change.before) { "Control start of ${change.id} isn't ${change.before}" }
@@ -160,7 +179,7 @@ internal object Applier {
                     change.after
                 }
                 // CR 730.2a: a merge's timestamp is given as the objects merge
-                (change.after.mergedAbove + change.after.mergedBelow).forEach { stamp(state, it.timestamp) }
+                change.after.statuses.status<ObjectStatus.Merged>()?.let { m -> (m.above + m.below).forEach { stamp(state, it.timestamp) } }
             }
             is Change.Step -> {
                 check(state.turn == change.before) { "Turn isn't ${change.before}" }
@@ -174,25 +193,33 @@ internal object Applier {
                 check(state.combat == change.before) { "Combat isn't ${change.before}" }
                 state._combat = change.after
             }
-            is Change.Ledger -> if (change.player == null) {
-                check((state.ledger[change.key] ?: 0) == change.before) { "Ledger ${change.key} isn't ${change.before}" }
-                if (change.after == 0) state._ledger.remove(change.key) else state._ledger[change.key] = change.after
-            } else state.updatePlayer(change.player) { p ->
-                check((p.ledger[change.key] ?: 0) == change.before) { "Ledger ${change.key} of ${change.player} isn't ${change.before}" }
-                p.copy(ledger = if (change.after == 0) p.ledger - change.key else p.ledger + (change.key to change.after))
+            is Change.Ledger -> {
+                val ledger = state.ledgers[change.player].orEmpty()
+                check((ledger[change.key] ?: 0) == change.before) { "Ledger ${change.key} of ${change.player} isn't ${change.before}" }
+                val after = if (change.after == 0) ledger - change.key else ledger + (change.key to change.after)
+                state._ledgers = if (after.isEmpty()) state._ledgers - change.player else state._ledgers + (change.player to after)
             }
             is Change.Lost -> state.updatePlayer(change.player) { p ->
-                check(p.lost == change.before) { "Lost of ${change.player} isn't ${change.before}" }
-                p.copy(lost = change.after, lossReason = if (change.after) change.reason else null)
+                check(p.loss == change.before) { "Loss of ${change.player} isn't ${change.before}" }
+                p.copy(loss = change.after)
             }
-            is Change.SkipWhenNoChoice -> state.updatePlayer(change.player) { p ->
-                check(p.skipWhenNoChoice == change.before) { "Skip when no choice of ${change.player} isn't ${change.before}" }
-                p.copy(skipWhenNoChoice = change.after)
+            is Change.PlayerStatusChanged -> state.updatePlayer(change.player) { p ->
+                val key = change.key
+                check(p.statuses.statusOf(key, PlayerStatus::key) == change.before) { "Status $key of ${change.player} isn't ${change.before}" }
+                p.copy(statuses = p.statuses.withStatus(key, change.after, PlayerStatus::key))
             }
-            is Change.PlayerDesignation -> state.updatePlayer(change.player) { p ->
-                check((change.designation in p.designations) == change.before) { "${change.designation} of ${change.player} isn't ${change.before}" }
-                p.copy(designations = (if (change.after) p.designations + change.designation else p.designations - change.designation)
-                    .sortedBy { it.toString() })
+            is Change.GameStatusChanged -> {
+                val key = change.key
+                check(state.statuses.statusOf(key, GameStatus::key) == change.before) { "Game status $key isn't ${change.before}" }
+                state._statuses = state.statuses.withStatus(key, change.after, GameStatus::key)
+            }
+            is Change.EmptyLibraryDraw -> {
+                check((change.player in state.emptyDraws) == change.before) { "Empty draw of ${change.player} isn't ${change.before}" }
+                state._emptyDraws = if (change.after) state.emptyDraws + change.player else state.emptyDraws - change.player
+            }
+            is Change.SpentCounted -> {
+                check(state.spent[change.player] == change.before) { "Spent on spells of ${change.player} isn't ${change.before}" }
+                state._spent = if (change.after == null) state._spent - change.player else state._spent + (change.player to change.after)
             }
             is Change.Shuffle -> {
                 val library = state.player(change.player).library
@@ -205,19 +232,12 @@ internal object Applier {
                 check(state.zone(change.zone, change.owner) == change.before) { "${change.zone} isn't in the expected order" }
                 state.setZone(change.zone, change.owner, change.after)
             }
-            is Change.LibraryPlaces -> state.updatePlayer(change.player) { p ->
-                check(p.libraryPlaces == change.before) { "Library places of ${change.player} aren't as expected" }
-                p.copy(libraryPlaces = change.after)
+            is Change.LibraryPlaces -> {
+                check(state.libraryPlaces(change.player) == change.before) { "Library places of ${change.player} aren't as expected" }
+                state._libraryPlaces = if (change.after.isEmpty()) state._libraryPlaces - change.player
+                    else state._libraryPlaces + (change.player to change.after)
             }
             is Change.Shown -> Unit
-            is Change.Forgotten -> applyState(state, Change.Filled(change.before, change.after))
-            is Change.Filled -> {
-                check(change.before.id == change.after.id) { "Filling can't change an id" }
-                updateObject(state, change.before.id) { o ->
-                    check(o == change.before) { "${change.before.id} isn't as expected" }
-                    change.after
-                }
-            }
             is Change.TriggersWaiting -> {
                 check(state.triggered == change.before) { "Waiting triggers aren't as expected" }
                 state._triggered = change.after.toMutableList()
@@ -267,7 +287,7 @@ internal object Applier {
         StatusFlag.FaceDown -> faceDown
         StatusFlag.PhasedOut -> phasedOut
         is StatusFlag.Marked -> flag.mark in marks
-        StatusFlag.Flipped -> flippedStatus
+        StatusFlag.Flipped -> statuses.status<ObjectStatus.Flipped>() != null
     }
 
     private fun GameObject.with(flag: StatusFlag, on: Boolean): GameObject = when (flag) {
@@ -275,7 +295,7 @@ internal object Applier {
         StatusFlag.FaceDown -> copy(faceDown = on)
         StatusFlag.PhasedOut -> copy(phasedOut = on)
         is StatusFlag.Marked -> copy(marks = (if (on) marks + flag.mark else marks - flag.mark).sortedBy { it.toString() })
-        StatusFlag.Flipped -> copy(flippedStatus = on)
+        StatusFlag.Flipped -> withStatus(ObjectStatus.Flipped.key, flag(ObjectStatus.Flipped, on))
     }
 
     private fun List<CounterEntry>.entry(kind: arcanum.api.CounterKind) = firstOrNull { it.kind == kind }

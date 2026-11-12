@@ -1,5 +1,7 @@
 package arcanum.engine.combat
 
+import arcanum.engine.state.goadedBy
+import arcanum.engine.state.protector
 import arcanum.api.CardType
 import arcanum.api.Mechanic
 import arcanum.api.Recipients

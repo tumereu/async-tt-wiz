@@ -130,7 +130,7 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
             if (main && (status == GameDevice.Status.YourMove || status is GameDevice.Status.Stopped) && bobMain?.invoke(s) == true) return@repeat
             if (status is GameDevice.Status.Stopped) { bob.act(status.assumed); return@repeat }
             if (status != GameDevice.Status.YourMove) return
-            val options = Engine.options(s, other)
+            val options = Engine.options(s, other, org.asyncttwiz.protocol.game.EnginePreferences.of(s))
             val decision = s.pending?.decision
             when {
                 decision != null && Host.decider(s, decision.player) == other ->
@@ -262,6 +262,6 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
     /** From Alice's Main 1 on to her declare attackers step. */
     fun toAttacks() {
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(scope)), "To combat")
-        playOn("Alice declaring attackers") { Engine.options(state(), me).any { it is Input.DeclareAttackers } }
+        playOn("Alice declaring attackers") { Engine.options(state(), me, org.asyncttwiz.protocol.game.EnginePreferences.of(state())).any { it is Input.DeclareAttackers } }
     }
 }

@@ -2,9 +2,8 @@ package arcanum.engine.state
 
 /**
  * Card ids of tokens, emblems and card copies the engine creates (D35): name-based UUIDs (version 5, RFC 9562) from what
- * every view of the game agrees on, the timestamp the creation gets ([created]) and the object's number, so every client and
- * every player's view (D60, where a spell's card has another id after a shuffle) computes the same ids and later steps of the
- * same batch can name them.
+ * every host agrees on, the timestamp the creation gets ([created]) and the object's number, so every client computes the
+ * same ids and later steps of the same batch can name them.
  */
 object TokenIds {
     /** The namespace of Arcanum token ids (a fixed random UUID). */

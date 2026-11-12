@@ -64,8 +64,7 @@ sealed interface Decision {
         is ChooseReplacement -> "ChooseReplacement"
         is LegendRule -> "LegendRule"
         is Random -> "Random"
-        is HostFill -> "HostFill"
-        is OtherView -> "OtherView"
+        is NamedCard -> "NamedCard"
         is Manual -> "Manual"
     }
 
@@ -127,7 +126,7 @@ sealed interface Decision {
      * source nor the options do: the engine's own questions, such as the loop choice ([LoopStop]), or how to pay a cost
      * with two ways (forage, CR 701.61a). [naming]: the object an
      * option names (a mulligan action's card, CR 103.5b), so answers naming a card hidden from a player aren't listed to them
-     * (D60, P7) and a host shows such an option only to the players who may see that card. */
+     * (P7) and a host shows such an option only to the players who may see that card. */
     @Serializable @SerialName("option")
     data class ChooseOption(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
@@ -218,39 +217,14 @@ sealed interface Decision {
     ) : Decision
 
     /**
-     * The identities of unknown [objects], exactly the cards whose identity now matters or becomes visible (D60, spec
-     * §7.0 "Hidden information"): searched, looked at, revealed, put into a public zone, a face-down card leaving or
-     * turning face up, a card the viewer may look at. The host answers [Answer.Filled] for exactly these objects.
-     * [public]: everyone sees them now (revealed, put into a graveyard, exile or the battlefield face up, CR 708.9);
-     * else only [player] looks at them. In a viewer's state ([arcanum.engine.state.GameState.viewer]) a resolution
-     * never asks another player's private fill: it asks [OtherView] instead.
+     * The card named [name], which needn't be in the game ("create a copy of the card with the chosen name", CR 707.12):
+     * the engine has no cards of its own, so the host answers [Answer.NamedCard] with that card's definition at once, as it
+     * answers a [Random] result.
      */
-    @Serializable @SerialName("host-fill")
-    data class HostFill(
+    @Serializable @SerialName("named-card")
+    data class NamedCard(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
-        val objects: List<ObjectId>, val reason: String, val public: Boolean = false,
-        /** mh2: the card is the one with this name, not one in the game ("create a copy of the card with the chosen name"). */
-        val named: String? = null,
-    ) : Decision
-
-    /**
-     * In a viewer's state ([arcanum.engine.state.GameState.viewer], D60), a resolution reached cards only [player] may
-     * look at (a search, scry, surveil, look or a choice among hidden cards; [reason] says which), so the rest of it is
-     * worked out as in [player]'s view (D31): the host has [player] decide in their view and answers
-     * [Answer.OtherView] with the identities of [objects] (each one this view doesn't know whose identity the rest of
-     * the resolution needs so far, in the order it needed them) and the answers given in [player]'s view since the
-     * first [answered] (decisions of everyone, random results; never host fills), in the order given there.
-     *
-     * The engine works the rest of the resolution out with those identities and keeps none of them: its changes say
-     * only what this view may see (cards put into a public zone or revealed are filled in then; the others stay
-     * unknown, also in the changes). While the answers don't reach the end of the resolution, or another card's
-     * identity is needed, it asks again with the answers so far ([answered] grows) and [objects] as needed. Nothing
-     * is kept between the calls but the answers, so the identities are sent with every answer.
-     */
-    @Serializable @SerialName("other-view")
-    data class OtherView(
-        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
-        val objects: List<ObjectId>, val reason: String, val answered: Int = 0,
+        val name: String,
     ) : Decision
 
     /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. The engine no longer asks it: what it can't carry out
@@ -295,17 +269,14 @@ sealed interface RandomKind {
     @Serializable @SerialName("die") data class Die(val sides: Int, val count: Int) : RandomKind
     /**
      * [count] of [among] at random, in random order, answered [Answer.RandomObjects] with distinct objects of [among]; a
-     * shuffle asks for all of a library's cards this way (D25). [newIds]: the order is hidden from the state's viewer
-     * (a shuffle or "in a random order" into a library in a viewer's state, D60): the answer is [count] new card
-     * objects instead, ids no object in the state has, top first; the host keeps which card each one is, and the
-     * engine knows them as unknown cards.
+     * shuffle asks for all of a library's cards this way (D25).
      *
      * [library]: for a shuffle, the whole library of the deciding player as it is when shuffled, top first ([among] and
      * the cards the shuffle leaves out, CR 701.24b); empty for other random picks. It may differ from the library of
      * the state the decision is asked in, because a step's changes are made once its decisions are answered: cards found
      * by a search earlier in the same step have left it ("search …, put them onto the battlefield, then shuffle").
      */
-    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int, val newIds: Boolean = false,
+    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int,
         val library: List<ObjectId> = emptyList()) : RandomKind
 }
 

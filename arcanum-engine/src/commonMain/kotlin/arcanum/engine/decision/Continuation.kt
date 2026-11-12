@@ -56,9 +56,6 @@ sealed interface Continuation {
         val answers: List<Answer> = emptyList(),
         val left: arcanum.engine.state.StackItem? = null,
         override val then: Continuation? = null,
-        /** Set once the resolution reached cards only another player may look at in this viewer's state: from [step]
-         * on it is worked out as in that player's view ([Decision.OtherView], D60, D31). */
-        val otherView: OtherViewFlow? = null,
     ) : Continuation
 
     /** Triggered abilities waiting to be put on the Stack (CR 603.3), next time a player would get priority; asks for
@@ -91,11 +88,6 @@ sealed interface Continuation {
         val answers: List<Answer> = emptyList(),
         override val then: Continuation? = null,
     ) : Continuation
-
-    /** A land play, cast or activation ([input]) of a card the state's viewer doesn't know, waiting for the host to fill
-     * the card in publicly (D60; it becomes public as it is played, CR 305.1, 601.2a, 602.2a); [input] is then redone. */
-    @Serializable @SerialName("played")
-    data class Played(val input: arcanum.engine.input.Input, override val then: Continuation? = null) : Continuation
 
     /** An event paused for a replacement choice or an "as enters" step (CR 614.12, 616.1, D29/D36): [event] is redone
      * from its start with [answers] so far. */
@@ -132,17 +124,6 @@ sealed interface LoopStop {
         const val DRAW = "Draw"
     }
 }
-
-/** A resolution worked out as in [player]'s view ([Decision.OtherView]): [source] and [reason] are those of the look that
- * began it; [hidden] the cards only [player] has seen in it so far, by card (their identities aren't kept: the host
- * sends them again with each answer). */
-@Serializable
-data class OtherViewFlow(
-    val player: PlayerId,
-    val source: ObjectId?,
-    val reason: String,
-    val hidden: List<arcanum.engine.state.CardId> = emptyList(),
-)
 
 /** What is being cast or activated. */
 @Serializable
@@ -195,6 +176,10 @@ data class Choices(
     val paying: Paying? = null,
     /** Assist (CR 702.132a): the player chosen to help pay, how much of the generic mana they pay and with what. */
     val assist: Assisting? = null,
+    /** An ability's: the id its Stack item gets (CR 602.2a: it is created on the Stack as it is announced). */
+    val item: String? = null,
+    /** A spell's: the zone its card was cast from (CR 601.2a), before the card moved to the Stack. */
+    val from: arcanum.api.Zone? = null,
 )
 
 /** Assist (CR 702.132a): [player] chosen to help pay (null: nobody), the [amount] of generic mana they pay (once they chose), and

@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.Keyword
 import arcanum.api.Mechanic
@@ -24,7 +25,7 @@ class CostsTest {
         (inst.ability as? Ability.Static)?.mechanics?.any { it is Mechanic.AlternativeCost } == true
     }.origin)
 
-    private fun Scenario.facts(name: String) = state.objOrThrow(card(name)).facts
+    private fun Scenario.facts(name: String): arcanum.engine.state.CastFacts = state.objOrThrow(card(name)).castOrNone
 
     // CR 702.33a, 601.2b: kicker is an optional additional cost; kicked, it's paid on top
     @Test

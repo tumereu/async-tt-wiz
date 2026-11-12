@@ -27,21 +27,13 @@ data class GameObject(
      * the owner answers for it (CR 108.4a). Control-changing effects apply in layer 2 of the view, not here. */
     val controller: PlayerId? = null,
     val zone: Zone,
-    /** The card's definition; null for an unknown object, a card the caller can't see (D60). */
-    val definition: CardDefinition?,
+    /** The card's definition (the state has full information: every card is known). */
+    val definition: CardDefinition,
     /** Which face is up: 0 the front; 1 the back of a transformed or modal double-faced card, the flipped half of a
      * flip card (CR 710), or the second half / Adventure being cast (CR 709, 715). */
     val face: Int = 0,
     /** A token (CR 111); [definition] holds its characteristics as created. */
     val token: Boolean = false,
-    // dsk gaps
-    /** A copy of a card (CR 707.12), not a card; [definition] holds the copied card's characteristics. It ceases to exist
-     * in any zone other than the Stack or the battlefield (CR 704.5e). */
-    val copyOfCard: Boolean = false,
-    // fra
-    /** A copy of this prepared permanent's prepare spell (CR 722.3c): kept in exile while it stays prepared, and as it is cast
-     * a prepare spell (722.3d). */
-    val prepareSpellOf: ObjectId.Card? = null,
     val tapped: Boolean = false,
     /** Face down (CR 708): a 2/2 with no name, text, types other than creature, or mana cost (CR 708.2a). */
     val faceDown: Boolean = false,
@@ -52,61 +44,44 @@ data class GameObject(
     val counters: List<CounterEntry> = emptyList(),
     /** Damage marked on it (CR 120.3e), removed in the cleanup step. */
     val damage: Int = 0,
-    /** Dealt damage by a source with deathtouch since the last state-based action check (CR 704.5h). */
-    val deathtouchDamage: Boolean = false,
     /** The object or player this Aura, Equipment or Fortification is attached to (CR 301.5, 303.4). */
     val attachedTo: TargetRef? = null,
     /** CR 613.7: set as it enters a zone, becomes attached, turns face up or down, or transforms (D34). */
     val timestamp: Long,
     /** Who has controlled it continuously since which turn: the summoning sickness rule (CR 302.6, D39). */
     val controlSince: ControlSince? = null,
-    /** Card memory (CR 607): chosen colours and names, "exiled with", keyword-linked cards (D41). */
-    val memory: Bindings = Bindings.EMPTY,
-    /** What the engine remembers about this object instance (D22, D41): cast facts, activations per turn. */
-    val facts: ObjectFacts = ObjectFacts(),
-    /** Players who goaded it (CR 701.15). */
-    val goadedBy: List<PlayerId> = emptyList(),
-    /** A merged permanent's other components above its own card, topmost first (mutate, CR 730.2, 702.140c): the topmost
-     * component gives its characteristics other than abilities (730.2a, 702.140e). */
-    val mergedAbove: List<MergedPart> = emptyList(),
-    /** A merged permanent's other components under its own card, topmost first (CR 730.2). */
-    val mergedBelow: List<MergedPart> = emptyList(),
-    /** A battle's protector (CR 310.9): chosen as it enters (310.9a, 310.12a) or by the state-based action of 310.11; it
-     * stays when the permanent stops being a battle (310.9g). */
-    val protector: PlayerId? = null,
-    /** A permanent that isn't a flip card flipped while a copy of one (CR 707.3, 110.5c); its [face] stays what is up. */
-    val flippedStatus: Boolean = false,
-    /** A token's copiable abilities that are in none of its faces ([CopiableValues.gained], CR 707.9a, 702.140e). */
-    val gainedInCopying: List<arcanum.api.Ability> = emptyList(),
-    /** The copiable values each static copy effect that applies to it fixed as it first started to apply (CR 707.2c), kept while it
-     * applies ([arcanum.engine.view.StaticCopies]). */
-    val fixedCopies: List<FixedCopy> = emptyList(),
+    /** Card memory of its linked abilities only (CR 607): chosen colours and names, "exiled with", keyword-linked cards (D41). */
+    val linked: Bindings = Bindings.EMPTY,
+    /** Facts about how it was cast (D22): null when it wasn't cast and nothing chose a mode for it. A permanent keeps the cast
+     * facts of the spell it was (CR 400.7d). */
+    val cast: CastFacts? = null,
+    /** The states of mechanics the engine codes by hand ([ObjectStatus]), in key order, only those not at their default. */
+    val statuses: List<ObjectStatus> = emptyList(),
+    /** How often its abilities were used and its modes chosen in which turn (CR 602.5b, 603.2h): the engine's own counts. */
+    internal val uses: UseCounts = UseCounts.NONE,
 ) {
     val card: CardId get() = id.card
 
-    /** Not known to the caller (D60). */
-    val unknown: Boolean get() = definition == null
-
     /** A transformed double-faced permanent (CR 712, 701.27g): its back face is up. What it is physically: a permanent
      * copying a double-faced permanent isn't double-faced (CR 712.9), a token copy of one is (CR 707.8a, its [definition]). */
-    val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
+    val transformed: Boolean get() = definition.layout == Layout.Transform && face == 1
 
     /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
-     * to be bestowed (702.103e, f, which clear [ObjectFacts.alternative]). */
-    val bestowed: Boolean get() = facts.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
+     * to be bestowed (702.103e, f, which clear [CastFacts.alternative]). */
+    val bestowed: Boolean get() = cast?.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
         zone == arcanum.api.Zone.Battlefield)
 
     /** Flipped (CR 710), a status (CR 110.5) kept whatever it copies later (CR 110.5c): a flip card's is its [face]; any other
-     * permanent's, flipped while a copy of a flip card, is [flippedStatus]. */
-    val flipped: Boolean get() = if (definition?.layout == Layout.Flip) face == 1 else flippedStatus
+     * permanent's, flipped while a copy of a flip card, is [ObjectStatus.Flipped]. */
+    val flipped: Boolean get() = if (definition.layout == Layout.Flip) face == 1 else statuses.status<ObjectStatus.Flipped>() != null
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 
     /** A merged permanent: represented by more than one card or token (CR 730.2). */
-    val merged: Boolean get() = mergedAbove.isNotEmpty() || mergedBelow.isNotEmpty()
+    val merged: Boolean get() = statuses.status<ObjectStatus.Merged>() != null
 
     /** A token (CR 111.1); a merged permanent only if its topmost component is one (CR 730.2d). */
-    val isToken: Boolean get() = mergedAbove.firstOrNull()?.token ?: token
+    val isToken: Boolean get() = statuses.status<ObjectStatus.Merged>()?.above?.firstOrNull()?.token ?: token
 }
 
 /** The copiable [values] the static copy effect of [source]'s printed ability number [ability] fixed for an object as it first
@@ -117,14 +92,13 @@ data class FixedCopy(val source: ObjectId, val ability: Int, val values: Copiabl
 /**
  * One card or token among those representing a merged permanent other than its own card (CR 730.2): the object it was as it
  * merged ([id]; as the merged permanent leaves the battlefield it becomes [ObjectId.Card.next] in the new zone, CR 730.3), with
- * what the object knew of it.
+ * its definition.
  */
 @Serializable
 data class MergedPart(
     val id: ObjectId.Card,
     val owner: PlayerId,
-    /** Null: unknown to the caller (D60). */
-    val definition: CardDefinition?,
+    val definition: CardDefinition,
     val face: Int = 0,
     val token: Boolean = false,
     val copyOfCard: Boolean = false,
@@ -142,12 +116,11 @@ data class CounterEntry(val kind: CounterKind, val count: Int, val timestamp: Lo
 data class ControlSince(val player: PlayerId, val turn: Int)
 
 /**
- * Facts about one object instance (D22, D33, D41): how it was cast, what was paid, and how often its abilities were
- * used in which turn. A permanent keeps the cast facts of the spell it was (CR 400.7d); everything else starts fresh
- * with a new object.
+ * Facts about how an object was cast (D22, D41): where from, X, the mana and the costs paid, the modes chosen. A permanent keeps
+ * the cast facts of the spell it was (CR 400.7d); a new object starts without.
  */
 @Serializable
-data class ObjectFacts(
+data class CastFacts(
     /** The zone it was cast from; null if it wasn't cast. */
     val castFrom: Zone? = null,
     /** The value of X chosen when cast (CR 107.3m). */
@@ -164,49 +137,47 @@ data class ObjectFacts(
     val chosenPlayer: PlayerId? = null,
     /** Objects used to pay its costs a special way (convoke, delve; CR 702.51c), by the way's name. */
     val paidWith: Bindings = Bindings.EMPTY,
-    /** Activations of its abilities by turn (CR 602.5b, 606.3); key is the ability's origin key. */
-    val activations: List<TurnCount> = emptyList(),
-    /** Resolutions of its abilities by turn ("if this is the second time this ability has resolved this turn"). */
-    val resolutions: List<TurnCount> = emptyList(),
-    /** Triggers of its abilities by turn ("triggers only once each turn", CR 603.2h). */
-    val triggers: List<TurnCount> = emptyList(),
-    /** Modes chosen by turn ("choose one that hasn't been chosen this turn"); key is the mode's index. */
-    val modeTurns: List<TurnCount> = emptyList(),
-    // gtc
     /** Cast as a fused split spell (CR 702.102): on the Stack it has both halves' characteristics (CR 709.4d). */
     val fused: Boolean = false,
-    // fra
-    /** It has dealt combat damage since it became this object ("as long as they haven't dealt combat damage yet"). */
-    val dealtCombatDamage: Boolean = false,
-    // tdm
-    /** It has dealt damage, combat or not, since it became this object ("as long as it hasn't dealt damage yet"). */
-    val dealtDamage: Boolean = false,
-    // hob
     /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
      * CR 106.3); read as they last existed once they have left. */
     val manaSources: List<ObjectId> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
-    // mh2
-    /** Phased out until another object leaves the battlefield (CR 702.26, 610.3): it doesn't phase in during untap steps. */
-    val heldPhasedOut: Boolean = false,
-    /** The marks it gained whose [arcanum.api.MarkRule.recordsTurn] asks to keep when, one entry per mark, the latest. */
-    val marksGained: List<MarkGained> = emptyList(),
-    /** It has been turned face up since it became this object: turned face down again by an effect that lists no characteristics,
-     * it is a plain 2/2, not what the way it was cast face down gave it (a disguise's ward, CR 708.2a). */
-    val turnedFaceUp: Boolean = false,
 ) {
-    /** The record of when it gained [mark] (CR 702.143a, 702.170d), or null when none is kept. */
-    fun gained(mark: ObjectMark): MarkGained? = marksGained.firstOrNull { it.mark == mark }
+    companion object {
+        /** No facts: what an object that wasn't cast has. */
+        val NONE = CastFacts()
+    }
+}
 
-    /** These facts with [record] as the record of its mark. */
-    fun gaining(record: MarkGained): ObjectFacts = copy(marksGained = marksGained.filter { it.mark != record.mark } + record)
+/** [facts] as an object keeps them: null when there are none. */
+internal fun castFacts(facts: CastFacts?): CastFacts? = facts?.takeIf { it != CastFacts.NONE }
+
+/**
+ * How often an object's abilities were used and its modes chosen, by turn (D41: per turn number, so nothing resets at turn
+ * start): what "activate only once each turn" (CR 602.5b, 606.3), "triggers only once each turn" (CR 603.2h) and "choose one
+ * that hasn't been chosen this turn" read. The engine's own bookkeeping.
+ */
+@Serializable
+data class UseCounts(
+    /** Activations of its abilities by turn; key is the ability's origin key. */
+    val activations: List<TurnCount> = emptyList(),
+    /** Resolutions of its abilities by turn ("if this is the second time this ability has resolved this turn"). */
+    val resolutions: List<TurnCount> = emptyList(),
+    /** Triggers of its abilities by turn. */
+    val triggers: List<TurnCount> = emptyList(),
+    /** Modes chosen by turn; key is the mode's index. */
+    val modeTurns: List<TurnCount> = emptyList(),
+) {
+    companion object {
+        val NONE = UseCounts()
+    }
 }
 
 /**
  * The object gained [mark] in turn [turn] (CR 702.143a, 702.170d). [costs]: the costs it had then of the keyword [mark]'s
- * [arcanum.api.MarkCost.OfKeyword] names, those another object gave it included (CR 702.143e); a state that doesn't know the card (D60)
- * has none.
+ * [arcanum.api.MarkCost.OfKeyword] names, those another object gave it included (CR 702.143e).
  */
 @Serializable
 data class MarkGained(val mark: ObjectMark, val turn: Int, val costs: List<Cost> = emptyList())
@@ -233,13 +204,13 @@ data class PaidCost(
 @Serializable
 data class TurnCount(val key: String, val turn: Int, val count: Int)
 
-/** A state of an object a [arcanum.engine.change.Change.Status] switches on or off. */
+/** A status of an object (CR 110.5) a [arcanum.engine.change.Change.Status] switches on or off. */
 @Serializable
 sealed interface StatusFlag {
     @Serializable @SerialName("tapped") data object Tapped : StatusFlag
     @Serializable @SerialName("face-down") data object FaceDown : StatusFlag
     @Serializable @SerialName("phased-out") data object PhasedOut : StatusFlag
     @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : StatusFlag
-    /** [GameObject.flippedStatus]. */
+    /** [ObjectStatus.Flipped]. */
     @Serializable @SerialName("flipped") data object Flipped : StatusFlag
 }

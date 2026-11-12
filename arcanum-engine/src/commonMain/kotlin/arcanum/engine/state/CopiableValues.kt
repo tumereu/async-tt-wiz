@@ -17,13 +17,13 @@ import kotlinx.serialization.Serializable
  *
  * What rules a permanent works by comes from these values, read from the view ([arcanum.engine.view.ObjectView.copiable]): a
  * Room's doors, a prepare spell. Designations (unlocked, prepared: CR 709.5c, 722.3a) and status (CR 110.5) aren't among them:
- * they stay on the object ([GameObject.marks], [GameObject.flipped], from [GameObject.flippedStatus] unless it is a flip card,
+ * they stay on the object ([GameObject.marks], [GameObject.flipped], from [ObjectStatus.Flipped] unless it is a flip card,
  * whose [GameObject.face] is its status). What a permanent physically is decides only what its cards
  * can do: whether it can transform (CR 712.9) or meld (CR 701.42c), read from [GameObject.definition].
  */
 @Serializable
 data class CopiableValues(val layout: Layout, val faces: List<FaceDefinition>, val up: Int = 0, val gained: List<Ability> = emptyList()) {
-    /** These values as a definition, what a token holds (and [GameObject.gainedInCopying]). */
+    /** These values as a definition, what a token holds (and [ObjectStatus.GainedInCopying]). */
     val definition: CardDefinition get() = CardDefinition(layout, faces)
 
     companion object {

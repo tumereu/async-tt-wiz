@@ -18,16 +18,6 @@ class Review2LongGamesTest {
         SEEDS.forEach { seed -> LongGame(seed, jsonEvery = 10).play() }
     }
 
-    /** A whole game on each player's view (D60): the host fills cards in as they become visible and gives new ids
-     * for shuffles; public cards are always known, cards hidden from the viewer never. */
-    // D60, D25, D58, D59
-    @Test
-    fun aGameOnEachPlayersViewKeepsEveryInvariant() {
-        listOf("alice", "bob").forEach { v ->
-            LongGame(VIEWER_SEED, jsonEvery = 10, viewer = arcanum.engine.state.PlayerId(v)).play()
-        }
-    }
-
     /** A spell that shuffles itself into its library as it resolves (Verdant Moon's Apex) leaves nothing behind on the
      * Stack once it is done. */
     // CR 608.2n, 400.7
@@ -89,6 +79,5 @@ class Review2LongGamesTest {
         private val SEEDS = listOf(7L, 9L)
 
         /** A seed played on each player's view. */
-        private const val VIEWER_SEED = 7L
     }
 }

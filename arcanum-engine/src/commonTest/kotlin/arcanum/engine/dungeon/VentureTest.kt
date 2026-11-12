@@ -176,21 +176,4 @@ class VentureTest {
         assertEquals(0, dungeonOf(restricted)?.let { Dungeons.room(it) })
         assertEquals(null, dungeonOf(crypt))
     }
-
-    // CR 309.2a, D60, D31: in bob's view alice's cards outside the game are unknown: she chooses her dungeon in her own view, and the
-    // dungeon put into the command zone is public
-    @Test
-    fun theDungeonChosenInTheOwnersView() = scenario {
-        viewer(bob)
-        alice.battlefield("Plains")
-        alice.hand(map)
-        alice.outside(crypt, raider)
-        assertTrue(state.player(alice.id).outside.all { state.objOrThrow(it).unknown })
-        alice.casts(map)
-        allPass()
-        allPass()
-        expect { alice.life shouldBe 21 }
-        assertEquals(0, dungeonOf(crypt)?.let { Dungeons.room(it) })
-        assertTrue(state.player(alice.id).outside.all { state.objOrThrow(it).unknown })
-    }
 }

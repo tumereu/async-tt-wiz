@@ -18,15 +18,6 @@ import arcanum.engine.state.ObjectId
 import kotlinx.serialization.Serializable
 
 /**
- * Whether it is day or night (CR 731, [arcanum.engine.Inspect.dayOrNight]).
- */
-@Serializable
-sealed interface DayOrNight {
-    @Serializable @kotlinx.serialization.SerialName("day") data object Day : DayOrNight
-    @Serializable @kotlinx.serialization.SerialName("night") data object Night : DayOrNight
-}
-
-/**
  * A rule a continuous effect puts on an object beyond its characteristics (CR 113.12: "can't block" from an Aura, an effect
  * with its own text), as [arcanum.engine.Inspect.restrictions] lists it: [text] in plain words without a full stop ("Can't
  * block", "Can't be blocked by creatures with flying"), [mechanic] what it is, [madeBy] the object that made it (null: the

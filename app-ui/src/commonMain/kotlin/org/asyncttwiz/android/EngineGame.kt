@@ -107,7 +107,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private val clock: () -> Long = ::nanoTime,
     /** HIS-111, HIS-099: asks the server for the page of the main line ending at an event (older history); its answer
      * (null when it failed) comes off the main thread. Null: none is asked (the device reaches only what it holds). */
-    private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null) {
+    private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null,
+    /** CR 707.12: the cards the device names for the engine ([GameDevice.namedCards]): the phone's card records. */
+    private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) {
     @Volatile var base: PlayState = base
         private set
     /** The device core: on the engine thread only. */
@@ -224,6 +226,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             }
             device = loaded; codec = json
             device.clock = clock
+            device.namedCards = namedCards
             device.ownMainPass = { why -> AppLog.warn("game", gameLog.ownMainPass(device.model.engine, why)) }
             device.showPlays = showPlays
             device.assumeReveals(reveals)
@@ -780,7 +783,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private fun openingHand(): List<String> = device.model.engine.player(PlayerId(me)).hand.map(::cardName)
     private fun cardName(id: arcanum.engine.state.ObjectId): String =
         device.model.engine.obj(id)?.definition?.faces?.firstOrNull()?.name ?: id.toString()
-    private fun mulligansTaken(): Int = device.model.engine.log.count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
+    private fun mulligansTaken(): Int = arcanum.engine.Inspect.events(device.model.engine).count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
         it is arcanum.engine.change.GameEvent.Mulliganed && it.player.value == me } }
 
     /** The input answering the player's own setup decision with [answer]: the open decision when it is theirs, else their

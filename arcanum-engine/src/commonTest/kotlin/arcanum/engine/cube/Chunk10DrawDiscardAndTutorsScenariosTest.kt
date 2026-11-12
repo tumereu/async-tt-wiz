@@ -245,7 +245,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun fiendishMentor() = scenario {
         alice.battlefield("Swamp", "Swamp")
         alice.hand("Fiendish Mentor")
-        alice.library("Forest", "Storm Spark", "Island", hidden = true)
+        alice.library("Forest", "Storm Spark", "Island")
 
         alice.casts("Fiendish Mentor")
         allPass()
@@ -263,7 +263,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun sinisterPurpose() = scenario {
         alice.battlefield("Swamp", "Swamp", "Elvish Seer")
         alice.hand("Sinister Purpose")
-        alice.library("Forest", "Storm Spark", hidden = true)
+        alice.library("Forest", "Storm Spark")
 
         alice.casts("Sinister Purpose", choosing = listOf("Elvish Seer"))
         expect { alice.graveyard has "Elvish Seer" }
@@ -278,7 +278,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun recklessWager() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Reckless Wager", "Forest")
-        alice.library("Storm Spark", "Island", hidden = true)
+        alice.library("Storm Spark", "Island")
 
         alice.casts("Reckless Wager")
         allPass()
@@ -296,7 +296,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun bloodsuckersLesson() = scenario {
         alice.battlefield("Swamp")
         alice.hand("Bloodsucker's Lesson")
-        alice.library("Forest", "Island", "Storm Spark", hidden = true)
+        alice.library("Forest", "Island", "Storm Spark")
 
         alice.casts("Bloodsucker's Lesson")
         allPass()
@@ -314,7 +314,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun illuminedMentor() = scenario {
         alice.battlefield("Plains")
         alice.hand("Illumined Mentor")
-        alice.library("Forest", "Lotus Frond", "Storm Spark", hidden = true)
+        alice.library("Forest", "Lotus Frond", "Storm Spark")
 
         alice.casts("Illumined Mentor")
         allPass()
@@ -330,7 +330,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun arcaneMentor() = scenario {
         alice.battlefield("Island")
         alice.hand("Arcane Mentor")
-        alice.library("Forest", "Cinder Bolt", "Storm Spark", "Lotus Frond", hidden = true)
+        alice.library("Forest", "Cinder Bolt", "Storm Spark", "Lotus Frond")
 
         alice.casts("Arcane Mentor")
         allPass()
@@ -348,7 +348,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun fieldExchange() = scenario {
         alice.battlefield("Forest", "Swamp")
         alice.hand("Field Exchange")
-        alice.library("Storm Spark", "Island", hidden = true)
+        alice.library("Storm Spark", "Island")
 
         alice.casts("Field Exchange", choosing = listOf("Swamp"))
         expect { alice.graveyard has "Swamp" }
@@ -367,7 +367,7 @@ class Chunk10DrawDiscardAndTutorsScenariosTest {
     fun tinkerersSwap() = scenario {
         alice.battlefield("Island", "Island", "Island", "Lotus Frond")
         alice.hand("Tinkerer's Swap")
-        alice.library("Storm Spark", "Onyx Bauble", "Verdant Bauble", hidden = true)
+        alice.library("Storm Spark", "Onyx Bauble", "Verdant Bauble")
 
         alice.casts("Tinkerer's Swap", choosing = listOf("Lotus Frond"), paying = listOf("Island", "Island", "Island"))
         allPass()

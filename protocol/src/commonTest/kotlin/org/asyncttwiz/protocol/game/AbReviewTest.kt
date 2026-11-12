@@ -60,7 +60,7 @@ class AbReviewTest {
     private fun answers(p: PlayerId, target: PlayerId): (GameModel) -> Input? = { m ->
         val d = m.engine.pending?.decision
         if (d == null || d is Decision.Random || d.player != p) null
-        else Engine.options(m.engine, p).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.let { listed ->
+        else Engine.options(m.engine, p, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.let { listed ->
             if (d is Decision.Targets) listed.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(target)) } else listed.first()
         }
     }
@@ -301,7 +301,7 @@ class AbReviewTest {
             val holder = s.priority.holder
             if (holder == bob && s.pending == null && !Stops.stop(s, bob)) return@repeat
             if (holder != null) server.act(bob, Input.PassPriority(holder), assumed = holder != bob).getOrThrow()
-            else server.act(bob, Engine.options(s, bob).first { it is Input.DeclareAttackers && it.attacks.isEmpty() }).getOrThrow()
+            else server.act(bob, Engine.options(s, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).first { it is Input.DeclareAttackers && it.attacks.isEmpty() }).getOrThrow()
         }
         val s = server.state().engine
         assertTrue(s.priority.holder == bob && !Stops.stop(s, bob))

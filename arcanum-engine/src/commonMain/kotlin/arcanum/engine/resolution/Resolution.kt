@@ -1,5 +1,6 @@
 package arcanum.engine.resolution
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Instructions
@@ -52,8 +53,8 @@ internal object Resolution {
 
     /**
      * CR 608.2b: a spell or ability that doesn't resolve leaves the Stack; a spell's card goes to its owner's graveyard
-     * (or where its permission says) as an event outside resolution ([Events.run]), so a replacement's order or a host
-     * fill (CR 708.9) waits for its answer.
+     * (or where its permission says) as an event outside resolution ([Events.run]), so a replacement's order waits for
+     * its answer.
      */
     private fun fizzle(recorder: Recorder, item: StackItem): Progress {
         val act = Act(recorder, Asker.NONE)
@@ -68,11 +69,6 @@ internal object Resolution {
     }
 
     fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress {
-        if (continuation.otherView != null) {
-            val sent = answer as Answer.OtherView
-            return OtherView.run(recorder, continuation.copy(answers = continuation.answers + sent.answers),
-                sent.filled.associate { it.id to it.definition })
-        }
         return run(recorder, continuation.copy(answers = continuation.answers + answer))
     }
 
@@ -122,7 +118,7 @@ internal object Resolution {
             val item = c.left ?: recorder.state.stackItems[c.item] ?: return Progress.Done
             val steps = stepsOf(item)
             val mark = recorder.changes.size
-            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}", mayAskOtherView = true))
+            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}"))
             try {
                 // dsk gaps: "Do this only once each turn" (CR 603.2h): once its action was taken this turn, it does nothing
                 val once = (item.ability as? Ability.Triggered)?.takeIf { it.actionOncePerTurn } != null
@@ -146,10 +142,6 @@ internal object Resolution {
             } catch (n: NeedDecision) {
                 recorder.rollback(mark)
                 return Progress.Waiting(Pending(n.decision, c))
-            } catch (n: arcanum.engine.action.NeedOtherView) {
-                // D60, D31: cards only another player may look at; from this step on, worked out as in their view
-                recorder.rollback(mark)
-                return OtherView.start(c, n)
             }
         }
     }
@@ -173,8 +165,8 @@ internal object Resolution {
         val origin = item.origin ?: return
         val o = item.source?.let { act.state.obj(it) } ?: return
         val key = arcanum.engine.trigger.Triggers.actionKey(origin, item.controller)
-        act.record(Change.Facts(o.id, o.facts, o.facts.copy(
-            activations = arcanum.engine.casting.Legality.counted(o.facts.activations, key, act.state.turn.number))))
+        act.record(arcanum.engine.change.Changes.uses(act.state, o.id, o.uses.copy(
+            activations = arcanum.engine.casting.Legality.counted(o.uses.activations, key, act.state.turn.number))))
     }
 
     /**
@@ -232,11 +224,11 @@ internal object Resolution {
             val o = act.state.obj(source) ?: return@let
             val turn = act.state.turn.number
             val key = origin.key
-            val count = (o.facts.resolutions.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
-            val resolutions = o.facts.resolutions.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
-            act.record(Change.Facts(source, o.facts, o.facts.copy(resolutions = resolutions)))
+            val count = (o.uses.resolutions.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
+            val resolutions = o.uses.resolutions.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
+            act.record(arcanum.engine.change.Changes.uses(act.state, source, o.uses.copy(resolutions = resolutions)))
             names = names.with(Evaluator.USES_RESOLVED, NamedValue.Number(count))
-            val activated = o.facts.activations.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0
+            val activated = o.uses.activations.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0
             names = names.with(Evaluator.USES_ACTIVATED, NamedValue.Number(activated))
         }
         return names
@@ -251,7 +243,7 @@ internal object Resolution {
         if (item.kind == StackItemKind.Spell || item.kind is StackItemKind.SpellCopy) {
             val types = act.view()[item.id]?.characteristics?.types.orEmpty()
             if (types.none { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }) return false
-            val facts = item.facts ?: act.state.obj(item.id)?.facts ?: return false
+            val facts = item.cast ?: act.state.obj(item.id)?.cast ?: return false
             return facts.paid.any { it.keyword == arcanum.api.Keyword.Gift.Kind && it.times > 0 }
         }
         val origin = item.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return false
@@ -284,7 +276,7 @@ internal object Resolution {
         finishLeaving(act, item, fizzled)
         resolvedNames.forEach { name ->
             val key = arcanum.engine.query.Evaluator.resolvedKey(name)
-            val before = act.state.player(item.controller).ledger[key] ?: 0
+            val before = act.state.ledgers[item.controller]?.get(key) ?: 0
             act.record(Change.Ledger(item.controller, key, before, before + 1))
         }
     }
@@ -314,7 +306,7 @@ internal object Resolution {
                 val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
                 act.record(Change.StackItemRemoved(item, act.state.stack.indexOf(item.id), listOf(meaning)))
                 Actions.createTokens(act, causeOf(item), values, 1, item.controller, attachTo = attachTo,
-                    fromSpellCopy = item.facts ?: arcanum.engine.state.ObjectFacts())
+                    fromSpellCopy = item.cast)
                 return
             }
         }
@@ -330,7 +322,7 @@ internal object Resolution {
             if (arcanum.engine.mutate.Mutate.mutating(card) && arcanum.engine.mutate.Mutate.resolve(act, item, card)) return
             val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
             // msh: sneak (CR 702.190b): tapped and attacking what the returned creature attacked
-            val sneaked = card.facts.alternative?.keyword == arcanum.api.Keyword.Sneak.Kind
+            val sneaked = card.castOrNone.alternative?.keyword == arcanum.api.Keyword.Sneak.Kind
             val attacking = if (!sneaked) null else (item.names[arcanum.api.KeywordExpansions.SNEAK_RETURNED] as? NamedValue.Objects)?.ids
                 ?.let { returned -> arcanum.engine.combat.Combat.lastTarget(act.state, returned) }
                 ?: act.state.opponents(item.controller).firstOrNull()?.let { TargetRef.Player(it) }.takeIf { sneaked }
@@ -346,7 +338,7 @@ internal object Resolution {
         }
         // CR 715.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,
         // is played as a land)
-        if (!fizzled && card.definition?.layout == arcanum.api.Layout.Adventure && card.face == 1) {
+        if (!fizzled && card.definition.layout == arcanum.api.Layout.Adventure && card.face == 1) {
             val land = arcanum.api.CardType.Land in card.definition.faces.first().types
             val exiled = Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Exile, meanings = listOf(meaning))))[item.id]
             if (exiled != null && act.state.obj(exiled)?.zone == Zone.Exile) act.record(arcanum.engine.change.Changes.effect(act.state) { ts ->
@@ -362,7 +354,7 @@ internal object Resolution {
             return
         }
         // tdm: CR 720.3d: a resolving Omen spell is shuffled into its owner's library instead
-        if (!fizzled && card.definition?.layout == arcanum.api.Layout.Omen && card.face == 1) {
+        if (!fizzled && card.definition.layout == arcanum.api.Layout.Omen && card.face == 1) {
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Library, meanings = listOf(meaning))))
             Actions.shuffle(act, card.owner)
             return
@@ -376,7 +368,7 @@ internal object Resolution {
         // fin: CR 724.1b: the spell that ended the turn is exiled as it leaves
         if (act.state.turn.endingTurn) return Zone.Exile
         val o = act.state.obj(item.id) ?: return Zone.Graveyard
-        val from = o.facts.castFrom ?: return Zone.Graveyard
+        val from = o.castOrNone.castFrom ?: return Zone.Graveyard
         val permissions = act.view()[item.id]?.characteristics?.abilities.orEmpty()
             .flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.MayPlay>()
         val permission = permissions.firstOrNull { it.from == from && it.then != null } ?: return Zone.Graveyard

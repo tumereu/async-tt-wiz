@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.Color
 import arcanum.api.Condition
@@ -155,7 +156,7 @@ internal object Payment {
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
             // CR 702.150a: compleated reads how many Phyrexian symbols of a spell were paid with life
             if (plan.isSpell) recorder.state.obj(plan.itemId)?.let { o ->
-                recorder.record(Change.Facts(plan.itemId, o.facts, o.facts.copy(phyrexianPaidWithLife = lifeFor.size)))
+                arcanum.engine.change.Changes.cast(recorder.state, plan.itemId, o.castOrNone.copy(phyrexianPaidWithLife = lifeFor.size))?.let(recorder::record)
             }
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
@@ -256,7 +257,7 @@ internal object Payment {
         if (Mana.isSimple(ability) && use.answers.isEmpty()) return Readied(null, null)
         val id = "m${recorder.state.nextTimestamp()}.${use.source}"
         var c = Continuation.Announcing(player, arcanum.engine.decision.Announced.Ability(use.source, use.ability, ability), arcanum.engine.decision.AnnounceStage.Modes,
-            arcanum.engine.decision.Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
+            arcanum.engine.decision.Choices(item = id))
         val queue = use.answers.toMutableList()
         while (true) {
             val plan = Plan(recorder.state, c)
@@ -521,7 +522,7 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
-        val facts = o.facts.copy(
+        val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
             x = plan.choices.announced["X"],
             manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
@@ -530,14 +531,14 @@ internal object Payment {
             manaSources = spent.mapNotNull { it.source },
             paid = paidCosts(plan),
             alternative = alternativePaid(plan),
-            modesChosen = (o.facts.modesChosen + plan.choices.modes).distinct(),
+            modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct(),
             paidWith = Bindings(paidWith.map { (way, ids) -> way.toString() to NamedValue.Objects(ids) as NamedValue }.toMap()),
             // blb: the opponent chosen for a gift (CR 702.174a)
             chosenPlayer = plan.total.parts.firstNotNullOfOrNull { kp ->
                 (plan.choices.names[Plan.PLAYER + kp.key] as? NamedValue.Players)?.ids?.firstOrNull()?.takeIf { kp.part is CostPart.ChoosePlayer }
             },
         )
-        if (facts != o.facts) recorder.record(Change.Facts(id, o.facts, facts))
+        arcanum.engine.change.Changes.cast(s, id, facts)?.let(recorder::record)
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         // CR 702.47a: the spliced cards are revealed
@@ -575,8 +576,8 @@ internal object Payment {
             val origin = inst.origin as? AbilityOrigin.FromAbility ?: return@let
             if (m.perTurn == null) return@let
             val source = recorder.state.obj(origin.source) ?: return@let
-            recorder.record(Change.Facts(source.id, source.facts, source.facts.copy(
-                activations = Legality.counted(source.facts.activations, Legality.alternativeKey(origin), recorder.state.turn.number))))
+            recorder.record(arcanum.engine.change.Changes.uses(recorder.state, source.id, source.uses.copy(
+                activations = Legality.counted(source.uses.activations, Legality.alternativeKey(origin), recorder.state.turn.number))))
         }
         // CR 106.6a: mana that gives the spell something
         spent.filter { it.spellGets.isNotEmpty() }
@@ -599,21 +600,17 @@ internal object Payment {
         return Progress.Done
     }
 
-    /** CR 700.14: the mana [player] spent to cast spells this turn, counted in their ledger (one key per turn, the
-     * previous turn's dropped), and the [GameEvent.SpentOnSpells] event "whenever you expend N" triggers on. */
+    /** CR 700.14: the mana [player] spent to cast spells this turn, counted in the engine's bookkeeping (the previous turn's
+     * count replaced), and the [GameEvent.SpentOnSpells] event "whenever you expend N" triggers on. */
     private fun spentOnSpells(recorder: Recorder, player: PlayerId, amount: Int) {
         if (amount <= 0) return
         val s = recorder.state
-        val key = SPENT_ON_SPELLS + s.turn.number
-        val ledger = s.player(player).ledger
-        ledger.keys.filter { it.startsWith(SPENT_ON_SPELLS) && it != key }
-            .forEach { old -> recorder.record(Change.Ledger(player, old, ledger.getValue(old), 0)) }
-        val before = ledger[key] ?: 0
-        recorder.record(Change.Ledger(player, key, before, before + amount))
+        val counted = s.spent[player]
+        val before = counted?.takeIf { it.turn == s.turn.number }?.amount ?: 0
+        recorder.record(Change.SpentCounted(player, counted, arcanum.engine.state.SpentOnSpells(s.turn.number, before + amount)))
         recorder.record(Change.Happened(GameEvent.SpentOnSpells(player, before, before + amount)))
     }
 
-    private const val SPENT_ON_SPELLS = "spent-on-spells@"
 
     /** "If it would leave the Stack, put it [then] instead" (flashback, CR 702.34a): an effect object on the spell. */
     private fun leavesStackTo(spell: ObjectId, player: PlayerId, then: arcanum.api.Destination, insteadOf: Zone?, timestamp: Long, turn: Int) =
@@ -659,7 +656,7 @@ internal object Payment {
         val source = p.source?.let { recorder.state.obj(it)?.id } ?: return
         val key = Legality.PERMISSION_PREFIX + (p.ability?.key ?: p.effect?.value ?: "")
         val o = recorder.state.objOrThrow(source)
-        recorder.record(Change.Facts(source, o.facts, o.facts.copy(activations = Legality.counted(o.facts.activations, key, recorder.state.turn.number))))
+        recorder.record(arcanum.engine.change.Changes.uses(recorder.state, source, o.uses.copy(activations = Legality.counted(o.uses.activations, key, recorder.state.turn.number))))
     }
 
     private fun finishAbility(recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>): Progress {
@@ -684,9 +681,9 @@ internal object Payment {
     private fun countActivation(recorder: Recorder, source: ObjectId, origin: AbilityOrigin, loyalty: Boolean) {
         val o = recorder.state.obj(source) ?: return
         val turn = recorder.state.turn.number
-        var counts = Legality.counted(o.facts.activations, origin.key, turn)
+        var counts = Legality.counted(o.uses.activations, origin.key, turn)
         if (loyalty) counts = Legality.counted(counts, Legality.LOYALTY_KEY, turn)
-        recorder.record(Change.Facts(source, o.facts, o.facts.copy(activations = counts)))
+        recorder.record(arcanum.engine.change.Changes.uses(recorder.state, source, o.uses.copy(activations = counts)))
     }
 
     /**

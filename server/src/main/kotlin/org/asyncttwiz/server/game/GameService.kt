@@ -634,8 +634,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         // I-D54: the play's state is the engine's, its decks parsed on the server. Switchreview #9 (I-D51/I-D52): the
         // server's own parse decides too, whatever the marks say (a pod's source kept from before): a card it can't read
         // never starts a game as a dead card
-        val seats = change.state?.takeIf { StartRules.canStart(summary, it) }?.let { engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(it) }
-        if (seats?.any { seat -> (seat.deck + seat.sideboard).any { it.definition == null } } == true) return "automatumUnsupported"
+        val seats = change.state?.takeIf { StartRules.canStart(summary, it) }?.let {
+            engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(it) ?: return "automatumUnsupported"
+        }
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             // The prepared deck with its outside cards, and their definitions

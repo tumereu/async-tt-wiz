@@ -18,7 +18,7 @@ import kotlin.test.fail
  * them, at random, is played. A game with nothing listed is stuck and fails, and so does an open player decision that
  * lists no answer (cancelling the cast doesn't count: every decision reached has an answer), except a payment: a cast is listed when
  * it seems castable (castability §1.1), and Autotap may find no way where a player's own picks may ([NoFalseDenialFuzzTest] is the
- * other direction). Random results and host fills are the host's (D25, D60) and answered by the harness.
+ * other direction). Random results and named cards are the host's (D25) and answered by the harness.
  */
 class OptionsFuzzTest {
     @Test
@@ -39,7 +39,7 @@ class OptionsFuzzTest {
             val listed = players.flatMap { p -> Engine.options(state, p.id) }.distinct()
             if (listed.isEmpty()) fail("Game $seed, step $step: stuck at ${pending ?: state.turn} with nothing listed")
             val open = pending
-            if (open != null && open !is Decision.Random && open !is Decision.HostFill && open !is Decision.OtherView && open !is Decision.ManaPayment &&
+            if (open != null && open !is Decision.Random && open !is Decision.NamedCard && open !is Decision.ManaPayment &&
                 listed.none { it is Input.Answer }) {
                 fail("Game $seed, step $step: no answer listed for $open (only $listed)")
             }
@@ -67,7 +67,7 @@ class OptionsFuzzTest {
         val doing = listed.filterNot { it is Input.PassPriority }
         val input = if (doing.isNotEmpty() && rnd.nextInt(3) > 0) doing.random(rnd) else listed.random(rnd)
         perform(input)
-        check(pending !is Decision.Random && pending !is Decision.HostFill) { "The harness answers these" }
+        check(pending !is Decision.Random && pending !is Decision.NamedCard) { "The harness answers these" }
     }
 
     companion object {

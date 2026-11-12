@@ -109,7 +109,7 @@ class GameModelViewsTest {
         val mark = builder.mark()
         // The model's kept view goes to the engine; the outcome's view of the state after it is kept
         model.view()
-        val input = model.engine.players.flatMap { Engine.options(model.engine, it.id) }.first()
+        val input = model.engine.players.flatMap { Engine.options(model.engine, it.id, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)) }.first()
         builder.perform(input)
         model.keptView()?.let { assertEquals(Engine.view(model.engine), it, "the outcome's view is the state's") }
         builder.takeBack(mark)
@@ -146,7 +146,7 @@ class GameModelViewsTest {
             if (games.over(model)) return@repeat
             val holder = model.engine.priority.holder
             if (holder != null && model.engine.pending == null) {
-                assertEquals(Host.passCheck(model.engine, holder), model.passCheck(holder))
+                assertEquals(Host.passCheck(model.engine, holder, org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine)), model.passCheck(holder))
                 assertEquals(0, layers { model.passCheck(holder) }, "kept")
                 val input = Input.PassPriority(holder)
                 val probe = EventBuilder(model, "probe$it", parent, holder.value)

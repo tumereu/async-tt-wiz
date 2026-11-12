@@ -1,7 +1,6 @@
 package arcanum.engine.change
 
 import arcanum.api.CounterKind
-import arcanum.api.Designation
 import arcanum.api.Zone
 import arcanum.engine.Pending
 import arcanum.engine.state.CombatState
@@ -11,7 +10,11 @@ import arcanum.engine.state.EffectObject
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.ManaUnit
 import arcanum.engine.state.NamedValue
-import arcanum.engine.state.ObjectFacts
+import arcanum.engine.state.CastFacts
+import arcanum.engine.state.GameStatus
+import arcanum.engine.state.ObjectStatus
+import arcanum.engine.state.PlayerStatus
+import arcanum.engine.state.UseCounts
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.ObjectSnapshot
 import arcanum.engine.state.PlayerId
@@ -25,7 +28,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * One MTG-level change to a [arcanum.engine.state.GameState] (D56, D59): a zone change, a tap, counters, life, mana,
- * Stack items, effect objects, steps and priority, ledgers, the open continuation. Each carries its before- and
+ * Stack items, effect objects, steps and priority, statuses, the open continuation, the engine's bookkeeping. Each carries its before- and
  * after-values, so [arcanum.engine.state.GameState.apply] and [arcanum.engine.state.GameState.revert] are mechanical. Event changes carry
  * their Magic meaning ([Meaning]: cast, died, sacrificed, drew, …) and are logged as the turn's tagged events (D33);
  * [isEvent] says which. [Reverted] takes a change back inside a batch (cancelling a cast, D58).
@@ -184,16 +187,54 @@ sealed interface Change {
         override val isEvent: Boolean get() = false
     }
 
-    /** Card memory under [key] changes (CR 607): null is nothing kept. */
+    /** Linked-ability memory under [key] changes (CR 607, [arcanum.engine.state.GameObject.linked]): null is nothing kept. */
     @Serializable @SerialName("memory")
     data class Memory(val id: ObjectId, val key: String, val before: NamedValue?, val after: NamedValue?) : Change {
         override fun inverse() = copy(before = after, after = before)
         override val isEvent: Boolean get() = false
     }
 
-    /** What the engine remembers about an object instance changes (D22, D41). */
-    @Serializable @SerialName("facts")
-    data class Facts(val id: ObjectId, val before: ObjectFacts, val after: ObjectFacts) : Change {
+    /** How an object was cast changes ([arcanum.engine.state.GameObject.cast], D22): null is no facts. */
+    @Serializable @SerialName("cast-facts")
+    data class CastFactsChanged(val id: ObjectId, val before: CastFacts?, val after: CastFacts?) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
+    /** An object's counts of uses by turn change (activations, resolutions, triggers, modes; D41): the engine's bookkeeping. */
+    @Serializable @SerialName("uses")
+    data class UsesCounted(val id: ObjectId, val before: UseCounts, val after: UseCounts) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
+    /** An object's status of [before]'s or [after]'s key changes ([ObjectStatus]): null is none (at its default). */
+    @Serializable @SerialName("object-status")
+    data class ObjectStatusChanged(val id: ObjectId, val before: ObjectStatus?, val after: ObjectStatus?) : Change {
+        init { require(before != null || after != null) { "A status change needs a status" } }
+        /** The status's key. */
+        val key: String get() = (before ?: after)!!.key
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
+    /** A player's status of [before]'s or [after]'s key changes ([PlayerStatus]): null is none (at its default). A designation
+     * gained or lost (CR 724–726) is an event; the other statuses are not. */
+    @Serializable @SerialName("player-status")
+    data class PlayerStatusChanged(val player: PlayerId, val before: PlayerStatus?, val after: PlayerStatus?) : Change {
+        init { require(before != null || after != null) { "A status change needs a status" } }
+        /** The status's key. */
+        val key: String get() = (before ?: after)!!.key
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = before is PlayerStatus.Designated || after is PlayerStatus.Designated
+    }
+
+    /** The game's status of [before]'s or [after]'s key changes ([GameStatus]): null is none. */
+    @Serializable @SerialName("game-status")
+    data class GameStatusChanged(val before: GameStatus?, val after: GameStatus?) : Change {
+        init { require(before != null || after != null) { "A status change needs a status" } }
+        /** The status's key. */
+        val key: String get() = (before ?: after)!!.key
         override fun inverse() = copy(before = after, after = before)
         override val isEvent: Boolean get() = false
     }
@@ -232,32 +273,17 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
-    /** A ledger entry changes (D22): game-scoped when [player] is null. */
+    /** A card-defined ledger entry of [player] changes (D22: "a spell with that name resolved earlier this game"). */
     @Serializable @SerialName("ledger")
-    data class Ledger(val player: PlayerId?, val key: String, val before: Int, val after: Int) : Change {
+    data class Ledger(val player: PlayerId, val key: String, val before: Int, val after: Int) : Change {
         override fun inverse() = copy(before = after, after = before)
         override val isEvent: Boolean get() = false
     }
 
-    /** A player loses the game (CR 104.3) for [reason] ([arcanum.engine.state.PlayerState.lossReason]; null: not said).
-     * Its inverse carries the reason it takes back. */
+    /** A player loses the game (CR 104.3, [arcanum.engine.state.PlayerState.loss]): [before] null (still in the game) and
+     * [after] the reason they lost; its inverse takes the loss back. */
     @Serializable @SerialName("lost")
-    data class Lost(val player: PlayerId, val before: Boolean, val after: Boolean,
-        val reason: arcanum.engine.setup.LossReason? = null) : Change {
-        override fun inverse() = copy(before = after, after = before)
-    }
-
-    /** A player's "Skip when I have no choice" setting changes (I-D18, [arcanum.engine.state.PlayerState.skipWhenNoChoice]):
-     * made by a host, not by the game. */
-    @Serializable @SerialName("skip-when-no-choice")
-    data class SkipWhenNoChoice(val player: PlayerId, val before: Boolean, val after: Boolean) : Change {
-        override fun inverse() = copy(before = after, after = before)
-        override val isEvent: Boolean get() = false
-    }
-
-    /** A player gets or loses a designation: monarch, initiative, city's blessing (CR 724–726). */
-    @Serializable @SerialName("designation")
-    data class PlayerDesignation(val player: PlayerId, val designation: Designation, val before: Boolean, val after: Boolean) : Change {
+    data class Lost(val player: PlayerId, val before: arcanum.engine.setup.LossReason?, val after: arcanum.engine.setup.LossReason?) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
@@ -275,11 +301,11 @@ sealed interface Change {
     }
 
     /**
-     * Which of [player]'s library cards have a place some player knows ([arcanum.engine.state.PlayerState.libraryPlaces]):
+     * Which of [player]'s library cards have a place some player knows (the engine's bookkeeping):
      * [before] and [after]. Recorded by the engine as places become known (cards put into the library at a known place,
      * looked at or revealed where they lie, reordered) or unknown (a shuffle); bookkeeping, not an event.
      */
-    /** An input was performed: the game's count of inputs ([arcanum.engine.state.GameState.inputCount]) goes from
+    /** An input was performed: the game's count of inputs (the engine's bookkeeping) goes from
      * [before] to [after], the first change of each input's outcome. Bookkeeping, not an event; stored in short form
      * (every input's outcome has one). */
     @Serializable @SerialName("inputs")
@@ -294,30 +320,30 @@ sealed interface Change {
         override val isEvent: Boolean get() = false
     }
 
+    /** [player] attempted to draw from an empty library since the last state-based action check ([after]), or that is checked
+     * (CR 704.5b): the engine's bookkeeping, not an event. */
+    @Serializable @SerialName("empty-draw")
+    data class EmptyLibraryDraw(val player: PlayerId, val before: Boolean, val after: Boolean) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
+    /** The mana [player] spent to cast spells this turn (CR 700.14) changes: the engine's bookkeeping, not an event (the
+     * [GameEvent.SpentOnSpells] event says it). */
+    @Serializable @SerialName("spent")
+    data class SpentCounted(val player: PlayerId, val before: arcanum.engine.state.SpentOnSpells?, val after: arcanum.engine.state.SpentOnSpells?) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
     /**
-     * Cards whose identity [to] looks at (null: everyone sees them), where the state has full information
-     * ([arcanum.engine.state.GameState.viewer] null) and so asks no host fill (D60): searched, scried, looked at, revealed,
-     * the cards of a choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
+     * Cards whose identity [to] looks at (null: everyone sees them): searched, scried, looked at, revealed, the cards of a
+     * choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
      * ([arcanum.engine.Host.revealed]) and the engine which library places became known.
      */
     @Serializable @SerialName("shown")
     data class Shown(val to: PlayerId?, val ids: List<ObjectId>) : Change {
         override fun inverse() = this
-        override val isEvent: Boolean get() = false
-    }
-
-    /** The host fills in an unknown object's identity (D60). */
-    @Serializable @SerialName("filled")
-    data class Filled(val before: GameObject, val after: GameObject) : Change {
-        override fun inverse() = copy(before = after, after = before)
-        override val isEvent: Boolean get() = false
-    }
-
-    /** The viewer forgets a known object's identity as it becomes hidden from them (D60): turned face down where they
-     * can't look. Inverse of [Filled]. */
-    @Serializable @SerialName("forgotten")
-    data class Forgotten(val before: GameObject, val after: GameObject) : Change {
-        override fun inverse() = Filled(after, before)
         override val isEvent: Boolean get() = false
     }
 

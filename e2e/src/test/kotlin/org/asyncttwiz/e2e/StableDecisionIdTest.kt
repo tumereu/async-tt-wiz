@@ -29,16 +29,16 @@ class StableDecisionIdTest : E2e() {
     /** Spark's cast with Alice's own answers (its first target, the suggested payment), as the cast panel makes them on
      * the board shown. */
     private fun spark(s: GameState): List<Input> {
-        val cast = assertNotNull(Engine.options(s, alice.me).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
+        val cast = assertNotNull(Engine.options(s, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
         val copy = s.deepCopy()
         val inputs = mutableListOf<Input>(cast)
         var input: Input = cast
         repeat(10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != alice.me) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-            else Engine.options(copy, alice.me).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.first()
+            else Engine.options(copy, alice.me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.first()
             inputs += input
         }
         return inputs

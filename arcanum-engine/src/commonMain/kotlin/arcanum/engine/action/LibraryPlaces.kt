@@ -45,8 +45,9 @@ internal object LibraryPlaces {
     private fun set(recorder: Recorder, player: PlayerId, update: (Map<ObjectId, Int>) -> Map<ObjectId, Int>) {
         val p = recorder.state.player(player)
         val library = p.library.toSet()
-        val after = update(p.libraryPlaces).filterKeys { it in library }
-        if (after != p.libraryPlaces) recorder.append(Change.LibraryPlaces(player, p.libraryPlaces, after))
+        val before = recorder.state.libraryPlaces(player)
+        val after = update(before).filterKeys { it in library }
+        if (after != before) recorder.append(Change.LibraryPlaces(player, before, after))
     }
 
     /**
@@ -56,10 +57,11 @@ internal object LibraryPlaces {
      */
     fun unknownParts(state: GameState, player: PlayerId, lookable: Set<ObjectId>): List<List<ObjectId>> {
         val p = state.player(player)
+        val places = state.libraryPlaces(player)
         val parts = linkedMapOf<Int, MutableList<ObjectId>>()
         for (id in p.library) {
             if (id in lookable) continue
-            val place = p.libraryPlaces[id]
+            val place = places[id]
             if (place == KNOWN) continue
             parts.getOrPut(place ?: -1) { mutableListOf() } += id
         }
@@ -83,7 +85,7 @@ internal object LibraryPlaces {
         work.record(arcanum.engine.change.Changes.pending(work.state, null))
         try {
             when (val c = open.continuation) {
-                is Continuation.Resolving -> if (c.otherView == null) arcanum.engine.resolution.Resolution.run(work, c)
+                is Continuation.Resolving -> arcanum.engine.resolution.Resolution.run(work, c)
                 is Continuation.Event -> c.planned?.let { Events.run(work, it, c.then, c.answers) }
                 else -> {}
             }
@@ -94,7 +96,6 @@ internal object LibraryPlaces {
             when (change) {
                 is Change.Shown -> change.ids
                 is Change.ZoneChange -> change.moves.filter { it.before.zone == Zone.Library }.map { it.before.id }
-                is Change.Filled -> listOf(change.after.id)
                 is Change.Happened -> (change.event as? GameEvent.Revealed)?.ids.orEmpty()
                 else -> emptyList()
             }

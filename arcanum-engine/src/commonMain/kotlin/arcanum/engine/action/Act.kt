@@ -35,10 +35,6 @@ internal class NeedDecision(val decision: Decision) : Exception("Waiting for ${d
 internal class Asker(
     private val answers: List<Answer>,
     private val prefix: String,
-    /** Set while a resolution is worked out as in another player's view ([Decision.OtherView]). */
-    val otherView: OtherViewFills? = null,
-    /** A private fill for another player than the viewer switches to [Decision.OtherView] (a resolution's steps). */
-    val mayAskOtherView: Boolean = false,
 ) {
     private var used = 0
 
@@ -47,19 +43,8 @@ internal class Asker(
 
     fun ask(decision: (DecisionId) -> Decision): Answer {
         val answer = answers.getOrNull(used) ?: throw NeedDecision(decision(DecisionId("$prefix.$used")))
-        // Answers sent from another player's view are checked as the steps ask them (the one validation path)
-        otherView?.check?.invoke(decision(DecisionId("$prefix.$used")), answer)
         used++
         return answer
-    }
-
-    /** The next answer is the fill of [ids] asked before (answered in this view before it switched to
-     * [Decision.OtherView]): it is used up and returned. */
-    fun filledNext(ids: Set<ObjectId>): Answer.Filled? {
-        val next = answers.getOrNull(used) as? Answer.Filled ?: return null
-        if (next.objects.map { it.id }.toSet() != ids) return null
-        used++
-        return next
     }
 
     /** The answers not used (yet). */
@@ -70,25 +55,6 @@ internal class Asker(
         val NONE = Asker(emptyList(), "none")
     }
 }
-
-/**
- * A resolution worked out as in [player]'s view ([Decision.OtherView], D60, D31): the identities the host sent with the
- * answer ([filled]; never kept in the state), the unknown objects the steps needed so far ([needed]), the cards filled
- * only to work it out ([hidden]: only [player] may see them; [Knowledge.forgetHidden] keeps them out of the changes),
- * and [check] for the answers as the steps ask them.
- */
-internal class OtherViewFills(
-    val player: PlayerId,
-    val filled: Map<ObjectId, arcanum.api.CardDefinition>,
-    val check: ((Decision, Answer) -> Unit)? = null,
-) {
-    val needed = mutableListOf<ObjectId>()
-    val hidden = mutableMapOf<arcanum.engine.state.CardId, arcanum.api.CardDefinition>()
-}
-
-/** Thrown in a viewer's state when a step reaches cards only another player may look at ([Decision.OtherView]). */
-internal class NeedOtherView(val player: PlayerId, val source: ObjectId?, val objects: List<ObjectId>, val reason: String) :
-    Exception("Done in $player's view")
 
 /**
  * Who does something (D19): [controller] is "you", [source] the object it comes from, [item] the Stack item being
@@ -148,7 +114,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = v?.controller ?: o.controller, zone = o.zone,
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
-            token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
+            token = o.token, attachedTo = o.attachedTo, cast = o.cast, linked = o.linked, statuses = arcanum.engine.state.snapshotStatuses(o),
             attacking = state.combat?.attackers.orEmpty().any { it.id == id },
         )
     }
@@ -158,7 +124,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         val item = state.stackItems[id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy } ?: return null
         val v = view()[id]
         return ObjectSnapshot(id = id, owner = item.controller, controller = v?.controller ?: item.controller, zone = arcanum.api.Zone.Stack,
-            characteristics = v?.characteristics, facts = item.facts ?: arcanum.engine.state.ObjectFacts())
+            characteristics = v?.characteristics, cast = item.cast)
     }
 
     // ---- Decisions (each asked only when there is a choice, P5)
@@ -188,7 +154,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** I-D18: [player] is asked a decision the rules leave them no choice in when they turned "Skip when I have no
      * choice" off and the skip depends on cards only they may see ([hiddenDecides]). */
-    fun asksAnyway(player: PlayerId, hiddenDecides: Boolean): Boolean = hiddenDecides && !state.player(player).skipWhenNoChoice
+    fun asksAnyway(player: PlayerId, hiddenDecides: Boolean): Boolean = hiddenDecides && !recorder.prefs.skipsWhenNoChoice(player)
 
     /** A cost [player] can't pay ("you may discard a land card", CR 118.3): asked anyway when [asksAnyway] (I-D18), with
      * only "no" accepted ([Decision.May.payable]). */
@@ -201,20 +167,14 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     /**
      * Whether what [player] may choose among [pool] depends on cards only they may see (I-D18): a card of the pool in
      * their hand, outside the game or that only they may look at (not a face-down permanent or spell, which everyone
-     * sees as it is, CR 708.2a) for which [decides] (whether it would be offered depends on what card it is). Those
-     * still unknown in the state are filled in for [player] first (D60), so the choice is worked out on what they are,
-     * unless not [fill] (a flow that offers unknown cards as they are).
+     * sees as it is, CR 708.2a) for which [decides] (whether it would be offered depends on what card it is).
      */
-    fun hiddenDecides(
-        player: PlayerId, source: ObjectId?, pool: List<ObjectId>, fill: Boolean = true, decides: (ObjectId) -> Boolean,
-    ): Boolean {
+    fun hiddenDecides(player: PlayerId, pool: List<ObjectId>, decides: (ObjectId) -> Boolean): Boolean {
         if (pool.isEmpty()) return false
         val private = Knowledge.privateTo(state, view(), player)
         val deciding = pool.filter { id ->
             id in private && state.obj(id)?.zone.let { it != arcanum.api.Zone.Battlefield && it != arcanum.api.Zone.Stack } && decides(id)
         }
-        val unknown = deciding.filter { state.obj(it)?.unknown == true }
-        if (fill && unknown.isNotEmpty()) fill(player, source, unknown, "choose among them")
         return deciding.isNotEmpty()
     }
 
@@ -316,46 +276,14 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses)
     }
 
-    /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
-     * at them, or everyone sees them when [public] ([Decision.HostFill]). */
-    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false, shown: Boolean = true, named: String? = null) {
-        // With full information nothing is filled: what the player looks at is said by a Change.Shown
-        if (state.viewer == null && shown) {
-            val hidden = ids.distinct().filter { id -> state.obj(id)?.let { !Knowledge.public(it) } == true }
-            if (hidden.isNotEmpty()) record(Change.Shown(if (public) null else player, hidden))
-        }
-        val unknown = ids.distinct().filter { state.obj(it)?.unknown == true }
-        if (unknown.isEmpty()) return
-        // D60, D31: only [player] may look, and the state is another player's view
-        val othersOnly = !public && state.viewer != null && player != state.viewer
-        val other = asker.otherView
-        if (other != null) {
-            // Worked out as in another player's view: a fill answered here before the switch, else the host's identities
-            asker.filledNext(unknown.toSet())?.let { answered -> return record(unknown, answered.objects) }
-            unknown.filter { it !in other.needed }.forEach { other.needed += it }
-            if (unknown.any { it !in other.filled }) throw NeedOtherView(other.player, source, other.needed.toList(), reason)
-            unknown.forEach { id ->
-                val before = state.objOrThrow(id)
-                val definition = other.filled.getValue(id)
-                if (othersOnly) other.hidden[before.card] = definition
-                record(Change.Filled(before, before.copy(definition = definition)))
-            }
-            return
-        }
-        if (othersOnly && asker.mayAskOtherView) throw NeedOtherView(player, source, unknown, reason)
-        val filled = (ask { Decision.HostFill(it, player, source, unknown, reason, public, named) } as Answer.Filled).objects
-        // Checked against the decision when answered (AnswerCheck): exactly the asked objects, each once
-        record(unknown, filled)
+    /** [player] looks at [ids], or everyone sees them when [public]: a [Change.Shown] of those not public already (a
+     * search, scry, look or reveal; what a host shows each player, [arcanum.engine.Host.revealed]). */
+    fun show(player: PlayerId, ids: List<ObjectId>, public: Boolean = false) {
+        val hidden = ids.distinct().filter { id -> state.obj(id)?.let { !Knowledge.public(it) } == true }
+        if (hidden.isNotEmpty()) record(Change.Shown(if (public) null else player, hidden))
     }
 
-    private fun record(unknown: List<ObjectId>, filled: List<arcanum.engine.decision.FilledObject>) = unknown.forEach { id ->
-        val before = state.objOrThrow(id)
-        record(Change.Filled(before, before.copy(definition = filled.first { it.id == id }.definition)))
-    }
-
-    /** Ids for "[count] of [among] at random", or new ids for [among] put in a random order hidden from the viewer
-     * ([RandomKind.Objects.newIds], D60); [library]: the whole library a shuffle is of ([RandomKind.Objects.library]). */
-    fun randomObjects(player: PlayerId, source: ObjectId?, among: List<ObjectId>, count: Int, newIds: Boolean = false,
-        library: List<ObjectId> = emptyList()): List<ObjectId> =
-        (random(player, source, RandomKind.Objects(among, count, newIds, library)) as Answer.RandomObjects).chosen
+    /** Ids for "[count] of [among] at random"; [library]: the whole library a shuffle is of ([RandomKind.Objects.library]). */
+    fun randomObjects(player: PlayerId, source: ObjectId?, among: List<ObjectId>, count: Int, library: List<ObjectId> = emptyList()): List<ObjectId> =
+        (random(player, source, RandomKind.Objects(among, count, library)) as Answer.RandomObjects).chosen
 }

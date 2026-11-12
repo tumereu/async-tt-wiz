@@ -29,26 +29,26 @@ import arcanum.engine.view.KeywordMeanings
  * its steps run through the step runner without the Stack ([Payment]). A new one is a new entry here and nothing else.
  */
 internal object SpecialActions {
-    /** The special actions the rules give [id]. [forwarded]: also for a card the state doesn't know, as its owner's device forwards the input (D60). */
-    fun of(snap: Snapshot, id: ObjectId, forwarded: Boolean = false): List<AbilityInstance> {
+    /** The special actions the rules give [id]. */
+    fun of(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
         val o = snap.state.obj(id) ?: return emptyList()
-        return RULES.flatMap { it(snap, o, forwarded) }
+        return RULES.flatMap { it(snap, o) }
     }
 
-    private val RULES: List<(Snapshot, GameObject, Boolean) -> List<AbilityInstance>> = listOf(
+    private val RULES: List<(Snapshot, GameObject) -> List<AbilityInstance>> = listOf(
         // CR 116.2m, 709.5e: unlocking a locked door of a Room
-        { snap, o, _ -> if (o.faceDown) emptyList() else Rooms.unlockActions(snap.view[o.id]) },
+        { snap, o -> if (o.faceDown) emptyList() else Rooms.unlockActions(snap.view[o.id]) },
         // CR 116.2b, 701.40b, 701.58b: a manifested or cloaked creature card turns face up for its mana cost
-        { _, o, _ -> manifested(o) },
+        { _, o -> manifested(o) },
         // CR 116.2b, 702.37e, 702.168d: a face-down permanent's own card
-        { _, o, _ -> ofFaceDownCard(o) },
+        { _, o -> ofFaceDownCard(o) },
         // CR 116.2h, 702.143b: foretelling a card in a hand
-        { snap, o, forwarded -> Foretell.actions(snap, o.id, forwarded) },
+        { snap, o -> Foretell.actions(snap, o.id) },
     )
 
     private fun manifested(o: GameObject): List<AbilityInstance> {
         if (!o.faceDown || (ObjectMark.Manifested !in o.marks && ObjectMark.Cloaked !in o.marks)) return emptyList()
-        val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
+        val face = o.definition.faces.firstOrNull() ?: return emptyList()
         val cost = face.manaCost?.takeIf { CardType.Creature in face.types } ?: return emptyList()
         return listOf(AbilityInstance(Ability.SpecialAction(Cost.mana(cost),
             Instructions(steps = listOf(Step.Do(Effect.TurnFaceUp(Objects.Self)))),
@@ -60,7 +60,7 @@ internal object SpecialActions {
     /** Its characteristics show no abilities (CR 708.2a), so they are read from its front face, keyword expansions included. */
     private fun ofFaceDownCard(o: GameObject): List<AbilityInstance> {
         if (!o.faceDown) return emptyList()
-        val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
+        val face = o.definition.faces.firstOrNull() ?: return emptyList()
         return face.abilities.flatMapIndexed { i, ability ->
             val printed = AbilityOrigin.Printed(0, i)
             when (ability) {

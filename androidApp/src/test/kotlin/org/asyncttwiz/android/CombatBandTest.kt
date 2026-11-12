@@ -111,7 +111,7 @@ class CombatBandTest {
         val cubs = aliceStagedThree()
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (3)")
         k.playOn("Bob declaring blockers", bobActs = false) {
-            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         }
         k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
         return cubs
@@ -272,7 +272,7 @@ class CombatBandTest {
         captureShot("$SCREENSHOTS/combat-sequence/2-blocks-awaited-alice.png",
             "Alice's phone, 2 of 5, a wait for the other player: she waits for Bob's blocks; meanwhile her band is in assume mode, a dashed slot over each attacker, and the main button reads Assume no blockers.")
         (k.bob.device.status as GameDevice.Status.Stopped).let { k.bob.act(it.assumed) }
-        k.playOn("Bob declaring blockers", bobActs = false) { Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers } }
+        k.playOn("Bob declaring blockers", bobActs = false) { Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers } }
         k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
         show(k.f.b)
         captureShot("$SCREENSHOTS/combat-sequence/2-blocks-awaited-bob.png",
@@ -553,7 +553,7 @@ class CombatBandTest {
         k.settle()
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.playOn("Bob declaring blockers", bobActs = false) {
-            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         }
         k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
         k.tap(k.item(blocker, viewer = k.f.b), k.bobToolkit, k.f.b)
@@ -574,7 +574,7 @@ class CombatBandTest {
         k.settle()
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.playOn("Bob declaring blockers", bobActs = false) {
-            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         }
         k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
         render(k.f.b)

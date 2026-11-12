@@ -108,7 +108,7 @@ class CardStatesTest {
     // TBL-133: a card's states come first on its chip, which is cut short (TBL-113), whatever else changed on it
     @Test fun aStateComesFirstOnTheChip() {
         val board = board {
-            mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer, ObjectMark.Monstrous), goadedBy = listOf(PlayerId(f.b)),
+            mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer, ObjectMark.Monstrous), statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(PlayerId(f.b)))),
                 counters = listOf(CounterEntry(CounterKind.PowerToughness(1, 1), 2, 1))) }
         }
         val item = scene(board).items.first { it.sourceId == sentinel.id && it.zone == PlayZone.BATTLEFIELD }
@@ -136,7 +136,7 @@ class CardStatesTest {
     @Test fun aRingBearersInspectLineFollowsTheRingsLevel() {
         fun line(level: Int) = changes(board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
-            player(f.a) { it.copy(ledger = mapOf("ring-tempted" to level)) }
+            player(f.a) { it.copy(statuses = playerStatuses(ring = level)) }
         }, sentinel).first()
         assertEquals("Ring-bearer: legendary, can't be blocked by creatures with greater power", line(1).text)
         assertEquals("The Ring", line(1).source)
@@ -148,8 +148,8 @@ class CardStatesTest {
     // TBL-133: goaded names who goaded it in the viewer's words; a battle's protector and what was chosen for a permanent show too
     @Test fun goadedProtectorAndChosenValuesInInspect() {
         val edit: GameState.() -> Unit = {
-            mark(sentinel) { it.copy(goadedBy = listOf(PlayerId(f.b)), protector = PlayerId(f.a),
-                memory = it.memory.with("chosen", NamedValue.Colors(listOf(arcanum.api.Color.Blue))).with("\$secret", NamedValue.Name("Hidden"))) }
+            mark(sentinel) { it.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(PlayerId(f.b))), arcanum.engine.state.ObjectStatus.Protector(PlayerId(f.a))),
+                linked = it.linked.with("chosen", NamedValue.Colors(listOf(arcanum.api.Color.Blue))).with("\$secret", NamedValue.Name("Hidden"))) }
         }
         val board = board(edit = edit)
         assertEquals(listOf("Goaded by Bob: attacks each combat if able, and not Bob if it can", "Protector: you", "Chosen: blue"),
@@ -187,12 +187,18 @@ class CardStatesTest {
 
     /** Both players with states, the chips' whole set for the opponent: designations, speed, the Ring, counters. */
     private fun GameState.playerStates() {
-        player(f.a) { it.copy(designations = listOf(Designation.Monarch), ledger = mapOf("speed" to 2, "ring-tempted" to 2),
+        player(f.a) { it.copy(statuses = playerStatuses(Designation.Monarch, speed = 2, ring = 2),
             counters = listOf(CounterEntry(CounterKind.Poison, 3, 1))) }
-        player(f.b) { it.copy(designations = listOf(Designation.Initiative, Designation.CitysBlessing),
-            ledger = mapOf("ring-tempted" to 6), counters = listOf(CounterEntry(CounterKind.Energy, 5, 1))) }
-        setup.ledger["\$day-night"] = 2
+        player(f.b) { it.copy(statuses = playerStatuses(Designation.Initiative, Designation.CitysBlessing, ring = 6),
+            counters = listOf(CounterEntry(CounterKind.Energy, 5, 1))) }
+        setup.statuses = listOf(arcanum.engine.state.GameStatus.DayNight(night = true))
     }
+
+    /** A player's statuses as the engine keeps them: [designations], [speed] and the Ring's temptations ([ring]), 0 for none. */
+    private fun playerStatuses(vararg designations: Designation, speed: Int = 0, ring: Int = 0): List<arcanum.engine.state.PlayerStatus> =
+        (designations.map { arcanum.engine.state.PlayerStatus.Designated(it) } +
+            listOfNotNull(speed.takeIf { it > 0 }?.let { arcanum.engine.state.PlayerStatus.Speed(it) },
+                ring.takeIf { it > 0 }?.let { arcanum.engine.state.PlayerStatus.RingTempted(it) })).sortedBy { it.key }
 
     /** Emblems for both, as in TRN-053. */
     private fun withEmblems(play: PlayState) = play.copy(board = play.board.copy(engineRecords = listOf(
@@ -205,7 +211,7 @@ class CardStatesTest {
         val crypt = ObjectId.Card(CardId("00000000-0000-5000-8000-0000000000d1"), 0)
         setup.objects[crypt] = GameObject(crypt, PlayerId(f.b), PlayerId(f.b), Zone.Command, CardDefinition(Layout.Normal, listOf(FaceDefinition("Lantern Crypt",
             types = listOf(CardType.Dungeon), rooms = listOf(arcanum.api.DungeonRoom("Hall of Moths", arcanum.api.Instructions(), emptyList()))))),
-            timestamp = 901, memory = arcanum.engine.state.Bindings.EMPTY.with("\$venture-room", NamedValue.Number(0)))
+            timestamp = 901, statuses = listOf(arcanum.engine.state.ObjectStatus.VentureRoom(0)))
         setup.command.add(crypt)
     }
 
@@ -221,7 +227,7 @@ class CardStatesTest {
         assertEquals(listOf("M", "S2", "R2", "P3"), glyphs(f.a))
         assertEquals(listOf("I", "C", "R4", "E5"), glyphs(f.b))
         assertEquals(StateGlyph.Night, PlayerStates.dayOrNight(state)?.glyph)
-        val shared = board { player(f.a) { it.copy(designations = listOf(Designation.EnduringStory), ledger = mapOf("speed" to 1),
+        val shared = board { player(f.a) { it.copy(statuses = playerStatuses(Designation.EnduringStory, speed = 1),
             counters = listOf(CounterEntry(CounterKind.Energy, 2, 1), CounterEntry(CounterKind.Named("shield"), 1, 2))) } }.engine!!.state
         assertEquals(listOf("St", "S1", "E2", "Sh1"), PlayerStates.of(shared, f.a).map { (it.glyph as StateGlyph.Letters).text },
             "an enduring story beside energy, a shield counter beside speed")
@@ -289,8 +295,8 @@ class CardStatesTest {
     @Test fun manyStatesFoldIntoPlusN() {
         val many = board(withEmblems(f.initial)) {
             playerStates()
-            player(f.a) { it.copy(designations = listOf(Designation.Monarch, Designation.Initiative, Designation.CitysBlessing,
-                Designation.EnduringStory), counters = listOf(CounterEntry(CounterKind.Poison, 3, 1), CounterEntry(CounterKind.Energy, 5, 2),
+            player(f.a) { it.copy(statuses = playerStatuses(Designation.Monarch, Designation.Initiative, Designation.CitysBlessing,
+                Designation.EnduringStory, speed = 2, ring = 2), counters = listOf(CounterEntry(CounterKind.Poison, 3, 1), CounterEntry(CounterKind.Energy, 5, 2),
                 CounterEntry(CounterKind.Named("shield"), 1, 3), CounterEntry(CounterKind.Named("rad"), 4, 4))) }
         }
         val states = PlayerStates.of(many.engine!!.state, f.a)
@@ -420,9 +426,9 @@ class CardStatesTest {
     /** Alice's creatures with states and a restriction, for the pictures. */
     private fun stated() = board {
         mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
-        mark(river) { it.copy(goadedBy = listOf(PlayerId(f.b)), marks = listOf(ObjectMark.Monstrous)) }
+        mark(river) { it.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(PlayerId(f.b)))), marks = listOf(ObjectMark.Monstrous)) }
         mark(blocker) { it.copy(marks = listOf(ObjectMark.Suspected)) }
-        player(f.a) { it.copy(ledger = mapOf("ring-tempted" to 2)) }
+        player(f.a) { it.copy(statuses = playerStatuses(ring = 2)) }
         setup.effects[EffectId("E1")] = EffectObject(EffectId("E1"), listOf(Mechanic.DoesntUntap), affects = null, locked = listOf(id(sentinel)),
             source = id(blocker), controller = PlayerId(f.b), timestamp = 900, createdTurn = 1, duration = Duration.UntilYourNextTurn)
     }

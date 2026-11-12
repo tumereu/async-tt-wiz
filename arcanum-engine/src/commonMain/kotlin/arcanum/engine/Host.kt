@@ -8,35 +8,39 @@ import arcanum.engine.view.View
 
 /**
  * For a host running games: passing priority for players (I-D3, I-D18), who decides for a controlled player (CR 723),
- * finding loops (CR 104.4b), hidden information (D60: what a player may know, what changes reveal to them, a viewer's
- * decisions) and the host's randomness for the library's unknown order (D25). Stateless, like [Engine]: it reads the
+ * finding loops (CR 104.4b), hidden information (what a player may know and what changes reveal to them, for display:
+ * the state itself always has full information) and the host's randomness for the library's unknown order (D25). Stateless, like [Engine]: it reads the
  * [GameState] it is given and changes nothing.
  */
 object Host {
     /**
      * Whether a host passes priority for [player] now (I-D3, I-D18): they hold it, nothing is pending, and [Engine.options]
      * offers them nothing but passing (mana abilities aside). With their "Skip when I have no choice" setting
-     * ([arcanum.engine.state.PlayerState.skipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
+     * ([Preferences.noSkipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
      * only they may see (an empty hand and no face-down permanent: an instant they can't afford is theirs to pass with).
-     * False while such cards are unknown in [state] (another player's view, D60): their own view decides. The engine never
+     * The engine never
      * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time. While
      * another player controls [player] (CR 723), the controller's setting counts ([decider]).
      */
-    fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
+    fun shouldPassFor(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): Boolean =
+        arcanum.engine.turn.AutoPass.shouldPass(state, player, prefs = prefs)
 
     /** [shouldPassFor] with [view], as [passCheck]'s. */
-    fun shouldPassFor(state: GameState, player: PlayerId, view: View?): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player, view)
+    fun shouldPassFor(state: GameState, player: PlayerId, view: View?, prefs: Preferences = Preferences()): Boolean =
+        arcanum.engine.turn.AutoPass.shouldPass(state, player, view, prefs)
 
     /**
      * [shouldPassFor] two ways from one search of [Engine.options] (a host with its own "pass when I have no choice" asks both on
      * the same state): with the deciding player's setting as it is ([PassCheck.asSet], the same as [shouldPassFor]) and
      * as if [player]'s own setting were on ([PassCheck.ownSkipOn]).
      */
-    fun passCheck(state: GameState, player: PlayerId): PassCheck = arcanum.engine.turn.AutoPass.check(state, player)
+    fun passCheck(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): PassCheck =
+        arcanum.engine.turn.AutoPass.check(state, player, prefs = prefs)
 
     /** [passCheck] with [view], [state]'s view ([Engine.view] of [state] as it is now) when the caller already has it: the same
      * result without working the layers out again for the search. A view of another state gives wrong results. */
-    fun passCheck(state: GameState, player: PlayerId, view: View?): PassCheck = arcanum.engine.turn.AutoPass.check(state, player, view)
+    fun passCheck(state: GameState, player: PlayerId, view: View?, prefs: Preferences = Preferences()): PassCheck =
+        arcanum.engine.turn.AutoPass.check(state, player, view, prefs)
 
     /**
      * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or
@@ -58,11 +62,11 @@ object Host {
     fun loopKey(state: GameState): arcanum.engine.turn.LoopKey = arcanum.engine.turn.Loops.key(state)
 
     /**
-     * The objects whose identity [player] may know now (D60, spec §7.0 "Hidden information"): public cards, their own
+     * The objects whose identity [player] may know now (spec §7.0 "Hidden information"): public cards, their own
      * hand and cards outside the game, face-down cards they control, and cards an ability lets them look at any time
      * ("you may look at the top card of your library any time", CR 401.5). A host shows a player what [state] knows
      * of these and nothing of the rest: of the others' cards, of [GameState.pending] decisions of other players over
-     * cards not among these, and of [arcanum.engine.change.Change.Filled]s that aren't public. While [player] controls
+     * cards not among these, and of [arcanum.engine.change.Change.Shown]s to other players. While [player] controls
      * another player ([decider]), also what that player may see of objects in the game (CR 723.4).
      */
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
@@ -73,23 +77,13 @@ object Host {
     fun visible(state: GameState, player: PlayerId, view: View): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view, player)
 
-    /** [state] as [player] sees it (D60, [GameState.viewer]): a copy where every object not in [visible] that [state] knows
-     * is unknown (no definition). [state] itself isn't changed. */
-    fun seenBy(state: GameState, player: PlayerId, visible: Set<arcanum.engine.state.ObjectId> = visible(state, player)): GameState {
-        val shown = state.deepCopy()
-        for ((id, obj) in state.objects) if (id !in visible && obj.definition != null) shown._objects[id] = obj.copy(definition = null)
-        shown._viewer = player
-        return shown
-    }
-
     /**
      * The cards whose identity [changes] (made on [before] in order, such as an [Outcome]'s) show [viewer] at some moment
      * that [visible] didn't give them in [before]: put where they may see them (a hand they own, a public zone face up),
      * turned face up or revealed (CR 701.20, 708.9), looked at ([Change.Shown]: a search, scry, look, the cards of a choice
      * among hidden cards), or that they may look at once the changes are made (CR 401.5). Compared by card, so a card
      * changing zones (a new object, CR 400.7) isn't new; cards that didn't exist in [before] (tokens, copies) were hidden
-     * from nobody and aren't counted. For a full-information state ([GameState.viewer] null; a viewer's state says this
-     * with its fills). Works on a copy: [before] isn't changed. A host uses it to keep a player from learning hidden cards
+     * from nobody and aren't counted. Works on a copy: [before] isn't changed. A host uses it to keep a player from learning hidden cards
      * by going on (ATW's async play, I-D56) or to tell whether taking an event back would forget something seen.
      */
     fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
@@ -136,12 +130,10 @@ object Host {
     }
 
     /**
-     * For a host whose [state] waits on a [arcanum.engine.decision.Decision.OtherView] (D60, D31) and that doesn't keep
-     * that player's own state: the decision the player faces next in their view, given the identities [filled] of the
-     * decision's objects, with the cards only they may see (their options name them). Null when the answers so far are
-     * enough, or more identities are needed (the engine then asks again). Shows nothing to anyone else; changes
-     * nothing.
+     * Whether [a] and [b] are the same game position: equal in everything but the tagged events they keep, the timestamp counter
+     * and the order of the libraries (the host's randomness, D25). Everything else the engine decides with (the objects, zones,
+     * Stack, effects, turn, priority, statuses, the open decision, its bookkeeping, the input count) is compared: a host that
+     * keeps a decision asked on one state for another asks this.
      */
-    fun otherViewDecision(state: GameState, filled: List<arcanum.engine.decision.FilledObject>): arcanum.engine.decision.Decision? =
-        arcanum.engine.resolution.OtherView.next(state, filled)
+    fun samePosition(a: GameState, b: GameState): Boolean = a.samePosition(b)
 }

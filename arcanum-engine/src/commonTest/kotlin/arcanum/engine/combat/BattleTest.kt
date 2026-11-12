@@ -1,5 +1,6 @@
 package arcanum.engine.combat
 
+import arcanum.engine.state.protector
 import arcanum.api.CounterKind
 import arcanum.api.TurnStep
 import arcanum.api.Zone

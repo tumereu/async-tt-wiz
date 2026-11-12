@@ -1,18 +1,10 @@
 package arcanum.engine.action
 
-import arcanum.api.CardDefinition
 import arcanum.api.Mechanic
 import arcanum.api.Zone
 import arcanum.engine.change.Change
 import arcanum.engine.change.GameEvent
-import arcanum.engine.change.Recorder
 import arcanum.engine.state.CardId
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -20,10 +12,9 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.view.View
 
 /**
- * The viewer-knowledge rule (D60, spec §7.0 "Hidden information"): the state is one viewer's view
- * ([GameState.viewer]; null: full information). Whenever a hidden card's identity matters or becomes visible to the
- * viewer, the host fills exactly those cards in ([Act.fill]); whenever cards become hidden from the viewer again, the
- * engine forgets them ([forgets]; a shuffle or a random order also gives them new ids from the host, CR 701.24a, D38).
+ * What each player may know (spec §7.0 "Hidden information"). The state always has full information; this says what a
+ * host may show each player of it ([arcanum.engine.Host.visible], [arcanum.engine.Host.revealed]), and a player looking
+ * at hidden cards is said by a [Change.Shown] ([Act.show]).
  */
 internal object Knowledge {
     private val PUBLIC_ZONES = setOf(Zone.Battlefield, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
@@ -44,21 +35,6 @@ internal object Knowledge {
         o.faceDown && arcanum.engine.foretell.Foretell.mayLook(o, player) -> true
         else -> false
     }
-
-    /** Whether the state's viewer sees [o] where it is: a public card, or one the viewer may see. With full information
-     * only public cards count: the host knows the rest and fills them only when their identity matters. */
-    fun viewerSees(state: GameState, o: GameObject): Boolean = public(o) || state.viewer?.let { mayKnow(o, it) } == true
-
-    /** Whether the viewer must forget the known [o] where it now is (D60): put into a hand the viewer can't see, or face
-     * down where the viewer can't look. A card put into a library stays known until the library is shuffled. */
-    fun forgets(state: GameState, o: GameObject): Boolean {
-        val viewer = state.viewer ?: return false
-        if (o.unknown) return false
-        return (o.zone == Zone.Hand && o.owner != viewer) || (o.faceDown && !mayKnow(o, viewer))
-    }
-
-    /** [o] with its identity forgotten. */
-    fun forgotten(o: GameObject): GameObject = o.copy(definition = null)
 
     /** Objects [player] may see the identity of now: public ones, their own hand and cards outside the game, face-down
      * cards they may look at, and cards a "you may look at" ability lets them look at (CR 401.5 cards such as "look at
@@ -101,7 +77,6 @@ internal object Knowledge {
                 is Change.Face -> see(plain.id)
                 is Change.ControlStart -> see(plain.id)
                 is Change.ObjectUpdated -> see(plain.after.id)
-                is Change.Filled -> see(plain.after.id)
                 else -> {}
             }
         }
@@ -127,93 +102,5 @@ internal object Knowledge {
             }
         }
         return (toPlayers + toObjects).filter { state.obj(it.first) != null }.distinct()
-    }
-
-    /**
-     * Before priority (with the state-based actions, CR 117.5): the cards the viewer may look at any time ("you may look
-     * at the top card of your library any time", CR 401.5) or that are revealed to everyone are filled in, so the
-     * viewer's options see them; with full information, those any player may look at.
-     */
-    fun fillLookable(act: Act) {
-        val state = act.state
-        lookable(state, act.view()).filter { (id, looker) -> state.obj(id)?.unknown == true && (looker == null || state.viewer == null || looker == state.viewer) }
-            .groupBy { it.second }.forEach { (looker, cards) ->
-                val ids = cards.map { it.first }.distinct()
-                act.fill(looker ?: state.objOrThrow(ids.first()).owner, null, ids, "may look at any time", public = looker == null, shown = false)
-            }
-    }
-
-    /**
-     * Cards about to be seen by everyone as they move (D60): put into a public zone face up, or a face-down permanent
-     * leaving the battlefield or a face-down spell leaving the Stack other than onto the battlefield (revealed, CR
-     * 708.9). Filled before replacements apply, so replacements and triggers see them (madness of a discarded card,
-     * "whenever a land card is put into your graveyard").
-     */
-    fun fillRevealedByMoves(act: Act, moves: List<PlannedMove>) {
-        val ids = moves.filter { m ->
-            val o = act.obj(m.id) ?: return@filter false
-            val revealed = o.faceDown && (o.zone == Zone.Battlefield || (o.zone == Zone.Stack && m.to != Zone.Battlefield))
-            o.unknown && (revealed || (m.to in PUBLIC_ZONES && !m.faceDown))
-        }.map { it.id }.distinct()
-        if (ids.isNotEmpty()) act.fill(act.state.objOrThrow(ids.first()).owner, null, ids, "becomes public", public = true)
-    }
-
-    /**
-     * D60, D31: the [hidden] cards were filled in only to work a resolution out as in another player's view
-     * ([arcanum.engine.decision.Decision.OtherView]). The changes made since [mark] are made again without their
-     * identities, in their characteristics and definitions everywhere in the changes, until the viewer sees one (it is
-     * put where the viewer may see it, or revealed): it is filled in just before, as a host fill would have done.
-     * Triggers were found on the changes as they were made, as with full information. Returns the cards still hidden.
-     */
-    fun forgetHidden(recorder: Recorder, mark: Int, hidden: Map<CardId, CardDefinition>): Set<CardId> {
-        if (hidden.isEmpty()) return emptySet()
-        val made = recorder.changes.subList(mark, recorder.changes.size).toList()
-        recorder.rollback(mark)
-        val full = recorder.state.deepCopy()
-        val still = hidden.keys.toMutableSet()
-        made.forEach { c ->
-            full.apply(c)
-            // The fill only the other player saw
-            if (c is Change.Filled && c.before.unknown && c.after.card in still) return@forEach
-            val revealed = ((c as? Change.Happened)?.event as? GameEvent.Revealed)?.ids.orEmpty().mapNotNull { (it as? ObjectId.Card)?.card }
-            still.filter { card -> card in revealed || full.current(card)?.let { viewerSees(full, it) } == true }.forEach { card ->
-                still -= card
-                val o = recorder.state.current(card)
-                if (o != null && o.unknown) recorder.append(Change.Filled(o, o.copy(definition = hidden.getValue(card))))
-            }
-            val seen = if (still.isEmpty()) c else withoutIdentities(c, still)
-            if (seen is Change.Forgotten && seen.before == seen.after) return@forEach
-            recorder.append(seen)
-        }
-        return still
-    }
-
-    /** [change] with the definitions and characteristics of [cards]' objects left out (unknown, D60). */
-    private fun withoutIdentities(change: Change, cards: Set<CardId>): Change {
-        val prefixes = cards.map { "c:${it.value}#" }
-        fun hidden(id: JsonElement?): Boolean =
-            (id as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { s -> prefixes.any { s.startsWith(it) } } == true
-        fun walk(e: JsonElement): JsonElement = when (e) {
-            is JsonObject -> {
-                val hide = hidden(e["id"])
-                JsonObject(e.mapValues { (k, v) -> if (hide && (k == "definition" || k == "characteristics")) JsonNull else walk(v) })
-            }
-            is JsonArray -> JsonArray(e.map(::walk))
-            else -> e
-        }
-        return Json.decodeFromJsonElement(Change.serializer(), walk(Json.encodeToJsonElement(Change.serializer(), change)))
-    }
-
-    /** After replacements: cards the viewer will see where they go (their own hand, face down under their control) or
-     * still to be seen by everyone, filled in before the zone change (D60). */
-    fun fillSeenAfterMoves(act: Act, moves: List<PlannedMove>) {
-        fillRevealedByMoves(act, moves)
-        val viewer = act.state.viewer ?: return
-        val ids = moves.filter { m ->
-            val o = act.obj(m.id) ?: return@filter false
-            val after = o.copy(zone = m.to, faceDown = m.faceDown, controller = if (m.to == Zone.Battlefield || m.to == Zone.Stack) m.controller ?: o.owner else null)
-            o.unknown && mayKnow(after, viewer)
-        }.map { it.id }.distinct()
-        if (ids.isNotEmpty()) act.fill(viewer, null, ids, "seen")
     }
 }

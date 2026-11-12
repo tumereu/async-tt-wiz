@@ -60,7 +60,7 @@ class EngineHistoryStoreTest {
         val builder = EventBuilder(model, UUID.randomUUID().toString(), parent, a.toString())
         val s = model.engine
         val input = if (s.turn.number == 0 && s.pending == null) Input.StartGame()
-            else s.players.flatMap { Engine.options(s, it.id) }.filter { it !is Input.Concede }.let { it[rnd.nextInt(it.size)] }
+            else s.players.flatMap { Engine.options(s, it.id, org.asyncttwiz.protocol.game.EnginePreferences.of(s)) }.filter { it !is Input.Concede }.let { it[rnd.nextInt(it.size)] }
         builder.perform(input)
         while (true) {
             val d = model.engine.pending?.decision as? Decision.Random ?: break

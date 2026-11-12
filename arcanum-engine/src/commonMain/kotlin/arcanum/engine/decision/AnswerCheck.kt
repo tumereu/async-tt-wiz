@@ -4,7 +4,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 
 /**
- * The one answer-validation path (spec §7.0): every answer, a player's or the host's (P7, D25, D60), is checked against
+ * The one answer-validation path (spec §7.0): every answer, a player's or the host's (P7, D25), is checked against
  * what its decision asked before the engine goes on with it: its kind, and its contents within the allowed values,
  * counts, uniqueness and zones. A wrong answer is refused with [IllegalArgumentException] and changes nothing; the flows
  * check the rules that need the game further (a legal target, a payment that pays, a division of combat damage).
@@ -72,22 +72,9 @@ internal object AnswerCheck {
             is Decision.ChooseReplacement ->
                 among(listOf(expect<Answer.Replacement>(decision, answer).index), decision.options.map { it.index }, "a replacement offered")
             is Decision.LegendRule -> among(listOf(expect<Answer.Keep>(decision, answer).kept), decision.among, "one of the legends")
-            is Decision.Random -> random(state, decision, answer)
-            is Decision.HostFill -> {
-                val filled = expect<Answer.Filled>(decision, answer).objects.map { it.id }
-                // D60: exactly the objects asked, each once
-                if (filled.size != decision.objects.size || filled.toSet() != decision.objects.toSet()) {
-                    refuse("Fill exactly ${decision.objects}, each once: $filled")
-                }
-            }
-            is Decision.OtherView -> {
-                val a = expect<Answer.OtherView>(decision, answer)
-                val filled = a.filled.map { it.id }
-                // D60: exactly the objects asked, each once; the answers are checked as the steps ask them
-                if (filled.size != decision.objects.size || filled.toSet() != decision.objects.toSet()) {
-                    refuse("Fill exactly ${decision.objects}, each once: $filled")
-                }
-                if (a.answers.any { it is Answer.Filled || it is Answer.OtherView }) refuse("Identities go in filled, not among the answers")
+            is Decision.Random -> random(decision, answer)
+            is Decision.NamedCard -> if (expect<Answer.NamedCard>(decision, answer).definition.faces.none { it.name == decision.name }) {
+                refuse("Not the card named ${decision.name}")
             }
             is Decision.Manual -> expect<Answer.Done>(decision, answer)
         }
@@ -100,7 +87,7 @@ internal object AnswerCheck {
         return chosen.sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
     }
 
-    private fun random(state: GameState, decision: Decision.Random, answer: Answer) {
+    private fun random(decision: Decision.Random, answer: Answer) {
         when (val what = decision.what) {
             RandomKind.CoinFlip -> expect<Answer.CoinFlip>(decision, answer)
             is RandomKind.Die -> {
@@ -113,12 +100,7 @@ internal object AnswerCheck {
                 val chosen = expect<Answer.RandomObjects>(decision, answer).chosen
                 distinct(chosen, "object")
                 if (chosen.size != what.count) refuse("Pick ${what.count}: $chosen")
-                if (what.newIds) {
-                    // D60: new card objects, no card any object in the state has
-                    val used = state.objects.keys.mapNotNull { (it as? ObjectId.Card)?.card }.toSet()
-                    if (chosen.any { it !is ObjectId.Card || it.card in used }) refuse("Give new card ids, none of a card in the game: $chosen")
-                    if (chosen.map { (it as ObjectId.Card).card }.distinct().size != chosen.size) refuse("Give a different card id for each: $chosen")
-                } else among(chosen, what.among, "one of those to pick from")
+                among(chosen, what.among, "one of those to pick from")
             }
         }
     }

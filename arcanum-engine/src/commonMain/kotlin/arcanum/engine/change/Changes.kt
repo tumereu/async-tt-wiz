@@ -9,7 +9,16 @@ import arcanum.engine.state.EffectObject
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ManaUnit
-import arcanum.engine.state.ObjectFacts
+import arcanum.engine.state.CastFacts
+import arcanum.engine.state.ObjectStatus
+import arcanum.engine.state.PlayerStatus
+import arcanum.engine.state.UseCounts
+import arcanum.engine.state.castFacts
+import arcanum.engine.state.copyOfCard
+import arcanum.engine.state.deathtouchDamage
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.mergedBelow
+import arcanum.engine.state.statusOf
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.PriorityState
@@ -62,8 +71,6 @@ object Changes {
                 face = if (to == Zone.Battlefield || to == Zone.Stack) before.face else 0,
                 // fra: a copy of a card cast as a permanent spell becomes a token as it resolves (CR 111.13)
                 token = before.token || (before.copyOfCard && before.zone == Zone.Stack && to == Zone.Battlefield),
-                copyOfCard = before.copyOfCard,
-                prepareSpellOf = before.prepareSpellOf,
                 tapped = tapped,
                 faceDown = faceDown,
                 // One entry per kind: counters of one kind it enters with add up (CR 122.6)
@@ -71,8 +78,9 @@ object Changes {
                     .filter { it.count > 0 },
                 timestamp = stamp,
                 controlSince = if (to == Zone.Battlefield) ControlSince(newController!!, state.turn.number) else null,
-                facts = if (keepsCastFacts) before.facts.copy(activations = emptyList(), resolutions = emptyList(), triggers = emptyList())
-                    else ObjectFacts(),
+                cast = if (keepsCastFacts) before.cast else null,
+                statuses = before.statuses.filter { it.keptMoving(keepsCastFacts) },
+                uses = if (keepsCastFacts && before.uses.modeTurns.isNotEmpty()) UseCounts(modeTurns = before.uses.modeTurns) else UseCounts.NONE,
             )
             val fromIndex = scratch.zone(before.zone, before.owner).indexOf(id)
             // Positions count without the object itself: it leaves its zone first (to the bottom of its own library)
@@ -103,8 +111,18 @@ object Changes {
             placed[p.owner] = k + 1
             val index = if (p.owner == after.owner) toIndex + 1 + k else scratch.zone(after.zone, p.owner).size + k
             Placed(GameObject(id = p.id.next(), owner = p.owner, zone = after.zone, definition = p.definition, token = p.token,
-                copyOfCard = p.copyOfCard, faceDown = after.faceDown, timestamp = after.timestamp), index)
+                statuses = if (p.copyOfCard) listOf(ObjectStatus.CopyOfCard) else emptyList(), faceDown = after.faceDown,
+                timestamp = after.timestamp), index)
         }
+    }
+
+    /** The statuses an object keeps as it changes zones: a copy of a card stays one, a prepare spell's copy stays linked; a spell
+     * becoming a permanent ([keepsCastFacts], CR 400.7d) also keeps what it did and gained as a spell. */
+    private fun ObjectStatus.keptMoving(keepsCastFacts: Boolean): Boolean = when (this) {
+        ObjectStatus.CopyOfCard, is ObjectStatus.PrepareSpellOf -> true
+        ObjectStatus.DealtCombatDamage, ObjectStatus.DealtDamage, ObjectStatus.HeldPhasedOut, is ObjectStatus.MarksGained,
+        ObjectStatus.TurnedFaceUp -> keepsCastFacts
+        else -> false
     }
 
     fun move(state: GameState, id: ObjectId, to: Zone, meanings: List<Meaning> = emptyList()): Change.ZoneChange =
@@ -147,9 +165,32 @@ object Changes {
     fun priority(state: GameState, after: PriorityState, meanings: List<Meaning>): Change.Priority =
         Change.Priority(state.priority, after, meanings)
 
-    /** Sets [player]'s "Skip when I have no choice" setting (I-D18); a host makes this change. */
-    fun skipWhenNoChoice(state: GameState, player: PlayerId, on: Boolean): Change.SkipWhenNoChoice =
-        Change.SkipWhenNoChoice(player, state.player(player).skipWhenNoChoice, on)
+    /** [id]'s status of [key] set to [after] (none when null); null when it already is. */
+    internal fun status(state: GameState, id: ObjectId, key: String, after: ObjectStatus?): Change.ObjectStatusChanged? {
+        val before = state.objOrThrow(id).statuses.statusOf(key, ObjectStatus::key)
+        return if (before == after) null else Change.ObjectStatusChanged(id, before, after)
+    }
+
+    /** [player]'s status of [key] set to [after] (none when null); null when it already is. */
+    internal fun playerStatus(state: GameState, player: PlayerId, key: String, after: PlayerStatus?): Change.PlayerStatusChanged? {
+        val before = state.player(player).statuses.statusOf(key, PlayerStatus::key)
+        return if (before == after) null else Change.PlayerStatusChanged(player, before, after)
+    }
+
+    /** [player] gets ([on]) or loses [designation] (CR 724–726): a [Change.PlayerStatusChanged] of [PlayerStatus.Designated]. */
+    fun designation(player: PlayerId, designation: arcanum.api.Designation, on: Boolean): Change.PlayerStatusChanged =
+        PlayerStatus.Designated(designation).let { Change.PlayerStatusChanged(player, it.takeIf { !on }, it.takeIf { on }) }
+
+    /** [id]'s cast facts set to [after]; null when they already are. */
+    internal fun cast(state: GameState, id: ObjectId, after: CastFacts?): Change.CastFactsChanged? {
+        val before = state.objOrThrow(id).cast
+        val kept = castFacts(after)
+        return if (before == kept) null else Change.CastFactsChanged(id, before, kept)
+    }
+
+    /** [id]'s use counts set to [after]. */
+    internal fun uses(state: GameState, id: ObjectId, after: UseCounts): Change.UsesCounted =
+        Change.UsesCounted(id, state.objOrThrow(id).uses, after)
 
     fun pending(state: GameState, after: Pending?): Change.PendingSet = Change.PendingSet(state.pending, after)
 
@@ -174,7 +215,7 @@ object Meanings {
  * After each event change, the triggered abilities it triggers are found ([arcanum.engine.trigger.Triggers.detect],
  * CR 603.2), looking back in time where CR 603.10 says, and recorded as waiting; then what the event took out of combat
  * is removed from it ([arcanum.engine.combat.Combat.removeWhatLeft], CR 506.4). */
-internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = null) {
+internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = null, val prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()) {
     val changes = mutableListOf<Change>()
 
     /** The rounds of state-based actions and triggers made in this call so far ([arcanum.engine.turn.Loops.capped]). */
@@ -204,8 +245,8 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
     }
 
-    /** Applies and keeps [change] as it is, finding no triggers: for changes already worked out with their triggers
-     * ([arcanum.engine.action.Knowledge.forgetHidden]). */
+    /** Applies and keeps [change] as it is, finding no triggers: for bookkeeping that follows a change
+     * ([arcanum.engine.action.LibraryPlaces.follow]). */
     fun append(change: Change) {
         state.apply(change)
         changes += change

@@ -32,9 +32,9 @@ import arcanum.engine.view.AbilityOrigin
  * Foretell (CR 702.143), engine code rather than abilities so the card stays hidden: any time its owner has priority
  * during their turn they may pay {2} and exile a card with foretell from their hand face down (a special action, 702.143b);
  * they may look at it while it stays in exile, and after that turn has ended cast it for any foretell cost it has rather than
- * its mana cost (702.143a). The special action is [AbilityOrigin.Rule] [RULE], so a viewer's state that doesn't know the card
- * (D60) takes it without the card being revealed (the host forwards it from the owner's own state); the foretold card is
- * [ObjectMark.Foretold] with the turn and the costs it had in [arcanum.engine.state.ObjectFacts.marksGained] (CR 702.143e), and
+ * its mana cost (702.143a). The special action is [AbilityOrigin.Rule] [RULE], so it is taken without the card being revealed;
+ * the foretold card is
+ * [ObjectMark.Foretold] with the turn and the costs it had in [arcanum.engine.state.ObjectStatus.MarksGained] (CR 702.143e), and
  * [MarkCasts] gives the permission.
  *
  * {2} and "during their turn" are the rule; effects change them the way they change activations, naming foretelling with
@@ -54,14 +54,13 @@ internal object Foretell {
     fun isForetell(origin: AbilityOrigin?): Boolean = origin == RULE
 
     /**
-     * The foretell special action of [id] in a hand: offered when the card has foretell where it is; for a card the state doesn't know
-     * (another player's, D60) it is accepted as the host forwards it ([forwarded]). Not held to its owner's turn when an effect lets
-     * them foretell any time.
+     * The foretell special action of [id] in a hand: offered when the card has foretell where it is. Not held to its owner's turn
+     * when an effect lets them foretell any time.
      */
-    fun actions(snap: Snapshot, id: ObjectId, forwarded: Boolean = false): List<AbilityInstance> {
+    fun actions(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
         val o = snap.state.obj(id) ?: return emptyList()
         if (o.zone != Zone.Hand) return emptyList()
-        val has = if (o.unknown) forwarded else snap.view[id]?.characteristics?.abilities.orEmpty().any { it.ability is Keyword.Foretell }
+        val has = snap.view[id]?.characteristics?.abilities.orEmpty().any { it.ability is Keyword.Foretell }
         if (!has) return emptyList()
         val anyTime = Legality.activatesAtInstantSpeed(snap, o.owner, id, AbilityInstance(ACTION, RULE))
         return listOf(AbilityInstance(if (anyTime) ACTION.copy(condition = null) else ACTION, RULE))

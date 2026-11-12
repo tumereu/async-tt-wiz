@@ -39,8 +39,8 @@ class GameSetupTest {
         assertTrue(!state.started)
         assertNull(state.priority.holder)
         // Before the game only starting it is possible
-        assertEquals(listOf<Input>(Input.StartGame()), Engine.options(state, alice.id))
-        assertEquals(listOf<Input>(Input.StartGame()), Engine.options(state, bob.id))
+        assertEquals(listOf<Input>(Input.StartGame()), Engine.options(state, alice.id, prefs))
+        assertEquals(listOf<Input>(Input.StartGame()), Engine.options(state, bob.id, prefs))
     }
 
     // CR 103.4: the starting life total is a setting of the game
@@ -327,7 +327,7 @@ class GameSetupTest {
         assertEquals(1, reveal.max)
         answer(Answer.Objects(reveal.options))
         val companion = state.player(alice.id).outside.single()
-        assertNotNull(state.objOrThrow(companion).memory[Evaluator.REVEALED_COMPANION])
+        assertTrue(arcanum.engine.state.ObjectStatus.RevealedCompanion in state.objOrThrow(companion).statuses)
         assertEquals(GameEvent.Revealed(alice.id, listOf(companion)), events<GameEvent.Revealed>().single())
         keep(alice)
         keep(bob)
@@ -345,13 +345,13 @@ class GameSetupTest {
         keep(alice)
         keep(bob)
         val companion = state.player(alice.id).outside.single()
-        fun action() = Engine.options(state, alice.id).filterIsInstance<Input.Activate>().firstOrNull { it.source == companion }
+        fun action() = Engine.options(state, alice.id, prefs).filterIsInstance<Input.Activate>().firstOrNull { it.source == companion }
         // Not in the upkeep (only in a main phase)
         assertNull(action())
         repeat(4) { playTurn(cast = false) }
         playUntil(TurnStep.PrecombatMain)
         // Turn 5: a third land
-        perform(Engine.options(state, alice.id).first { it is Input.PlayLand })
+        perform(Engine.options(state, alice.id, prefs).first { it is Input.PlayLand })
         perform(assertNotNull(action()))
         answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         expect { alice.hand has "Velmora of the Sleep-Den" }
@@ -369,10 +369,10 @@ class GameSetupTest {
         keep(bob)
         repeat(4) { playTurn(cast = false) }
         playUntil(TurnStep.PrecombatMain)
-        perform(Engine.options(state, alice.id).first { it is Input.PlayLand })
+        perform(Engine.options(state, alice.id, prefs).first { it is Input.PlayLand })
         val companion = state.player(alice.id).outside.single()
-        assertNull(state.objOrThrow(companion).memory[Evaluator.REVEALED_COMPANION])
-        assertTrue(Engine.options(state, alice.id).none { it is Input.Activate && it.source == companion })
+        assertTrue(arcanum.engine.state.ObjectStatus.RevealedCompanion !in state.objOrThrow(companion).statuses)
+        assertTrue(Engine.options(state, alice.id, prefs).none { it is Input.Activate && it.source == companion })
         assertTrue(events<GameEvent.Revealed>().isEmpty())
     }
 
@@ -384,7 +384,7 @@ class GameSetupTest {
         startGame(StartOptions(startingPlayer = alice.id))
         // The first decision is already the mulligan declaration
         assertEquals(alice.id, decision<Decision.ChooseOption>().player)
-        assertTrue(state.objOrThrow(state.player(alice.id).outside.single()).memory[Evaluator.REVEALED_COMPANION] == null)
+        assertTrue(arcanum.engine.state.ObjectStatus.RevealedCompanion !in state.objOrThrow(state.player(alice.id).outside.single()).statuses)
     }
 
     // CR 103.2b, I-D18: a player asked even when nothing could be chosen (Skip when I have no choice off) is asked about companions
@@ -418,7 +418,7 @@ class GameSetupTest {
         assertEquals(listOf<String?>("Thorough Study", "Faithless Rummage"), outsideNames(bob))
         assertTrue("Thorough Study" !in libraryNames(bob) && "Thorough Study" !in handNames(bob))
         // Velmora's special action belongs to companions only: nothing outside the game is offered
-        assertTrue(Engine.options(state, bob.id).none { it is Input.Activate })
+        assertTrue(Engine.options(state, bob.id, prefs).none { it is Input.Activate })
     }
 
     // ---- The engine API around the start
@@ -430,7 +430,7 @@ class GameSetupTest {
         val id = decision<Decision.ChooseOption>().id
         assertEquals(
             listOf<Input>(Input.Answer(id, Answer.Option(Setup.KEEP)), Input.Answer(id, Answer.Option(Setup.MULLIGAN))),
-            Engine.options(state, bob.id),
+            Engine.options(state, bob.id, prefs),
         )
     }
 
@@ -452,7 +452,7 @@ class GameSetupTest {
         keep(alice)
         keep(bob)
         assertFailsWith<IllegalArgumentException> { Engine.perform(state, Input.StartGame()) }
-        assertTrue(Engine.options(state, alice.id).none { it is Input.StartGame })
+        assertTrue(Engine.options(state, alice.id, prefs).none { it is Input.StartGame })
     }
 
     // Velmora as a normal card in hand is a creature spell like any other (CR 702.139c)

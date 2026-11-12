@@ -1,5 +1,7 @@
 package arcanum.engine.ring
 
+import arcanum.engine.state.playerStatus
+import arcanum.engine.state.status
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardDefinition
@@ -46,29 +48,27 @@ import arcanum.engine.view.View
 /**
  * The Ring tempts you (CR 701.54): the player gets the emblem named The Ring if they have none ([EMBLEM], 701.54c), the number
  * of times the Ring tempted them goes up (the player's ledger under [KEY]), they choose a creature they control as their
- * Ring-bearer ([ObjectMark.RingBearer], the chooser kept in the permanent's memory under [BEARER_OF]) and the Ring has tempted
+ * Ring-bearer ([ObjectMark.RingBearer], the chooser kept as its [arcanum.engine.state.ObjectStatus.RingBearer]) and the Ring has tempted
  * them ([GameEvent.RingTempted], 701.54d), even when they control no creature. The emblem's abilities that need two, three or
  * four temptations trigger only once the Ring has tempted its owner that often.
  */
 internal object TheRing {
     /** The player-ledger key counting the Ring's temptations (CR 701.54c). */
-    const val KEY: String = "ring-tempted"
-    /** The memory key of a Ring-bearer naming the player whose Ring-bearer it is. */
-    const val BEARER_OF: String = "\$ring-bearer-of"
     const val EMBLEM: String = "The Ring"
 
-    fun temptations(state: GameState, player: PlayerId): Int = state.player(player).ledger[KEY] ?: 0
+    fun temptations(state: GameState, player: PlayerId): Int =
+        state.player(player).statuses.playerStatus<arcanum.engine.state.PlayerStatus.RingTempted>()?.times ?: 0
 
     /** The player whose Ring-bearer [o] is, or null. */
     fun bearerOf(o: GameObject): PlayerId? =
-        if (ObjectMark.RingBearer !in o.marks) null else (o.memory[BEARER_OF] as? NamedValue.Players)?.ids?.firstOrNull()
+        if (ObjectMark.RingBearer !in o.marks) null else o.statuses.status<arcanum.engine.state.ObjectStatus.RingBearer>()?.player
 
     /** CR 701.54a, c, d: the Ring tempts [player]. */
     fun tempt(act: Act, cause: Cause?, player: PlayerId) {
-        if (act.state.command.none { id -> act.state.obj(id)?.let { it.owner == player && it.definition?.faces?.firstOrNull()?.name == EMBLEM } == true })
+        if (act.state.command.none { id -> act.state.obj(id)?.let { it.owner == player && it.definition.faces.firstOrNull()?.name == EMBLEM } == true })
             createEmblem(act, player)
         val before = temptations(act.state, player)
-        act.record(Change.Ledger(player, KEY, before, before + 1))
+        act.record(Change.PlayerStatusChanged(player, arcanum.engine.state.PlayerStatus.RingTempted(before).takeIf { before > 0 }, arcanum.engine.state.PlayerStatus.RingTempted(before + 1)))
         val view = act.view()
         val creatures = act.state.battlefield.filter { act.controllerOf(it) == player && view[it]?.characteristics?.isType(CardType.Creature) == true }
         val chosen = act.chooseObjects(player, cause?.source, creatures, 1, 1, "Choose your Ring-bearer").firstOrNull()
@@ -77,8 +77,7 @@ internal object TheRing {
             act.state.battlefield.filter { it != chosen && act.state.obj(it)?.let(::bearerOf) == player }.forEach { clear(act, it) }
             val o = act.state.objOrThrow(chosen)
             if (bearerOf(o) != player) {
-                if (o.memory[BEARER_OF] != null) act.record(Change.Memory(chosen, BEARER_OF, o.memory[BEARER_OF], null))
-                act.record(Change.Memory(chosen, BEARER_OF, null, NamedValue.Players(listOf(player))))
+                act.record(Change.ObjectStatusChanged(chosen, o.statuses.status<arcanum.engine.state.ObjectStatus.RingBearer>(), arcanum.engine.state.ObjectStatus.RingBearer(player)))
                 if (ObjectMark.RingBearer !in o.marks) Actions.tapStatus(act, chosen, StatusFlag.Marked(ObjectMark.RingBearer), true)
             }
         }
@@ -97,13 +96,13 @@ internal object TheRing {
     private fun clear(act: Act, id: ObjectId) {
         val o = act.state.objOrThrow(id)
         if (ObjectMark.RingBearer in o.marks) Actions.tapStatus(act, id, StatusFlag.Marked(ObjectMark.RingBearer), false)
-        o.memory[BEARER_OF]?.let { act.record(Change.Memory(id, BEARER_OF, it, null)) }
+        o.statuses.status<arcanum.engine.state.ObjectStatus.RingBearer>()?.let { act.record(Change.ObjectStatusChanged(id, it, null)) }
     }
 
     private fun createEmblem(act: Act, player: PlayerId) {
         val ts = act.state.nextTimestamp()
         val o = GameObject(
-            // D35, D60: named from the timestamp, the same in every view (not the cause's key: a spell's id differs between views)
+            // D35: named from the timestamp, not the cause's key
             id = ObjectId.Card(TokenIds.token(TokenIds.created("the-ring", ts) + "/$player", 0), 0), owner = player, controller = player,
             zone = Zone.Command, definition = CardDefinition(Layout.Normal, listOf(FaceDefinition(EMBLEM, abilities = abilities))),
             token = false, timestamp = ts,

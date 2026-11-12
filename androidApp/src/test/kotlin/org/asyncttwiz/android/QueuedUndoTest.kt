@@ -63,13 +63,13 @@ class QueuedUndoTest {
                 if (g.device.status != GameDevice.Status.YourMove && g.device.status !is GameDevice.Status.Stopped) continue
                 val m = g.device.model.engine
                 val me = g.device.me
-                val land = Engine.options(m, me).filterIsInstance<Input.PlayLand>().firstOrNull()
+                val land = Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).filterIsInstance<Input.PlayLand>().firstOrNull()
                 when {
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain && land != null &&
                         (m.turn.landsPlayed[me] ?: 0) == 0 -> g.send(listOf(land))
                     m.turn.active == me && m.stack.isEmpty() && m.turn.step == TurnStep.PrecombatMain -> g.endTurn()
                     m.priority.holder == me -> g.pass()
-                    Engine.options(m, me).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
+                    Engine.options(m, me, org.asyncttwiz.protocol.game.EnginePreferences.of(m)).any { it is Input.DeclareAttackers || it is Input.DeclareBlockers } -> g.endTurn()
                 }
             }
         }
@@ -85,21 +85,21 @@ class QueuedUndoTest {
         inMain(s) && (s.turn.landsPlayed[alice] ?: 0) > 0 && bobsMountain(s) != null && castable(s)
     }
 
-    private fun castable(s: GameState) = Engine.options(s, alice).any { it is Input.Cast }
+    private fun castable(s: GameState) = Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).any { it is Input.Cast }
     private fun bobsMountain(s: GameState) = s.battlefield.firstOrNull { s.obj(it)?.controller == bobId }
 
     /** A Storm Spark cast by Alice with her own answers (the first target, the suggested payment). */
     private fun spark(s: GameState): List<Input> {
-        val cast = assertNotNull(Engine.options(s, alice).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
+        val cast = assertNotNull(Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
         val copy = s.deepCopy()
         val inputs = mutableListOf<Input>(cast)
         var input: Input = cast
         repeat(10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != alice) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-            else Engine.options(copy, alice).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            else Engine.options(copy, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input
         }
         return inputs
@@ -207,7 +207,7 @@ class QueuedUndoTest {
         val game = playUntil("Alice's main before her land, a Spark to cast") { g ->
             val s = g.device.model.engine
             inMain(s) && s.turn.number >= 3 && (s.turn.landsPlayed[alice] ?: 0) == 0 && castable(s) &&
-                Engine.options(s, alice).any { it is Input.PlayLand }
+                Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).any { it is Input.PlayLand }
         }
         val bob = sim.game(f.b)
         game.send(spark(game.device.model.engine))
@@ -222,7 +222,7 @@ class QueuedUndoTest {
         sim.flush(f.b)
         assertIs<GameDevice.Acted.Sent>(game.assume())
         assertTrue(inMain(game.device.model.engine), "the Spark resolved on her assumption")
-        val land = Engine.options(game.device.model.engine, alice).filterIsInstance<Input.PlayLand>().first()
+        val land = Engine.options(game.device.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(game.device.model.engine)).filterIsInstance<Input.PlayLand>().first()
         assertFalse(game.send(listOf(land)) is GameDevice.Acted.Refused)
         sim.flush(f.a)
         // Her refusals before Bob's revision: the land waits to be made again on his pass

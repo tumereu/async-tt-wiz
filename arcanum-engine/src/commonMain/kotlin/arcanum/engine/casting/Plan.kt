@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.castOrNone
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -108,7 +109,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** The spell's card on the Stack, or the ability's Stack item id. */
     val itemId: ObjectId = when (val w = c.what) {
         is Announced.Spell -> w.card
-        is Announced.Ability -> ObjectId.StackItem((choices.names[ITEM] as? NamedValue.Option)?.option ?: error("No item id"))
+        is Announced.Ability -> ObjectId.StackItem(choices.item ?: error("No item id"))
         is Announced.Trigger -> error("Triggers are put on the Stack by the triggers part")
     }
 
@@ -122,7 +123,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Before any provisional item: what the card and the board are now. */
     private val plain = Snapshot(base)
 
-    val castFrom: Zone? = ((choices.names[FROM] as? NamedValue.Option)?.option)?.let { zoneByName(it) }
+    val castFrom: Zone? = choices.from
 
     /** The alternative cost used: its static ability (looked up on the card on the Stack) and mechanic, or one another
      * object's ability gives the spell (dsk gaps: the spell is one cast from [castFrom], CR 601.2a). */
@@ -434,14 +435,14 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return snap.view[sourceId]?.characteristics?.abilities?.firstOrNull { it.origin == expansion.keyword }?.ability as? Keyword
     }
 
-    private fun snap0Face() = plain.state.obj(itemId)?.let { o -> o.definition?.faces?.getOrNull(o.face) }
+    private fun snap0Face() = plain.state.obj(itemId)?.let { o -> o.definition.faces.getOrNull(o.face) }
 
     /** Cost changes that apply (CR 601.2f): from the game's rules and the ability's own (CR 602.2b). */
     private fun changes(): Pair<List<ManaCost>, List<Pair<ManaCost, Int>>> {
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
         val chosen = chosenCostObjects()
-        snap.view.rules.forEach { applied: AppliedMechanic ->
+        snap.view.game.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
             // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
             val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
@@ -508,7 +509,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return (assistable > 0 && choices.assist?.amount == null) ||
             (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
-            snap.view.rules.any { lower(it.mechanic) }
+            snap.view.game.rules.any { lower(it.mechanic) }
     }
 
     /**
@@ -528,7 +529,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
         (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
-        snap.view.rules.forEach { applied ->
+        snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
             if (m.change is CostChange.More) return@forEach
             if (fixedBeforeChoices(m.what) && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)) return@forEach
@@ -564,7 +565,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
         val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
-            snap.view.rules.any { change(it.mechanic) } ||
+            snap.view.game.rules.any { change(it.mechanic) } ||
             instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
             contributions.any { c -> c.cost.parts.any { it is CostPart.OneOf } } ||
             // Mana that rises with what is chosen ("{B}{B} for each creature type among them" read by a value)
@@ -837,7 +838,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** The decision that asks [q]. */
     fun decision(q: Question, id: DecisionId): Decision = when (q) {
         is Question.Modes -> {
-            val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
+            val chosenBefore = snap.state.obj(sourceId)?.castOrNone?.modesChosen.orEmpty()
             val raised = q.modes.maxIf != null && holdsAsCast(q.modes.maxIf!!)
             val printed = if (raised) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             // msh: "choose up to X"
@@ -895,8 +896,6 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val NOBODY = "nobody"
 
         // Keys in [arcanum.engine.decision.Choices.names] the casting flow keeps for itself; [publicNames] drops them.
-        const val ITEM = "\$item"
-        const val FROM = "\$from"
         const val MODES_ASKED = "\$modes"
         const val ONE_OF = "\$oneof:"
         /** blb: the player chosen for a [CostPart.ChoosePlayer] cost, by its key. */
@@ -907,9 +906,6 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 
-        private val ZONES = listOf<Zone>(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside)
-        fun zoneName(zone: Zone): String = zone.toString()
-        fun zoneByName(name: String): Zone? = ZONES.firstOrNull { it.toString() == name }
 
         /** The [Mechanic.MayPlay] a [arcanum.engine.input.Permission] names, with its origin: in an effect object, in a
          * static ability of its source, or of the card itself (now on the Stack, D41). */

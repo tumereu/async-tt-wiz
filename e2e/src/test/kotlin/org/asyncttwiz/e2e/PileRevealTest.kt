@@ -38,11 +38,11 @@ class PileRevealTest : E2e() {
         val inputs = mutableListOf(first(s))
         var input = inputs.first()
         for (i in 0 until 10) {
-            Engine.perform(copy, input).changes.forEach(copy::apply)
+            Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
             if (d is Decision.Random || Host.decider(copy, d.player) != bob.me) break
             // A target: the Trinket where it may be
-            val answers = Engine.options(copy, bob.me).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
+            val answers = Engine.options(copy, bob.me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else answers.firstOrNull { a -> (a.answer as? Answer.Targets)?.chosen.orEmpty()
                     .any { t -> (t as? TargetRef.Object)?.let { cardName(copy, it.id) } == "Ember Trinket" } } ?: answers.first()
@@ -56,7 +56,7 @@ class PileRevealTest : E2e() {
 
     /** Bob sacrifices his Trinket: it goes to his graveyard. */
     private fun sacrifice() {
-        bobDoes { s -> Engine.options(s, bob.me).filterIsInstance<Input.Activate>().first { it.source == bob.field("Ember Trinket").single() } }
+        bobDoes { s -> Engine.options(s, bob.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Activate>().first { it.source == bob.field("Ember Trinket").single() } }
         assertTrue(bob.state.player(bob.me).graveyard.any { cardName(bob.state, it) == "Ember Trinket" }, "the Trinket in Bob's graveyard")
     }
 

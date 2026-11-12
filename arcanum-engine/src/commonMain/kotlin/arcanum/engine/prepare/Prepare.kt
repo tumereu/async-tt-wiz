@@ -1,5 +1,6 @@
 package arcanum.engine.prepare
 
+import arcanum.engine.state.prepareSpellOf
 import arcanum.api.CardDefinition
 import arcanum.api.Layout
 import arcanum.api.ObjectMark
@@ -41,7 +42,7 @@ internal object Prepare {
             id = ObjectId.Card(TokenIds.token("prepare:${card.card.value}@${act.state.nextTimestamp()}", 0), 0),
             owner = controller, zone = Zone.Exile,
             definition = CardDefinition(Layout.Normal, listOf(values!!.faces[1])),
-            copyOfCard = true, timestamp = act.state.nextTimestamp(), prepareSpellOf = card,
+            timestamp = act.state.nextTimestamp(), statuses = listOf(arcanum.engine.state.ObjectStatus.CopyOfCard, arcanum.engine.state.ObjectStatus.PrepareSpellOf(card)).sortedBy { it.key },
         )
         act.record(Change.Created(listOf(Placed(copy, act.state.zone(Zone.Exile, controller).size)), listOf(arcanum.engine.change.Meaning.CardCopied)))
     }

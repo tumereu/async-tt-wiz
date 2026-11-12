@@ -1,5 +1,7 @@
 package arcanum.engine.scenario
 
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.mergedBelow
 import arcanum.api.CardDefinition
 import arcanum.api.CounterKind
 import arcanum.api.Mechanic
@@ -8,14 +10,12 @@ import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.Host
 import arcanum.engine.Outcome
-import arcanum.engine.action.Knowledge
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
 import arcanum.engine.change.Meaning
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
-import arcanum.engine.decision.FilledObject
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
 import arcanum.engine.state.Bindings
@@ -78,13 +78,15 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     /** All changes applied since setup ended, in order. */
     val applied = mutableListOf<Change>()
+
+    /** The players' preferences every input is performed with ([ScenarioPlayer.skipWhenNoChoice]). */
+    var prefs: arcanum.engine.Preferences = arcanum.engine.Preferences()
     private var setupState: GameState? = null
 
     /** The state after setup. */
     internal val startState: GameState get() = setupState ?: state
     private val random = Random(seed)
     private val scripted = ArrayDeque<(RandomKind) -> Answer>()
-    private val secrets = mutableMapOf<CardId, CardDefinition>()
     private var nextCard = 0
 
     // ---- Setup
@@ -147,19 +149,6 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return id
     }
 
-    /**
-     * Makes the game [player]'s view (D60, [GameState.viewer]): the cards they can't see, set up before or after, are
-     * unknown in the state; the harness, as the host, knows them and fills them in when asked.
-     */
-    fun viewer(player: ScenarioPlayer) {
-        setup()
-        state._viewer = player.id
-        state.objects.values.toList().filter { !it.unknown && !Knowledge.mayKnow(it, player.id) }.forEach { o ->
-            secrets[o.card] = o.definition!!
-            state._objects[o.id] = o.copy(definition = null)
-        }
-    }
-
     /** Attaches the Aura or Equipment [attachment] to [to] during setup (CR 301.5, 303.4); it gets a new timestamp
      * (CR 613.7e). */
     fun attach(attachment: String, to: String) {
@@ -170,7 +159,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     internal fun put(
         owner: ScenarioPlayer, names: List<String>, zone: Zone, tapped: Boolean = false, sick: Boolean = false,
-        hidden: Boolean = false, counters: List<Pair<CounterKind, Int>> = emptyList(), top: Boolean = false,
+        counters: List<Pair<CounterKind, Int>> = emptyList(), top: Boolean = false,
         faceDown: Boolean = false,
     ): List<ObjectId> {
         setup()
@@ -179,23 +168,16 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             val card = CardId("${owner.id.value}.${++nextCard}")
             val id = ObjectId.Card(card, 0)
             val timestamp = ++state._timestampCounter
-            if (hidden) secrets[card] = definition
             val onBattlefield = zone == Zone.Battlefield
-            var o = GameObject(
+            val o = GameObject(
                 id = id, owner = owner.id, controller = if (onBattlefield || zone == Zone.Stack) owner.id else null,
-                zone = zone, definition = if (hidden) null else definition, tapped = tapped, faceDown = faceDown,
+                zone = zone, definition = definition, tapped = tapped, faceDown = faceDown,
                 counters = counters.map { (kind, n) -> CounterEntry(kind, n, timestamp) }
                     .sortedWith(compareBy({ it.timestamp }, { it.kind.toString() })),
                 timestamp = timestamp,
                 // Set up on the battlefield: controlled since before the game began, unless [sick] (CR 302.6)
                 controlSince = if (onBattlefield) ControlSince(owner.id, if (sick) state.turn.number else -1) else null,
             )
-            // In a viewer's game, what the viewer can't see is unknown (D60)
-            val viewer = state.viewer
-            if (viewer != null && !o.unknown && !Knowledge.mayKnow(o, viewer)) {
-                secrets[card] = definition
-                o = o.copy(definition = null)
-            }
             state._objects[id] = o
             val list = state.zone(zone, owner.id).toMutableList()
             if (top) list.add(0, id) else list.add(id)
@@ -275,20 +257,20 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     fun target(name: String): TargetRef =
         players.firstOrNull { it.id.value == name }?.let { TargetRef.Player(it.id) } ?: TargetRef.Object(preferred(name, inPlay))
 
-    internal fun definitionOf(o: GameObject): CardDefinition? = o.definition ?: secrets[o.card]
+    internal fun definitionOf(o: GameObject): CardDefinition = o.definition
 
-    internal fun nameOf(o: GameObject): String? = definitionOf(o)?.faces?.joinToString(" // ") { it.name }
+    internal fun nameOf(o: GameObject): String? = definitionOf(o).faces.joinToString(" // ") { it.name }
 
     fun player(id: PlayerId): ScenarioPlayer = players.first { it.id == id }
 
     // ---- Moves
 
-    /** Performs [input] and applies its changes (D58); answers random results and host fills at once (D25, D60). */
+    /** Performs [input] and applies its changes (D58); answers random results and named cards at once (D25). */
     fun perform(input: Input): Outcome {
         if (driving && input is Input.Answer) return driveAnswer(input)
         startMoves()
         val before = state.deepCopy()
-        val outcome = Engine.perform(state, input)
+        val outcome = Engine.perform(state, input, prefs)
         assertEquals(before, state, "Engine.perform changed the state it was given (D56)")
         outcome.changes.forEach { apply(it) }
         // Outcome.view, the working copy's view handed back, is the view of the state after the changes
@@ -296,10 +278,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val decision = state.pending?.decision
         return when {
             decision is Decision.Random -> perform(Input.Answer(decision.id, randomAnswer(decision.what)).also { throughJson(it) })
-            decision is Decision.HostFill -> perform(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, decision.named?.let { arcanum.engine.cards.Cards.definition(it) } ?: hostKnows(id))
-            })).also { throughJson(it) })
-            decision is Decision.OtherView -> hostOtherView(decision)?.let { perform(Input.Answer(decision.id, it).also { a -> throughJson(a) }) } ?: outcome
+            decision is Decision.NamedCard -> perform(Input.Answer(decision.id, namedCard(decision)).also { throughJson(it) })
             else -> outcome
         }
     }
@@ -311,11 +290,11 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val json = kotlinx.serialization.json.Json
         val restored = json.decodeFromString(GameState.serializer(), json.encodeToString(GameState.serializer(), state))
         assertEquals(state, restored, "The state waiting for the host changed through JSON")
-        assertEquals(Engine.perform(state, answer), Engine.perform(restored, answer), "Another outcome after JSON (D58)")
+        assertEquals(Engine.perform(state, answer, prefs), Engine.perform(restored, answer, prefs), "Another outcome after JSON (D58)")
         hostAnswersThroughJson++
     }
 
-    /** Set: every random result and host fill the harness answers is first checked through JSON ([throughJson]). */
+    /** Set: every random result and named card the harness answers is first checked through JSON ([throughJson]). */
     var jsonAtHostAnswers = false
 
     /** How many host answers were checked through JSON. */
@@ -342,24 +321,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     /** Answers the open decision. */
     fun answer(answer: Answer): Outcome {
         val open = pending ?: fail("Nothing to answer")
-        // In a viewer's state, the steps another player decides in their view (D60, D31): the host sends their answers
-        if (open is Decision.OtherView) return perform(Input.Answer(open.id, otherView(open, listOf(answer))))
         return perform(Input.Answer(open.id, answer))
-    }
-
-    /** As the host, the answer to [d]: the identities of its objects, and [answers] given in its player's view. */
-    internal fun otherView(d: Decision.OtherView, answers: List<Answer>): Answer.OtherView =
-        Answer.OtherView(d.objects.map { FilledObject(it, hostKnows(it)) }, answers)
-
-    /** What the harness, as the host, answers [d] by itself: the identities, with a random result when the steps wait for
-     * one ([Host.otherViewDecision]); null when they wait for a player's decision, which the scenario answers. */
-    private fun hostOtherView(d: Decision.OtherView): Answer.OtherView? {
-        val filled = otherView(d, emptyList())
-        return when (val next = Host.otherViewDecision(state, filled.filled)) {
-            null -> filled
-            is Decision.Random -> filled.copy(answers = listOf(randomAnswer(next.what)))
-            else -> null
-        }
     }
 
     /** The player with priority passes it (CR 117.3d). */
@@ -390,13 +352,13 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     /**
      * Runs an engine flow on a copy of the game as [Engine.perform] does (D56), then state-based actions and triggered
      * abilities until nothing happens (CR 704.3, 603.3), but gives no priority: for scenarios that put spells and
-     * abilities on the Stack directly and resolve them. Random results and host fills are answered at once.
+     * abilities on the Stack directly and resolve them. Random results and named cards are answered at once.
      */
     internal fun drive(block: (arcanum.engine.change.Recorder) -> arcanum.engine.Progress): Outcome {
         startMoves()
         driving = true
         val before = state.deepCopy()
-        val recorder = arcanum.engine.change.Recorder(state.deepCopy())
+        val recorder = arcanum.engine.change.Recorder(state.deepCopy(), prefs = prefs)
         var progress = block(recorder)
         if (progress is arcanum.engine.Progress.Done) progress = arcanum.engine.Perform.settle(recorder) ?: arcanum.engine.Progress.Done
         val waiting = progress as? arcanum.engine.Progress.Waiting
@@ -407,10 +369,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val decision = state.pending?.decision
         return when {
             decision is Decision.Random -> driveAnswer(Input.Answer(decision.id, randomAnswer(decision.what)))
-            decision is Decision.HostFill -> driveAnswer(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, decision.named?.let { arcanum.engine.cards.Cards.definition(it) } ?: hostKnows(id))
-            })))
-            decision is Decision.OtherView -> hostOtherView(decision)?.let { driveAnswer(Input.Answer(decision.id, it)) } ?: outcome
+            decision is Decision.NamedCard -> driveAnswer(Input.Answer(decision.id, namedCard(decision)))
             else -> outcome
         }
     }
@@ -460,7 +419,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     /** Declares no attackers or no blockers for every player the game waits for (CR 508.1, 509.1). */
     fun declareNone() {
-        val inputs = players.flatMap { p -> Engine.options(state, p.id) }.filter {
+        val inputs = players.flatMap { p -> Engine.options(state, p.id, prefs) }.filter {
             (it is Input.DeclareAttackers && it.attacks.isEmpty()) || (it is Input.DeclareBlockers && it.blocks.isEmpty())
         }
         if (inputs.isEmpty()) fail("Nobody has priority and no declaration is awaited in ${state.turn}")
@@ -472,25 +431,12 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return when (kind) {
             RandomKind.CoinFlip -> Answer.CoinFlip(random.nextBoolean())
             is RandomKind.Die -> Answer.DieRolls(List(kind.count) { random.nextInt(1, kind.sides + 1) })
-            is RandomKind.Objects -> if (kind.newIds) newIds(kind.among.shuffled(random).take(kind.count))
-                else Answer.RandomObjects(kind.among.shuffled(random).take(kind.count))
+            is RandomKind.Objects -> Answer.RandomObjects(kind.among.shuffled(random).take(kind.count))
         }
     }
 
-    /** As the host: new card ids for [cards] in this order, whose identities only the host keeps (D60). The ids may be
-     * of objects a step made before it waited (D29): the host goes by their cards. */
-    fun newIds(cards: List<ObjectId>): Answer.RandomObjects = Answer.RandomObjects(cards.map { id ->
-        val old = (id as ObjectId.Card).card
-        val card = CardId("${old.value.substringBefore('.')}.${++nextCard}")
-        secrets[card] = hostKnows(id)
-        ObjectId.Card(card, 0)
-    })
-
-    /** What the host knows [id] is (D60), by its card. */
-    internal fun hostKnows(id: ObjectId): CardDefinition {
-        val card = (id as? ObjectId.Card)?.card ?: fail("$id is no card")
-        return secrets[card] ?: state.current(card)?.definition ?: fail("The host knows nothing about $id")
-    }
+    /** As the host, the card [d] names (from the test cards). */
+    private fun namedCard(d: Decision.NamedCard): Answer.NamedCard = Answer.NamedCard(Cards.definition(d.name))
 
     // ---- Expectations
 

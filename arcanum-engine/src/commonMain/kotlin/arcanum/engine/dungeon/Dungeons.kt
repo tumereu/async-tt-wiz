@@ -1,5 +1,7 @@
 package arcanum.engine.dungeon
 
+import arcanum.engine.state.playerStatus
+import arcanum.engine.state.status
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Designation
@@ -40,30 +42,30 @@ import arcanum.engine.view.View
  * A dungeon card begins outside the game, among its owner's cards there ([arcanum.engine.state.PlayerState.outside]); venturing
  * brings one into the command zone with the venture marker on its topmost room, moves the marker along an arrow (its owner choosing
  * when there are several), or, from the bottommost room, completes the dungeon and starts a new one ([venture]). The marker is the
- * dungeon's memory under [ROOM]; each room's ability triggers as the marker moves into it, controlled by the dungeon's owner
+ * dungeon's [arcanum.engine.state.ObjectStatus.VentureRoom]; each room's ability triggers as the marker moves into it, controlled by the dungeon's owner
  * (CR 309.4c). A dungeon whose marker is on its bottommost room and whose room ability has left the Stack is removed from the game,
- * completing it (a state-based action, CR 309.6, [check]). Completed dungeons are counted in the player's ledger ([COMPLETED]).
+ * completing it (a state-based action, CR 309.6, [check]). Completed dungeons are counted in the player's
+ * [arcanum.engine.state.PlayerStatus.DungeonsCompleted].
  *
  * A dungeon that may only be entered by "venture into [quality]" (Undercity, [arcanum.api.Mechanic.OnlyVentureInto], CR 701.49d) is
  * never chosen by a plain venture. The initiative's three inherent triggered abilities (CR 726.2) have no source and are found here
  * ([inherent]).
  */
 internal object Dungeons {
-    const val ROOM: String = "\$venture-room"
-    const val COMPLETED: String = "dungeons-completed"
 
     /** "Undercity" (CR 205.3p, 701.49d): what the initiative ventures into. */
     val UNDERCITY: ObjectFilter = ObjectFilter.Sub(SubtypeRef.Literal(Subtype("Undercity")))
 
-    fun completed(state: GameState, player: PlayerId): Int = state.player(player).ledger[COMPLETED] ?: 0
+    fun completed(state: GameState, player: PlayerId): Int =
+        state.player(player).statuses.playerStatus<arcanum.engine.state.PlayerStatus.DungeonsCompleted>()?.count ?: 0
 
-    private fun isDungeon(o: GameObject): Boolean = o.definition?.faces?.firstOrNull()?.types?.contains(CardType.Dungeon) == true
+    private fun isDungeon(o: GameObject): Boolean = o.definition.faces.firstOrNull()?.types?.contains(CardType.Dungeon) == true
 
-    private fun rooms(o: GameObject): List<DungeonRoom> = o.definition?.faces?.firstOrNull()?.rooms.orEmpty()
+    private fun rooms(o: GameObject): List<DungeonRoom> = o.definition.faces.firstOrNull()?.rooms.orEmpty()
 
     /** The qualities a dungeon may only be entered by venturing into ("You can't enter this dungeon unless you "venture into
      * Undercity."", CR 701.49d): a plain venture can't choose it. */
-    private fun only(o: GameObject): List<ObjectFilter> = o.definition?.faces?.firstOrNull()?.abilities.orEmpty()
+    private fun only(o: GameObject): List<ObjectFilter> = o.definition.faces.firstOrNull()?.abilities.orEmpty()
         .filterIsInstance<Ability.Static>().flatMap { it.mechanics.filterIsInstance<arcanum.api.Mechanic.OnlyVentureInto>() }.map { it.quality }
 
     /** The dungeon [player] owns in the command zone (CR 309.3: at most one). */
@@ -71,7 +73,7 @@ internal object Dungeons {
         state.command.mapNotNull { state.obj(it) }.firstOrNull { it.owner == player && isDungeon(it) }
 
     /** The room [dungeon]'s venture marker is on. */
-    fun room(dungeon: GameObject): Int? = (dungeon.memory[ROOM] as? NamedValue.Number)?.value
+    fun room(dungeon: GameObject): Int? = dungeon.statuses.status<arcanum.engine.state.ObjectStatus.VentureRoom>()?.room
 
     /** CR 701.49a–d: [player] ventures into the dungeon; [into]: "venture into [quality]", the new dungeon's quality. */
     fun venture(act: Act, cause: Cause?, player: PlayerId, into: ObjectFilter?) {
@@ -93,8 +95,8 @@ internal object Dungeons {
     /** CR 309.2a, 701.49a, d: a dungeon card [player] owns from outside the game into the command zone, the marker on its topmost room. */
     private fun enter(act: Act, cause: Cause?, player: PlayerId, into: ObjectFilter?) {
         val outside = act.state.player(player).outside
-        // Only its owner may see their cards outside the game (D60): their choice is made in their view
-        act.fill(player, cause?.source, outside, "venture into the dungeon")
+        // Only its owner may see their cards outside the game: they look at them to choose
+        act.show(player, outside)
         val e = act.evaluator(Context(player, cause?.source, Bindings.EMPTY))
         val options = outside.filter { id ->
             val o = act.state.obj(id)
@@ -110,7 +112,7 @@ internal object Dungeons {
     /** The marker moves into [room], whose ability triggers (CR 309.4c). */
     private fun moveMarker(act: Act, player: PlayerId, dungeon: ObjectId, room: Int) {
         val o = act.state.objOrThrow(dungeon)
-        act.record(Change.Memory(dungeon, ROOM, o.memory[ROOM], NamedValue.Number(room)))
+        act.record(Change.ObjectStatusChanged(dungeon, o.statuses.status<arcanum.engine.state.ObjectStatus.VentureRoom>(), arcanum.engine.state.ObjectStatus.VentureRoom(room)))
         val r = rooms(o).getOrNull(room) ?: return
         arcanum.engine.trigger.Triggers.addWaiting(act.recorder, listOf(WaitingTrigger(o.owner,
             Ability.Triggered(arcanum.api.Trigger.On(emptyList()), r.instructions, text = r.name), null, dungeon)))
@@ -120,7 +122,7 @@ internal object Dungeons {
     private fun complete(act: Act, cause: Cause?, player: PlayerId, dungeon: GameObject) {
         val moved = Actions.move(act, cause, listOf(PlannedMove(dungeon.id, Zone.Outside, meanings = listOf(Meaning.LeftTheGame))))[dungeon.id]
         val before = completed(act.state, player)
-        act.record(Change.Ledger(player, COMPLETED, before, before + 1))
+        act.record(Change.PlayerStatusChanged(player, arcanum.engine.state.PlayerStatus.DungeonsCompleted(before).takeIf { before > 0 }, arcanum.engine.state.PlayerStatus.DungeonsCompleted(before + 1)))
         act.record(Change.Happened(GameEvent.CompletedDungeon(player, moved ?: dungeon.id)))
     }
 

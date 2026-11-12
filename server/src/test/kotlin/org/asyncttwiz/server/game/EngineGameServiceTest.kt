@@ -386,8 +386,8 @@ class EngineGameServiceTest {
             val keep = Answer.Option("Keep")
             val decision = s.pending?.decision
             val (player, input) = if (decision != null) Host.decider(s, decision.player).let { p ->
-                p to Engine.options(s, p).filterIsInstance<Input.Answer>().let { o -> o.firstOrNull { it.answer == keep } ?: o.first() }
-            } else s.players.flatMap { p -> Engine.options(s, p.id).filter { it !is Input.Concede }.map { p.id to it } }.let { o ->
+                p to Engine.options(s, p, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Answer>().let { o -> o.firstOrNull { it.answer == keep } ?: o.first() }
+            } else s.players.flatMap { p -> Engine.options(s, p.id, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filter { it !is Input.Concede }.map { p.id to it } }.let { o ->
                 o.firstOrNull { it.second is Input.PassPriority } ?: o.first()
             }
             val session = sessions.getValue(player)
@@ -611,7 +611,7 @@ class EngineGameServiceTest {
         builder.perform(Input.Cast(f.alice, alice.model.engine.player(f.alice).hand.first()))
         while (true) {
             val d = alice.model.engine.pending?.decision ?: break
-            val answers = Engine.options(alice.model.engine, f.alice).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
+            val answers = Engine.options(alice.model.engine, f.alice, org.asyncttwiz.protocol.game.EnginePreferences.of(alice.model.engine)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
             builder.perform(if (d is arcanum.engine.decision.Decision.Targets) answers.first {
                 (it.answer as Answer.Targets).chosen == listOf(arcanum.engine.state.TargetRef.Player(f.bob)) } else answers.first())
         }
@@ -698,9 +698,9 @@ class EngineGameServiceTest {
         val cards = model.engine.objects.values.filter { it.owner == f.alice }
         assertEquals(40, cards.size)
         assertTrue(cards.all { it.definition?.faces?.single()?.name == "Forest" })
-        // The game's secret is in the shared state; nobody's "Skip when I have no choice" is on there (I-D56 §13)
+        // The game's secret is in the shared state; nobody's "Skip when I have no choice" is on in the shared engine (I-D56 §13)
         assertTrue(model.table.secret.isNotEmpty())
-        assertTrue(model.engine.players.none { it.skipWhenNoChoice })
+        assertTrue(model.engine.players.none { org.asyncttwiz.protocol.game.EnginePreferences.of(model.engine).skipsWhenNoChoice(it.id) })
         assertNull(Engine.result(model.engine))
     }
 

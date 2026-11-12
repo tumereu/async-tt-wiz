@@ -30,10 +30,10 @@ internal fun Scenario.recordCoveredAbilities() {
     val definitions = HashMap<CardId, CardDefinition>()
     for (state in listOf(start, state)) for (o in state.objects.values) {
         val card = (o.id as? ObjectId.Card)?.card ?: continue
-        definitionOf(o)?.let { definitions[card] = it }
+        definitions[card] = definitionOf(o)
     }
     start.objects.values.filter { it.zone == Zone.Battlefield || it.zone == Zone.Hand }.forEach { o ->
-        definitionOf(o)?.faces?.flatMap { it.abilities }?.forEach { sink(Coverage.Present, it) }
+        definitionOf(o).faces.flatMap { it.abilities }.forEach { sink(Coverage.Present, it) }
     }
     /** The ability [key] of `AbilityOrigin.key` names on [source]: a printed one, or the keyword it is an expansion of. */
     fun printed(source: ObjectId?, key: String): Ability? {

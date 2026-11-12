@@ -116,7 +116,7 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
                 if (failure.status == 401) authenticationRequired(token)
                 throw failure
             }
-        })
+        }, namedCards = CatalogNamedCards { catalog.repository })
     val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)
     }

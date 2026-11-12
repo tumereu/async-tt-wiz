@@ -116,7 +116,7 @@ class EngineDeclaringAttackersTest {
         }
         assertEquals(TurnStep.BeginningOfCombat, kit.state().turn.step, "still before attacks")
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Next")
-        kit.playOn("Alice declaring attackers", bobActs = false) { Engine.options(kit.state(), kit.me).any { it is Input.DeclareAttackers } }
+        kit.playOn("Alice declaring attackers", bobActs = false) { Engine.options(kit.state(), kit.me, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.state())).any { it is Input.DeclareAttackers } }
 
         // While attackers are chosen nothing can be activated: no ability chips, every menu row greyed
         val plays = toolkit.cardPlays(kit.alice.play())!!
@@ -181,7 +181,7 @@ class EngineDeclaringAttackersTest {
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "To combat")
         kit.settle(bobActs = false)
         assertEquals(TurnStep.DeclareAttackers, kit.state().turn.step)
-        assertTrue(Engine.options(kit.state(), kit.me).any { it is Input.DeclareAttackers }, "Alice declares attackers")
+        assertTrue(Engine.options(kit.state(), kit.me, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.state())).any { it is Input.DeclareAttackers }, "Alice declares attackers")
     }
 
     // CMB-034, CMB-031: a change naming the lanes Automatum shows is taken ("Action could not be queued" before): Bob
@@ -210,7 +210,7 @@ class EngineDeclaringAttackersTest {
         k.settle()
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.playOn("Bob declaring blockers", bobActs = false) {
-            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         }
         fun tapOnBobsTable(card: String, copy: Boolean) {
             val item = k.scene(k.f.b).items.first { it.kind == TableItemKind.CARD && it.sourceId == card && it.visible.isNotEmpty() &&

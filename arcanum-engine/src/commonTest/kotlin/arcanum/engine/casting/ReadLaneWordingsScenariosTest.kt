@@ -1,5 +1,7 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.goadedBy
+import arcanum.engine.state.protector
 import arcanum.api.CounterKind
 import arcanum.api.Keyword
 import arcanum.api.TurnStep

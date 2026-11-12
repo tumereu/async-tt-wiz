@@ -13,7 +13,6 @@ import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.LoopStop
 import arcanum.engine.state.GameState
-import arcanum.engine.state.ObjectFacts
 import arcanum.engine.state.ObjectId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -88,7 +87,7 @@ internal object Loops {
             val s = recorder.state
             recorder.record(Change.Happened(GameEvent.MandatoryLoop))
             // CR 104.4b: the game is a draw; the remaining players leave it together (GameResult.Draw)
-            s.players.filterNot { it.lost }.map { it.id }.forEach { recorder.record(Change.Lost(it, false, true, arcanum.engine.setup.LossReason.Loop)) }
+            s.players.filterNot { it.lost }.map { it.id }.forEach { recorder.record(Change.Lost(it, null, arcanum.engine.setup.LossReason.Loop)) }
         }
         return Progress.Done
     }
@@ -96,7 +95,6 @@ internal object Loops {
     // ---- The key
 
     /** Per-turn counts of uses ("this turn" history) that a loop would raise each time round. */
-    private fun ObjectFacts.withoutCounts() = copy(activations = emptyList(), resolutions = emptyList(), triggers = emptyList(), modeTurns = emptyList())
 
     /** A card's definition by its face names only: a card's definition doesn't change, so its names say which it is. */
     private fun named(d: CardDefinition) = CardDefinition(d.layout, d.faces.map { FaceDefinition(it.name) })
@@ -120,12 +118,16 @@ internal object Loops {
             _battlefield = byTime(state.battlefield),
             _exile = byTime(state.exile),
             _command = byTime(state.command),
-            _players = state.players.map { it.copy(ledger = emptyMap()) }.toMutableList(),
+            // The statuses that count what happens over a game (speed, the Ring, dungeons) and day and night, as ledgers did
+            _players = state.players.map { p -> p.copy(statuses = p.statuses.filter { it is arcanum.engine.state.PlayerStatus.Designated }) }
+                .toMutableList(),
+            _statuses = emptyList(),
             _objects = state.objects.mapValuesTo(LinkedHashMap()) { (_, o) ->
-                o.copy(definition = o.definition?.let(::named), facts = o.facts.withoutCounts())
+                o.copy(definition = named(o.definition), uses = arcanum.engine.state.UseCounts.NONE)
             },
-            _stackItems = state.stackItems.mapValuesTo(LinkedHashMap()) { (_, item) -> item.copy(facts = item.facts?.withoutCounts()) },
-            _ledger = mutableMapOf(),
+            _ledgers = emptyMap(),
+            _emptyDraws = emptyList(),
+            _spent = emptyMap(),
             _log = mutableListOf(),
             _timestampCounter = 0,
             _inputCount = 0,

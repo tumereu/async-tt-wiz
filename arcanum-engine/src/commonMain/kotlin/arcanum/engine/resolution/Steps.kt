@@ -273,10 +273,10 @@ internal object Steps {
             // ltr chunk 10: "a creature type that hasn't been noted for this Saga": the types noted before are kept by the source
             Choice.CreatureTypeUnchosen -> {
                 val key = CHOSEN_NAMES + step.bind
-                val before = (source?.let { act.state.obj(it) }?.memory?.get(key) as? NamedValue.Subtypes)?.subtypes.orEmpty()
+                val before = (source?.let { act.state.obj(it) }?.linked?.get(key) as? NamedValue.Subtypes)?.subtypes.orEmpty()
                 val chosen = act.chooseSubtype(chooser, source, null)
                 require(chosen !in before) { "$chosen was noted before" }
-                source?.let { act.state.obj(it) }?.let { o -> act.record(Change.Memory(o.id, key, o.memory[key], NamedValue.Subtypes(before + chosen))) }
+                source?.let { act.state.obj(it) }?.let { o -> act.record(Change.Memory(o.id, key, o.linked[key], NamedValue.Subtypes(before + chosen))) }
                 NamedValue.SubtypeValue(chosen)
             }
             // ecl: one of the listed creature types
@@ -291,10 +291,10 @@ internal object Steps {
             }
             is Choice.Objects -> {
                 val from = choice.from?.let { e.objects(it) }
-                if (from != null) act.fill(chooser, source, from, "choose from among them")
+                if (from != null) act.show(chooser, from)
                 // I-D18: whether cards only the chooser sees decide what is offered (filled in first when unknown)
                 val pool = (from ?: e.inZonesOf(choice.filter)).filter { act.state.obj(it) != null }
-                val hidden = act.hiddenDecides(chooser, source, pool) { e.identityDecides(choice.filter, it) }
+                val hidden = act.hiddenDecides(chooser, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
                 val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
                 val chosen = act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
@@ -319,13 +319,13 @@ internal object Steps {
             // mh2: "Choose a card name that hasn't been chosen from among …": the names chosen before are kept by the source
             is Choice.CardNameAmong -> {
                 val key = CHOSEN_NAMES + step.bind
-                val before = (source?.let { act.state.obj(it) }?.memory?.get(key) as? NamedValue.Names)?.names.orEmpty()
+                val before = (source?.let { act.state.obj(it) }?.linked?.get(key) as? NamedValue.Names)?.names.orEmpty()
                 val options = if (choice.unchosen) choice.names.filter { it !in before } else choice.names
                 if (options.isEmpty()) return
                 val name = act.chooseOption(chooser, source, options)
                 require(name in options) { "Not one of $options" }
                 if (choice.unchosen) source?.let { act.state.obj(it) }?.let { o ->
-                    act.record(Change.Memory(o.id, key, o.memory[key], NamedValue.Names(before + name)))
+                    act.record(Change.Memory(o.id, key, o.linked[key], NamedValue.Names(before + name)))
                 }
                 NamedValue.Name(name)
             }
@@ -334,7 +334,7 @@ internal object Steps {
         if (step.remember) {
             val entering = scope.entering
             if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value))
-            else source?.let { id -> act.state.obj(id)?.let { o -> act.record(Change.Memory(id, step.bind, o.memory[step.bind], value)) } }
+            else source?.let { id -> act.state.obj(id)?.let { o -> act.record(Change.Memory(id, step.bind, o.linked[step.bind], value)) } }
         }
     }
 

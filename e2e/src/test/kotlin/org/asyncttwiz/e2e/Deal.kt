@@ -1,7 +1,6 @@
 package org.asyncttwiz.e2e
 
 import arcanum.engine.Engine
-import arcanum.engine.change.Changes
 import arcanum.engine.input.Input
 import arcanum.engine.setup.DeckCard
 import arcanum.engine.setup.Seat
@@ -28,12 +27,11 @@ class Deal private constructor(private val hands: Map<String, List<String>>, pri
         fun of(players: List<Pair<TestAccount, TestDeck>>, starter: TestAccount, secret: String): Deal {
             val seats = players.sortedBy { it.first.id }.map { (account, deck) ->
                 fun cards(prefix: String, list: List<Pair<TestCard, Int>>) = list.flatMap { (card, n) ->
-                    List(n) { i -> DeckCard(CardId("${account.id}/$prefix${card.digest}/$i"), GameCards.parse(card.definition).definition) }
+                    List(n) { i -> DeckCard(CardId("${account.id}/$prefix${card.digest}/$i"), checkNotNull(GameCards.parse(card.definition).definition) { "Unreadable ${card.digest}" }) }
                 }
                 Seat(PlayerId(account.id), cards("", deck.entries), cards("side/", deck.side) + cards("maybe/", deck.maybe))
             }
             val engine = Engine.newGame(seats)
-            for (p in engine.players.toList()) engine.apply(Changes.skipWhenNoChoice(engine, p.id, false))
             val model = GameModel(engine, TableState(secret = LineRandom.secret(java.util.HexFormat.of().parseHex(secret))))
             EventBuilder(model, "deal", "root", starter.id).run {
                 perform(Input.StartGame(StartOptions(startingPlayer = PlayerId(starter.id), simultaneousMulligans = true, freeFirstMulligan = true)))

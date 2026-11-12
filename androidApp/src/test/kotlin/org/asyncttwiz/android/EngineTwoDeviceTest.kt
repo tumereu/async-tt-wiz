@@ -172,7 +172,7 @@ class EngineTwoDeviceTest {
     private fun answer(game: EngineGame, stop: GameDevice.Status.Stopped, rnd: Random) {
         val d = game.device
         val s = d.model.engine
-        val others = Engine.options(s, d.me).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
+        val others = Engine.options(s, d.me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
             Authority.mayMake(s, it, d.me, d.model.table) && it !is Input.DeclareAttackers }
         if (others.isEmpty() || rnd.nextInt(10) < 7) game.act(stop.assumed)
         else game.send(flow(s, d.me, others.random(rnd), rnd))
@@ -191,13 +191,13 @@ class EngineTwoDeviceTest {
             val owed = AutomatumOpening.bottomOwed(s, me.value)
             val hand = s.player(me).hand.mapNotNull { (it as? ObjectId.Card)?.card?.value }
             if (owed > 0) { if (game.bottom(hand.take(owed)) is GameDevice.Acted.Sent) return }
-            val mulligans = s.log.count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
+            val mulligans = arcanum.engine.Inspect.events(s).count { l -> (l.change as? arcanum.engine.change.Change.Happened)?.event.let {
                 it is arcanum.engine.change.GameEvent.Mulliganed && it.player == me } }
             if (mulligans < 2 && rnd.nextInt(5) == 0 && game.mulligan() is GameDevice.Acted.Sent) return
             if (game.keep() is GameDevice.Acted.Sent) return
         }
         if (s.priority.holder == me && s.pending == null && rnd.nextInt(14) == 0) { game.endTurn(); return }
-        val listed = Engine.options(s, me).filter { it !is Input.Concede && Authority.mayMake(s, it, me, d.model.table) }
+        val listed = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filter { it !is Input.Concede && Authority.mayMake(s, it, me, d.model.table) }
         val attackers = listed.any { it is Input.DeclareAttackers }
         val blockers = listed.any { it is Input.DeclareBlockers }
         when {
@@ -250,12 +250,12 @@ class EngineTwoDeviceTest {
         val inputs = mutableListOf(first)
         var input = first
         repeat(20) {
-            val outcome = try { Engine.perform(copy, input) } catch (_: RuntimeException) { return inputs.dropLast(1).ifEmpty { listOf(first) } }
+            val outcome = try { Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)) } catch (_: RuntimeException) { return inputs.dropLast(1).ifEmpty { listOf(first) } }
             outcome.changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Host.decider(copy, d.player) != me) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-                else Engine.options(copy, me).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.randomOrNull(rnd) ?: return inputs
+                else Engine.options(copy, me, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.randomOrNull(rnd) ?: return inputs
             inputs += input
         }
         return inputs

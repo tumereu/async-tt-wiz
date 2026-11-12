@@ -70,4 +70,17 @@ class CatalogNamesTest {
     fun aOneNamedCardOffersItsNameAndATokenNone() {
         assertEquals(listOf("Dawn Bear"), catalogNames(listOf(plain, token), "dawn", ObjectFilter.Any))
     }
+
+    // STK-062, CR 707.12: "create a copy of the card with the chosen name": the card of that name in the records, built as a deck's card
+    // is (its card data through the parser), never a token of that name
+    @Test
+    fun aNamedCardIsTheRecordsCardOfThatName() {
+        val bear = CatalogCard("bear", "Dawn Bear", listOf(CatalogPrinting(id = "bear/1", name = "Dawn Bear", set = "AAA", number = "2",
+            language = "English", side = "", scryfallId = null, token = false, otherFaces = emptyList(),
+            json = """{"type":"Creature — Bear","manaCost":"{1}{G}","power":"2","toughness":"2","text":""}""")))
+        val definition = kotlin.test.assertNotNull(namedCardDefinition(listOf(token, bear), null, "Dawn Bear"))
+        assertEquals("Dawn Bear", definition.faces.single().name)
+        kotlin.test.assertTrue(CardType.Creature in definition.faces.single().types)
+        assertEquals(null, namedCardDefinition(listOf(token), null, "Dawn Soldier"), "no token")
+    }
 }

@@ -1,5 +1,11 @@
 package arcanum.engine.view
 
+import arcanum.engine.state.castOrNone
+import arcanum.engine.state.fixedCopies
+import arcanum.engine.state.gainedInCopying
+import arcanum.engine.state.mergedAbove
+import arcanum.engine.state.mergedBelow
+import arcanum.engine.state.turnedFaceUp
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -107,13 +113,12 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             }
         }
         val o = state.obj(id) ?: return null
-        // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is, so a face-down
-        // permanent the caller can't see (D60) is a 2/2 too
+        // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is
         if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
-        val definition = o.definition ?: return null
+        val definition = o.definition
         var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying).let { Worked(it, inEffect(it, o)) }
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
-        if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
+        if (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             worked = worked.map(::prototyped)
         // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all, a
         // copy effect timestamped as the objects merged (the latest merge)
@@ -136,7 +141,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** The faces of [values] whose characteristics [o] has: the one up, and what it gained in copying, in neither half. */
     private fun inEffect(values: CopiableValues, o: GameObject): List<IndexedFace> = when {
         // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
-        values.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> values.faces.mapIndexed { i, f -> IndexedFace(i, f) }
+        values.layout == Layout.Split && (o.zone != Zone.Stack || o.castOrNone.fused) -> values.faces.mapIndexed { i, f -> IndexedFace(i, f) }
         else -> listOfNotNull(values.faces.getOrNull(values.up)?.let { IndexedFace(values.up, it) })
     } + gainedPart(values)
 
@@ -145,7 +150,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
      * whether it has them; with another card on top that card's face holds them all. It is one object, not double-faced (CR 701.27g). */
     private fun merged(o: GameObject, own: Worked): Worked {
         fun part(p: arcanum.engine.state.MergedPart): IndexedFace? =
-            p.definition?.faces?.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
+            p.definition.faces.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
         val top = o.mergedAbove.firstOrNull()?.let { listOfNotNull(part(it)) } ?: own.faces
         val others = (o.mergedAbove.drop(1) + o.mergedBelow).mapNotNull(::part) +
             (if (o.mergedAbove.isEmpty()) emptyList() else own.faces)
@@ -168,7 +173,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** Static abilities with copy effects among the permanents' printed abilities (an ability a copy effect gives isn't one). */
     private val staticCopies: List<StaticCopy> by lazy {
         state.battlefield.mapNotNull { state.obj(it) }.filter { !it.phasedOut && !it.faceDown }.flatMap { o ->
-            o.definition?.faces?.getOrNull(o.face)?.abilities.orEmpty().mapIndexedNotNull { i, a ->
+            o.definition.faces.getOrNull(o.face)?.abilities.orEmpty().mapIndexedNotNull { i, a ->
                 (a as? Ability.Static)?.let { s -> s.mechanics.filterIsInstance<Mechanic.CopyOf>().firstOrNull()?.let { StaticCopy(o, i, s, it) } }
             }
         }
@@ -299,7 +304,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
          * once it has been turned face up: face down again, it is a plain 2/2). */
         fun faceDown(o: arcanum.engine.state.GameObject): FaceDefinition =
             if (arcanum.api.ObjectMark.Cloaked in o.marks ||
-                (o.facts.alternative?.keyword == arcanum.api.Keyword.Disguise.Kind && !o.facts.turnedFaceUp)) FACE_DOWN_WARD
+                (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Disguise.Kind && !o.turnedFaceUp)) FACE_DOWN_WARD
             else FACE_DOWN
 
         /** CR 702.103b: "becomes an Aura enchantment and gains enchant creature" (no longer a creature, nor of a creature

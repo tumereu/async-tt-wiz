@@ -1,5 +1,6 @@
 package arcanum.engine.casting
 
+import arcanum.engine.state.gained
 import arcanum.api.ObjectMark
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -42,7 +43,7 @@ class ForetellTest {
         val o = state.objOrThrow(card(tidings))
         assertTrue(o.faceDown)
         assertTrue(ObjectMark.Foretold in o.marks)
-        assertEquals(state.turn.number, o.facts.gained(ObjectMark.Foretold)?.turn)
+        assertEquals(state.turn.number, o.gained(ObjectMark.Foretold)?.turn)
         // CR 117.3c: a special action keeps priority
         assertEquals(alice.id, state.priority.holder)
     }
@@ -106,30 +107,5 @@ class ForetellTest {
         val id = card(tidings)
         assertTrue(id in Host.visible(state, alice.id))
         assertFalse(id in Host.visible(state, bob.id))
-    }
-
-    // D60: in another player's view the card is foretold without being revealed, and stays unknown in exile
-    @Test
-    fun foretoldUnseenInAnotherPlayersView() = scenario {
-        alice.battlefield("Island", "Island")
-        alice.hand(tidings)
-        viewer(bob)
-        val id = card(tidings)
-        perform(Input.Activate(alice.id, id, Foretell.RULE))
-        if (pending is Decision.ManaPayment) answer(arcanum.engine.decision.Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
-        val o = state.objOrThrow(card(tidings))
-        assertEquals(Zone.Exile, o.zone)
-        assertTrue(o.unknown && o.faceDown && ObjectMark.Foretold in o.marks)
-    }
-
-    // D60: in its owner's view the foretold card stays known
-    @Test
-    fun foretoldKnownToItsOwner() = scenario {
-        alice.battlefield("Island", "Island")
-        alice.hand(tidings)
-        viewer(alice)
-        alice.takesSpecialAction(tidings, "foretell")
-        val o = state.objOrThrow(card(tidings))
-        assertTrue(!o.unknown && o.faceDown)
     }
 }

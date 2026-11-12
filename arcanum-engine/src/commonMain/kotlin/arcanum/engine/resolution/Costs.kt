@@ -49,7 +49,7 @@ internal object Costs {
     /**
      * Whether [payer] being able to pay [cost] depends on cards only they may see (I-D18): a part that chooses cards in a
      * hidden zone by what they are ("discard a land card") could go either way, and every part that can't be paid is one
-     * of those. Unknown cards it looks at are filled in for [payer] first (D60).
+     * of those.
      */
     fun hiddenDecides(scope: Scope, payer: PlayerId, cost: Cost): Boolean {
         val deciding = cost.parts.filter { hiddenDecides(scope, payer, it) }
@@ -68,7 +68,7 @@ internal object Costs {
     private fun poolDecides(scope: Scope, payer: PlayerId, what: CostObjects, zone: Zone): Boolean {
         val choose = what as? CostObjects.Choose ?: return false
         val e = scope.eval()
-        return scope.act.hiddenDecides(payer, scope.self, pool(scope, payer, zone, choose.filter)) { e.identityDecides(choose.filter, it) }
+        return scope.act.hiddenDecides(payer, pool(scope, payer, zone, choose.filter)) { e.identityDecides(choose.filter, it) }
     }
 
     private fun namesOwner(filter: arcanum.api.ObjectFilter): Boolean = when (filter) {
@@ -236,7 +236,7 @@ internal object Costs {
                     val value = NamedValue.Objects(moved.values.toList())
                     val entering = scope.entering
                     if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(key, value))
-                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.memory[key], value)) } }
+                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.linked[key], value)) } }
                 }
             }
             is CostPart.ReturnToHand -> {
@@ -246,7 +246,7 @@ internal object Costs {
             }
             is CostPart.Reveal -> {
                 val chosen = choose(scope, payer, part.what, Zone.Hand, "reveal")
-                act.fill(payer, scope.self, chosen, "revealed", public = true)
+                act.show(payer, chosen, public = true)
                 act.record(Change.Happened(GameEvent.Revealed(payer, chosen)))
                 scope.bind(part.bind, NamedValue.Objects(chosen))
             }

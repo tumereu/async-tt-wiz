@@ -41,7 +41,7 @@ class ModeChangeAtStopTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, card(bobs.model, bobs.model.engine.player(bob).hand, drone))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
-            else Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
         })
     }
 
@@ -49,7 +49,7 @@ class ModeChangeAtStopTest {
     private fun DeviceSim.bobActivatesDrone() {
         val bobs = device(bob)
         val source = card(bobs.model, bobs.model.engine.battlefield, drone)
-        val activate = Engine.options(bobs.model.engine, bob).filterIsInstance<Input.Activate>().first { it.source == source }
+        val activate = Engine.options(bobs.model.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(bobs.model.engine)).filterIsInstance<Input.Activate>().first { it.source == source }
         assertIs<GameDevice.Acted.Sent>(bobs.act(activate))
     }
 

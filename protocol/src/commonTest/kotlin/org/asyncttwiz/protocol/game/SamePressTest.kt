@@ -32,7 +32,7 @@ class SamePressTest {
     private fun first(player: PlayerId): (GameModel) -> Input? = { m ->
         val d = m.engine.pending?.decision
         if (d == null || d is Decision.Random || d.player != player) null
-        else Engine.options(m.engine, player).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+        else Engine.options(m.engine, player, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
     }
 
     /**
@@ -59,7 +59,7 @@ class SamePressTest {
             assertEquals(GameDevice.Status.YourMove, a.status, "back in her main phase after $name")
         }
         a.settings(PlaySettings().assuming(assume))
-        val activate = Engine.options(a.model.engine, alice).filterIsInstance<Input.Activate>().single()
+        val activate = Engine.options(a.model.engine, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(a.model.engine)).filterIsInstance<Input.Activate>().single()
         assertIs<GameDevice.Acted.Sent>(a.act(activate, follow = first(alice)))
         return sim
     }

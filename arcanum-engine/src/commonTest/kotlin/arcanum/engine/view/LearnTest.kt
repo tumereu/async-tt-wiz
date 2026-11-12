@@ -187,32 +187,4 @@ class LearnTest {
         }
         assertEquals(emptyList(), revealed())
     }
-
-    // CR 701.48a, CR 400.2, D60: in Bob's view her cards outside the game are unknown; he learns the Lesson she reveals and nothing else
-    @Test
-    fun theOtherPlayerLearnsOnlyTheRevealedLesson() = scenario {
-        viewer(bob)
-        val (_, second, other) = outside(primer, treatise, bear)
-        alice.hand(study)
-        alice.casts(study)
-        allPass()
-        var guard = 6
-        while (pending != null && guard-- > 0) {
-            val d = pending
-            val asked = if (d is Decision.OtherView) Host.otherViewDecision(state, otherView(d, emptyList()).filled) else d
-            when (asked) {
-                is Decision.ChooseOption -> alice.answers(lessonOption)
-                is Decision.ChooseObjects -> alice.chooses(treatise)
-                null -> break
-                else -> kotlin.test.fail("Unexpected: $asked")
-            }
-        }
-        assertNull(pending, "$pending")
-        val seen = applied.filterIsInstance<Change.Filled>().mapNotNull { it.after.definition?.faces?.first()?.name }.toSet()
-        assertTrue(hostKnows(second).faces.first().name in seen, "the revealed Lesson: $seen")
-        assertTrue(primer !in seen && bear !in seen, "nothing of the rest: $seen")
-        assertTrue(state.player(alice.id).outside.all { state.objOrThrow(it).unknown }, "the rest still unknown")
-        assertTrue(other in state.player(alice.id).outside)
-        assertEquals(1, state.player(alice.id).hand.size)
-    }
 }

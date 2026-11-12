@@ -124,16 +124,13 @@ class Chunk11LookScryAndMillScenariosTest {
     fun cerebralScan() = scenario {
         alice.hand("Cerebral Scan")
         alice.library("Forest")
-        bob.hiddenHand("Storm Spark", "Denial")
+        bob.hand("Storm Spark", "Denial")
 
         alice.casts("Cerebral Scan", target = "bob")
         expect { alice.life shouldBe 18 }
         allPass()
 
         expect { alice.hand.names shouldBe listOf("Forest") }
-        // D60: the host filled in the looked-at cards
-        assertTrue(state.objOrThrow(card("Storm Spark")).definition != null)
-        assertTrue(state.objOrThrow(card("Denial")).definition != null)
     }
 
     /** Thought Siphon: target player mills two; draw a card. */

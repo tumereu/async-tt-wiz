@@ -24,37 +24,24 @@ data class PlayerState(
     val counters: List<CounterEntry> = emptyList(),
     /** Mana added and not yet spent (CR 106.4). */
     val manaPool: List<ManaUnit> = emptyList(),
-    /** Lost the game (CR 104.3); kept in turn order, skipped by turns and priority. */
-    val lost: Boolean = false,
-    /** Why they lost ([lost]), null while they haven't; set and taken back with [arcanum.engine.change.Change.Lost]. */
-    val lossReason: arcanum.engine.setup.LossReason? = null,
-    val designations: List<Designation> = emptyList(),
+    /** Why they lost the game (CR 104.3); null while they haven't. A player who lost is kept in turn order, skipped by turns and
+     * priority. Set and taken back with [arcanum.engine.change.Change.Lost]. */
+    val loss: arcanum.engine.setup.LossReason? = null,
     val library: List<ObjectId> = emptyList(),
     val hand: List<ObjectId> = emptyList(),
     val graveyard: List<ObjectId> = emptyList(),
     /** Outside the game: sideboard, companion (CR 400.11). */
     val outside: List<ObjectId> = emptyList(),
-    /** Player-scoped ledger entries (D22), by key. */
-    val ledger: Map<String, Int> = emptyMap(),
-    /**
-     * "Skip when I have no choice" (I-D18), on by default: the engine skips this player's questions that leave nothing
-     * to choose, and [arcanum.engine.Host.shouldPassFor] says to pass priority for them when they can do nothing.
-     * Off: a skip or a pass that depends on cards only this player may see (their hand, face-down cards) is asked
-     * instead, so how fast the game goes on tells the other players nothing about those cards. Skips that depend on
-     * nothing hidden stay automatic either way (P5). A host changes it with [arcanum.engine.change.Change.SkipWhenNoChoice].
-     */
-    val skipWhenNoChoice: Boolean = true,
-    /**
-     * The library cards whose place some player knows since the library was last shuffled (CR 401.2: the order is
-     * otherwise unknown): 0 for a card whose exact place is known (put on the top, the bottom or Nth from the top, looked
-     * at or revealed where it lies, put back in a chosen order), a group number above 0 for cards put in together in a
-     * random order (their places are known as a group, not which is where). Cards without an entry are the unknown part.
-     * Entries of cards that left the library are dropped when it next changes. Kept by the engine
-     * ([arcanum.engine.change.Change.LibraryPlaces]); a host reorders only unknown parts ([arcanum.engine.Host.unknownOrder]).
-     */
-    val libraryPlaces: Map<ObjectId, Int> = emptyMap(),
+    /** The states of mechanics the engine codes by hand ([PlayerStatus]), in key order, only those not at their default. */
+    val statuses: List<PlayerStatus> = emptyList(),
 ) {
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
+
+    /** Lost the game ([loss]). */
+    val lost: Boolean get() = loss != null
+
+    /** Their designations ([PlayerStatus.Designated]): the monarch, the initiative, … */
+    val designations: List<Designation> get() = statuses.mapNotNull { (it as? PlayerStatus.Designated)?.designation }
 }
 
 /**

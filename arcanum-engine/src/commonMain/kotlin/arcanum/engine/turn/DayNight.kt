@@ -20,20 +20,28 @@ import arcanum.engine.state.GameState
 import arcanum.engine.view.View
 
 /**
- * Day and night (CR 731) with daybound and nightbound (CR 702.145): the game's designation is kept in its ledger
- * ([Evaluator.DAY_NIGHT]: 0 neither, [Evaluator.DAY], [Evaluator.NIGHT]). It becomes day when a player controls a daybound
+ * Day and night (CR 731) with daybound and nightbound (CR 702.145): the game's designation is its
+ * [arcanum.engine.state.GameStatus.DayNight] (read here as 0 neither, [Evaluator.DAY], [Evaluator.NIGHT]). It becomes day when a player controls a daybound
  * permanent and it's neither (702.145d), night when a nightbound one and no daybound one (702.145g); in the untap step the previous
  * turn's spells may change it (731.2); daybound permanents transform as it becomes night and nightbound ones as it becomes day, at
  * once (702.145c, f), and a daybound card enters transformed at night (702.145b).
  */
 internal object DayNight {
-    fun of(state: GameState): Int = state.ledger[Evaluator.DAY_NIGHT] ?: 0
+    fun of(state: GameState): Int = when (state.statuses.firstOrNull { it is arcanum.engine.state.GameStatus.DayNight }
+        ?.let { (it as arcanum.engine.state.GameStatus.DayNight).night }) {
+        true -> Evaluator.NIGHT
+        false -> Evaluator.DAY
+        null -> 0
+    }
+
+    private fun status(value: Int): arcanum.engine.state.GameStatus? =
+        if (value == 0) null else arcanum.engine.state.GameStatus.DayNight(night = value == Evaluator.NIGHT)
 
     /** It becomes day or night; "day becomes night" and "night becomes day" are events (CR 731.1a). */
     fun set(recorder: Recorder, value: Int) {
         val before = of(recorder.state)
         if (before == value) return
-        recorder.record(Change.Ledger(null, Evaluator.DAY_NIGHT, before, value))
+        recorder.record(Change.GameStatusChanged(status(before), status(value)))
         if (before != 0) recorder.record(Change.Happened(GameEvent.DayNightChanged(night = value == Evaluator.NIGHT)))
     }
 
@@ -64,7 +72,7 @@ internal object DayNight {
         (if (night) daybound.filter { state.obj(it)?.face == 0 } else emptyList()).plus(
             if (day) nightbound.filter { state.obj(it)?.face == 1 } else emptyList()).forEach { id ->
             val o = state.objOrThrow(id)
-            if (o.definition?.layout != Layout.Transform || o.definition.faces.size < 2) return@forEach
+            if (o.definition.layout != Layout.Transform || o.definition.faces.size < 2) return@forEach
             if (view[id]?.has { it == arcanum.api.Mechanic.CantTransform } == true) return@forEach // CR 701.27, 101.2
             act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
             act.record(Change.Restamped(id, o.timestamp, state.nextTimestamp()))
@@ -72,6 +80,6 @@ internal object DayNight {
     }
 
     /** CR 702.145b: at night, a daybound double-faced card enters transformed. */
-    fun entersTransformed(state: GameState, o: GameObject): Boolean = of(state) == Evaluator.NIGHT && o.definition?.layout == Layout.Transform &&
+    fun entersTransformed(state: GameState, o: GameObject): Boolean = of(state) == Evaluator.NIGHT && o.definition.layout == Layout.Transform &&
         o.face == 0 && o.definition.faces.firstOrNull()?.abilities.orEmpty().any { it == Keyword.Daybound }
 }

@@ -286,7 +286,7 @@ object WhoActs {
     }
 
     private fun logged(state: GameState, event: (arcanum.engine.change.GameEvent) -> Boolean): Boolean =
-        state.log.any { ((it.change as? Change.Happened)?.event)?.let(event) == true }
+        arcanum.engine.Inspect.events(state).any { ((it.change as? Change.Happened)?.event)?.let(event) == true }
 
     private const val KEEP = "Keep"
 }
@@ -301,7 +301,7 @@ object Stops {
      * public judgement), and it isn't their [stop]: their own main phases wait for them even with nothing to do (owner,
      * smoke 2026-11-04: a turn is never passed away without its player, STK-036). */
     fun forcedPass(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): Boolean =
-        Host.shouldPassFor(state, player, view) && !stop(state, player)
+        Host.shouldPassFor(state, player, view, EnginePreferences.of(state)) && !stop(state, player)
 
     /** [forcedPass] on [model]'s engine state, with the pass check it keeps for the state ([GameModel.passCheck]). */
     fun forcedPass(model: GameModel, player: PlayerId): Boolean = model.passCheck(player).asSet && !stop(model.engine, player)

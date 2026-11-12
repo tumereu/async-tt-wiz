@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /** Where abilities function (CR 113.6), rules applied that aren't characteristics (D24, CR 613.10, 613.11), summoning
- * sickness (CR 302.6) and unknown objects (D60). */
+ * sickness (CR 302.6). */
 class ViewRulesTest {
     // CR 113.6: abilities of permanents function on the battlefield only; the anthem in the graveyard does nothing
     @Test
@@ -60,7 +60,7 @@ class ViewRulesTest {
     fun replacementsAreGameRules() = scenario {
         alice.battlefield("Nutcracker, Squirrel Marshal")
         expect {
-            val rule = view.rules.single { it.mechanic is Mechanic.Replacement }
+            val rule = view.game.rules.single { it.mechanic is Mechanic.Replacement }
             rule.source shouldBe card("Nutcracker, Squirrel Marshal").id
             rule.controller shouldBe alice.id
         }
@@ -89,15 +89,6 @@ class ViewRulesTest {
         }
     }
 
-    // D60: an unknown object has no characteristics in the view
-    @Test
-    fun unknownObjectsHaveNoCharacteristics() = scenario {
-        bob.hiddenHand("Storm Spark")
-        expect {
-            "Storm Spark".view.characteristics shouldBe null
-            "Storm Spark".zone shouldBe Zone.Hand
-        }
-    }
 
     // CR 613: the view is a pure function of the state (P3): it changes nothing and gives the same answer twice
     @Test

@@ -17,8 +17,9 @@ object LastKnown {
     /** Whether [id], gone from [state], was last in a public zone face up: what it was is public. False while it exists. */
     fun public(state: GameState, id: ObjectId): Boolean {
         if (state.obj(id) != null) return false
-        for (i in state.log.indices.reversed()) {
-            val move = (state.log[i].change as? Change.ZoneChange)?.moves?.firstOrNull { it.before.id == id } ?: continue
+        val log = arcanum.engine.Inspect.events(state)
+        for (i in log.indices.reversed()) {
+            val move = (log[i].change as? Change.ZoneChange)?.moves?.firstOrNull { it.before.id == id } ?: continue
             return move.before.zone in PUBLIC && !move.before.faceDown
         }
         // Removed rather than moved (a token or copy that ceased to exist), or known only from a Stack item's snapshot

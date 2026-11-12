@@ -57,7 +57,7 @@ class FdnChunk10bLoseLifeScenariosTest {
     fun curatorGivesTheChosenPileToHandAndTheRestToGraveyard() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island")
         alice.hand(curator)
-        alice.library("Forest", "Swamp", "Plains", "Mountain", "Market Bear", hidden = true)
+        alice.library("Forest", "Swamp", "Plains", "Mountain", "Market Bear")
         alice.casts(curator)
         resolveAll()
         alice.chooses("Forest", "Swamp")

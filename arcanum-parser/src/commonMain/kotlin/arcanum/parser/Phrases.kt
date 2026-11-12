@@ -77,7 +77,7 @@ internal object Filters {
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
         }
-        // blb chunk 12: "other creature you control that's a token or a Rabbit"
+        // blb chunk 12: "other creature you control that's a token or a Rabbit"; rvr chunk 02: "card that's an instant or sorcery"
         THATS_A_OR_A.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(noun(m.groupValues[2]) ?: return null, noun(m.groupValues[3]) ?: return null)))
         }
@@ -479,7 +479,7 @@ internal object Filters {
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
-    private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
+    private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
     // blb chunk 09

@@ -6,6 +6,13 @@ import arcanum.api.Objects
 /** Wordings first met in Ravnica Remastered (RVR). */
 internal object Rvr {
     // rvr chunk 01: Unbreakable Formation (addendum)
+    // rvr chunk 02: Glowspore Shaman
+    val MAY_PUT_FROM_GRAVEYARD_ON_TOP = Regex("""You may put an? (.+?) from your graveyard on top of your library\.""")
+    // rvr chunk 02: Aurelia, Exemplar of Justice
+    val UNTIL_EOT_THAT_CREATURE = Regex("""Until end of turn, that creature (.+)\.""")
+    val CLAUSE_LIST = Regex(""", and |, """)
+    val GETS_PT = Regex("""gets ([+-]\d+)/([+-]\d+)""")
+    val GAINS_IF_ITS = Regex("""gains ([a-z ]+?)(?: if it's (\w+))?""")
     val IF_COUNTER_ON_EACH_OF_THOSE_AND_THEY_GAIN = Regex("""If (.+?), put an? (\S+) counter on each of those creatures and they gain ([a-z ,]+) until end of turn\.""")
 }
 

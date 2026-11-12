@@ -53,7 +53,7 @@ internal object Dft {
     // dft chunk 07
     val MAY_PAY_IF_YOU_DO_COPY_IT = Regex("""You may pay (\{[^}]+\})\. If you do, copy it\.""")
     val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
-    val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token attacks this combat if able\.""")
+    val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token (?:gains ([a-z ,]+) until end of turn and )?attacks this combat if able\.""")
     val DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED = Regex("""(.+?) deals (\d+) damage to each player who doesn't have max speed\.""")
     val GET_X_WHERE = Regex("""(.+) get \+X/\+(\d+), where X is (.+)\.""")
     val COST_X_LESS_WHERE = Regex("""(.+) cost \{X\} less to cast, where X is (.+)\.""")
@@ -95,7 +95,7 @@ internal object Dft {
     val MAY_SEARCH_LIBRARY_AND_OR_GRAVEYARD_REVEAL_HAND = Regex("""You may search your library and/or graveyard for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
     val EACH_ATTACKING_AN_OPPONENT_HAS = Regex("""Each (\w+) that's attacking one of your opponents has ([a-z ,]+)\.""")
     val MAY_PUT_FROM_HAND_IF_ARTIFACT_COUNTERS = Regex("""You may put an? (.+?) card from your hand onto the battlefield\. If you put an artifact onto the battlefield this way, put (\w+) (\S+) counters on it\.""")
-    val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control\.""")
+    val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control( with .+)?\.""")
     val RETURN_UP_TO_ONE_EACH_TO_HAND = Regex("""Return (up to one target .+) from your graveyard to your hand\.""")
     val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other types\.""")
     // dft chunk 15

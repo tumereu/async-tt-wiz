@@ -229,3 +229,9 @@ fun equip(cost: String): Keyword = Keyword.Equip(manaCost(cost))
 val hellbent: Condition = Condition.Not(Condition.Exists(and(inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
 val untapped: ObjectFilter = not(tapped)
 fun yourUpkeep(): Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.You)
+
+// ---- rvr chunk 02: fight, hellbent, mentor, mill, overload
+/** "you don't control" */
+val notYours: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You))
+/** Overload [cost] with the overloaded spell's [steps] (CR 702.96b). */
+fun overload(cost: String, vararg steps: Step) = Keyword.Overload(manaCost(cost), Instructions(steps = steps.toList()))

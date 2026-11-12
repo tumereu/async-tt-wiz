@@ -272,10 +272,11 @@ internal object EclPhrases {
                 manaValue(m.groupValues[1]) ?: return null)
             return EventPattern.Cast(spell, PlayerFilter.You)
         }
-        // ecl chunk 07: "this creature deals combat damage to a player or planeswalker" (CR 510.2)
+        // ecl chunk 07: "this creature deals combat damage to a player or planeswalker" (CR 510.2); mom chunk 01: "… or battle" (CR 310.6)
         DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER.matchEntire(text)?.let { m ->
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return null
-            return EventPattern.Damage(subject, arcanum.api.RecipientFilter(objects = ObjectFilter.Type(CardType.Planeswalker), players = PlayerFilter.Any), combat = true)
+            val kind = if (m.groupValues[2] == "battle") CardType.Battle else CardType.Planeswalker
+            return EventPattern.Damage(subject, arcanum.api.RecipientFilter(objects = ObjectFilter.Type(kind), players = PlayerFilter.Any), combat = true)
         }
         // ecl chunk 16: "you cast a spell of the chosen type"
         if (text == "you cast a spell of the chosen type")
@@ -308,7 +309,7 @@ internal object EclPhrases {
     private val YOU_CAST_FROM_YOUR_HAND = Regex("""you cast an? (.+?) spell from your hand""")
     private val YOU_CAST_WITH_SINGLE_TARGET = Regex("""you cast an? (.+?) spell with a single target""")
     private val YOU_CAST_SPELL_WITH = Regex("""you cast a spell with (mana value \d+ or (?:greater|less))""")
-    private val DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER = Regex("""(.+?) deals combat damage to a player or planeswalker""")
+    private val DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER = Regex("""(.+?) deals combat damage to a player or (planeswalker|battle)""")
     private val WITH_COUNTERS_DIES =Regex("""(.+?) with one or more counters on it dies""")
     private val MANA_VALUE_N = Regex("""mana value (\d+) or (greater|less)""")
 }

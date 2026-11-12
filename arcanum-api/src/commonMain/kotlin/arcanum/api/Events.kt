@@ -121,6 +121,10 @@ sealed interface EventPattern {
         /** Only when at least this many other creatures are declared as attackers with it ("Whenever this creature and at
          * least two other creatures attack", battalion, an ability word, CR 207.2c); 0: any number. */
         val withOthers: Int = 0,
+        // mom
+        /** What the other attackers counted by [withOthers] must be ("this token and at least one other creature token attack"); null:
+         * any creatures. */
+        val others: ObjectFilter? = null,
     ) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */

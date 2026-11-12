@@ -856,8 +856,22 @@ internal object Effects {
     }
 
     private fun revealUntil(scope: Scope, effect: Effect.RevealUntil) {
+        // mom: "each player exiles cards from the top of their library until …": each library in turn, APNAP order (CR 101.4); the found
+        // and the other cards of every library together
+        val found = mutableListOf<ObjectId>()
+        val rest = mutableListOf<ObjectId>()
+        for (owner in scope.players(effect.library)) {
+            val (f, r) = revealUntilIn(scope, effect, owner)
+            found += f
+            rest += r
+        }
+        scope.bind(effect.foundBind, NamedValue.Objects(found))
+        scope.bind(effect.restBind, NamedValue.Objects(rest))
+    }
+
+    /** One library's part of [revealUntil]: the found and the other cards turned over, where they ended up. */
+    private fun revealUntilIn(scope: Scope, effect: Effect.RevealUntil, owner: PlayerId): Pair<List<ObjectId>, List<ObjectId>> {
         val act = scope.act
-        val owner = scope.players(effect.library).firstOrNull() ?: return
         val library = act.state.player(owner).library
         val wanted = scope.value(effect.count)
         // sos: "until you exile cards with total mana value 4 or greater": until the matching cards' total reaches it
@@ -878,14 +892,9 @@ internal object Effects {
         }
         if (effect.reveal && turned.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(owner, turned)))
         val rest = turned.filter { it !in found }
-        if (effect.into != null) {
-            val moved = Actions.moveTo(act, scope.cause, turned, effect.into!!)
-            scope.bind(effect.foundBind, NamedValue.Objects(found.mapNotNull { moved[it] }))
-            scope.bind(effect.restBind, NamedValue.Objects(rest.mapNotNull { moved[it] }))
-        } else {
-            scope.bind(effect.foundBind, NamedValue.Objects(found))
-            scope.bind(effect.restBind, NamedValue.Objects(rest))
-        }
+        if (effect.into == null) return found to rest
+        val moved = Actions.moveTo(act, scope.cause, turned, effect.into!!)
+        return found.mapNotNull { moved[it] } to rest.mapNotNull { moved[it] }
     }
 
     // ---- Counters

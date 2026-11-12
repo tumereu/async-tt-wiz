@@ -231,6 +231,13 @@ sealed interface Condition {
     @Serializable @SerialName("last-turn") data class HappenedLastTurn(
         val event: EventPattern, val atLeast: Int, val measure: Measure,
     ) : Condition
+    // mom
+    /** [event] happened since your most recent turn before this one ended (every turn after it, this one included, CR 500.1), at least
+     * [atLeast] times by [measure] ("if you haven't been dealt combat damage since your last turn" is its [Condition.Not]); since the game
+     * began when you haven't had such a turn. With three or more players this spans several turns. */
+    @Serializable @SerialName("since-your-last-turn") data class HappenedSinceYourLastTurn(
+        val event: EventPattern, val atLeast: Int, val measure: Measure,
+    ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
     /** Your speed is 4, the most it can be (max speed, CR 702.178). */

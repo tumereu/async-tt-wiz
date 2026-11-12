@@ -59,6 +59,7 @@ internal object Filters {
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
+        MomPhrases.noun(phrase)?.let { return it } // mom
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -357,7 +358,7 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -537,6 +538,12 @@ internal object Events {
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), second)
         }
         // chunk 31: "this creature enters or dies"; "one or more artifacts you control enter" (one trigger for a batch)
+        // mom chunk 01: "this creature transforms into Blightsower Thallid or dies" (one ability that triggers on either event, CR 603.2)
+        Mom.TRANSFORMS_INTO_OR_DIES.matchEntire(text)?.let { m ->
+            val transforms = event("${m.groupValues[1]} transforms into ${m.groupValues[2]}", self) ?: return null
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(transforms, EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
+        }
         ENTERS_OR_DIES.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
@@ -902,7 +909,7 @@ internal object Events {
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
-    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
+    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? ((?:.+ )?spell that(?: |'s ).+)""") // mom chunk 01: also "a spell that's exactly two colors"
     // blb gaps 2
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
@@ -1001,6 +1008,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        MomPhrases.condition(text)?.let { return it } // mom
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1479,6 +1487,7 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        MomPhrases.value(text)?.let { return it } // mom
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
@@ -1548,7 +1557,7 @@ internal object Values {
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
     // rtr chunk 06
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness|mana value)""")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed (?:creature|permanent|artifact)'s (power|toughness|mana value)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

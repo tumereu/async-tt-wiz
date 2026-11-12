@@ -157,7 +157,8 @@ internal object Tdm {
     // this turn, put a +1/+1 counter on that creature."
     val FIRST_TIME_COUNTERS_THIS_TURN = Regex("""it's the first time counters have been put on that creature this turn""")
     // tdm chunk 11: "During your turn, spells you cast cost {1} less to cast for each creature you control with power 4 or greater."
-    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""During your turn, (.+?) cost (\{[^}]+\}) less to cast for each (.+)\.""")
+    // mom chunk 01: also without "During your turn" ("Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.")
+    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?(.+?) cost (\{[^}]+\}) less to cast for each (.+)\.""")
     // tdm chunk 11: "Spells you cast have delve."
     val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast have (\w+)\.""")
     // tdm chunk 11: "Whenever you cast a spell, you lose life equal to its mana value."

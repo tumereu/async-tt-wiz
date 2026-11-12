@@ -106,7 +106,7 @@ internal object Msh {
     val RETURN_ONE_OR_TWO = Regex("""Return one or two target (.+) to their owners' hands\.""")
     val SPELLS_WITH_MANA_VALUE_COST_X_LESS_POWER = Regex("""(.+ spells you cast) with mana value (\d+) or greater cost \{X\} less to cast, where X is (.+)'s power\.""")
     val NONCOMBAT_DAMAGE_PLUS_POWER = Regex("""If a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, instead it deals that much damage plus X, where X is (.+)'s power\.""")
-    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all the cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
+    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all (?:the )?cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
     val WHEN_YOU_NEXT_CAST_COPY = Regex("""When you next cast an? (.+?) spell with mana value less than or equal to (.+)'s power this turn, copy that spell\. You may choose new targets for the copy\.""")
     val COST_OR_COST = Regex("""((?:Sacrifice|Discard|Exile|Pay|sacrifice|discard|exile|pay) .+?) or ((?:sacrifice|discard|exile|pay) .+)""")
     val GET_COUNTERS = Regex("""Get (\w+) (\S+) counters""")

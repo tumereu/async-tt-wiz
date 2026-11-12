@@ -9,8 +9,8 @@ import arcanum.api.Value
 
 /** fin: nouns, values and conditions of Final Fantasy wordings, tried first by [Filters], [Values] and [Conditions]. */
 internal object FinPhrases {
-    // fin chunk 03: "creature that isn't a Kraken, Leviathan, Merfolk, Octopus, or Serpent"
-    private val THAT_ISNT = Regex("""(\w+) that isn't an? (.+)""")
+    // fin chunk 03: "creature that isn't a Kraken, Leviathan, Merfolk, Octopus, or Serpent"; mom chunk 01: "enchantment card that isn't a God"
+    private val THAT_ISNT = Regex("""(.+?) that isn't an? (.+)""")
     // fin chunk 03: "the total mana value of other permanents you control"
     private val TOTAL_MANA_VALUE_OF = Regex("""the total mana value of (.+)""")
 
@@ -190,7 +190,8 @@ internal object Fin {
     // fin chunk 07
     val MAY_RETURN_TO_HAND = Regex("""You may return (another .+?) to its owner's hand\.""")
     val MAY_ATTACH_ANY_NUMBER = Regex("""You may attach any number of (.+?) to target (.+)\.""")
-    val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your library and/or graveyard for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
+    // mom chunk 01: also "your library, graveyard, and/or outside the game" (CR 400.11)
+    val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your library(, graveyard, and/or outside the game| and/or graveyard) for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
     val OPPONENT_GAINS_CONTROL_IF_THEY_DO = Regex("""Target opponent gains control of another target (.+?)\. If they do, (.+)\.""")
     val GAINS_PUT_COUNTERS_ATTACH_EQUIPMENT = Regex("""Target (.+?) gains (.+?) until end of turn\. Put (.+?)'s counters on that creature and attach an Equipment that was attached to (.+?) to that creature\.""")
     val EQUIPPED_TRIGGERS_ADDITIONAL = Regex("""As long as (.+?) is equipped, if a triggered ability of (.+?) or an Equipment attached to it triggers, that ability triggers an additional time\.""")

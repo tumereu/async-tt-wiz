@@ -542,6 +542,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * known here may). */
     private fun fixedBeforeChoices(f: ObjectFilter): Boolean = when (f) {
         ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost -> true
+        is ObjectFilter.ColorCount -> true
         is ObjectFilter.And -> f.all.all(::fixedBeforeChoices)
         is ObjectFilter.Or -> f.any.all(::fixedBeforeChoices)
         is ObjectFilter.Not -> fixedBeforeChoices(f.filter)

@@ -121,6 +121,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("colorless") data object Colorless : ObjectFilter
     @Serializable @SerialName("multicolored") data object Multicolored : ObjectFilter
     @Serializable @SerialName("monocolored") data object Monocolored : ObjectFilter
+    // mom
+    /** Is exactly [count] of the five colours ("a spell that's exactly two colors", CR 105.2). */
+    @Serializable @SerialName("color-count") data class ColorCount(val count: Int) : ObjectFilter
     /** Shares a colour / card type / creature type with [objects]. */
     @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
 

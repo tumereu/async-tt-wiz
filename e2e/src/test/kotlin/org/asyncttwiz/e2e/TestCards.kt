@@ -294,12 +294,26 @@ object TestCards {
     /** A free permanent, so what it mills is all that is in the graveyard. */
     val sifter = card("Ember Sifter", "Artifact", "{0}", "When this artifact enters, mill two cards.")
 
+    /** STK-056 (owner, 2026-11-12: Recruiter of the Guard): a free creature whose trigger may search its controller's library
+     * for a small creature, the search inside its sentence. */
+    val recruiter = card("Ember Recruiter", "Creature — Human Soldier", "{0}",
+        "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+        "1", "1")
+
     /** A free source of two colours (STK-024: its ways to pay). */
     val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
     /** A free Vehicle with crew 2 (CR 702.122a). */
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
     /** CMB-050: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
     val leech = card("Ember Leech", "Creature — Elemental Leech", "{0}", "Lifelink\nHaste", "2", "2")
+    /** TBL-124 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
+    val ridge = card("Ember Ridge", "Land — Mountain Forest", rulesText = "({T}: Add {R} or {G}.)")
+    /** TBL-104 (owner, 2026-11-12: Scheming Fence): a free creature that has the activated abilities of a permanent chosen as it
+     * enters. */
+    val schemer = card("Scheming Warden", "Creature — Human Rogue", "{0}", "As this creature enters, you may choose a nonland permanent.\n" +
+        "Activated abilities of the chosen permanent can't be activated.\n" +
+        "This creature has all activated abilities of the chosen permanent except for loyalty abilities. You may spend mana as though it were mana of any color to activate those abilities.",
+        "1", "1")
     /** TBL-021, TBL-135: a free planeswalker, its loyalty the number in its corner. */
     val sage = card("Ember Sage", "Legendary Planeswalker — Chandra", "{0}", "[+1]: You gain 1 life.", loyalty = "3")
 
@@ -308,6 +322,18 @@ object TestCards {
     val trinket = card("Ember Trinket", "Artifact", "{0}", "Sacrifice this artifact: Draw a card.")
     val recall = card("Ember Recall", "Sorcery", "{0}", "Return target card from your graveyard to your hand.")
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
+    /** ZON-079: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
+    val flare = card("Ember Flare", "Sorcery", "{0}",
+        "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)")
+    /** ZON-079: a free creature that sacrifices itself, with unearth {R}: from the graveyard it is unearthed from its owner's
+     * hand row. */
+    val ghoul = card("Ember Ghoul", "Creature — Zombie", "{0}", "Sacrifice this creature: You gain 1 life.\n" +
+        "Unearth {R} ({R}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+        "2", "2")
+    /** ZON-079: a free sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your hand.": with one
+     * Mountain only its ability can be used from the graveyard. */
+    val reprise = card("Ember Reprise", "Sorcery", "{0}",
+        "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand.")
 
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag = TestCard("Ember Path // Ember Crag", listOf(

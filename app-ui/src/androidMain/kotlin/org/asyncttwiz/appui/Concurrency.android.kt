@@ -25,6 +25,9 @@ actual inline fun <R> synchronized(lock: Any, block: () -> R): R = kotlin.synchr
 
 actual fun <T> runBlocking(block: suspend CoroutineScope.() -> T): T = kotlinx.coroutines.runBlocking(block = block)
 
+actual fun Executor.executeSuspending(task: suspend CoroutineScope.() -> Unit) =
+    execute { kotlinx.coroutines.runBlocking(block = task) }
+
 actual fun newSingleThreadExecutor(name: String?, daemon: Boolean?): ExecutorService = when {
     name == null -> Executors.newSingleThreadExecutor()
     daemon == null -> Executors.newSingleThreadExecutor { Thread(it, name) }
@@ -38,10 +41,11 @@ actual fun newDiscardOldestExecutor(name: String, queueSize: Int): ExecutorServi
         java.util.concurrent.ArrayBlockingQueue<Runnable>(queueSize), { Thread(it, name) },
         java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy())
 
-actual fun newSingleThreadScheduler(name: String, daemon: Boolean): (delayMillis: Long, task: () -> Unit) -> () -> Unit =
+actual fun newSingleThreadScheduler(name: String, daemon: Boolean): (delayMillis: Long, task: suspend () -> Unit) -> () -> Unit =
     Executors.newSingleThreadScheduledExecutor { Thread(it, name).apply { isDaemon = daemon } }.let { marks ->
         { delay, task ->
-            val scheduled = marks.schedule(Runnable(task), delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+            val scheduled = marks.schedule(Runnable { kotlinx.coroutines.runBlocking { task() } }, delay,
+                java.util.concurrent.TimeUnit.MILLISECONDS)
             val cancel: () -> Unit = { scheduled.cancel(false) }
             cancel
         }

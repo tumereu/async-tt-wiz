@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,17 +140,23 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // 2026-11-03 #2: in the other player's turn only while the viewer holds priority or must decide; its room stays,
             // so the toggles don't move. I-D56 §14: on engine state only the viewer's own actions: hidden while the other
             // player must act
+            // TRN-063, STK-029 (owner playtest 2026-11-12): no press the device is about to make itself: while a play shown or a
+            // combat's hold keeps it from its own pass, the button holds nothing (no "Resolve" flashing before it passes)
+            val ownStepHeld = engine?.ownStepHeld() == true
             val arrow = panelMain == null && (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
-                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
+                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer)) && !ownStepHeld
             // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
             val wait = if (arrow || panelMain != null) null else engine?.waitAction()?.let { w ->
                 if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, assumption = w.assumption, run = w.run) else w }
+            // TRN-004 (owner playtest 2026-11-12): waiting on the other player with nothing on the button, its place says so quietly
+            val quiet = if (arrow || panelMain != null || wait != null) null else engine?.quietWait()
             val unconfirmed = engine?.engine?.shown?.indicator != null
             // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
             val main = panelMain
             val control = engine?.control() == true
-            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name }))
+            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name },
+                quiet))
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
@@ -185,6 +192,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
                     wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName, wait.assumption) {
                     if (taken(wait.label)) { pressed(wait.label); own { wait.run(); true } } }, Modifier.fillMaxWidth())
+                else if (quiet != null) QuietWaitStatus(quiet, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 // TRN-075: the move passed to you: one pulse in your colour
                 MoveCuePulse(engine?.moveCue ?: 0, Modifier.matchParentSize().clip(AdvanceArrowShape))
@@ -213,9 +221,27 @@ val AdvanceArrowShape = GenericShape { size, _ ->
 fun quickActionLabel(name: String) = ringShortLabel(name)
 
 /** What the bottom bar shows, for the record of shown texts ([LocalShownTexts], the e2e tests' phones): the main button's
- * words ([main]; null: none) and the quick actions besides the settings toggles ([actions]; null: the toggles). */
-fun bottomBarRecord(main: String?, actions: List<String>?): String =
-    "$BOTTOM_BAR${main ?: "none"} · quick actions: ${actions?.joinToString(", ") ?: "settings"}"
+ * words ([main]; null: none), the quiet waiting status in its place ([quiet], TRN-004) and the quick actions besides the
+ * settings toggles ([actions]; null: the toggles). */
+fun bottomBarRecord(main: String?, actions: List<String>?, quiet: String? = null): String =
+    "$BOTTOM_BAR${main ?: "none"}${quiet?.let { " · status $it" } ?: ""} · quick actions: ${actions?.joinToString(", ") ?: "settings"}"
+
+/** The test tag of the quiet waiting status in the main button's place (TRN-004). */
+const val QUIET_WAIT_TAG = "quiet-wait"
+
+/**
+ * TRN-004 (owner playtest 2026-11-12): while the player waits on the other player and the main button holds nothing, its
+ * place says so in plain words ("Bob's answer…"), quietly: grey words, no button shape, nothing to tap, so the pause
+ * doesn't read as lag.
+ */
+@Composable
+fun QuietWaitStatus(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.height(48.dp).testTag(QUIET_WAIT_TAG).semantics(mergeDescendants = true) {}, contentAlignment = Alignment.Center) {
+        Text(text, color = MenuInk.copy(alpha = .55f), fontSize = 12.sp, lineHeight = 14.sp, maxLines = 2,
+            textAlign = TextAlign.Center, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 4.dp))
+    }
+}
 
 /** The start of every [bottomBarRecord]. */
 const val BOTTOM_BAR = "Bottom bar: main button "

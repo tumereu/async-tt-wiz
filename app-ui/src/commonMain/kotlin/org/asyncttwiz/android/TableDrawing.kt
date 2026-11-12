@@ -191,7 +191,10 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
         when (i.kind) {
-             TableItemKind.HAND -> Unit
+             // ZON-079: the thin divider before your hand row's cards from other zones
+             TableItemKind.HAND -> i.handDivider?.let { dx ->
+                 drawLine(HandRowDividerColor, xy(dx, b.y + b.height * .2f), xy(dx, b.bottom - b.height * .2f), 1.5f * density)
+             }
             TableItemKind.LIFE -> {
                 drawRect(color, xy(b.x, b.y), size(b.width, b.height))
                 paint.color = NativeColors.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
@@ -261,6 +264,8 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
+                      // ZON-079: a hand row card from another zone carries its zone's badge (the first, the divider before it)
+                      handZoneBadge(i, x, y, cardWidth, cardHeight)
                       // CMB-047 (owner playtest 2026-11-07): a stack's staged member, at its right end: a wash and an edge in
                       // the attackers' red-orange or the blocks' arrow colour
                       i.staged?.let { role ->

@@ -381,24 +381,15 @@ Two batches come first, in this order:
   a Coil built for current CMP (check that Coil links for wasm), other due updates; changed screenshots re-recorded and
   added to the gallery for the owner; locks written plain and with the Firebase identifiers.
 
-### Step 3: web shell (phone layout)
+### Step 3: web shell (phone layout) (built)
 
-- What step 2 left for the browser (each behind an `expect` or interface whose Android side is unchanged; wasm sides
-  throw `NotImplementedError` today): storage and pictures (`AndroidAccountLocalData`, `ProtectedSessionStore`,
-  `CardArtworkService`, `AccountStorageHandle`, client-storage's Android implementations: build the browser storage
-  behind the interfaces, not on SQLDelight's synchronous driver), `SocketGameConnection` (OkHttp: a browser WebSocket),
-  `CatalogController` (a browser installer), crash/jank/latency reports, `DeviceRandom`, `DateTexts`, `StorageParts`
-  (Gson). Code using `runBlocking`, executors or locks through `Concurrency.kt`/`Jvm.kt` needs coroutine-based paths on
-  the browser's single thread.
-- `webApp` module (Kotlin/Wasm); the server serves its build (section 2.1) and the Archidekt proxy (2.3); stale-tab
-  reload (2.2); a loading screen for the first load (1.7).
-- Routes, browser history, on-screen Back and CloseWatcher (section 8); sign-in with the token in IndexedDB; the card
-  records download into IndexedDB with persistent storage; lobby screens in the phone layout: menu, games, contacts,
-  game lobby, decks and cubes (view, import, editor), settings.
-- Catalog: new `docs/features/web.md` (routes, Back, stale reload, first load, card records on the web); LOB-084–086
-  marked Android-only. Release notes start here but no prod deploy until step 8.
-- Tests: the web-only logic (routes, reload decision, storage) as common unit tests; a real-browser smoke for the wasm
-  build (Playwright on Chrome: load, sign in, list games), run with the e2e suite.
+- Built in 3a–3c (2026-11-12): browser storage, card records and pictures; the browser socket and single-thread paths;
+  the `webApp` module and the served build (`WEB_APP_DIR`, set nowhere in prod yet), the Archidekt proxy, stale-tab
+  reload, first load, addresses, history, on-screen Back, Esc and the close watcher; behaviour in
+  `docs/features/web.md`. The browser smoke is e2e's `WebSmokeTest` (Chrome through Playwright).
+- Left for later steps: the chat side panel's close button and browser chrome on the table and draft screens (§8.3,
+  §8.5: step 4 and the draft's step), haptics (§8.7), the engine in a Web Worker (step 4; it runs on the page's thread
+  meanwhile, for a game's lobby).
 
 ### Step 4: the game table on the web (phone layout)
 

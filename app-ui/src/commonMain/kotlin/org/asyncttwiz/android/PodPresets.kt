@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 
@@ -158,9 +158,9 @@ class PodPresetController(private val api: Pods, private val credential: () -> S
         val token = credential() ?: run { state = state.copy(error = "Sign in to use presets."); return }
         val current = generation
         state = state.copy(busy = message, error = null)
-        worker.execute {
+        worker.executeSuspending {
             val result = runCatching {
-                runBlocking {
+                run {
                     change?.invoke(token)
                     api.presets(token).presets
                 }

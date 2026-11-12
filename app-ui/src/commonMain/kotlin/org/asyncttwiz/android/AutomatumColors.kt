@@ -17,3 +17,8 @@ val GroupExpandEdge = Color(0xff7d8a88)
 val ControlBlue = Color(0xff24489c)
 val QuickAmber = Color(0xffa86200)
 val AssumeAlwaysRed = Color(0xffb23c17)
+
+/** ZON-079 (owner, 2026-11-12): the zone badge of a hand row card from another zone (the piles' count bubbles' dark teal) and
+ * the thin divider before those cards. */
+val HandRowBadgeColor = Color(0xff345451)
+val HandRowDividerColor = Color(0xff8a9296)

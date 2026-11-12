@@ -25,7 +25,7 @@ class CatchUpLiveTest : E2e() {
 
     // HIS-094, HIS-095, HIS-105, TRN-059, STK-029 (owner 2026-11-05: resolving at a playback stop didn't work): Bob comes
     // back to Alice's Ember Herald played while he was away; his table looks like live play with the centre text and the
-    // playback's quick actions (live play's response mode cell and Autotap mana); a tap starts playback, which stops at her spell (he holds an Idle Glimmer, so he could
+    // playback's quick actions (live play's response mode cell, Assume resolves greyed and Autotap mana); a tap starts playback, which stops at her spell (he holds an Idle Glimmer, so he could
     // respond); Resolve on the main button there confirms and playback goes on (stopping again at her trigger) until his
     // table is live at the newest event, with live play's toggles back
     @Test fun bobWatchesStopsWhereHeCanRespondResolvesAndGoesLive() {
@@ -37,7 +37,8 @@ class CatchUpLiveTest : E2e() {
         assertTrue(!bob.showsTimelineLook(), "no timeline look")
         assertTrue(!bob.showsText("Catching up"), "no catching-up label")
         assertTrue(bob.showsControl("Response mode") && bob.showsControl("Autotap mana"), bob.screen())
-        assertTrue(!bob.showsControl("Assume resolves setting"), bob.screen())
+        // TRN-059 (owner playtest 2026-11-12): Assume resolves stays in its place, greyed (the device assumes nothing while catching up)
+        assertTrue(bob.shows(androidx.compose.ui.test.hasContentDescription("Assume resolves setting") and androidx.compose.ui.test.isNotEnabled()), bob.screen())
 
         bobWatchesToAStop("Bob's playback stopping at Alice's spell")
         assertTrue(!bob.showsTimelineLook(), "playback has no timeline look")

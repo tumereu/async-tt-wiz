@@ -18,7 +18,7 @@ internal const val CATALOG_INDEX_VERSION = 6
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
-class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) : CardCatalog {
+class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) : CardCatalog, CatalogSnapshots {
     init { check(directory.isDirectory || directory.mkdirs()) }
     // Workers (deck import, card search) may use separate repository objects for the same public DB.
     // Publication/reclamation must share their read lock, not just this object's monitor.
@@ -107,6 +107,12 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
     }
 
+    /** A deck import's reads ([DeckImportResolver]), on one generation as [snapshot]. */
+    override fun <T> lookups(read: (CatalogLookups?) -> T): T = snapshot(read)
+
+    /** Imports run on a worker; an interrupted worker stops. */
+    override fun cancelled(): Boolean = Thread.currentThread().isInterrupted
+
     /**
      * Builds a new generation with [block] (the records, in as many batches as it likes) and publishes it. Unpublished
      * generations may survive process death; only the atomic pointer is readable. [finishing] is told how far finishing
@@ -170,7 +176,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 
 /** One disk-backed generation. Caller confines it to its catalog worker. Uses SQLDelight drivers. */
 class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight.TransacterImpl(driver), AutoCloseable,
-    MtgJsonCatalogSink {
+    MtgJsonCatalogSink, CatalogLookups {
     /** Where the records' time went, for the install's log. */
     internal val times = CatalogPhaseTimes()
     private var duplicateRecords = 0L
@@ -444,12 +450,12 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     internal fun createTokenLookup() = sql("CREATE INDEX IF NOT EXISTS token_name_lookup ON printing(token, normalized, id)")
 
     fun count(): Long = long("SELECT count(*) FROM printing")
-    fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->
+    override fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->
         check(cursor.next().value)
         QueryResult.Value(CatalogMetadata(cursor.text(0), cursor.text(1), cursor.text(2), cursor.number(3)))
     }, 0).value
 
-    fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
+    override fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
 
     /** Each of [printingIds] with the faces of its card (the printing and those it links to), in side then id order as a
      * deck import resolves them; ids the records don't have are left out. A few queries for a whole list. */
@@ -467,7 +473,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     private var scryfallLookupPrepared = false
     /** Cube Cobra supplies Scryfall printing identities, not MTGJSON UUIDs. Prepare on the import worker
      * so already installed catalogs need neither a format bump nor a fresh download. */
-    fun findScryfall(id: String): List<CatalogPrinting> {
+    override fun findScryfall(id: String): List<CatalogPrinting> {
         if (!scryfallLookupPrepared) {
             sql("CREATE INDEX IF NOT EXISTS printing_scryfall_lookup ON printing(scryfall)")
             scryfallLookupPrepared = true
@@ -526,7 +532,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         insertRows("INSERT OR IGNORE INTO avatar_choice", avatarOffers)
         avatarOffers.clear()
     }
-    fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
+    override fun find(name: String, set: String?, number: String?, limit: Int, afterId: String?): List<CatalogPrinting> {
         require(limit in 1..1000)
         prepareImportNames()
         val args = mutableListOf(name.lowercase(Locale.ROOT))

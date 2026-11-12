@@ -323,7 +323,7 @@ class TableGestureCoordinator(
             }
             Phase.DRAG -> {
                 if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)
-                    c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true)) }
+                    c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true, fromHandRow = c.item.handZone != null)) }
             }
             Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null, released = true))
             else -> Unit

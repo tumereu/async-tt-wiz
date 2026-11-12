@@ -61,3 +61,5 @@ actual fun platformHttpClient(block: HttpClientConfig<*>.() -> Unit): HttpClient
 /** The app module registers its BuildConfig's values as a Java service (META-INF/services), found here once. */
 internal actual fun platformBuildInfo(): BuildInfo =
     ServiceLoader.load(BuildInfo::class.java, BuildInfo::class.java.classLoader).iterator().next()
+
+actual val importsThroughServer: Boolean = false

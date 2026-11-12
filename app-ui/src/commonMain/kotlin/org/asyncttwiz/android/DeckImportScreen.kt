@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,7 @@ fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
             kotlinx.coroutines.delay(400); controller.lookup()
         }
     }
-    BackHandler { controller.back() }
+    ScreenBackHandler { controller.back() }
     var tab by rememberCardListTab(state.editing)
     if (state.choosingCover) {
         Column(Modifier.fillMaxSize()) {

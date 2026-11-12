@@ -14,6 +14,7 @@ single source of truth for current behaviour.
 | [lobby.md](lobby.md) | `LOB` Accounts, decks, game list, chat, notifications, settings, updates |
 | [draft.md](draft.md) | `DRF` Cubes, pods, drafting, grids, deck building |
 | [rules.md](rules.md) | `SYS` Cross-cutting rules every feature follows (authority, performance, policies) |
+| [web.md](web.md) | `WEB` The web client: addresses and Back, loading and updates, what differs in a browser |
 
 ## Games on engine state
 

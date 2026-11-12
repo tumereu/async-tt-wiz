@@ -177,6 +177,9 @@ data class TableItem(
     val automatumState: Boolean = false,
     /** TBL-135 (owner, 2026-11-11): its counters but the one its corner shows, as bubbles on its art ([CounterBubbles]). */
     val counterBubbles: List<org.asyncttwiz.automatum.ShownCounter> = emptyList(),
+    /** TBL-136 (owner, 2026-11-12): a continuous effect other than counters applies to it: a violet sparkle in its top-left
+     * corner ([org.asyncttwiz.automatum.ComputedBoard.withEffects]). */
+    val effectsMarker: Boolean = false,
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
@@ -190,7 +193,12 @@ data class TableItem(
     val staged: CombatRole? = null,
     /** ZON-001 (owner, 2026-11-11): the other player's hand in portrait, a small fan of its cards in their row: drawn as its
      * count only (its cards are their own items, turned). */
-    val handFan: Boolean = false
+    val handFan: Boolean = false,
+    /** ZON-079 (owner, 2026-11-12): a card of the viewer's hand row from another zone: the zone of its pile, shown as a badge;
+     * null for every other item. */
+    val handZone: PlayZone? = null,
+    /** ZON-079: on the viewer's hand, the x of the thin divider in the gap before its cards from other zones; null without one. */
+    val handDivider: Float? = null,
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else NativeColors.DKGRAY
@@ -313,6 +321,8 @@ object TablePresentation {
     const val GRID = 56f
     /** ZON-079: how far a raised hand card rises, in its own heights. */
     const val RAISE = .25f
+    /** ZON-079 (owner, 2026-11-12): the gap before the hand row's cards from other zones, its thin divider in the middle. */
+    const val HAND_ROW_DIVIDER = 14f
     const val COLUMN_PITCH = 42f
     /** The open band's margin above and below its lanes (dp at zoom 1). */
     private const val COMBAT_BAND_PAD = 4f
@@ -420,7 +430,9 @@ object TablePresentation {
         timeline: Boolean = false,
         /** CMB-028 (owner, 2026-11-08): the viewer declares attackers (Automatum says): the open band's lanes keep room for
          * the next one. */
-        attackerSlots: Boolean = false): TableScene {
+        attackerSlots: Boolean = false,
+        /** ZON-079 (owner, 2026-11-12): the cards from other zones the viewer's hand row shows at its right end ([HandRow.cards]). */
+        handRow: List<HandRowCard> = emptyList()): TableScene {
         require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -559,11 +571,13 @@ object TablePresentation {
             return TableViewport(id, bounds, content, offset, hand, bar = bar).also(ports::add)
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
-            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true): TableItem {
+            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true,
+            /** ZON-079: a card of the viewer's hand row from another zone, which Automatum says they may see (I-D27). */
+            known: Boolean = false): TableItem {
             // A face-down entry (STK-005) is a card back for both players, like a face-down card (ZON-073).
-            val hidden = projection && CombatStackRules.faceDownEntry(play.board, viewId) ||
+            val hidden = !known && (projection && CombatStackRules.faceDownEntry(play.board, viewId) ||
                 if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
-                else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
+                else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer))
             val f = face(card)
             // A face-down Battlefield card hides its face, but its values are public (rules v23).
             val faceDown = hidden && publicFaceDown(play.board, card)
@@ -586,6 +600,8 @@ object TablePresentation {
                     (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
                     // TBL-024: its damage badge read aloud too
                     (if (values && zone == PlayZone.BATTLEFIELD && card.damage.isNotEmpty()) ", ${card.damage} damage" else "") +
+                    // TBL-136: its effects marker read aloud too
+                    (if (auto != null && card.id in computed.withEffects) ", changed by effects" else "") +
                     // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
                     auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
@@ -601,7 +617,7 @@ object TablePresentation {
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
                     cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
-                    counterBubbles = auto?.bubbles.orEmpty(),
+                    counterBubbles = auto?.bubbles.orEmpty(), effectsMarker = auto != null && card.id in computed.withEffects,
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }
@@ -641,13 +657,19 @@ object TablePresentation {
             val handBounds = normalHandBounds
             val handLabel = "${name(player.accountId)} Hand, ${hand.cards.size} cards"
             if (!fan) {
-            val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
+            // ZON-079 (owner, 2026-11-12): your cards from other zones at the right end, after a thin divider
+            val extras = if (!ownSide || reviewing) emptyList()
+                else handRow.filter { it.cardId in byId && it.cardId !in hand.cards && it.cardId !in castFromHand }
+            val handCount = hand.cards.size + extras.size
+            val dividerGap = if (extras.isNotEmpty() && hand.cards.isNotEmpty()) HAND_ROW_DIVIDER - 4f else 0f
+            val handContent = if (handCount == 0) 0f else (handCount - 1) * (handWidth + 4f) + handWidth + dividerGap
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             // ZON-081: a hand pulled past its end (Automatum on) is drawn that far off, springing back on release
             val pulled = ui.overscroll[hp.id] ?: 0f
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
             items += TableItem(hand.id, handBounds, handLabel, hand.cards.size.toString(),
-                player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id)
+                player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id,
+                handDivider = if (dividerGap > 0f) start + hand.cards.size * (handWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
                 // ZON-079: the raised card sits a quarter of its height higher
                 val raised = ownSide && !reviewing && id == ui.raised
@@ -655,6 +677,16 @@ object TablePresentation {
                     if (raised) handHeight * RAISE else 0f, handWidth, handHeight)
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
                 if (raised) items[items.lastIndex] = items.last().copy(raised = true)
+            } }
+            extras.forEachIndexed { n, extra -> byId[extra.cardId]?.let { c ->
+                val raised = extra.cardId == ui.raised
+                val x = start + (hand.cards.size + n) * (handWidth + 4f) + dividerGap
+                val b = TableBounds(x, handBounds.y + (handBounds.height - handHeight) / 2 - if (raised) handHeight * RAISE else 0f,
+                    handWidth, handHeight)
+                val item = card(c, b, b, player.accountId, PlayZone.HAND, hp.id, known = true)
+                items[items.lastIndex] = item.copy(id = "handRow/${extra.cardId}", raised = raised, handZone = extra.zone,
+                    owner = player.accountId,
+                    label = "${item.label}, from ${HandRow.zoneWord(extra.zone).lowercase()}")
             } }
             }
             val field = fields[index]

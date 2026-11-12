@@ -521,7 +521,7 @@ class PodControllerTest {
         val waits = mutableListOf<Long>()
         var now = 0L
         /** Pending marks timers by delay; cancelling removes them. */
-        val timers = mutableListOf<Pair<Long, () -> Unit>>()
+        val timers = mutableListOf<Pair<Long, suspend () -> Unit>>()
         /** Pending main-thread clock timers ([PodController.watch]) by delay; cancelling removes them. */
         val mainTimers = mutableListOf<Pair<Long, () -> Unit>>()
         val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
@@ -530,7 +530,7 @@ class PodControllerTest {
             }, delayed = { delay, task -> val timer = delay to task; mainTimers += timer; { mainTimers.remove(timer); Unit } })
         /** The main thread's clock reaches the next pending timer. */
         fun tickMain() = mainTimers.removeAt(0).second()
-        fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second() }
+        fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second.let { task -> kotlinx.coroutines.runBlocking { task() } } }
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
                 worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()

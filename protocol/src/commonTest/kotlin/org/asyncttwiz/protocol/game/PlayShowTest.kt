@@ -79,6 +79,7 @@ class PlayShowTest {
         assertEquals(GameDevice.PlayKind.Cast, show.kind)
         assertEquals(sim.bob, show.by)
         assertEquals(warden, card(alices.model, show.card))
+        assertEquals(arcanum.api.Zone.Hand, show.from, "cast from his hand: it flies in from there (owner 2026-11-12)")
         assertEquals(show.event, alices.session.localHead, "her table at the cast")
         assertTrue(show.entry in alices.model.engine.stack, "the Warden still on the Stack on her table")
         assertNull(sim.device(sim.bob).show, "his own cast shows nothing")
@@ -142,8 +143,9 @@ class PlayShowTest {
         assertEquals(sim.server.head, alices.session.localHead)
     }
 
-    // HIS-112: two Wardens' triggers going on the Stack at once (Bob orders them, STK-030) show one after another, in
-    // order, each holding the view in turn
+    // HIS-112: two Wardens' triggers going on the Stack at once (Bob orders them, STK-030) are open in the order they went
+    // on the Stack, holding the view until both are done; put on the Stack in one go they show top first (owner
+    // 2026-11-12), so the later one may end before the earlier
     @Test
     fun severalShowOneAfterAnother() {
         val sim = sim()
@@ -168,12 +170,14 @@ class PlayShowTest {
         assertTrue(shows.all { it.kind == GameDevice.PlayKind.Triggered && card(alices.model, it.card) == warden })
         assertEquals(shows.map { it.entry }, shows.map { it.entry }.sortedBy { alices.model.engine.stack.indexOf(it) },
             "in the order they went on the Stack")
+        assertEquals(shows[0].event, shows[1].event, "put on the Stack in one go")
         assertEquals(shows[0], alices.show)
         assertNull(alices.step())
+        assertTrue(alices.dismissShow(shows[1]), "the top one first")
+        assertEquals(shows[0], alices.show, "the other still holds the view")
+        assertNull(alices.step())
+        assertTrue(!alices.dismissShow(shows[1]), "the top one is done already")
         assertTrue(alices.dismissShow(shows[0]))
-        assertEquals(shows[1], alices.show)
-        assertTrue(!alices.dismissShow(shows[0]), "the first is done already")
-        assertTrue(alices.dismissShow(shows[1]))
         assertNull(alices.show)
     }
 

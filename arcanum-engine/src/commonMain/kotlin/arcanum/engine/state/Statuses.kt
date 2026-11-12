@@ -92,7 +92,35 @@ sealed interface ObjectStatus {
 
     /** Its owner's companion, revealed as the game began (CR 702.139a). */
     @Serializable @SerialName("revealed-companion") data object RevealedCompanion : ObjectStatus { override val key: String get() = "revealed-companion" }
+
+    /**
+     * The players who may use this card from where it is now: a permission lets them cast or play it from there (CR 601.3,
+     * 305.1, D41: flashback, escape, a foretold card, "you may play lands from the top of your library", "you may cast spells
+     * from your graveyard this turn"), or they may activate one of its activated abilities or take one of its special actions
+     * there (CR 113.6, 602.2, 116.2: unearth, embalm, scavenge, "{2}{B}: Return this card from your graveyard to your hand", a
+     * revealed companion's). Each player once, in turn order, whether or not they can now (priority, timing, costs): the same
+     * permissions its cast or land play checks (their holder, condition, uses each turn and the top of a library), and the
+     * abilities its activation checks first (where they function, who may activate them, their condition and uses), so that
+     * [arcanum.engine.Engine.options] lists no cast, land play or activation of a card outside a hand, the Stack and the
+     * battlefield that this doesn't name. Only in the view ([arcanum.engine.view.ObjectView.statuses]), never stored; on a card
+     * outside a hand, the Stack and the battlefield; a card whose every face is a land is cast or played only by a player with
+     * a permission to play it (CR 305.9).
+     */
+    @Serializable @SerialName("playable") data class Playable(val by: List<PlayableBy>) : ObjectStatus { override val key: String get() = "playable" }
 }
+
+/**
+ * One player [ObjectStatus.Playable] names. [how]: [arcanum.api.PlayKind.Play] when a permission lets them play it (a land
+ * too), [arcanum.api.PlayKind.Cast] when one lets them cast it, null when none does. [abilities]: the activated abilities and
+ * special actions of the card they may use where it is (as [arcanum.engine.input.Input.Activate.ability] names them), in the
+ * order the options try them; empty when none.
+ */
+@Serializable
+data class PlayableBy(
+    val player: PlayerId,
+    val how: arcanum.api.PlayKind?,
+    val abilities: List<arcanum.engine.view.AbilityOrigin> = emptyList(),
+)
 
 /**
  * A state of a mechanic the engine codes by hand, kept for a player with its value ([PlayerState.statuses]), stored only while

@@ -160,6 +160,25 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         return Worked(copiedFace(all)?.let(CopiableValues::of) ?: own.values, all)
     }
 
+    /** The copy effects that apply to [id] now, in timestamp order (CR 613.2a, 613.7), as [Layers.explain] lists them: none for an
+     * object face down (CR 708.2a). */
+    fun copiesOn(id: ObjectId): List<AppliedCopy> {
+        val o = state.obj(id) ?: return emptyList()
+        if (o.faceDown) return emptyList()
+        return copyEffectsOn(id).map { (effect, copy) ->
+            val static = staticCopies.firstOrNull { effect.id == arcanum.engine.state.EffectId("static-copy:${it.source.id}:${it.index}") }
+            val original = (copy.objects as? arcanum.api.Objects.Bound)?.let { (effect.names[it.name] as? arcanum.engine.state.NamedValue.Objects)?.ids?.firstOrNull() }
+                ?: Evaluator(PrintedBoard(state, this), Context(you = effect.controller, self = effect.source, names = effect.names)).objects(copy.objects).firstOrNull()
+            val values = (effect.copiedValues ?: original?.let(::values))?.let { copiedByEffect(it, o.flipped) }
+            AppliedCopy(
+                source = if (static != null) EffectSource.StaticAbility(static.source.id, AbilityOrigin.Printed(static.source.face, static.index))
+                    else EffectSource.EffectObject(effect.id),
+                madeBy = effect.source, duration = if (static != null) null else effect.duration, timestamp = effect.timestamp,
+                original = original, name = values?.faces?.getOrNull(values.up)?.name?.takeIf { it.isNotEmpty() },
+            )
+        }
+    }
+
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
      * whose `affects` include it ([staticCopies]), as effect objects of the ability's timestamp. */
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =

@@ -9,15 +9,6 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** The picture reference of catalog printing [record]'s face (its side), or null when its side isn't a face index. */
-fun ArtworkReference.Companion.from(record: CatalogPrinting, size: String = "normal"): ArtworkReference? {
-    val face = if (record.side.isEmpty()) 0 else record.side.singleOrNull()?.let { it - 'a' } ?: return null
-    if (face !in 0..15) return null
-    val name = runCatching { JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString }
-        .getOrNull()?.takeIf { it.isNotBlank() } ?: record.name
-    return ArtworkReference(record.scryfallId, face, size, faceName = name)
-}
-
 /** [expires] ends a failure's retry window; a success (status 200) is kept for good and never expires. */
 internal data class ArtworkEntry(val status: Int, val expires: Long, val failures: Int, val type: String, val bytes: ByteArray)
 
@@ -178,36 +169,11 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
             throw failure
         }
     }
-    private fun imageUrls(reference: ArtworkReference, entry: ArtworkEntry, id: String, priority: ArtworkPriority, visited: Set<String>): List<String> {
-        val card = JsonParser.parseString(entry.bytes.toString(Charsets.UTF_8)).asJsonObject
-        check(card.get("object")?.asString == "card" && card.get("id")?.asString == id)
-        val top = card.getAsJsonObject("image_uris")
-        val faces = card.getAsJsonArray("card_faces")?.map { it.asJsonObject }.orEmpty()
-        // Reversible cards and some double-faced tokens print the SAME name on both sides: the
-        // provider index is exact when its name agrees; the name only corrects a differing index.
-        val indexed = faces.getOrNull(reference.face)
-        val named = reference.faceName?.let { name -> indexed?.takeIf { it.get("name")?.asString == name }
-            ?: faces.firstOrNull { it.get("name")?.asString == name } }
-        val layout = card.get("layout")?.asString
-        // Spell parts share a physical image, even when MTGJSON labels the row b/c.
-        // A named top-level printing (meld parts and separately printed token sides) is also exact.
-        val shared = layout in setOf("split", "aftermath", "adventure", "flip", "room")
-        val topMatches = reference.faceName != null && card.get("name")?.asString == reference.faceName
-        val images = if (top != null && (shared || topMatches || reference.face == 0)) top else
-            (named ?: indexed)?.getAsJsonObject("image_uris")
-        if (layout == "meld" && reference.faceName != null && !topMatches) {
-            val result = card.getAsJsonArray("all_parts")?.firstOrNull {
-                it.asJsonObject.get("component")?.asString == "meld_result" &&
-                    it.asJsonObject.get("name")?.asString == reference.faceName
-            }?.asJsonObject?.get("id")?.asString
-            if (result != null) return resolve(reference.copy(printing = result, face = 0), priority, visited + id)
+    private fun imageUrls(reference: ArtworkReference, entry: ArtworkEntry, id: String, priority: ArtworkPriority, visited: Set<String>): List<String> =
+        when (val lookup = ScryfallImages.lookup(reference, entry.bytes.toString(Charsets.UTF_8), id)) {
+            is ScryfallImages.Lookup.MeldResult -> resolve(reference.copy(printing = lookup.printing, face = 0), priority, visited + id)
+            is ScryfallImages.Lookup.Images -> lookup.urls
         }
-        if (images == null) return emptyList()
-        // Never replace an art crop with a full card, or a physical back with a front.
-        val sizes = if (reference.size == "art_crop") listOf("art_crop") else
-            listOf(reference.size, "normal", "large", "png", "small").distinct()
-        return sizes.mapNotNull { images.get(it)?.asString }.distinct()
-    }
     private fun fetch(key: String, url: String, maximum: Long, image: Boolean, priority: ArtworkPriority): ArtworkEntry? {
         while (true) {
             val mine = Pending(CompletableFuture(), gate.ticket(priority))
@@ -295,12 +261,6 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
         const val MAX_IMAGE = 10L * 1024 * 1024
         const val DAY = 24 * 60 * 60_000L
         /** Only raster bytes are ever handed to Android. Content-Type alone cannot admit HTML/SVG. */
-        fun raster(bytes: ByteArray, type: String): Boolean = when (type.lowercase()) {
-            "image/png" -> bytes.size >= 8 && bytes.take(8) == listOf(137,80,78,71,13,10,26,10).map(Int::toByte)
-            "image/jpeg" -> bytes.size >= 3 && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() && bytes[2] == 0xff.toByte()
-            "image/webp" -> bytes.size >= 12 && bytes.copyOfRange(0,4).toString(Charsets.US_ASCII) == "RIFF" &&
-                bytes.copyOfRange(8,12).toString(Charsets.US_ASCII) == "WEBP"
-            else -> false
-        }
+        fun raster(bytes: ByteArray, type: String): Boolean = ScryfallImages.raster(bytes, type)
     }
 }

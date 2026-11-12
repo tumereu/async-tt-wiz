@@ -302,7 +302,26 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
 
-    override fun revealing(): Boolean = game()?.shown?.reveal != null
+    override fun revealing(): Boolean = openReveal() != null
+
+    /**
+     * HIS-110 (owner, 2026-11-12: OK dismissed late): the reveals this table's OK dismissed whose dismissal the engine thread
+     * hasn't published yet. OK closes the panel at once, on this phone, whatever the engine thread is busy with; the device
+     * catches up ([EngineGame.dismissReveal]). By event: what was dismissed never opens again (HIS-110), so they are kept.
+     */
+    private val dismissedReveals = mutableStateListOf<String>()
+
+    /** HIS-110: the reveal whose panel is open on this table: the shown one, unless its OK was tapped already. */
+    fun openReveal(): GameDevice.Reveal? = game()?.shown?.reveal?.takeIf { it.event !in dismissedReveals }
+
+    /** HIS-110: the player tapped the reveal panel's OK on [reveal]: it closes now; the engine thread dismisses it after. */
+    fun dismissReveal(reveal: GameDevice.Reveal) {
+        val current = game() ?: return
+        if (reveal.event in dismissedReveals) return
+        dismissedReveals += reveal.event
+        current.dismissReveal(reveal, org.asyncttwiz.appui.nanoTime())
+        sent()
+    }
 
     override fun showing(): Boolean = game()?.shown?.show != null
 
@@ -439,6 +458,14 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         }
     }
 
+    /** TRN-063, STK-029 (owner playtest 2026-11-12): only a play shown or a combat's hold keeps the device from a step of
+     * the player's own it makes by itself: the main button holds nothing meanwhile. */
+    fun ownStepHeld(): Boolean = game()?.shown?.ownStepHeld == true
+
+    /** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for the other
+     * player ([quietWaitText]), or null. */
+    fun quietWait(): String? = (status() as? GameDevice.Status.Waiting)?.let { quietWaitText(it.reason, opponentName) }
+
     /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
     private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
         ?.takeIf { it is GameDevice.Wait.Choosing || it == GameDevice.Wait.Blockers || it == GameDevice.Wait.Keep }
@@ -524,6 +551,18 @@ const val REFUSAL_SHAKEN = "Refusal shaken:"
 
 /** A player's own action the game moved on from before it reached the server (SYS-012). */
 const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
+
+/** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for [opponent]
+ * and the button holds nothing, in plain words; null where nobody else is waited on (your own events on their way, an undo
+ * request or a result suggestion, answered in their own dialogs). */
+fun quietWaitText(wait: GameDevice.Wait, opponent: String): String? = when (wait) {
+    is GameDevice.Wait.Respond, is GameDevice.Wait.MayAct, GameDevice.Wait.HiddenCards -> "$opponent's answer…"
+    GameDevice.Wait.Blockers -> "$opponent is blocking…"
+    GameDevice.Wait.Keep -> "$opponent's mulligan…"
+    is GameDevice.Wait.Choosing -> "$opponent is choosing…"
+    GameDevice.Wait.TheirTurn -> "$opponent's move…"
+    GameDevice.Wait.Sending, GameDevice.Wait.Request, GameDevice.Wait.Suggestion -> null
+}
 
 /** The waiting bar's words (§14) for [wait]. */
 fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
@@ -627,7 +666,7 @@ fun AssumeResolves.meaning(): String = when (this) {
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
  * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, Normal, When they have no
- * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) the same response mode cell and "Autotap mana".
+ * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) the same three, Assume resolves greyed.
  * A new response mode applies from the next point on: the stop the player stands at stays ([GameDevice.settings]).
  */
 @Composable
@@ -644,8 +683,10 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     // colour, a tap going on to the next mode), so the mode it stops by always shows
     val mode = Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
         ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null)
-    val cells = if (shown.behind) listOf(mode, autotap)
-    else listOf(
+    // TRN-059 (owner playtest 2026-11-12, the always-show rule): the three cells always show in the same places; in catch-up
+    // playback, where the device assumes nothing, Assume resolves stays greyed (a tap shakes it, holding it says why)
+    val assumeIdle = shown.behind
+    val cells = listOf(
         mode,
         // TRN-059: a tap goes on to the next of Never, Normal, When they have no mana and Always
         Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
@@ -655,6 +696,7 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
         val (name, label, icon) = what
         val (toggle, on) = action
         val choice = name == "Assume resolves setting"
+        val greyed = choice && assumeIdle
         // TRN-059 (owner playtest 2026-11-06): the mode and Assume cells always fill in their choice's colour; the
         // toggles fill violet when on
         val fillColor = when {
@@ -662,18 +704,19 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
             choice -> settings.assume.color()
             else -> AutomatumViolet
         }
-        val filled = on == true || on == null
+        val filled = (on == true || on == null) && !greyed
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode; it applies from the next point on."
             "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
-        val control = MenuControl(name, enabled, selected = on == true, color = fillColor) { toggle() }
+        val control = MenuControl(name, enabled && !greyed, selected = on == true, color = fillColor,
+            refused = if (greyed) assumeIdleReason(settings.assume) else null) { toggle() }
         RingPress(control, Modifier.weight(1f).height(48.dp).semantics {
                 stateDescription = if (choice) settings.assume.label() else if (on == null) settings.mode.label() else if (filled) "On" else "Off" },
             fillColor, fill = if (filled) fillColor else Color.White, role = if (on == null) Role.Button else Role.Switch,
             tooltip = tooltip) {
-            val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled) 1f else .45f) }
+            val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled && !greyed) 1f else .45f) }
             Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -688,6 +731,10 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
         }
     }
 }
+
+/** TRN-059: what holding the greyed Assume resolves cell says in catch-up playback, where the device assumes nothing. */
+fun assumeIdleReason(assume: AssumeResolves): String = "Assume resolves: ${assume.label()}. Not used while you catch up on " +
+    "moves already made; it works again once you're caught up."
 
 /**
  * The async play panels of a game on engine state (I-D56 §14), docked above the hand like every Automatum panel: the
@@ -710,13 +757,15 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
     // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
-    val reveal = shown.reveal.takeIf { !reviewing }
+    // (owner, 2026-11-12) OK closes it at once on this phone, before the engine thread has published the dismissal
+    val reveal = routes.openReveal().takeIf { !reviewing }
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
         // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
         RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
             reveal.left?.owner?.let { names[it.value] } ?: opponent) {
-            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}")
-            game.dismissReveal(); routes.pump()
+            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}; " +
+                "the panel closes at once")
+            routes.dismissReveal(reveal)
         }
     }
     // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the
@@ -729,25 +778,27 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // list drops them
     val endedShows = remember(game) { mutableStateListOf<GameDevice.PlayShow>() }
     SideEffect { if (endedShows.any { it !in shown.moments }) endedShows.retainAll(shown.moments.toSet()) }
-    val show = shown.moments.firstOrNull { it !in endedShows } as? GameDevice.PlayShow
+    // HIS-112 (owner 2026-11-12): the plays put on the Stack in one go show together: they fly in, then show top first
+    val shows = playShowGroup(shown.moments, endedShows)
+    val show = shows.firstOrNull()
     val showPace = remember(game) { PlayShowPace() }
     val showTapScope = rememberCoroutineScope()
     if ((show != null || shown.combatHold != null) && reviewing) LaunchedEffect(show, shown.combatHold) { game.dismissShows(); routes.pump() }
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
-        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis, routes.viewPause, tapScope = showTapScope, pace = showPace,
+        PlayShowOverlay(play, scene, routes.viewer, shows, names, showMillis, routes.viewPause, tapScope = showTapScope, pace = showPace,
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
-            inspect = { holding ->
+            inspect = { held, holding ->
                 if (holding) {
                     peekScroll?.let { it.dispatchRawDelta(-it.value.toFloat()) }
                     peekSwipe?.begin()
-                    toolkit.peek("entry:${show.entry}")
+                    toolkit.peek("entry:${held.entry}")
                 } else if (peekSwipe?.released() != true) toolkit.peek(null)
             },
             moved = { dx, dy, step ->
                 if (peekSwipe?.moved(dx, dy) != true) peekScroll?.holdPreviewScroll(step, peekHeight)
-            }) { endedShows += show; game.dismissShow(show); routes.pump() }
+            }) { ended -> endedShows += ended; game.dismissShow(ended); routes.pump() }
     }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)

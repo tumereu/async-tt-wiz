@@ -41,9 +41,10 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
     fun field(name: String, player: PlayerId = me): List<ObjectId> = scenario.cards(state(), player, state().battlefield, name)
 
     /** [viewer]'s scene of their own table (portrait). */
-    fun scene(viewer: String = f.a): TableScene =
-        TablePresentation.scene(f.game, (if (viewer == f.a) alice else bob).play(), viewer, 412f, 892f, false,
-            (if (viewer == f.a) toolkit else bobToolkit).layoutState.value)
+    fun scene(viewer: String = f.a): TableScene = (if (viewer == f.a) alice else bob).play().let { play ->
+        TablePresentation.scene(f.game, play, viewer, 412f, 892f, false,
+            (if (viewer == f.a) toolkit else bobToolkit).layoutState.value, handRow = HandRow.cards(play, viewer))
+    }
 
     /** The table item of [card] in [viewer]'s scene: its real card (not a combat or Stack copy) in [zone]. */
     fun item(card: String, zone: PlayZone = PlayZone.BATTLEFIELD, viewer: String = f.a): TableItem =

@@ -1,0 +1,1 @@
+fix: A library search from a "you may search" ability (like a creature that finds another when it enters) shows what it searches for and the library's other cards again.

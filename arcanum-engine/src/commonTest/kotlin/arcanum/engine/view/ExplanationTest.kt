@@ -87,6 +87,25 @@ class ExplanationTest {
         ids.forEach { id -> assertEquals(Inspect.explain(state, id), all[id]) }
     }
 
+    // CR 613.2a, 707.2: a copy effect is listed as layer 1 with what it copies, its source, what made it and how long it lasts;
+    // an object no copy effect applies to has none
+    @Test
+    fun aCopyEffectIsListedWithWhatItCopies() = scenario {
+        alice.battlefield("Elvish Seer", "Elvish Hierophant", "Lineage Druid")
+        val copy = effect(alice, arcanum.api.Mechanic.CopyOf(arcanum.api.Objects.Bound("original")), on = listOf("Elvish Seer"),
+            names = mapOf("original" to "Elvish Hierophant"), duration = Duration.EndOfTurn)
+        state._effects[copy] = state.effects.getValue(copy).copy(source = card("Lineage Druid"))
+        val explanation = Inspect.explain(state, card("Elvish Seer"))!!
+        val applied = explanation.copies.single()
+        assertEquals(EffectSource.EffectObject(copy), applied.source)
+        assertEquals(card("Elvish Hierophant"), applied.original)
+        assertEquals("Elvish Hierophant", applied.name)
+        assertEquals(card("Lineage Druid"), applied.madeBy)
+        assertEquals(Duration.EndOfTurn, applied.duration)
+        assertEquals("Elvish Hierophant", explanation.base.name)
+        assertEquals(emptyList(), Inspect.explain(state, card("Elvish Hierophant"))!!.copies)
+    }
+
     @Test
     fun noObjectNoExplanation() = scenario {
         alice.battlefield("Elvish Seer")

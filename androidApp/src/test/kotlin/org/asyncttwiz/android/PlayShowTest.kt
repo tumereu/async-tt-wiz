@@ -61,6 +61,8 @@ class PlayShowTest {
         }
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
+        // HIS-112 (owner 2026-11-12): a play shown flies in from its source first
+        if (kit.alice.shown?.show != null) { compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS + 100L); compose.waitForIdle() }
     }
 
     /** From Alice's next Main 1 with a ready Cub to Bob's Storm Spark at it shown on her table. */
@@ -194,6 +196,37 @@ class PlayShowTest {
             "Bob cycled Shattered Reason: after its cycling ability, Alice's table shows his cycling trigger as its ability token enlarged in the middle of the board (the card's art, the \"T\" chip), with \"Shattered Reason's cycling trigger · each opponent mills 4 cards\" under it.")
     }
 
+    // HIS-112, HIS-021 (owner 2026-11-12): Bob's cycling ability and its cycling trigger go on the Stack in one go: on Alice's
+    // table both fly in and pile up large in the middle, the trigger (the last on the Stack) on top and shown with its line,
+    // the cycling ability waiting large under it; once the trigger is done the ability shows
+    @Test fun playsPutOnTheStackTogetherPileUpAndShowTopFirst() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.REASON, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        kit.alice.showPlays(true)
+        kit.scenario.confirmStops[kit.f.a] = false
+        kit.bobCycles(Choices.REASON)
+        assertTrue(kit.toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
+        kit.playOn("Bob's cycling shown on Alice's table", rounds = 40) { kit.alice.shown?.show != null }
+        val (activation, trigger) = kit.alice.device.openShows.take(2)
+        assertEquals(activation.event, trigger.event, "put on the Stack in one go")
+        compose.mainClock.autoAdvance = false
+        render(kit)
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assertIsDisplayed()
+            .assert(hasContentDescription("${Choices.REASON}'s cycling trigger · each opponent mills 4 cards"))
+        compose.onNodeWithTag(PLAY_SHOW_WAITING_TAG).assertIsDisplayed()
+            .assert(hasContentDescription("cycling", substring = true))
+        captureShot("$SCREENSHOTS/engine/play-show-pile.png",
+            "Bob cycled Shattered Reason, which put its cycling ability and its cycling trigger on the Stack in one go: both flew in from his graveyard to the middle of Alice's board and lie there large, a little offset, the trigger on top with its line under it and the cycling ability waiting under it.")
+        compose.mainClock.advanceTimeBy(HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 100L)
+        compose.waitForIdle()
+        compose.onNodeWithTag(PLAY_SHOW_WAITING_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assert(hasContentDescription("cycling", substring = true))
+            .assert(hasContentDescription("trigger", substring = true).not())
+        kit.settle()
+        compose.runOnIdle { assertEquals(activation, kit.alice.shown?.show, "the trigger done, the ability still shown") }
+    }
+
     // HIS-112, LOB-082: at 0 s ("Off") nothing shows: Bob's Spark goes to the Stack and resolves on Alice's table as before
     @Test fun offShowsNothing() {
         val kit = EngineTableKit()
@@ -253,8 +286,9 @@ class PlayShowTest {
         assertEquals(0 to null, pace.begin(martyr, 7_100))
     }
 
-    // HIS-112 (owner playtest 2026-11-07): after its time the line goes as the flight starts, the card flies to the Stack's
-    // top card and is gone from the screen as it lands, without waiting for the device (here its dismissal never comes)
+    // HIS-112 (owner playtest 2026-11-07, 2026-11-12): it flies in from its source (Bob's hand), then shows with its line;
+    // after its time the line goes as the flight starts, the card flies to the Stack's top card and is gone from the screen
+    // as it lands, without waiting for the device (here its dismissal never comes)
     @Test fun theShowLeavesTheScreenWhenItLandsWithoutWaitingForTheDevice() {
         val (kit, show) = bobsSparkShown()
         val play = kit.alice.play()
@@ -265,11 +299,16 @@ class PlayShowTest {
         var done = 0
         compose.mainClock.autoAdvance = false
         compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
-            PlayShowOverlay(play, scene, kit.f.a, show, emptyMap(), 1_200) { done++ }
+            PlayShowOverlay(play, scene, kit.f.a, listOf(show), emptyMap(), 1_200) { done++ }
         } } } }
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
         val line = "cast Storm Spark"
+        // Flying in: not the play shown yet, no line
+        compose.onNodeWithTag(PLAY_SHOW_WAITING_TAG).assertExists()
+        compose.onNodeWithText(line, substring = true, useUnmergedTree = true).assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS + 100L)
+        compose.waitForIdle()
         compose.onNodeWithText(line, substring = true, useUnmergedTree = true).assertExists()
         compose.mainClock.advanceTimeBy(1_250)
         compose.waitForIdle()
@@ -279,5 +318,36 @@ class PlayShowTest {
         compose.waitForIdle()
         compose.onNodeWithTag(PLAY_SHOW_TAG).assertDoesNotExist()
         assertEquals(1, done)
+    }
+
+    // HIS-112 (owner 2026-11-12): the plays put on the Stack in one go show together, in Stack order; a combat's hold first,
+    // or plays of a later event, wait; plays this table ended are passed over
+    @Test fun thePlaysOfOneEventShowTogether() {
+        val bob = arcanum.engine.state.PlayerId("bob")
+        fun play(event: String, n: Int) = GameDevice.PlayShow(event, bob, arcanum.engine.state.ObjectId.StackItem("s$n"),
+            GameDevice.PlayKind.Triggered, null)
+        val a1 = play("e1", 1); val a2 = play("e1", 2); val b1 = play("e2", 3)
+        val hold = GameDevice.CombatHold("e0", GameDevice.CombatMoment.Attackers)
+        assertEquals(listOf(a1, a2), playShowGroup(listOf(a1, a2, b1), emptyList()))
+        assertEquals(listOf(a1), playShowGroup(listOf(a1, a2, b1), listOf(a2)))
+        assertEquals(listOf(b1), playShowGroup(listOf(a1, a2, b1), listOf(a1, a2)))
+        assertEquals(emptyList(), playShowGroup(listOf(hold, a1, a2), emptyList()))
+        assertEquals(listOf(a1), playShowGroup(listOf(a1, GameDevice.CombatHold("e1", GameDevice.CombatMoment.Damage), a2), emptyList()))
+    }
+
+    // HIS-112 (owner 2026-11-12): a play flies in from its source where the board shows it; from one out of sight (a
+    // battlefield card panned away) it flies in from the board's edge in its direction, at its size
+    @Test fun aSourceOutOfSightStartsAtTheBoardsEdgeInItsDirection() {
+        val board = TableBounds(0f, 100f, 400f, 600f)
+        val inSight = TableBounds(50f, 200f, 40f, 56f)
+        assertEquals(inSight, playShowStart(board, inSight))
+        assertNull(playShowStart(board, null))
+        // Far to the right, level with the board's middle: at its right edge
+        val right = assertNotNull(playShowStart(board, TableBounds(1180f, 372f, 40f, 56f)))
+        assertEquals(400f, right.center.x, .01f); assertEquals(400f, right.center.y, .01f); assertEquals(40f, right.width)
+        // Far above, a little to the left: where the line from the middle crosses the top edge
+        val up = assertNotNull(playShowStart(board, TableBounds(-220f, -648f, 40f, 56f)))
+        assertEquals(100f, up.center.y, .01f)
+        assertEquals(200f - 400f * 300f / 1020f, up.center.x, .01f)
     }
 }

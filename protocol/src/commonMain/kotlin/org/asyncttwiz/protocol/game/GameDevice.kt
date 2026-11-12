@@ -788,11 +788,15 @@ class GameDevice(
     /** HIS-110: every reveal not dismissed yet, oldest first (one panel each, in order). */
     val openReveals: List<Reveal> get() { syncReveals(); return revealsOpen.toList() }
 
-    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or playback goes on. True when one was open. */
-    fun dismissReveal(): Boolean {
+    /** HIS-110: the player dismissed the open reveal panel (the one of [event] when given, else the oldest; when the other
+     * player's same event took the place of the player's own meanwhile, SYS-077, that one): the next one opens, or playback
+     * goes on. True when it was open. */
+    fun dismissReveal(event: String? = null): Boolean {
         syncReveals()
-        if (revealsOpen.isEmpty()) return false
-        remember("reveal dismissed in ${revealsOpen.removeAt(0).event}")
+        val ids = listOfNotNull(event, event?.let(::adoptedAs))
+        val index = if (event == null) 0.takeIf { revealsOpen.isNotEmpty() } else revealsOpen.indexOfFirst { it.event in ids }.takeIf { it >= 0 }
+        if (index == null) { remember("reveal dismissal in ${event ?: "the oldest"}: none open (${revealsOpen.size})"); return false }
+        remember("reveal dismissed in ${revealsOpen.removeAt(index).event}")
         return true
     }
 
@@ -930,13 +934,15 @@ class GameDevice(
      * that this player's table shows large in the middle for a moment before it moves to the Stack: the other player's
      * spells cast, abilities activated and triggers, and this player's own triggers (never their own casts or
      * activations). [by] controls it, [entry] is the engine's object for it on the Stack (the spell's card object, else its
-     * Stack item), [kind] how it got there, [card] the spell's card or the ability's source card (null when it has none).
+     * Stack item), [kind] how it got there, [card] the spell's card or the ability's source card (null when it has none),
+     * [from] the zone a spell was cast from (HIS-112, owner 2026-11-12: it flies in from there; null for an ability, whose
+     * source card is where the table shows it).
      * While one is open ([show]) the view holds where it is, as at a reveal: the events after it wait and the device makes
      * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
      * sent, and the game never waits for it on the other player's phone.
      */
     data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
-        val card: arcanum.engine.state.CardId?) : ViewMoment
+        val card: arcanum.engine.state.CardId?, val from: arcanum.api.Zone? = null) : ViewMoment
 
     /** A moment of the shown event [event] that holds this player's view until it is done (HIS-112, HIS-113). */
     sealed interface ViewMoment { val event: String }
@@ -1010,15 +1016,18 @@ class GameDevice(
         private set
 
     /**
-     * HIS-112: the play shown now is done (its time is up, or the player tapped it): the next one shows, or the view goes
-     * on. [which]: only when it is still the one shown (a play taken back meanwhile is gone already). True when one ended.
+     * HIS-112: a play shown is done (its time is up, or the player tapped it): the next one shows, or the view goes on.
+     * [which]: that play, while it is still open among the plays shown first, those put on the Stack in the same event as
+     * the oldest (owner 2026-11-12: they fly in together and show top first, so they end in any order; a play taken back
+     * meanwhile is gone already); null: the oldest. True when one ended.
      */
     fun dismissShow(which: PlayShow? = null): Boolean {
         val open = show ?: return false
-        if (which != null && which != open) return false
-        showsOpen.removeAt(0)
-        showDone = open.event
-        remember("play shown done in ${open.event.take(8)}, holds left ${showsOpen.size}")
+        val at = if (which == null) 0 else showsOpen.indexOf(which)
+        if (at < 0 || showsOpen.subList(0, at).any { it !is PlayShow || it.event != open.event }) return false
+        val done = showsOpen.removeAt(at)
+        showDone = done.event
+        remember("play shown done in ${done.event.take(8)}${if (at > 0) " ($at after the oldest of its event)" else ""}, holds left ${showsOpen.size}")
         return true
     }
 
@@ -1114,6 +1123,27 @@ class GameDevice(
         pointsWorkedOut++
         return decideStep().also { made -> if (!made) idleAt = key }
     }
+
+    /**
+     * TRN-063, STK-029 (owner playtest 2026-11-12): whether only a view hold (a play shown or a combat's hold, HIS-112,
+     * HIS-113) keeps this player's device from making a step of their own at the head now: their pass by their response
+     * mode, an End turn or a Resolve chain going on, an automatic answer. The main button then shows no press meanwhile:
+     * the device makes it itself once the hold is done. Worked out once per point while a hold lasts.
+     */
+    val ownStepHeld: Boolean get() {
+        if (!showHolds()) return false
+        if (needsReload || holding || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
+        val key = pointKey()
+        stepHeldAt?.let { (at, held) -> if (key.same(at)) return held }
+        val s = model.engine
+        val held = Engine.result(s) == null && Attention.of(s).let { who -> who != null && (who == me || declares(s)) } &&
+            !held() && own(s)?.let { input -> reveals["${session.tip}:$input"] != true } == true
+        stepHeldAt = key to held
+        return held
+    }
+
+    /** [ownStepHeld] at its point, worked out last. */
+    private var stepHeldAt: Pair<PointKey, Boolean>? = null
 
     /** [automaticStep] worked out: whether the device made its own step at the head. */
     private fun decideStep(): Boolean {
@@ -2829,8 +2859,12 @@ class GameDevice(
         fun momentsIn(event: GameEvent, viewer: PlayerId): List<ViewMoment> {
             val moments = ArrayList<ViewMoment>()
             var damageStep = false
+            // HIS-112 (owner 2026-11-12): where each spell was cast from, for its flight in
+            var castFrom: HashMap<ObjectId, arcanum.api.Zone>? = null
             for (change in event.engine?.changes.orEmpty()) when (change) {
-                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer)?.let(moments::add)
+                is arcanum.engine.change.Change.ZoneChange -> for (move in change.moves) if (move.to == arcanum.api.Zone.Stack)
+                    (castFrom ?: HashMap<ObjectId, arcanum.api.Zone>().also { castFrom = it })[move.after.id] = move.from
+                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom)?.let(moments::add)
                 is arcanum.engine.change.Change.Combat ->
                     if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
                 is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
@@ -2843,7 +2877,8 @@ class GameDevice(
             return moments
         }
 
-        private fun showOf(event: GameEvent, added: arcanum.engine.change.Change.StackItemAdded, viewer: PlayerId): PlayShow? {
+        private fun showOf(event: GameEvent, added: arcanum.engine.change.Change.StackItemAdded, viewer: PlayerId,
+            castFrom: Map<ObjectId, arcanum.api.Zone>?): PlayShow? {
             val kind = when {
                 arcanum.engine.change.Meaning.Cast in added.meanings -> PlayKind.Cast
                 arcanum.engine.change.Meaning.Activated in added.meanings -> PlayKind.Activated
@@ -2853,7 +2888,7 @@ class GameDevice(
             val item = added.item
             if (item.controller == viewer && kind != PlayKind.Triggered) return null
             val card = (item.id as? ObjectId.Card)?.card ?: (item.source as? ObjectId.Card)?.card
-            return PlayShow(event.id, item.controller, item.id, kind, card)
+            return PlayShow(event.id, item.controller, item.id, kind, card, if (kind == PlayKind.Cast) castFrom?.get(item.id) else null)
         }
 
         /** Whether [a] and [b] are equal but for what never makes a decision another ([sameDecision]): the logged events, the

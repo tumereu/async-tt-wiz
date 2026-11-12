@@ -30,6 +30,8 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
         toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty(),
         picked = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty())
     val targets = drawn.targets
+    // STK-047 (owner, 2026-11-12): the piles glowing because they hold a choice ([PileChoiceGlow])
+    val glowingPiles = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
     val picks = drawn.picked
     val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
     val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined }) }
@@ -45,6 +47,7 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
             }.semantics {
                 contentDescription = item.label
                 item.cardId?.let { card -> marks(card).takeIf { it.isNotEmpty() }?.let { this[TableMarks] = it } }
+                if (item.kind == TableItemKind.PILE && item.zone != PlayZone.STACK && item.id in glowingPiles) this[TableMarks] = setOf("choices inside")
                  if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                     if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                 }
@@ -62,5 +65,6 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     }
 }
 
-/** The marks the table draws on a card: "target" a violet glow, "picked" picked in a choice of several, "source" Autotap's amber outline. */
+/** The marks the table draws on a card: "target" a violet glow, "picked" picked in a choice of several, "source" Autotap's amber
+ * outline; on a pile, "choices inside" its pulsing glow (STK-047). */
 val TableMarks = androidx.compose.ui.semantics.SemanticsPropertyKey<Set<String>>("TableMarks")

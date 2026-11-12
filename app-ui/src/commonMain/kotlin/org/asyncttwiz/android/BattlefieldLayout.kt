@@ -221,8 +221,8 @@ object BattlefieldLayout {
                     else -> 0f
                 }
                 val lift = if (open || group.kind != BattlefieldGroup.Kind.Attached) 0 else i
-                // The tight stack's ×N on its top card (of those not staged)
-                val copies = if (!open && group.kind == BattlefieldGroup.Kind.Stack && group.row != BattlefieldRow.Lands &&
+                // A stack's ×N on its top card (of those not staged); a land stack's too (TBL-054, owner 2026-11-12)
+                val copies = if (!open && group.kind == BattlefieldGroup.Kind.Stack &&
                     id == unstaged.lastOrNull() && unstaged.size > 1) unstaged.size else 0
                 spots[id] = BattlefieldSpot(left + x, row, lift, order++, copies, group.key, lifts,
                     if (id in staged) group.staged[id] else null)

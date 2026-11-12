@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.Faults
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -35,6 +39,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.PlayZone
@@ -172,108 +180,272 @@ object PlayShowProbe {
 /** HIS-112: the shown card's opacity at [progress] of its flight: whole over the first half, fading out over the second. */
 fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).coerceIn(0f, 1f)
 
+/** HIS-112 (owner 2026-11-12): plays put on the Stack in one go start flying in from their sources this long apart, in the
+ * order they went on the Stack. */
+const val PLAY_SHOW_STAGGER_MILLIS = 50L
+
+/** HIS-112 (owner 2026-11-12): how far apart (dp, right and down) the plays waiting large in the middle lie, so the pile
+ * shows each; [PLAY_SHOW_PILE_SPREAD] at most for the whole pile. */
+private const val PLAY_SHOW_PILE_STEP = 8f
+private const val PLAY_SHOW_PILE_SPREAD = 48f
+
+/** The test tag of a play waiting large in the middle under the one shown (HIS-112). */
+const val PLAY_SHOW_WAITING_TAG = "play-show-waiting"
+
 /**
- * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis] (shorter
- * for a repeat of the same ability in its chain, [pace], owner playtest 2026-11-11: [playShowMillis]), then it
- * flies to the Stack's top card, taking its place and size, with an accelerating curve ([playShowFlightMillis]); its line
- * goes as the flight starts and the card fades out over the flight's second half. When it lands it is gone from this
- * screen at once, and [done] (the device's dismissal, on the engine thread) runs. A double tap on it ends it at once, a
- * single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104, TBL-131). A finger held on it or on the
- * table pauses its time ([pause]). The view holds meanwhile (the device holds the later events). Only the card and its line
- * take touches.
+ * HIS-112 (owner 2026-11-12): the plays that show together now, oldest first (the order they went on the Stack): the oldest
+ * moment not [ended] when it is a play, and the plays right after it put on the Stack in the same event ("in one go");
+ * empty when the oldest is a combat's hold (HIS-113) or nothing waits.
+ */
+fun playShowGroup(moments: List<GameDevice.ViewMoment>, ended: Collection<GameDevice.ViewMoment>): List<GameDevice.PlayShow> {
+    val open = moments.filter { it !in ended }
+    val first = open.firstOrNull() as? GameDevice.PlayShow ?: return emptyList()
+    val group = ArrayList<GameDevice.PlayShow>()
+    for (m in open) { if (m is GameDevice.PlayShow && m.event == first.event) group += m else break }
+    return group
+}
+
+/**
+ * HIS-112 (owner 2026-11-12): where on [scene] (the table at the play's event, screen dp) [show] flies in from: an
+ * ability's source card on the battlefield, in a pile or in a hand (the other player's: its card in their hand's fan), or
+ * the emblem's chip by its owner's life square; a spell from the pile or hand it was cast from. Null when the table shows
+ * no such place: the play then grows where it shows.
+ */
+fun playShowSource(scene: TableScene, play: TableBoard, show: GameDevice.PlayShow): TableBounds? {
+    val card = show.card?.value
+    if (show.kind == GameDevice.PlayKind.Cast) {
+        val owner = card?.let { id -> play.board.cards.firstOrNull { it.id == id }?.owner } ?: show.by.value
+        return when (show.from) {
+            arcanum.api.Zone.Hand -> scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner == owner }?.bounds
+            arcanum.api.Zone.Graveyard -> pileOf(scene, owner, PlayZone.GRAVEYARD)
+            arcanum.api.Zone.Exile -> pileOf(scene, owner, PlayZone.EXILE)
+            arcanum.api.Zone.Library -> pileOf(scene, owner, PlayZone.LIBRARY)
+            else -> null
+        }
+    }
+    if (card == null) return null
+    // A battlefield card (the one in sight, when its combat copy shows too), a card in a hand, a pile holding it
+    scene.items.filter { it.kind == TableItemKind.CARD && it.cardId == card && !it.projection && !it.leaving &&
+        (it.zone == PlayZone.BATTLEFIELD || it.zone == PlayZone.HAND) }
+        .let { cards -> cards.firstOrNull { it.visible.isNotEmpty() } ?: cards.firstOrNull() }?.let { return it.bounds }
+    scene.items.firstOrNull { it.kind == TableItemKind.PILE && it.zone != PlayZone.STACK && card in it.cards }?.let { return it.bounds }
+    // An emblem (its record's id is "emblem:<card>"): its chip by its owner's life square (the "+N" chip for one past the chips)
+    val record = play.board.engineRecords.firstOrNull { it.kind == org.asyncttwiz.protocol.EngineRecordKind.Emblem &&
+        it.id.substringAfter(':') == card } ?: return null
+    val owner = record.player ?: return null
+    val index = play.board.engineRecords.filter { it.kind == org.asyncttwiz.protocol.EngineRecordKind.Emblem && it.player == owner }
+        .sortedWith(compareBy({ it.timestamp ?: 0 }, { it.id })).indexOf(record)
+    val chips = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner == owner }?.emblemChips.orEmpty()
+    return chips.getOrNull(minOf(index, chips.lastIndex))
+}
+
+private fun pileOf(scene: TableScene, owner: String, zone: PlayZone): TableBounds? =
+    scene.items.firstOrNull { it.kind == TableItemKind.PILE && it.owner == owner && it.zone == zone && !it.temp }?.bounds
+
+/**
+ * HIS-112 (owner 2026-11-12): where a play flying in from [source] starts on the [board] (the table's visible part): the
+ * source itself, or for one out of sight (a battlefield card panned away) the board's edge in its direction, at its size.
+ */
+fun playShowStart(board: TableBounds, source: TableBounds?): TableBounds? {
+    source ?: return null
+    val c = source.center
+    if (board.contains(c)) return source
+    val o = board.center
+    val dx = c.x - o.x
+    val dy = c.y - o.y
+    val t = minOf(if (dx == 0f) Float.MAX_VALUE else board.width / 2 / kotlin.math.abs(dx),
+        if (dy == 0f) Float.MAX_VALUE else board.height / 2 / kotlin.math.abs(dy))
+    val x = o.x + dx * t
+    val y = o.y + dy * t
+    return TableBounds(x - source.width / 2, y - source.height / 2, source.width, source.height)
+}
+
+/**
+ * HIS-112 (owner 2026-11-07, 2026-11-12; MTG Arena as the reference): the plays [shows] put on the Stack in one go
+ * ([playShowGroup]) fly in from their sources on the table ([playShowSource]; one out of sight from the board's edge in its
+ * direction), growing from small to large in the middle, one after another [PLAY_SHOW_STAGGER_MILLIS] apart in Stack order,
+ * so they pile up there, the last on top. Then one at a time, top first: it stays large for [millis] (shorter for a repeat
+ * of the same ability in its chain, [pace]: [playShowMillis]) with its line under it, then shrink-flies to its Stack card
+ * (else the Stack's top card or the Stack), with an accelerating curve ([playShowFlightMillis]), its line gone as the flight
+ * starts and the card fading out over the flight's second half; the next is already waiting large under it. When it lands
+ * it is gone from this screen at once, and [done] (the device's dismissal, on the engine thread) runs for it. A double tap
+ * on the one shown ends it at once, a single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104,
+ * TBL-131). A finger held on it or on the table pauses its time ([pause]) and holds the pile once flown in. The view holds
+ * meanwhile (the device holds the later events). Only the card shown and its line take touches. Cheap per frame: the
+ * flights are read while drawing only, nothing composes again.
  */
 @Composable
-fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
-    names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() }, inspect: (Boolean) -> Unit = {},
+fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: List<GameDevice.PlayShow>,
+    names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() },
+    inspect: (GameDevice.PlayShow, Boolean) -> Unit = { _, _ -> },
     moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
-    /** Outlives this play: a tap's double-tap time goes on after it has gone. */
+    /** Outlives these plays: a tap's double-tap time goes on after they have gone. */
     tapScope: CoroutineScope = rememberCoroutineScope(),
-    /** Outlives this play: the chain it is part of, for its pace. */
-    pace: PlayShowPace = remember { PlayShowPace() }, done: () -> Unit) {
+    /** Outlives these plays: the chain they are part of, for their pace. */
+    pace: PlayShowPace = remember { PlayShowPace() }, done: (GameDevice.PlayShow) -> Unit) {
     val board = scene.world?.visibleViewport ?: return
-    val shown = remember(show) { PlayShows.of(play, show, viewer, names) }
+    val first = shows.firstOrNull() ?: return
+    // Fixed for the group's life: what shows, where each flies from and to (the table as it is when they begin)
+    val group = remember(first) { shows.toList() }
+    val shown = remember(first) { group.map { PlayShows.of(play, it, viewer, names) } }
+    val sources = remember(first) { group.map { playShowStart(board, playShowSource(scene, play, it)) } }
+    val targets = remember(first) { group.map { playShowTarget(scene, it) } }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
     val height = minOf(board.height * .46f, PLAY_SHOW_MAX_HEIGHT)
     val width = height / 1.4f
-    val target = playShowTarget(scene)
-    val flight = remember(show) { Animatable(0f) }
-    var flying by remember(show) { mutableStateOf(false) }
-    // Landed or tapped: off this screen at once, whenever the device gets to its dismissal
-    var gone by remember(show) { mutableStateOf(false) }
-    val ended = remember(show) { booleanArrayOf(false) }
-    fun end() { gone = true; if (!ended[0]) { ended[0] = true; done() } }
-    LaunchedEffect(show) {
-        val start = withFrameMillis { it }
-        val (repeats, gap) = pace.begin(pace.key(shown), start)
-        val showFor = playShowMillis(millis, repeats)
-        val flightFor = playShowFlightMillis(multiplier, repeats)
-        PlayShowProbe.listener?.invoke(viewer, show, repeats, showFor, flightFor)
-        pause.wait(showFor)
-        val flown = withFrameMillis { it }
-        flying = true
-        if (target != null) flight.animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
-        // A finger held during the flight still holds the view: what comes next waits for it
-        pause.lifted()
-        val landed = withFrameMillis { it }
-        pace.landed(landed)
-        // HIS-112 (owner playtest 2026-11-11): where a play's time goes, for the report: the gap before it (the device and
-        // the table getting it on screen), its time shown against the setting, its flight
-        AppLog.info("game", "Play shown ${show.kind::class.simpleName} in ${show.event.take(8)}: " +
-            (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
-            ", shown ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms), flight ${landed - flown} ms ($flightFor ms)" +
-            if (target == null) ", no Stack card to fly to" else "")
-        end()
-    }
-    if (gone) return
-    val density = LocalDensity.current
-    // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
-    val touches = Modifier.choiceCardGestures(show, tap = { if (pause.tapOnShow(tapScope)) end() }, hold = { holding -> pause.finger = holding; inspect(holding) }, moved = moved)
-    Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
-        // The card's centre is the board's, so the flight moves and scales it about its own centre. The flight is read
-        // while drawing only: it moves the card without composing it again
-        Box(Modifier
-            .graphicsLayer {
-                val p = flight.value
-                if (target != null) {
-                    translationX = (target.center.x - board.center.x) * p * density.density
-                    translationY = (target.center.y - board.center.y) * p * density.density
-                    scaleX = 1f + (target.width / width - 1f) * p
-                    scaleY = 1f + (target.height / height - 1f) * p
-                    alpha = playShowFlightAlpha(p)
-                }
-            }
-            .testTag(PLAY_SHOW_TAG)
-            .semantics { contentDescription = shown.description }
-            .then(touches)) {
-            val ability = shown.ability
-            when {
-                ability != null -> AbilityTokenFace(ability, shown.art, shown.own, Modifier.size(width.dp, height.dp), shown.typeIcon)
-                shown.face != null -> InspectFaceView(shown.face, DpSize(width.dp, height.dp))
-                else -> Box(Modifier.size(width.dp, height.dp).cardFrame(false, if (shown.own) OwnTableColor else OpponentTableColor)
-                    .background(Color(0xff506b61)))
+    val arrive = remember(first) { group.map { Animatable(0f) } }
+    val leave = remember(first) { group.map { Animatable(0f) } }
+    // The play shown now (-1 while they fly in), whether its flight to the Stack began, which are gone (landed or tapped)
+    var current by remember(first) { mutableIntStateOf(-1) }
+    var flying by remember(first) { mutableStateOf(false) }
+    val gone = remember(first) { mutableStateListOf<Int>() }
+    val ended = remember(first) { BooleanArray(group.size) }
+    val showing = remember(first) { arrayOfNulls<Job>(1) }
+    fun end(i: Int) { if (!ended[i]) { ended[i] = true; gone += i; done(group[i]) } }
+    // A double tap on the play shown: off this screen at once, the next under it shows
+    fun skip(i: Int) { showing[0]?.cancel(); end(i) }
+    LaunchedEffect(first) {
+        val arrival = playShowFlightMillis(multiplier)
+        val began = withFrameMillis { it }
+        coroutineScope {
+            for (i in group.indices) launch {
+                if (i > 0) delay(i * PLAY_SHOW_STAGGER_MILLIS)
+                arrive[i].animateTo(1f, tween(arrival, easing = FastOutSlowInEasing))
             }
         }
-        // Its line under the card, gone once the flight starts
-        if (!flying) Surface(Modifier
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    placeable.place(0, (height.dp.toPx() / 2 + 8.dp.toPx() + placeable.height / 2f).roundToInt())
+        val arrived = withFrameMillis { it }
+        // A finger held as they arrive holds the pile there
+        pause.lifted()
+        for (i in group.indices.reversed()) {
+            current = i
+            flying = false
+            val start = withFrameMillis { it }
+            val (repeats, gap) = pace.begin(pace.key(shown[i]), start)
+            val showFor = playShowMillis(millis, repeats)
+            val flightFor = playShowFlightMillis(multiplier, repeats)
+            PlayShowProbe.listener?.invoke(viewer, group[i], repeats, showFor, flightFor)
+            var flown = start
+            val target = targets[i]
+            val run = launch {
+                pause.wait(showFor)
+                flown = withFrameMillis { it }
+                flying = true
+                if (target != null) leave[i].animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
+                // A finger held during the flight still holds the view: what comes next waits for it
+                pause.lifted()
+            }
+            showing[0] = run
+            run.join()
+            showing[0] = null
+            val landed = withFrameMillis { it }
+            pace.landed(landed)
+            // HIS-112 (owner playtest 2026-11-11): where a play's time goes, for the report: the gap before it (the device and
+            // the table getting it on screen), its arrival with the others of its event, its time shown against the setting,
+            // its flight
+            AppLog.info("game", "Play shown ${group[i].kind::class.simpleName} in ${group[i].event.take(8)} " +
+                "(${group.size - i} of ${group.size} put on the Stack together, from ${if (sources[i] == null) "nowhere on the table" else "its source"}): " +
+                (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
+                (if (i == group.lastIndex) ", flown in ${arrived - began} ms (${group.size} from ${PLAY_SHOW_STAGGER_MILLIS} ms apart, $arrival ms each)" else "") +
+                ", shown ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms), flight ${landed - flown} ms ($flightFor ms)" +
+                (if (run.isCancelled) ", ended by a double tap" else "") + if (target == null) ", no Stack card to fly to" else "")
+            end(i)
+        }
+    }
+    val density = LocalDensity.current
+    val step = if (group.size <= 1) 0f else minOf(PLAY_SHOW_PILE_STEP, PLAY_SHOW_PILE_SPREAD / (group.size - 1))
+    // The pile's middle stays the board's: each play's place in it, from the board's centre (dp)
+    fun pile(i: Int): Float = (i - (group.size - 1) / 2f) * step
+    Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
+        for (i in group.indices) if (i !in gone) key(i) {
+            val entry = group[i]
+            val look = shown[i]
+            val now = i == current
+            val source = sources[i]
+            val target = targets[i]
+            // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
+            val touches = if (!now) Modifier else Modifier.choiceCardGestures(entry,
+                tap = { if (pause.tapOnShow(tapScope)) skip(i) },
+                hold = { holding -> pause.finger = holding; inspect(entry, holding) }, moved = moved)
+            // The card's centre is the board's (and its place in the pile), so its flights move and scale it about its own
+            // centre. They are read while drawing only: they move the card without composing it again
+            Box(Modifier
+                .graphicsLayer {
+                    val a = arrive[i].value
+                    if (a <= 0f) { alpha = 0f; return@graphicsLayer }
+                    val home = pile(i)
+                    var x = home
+                    var y = home
+                    var sx = 1f
+                    var sy = 1f
+                    var fade = 1f
+                    if (a < 1f) {
+                        if (source != null) {
+                            x = source.center.x - board.center.x + (home - (source.center.x - board.center.x)) * a
+                            y = source.center.y - board.center.y + (home - (source.center.y - board.center.y)) * a
+                            val small = maxOf(source.width / width, source.height / height).coerceIn(.05f, 1f)
+                            sx = small + (1f - small) * a
+                            sy = sx
+                        } else { sx = .2f + .8f * a; sy = sx; fade = a }
+                    }
+                    val l = leave[i].value
+                    if (target != null && l > 0f) {
+                        x = home + (target.center.x - board.center.x - home) * l
+                        y = home + (target.center.y - board.center.y - home) * l
+                        sx = 1f + (target.width / width - 1f) * l
+                        sy = 1f + (target.height / height - 1f) * l
+                        fade = playShowFlightAlpha(l)
+                    }
+                    translationX = x * density.density
+                    translationY = y * density.density
+                    scaleX = sx
+                    scaleY = sy
+                    alpha = fade
+                }
+                .testTag(if (now) PLAY_SHOW_TAG else PLAY_SHOW_WAITING_TAG)
+                .semantics { contentDescription = look.description }
+                .then(touches)) {
+                val ability = look.ability
+                when {
+                    ability != null -> AbilityTokenFace(ability, look.art, look.own, Modifier.size(width.dp, height.dp), look.typeIcon)
+                    look.face != null -> InspectFaceView(look.face, DpSize(width.dp, height.dp))
+                    else -> Box(Modifier.size(width.dp, height.dp).cardFrame(false, if (look.own) OwnTableColor else OpponentTableColor)
+                        .background(Color(0xff506b61)))
                 }
             }
-            .widthIn(max = 300.dp)
-            .then(touches),
-            shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
-            CardText(shown.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
-                style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,
-                overflow = TextOverflow.Ellipsis)
+        }
+        // The line of the play shown under its card, gone once its flight starts
+        val i = current
+        if (i >= 0 && i !in gone && !flying) {
+            val look = shown[i]
+            val entry = group[i]
+            val home = pile(i)
+            Surface(Modifier
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    layout(placeable.width, placeable.height) {
+                        placeable.place(home.dp.roundToPx(),
+                            (home.dp.toPx() + height.dp.toPx() / 2 + 8.dp.toPx() + placeable.height / 2f).roundToInt())
+                    }
+                }
+                .widthIn(max = 300.dp)
+                .choiceCardGestures(entry, tap = { if (pause.tapOnShow(tapScope)) skip(i) },
+                    hold = { holding -> pause.finger = holding; inspect(entry, holding) }, moved = moved),
+                shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
+                CardText(look.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
+                    style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,
+                    overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
 
-/** HIS-112: where the shown play lands: the Stack's top card (its place and size), else the Stack. */
-fun playShowTarget(scene: TableScene): TableBounds? {
+/** HIS-112: where the shown play [show] lands: its own card on the Stack (its place and size), else the Stack's top card,
+ * else the Stack. */
+fun playShowTarget(scene: TableScene, show: GameDevice.PlayShow? = null): TableBounds? {
     val pile = scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+    val entry = show?.let { "entry:${it.entry}" }
+    if (entry != null) scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.cardId == entry &&
+        it.visible.isNotEmpty() }?.let { return it.bounds }
     return pile?.let { p -> scene.items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.viewport == p.viewport } }?.bounds
         ?: pile?.bounds ?: scene.stackRegion
 }

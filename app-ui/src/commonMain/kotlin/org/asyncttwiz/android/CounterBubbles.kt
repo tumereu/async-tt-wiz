@@ -9,8 +9,8 @@ import org.asyncttwiz.automatum.ShownCounter
  * so the whole palette is here, in one place.
  *
  * The common counters have designed colours with just their number, their fills stepping apart in lightness as well as hue
- * (CIE L* about 13, 35, 46, 59, 72, 81, 92), each with ink of at least 4.5:1 contrast on it. Every other counter is one neutral
- * white bubble with its number and the counter's initial ("3T" for three time counters); no colours are made from names.
+ * (CIE L* about 13, 35, 46, 59, 72, 81, 92), each with ink of at least 4.5:1 contrast on it. Every other counter is one plain
+ * white bubble with only its number (owner, 2026-11-12: no initial); no colours are made from names.
  */
 object CounterBubbles {
     /** A bubble's [fill], its [edge] and [ink], and the [text] it shows. */
@@ -36,9 +36,6 @@ object CounterBubbles {
     fun look(counter: ShownCounter): Look {
         val colours = counter.kind?.let(designed::get)
         if (colours != null) return Look(colours.first, edgeOnColour, colours.second, counter.count.toString())
-        val initial = counter.name.firstOrNull { it.isLetter() }?.uppercaseChar()?.toString() ?: counter.name.take(1).ifEmpty {
-            org.asyncttwiz.protocol.Faults.placeholder("CounterBubbles", "counter without a name", "?", mapOf("kind" to counter.kind.toString()))
-        }
-        return Look(Color.White, neutralEdge, darkInk, "${counter.count}$initial")
+        return Look(Color.White, neutralEdge, darkInk, counter.count.toString())
     }
 }

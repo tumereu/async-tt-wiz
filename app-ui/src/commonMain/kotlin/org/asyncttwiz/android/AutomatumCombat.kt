@@ -418,9 +418,10 @@ fun combatName(play: TableBoard, cardId: String): String =
 
 /** A card or player as the viewer may see it named (I-D27: a face-down card stays hidden). */
 fun refName(play: TableBoard, names: Map<String, String>, ref: MtgRef): String = when (ref) {
-    is MtgRef.Player -> names[ref.accountId] ?: "A player"
+    is MtgRef.Player -> names[ref.accountId] ?: Faults.placeholder("AutomatumCombat", "player to name without a name", "A player", mapOf("player" to ref.accountId))
     is MtgRef.Card -> play.board.cards.singleOrNull { it.id == ref.cardId }?.let { card ->
         if (card.isFaceDown) "A face-down creature" else CastController.cardName(play, card.id) }
         ?: Faults.placeholder("AutomatumCombat", "card to name not on the board", "A card", mapOf("card" to ref.cardId))
-    is MtgRef.StackItem -> "An ability"
+    // Combat's messages name creatures, players and planeswalkers, never a Stack entry
+    is MtgRef.StackItem -> Faults.placeholder("AutomatumCombat", "Stack entry named in combat", "An ability", mapOf("entry" to ref.id))
 }

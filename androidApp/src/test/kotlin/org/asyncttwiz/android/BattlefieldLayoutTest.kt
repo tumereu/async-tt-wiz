@@ -123,7 +123,7 @@ class BattlefieldLayoutTest {
     // TBL-004, TBL-002 (owner playtest 2026-11-07): lands from the left in the land row; in the upper band creatures from
     // the left and the other permanents from the right end, each side filling two-slot columns (the row nearest the middle
     // first, then the one behind it, then the next column inward), a column as wide as its wider group; each group takes
-    // its slot, a land stack fans, a tight stack carries ×N
+    // its slot, a land stack fans, every stack carries ×N
     @Test fun theUpperBandFillsTwoSlotColumnsFromBothEnds() {
         val groups = BattlefieldLayout.groups(listOf(
             card("cub"), card("f1", BattlefieldRow.Lands, same), card("rock", BattlefieldRow.Others),
@@ -143,7 +143,9 @@ class BattlefieldLayoutTest {
         assertEquals(tokens to front, spots.getValue("bear").let { it.x to it.row }, "the next column, as wide as the tokens' stack")
         assertEquals(0f to BattlefieldRow.LAND_ROW, spots.getValue("f1").let { it.x to it.row })
         assertEquals(BattlefieldLayout.FAN, spots.getValue("f2").x, "lands fan out")
-        assertEquals(0, spots.getValue("f2").copies, "a land stack shows its count by its fan")
+        // TBL-054 (owner, 2026-11-12): a land stack fans and carries ×N too
+        assertEquals(2, spots.getValue("f2").copies, "a land stack's ×N on its top card")
+        assertEquals(0, spots.getValue("f1").copies)
         assertEquals((400f - slot) to front, spots.getValue("rock").let { it.x to it.row }, "the first other permanent rightmost")
         assertEquals((400f - slot) to back, spots.getValue("totem").let { it.x to it.row }, "the next one behind it")
         assertEquals((400f - 2 * slot) to front, spots.getValue("orb").let { it.x to it.row }, "then the next column inward")

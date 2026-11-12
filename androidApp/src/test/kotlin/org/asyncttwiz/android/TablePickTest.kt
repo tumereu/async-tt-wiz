@@ -124,6 +124,32 @@ class TablePickTest {
                 "creature.\" with \"a creature\" lit in violet as the pick now, and the Pup carries a violet \"Equip\" chip on the table.")
     }
 
+    // STK-047 (owner, 2026-11-12: "tap me, your choices are inside"): Alice casts a Hedge Study, then a Hedge Recall ("Return
+    // target card from your graveyard to your hand"): her graveyard, holding the Study, glows over its whole face, pulsing,
+    // and says so to accessibility services; her exile and library, holding nothing to pick, don't
+    @Test fun aPileHoldingATargetGlows() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.STUDY, Choices.RECALL))))
+        kit.opening()
+        val study = kit.atw(kit.hand(Choices.STUDY).first())
+        assertTrue(kit.toolkit.cast.start(study), "the Study is cast: ${kit.toolkit.error}")
+        kit.playOn("the Study in the graveyard") { kit.state().player(kit.me).graveyard.size == 1 && kit.aliceMain() }
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.RECALL).first())), "the Recall is cast: ${kit.toolkit.error}")
+        val cast = kit.toolkit.cast
+        assertTrue(cast.targeting, "its target is picked on the table: ${kit.toolkit.error}")
+        val graveyard = kit.pile(org.asyncttwiz.protocol.PlayZone.GRAVEYARD)
+        assertTrue(graveyard.id in cast.glow(kit.alice.play()), "the graveyard holds the target")
+        render(kit)
+        fun marked(pile: TableItem) = compose.onAllNodes(hasContentDescription(pile.label) and
+            SemanticsMatcher("glowing, choices inside") { "choices inside" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes().size
+        assertEquals(1, marked(graveyard), "the graveyard glows")
+        assertEquals(0, marked(kit.pile(org.asyncttwiz.protocol.PlayZone.EXILE)), "the exile doesn't")
+        assertEquals(0, marked(kit.pile(org.asyncttwiz.protocol.PlayZone.LIBRARY)), "the library doesn't")
+        compose.onRoot().captureShot("$SCREENSHOTS/table-pick/pile-choice-glow.png",
+            "Alice cast a Hedge Recall, whose target is a card in her graveyard: while she picks it, her graveyard, holding the Hedge " +
+                "Study she cast before, glows violet over its whole face with rings around it, pulsing, so it reads as \"tap me, " +
+                "your choices are inside\".")
+    }
+
     // D1, STK-030, STK-047: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
     // answer the chosen cards; a choice of cards in the hand (a discard) keeps its panel
     @Test fun onlyAChoiceAmongBattlefieldPermanentsIsPickedOnTheTable() {

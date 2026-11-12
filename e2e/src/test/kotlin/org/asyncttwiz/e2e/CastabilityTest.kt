@@ -594,6 +594,20 @@ class CastabilityTest : E2e() {
         waitUntil("the mana chip activated") { alice.state.player(alice.me).manaPool.size == 2 && alice.tappedCount("Ember Cairn") == 1 && !alice.shows(add) }
     }
 
+    // TBL-124 (owner, 2026-11-12: chips said only "Mana ability"): a dual land's two mana abilities, given by its land types (CR
+    // 305.6) with no printed text, read as the mana they make; no chip says "Mana ability"
+    @Test fun aDualLandsChipsNameTheManaTheyMake() {
+        start(deck(TestCards.ridge to 40), mapOf("Ember Ridge" to 1))
+        plays(alice, "Ember Ridge")
+        alice.battlefieldCard("Ember Ridge").performClick()
+        val red = hasContentDescription("{T}: Add {R}.")
+        val green = hasContentDescription("{T}: Add {G}.")
+        waitUntil("both chips: ${alice.screen()}") { alice.shows(red) && alice.shows(green) }
+        assertFalse(alice.shows(hasContentDescription("Mana ability", substring = true)), alice.screen())
+        alice.node(green).performClick()
+        waitUntil("the green chip activated") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Ridge") == 1 }
+    }
+
     // TBL-122, TBL-124, STK-024 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
     @Test fun duringAPaymentATapPicksTheSourceWithoutItsChips() {
         start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))

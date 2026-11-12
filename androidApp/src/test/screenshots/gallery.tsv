@@ -31,10 +31,10 @@ number	item	screenshot	catalog	decisions	sequence
 30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
 31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
-33	Wait band under the other player's hand	engine/waiting-bar.png	TRN-066 TRN-070
+33	Wait band under the other player's hand, quiet waiting status in the main button's place	engine/waiting-bar.png	TRN-066 TRN-070 TRN-004
 34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
 35	Assume resolves on the main button	engine/stack-assume.png	STK-028 TRN-070 HIS-096
-36	Catch-up: has made moves	engine/catch-up.png	HIS-094
+36	Catch-up: has made moves, Assume resolves greyed	engine/catch-up.png	HIS-094 TRN-059
 37	Playback paused by a tap	engine/playback-paused.png	HIS-095
 38	Playback stop at an assumed pass	engine/decision-stop.png	HIS-091 HIS-095 HIS-105
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
@@ -227,3 +227,9 @@ number	item	screenshot	catalog	decisions	sequence
 226	Which pick is which: the equip target named after "Equip", the sacrifice's phrase lit, the picked card's role chip	table-pick/equip-sacrifice-bar.png	STK-047	Targets	
 227	Draft: Stats subtype counts, the rest behind "+4 more"	pod-stats-subtypes.png	DRF-180 DRF-112		
 228	Draft: Prepare deck of a pod game, the deck's cover and a pen to rename it	prepare-pod-deck-header.png	LOB-047 DRF-105 DRF-166		
+229	Effects marker: a violet sparkle on a card an effect changes	states/effects-marker.png	TBL-136 TBL-104	
+230	Saved cube view: warning sign on cards Automatum can't play yet	non-gameplay/cube-detail-unsupported-portrait.png	DRF-161 LOB-144		
+231	A graveyard holding a target glows and pulses while it is picked	table-pick/pile-choice-glow.png	STK-047		
+232	Plays put on the Stack in one go fly in and pile up large in the middle	engine/play-show-pile.png	HIS-112 HIS-021		
+233	Hand row: a flashback card from the graveyard after a divider, with its zone badge	hand/hand-row-flashback.png	ZON-079		
+234	Hand row: a graveyard card raised with a greyed Flashback chip and a live ability chip	hand/hand-row-ability-chips.png	ZON-079 ZON-080 TBL-128		

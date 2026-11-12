@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.randomUuid
@@ -56,9 +56,9 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
         pendingCreate = input; pendingRecipient = draft.recipient
         val generation = epoch
         state = state.copy(mutating = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.create(token, input) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val result = runCatching { serviceRetry(current = { generation == epoch }) { api.create(token, input) } }
             post { if (!closed && generation == epoch) {
                 val game = result.getOrNull()
                 if (game != null) {
@@ -92,10 +92,10 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
         if (previous == null && !LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
         val generation = epoch
         state = state.copy(mutating = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             var captured = previous
-            val result = runCatching { runBlocking {
+            val result = runCatching { run {
                 val request = captured ?: PodChallenge(podId, ChallengeFromPod(randomUuid(), opponentId, gameName))
                     .also { captured = it }
                 serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }

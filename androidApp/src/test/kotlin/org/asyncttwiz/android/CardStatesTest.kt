@@ -61,6 +61,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertNotNull
 
 /** What the rules keep and the picture doesn't show: card states (TBL-133, ZON-094), restrictions from effects (TBL-134) and a
  * player's and the game's states (TRN-072, TRN-073). */
@@ -438,7 +439,33 @@ class CardStatesTest {
         render(f.initial, stated())
         compose.onRoot().captureShot("$SCREENSHOTS/states/card-state-chips.png",
             "Portrait table where your Meadow Sentinel is your Ring-bearer, your River Adept is goaded and monstrous, and the opponent's Lantern Guide is " +
-                "suspected: each chip under the title starts with the state's word, a little smaller where the word is long for the card.")
+                "suspected: each chip under the title starts with the state's word, a little smaller where the word is long for the card; the Sentinel, " +
+                "which an effect keeps from untapping, also has a small violet sparkle in its top-left corner.")
+    }
+
+    // TBL-136 (owner, 2026-11-12): a card an effect applies to (the Sentinel doesn't untap) carries a violet sparkle in its top-left
+    // corner and reads "changed by effects"; one with only states and no effect or can't line (the goaded, monstrous River Adept) none
+    @Test fun effectsMarker() {
+        val table = stated()
+        val home = scene(table)
+        fun item(card: PlayCard, scene: TableScene = home) = scene.items.single { it.sourceId == card.id && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
+        assertTrue(item(sentinel).effectsMarker && item(sentinel).label.contains(", changed by effects"), item(sentinel).label)
+        assertTrue(!item(river).effectsMarker, "${changes(table, river)}")
+        // The suspected Lantern Guide's "Can't block" is a can't line Inspect lists (TBL-134): it carries the sparkle too
+        assertTrue(item(blocker).effectsMarker, "${changes(table, blocker)}")
+        val port = assertNotNull(home.world).viewport.center
+        val at = item(sentinel).bounds.center
+        val toolkit = TableToolkitController(f.a, { table }, { true }, { _, _ -> true })
+        toolkit.layoutState.value = TableLayoutState(TableCamera(at.x - port.x, at.y - port.y, zoom = 3f))
+        compose.setContent { MaterialTheme {
+            EngineFixtureTable(f.initial, f.a) {
+                TableSurface(f.game, table, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit)
+            }
+        } }
+        compose.waitForIdle()
+        compose.onRoot().captureShot("$SCREENSHOTS/states/effects-marker.png",
+            "Zoomed in on your Meadow Sentinel, which an effect of the opponent's keeps from untapping: a small violet sparkle sits in its " +
+                "top-left corner (Inspect lists the effect); your River Adept beside it has only states (goaded, monstrous) and no sparkle.")
     }
 
     // TBL-133, TBL-134: Inspect lists the states and what effects tell it, with the change lines

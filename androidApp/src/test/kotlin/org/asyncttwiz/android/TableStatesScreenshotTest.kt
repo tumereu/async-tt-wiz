@@ -174,7 +174,8 @@ class TableStatesScreenshotTest {
                 assertTrue(oracle.label.endsWith(", loyalty counter ×4"), oracle.label)
                 assertEquals(listOf("2", "1", "1"), scene.items.single { it.sourceId == f.source(f.a, "1/3").id && it.zone == PlayZone.BATTLEFIELD }
                     .counterBubbles.map { CounterBubbles.look(it).text })
-                assertEquals(listOf("1", "3O"), scene.items.single { it.sourceId == f.source(f.b, "2/3").id && it.zone == PlayZone.BATTLEFIELD }
+                // TBL-135 (owner, 2026-11-12): a counter without a designed colour is a plain bubble with only its number
+                assertEquals(listOf("1", "3"), scene.items.single { it.sourceId == f.source(f.b, "2/3").id && it.zone == PlayZone.BATTLEFIELD }
                     .counterBubbles.map { CounterBubbles.look(it).text })
             }
             "exile-counters-pile" -> {
@@ -200,8 +201,8 @@ class TableStatesScreenshotTest {
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
             "exile-counters" -> "after double-tapping your exile: its panel shows the suspended River Adept with a white bubble \"3T\" (three time counters) on its art"
-            "counters" -> "with counters on the battlefield: Bob's Ash Oracle planeswalker shows its 4 loyalty in its corner, his creature a near-black -1/-1 bubble and a white \"3O\" bubble for 3 oil counters, Alice's creature a green 2 (+1/+1), a sky-blue 1 (shield) and a yellow 1 (stun) on its art"
-            "counters-close" -> "with counters on the battlefield, zoomed in on Alice's creature: a green 2 for its +1/+1 counters, a sky-blue 1 (shield) and a yellow 1 (stun) on its art, its corner 3/5; beside it Bob's creature's near-black -1/-1 bubble and white \"3O\" for 3 oil counters"
+            "counters" -> "with counters on the battlefield: Bob's Ash Oracle planeswalker shows its 4 loyalty in its corner, his creature a near-black -1/-1 bubble and a plain white 3 bubble for 3 oil counters, Alice's creature a green 2 (+1/+1), a sky-blue 1 (shield) and a yellow 1 (stun) on its art"
+            "counters-close" -> "with counters on the battlefield, zoomed in on Alice's creature: a green 2 for its +1/+1 counters, a sky-blue 1 (shield) and a yellow 1 (stun) on its art, its corner 3/5; beside it Bob's creature's near-black -1/-1 bubble and a plain white 3 for 3 oil counters"
             "exile-counters-pile" -> "with a suspended card (3 time counters) in your exile: the exile pile carries a small violet counter marker at its top-right corner"
             "placeholder" -> "placeholder showing Loading table… with a spinner"
             "unavailable" -> "placeholder showing Table unavailable with a Reconnect button"

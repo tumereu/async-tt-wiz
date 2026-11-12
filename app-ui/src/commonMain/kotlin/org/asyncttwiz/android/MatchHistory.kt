@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import kotlin.concurrent.Volatile
@@ -66,8 +66,8 @@ class HistoryController(private val api: Lobbies, private val credential: () -> 
     private fun <T> read(call: suspend (String) -> T, done: (T?) -> Unit) {
         val token = credential() ?: return post { done(null) }
         val generation = epoch
-        worker.execute {
-            val result = try { runBlocking { call(token) } } catch (failure: Exception) {
+        worker.executeSuspending {
+            val result = try { call(token) } catch (failure: Exception) {
                 AppLog.warn("history", "read failed", failure); null
             }
             post { if (generation == epoch) done(result) }

@@ -84,8 +84,16 @@ expect class CountDownLatch(count: Int) {
 /** Runs [block] holding [lock]'s monitor (Android: Kotlin's JVM synchronized). */
 expect inline fun <R> synchronized(lock: Any, block: () -> R): R
 
-/** Runs [block] to its end on this thread, blocking it (Android: kotlinx.coroutines.runBlocking). */
+/** Runs [block] to its end on this thread, blocking it (Android: kotlinx.coroutines.runBlocking). The browser's one
+ * thread can't block: code that runs there uses [executeSuspending] instead (web client step 3b). */
 expect fun <T> runBlocking(block: suspend CoroutineScope.() -> T): T
+
+/**
+ * Runs [task] on this executor, its suspending calls (HTTP) waiting there (Android: execute { runBlocking(task) }, the
+ * worker's thread blocked while it waits, as the controllers did before). The browser: the executor's tasks run one at
+ * a time in order as coroutines on the page's thread, a task that waits holding back the ones queued after it.
+ */
+expect fun Executor.executeSuspending(task: suspend CoroutineScope.() -> Unit)
 
 /**
  * A new executor with one thread (Android: Executors.newSingleThreadExecutor), whose thread is named [name] (null: the
@@ -101,9 +109,9 @@ expect fun currentThread(): Any
 expect fun newDiscardOldestExecutor(name: String, queueSize: Int): ExecutorService
 
 /** A new scheduler with one thread named [name] (a daemon when [daemon]; Android: a single-thread
- * ScheduledExecutorService): the returned function runs a task after its milliseconds and gives what cancels it (a task
- * already running is not interrupted). */
-expect fun newSingleThreadScheduler(name: String, daemon: Boolean): (delayMillis: Long, task: () -> Unit) -> () -> Unit
+ * ScheduledExecutorService, a task's suspending calls blocking its thread): the returned function runs a task after its
+ * milliseconds and gives what cancels it (a task already running is not interrupted). Tasks run one at a time. */
+expect fun newSingleThreadScheduler(name: String, daemon: Boolean): (delayMillis: Long, task: suspend () -> Unit) -> () -> Unit
 
 /** A coroutine dispatcher for blocking I/O (Android: Dispatchers.IO). */
 expect val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher

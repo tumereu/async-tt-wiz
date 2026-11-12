@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import kotlin.concurrent.Volatile
@@ -49,7 +49,7 @@ data class PodState(
 )
 
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
-fun interface PodMarksScheduler { fun schedule(delayMillis: Long, task: () -> Unit): () -> Unit }
+fun interface PodMarksScheduler { fun schedule(delayMillis: Long, task: suspend () -> Unit): () -> Unit }
 /** Local pick marks belong to one visit of a pack: the same pack can come back later with fewer cards. */
 data class PodMarksKey(val pod: String, val attempt: String, val pack: String, val pick: Int)
 const val PodMarksDelayMillis = 500L
@@ -501,10 +501,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         marksCancel = scheduler.schedule(delay, ::sendMarks)
     }
     /** Runs on the scheduler thread; never touches Compose state directly. */
-    private fun sendMarks() {
+    private suspend fun sendMarks() {
         val write = synchronized(marksLock) { marksPending.also { marksPending = null } } ?: return
         val input = SetPodDraftMarks(write.key.attempt, write.key.pack, write.marks.keeps, write.marks.burns, write.marks.librarians)
-        try { runBlocking { api.marks(write.token, write.key.pod, input) } }
+        try { api.marks(write.token, write.key.pod, input) }
         catch (failure: Exception) {
             // Marks are a convenience: a refusal (pack already picked, attempt over) is dropped; a lost connection retries a little.
             if (!transientServiceFailure(failure) || write.retries >= 3) return
@@ -555,9 +555,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         notesCancel?.invoke()
         notesCancel = scheduler.schedule(delay, ::sendNotes)
     }
-    private fun sendNotes() {
+    private suspend fun sendNotes() {
         val write = synchronized(marksLock) { notesPending.also { notesPending = null } } ?: return
-        try { runBlocking { api.notes(write.token, write.key.pod, SetPodDeckNotes(write.key.attempt, write.notes)) } }
+        try { api.notes(write.token, write.key.pod, SetPodDeckNotes(write.key.attempt, write.notes)) }
         catch (failure: Exception) {
             if (!transientServiceFailure(failure) || write.retries >= 3) return
             post {
@@ -603,8 +603,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val pod = state.detail?.id ?: return
         val token = credential() ?: return
         history = null; historyFailed = false
-        worker.execute {
-            val result = runCatching { runBlocking { serviceRetry(wait, { !closed }) { api.history(token, pod) } } }
+        worker.executeSuspending {
+            val result = runCatching { serviceRetry(wait, { !closed }) { api.history(token, pod) } }
             post {
                 if (closed || state.detail?.id != pod) return@post
                 history = result.getOrNull()
@@ -840,7 +840,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val readDelays = if (firstLoad) firstLoadRetryDelays else quickRetryDelays
         val previousError = state.error
         state = state.copy(loading = true)
-        worker.execute {
+        worker.executeSuspending {
             fun current() = !closed && generation == epoch && credential() == token
             fun complete(): Boolean {
                 // Never reset a newer request when an older completion arrives late.
@@ -852,7 +852,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 return true
             }
             try {
-                val result = runBlocking {
+                val result = run {
                     var detail: PodDetail? = null
                     if (write != null) {
                         detail = serviceRetry(wait, ::current) { write.send(token) }

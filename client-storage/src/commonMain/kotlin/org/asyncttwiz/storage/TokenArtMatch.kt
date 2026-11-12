@@ -1,8 +1,6 @@
 package org.asyncttwiz.storage
 
-import com.google.gson.JsonParser
 import org.asyncttwiz.protocol.DefinitionFace
-import java.util.Locale
 
 /**
  * The best catalog token printing for a token Automatum makes (integration spec §4.6, tokens), drawn with its picture.
@@ -37,28 +35,28 @@ internal object TokenArtMatch {
     }
 
     /** A token's name as the catalog writes it: without the "Token" a token's name ends with (CR 111.4), lower case. */
-    fun name(name: String): String = name.trim().lowercase(Locale.ROOT).removeSuffix(" token").trim()
+    fun name(name: String): String = name.trim().lowercase().removeSuffix(" token").trim()
 
     fun traits(face: DefinitionFace): Traits {
-        val colors = (face.colorIndicator ?: face.manaCost).uppercase(Locale.ROOT).filter { it in "WUBRG" }.toSet()
+        val colors = (face.colorIndicator ?: face.manaCost).uppercase().filter { it in "WUBRG" }.toSet()
         return traits(face.name, face.typeLine, colors, face.power, face.toughness, face.rulesText)
     }
 
     private fun traits(row: CatalogPrinting): Traits? {
-        val json = runCatching { JsonParser.parseString(row.json).asJsonObject }.getOrNull() ?: return null
-        fun field(key: String) = json.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-        val colors = json.get("colors")?.takeIf { it.isJsonArray }?.asJsonArray
-            ?.mapNotNull { element -> element.takeIf { it.isJsonPrimitive }?.asString?.singleOrNull() }.orEmpty().toSet()
+        val json = jsonObjectOrNull(row.json) ?: return null
+        fun field(key: String) = json.primitive(key).orEmpty()
+        val colors = json.array("colors")
+            ?.mapNotNull { element -> element.primitiveText()?.singleOrNull() }.orEmpty().toSet()
         return traits(field("faceName").ifBlank { row.name }, field("type"), colors, field("power"), field("toughness"), field("text"))
     }
 
     private fun traits(name: String, typeLine: String, colors: Set<Char>, power: String, toughness: String, text: String): Traits {
-        fun words(part: String) = part.lowercase(Locale.ROOT).split(Regex("\\s+")).filter { it.isNotBlank() }.toSet()
+        fun words(part: String) = part.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }.toSet()
         val dash = typeLine.indexOf('—')
         val front = if (dash < 0) typeLine else typeLine.substring(0, dash)
         val sub = if (dash < 0) "" else typeLine.substring(dash + 1)
         // Reminder text is left out; keyword lists ("Flying, haste") and separate lines ("Flying\nHaste") read alike
-        val parts = text.lowercase(Locale.ROOT).replace(Regex("\\([^)]*\\)"), " ").split(Regex("[\\n,.;]"))
+        val parts = text.lowercase().replace(Regex("\\([^)]*\\)"), " ").split(Regex("[\\n,.;]"))
             .map { it.trim().replace(Regex("\\s+"), " ") }.filter { it.isNotEmpty() }.sorted()
         return Traits(name(name), words(front) - "token", words(sub), colors.map { it.uppercaseChar() }.toSet(),
             power.trim(), toughness.trim(), parts)

@@ -80,15 +80,18 @@ data class ObjectsShape(
                     if ("on the bottom" in text) "Bottom" else "Top")
                 // STK-056: a search is titled by what is searched, up to the sentence's first comma ("Search your
                 // library for a basic land card"), an activated ability's cost left out
-                SEARCH.find(text) != null -> ObjectsShape(Shape.Pick, SEARCH.find(text)?.groupValues?.get(1)?.trim().orEmpty(),
+                SEARCH.find(text) != null -> ObjectsShape(Shape.Pick,
+                    SEARCH.find(text)?.groupValues?.get(1)?.trim().orEmpty().replaceFirstChar { it.uppercase() },
                     "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards", search = true)
                 else -> ObjectsShape(Shape.Pick, pickTitle(text), "Tap ${d.total?.let(::reaching) ?: pickCount(d.min, d.max, n)}, then OK.", "Cards")
             }
         }
 
-        /** A search instruction in the engine's sentence: "Search …" up to its first comma or full stop, at the start or
-         * after an activated ability's cost ("{T}, Sacrifice this land: Search your library for …"). */
-        private val SEARCH = Regex("""(?:^|:\s+)(Search\b[^,.;]*)""")
+        /** A search instruction in the engine's sentence: "Search …" up to its first comma or full stop, at the start, after
+         * an activated ability's cost ("{T}, Sacrifice this land: Search your library for …"), or inside a sentence ("When
+         * this creature enters, you may search your library for …", report STK-056 2026-11-12: such a search was taken for
+         * a plain choice and showed no other cards). */
+        private val SEARCH = Regex("""(?:^|:\s+|\b)([Ss]earch\b[^,.;]*)""")
 
         /** The engine's sentence without its rules references: "Discard down to 7 cards (CR 514.1)" → "Discard down to 7 cards". */
         fun plainText(text: String) = text.replace(Regex("""\s*\(CR [^)]*\)"""), "").trim()

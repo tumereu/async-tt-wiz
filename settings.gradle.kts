@@ -38,6 +38,8 @@ rootProject.name = "async-tt-wiz"
 include(":core", ":protocol", ":client-storage", ":androidApp", ":server")
 // The shared Compose UI (Compose Multiplatform: Android and the web client; docs/specs/web-client.md §1).
 include(":app-ui")
+// The web client's page and its served build (docs/specs/web-client.md §1 item 1, §2.1).
+include(":webApp")
 // Arcanum Automatum (docs/specs/arcanum-automatum.md): generic MTG rules libraries, not integrated into ATW yet.
 include(":arcanum-api", ":arcanum-parser", ":arcanum-engine", ":arcanum-tools")
 // ATW's mapping between its shared game state and the Arcanum engine (docs/specs/arcanum-atw-integration.md, I0).

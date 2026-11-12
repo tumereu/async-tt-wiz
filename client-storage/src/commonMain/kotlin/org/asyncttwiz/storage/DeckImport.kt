@@ -1,14 +1,33 @@
 package org.asyncttwiz.storage
 
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
-import java.util.Locale
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 
-/** Worker-only resolution on the installed, disk-backed catalog; exact face text/defaults are retained. */
-class DeckImportResolver(private val repository: CatalogRepository) : DeckResolver {
+/** One consistent view of the installed card records as a deck import reads them (Android: a catalog generation,
+ * CatalogIndex; the browser: [MemoryCardCatalog]). */
+interface CatalogLookups {
+    fun metadata(): CatalogMetadata
+    /** Exact normalized name (card or face name), optionally exact set/collector number, in id order after [afterId]. */
+    fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting>
+    /** The printings with picture (Scryfall id) [id], in id order. */
+    fun findScryfall(id: String): List<CatalogPrinting>
+    fun printing(id: String): CatalogPrinting?
+}
+
+/** Where a deck import reads card records from: [lookups] runs its block on one generation, with null when none is
+ * installed. */
+interface CatalogSnapshots {
+    fun <T> lookups(read: (CatalogLookups?) -> T): T
+    /** Whether the work reading them was cancelled (Android: the worker thread interrupted). */
+    fun cancelled(): Boolean = false
+}
+
+/** Worker-only resolution on the installed catalog; exact face text/defaults are retained. */
+class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolver {
     override fun resolve(text: String): DeckImportResult = resolve(DeckTextParser.parse(text))
     override fun resolve(parsed: ParsedDeck, maxCards: Int,
-        allowSubstitutions: Boolean): DeckImportResult = repository.snapshot { catalog ->
+        allowSubstitutions: Boolean): DeckImportResult = repository.lookups { catalog ->
         val issues = parsed.issues.toMutableList()
         val substitutions = mutableListOf<ImportIssue>()
         val entries = linkedMapOf<Pair<DeckSection, String>, ResolvedDeckEntry>()
@@ -16,13 +35,13 @@ class DeckImportResolver(private val repository: CatalogRepository) : DeckResolv
         if (catalog == null) {
             issues += ImportIssue(0, "Card records are not installed. Download card records, then retry lookup.")
         } else for (line in parsed.lines) {
-            check(!Thread.currentThread().isInterrupted)
+            check(!repository.cancelled())
             // Page through every matching printing: prolific cards must not become ambiguous just
             // because they exceed a lookup page, nor may a later, different identity be ignored.
             fun find(set: String?, number: String?) = buildList {
                 var after: String? = null
                 do {
-                    check(!Thread.currentThread().isInterrupted)
+                    check(!repository.cancelled())
                     val page = catalog.find(line.name, set, number, 256, after)
                     addAll(page)
                     after = page.lastOrNull()?.id
@@ -77,20 +96,20 @@ class DeckImportResolver(private val repository: CatalogRepository) : DeckResolv
 
     private class Candidate(val faces: List<CatalogPrinting>) {
         val printing = faces.first()
-        val json: List<JsonObject> = faces.map { JsonParser.parseString(it.json).asJsonObject }
-        val oracleIds = json.mapNotNull { it.get("identifiers")?.takeUnless { it.isJsonNull }?.asJsonObject
-            ?.get("scryfallOracleId")?.takeUnless { it.isJsonNull }?.asString }
+        val json: List<JsonObject> = faces.map { jsonObject(it.json) }
+        val oracleIds = json.mapNotNull { it.present("identifiers")?.jsonObject
+            ?.present("scryfallOracleId")?.asText() }
             .distinct().sorted()
         val shape = faces.zip(json).map { (face, raw) ->
-            listOf(face.name.lowercase(Locale.ROOT), raw.get("faceName")?.takeUnless { it.isJsonNull }?.asString?.lowercase(Locale.ROOT).orEmpty(),
+            listOf(face.name.lowercase(), raw.present("faceName")?.asText()?.lowercase().orEmpty(),
                 face.side, face.token.toString())
         }
         val english = printing.language.equals("English", ignoreCase = true)
-        val promo = json.first().get("isPromo")?.takeUnless { it.isJsonNull }?.asBoolean == true
-        val paper = json.first().let { raw -> raw.get("isOnlineOnly")?.takeUnless { it.isJsonNull }?.asBoolean != true &&
-            (raw.get("availability")?.takeUnless { it.isJsonNull }?.asJsonArray?.any { it.asString == "paper" } != false) }
+        val promo = json.first().present("isPromo")?.asBoolean() == true
+        val paper = json.first().let { raw -> raw.present("isOnlineOnly")?.asBoolean() != true &&
+            (raw.present("availability")?.jsonArray?.any { it.asText() == "paper" } != false) }
         fun primaryName(name: String) = printing.name.equals(name, ignoreCase = true) ||
-            json.first().get("faceName")?.takeUnless { it.isJsonNull }?.asString?.equals(name, ignoreCase = true) == true
+            json.first().present("faceName")?.asText()?.equals(name, ignoreCase = true) == true
     }
 
     private fun sameCard(candidates: List<Candidate>): Boolean {
@@ -116,9 +135,16 @@ internal fun compareCollectorNumbers(a: String, b: String): Int {
     val left = parts.findAll(a).map { it.value }.toList()
     val right = parts.findAll(b).map { it.value }.toList()
     for ((x, y) in left.zip(right)) {
-        val compared = if (x.first() in '0'..'9' && y.first() in '0'..'9') x.toBigInteger().compareTo(y.toBigInteger())
+        val compared = if (x.first() in '0'..'9' && y.first() in '0'..'9') compareDigits(x, y)
             else x.compareTo(y, ignoreCase = true)
         if (compared != 0) return compared
     }
     return left.size.compareTo(right.size)
+}
+
+/** Two runs of digits compared as whole numbers of any length: leading zeros left out, then the longer is larger. */
+private fun compareDigits(x: String, y: String): Int {
+    val a = x.trimStart('0')
+    val b = y.trimStart('0')
+    return if (a.length != b.length) a.length.compareTo(b.length) else a.compareTo(b)
 }

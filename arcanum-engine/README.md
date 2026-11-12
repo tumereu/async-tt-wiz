@@ -37,6 +37,8 @@ Inspect.restrictions(state, view, id): List<AppliedRestriction> // what continuo
 Inspect.events(state): List<LoggedChange>        // the tagged events the state keeps (D33), for a host's history and displays
 // the rules state kept for objects, players and the game: typed statuses in the view (stored ones on the state too)
 view[id].statuses: List<ObjectStatus>             // ClassLevel (1 for a Class without one stored, CR 716.2), VentureRoom, Goaded, Protector, …
+                                                  // Playable (view only): the players who may use a card from outside a hand: a permission lets them cast or
+                                                  // play it (how, CR 601.3), or its activated abilities and special actions they may use there (abilities, CR 113.6, 602.2)
 view.players[p].statuses: List<PlayerStatus>      // Speed, RingTempted, DungeonsCompleted, Designated(designation)
 view.game.statuses: List<GameStatus>              // DayNight (CR 731); none while it is neither; view.game.rules: the rules in force
 Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
@@ -136,7 +138,9 @@ seeded random games of cube cards, failing on any open player decision without a
   after layer 1, then each continuous effect that changed the object in the order applied, with its layer, timestamp,
   values before and after and its `EffectSource` (a static ability, an effect object, counters), and the same steps
   by effect (`Explanation.effects`, `AppliedEffect`: one entry per effect with its steps in every layer, the object that
-  made it and its duration, so a host can list "+3/+3 and trample until end of turn" and name the source on request);
+  made it and its duration, so a host can list "+3/+3 and trample until end of turn" and name the source on request),
+  and the copy effects that made the layer-1 values (`Explanation.copies`, `AppliedCopy`: source, the object that made it,
+  duration, the object copied and the copied values' name, CR 613.2a, 707.2; none face down), for "Copy of Ember Cub";
   `Inspect.explain(state, ids)` explains several objects from one run of the layers;
   `AppliedRestriction` (`Inspect.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
   (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's

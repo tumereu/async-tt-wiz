@@ -1,0 +1,1 @@
+fix: A saved cube's card pictures show the warning sign on cards Automatum can't play yet, as in the cube editor.

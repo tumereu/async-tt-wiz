@@ -86,7 +86,7 @@ internal object Layers {
             val base = run.base[id] ?: return@mapNotNull null
             val characteristics = view[id]?.characteristics ?: return@mapNotNull null
             val steps = run.trace[id].orEmpty().toList()
-            id to Explanation(id, base, steps, characteristics, applied(state, steps))
+            id to Explanation(id, base, steps, characteristics, applied(state, steps), run.copies(id))
         }.toMap()
     }
 
@@ -266,6 +266,9 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** Every object's characteristics after layer 1 ([ObjectView.base]). */
     private var initial: Map<ObjectId, Characteristics> = emptyMap()
     private val copiable = Copiable(state, reads)
+
+    /** For [Layers.explain]: the copy effects that apply to [id] (layer 1). */
+    fun copies(id: ObjectId): List<AppliedCopy> = copiable.copiesOn(id)
     private val started = LinkedHashMap<String, Started>()
     private val withCounters: List<arcanum.engine.state.GameObject> by lazy { state.objects.values.filter { it.counters.isNotEmpty() } }
     /** The permanents, not phased out, with a mark that gives abilities ([arcanum.api.MarkRules]), in the battlefield's order. */
@@ -833,7 +836,63 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             )
         }
         val players = state.players.associate { it.id to PlayerView(it.id, it.life, playerMechanics[it.id].orEmpty(), it.statuses) }
-        return View(objects, players, GameView(state.statuses, rules))
+        return playable(View(objects, players, GameView(state.statuses, rules)))
+    }
+
+    /**
+     * [view] with [arcanum.engine.state.ObjectStatus.Playable] on each card outside a hand, the Stack and the battlefield that a
+     * player may use from where it is: a permission in it lets them cast or play it from there
+     * ([arcanum.engine.casting.Legality.permissions], what its cast and land play check, only for cards with a
+     * [arcanum.api.Mechanic.MayPlay]), or they may use one of its activated abilities or special actions there
+     * ([arcanum.engine.casting.Legality.cantUse] on [arcanum.engine.casting.Legality.activatable], what its activation checks
+     * first, of the objects [arcanum.engine.Engine.options] tries, [arcanum.engine.casting.Legality.abilitySources]). Read from
+     * [view] itself (no layers worked out again). A permission's or an ability's condition may read the tagged events: the
+     * view is then kept as one that read them ([ViewCache]).
+     */
+    private fun playable(view: View): View {
+        fun offZone(o: ObjectView?) = o != null && o.obj != null && o.zone != Zone.Hand && o.zone != Zone.Stack && o.zone != Zone.Battlefield
+        val held = view.objects.values.filter { o -> offZone(o) && o.mechanics.any { it.mechanic is arcanum.api.Mechanic.MayPlay } }
+        val players = state.players.filter { !it.lost }.map { it.id }
+        // CR 113.6, 602.2: cards outside the hand, the Stack and the battlefield with abilities or special actions to use there
+        val sources = players.associateWith { player ->
+            arcanum.engine.casting.Legality.abilitySources(state, player).filter { offZone(view.objects[it]) }
+        }
+        if (held.isEmpty() && sources.values.all { it.isEmpty() }) return view
+        if (held.any { o -> o.mechanics.any { (it.mechanic as? arcanum.api.Mechanic.MayPlay)?.condition != null } }) reads.log = true
+        val snap = arcanum.engine.casting.Snapshot(state) { view }
+        val uses = HashMap<ObjectId, MutableMap<arcanum.engine.state.PlayerId, List<AbilityOrigin>>>()
+        for ((player, ids) in sources) for (id in ids) {
+            val usable = arcanum.engine.casting.Legality.activatable(snap, id).filter { instance ->
+                val ability = instance.ability
+                if ((ability as? arcanum.api.Ability.Activated)?.rules?.condition != null || (ability as? arcanum.api.Ability.SpecialAction)?.condition != null) reads.log = true
+                arcanum.engine.casting.Legality.cantUse(snap, player, id, instance) == null
+            }
+            if (usable.isNotEmpty()) uses.getOrPut(id) { HashMap() }[player] = usable.map { it.origin }
+        }
+        val permitted = held.associate { o ->
+            val definition = o.obj!!.definition
+            val lands = definition.faces.isNotEmpty() && definition.faces.all { arcanum.api.CardType.Land in it.types }
+            o.id to players.associateWith { player ->
+                val kinds = arcanum.engine.casting.Legality.permissions(snap, player, o.id, arcanum.api.PlayKind.Cast)
+                    .map { (it.second.mechanic as arcanum.api.Mechanic.MayPlay).how }
+                when {
+                    arcanum.api.PlayKind.Play in kinds -> arcanum.api.PlayKind.Play
+                    kinds.isNotEmpty() && !lands -> arcanum.api.PlayKind.Cast
+                    else -> null
+                }
+            }
+        }
+        val objects = LinkedHashMap(view.objects)
+        for (id in permitted.keys + uses.keys) {
+            val by = players.mapNotNull { player ->
+                val how = permitted[id]?.get(player)
+                val abilities = uses[id]?.get(player).orEmpty()
+                if (how == null && abilities.isEmpty()) null else arcanum.engine.state.PlayableBy(player, how, abilities)
+            }
+            val o = objects.getValue(id)
+            if (by.isNotEmpty()) objects[id] = o.copy(statuses = (o.statuses + arcanum.engine.state.ObjectStatus.Playable(by)).sortedBy { it.key })
+        }
+        return view.copy(objects = objects)
     }
 
     /** [o]'s statuses with those the view derives: level 1 for a Class on the battlefield that has gained none (CR 716.2a). */

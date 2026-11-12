@@ -13,6 +13,7 @@ import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
+import arcanum.engine.state.ObjectStatus
 import arcanum.engine.view.AbilityInstance
 
 /**
@@ -265,13 +266,15 @@ object HandCasts {
      * prototype, mutate, …), another face with each of its own, and a split card's halves fused, always. A land's play
      * ("Play", greyed while it can't be played now). Then the card's special actions from the hand (foretell, plot) and
      * its abilities that work in the hand (cycling and its kinds, channel, ninjutsu, …), each a way of its own. In the
-     * engine's order, the plain cast of the front face (or a land's play) first.
+     * engine's order, the plain cast of the front face (or a land's play) first. A card of the hand row from another zone
+     * (ZON-079), its ways from there ([elsewhere]).
      */
     private fun ways(source: CastFlow.Source, viewer: String, cardId: String, offered: List<Input>): List<Input> {
         val call = source.run { error("No randomness while listing ways") }
         val state = call.working
-        val card = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty()
-            .firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.let { id -> call.ids.atw(id.card) } == cardId } ?: return offered
+        fun named(id: arcanum.engine.state.ObjectId) = (id as? arcanum.engine.state.ObjectId.Card)?.let { call.ids.atw(it.card) } == cardId
+        val card = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().firstOrNull(::named)
+            ?: return elsewhere(state, viewer, state.objects.keys.firstOrNull(::named), offered)
         val definition = state.obj(card)?.definition ?: return offered
         val player = arcanum.engine.state.PlayerId(viewer)
         val abilities = Engine.view(state)[card]?.characteristics?.abilities.orEmpty()
@@ -305,6 +308,34 @@ object HandCasts {
         return all + offered.filter { it !in all } + activations.filter { it !in offered }
     }
 
+    /**
+     * ZON-079 (owner, 2026-11-12): the ways of [card], a card of [viewer]'s hand row outside their hand, as a hand card's: what
+     * the engine lists now ([offered]) first, then each use the engine's [ObjectStatus.Playable] names for [viewer] that isn't
+     * listed now, greyed: a cast under the card's own permission (flashback, escape; else a plain cast under whichever
+     * permission applies), a land's play, then its activated abilities and special actions usable from its zone (unearth,
+     * embalm, "Return this card from your graveyard to your hand"), in the status's order. [offered] alone without [card].
+     */
+    private fun elsewhere(state: arcanum.engine.state.GameState, viewer: String, card: arcanum.engine.state.ObjectId?,
+        offered: List<Input>): List<Input> {
+        val o = card?.let(state::obj) ?: return offered
+        val player = arcanum.engine.state.PlayerId(viewer)
+        val shown = Engine.view(state)[card] ?: return offered
+        val by = shown.statuses.filterIsInstance<ObjectStatus.Playable>().firstOrNull()?.by?.firstOrNull { it.player == player }
+            ?: return offered
+        val own = when (by.how) {
+            arcanum.api.PlayKind.Play -> listOf(Input.PlayLand(player, card))
+            arcanum.api.PlayKind.Cast -> shown.mechanics.filter { applied ->
+                val m = applied.mechanic as? Mechanic.MayPlay
+                applied.source == card && o.owner == player && m != null && m.from == o.zone && m.how == arcanum.api.PlayKind.Cast
+            }.map { Input.Cast(player, card, arcanum.engine.input.CastWay(permission = arcanum.engine.input.Permission(it.source, it.origin, it.effect))) }
+            null -> emptyList()
+        }
+        val casts = (own + offered.filter { it !is Input.Activate && it !in own })
+            .ifEmpty { if (by.how == arcanum.api.PlayKind.Cast) listOf(Input.Cast(player, card)) else emptyList() }
+        val activations = by.abilities.map { Input.Activate(player, card, it) }
+        return casts + activations + offered.filterIsInstance<Input.Activate>().filter { it !in activations }
+    }
+
     /** The alternative costs printed on face [face] of [definition] (CR 118.9), as the engine names them: a static ability
      * by its place, a keyword's (evoke, dash, …) by its expansion's. */
     private fun printedAlternatives(definition: CardDefinition, face: Int): List<arcanum.engine.view.AbilityOrigin> =
@@ -331,9 +362,14 @@ object HandCasts {
                 is Input.Cast -> {
                     val o = state.obj(input.card)
                     val alternative = input.way.alternative
+                    // ZON-079: a permission with a cost of its own (flashback, escape) shows that cost
+                    val permitted = input.way.permission?.let { p -> Engine.view(state)[input.card]?.mechanics.orEmpty()
+                        .firstOrNull { it.source == p.source && it.origin == p.ability && it.effect == p.effect }
+                        ?.let { (it.mechanic as? Mechanic.MayPlay)?.cost } }
                     if (alternative != null) Engine.view(state)[input.card]?.characteristics?.abilities.orEmpty()
                         .firstOrNull { it.origin == alternative }?.let { (it.ability as? Ability.Static)?.mechanics.orEmpty()
                             .filterIsInstance<Mechanic.AlternativeCost>().firstOrNull()?.cost }?.let(::manaOf)
+                    else if (permitted != null) manaOf(permitted)
                     else o?.definition?.faces?.getOrNull(input.way.face)?.manaCost?.toString()?.ifEmpty { null }
                 }
                 is Input.Activate -> if (input.ability == FORETELL) "{2}" else Engine.view(state)[input.source]?.characteristics?.abilities.orEmpty()
@@ -462,7 +498,8 @@ object HandCasts {
             if (way.fused) CastFlow.fusedName(definition)?.let { parts += it }
             else if (way.face != 0) definition?.faces?.getOrNull(way.face)?.name?.let { parts += it }
             way.alternative?.let { origin -> parts += CastFlow.abilityText(definition, origin)?.let(::withoutSymbols)?.ifBlank { null } ?: "Alternative cost" }
-            if (way.permission != null) parts += "With permission"
+            // ZON-079: a card's own permission by its keyword ("Flashback"), another's plainly
+            if (way.permission != null) parts += CastFlow.permissionText(definition, input)?.let(::withoutSymbols)?.ifBlank { null } ?: "With permission"
             parts.joinToString(" · ").ifEmpty { "Cast" }
         }
         // A special action or an ability from the hand: its keyword ("Plot", "Foretell", "Cycling", "Swampcycling") or the

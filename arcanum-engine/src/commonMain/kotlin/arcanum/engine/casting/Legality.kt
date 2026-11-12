@@ -351,12 +351,64 @@ internal object Legality {
             Timing.AsThisCard -> if (cantCast(snap, player, source, CastWay()) != null) return "only when this card could be cast"
             Timing.Any, Timing.Instant -> Unit
         }
-        val key = instance.origin.key
-        ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
-        if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability) && !asThoughNotActivated(snap, source, ability))
-            return "only once"
-        return null
+        return usedUp(snap, source, instance)
     }
+
+    /**
+     * Why [player] may not use [instance] of [source] (an activated ability or a special action) from where [source] is now
+     * whatever the moment, or null when they may (CR 113.6, 602.2, 116.2): it functions in that zone, [player] may activate or
+     * take it (who may activate it, its controller for a special action), its condition holds and it has uses left (CR 602.5b).
+     * Not whether they can now: priority, timing, costs and effects that stop it aren't checked, as a cast permission doesn't
+     * check them ([permissions]). [cantActivate] refuses whatever this refuses, so a host's status and the options agree.
+     */
+    fun cantUse(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
+        notTheirs(snap, player, source, instance) ?: usedUp(snap, source, instance)
+
+    /** [cantUse] without the uses: it doesn't function where [source] is, or [player] may not activate or take it there. */
+    private fun notTheirs(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
+        when (val ability = instance.ability) {
+            is Ability.Activated ->
+                if (Mana.functionsFor(snap, player, source, ability)) null else "it can't be activated now (zone, cost, condition or who may activate)"
+            is Ability.SpecialAction -> {
+                val o = snap.state.obj(source) ?: return "no such object"
+                val you = snap.board.controller(source) ?: o.owner
+                when {
+                    o.zone !in Functioning.zones(ability, false) -> "it doesn't work from ${o.zone}"
+                    you != player -> "only its controller may take it"
+                    ability.condition != null && !snap.evaluator(you, self = source).holds(ability.condition!!) -> "its condition isn't met"
+                    else -> null
+                }
+            }
+            else -> "not an activated ability"
+        }
+
+    /** [cantUse]'s uses: an activated ability used as often as it may be each turn or at all (CR 602.5b), a special action
+     * once each game used. */
+    private fun usedUp(snap: Snapshot, source: ObjectId, instance: AbilityInstance): String? {
+        val key = instance.origin.key
+        return when (val ability = instance.ability) {
+            is Ability.Activated -> {
+                ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
+                if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability) && !asThoughNotActivated(snap, source, ability))
+                    "only once" else null
+            }
+            is Ability.SpecialAction -> if (ability.oncePerGame && activationsEver(snap, source, key) > 0) "only once each game" else null
+            else -> null
+        }
+    }
+
+    /**
+     * The objects whose activated abilities and special actions [player] may activate (CR 602.2, 116.2): the battlefield, their
+     * hand and graveyard, exile, the command zone and their cards outside the game (a revealed companion, CR 702.139a), in that
+     * order. What [arcanum.engine.Engine.options] tries, and where a host's status looks outside a hand.
+     */
+    fun abilitySources(state: arcanum.engine.state.GameState, player: PlayerId): List<ObjectId> =
+        state.battlefield + state.player(player).hand + state.player(player).graveyard + state.exile + state.command + state.player(player).outside
+
+    /** [id]'s activated abilities and special actions, those it shows and those the rules give it ([SpecialActions]). */
+    fun activatable(snap: Snapshot, id: ObjectId): List<AbilityInstance> =
+        (snap.view[id]?.characteristics?.abilities.orEmpty() + SpecialActions.of(snap, id))
+            .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
 
     /** How many more times mana ability [instance] of [source] may be activated (CR 602.5b): its limit each turn or once only,
      * else no limit of its own. */
@@ -374,18 +426,15 @@ internal object Legality {
     } ?: false
 
     private fun cantTakeSpecialAction(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance, action: Ability.SpecialAction): String? {
-        val o = snap.state.obj(source) ?: return "no such object"
+        if (snap.state.obj(source) == null) return "no such object"
         if (!hasPriority(snap, player)) return "$player doesn't have priority"
-        if (o.zone !in Functioning.zones(action, false)) return "it doesn't work from ${o.zone}"
-        val you = snap.board.controller(source) ?: o.owner
-        if (you != player) return "only its controller may take it"
-        if (action.condition != null && !snap.evaluator(you, self = source).holds(action.condition!!)) return "its condition isn't met"
+        notTheirs(snap, player, source, instance)?.let { return it }
         when (action.timing) {
             Timing.Sorcery -> if (!sorceryTiming(snap, player)) return "only as a sorcery"
             Timing.AsThisCard -> if (cantCast(snap, player, source, CastWay()) != null) return "only when this card could be cast"
             else -> Unit
         }
-        if (action.oncePerGame && activationsEver(snap, source, instance.origin.key) > 0) return "only once each game"
+        usedUp(snap, source, instance)?.let { return it }
         // Unable to Scream: "can't be turned face up"
         if (action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } &&
             snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"

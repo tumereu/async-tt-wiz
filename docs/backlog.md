@@ -26,9 +26,7 @@ Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client
 
 Playtest notes (owner, 2026-11-11 evening): before web step 3, after the client crash-safety pass. The web wireframes show the same changes.
 
-- Draft history button in one place (owner, 2026-11-11; DRF-165): the History icon in the pod's header on every tab, the Draft tab included; the Draft tab's own "History" button goes.
 - Draft pods: after submitting a deck you can still rename it and change its cover art (from Prepare deck in the game lobby).
-- Subtype counts in draft stats (owner, 2026-11-11; DRF-112): a row (or rows) counting the Main cards' subtypes, all of them for now (creature types, Equipment, Aura, …), most common first, the rest behind a tap; the owner may narrow it after trying.
 
 Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, tokens in Inspect, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
 

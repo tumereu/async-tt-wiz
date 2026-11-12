@@ -12,7 +12,7 @@ import java.util.UUID
 
 /** The Build and Stats flow of a drafted deck: the basics dialog's count, the mana table and the curve's views. */
 class DraftStatsFlowTest : E2e() {
-    // DRF-103, DRF-111, DRF-114, DRF-116: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}.", red by its colour as in the donut), adds a Mountain
+    // DRF-103, DRF-111, DRF-114, DRF-116, DRF-180: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}.", red by its colour as in the donut), adds a Mountain
     // in the basics dialog and sees its count follow, then reads her Stats and switches the curve to Color and back
     @Test fun basicsCountThenStatsTableAndCurveToggle() {
         launchPlayers()
@@ -37,6 +37,9 @@ class DraftStatsFlowTest : E2e() {
 
         alice.text("Stats").performClick()
         waitUntil("Alice's Stats") { alice.shows(hasTestTag("pod-stats")) }
+        // DRF-180: the subtype row under the types counts the Mountain's land type
+        alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-subtypes"))
+        waitUntil("the Mountain in the subtype row") { alice.shows(hasTestTag("pod-stats-subtype-Mountain") and hasText("Mountain 1")) }
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-sources"))
         waitUntil("the Mountain and the rock as red sources, with no pips") {
             alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("2 sources · 100%"))) &&

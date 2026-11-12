@@ -1,0 +1,1 @@
+mod: In a draft the History button is now always the icon at the top of the pod screen, on the Draft tab too.

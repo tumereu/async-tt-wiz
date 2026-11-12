@@ -1,0 +1,1 @@
+Draft deck Stats for a 23-card build plus 15 basics: under the card type counts a row counts the Main cards' subtypes, basic land types included, most common first (Forest 8, Plains 7, Bear 5 …), the first six shown and the other four behind the "+4 more" chip.

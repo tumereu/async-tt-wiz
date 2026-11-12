@@ -130,6 +130,32 @@ class PodStatsViewTest {
             "line and the pip counts as chips flowing in rows.")
     }
 
+    // DRF-180, DRF-113 (owner, 2026-11-11): under the type row a row counts the Main cards' subtypes, basics' land types
+    // included, most common first: the first six, then "+4 more", whose tap shows the rest with "Fewer" after them
+    @Test
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun subtypeCountsFollowTheTypesMostCommonFirstTheRestBehindATap() {
+        showDeck()
+        fun shownSubtypes() = compose.onAllNodes(SemanticsMatcher("subtype chip") { node ->
+            node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("pod-stats-subtype-") == true
+        }).fetchSemanticsNodes().map { it.config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].removePrefix("pod-stats-subtype-") }
+        assertEquals(listOf("Forest", "Plains", "Bear", "Human", "Knight", "Aura"), shownSubtypes())
+        compose.onNodeWithTag("pod-stats-subtype-Forest").assertTextEquals("Forest 8")
+        compose.onNodeWithTag("pod-stats-subtype-Bear").assertTextEquals("Bear 5")
+        compose.onNodeWithTag("pod-stats-subtype-Adventure").assertDoesNotExist()
+        val types = compose.onNodeWithTag("pod-stats-types").getUnclippedBoundsInRoot()
+        val subtypes = compose.onNodeWithTag("pod-stats-subtypes").getUnclippedBoundsInRoot()
+        assertTrue(types.bottom <= subtypes.top && subtypes.bottom <= compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot().top)
+        compose.onNodeWithTag("pod-stats-subtypes-more").assertTextEquals("+4 more")
+        compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-subtypes.png", "Draft deck Stats for a 23-card build plus 15 " +
+            "basics: under the card type counts a row counts the Main cards' subtypes, basic land types included, most common " +
+            "first (Forest 8, Plains 7, Bear 5 …), the first six shown and the other four behind the \"+4 more\" chip.")
+        compose.onNodeWithTag("pod-stats-subtypes-more").performClick()
+        assertEquals(listOf("Forest", "Plains", "Bear", "Human", "Knight", "Aura", "Gate", "Giant", "Golem", "Ajani"), shownSubtypes())
+        compose.onNodeWithTag("pod-stats-subtypes-more").assertTextEquals("Fewer").performClick()
+        assertEquals(6, shownSubtypes().size)
+    }
+
     // DRF-111
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")

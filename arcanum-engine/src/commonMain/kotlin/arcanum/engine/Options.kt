@@ -1,6 +1,5 @@
 package arcanum.engine
 
-import arcanum.api.Ability
 import arcanum.api.Subtype
 import arcanum.api.Zone
 import arcanum.engine.casting.Casting
@@ -668,13 +667,9 @@ internal object Options {
 
     /** The activations [abilities] tries (each legal to begin), lazily, before their trial activations. */
     private fun abilityWays(snap: Snapshot, player: PlayerId): Sequence<Input.Activate> {
-        val s = snap.state
         // Outside the game: the revealed companion's special action (CR 702.139a)
-        val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command +
-            s.player(player).outside
-        return sources.asSequence().flatMap { id ->
-            (snap.view[id]?.characteristics?.abilities.orEmpty() + arcanum.engine.casting.SpecialActions.of(snap, id))
-                .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
+        return Legality.abilitySources(snap.state, player).asSequence().flatMap { id ->
+            Legality.activatable(snap, id)
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }
         }

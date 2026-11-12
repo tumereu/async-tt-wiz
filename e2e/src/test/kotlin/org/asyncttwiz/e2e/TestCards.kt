@@ -325,6 +325,15 @@ object TestCards {
     /** ZON-079: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
     val flare = card("Ember Flare", "Sorcery", "{0}",
         "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)")
+    /** ZON-079: a free creature that sacrifices itself, with unearth {R}: from the graveyard it is unearthed from its owner's
+     * hand row. */
+    val ghoul = card("Ember Ghoul", "Creature — Zombie", "{0}", "Sacrifice this creature: You gain 1 life.\n" +
+        "Unearth {R} ({R}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+        "2", "2")
+    /** ZON-079: a free sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your hand.": with one
+     * Mountain only its ability can be used from the graveyard. */
+    val reprise = card("Ember Reprise", "Sorcery", "{0}",
+        "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand.")
 
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag = TestCard("Ember Path // Ember Crag", listOf(

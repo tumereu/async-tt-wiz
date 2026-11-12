@@ -84,10 +84,18 @@ class HandController(
         if (CastController.inHandRow(play, cardId, viewer) != true) { lower(); return true }
         if (raised == cardId) return castRaised()
         // I-D50, I-D46 (b): a card Automatum doesn't allow now only shakes: no raise, no chips (Inspect says why)
-        if (unplayable(play, cardId) == true) { lower(); shake(cardId); return true }
+        val unusable = unplayable(play, cardId)
+        // ZON-079: a tap on a hand row card from another zone, logged with what Automatum knows of it
+        offZone(play, cardId)?.let { zone -> AppLog.info("automatum", "Hand row tap on $cardId from $zone: " +
+            if (unusable == true) "nothing usable now, shakes" else "raised (usable now: ${unusable?.not() ?: "not known yet"})") }
+        if (unusable == true) { lower(); shake(cardId); return true }
         raise(play, cardId)
         return true
     }
+
+    /** ZON-079: the zone of [cardId] when it is a card of the viewer's hand row from another zone, else null. */
+    private fun offZone(play: TableBoard, cardId: String): PlayZone? =
+        if (CastController.ownHand(play, cardId, viewer)) null else HandRow.cards(play, viewer).firstOrNull { it.cardId == cardId }?.zone
 
     private fun raise(play: TableBoard, cardId: String) {
         layout.value = layout.value.copy(raised = cardId)
@@ -185,6 +193,9 @@ class HandController(
             // A card raised before Automatum knew it can't be cast or paid for now goes back down with a shake
             val tapped = answering
             answering = false
+            current()?.let { offZone(it, card) }?.let { zone -> AppLog.info("automatum", "Hand row chips of $card from $zone: " +
+                (result?.let { r -> r.chips.joinToString { "${it.name} ${it.cost ?: ""}${if (it.affordable) "" else " (greyed)"}" }
+                    .ifEmpty { "${r.count} ways, one Cast… chip" } } ?: "none")) }
             if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@run }
             chips = result
         }
@@ -198,17 +209,19 @@ class HandController(
 
 /**
  * ZON-079 (owner, 2026-11-12): a card of the viewer's hand row from another zone, at the row's right end after a thin
- * divider with a badge of its [zone] (its pile still holds it). It glows and casts as a hand card when Automatum lets the
- * viewer cast or play it now (TBL-117), and is dull and shakes otherwise (TBL-128).
+ * divider with a badge of its [zone] (its pile still holds it). It behaves as a hand card: it glows when Automatum lets the
+ * viewer use it now (TBL-117: cast or play it, or use an ability or special action of it from there, as unearth), a tap
+ * raising it with its chips (ZON-080), and is dull and shakes otherwise (TBL-128).
  */
 data class HandRowCard(val cardId: String, val zone: PlayZone)
 
 /** ZON-079: the cards of the viewer's hand row from other zones. */
 object HandRow {
     /**
-     * The cards outside [viewer]'s hand on [play] a permission lets them cast or play from their pile, castable now or not, that
-     * they may see ([org.asyncttwiz.automatum.ComputedBoard.handRow], worked out with the board), and any other the engine lets
-     * them cast or play now ([org.asyncttwiz.automatum.HandPlays.offZone], once worked out), each with its pile's zone; none
+     * The cards outside [viewer]'s hand on [play] they may use from their pile (a permission lets them cast or play it, or an
+     * ability or special action of it works there), usable now or not, that they may see
+     * ([org.asyncttwiz.automatum.ComputedBoard.handRow], worked out with the board), and any other the engine lets them use now
+     * ([org.asyncttwiz.automatum.HandPlays.offZone], once worked out), each with its pile's zone; none
      * outside a Graveyard, Exile or Library pile, nor one whose spell is on the Stack. Empty without Automatum's values for
      * [viewer].
      */

@@ -11,7 +11,8 @@ import arcanum.engine.view.View
 
 /**
  * ZON-079 (owner, 2026-11-12): the cards outside a player's hand that their hand row shows: those a permission lets them cast or
- * play from where they are, castable now or not ([permitted]: the engine's [ObjectStatus.Playable]), and only those the player
+ * play from where they are, or with an activated ability or special action they may use there (unearth, embalm), usable now
+ * or not ([permitted]: the engine's [ObjectStatus.Playable]), and only those the player
  * may see (I-D27, [shown]).
  */
 object OffZoneCards {

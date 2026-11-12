@@ -4,6 +4,7 @@ import org.asyncttwiz.protocol.game.EnginePreferences
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Keyword
+import arcanum.api.Zone
 import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
@@ -302,7 +303,7 @@ class CastFlow private constructor(
 class HandPlays private constructor(
     val byCard: Map<String, List<Input>>,
     /** ZON-079 (owner, 2026-11-12): the cards outside the player's hand they may cast or play now (flashback, a foretold card,
-     * the top of their library under a permission, …) and may see (I-D27, [OffZoneCards.shown]), by ATW card id: a
+     * the top of their library under a permission, …) or use an ability or special action of now (unearth, embalm) and may see (I-D27, [OffZoneCards.shown]), by ATW card id: a
      * graveyard's first, then exile's, then a library's, each in the engine's order. */
     val offZone: List<String> = emptyList(),
 ) {
@@ -322,10 +323,18 @@ class HandPlays private constructor(
             val player = PlayerId(viewer)
             val hand = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().toSet()
             val byObject = LinkedHashMap<ObjectId, MutableList<Input>>()
+            // ZON-079: cards outside a hand, the Stack and the battlefield with an ability or special action usable now
+            val usable = LinkedHashSet<ObjectId>()
             for (input in Engine.options(state, player, view, EnginePreferences.of(state))) {
                 val card = when (input) {
                     is Input.Cast -> input.card
                     is Input.PlayLand -> input.card
+                    is Input.Activate -> {
+                        val zone = state.obj(input.source)?.zone
+                        if (input.source is ObjectId.Card && zone != null && zone != Zone.Hand && zone != Zone.Stack && zone != Zone.Battlefield)
+                            usable += input.source
+                        continue
+                    }
                     else -> continue
                 }
                 if (card !is ObjectId.Card) continue
@@ -333,7 +342,7 @@ class HandPlays private constructor(
             }
             // ZON-079, I-D27: a card elsewhere only when the viewer may see it (a public card face up needs no look; the
             // top of a library or a card face down in exile asks the engine)
-            val elsewhere = byObject.keys.filter { it !in hand }
+            val elsewhere = (byObject.keys.filter { it !in hand } + usable).distinct()
             val shown = if (elsewhere.isEmpty()) emptyList() else OffZoneCards.shown(state, view, player, elsewhere)
             val byCard = LinkedHashMap<String, List<Input>>()
             for ((id, inputs) in byObject) if (id in hand || id in shown) byCard[ids.atw((id as ObjectId.Card).card)] = inputs

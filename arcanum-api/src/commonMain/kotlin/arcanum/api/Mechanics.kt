@@ -676,7 +676,9 @@ sealed interface Modification {
     @Serializable @SerialName("skip") data object Skip : Modification
     // fra
     /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
-     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). */
+     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). otj: a moved card gets it wherever
+     * [MarkRules] lets it live ("exile that spell instead of putting it into your graveyard as it resolves. If you do, it becomes
+     * plotted", CR 702.170c); where it can't, nothing. */
     @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */

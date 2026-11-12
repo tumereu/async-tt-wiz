@@ -252,7 +252,8 @@ internal object Actions {
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
                 // fra: "enters prepared" (CR 722.3a)
-                is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
+                // otj: a resolving spell exiled instead "becomes plotted" there (CR 702.170c): wherever the mark can live
+                is Modification.EntersMarked -> if (move.to in arcanum.api.MarkRules.of(mod.mark).zones) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage -> move

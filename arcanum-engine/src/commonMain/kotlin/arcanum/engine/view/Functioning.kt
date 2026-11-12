@@ -6,6 +6,7 @@ import arcanum.api.CostPart
 import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.Mechanic
+import arcanum.api.MarkRules
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.Step
@@ -81,6 +82,9 @@ object Functioning {
                     event.from != Zone.Battlefield && event.to != Zone.Battlefield -> setOf(event.from!!)
                 event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == null &&
                     event.to != null && event.to != Zone.Battlefield -> EVERYWHERE
+                // "When this card becomes plotted": a mark that can't live on a permanent is gained where it lives (exile, CR 702.170c)
+                event is EventPattern.GotMark && event.objects.isSelf() && Zone.Battlefield !in MarkRules.of(event.mark).zones ->
+                    MarkRules.of(event.mark).zones
                 else -> usual
             }
         }

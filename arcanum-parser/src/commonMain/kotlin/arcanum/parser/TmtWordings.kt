@@ -110,7 +110,8 @@ internal object Tmt {
     val CARD_TYPES_AMONG_SPELLS_CAST = Regex("""[Dd]raw a card for each card type among spells you've cast this turn\.""")
     val EXCHANGE_CONTROL_DIFFERENT_PLAYERS = Regex("""[Yy]ou may exchange control of two other target (.+?) controlled by different players\.""")
     val SEARCH_AND_OR_OUTSIDE = Regex("""Search your library and/or outside the game for exactly (\w+) (.+?) you own with different names, then reveal those cards\. An opponent chooses (\w+) of them\. Put the chosen cards into your hand and shuffle the rest into your library\.""")
-    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library, then each player who does draws (\w+) cards\.""")
+    // otj chunk 01: also "… into their library. Each player who does draws seven cards."
+    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library(?:, then each|\. Each) player who does draws (\w+) cards\.""")
     val PAY_LIFE_EQUAL_TO_POWER_COUNTERS = Regex("""[Yy]ou may pay life equal to its power\. If you do, put that many \+1/\+1 counters on it\.""")
     val CARDS_HAVE_SNEAK = Regex("""Creature cards in your graveyard have sneak (\{.+\})\.""")
     val CAST_USING_SNEAK = Regex("""You may cast creature spells from your graveyard using their sneak abilities\.""")

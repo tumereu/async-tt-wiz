@@ -264,6 +264,13 @@ internal object Filters {
                 return all(ObjectFilter.Or((listOf(first.last()) + list.drop(1)).map { ObjectFilter.Sub(Subtype(it)) }),
                     *modifiers.map { word(it) ?: return null }.toTypedArray())
         }
+        // otj chunk 01: "multicolored instant or sorcery": a leading colour word describes every card-type alternative (CR 105.2)
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }.map { it.removeArticle() }
+            val first = list.first().split(' ')
+            if (list.size > 1 && first.size == 2 && (first[0] == "multicolored" || first[0] == "monocolored" || first[0] in COLORS) && (listOf(first[1]) + list.drop(1)).all { it in CARD_TYPES })
+                return all(ObjectFilter.Or((listOf(first[1]) + list.drop(1)).map { word(it) ?: return null }), word(first[0]) ?: return null)
+        }
         // inr chunk 07: "Angel or Human creature card": the creature types are the alternatives, the rest describes both (CR 205.3m)
         if (phrase.contains(" or ")) {
             val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
@@ -1254,6 +1261,9 @@ internal object Conditions {
                 atLeast = 1, measure = Measure.Events)
         }
         if (text == "it was cast") return Condition.CastFrom(null, Objects.Self)
+        // otj chunk 01: "it wasn't cast or no mana was spent to cast it" (CR 601.2h; a permanent keeps what was spent on its spell, 400.7d)
+        if (text == "it wasn't cast") return Condition.Not(Condition.CastFrom(null, Objects.Self))
+        if (text == "no mana was spent to cast it") return Condition.Compare(Value.ManaSpent(of = Objects.Self), Comparison.Equal, Value.Fixed(0))
         DEFENDING_PLAYER_CONTROLS_NO.matchEntire(text)?.let { m ->
             return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " defending player controls") ?: return null, atLeast = 1))
         }

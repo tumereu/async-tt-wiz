@@ -145,7 +145,9 @@ internal object Ecl {
     val EXILE_UNTIL_NONLAND_CAST_IF_LIFE = Regex("""Exile cards from the top of your library until you exile a nonland card\. You may cast that card without paying its mana cost if the spell's mana value is less than or equal to the amount of life you gained this turn\. Otherwise, put it into your hand\.""")
     val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents)?\.""")
     val ADD_ANY_COLOR_BECOMES_THAT_COLOR = Regex("""Add one mana of any color\. (.+?) becomes that color until end of turn\.""")
-    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex("""[Ee]xile that card with an? (\w+) counter on it instead of putting it into your graveyard as it resolves\.""")
+    // otj chunk 01: also "exile that spell instead of … as it resolves. If you do, it becomes plotted." (Lilah)
+    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex(
+        """[Ee]xile that (?:card|spell)(?: with an? (\w+) counter on it)? instead of putting it into your graveyard as it resolves\.(?: If you do, it becomes (plotted)\.)?$""")
     val MAY_CAST_FROM_EXILE_WITH_COUNTERS = Regex("""[Yy]ou may cast a spell from among cards you own in exile with (\w+) counters on them without paying its mana cost\.""")
     val OPPONENTS_EXILE_UNTIL_TOTAL_MV = Regex("""Each opponent exiles cards from the top of their library until they have exiled cards with total mana value (\d+) or greater this way\. Until end of turn, you may cast cards exiled this way without paying their mana costs\.""")
     val REVEAL_UNTIL_X_NONLAND_EXILE_EACH_COLOR = Regex("""Reveal cards from the top of your library until you reveal X nonland cards\. For each of those colors, you may exile a card of that color from among the revealed cards\. Then shuffle\. You may cast the exiled cards this turn\.""")

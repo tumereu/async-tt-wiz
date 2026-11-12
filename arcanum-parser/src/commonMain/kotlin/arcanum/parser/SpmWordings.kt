@@ -17,7 +17,9 @@ internal object Spm {
     val SPELLS_HAVE_WEB_SLINGING = Regex("""Each (legendary) spell you cast that's one or more colors has web-slinging ((?:\{[^}]+\})+)\.""")
     val ENTERS_WITH_X_IF_WEB_SLINGING = Regex("""If (.+?) was cast using web-slinging, (?:he|she|it|they) enters? with X \+1/\+1 counters on (?:him|her|it|them), where X is the mana value of the returned creature\.""")
     val CARDS_IN_GRAVEYARD_HAVE_MAYHEM = Regex("""Each (.+?) in your graveyard has mayhem\. The mayhem cost is equal to its mana cost\.""")
-    val SPELLS_CAST_FROM_COST_LESS = Regex("""Spells you cast from your (graveyard|hand|exile) cost ((?:\{[^}]+\})+) less to cast\.""")
+    // otj chunk 01: also "Spells your opponents cast from graveyards or from exile cost {2} more to cast."
+    val SPELLS_CAST_FROM_COST_LESS = Regex(
+        """Spells (you|your opponents) cast from (your graveyard|graveyards|your hand|exile)(?: or from (your graveyard|graveyards|your hand|exile))? cost ((?:\{[^}]+\})+) (less|more) to cast\.""")
     val IF_COST_PAID_INSTEAD = Regex("""If this spell's ([a-z-]+) cost was paid, (.+) instead\.""")
 
     // spm chunk 02: modified (CR 700.9)

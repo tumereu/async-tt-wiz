@@ -246,6 +246,7 @@ internal class Sentences(
         mshLine(line)?.let { return it } // msh
         hobLine(line)?.let { return it } // hob
         fraLine(line)?.let { return it } // fra
+        otjLine(line)?.let { return it } // otj
         // chunk 56: a Saga's "I, II — [effect]" is a chapter ability for each listed chapter (CR 714.2b, c)
         CHAPTERS.matchEntire(line)?.let { m ->
             val chapters = m.groupValues[1].split(", ").mapNotNull { ROMAN[it] }
@@ -368,10 +369,12 @@ internal class Sentences(
                 affects = Affected.Objects(Objects.Self))
         }
         // dft chunk 10: "You may have this creature enter as a copy of an artifact or creature you control." (CR 707.9, 614.1c)
-        Dft.MAY_ENTER_AS_COPY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // otj chunk 01: "…, except it's a Shapeshifter Rogue in addition to its other types." (CR 707.9b); other exceptions are other rules'
+        Dft.MAY_ENTER_AS_COPY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let copy@{ m ->
+            val except = if (m.groupValues[3].isEmpty()) emptyList() else copyExceptions(m.groupValues[3]) ?: return@copy
             val of = Filters.noun(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersAsCopy(of = of, optional = true)))), affects = Affected.Objects(Objects.Self))
+                modify = listOf(Modification.EntersAsCopy(of = of, except = except, optional = true)))), affects = Affected.Objects(Objects.Self))
         }
         // dft chunk 08: "During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as
         // though they haven't been activated." (only before beginning to activate one this turn, CR 702.177b)
@@ -2017,6 +2020,11 @@ internal class Sentences(
 
     /** chunk 41: what "for each [phrase]" counts: "+1/+1 counter on this Equipment" (its counters), or matching objects. */
     private fun perEach(phrase: String): Value? {
+        // otj chunk 01: "spell you've cast this turn other than the first" (none when no spell was cast, CR 107.1b)
+        if (phrase == "spell you've cast this turn" || phrase == "spell you've cast this turn other than the first") {
+            val spells = Value.EventsThisTurn(EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any), measure = Measure.Events)
+            return if (phrase.endsWith("first")) Value.Max(listOf(Value.Difference(spells, Value.Fixed(1)), Value.Fixed(0))) else spells
+        }
         COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
         }
@@ -2767,6 +2775,7 @@ internal class Sentences(
             val wholeFrom = context.targets.size
             // eoe chunk 09: also a quoted ability's own period before the next sentence ('gains "…." That creature's controller …')
             val whole = (if (body.contains(".\" ")) eoeWhole(body.replaceFirstChar { it.uppercase() }, context) else null) // eoe
+                ?: (if (body.contains(". ")) otjWhole(body.replaceFirstChar { it.uppercase() }, context) else null) // otj
                 ?: ltrWhole(body.replaceFirstChar { it.uppercase() }, context) // ltr
                 ?: mh2Whole(body.replaceFirstChar { it.uppercase() }, context) // mh2
                 ?: if (body.contains(". ")) dftWhole(body.replaceFirstChar { it.uppercase() }, context) // dft
@@ -2806,6 +2815,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        otjModify(sentence, steps, context)?.let { return it } // otj
         ltrModify(sentence, steps, context)?.let { return it } // ltr
         mh2Modify(sentence, steps, context)?.let { return it } // mh2
         dftModify(sentence, steps, context)?.let { return it } // dft
@@ -3050,6 +3060,11 @@ internal class Sentences(
         }
         // chunk 33: "You may choose new targets for the copies." (CR 707.10c)
         if (sentence == "You may choose new targets for the copies." && steps.isNotEmpty())
+            return steps.map { withNewTargets(it) ?: return null }
+        // otj chunk 01: "Until end of turn, whenever you cast a spell, copy it. You may choose new targets for the copy." (the copies the
+        // delayed trigger makes, CR 707.10c)
+        if (sentence == "You may choose new targets for the copy." && ((steps.singleOrNull() as? Step.Do)?.effect as? Effect.CreateDelayedTrigger)
+                ?.instructions?.steps?.singleOrNull()?.let { (it as? Step.Do)?.effect is Effect.CopySpell } == true)
             return steps.map { withNewTargets(it) ?: return null }
         val previous = (steps.lastOrNull() as? Step.Do)?.effect
         // chunk 32: "The token enters tapped and attacking." (CR 508.4: its controller chooses what it attacks)
@@ -4064,6 +4079,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        otjEffect(sentence, context)?.let { return it } // otj
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
@@ -4962,7 +4978,10 @@ internal class Sentences(
             // fix1: "you may exile target historic permanent you control. If you do, return that card …", "you may exile Hikari. If
             // you do, return it …": "it" and "that card" are the exiled card (CR 400.7, 603.7c), named as it is exiled
             val refersBack = REFERS_BACK.containsMatchIn(m.groupValues[2])
-            val exiledPart = (parts?.singleOrNull() as? CostPart.Exile)?.takeIf { refersBack && it.postBind == null && it.what !is CostObjects.Choose }
+            // otj chunk 01: also one chosen card, "you may exile a nonland card … from your hand. If you do, it becomes plotted."
+            val exiledPart = (parts?.singleOrNull() as? CostPart.Exile)?.takeIf { refersBack && it.postBind == null &&
+                (it.what !is CostObjects.Choose || ((it.what as CostObjects.Choose).count == Value.Fixed(1) && !(it.what as CostObjects.Choose).upTo &&
+                    Regex("""\bit\b""").containsMatchIn(m.groupValues[2]))) }
             val costParts = if (exiledPart == null) parts else { context.it = Objects.Bound("exiled"); listOf(exiledPart.copy(postBind = "exiled")) }
             val steps = if (parts != null) null else (effect("$action.", context) ?: return null).let { st ->
                 val move = ((st.singleOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { refersBack && it.to.zone == Zone.Exile && it.postBind == null }
@@ -7141,8 +7160,10 @@ internal class Sentences(
         val parts = text.split(Regex(""", and |, | and (?=it)"""))
         return parts.map { part ->
             Regex("""it's (\d+)/(\d+)""").matchEntire(part)?.let { arcanum.api.CopyException.PowerToughness(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }
-                ?: Regex("""it's an? (\w+) in addition to its other types""").matchEntire(part)?.let { t ->
-                    arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(t.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null))))
+                // otj chunk 01: several subtypes, "it's a Shapeshifter Rogue in addition to its other types"
+                ?: Regex("""it's an? ([A-Z]\w+(?: [A-Z]\w+)*) in addition to its other types""").matchEntire(part)?.let { t ->
+                    arcanum.api.CopyException.Types(addSubtypes = t.groupValues[1].split(' ').map {
+                        arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { w -> w in RulesWords.subtypes } ?: return null)) })
                 }
                 ?: Regex("""it has (.+)""").matchEntire(part)?.let { k ->
                     arcanum.api.CopyException.AddAbilities(k.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
@@ -7508,12 +7529,28 @@ internal class Sentences(
     }
 
     /** Sentences in order; a "Spend this mana only …" sentence stays with the mana it restricts. */
+    /** [text] split at each sentence end outside quotes: a quoted ability of several sentences ('a token with "{T}: …. Activate only as a
+     * sorcery."') stays in its sentence (otj chunk 01). */
+    private fun splitOutsideQuotes(text: String): List<String> {
+        val parts = mutableListOf<String>()
+        var from = 0
+        for (end in SENTENCE_END.findAll(text)) {
+            if (text.substring(from, end.range.first).count { it == '"' } % 2 == 1) continue
+            parts += text.substring(from, end.range.first)
+            from = end.range.last + 1
+        }
+        parts += text.substring(from)
+        return parts
+    }
+
     private fun sentences(text: String): List<String> {
-        val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
+        val raw = splitOutsideQuotes(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
             .map { if (it.endsWith(".")) it else "$it." }.map { it.replaceFirstChar { c -> c.uppercase() } }
         return raw.fold(mutableListOf()) { acc, sentence ->
             // chunk 14: "The flashback cost is equal to its mana cost." completes the sentence before it.
+            // otj chunk 01: "Each player who does draws seven cards." completes "Each player may …" before it
             if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,") || sentence.startsWith("The flashback cost is") ||
+                    (sentence.startsWith("Each player who does ") && acc.lastOrNull()?.startsWith("Each player may ") == true) ||
                     sentence.startsWith("When you do,") || // chunk 31
                     (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
@@ -7745,13 +7782,16 @@ internal class Sentences(
         }
         // blb chunk 07: "This creature enters with a +1/+1 counter on it if an opponent lost life this turn." (CR 614.1c)
         // fdn chunk 05: "If this creature was kicked, it enters with two +1/+1 counters on it." (the same rule, the condition first; CR 702.33d)
-        (Fdn.IF_IT_ENTERS_WITH_COUNTER.matchEntire(line)?.let { m -> Blb.ENTERS_WITH_COUNTER_IF.matchEntire("This permanent enters with ${m.groupValues[2]} counters on it if ${m.groupValues[1]}.") }
+        // otj chunk 01: counters of several kinds, "… enters with two +1/+1 counters and a lifelink counter on it." (one replacement, CR 614.1c)
+        (Fdn.IF_IT_ENTERS_WITH_COUNTER.matchEntire(line)?.let { m -> Blb.ENTERS_WITH_COUNTER_IF.matchEntire("This permanent enters with ${m.groupValues[2]} on it if ${m.groupValues[1]}.") }
             ?: Blb.ENTERS_WITH_COUNTER_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) })?.let { m ->
-            val kind = Counters.kind(m.groupValues[3]) ?: return null
-            val condition = Conditions.condition(m.groupValues[4], self) ?: return null
+            val counters = m.groupValues[2].split(" and ").map { part ->
+                val words = part.split(' ')
+                Modification.EntersWithCounters(Counters.kind(words[1]) ?: return null, Value.Fixed(Numbers.count(words[0]) ?: return null))
+            }
+            val condition = Conditions.condition(m.groupValues[3], self) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))),
-                affects = Affected.Objects(Objects.Self), condition = condition)
+                modify = counters)), affects = Affected.Objects(Objects.Self), condition = condition)
         }
         // blb chunk 07: "Other creatures you control enter with an additional +1/+1 counter on them for each opponent who lost life
         // this turn."
@@ -8861,7 +8901,8 @@ internal class Sentences(
         Rtr.GETS_FOR_EACH_CARD_IN_CONTROLLERS_HAND.matchEntire(line)?.let { m ->
             val affects = rtrSubject(m.groupValues[1]) ?: return@let
             val objects = (affects as? Affected.Objects)?.objects ?: return null
-            val per = Value.HandSize(Players.ControllerOf(objects))
+            // otj chunk 01: "This creature gets -1/-1 for each card in your hand." (the ability's controller's hand)
+            val per = Value.HandSize(if (m.groupValues[4] == "your") Players.You else Players.ControllerOf(objects))
             fun amount(n: Int) = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(amount(m.groupValues[2].toInt()), amount(m.groupValues[3].toInt()))), affects = affects)
         }
@@ -10802,7 +10843,8 @@ internal class Sentences(
         val TWICE_THAT_MANY_COUNTERS = Regex("""If one or more (\S+) counters would be put on (.+), twice that many (\S+) counters are put on it instead\.""")
         val SELF_HAS_NO_COUNTERS = Regex("""(.+) has no (\S+) counters on it""")
         // rtr chunk 07
-        val GETS_FOR_EACH_CARD_IN_CONTROLLERS_HAND = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each card in its controller's hand\.""")
+        // otj chunk 01: also "for each card in your hand"
+        val GETS_FOR_EACH_CARD_IN_CONTROLLERS_HAND = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each card in (its controller's|your) hand\.""")
         val GETS_FOR_EACH_OF_ITS_COLORS = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each of its colors\.""")
     }
 
@@ -10913,7 +10955,7 @@ internal class Sentences(
         val CREATE_NAMED_LEGENDARY_TOKEN = Regex("""Create ([A-Z][A-Za-z]+), an? (legendary )?(colorless) ([A-Z][a-z]+ [a-z]+) token with "(.+?)"(?: and ([a-z]+ \{[^}]+\}))?\.""")
         // blb chunk 07
         val AS_LONG_AS_SELF_HAS = Regex("""As long as (.+?), (.+?) has ([a-z ,]+)\.""")
-        val ENTERS_WITH_COUNTER_IF = Regex("""(.+) enters with (a|an|one|two) (\S+) counters? on it if (.+)\.""")
+        val ENTERS_WITH_COUNTER_IF = Regex("""(.+) enters with ((?:a|an|one|two) \S+ counters?(?: and (?:a|an|one|two) \S+ counters?)?) on it if (.+)\.""")
         val OTHERS_ENTER_WITH_ADDITIONAL = Regex("""(.+) enter with an additional (\S+) counter on them for each (.+)\.""")
         val PUT_ITS_COUNTERS_ON_TARGET = Regex("""Put its counters on target (.+)\.""")
         val CHOOSE_TARGET_PLAYER = Regex("""Choose target (opponent|player)\.""")
@@ -15525,6 +15567,81 @@ internal class Sentences(
         return null
     }
 
+    // ---- otj
+
+    /** otj: single-sentence effects. */
+    private fun otjEffect(sentence: String, context: Context): List<Step>? {
+        // otj chunk 01: "It becomes plotted." (the card an earlier sentence exiled; the mark lives only in exile, CR 702.170c)
+        Otj.BECOMES_PLOTTED.matchEntire(sentence)?.let { m ->
+            val subject = m.groupValues[1]
+            val objects = if (subject == "It" || subject == "it") context.it ?: return null else dftSubject(subject, context) ?: return null
+            return listOf(Step.Do(Effect.Mark(objects, arcanum.api.ObjectMark.Plotted)))
+        }
+        // otj chunk 01: "create a 2/2 blue and black Zombie Rogue creature token, then put two +1/+1 counters on that token for each spell you've cast
+        // this turn other than the first." (that token, CR 111.1)
+        Otj.CREATE_THEN_COUNTERS_ON_TOKEN_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            if (count != 1) return null
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val per = perEach(m.groupValues[4]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You, bind = "token")),
+                Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, times(per, Numbers.count(m.groupValues[2]) ?: return null))))
+        }
+        // otj chunk 01: "Sacrifice any number of permanents you control, then draw that many cards." (zero is a number, CR 107.1)
+        Otj.SACRIFICE_ANY_NUMBER_DRAW_THAT_MANY.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")),
+                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("sacrificed")))))
+        }
+        return null
+    }
+
+    /** otj: sentences that change the steps before them. */
+    private fun otjModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // otj chunk 01: "exile target spell. It becomes plotted.": the card the exile moved, a new object in exile (CR 400.7, 702.170c)
+        if (sentence == "It becomes plotted.") {
+            val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile } ?: return null
+            val bind = move.postBind ?: "exiled"
+            context.it = Objects.Bound(bind)
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.Mark(Objects.Bound(bind), arcanum.api.ObjectMark.Plotted))
+        }
+        return null
+    }
+
+    /** otj: abilities of a whole line. */
+    private fun otjLine(line: String): Ability? {
+        // otj chunk 01: "This creature enters with a +1/+1 counter on it plus an additional +1/+1 counter on it for each other creature you
+        // control." (counted as it enters, CR 614.1c)
+        Otj.ENTERS_WITH_COUNTER_PLUS_ADDITIONAL_FOR_EACH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && it.groupValues[3] == it.groupValues[4] }?.let { m ->
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val per = perEach(m.groupValues[5]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, Value.Sum(listOf(Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null), per)))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
+    /** otj: whole multi-sentence effects. */
+    private fun otjWhole(text: String, context: Context): List<Step>? {
+        // otj chunk 01: "Look at the top three cards of your library. You may exile a nonland card from among them. If you do, it becomes
+        // plotted. Put the rest into your hand." ("it" is the card in exile, CR 400.7; "the rest" are the others looked at)
+        Otj.LOOK_TOP_MAY_EXILE_ONE_IF_YOU_DO_REST_INTO_HAND.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2].removeArticle()) ?: return null
+            context.it = Objects.Bound("exiled")
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.If(arcanum.api.Condition.NonEmpty("exiled"), then = then),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Hand))))
+        }
+        return null
+    }
+
     // ---- inr
 
     /** inr: single-sentence effects. */
@@ -17266,10 +17383,15 @@ internal class Sentences(
                 affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
         // spm chunk 01: "Spells you cast from your graveyard cost {2} less to cast." (CR 601.2f)
+        // otj chunk 01: "Spells your opponents cast from graveyards or from exile cost {2} more to cast." (CR 601.2f)
         Spm.SPELLS_CAST_FROM_COST_LESS.matchEntire(line)?.let { m ->
-            val zone = when (m.groupValues[1]) { "graveyard" -> Zone.Graveyard; "hand" -> Zone.Hand; else -> Zone.Exile }
-            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You),
-                ObjectFilter.WasCast(zone)), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))), affects = spmSelfOnly)
+            fun zone(word: String) = when (word) { "your graveyard", "graveyards" -> Zone.Graveyard; "your hand" -> Zone.Hand; else -> Zone.Exile }
+            val from = listOf(m.groupValues[2], m.groupValues[3]).filter { it.isNotEmpty() }.map { ObjectFilter.WasCast(zone(it)) }
+            val whose = if (m.groupValues[1] == "you") PlayerFilter.You else PlayerFilter.Opponent
+            val mana = ManaCost.parse(m.groupValues[4]) ?: return null
+            val change = if (m.groupValues[5] == "less") arcanum.api.CostChange.Less(mana, Value.Fixed(1)) else arcanum.api.CostChange.More(mana, Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(whose),
+                from.singleOrNull() ?: ObjectFilter.Or(from)), change)), affects = spmSelfOnly)
         }
         // spm chunk 02: "This creature has flying as long as it's modified." (CR 700.9)
         Spm.HAS_KEYWORD_AS_LONG_AS_MODIFIED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -18345,12 +18467,14 @@ internal class Sentences(
         }
         // ecl chunk 13: "Whenever you cast an instant or sorcery spell from your hand, exile that card with a dream counter on it instead of putting it
         // into your graveyard as it resolves." (a replacement the spell gets, CR 614.1a)
+        // otj chunk 01: "… exile that spell instead … as it resolves. If you do, it becomes plotted." (plotted as it is exiled, CR 702.170c)
         if (line.startsWith("Whenever you cast ")) Ecl.EXILE_WITH_DREAM_COUNTER_INSTEAD.find(line)?.let { m ->
-            val (trigger, _) = trigger(line.removePrefix("Whenever ").substringBefore(", exile that card")) ?: return null
-            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val (trigger, _) = trigger(line.removePrefix("Whenever ").substringBefore(", exile that ")) ?: return null
+            val counters = if (m.groupValues[1].isEmpty()) emptyList() else listOf(arcanum.api.CountersToPut(Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1)))
+            val marked = if (m.groupValues[2].isEmpty()) emptyList() else listOf(Modification.EntersMarked(arcanum.api.ObjectMark.Plotted))
             return Ability.Triggered(trigger, Instructions(steps = listOf(Step.Do(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(
                 Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), from = Zone.Stack, to = Zone.Graveyard, resolving = true),
-                    modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile, counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(1)))))))))))))
+                    modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile, counters = counters))) + marked)))))))
         }
         return null
     }

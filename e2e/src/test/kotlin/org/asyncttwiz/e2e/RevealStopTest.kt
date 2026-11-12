@@ -123,6 +123,37 @@ class RevealStopTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
+    // HIS-110 (owner, 2026-11-12: a reveal's OK dismissed late): OK closes the panel at once, on Alice's phone alone, whatever
+    // her engine thread is busy with: here nothing it publishes reaches her screen until released, and the panel is gone
+    // before; then her table plays on
+    @Test fun okClosesThePanelAtOnceWhileTheEngineThreadIsBusy() {
+        start()
+        val held = HeldWorker()
+        alice = restart(alice, held)
+        alice.openGame(game, this)
+        waitUntil("Alice's table at Bob's Main 1") { alice.state.turn.active == bob.me }
+        bob.playFromHand("Ember Insight", this)
+        // Back at the table she watches as a player does: the centre text's tap, and at a stop of hers (HIS-095) the main button
+        waitUntil("the reveal panel on Alice's phone") {
+            if (alice.shown.reveal == null) when (alice.status) {
+                GameDevice.Status.CatchUp -> alice.once { alice.tapToWatch() }
+                is GameDevice.Status.Stopped -> alice.once { alice.stepArrow()?.let(alice::tap) }
+                else -> {}
+            }
+            alice.showsText(title) && alice.showsRevealOk()
+        }
+        // Her engine thread is busy: nothing it publishes reaches the screen yet
+        held.holding = true
+        alice.revealOk()
+        run()
+        assertFalse(alice.showsText(title), "the panel closes at once: ${alice.screen()}")
+        assertFalse(alice.shows(REVEAL_OK), "OK no longer the main button: ${alice.screen()}")
+        assertTrue(alice.shown.reveal != null, "the board shown is still the one from before the OK (the engine thread held)")
+        held.release()
+        waitUntil("the dismissal on Alice's board") { alice.shown.reveal == null }
+        assertFalse(alice.showsText(title), "the panel stays closed")
+    }
+
     // HIS-110 (owner, 2026-11-09, a report's House Cartographer): a reveal until a land shows every card turned over, the land
     // last, in the panel of both phones, each player's OK their own; while Bob's is open his own table's actions wait for it
     @Test fun aRevealUntilALandShowsEveryCardTurnedOverToBothPlayers() {

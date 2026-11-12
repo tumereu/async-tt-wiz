@@ -1181,8 +1181,23 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         if (first != null) afterBoard()
     }
 
-    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or the held events play on. */
-    fun dismissReveal() = worker.run { if (device.dismissReveal()) { publish(); afterBoard() } }
+    /**
+     * HIS-110: the player dismissed the open reveal panel [reveal] (its OK tapped at [pressedAt], [nanoTime]): the next one
+     * opens, or the held events play on. The table has closed the panel already (owner, 2026-11-12: OK dismissed late);
+     * how long the engine thread took to get to it and to publish after it reaches the report.
+     */
+    fun dismissReveal(reveal: GameDevice.Reveal, pressedAt: Long) = worker.run {
+        val start = clock()
+        val done = device.dismissReveal(reveal.event)
+        val dismissed = clock()
+        if (done) { publish() }
+        val published = clock()
+        if (done) afterBoard()
+        AppLog.info("game", "Reveal ${if (done) "dismissed" else "already gone"} in ${reveal.event.take(8)}: the engine thread " +
+            "got to it ${(start - pressedAt) / 1_000_000} ms after OK, device ${(dismissed - start) / 1_000_000} ms, board " +
+            "${(published - dismissed) / 1_000_000} ms, own steps and board after it ${(clock() - published) / 1_000_000} ms; " +
+            "${device.openReveals.size} reveals still open")
+    }
 
     /** HIS-112, HIS-113: whether plays and combat are shown (the player's "Show plays and combat" time is above 0); off until the table
      * says (engine thread's copy for a game loaded again). */

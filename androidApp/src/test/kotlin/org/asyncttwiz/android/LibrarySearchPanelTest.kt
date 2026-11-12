@@ -75,7 +75,11 @@ class LibrarySearchPanelTest {
             title("{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."))
         assertEquals("Search target opponent's library for an artifact card" to true,
             title("Search target opponent's library for an artifact card, exile it, then that player shuffles."))
+        // Owner, 2026-11-12 (Recruiter of the Guard): a "you may search" inside a trigger's sentence is a search too
+        assertEquals("Search your library for a creature card with toughness 2 or less" to true,
+            title("When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle."))
         assertEquals("Search" to true, title("Search"))
+        assertEquals(false, title("Whenever an opponent searches their library").second)
         assertEquals("Sacrifice a creature" to false, title("Sacrifice a creature"))
     }
 

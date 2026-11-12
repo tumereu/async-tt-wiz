@@ -106,7 +106,7 @@ class RevealPanelTest {
     private fun bobAtReveal(): EngineGame {
         val alice = aliceCastsInsight()
         assertNotNull(alice.shown?.reveal, "her own panel")
-        alice.dismissReveal()
+        alice.dismissReveal(alice.shown!!.reveal!!, 0L)
         alice.endTurn()
         alice.tick(5_000)
         val bob = EngineGame(f.game.id, f.b, f.base, f.behind(alice.device.session.pending, alice.device.model))

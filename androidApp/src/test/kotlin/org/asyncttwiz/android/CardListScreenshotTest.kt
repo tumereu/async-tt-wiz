@@ -95,7 +95,10 @@ class CardListScreenshotTest {
     @Test fun savedCubePortrait() = cubeEdit(false, editing = false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun savedCubeLandscape() = cubeEdit(true, editing = false)
 
-    private fun cubeEdit(landscape: Boolean, editing: Boolean = true) {
+    // DRF-161, LOB-144: the saved cube view stamps cards Automatum can't play yet, as the cube editor does
+    @Test fun savedCubeMarksUnsupportedCards() = cubeEdit(false, editing = false, marked = true)
+
+    private fun cubeEdit(landscape: Boolean, editing: Boolean = true, marked: Boolean = false) {
         val main = listOf("Meadow Sentinel", "Rune Bear", "Ember Adept", "Rune Bolt", "Aegis Ward", "Rune Golem", "Quiet Grove")
         val maybe = listOf("Rune Wall", "Rune Charm")
         val definitions = (main + maybe).map(::definition)
@@ -114,10 +117,22 @@ class CardListScreenshotTest {
         cubes.cardRecords = testCardRecords(definitions)
         cubes.open("cube")
         if (!editing) {
+            val unsupported = setOf(placeholderPrinting("Rune Bolt"), placeholderPrinting("Rune Golem"))
+            val marks = CardMarks { ids -> ids.filter { it in unsupported }.toSet() }.takeIf { marked }
             compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
-                CubeScreen(cubes, if (landscape) null else ({}), draftCube = {}, landscape = landscape)
+                androidx.compose.runtime.CompositionLocalProvider(LocalCardMarks provides marks) {
+                    CubeScreen(cubes, if (landscape) null else ({}), draftCube = {}, landscape = landscape)
+                }
             } } }
             compose.onNodeWithText("Draft this cube").assertIsDisplayed()
+            if (marked) {
+                compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription(AUTOMATUM_CARD_UNSUPPORTED), useUnmergedTree = true)
+                    .fetchSemanticsNodes().size == 2 }
+                captureShot(path("cube-detail-unsupported", landscape), "Portrait saved Runes cube in its picture view (not editing), " +
+                    "with a see-through amber warning triangle stamped over the art box of Rune Golem and Rune Bolt, the cards Automatum " +
+                    "can't play yet.")
+                return
+            }
             captureShot(path("cube-detail", landscape), "${orientation(landscape)} saved Runes cube in its picture view: Edit at the " +
                 "top right as its only top button, the name with 7 total copies and Draft this cube, then Mainboard and Maybeboard.")
             return

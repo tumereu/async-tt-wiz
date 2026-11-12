@@ -200,22 +200,26 @@ class EndTurnBenchmark {
 }
 
 /**
- * A game at Alice's first main phase with [board]'s permanents on both sides (the same for each player), as a device
+ * A game at Alice's first main phase with [board]'s permanents on both sides (the same for each player unless [other]
+ * gives Bob's), as a device
  * loads it from the server's snapshot: both players kept, every permanent in play since before the turn (no summoning
  * sickness), equipment and auras attached to the creatures in order. The rest of each 60-card deck (Mountains, Storm
  * Sparks, Ember Cubs) is in the library and the opening hand.
  */
-internal class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, private val filler: List<Pair<BenchCard, Int>> = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8),
+internal class BenchBoard(val name: String, private val board: List<Pair<BenchCard, Int>>, private val filler: List<Pair<BenchCard, Int>> = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8),
     /** Cards put into each player's hand besides the opening hand (taken out of the filler). */
-    hand: List<Pair<BenchCard, Int>> = emptyList(), private val life: Int? = null) {
+    hand: List<Pair<BenchCard, Int>> = emptyList(), private val life: Int? = null,
+    /** Bob's permanents when they differ from Alice's ([board]). */
+    private val other: List<Pair<BenchCard, Int>> = board) {
     private val f = TableStatesFixture
     val a = f.a
     val b = f.b
-    private val cards = (board + filler + hand).flatMap { (card, n) -> List(n) { card } }
-    private val decks = listOf(a, b).associateWith { p -> cards.mapIndexed { i, card -> f.id("$p/card/$i") to card } }
-    private val onBattlefield = board.sumOf { it.second }
-    val permanents get() = onBattlefield * 2
-    val parsedWarnings: String = (board + filler + hand).map { it.first }.distinct()
+    private fun boardOf(p: String) = if (p == b) other else board
+    private val decks = listOf(a, b).associateWith { p ->
+        (boardOf(p) + filler + hand).flatMap { (card, n) -> List(n) { card } }.mapIndexed { i, card -> f.id("$p/card/$i") to card }
+    }
+    val permanents get() = board.sumOf { it.second } + other.sumOf { it.second }
+    val parsedWarnings: String = (board + other + filler + hand).map { it.first }.distinct()
         .filter { c -> c.definition.faces.any { face -> face.abilities.any { it is arcanum.api.Ability.Unparsed } } }
         .let { if (it.isEmpty()) "every card parsed" else "UNPARSED: " + it.joinToString { c -> c.name } }
 
@@ -223,7 +227,7 @@ internal class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, p
         val playCards = decks.flatMap { (player, deck) -> deck.map { (id, card) ->
             PlayCard(id, card.submitted.digest, player, f.id("${if (player == a) "a" else "b"}/LIBRARY"), card.submitted.definition.faces.single().faceId)
         } }
-        p.copy(definitions = cards.map { it.submitted }.distinctBy { it.digest }.sortedBy { it.digest },
+        p.copy(definitions = decks.values.flatten().map { it.second.submitted }.distinctBy { it.digest }.sortedBy { it.digest },
             board = p.board.copy(cards = playCards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->
                     if (c.zone == PlayZone.LIBRARY && !c.temp) c.copy(cards = playCards.filter { it.containerId == c.id }.map { it.id }, layers = emptyList())
@@ -251,7 +255,7 @@ internal class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, p
         event("keep/b", "start", b, keep(b))
         val head = event("keep/a", "keep/b", a, keep(a))
         check(model.engine.turn.number == 1) { "turn ${model.engine.turn}" }
-        for (p in listOf(a, b)) put(model.engine, PlayerId(p), board)
+        for (p in listOf(a, b)) put(model.engine, PlayerId(p), boardOf(p))
         for (p in listOf(a, b)) toHand(model.engine, PlayerId(p), hand)
         if (life != null) model.engine.players.indices.forEach { i -> model.engine.players[i] = model.engine.players[i].copy(life = life) }
         val codec = EngineJson(GameDefinitions.of(model.engine))

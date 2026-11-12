@@ -55,6 +55,30 @@ class KeptViewsTest {
         }
     }
 
+    @Test
+    fun theHooksCountStateCopiesAndOptionSearches() = scenario {
+        alice.battlefield("Mountain")
+        alice.hand("Storm Spark")
+        var copies = 0
+        var searches = 0
+        Engine.statesCopied = { copies++ }
+        Engine.optionsSearched = { searches++ }
+        try {
+            state.deepCopy()
+            assertEquals(1, copies, "a host's copy")
+            Engine.options(state, alice.id)
+            assertEquals(1, searches, "one options call, one search")
+            Engine.passCheck(state, alice.id)
+            assertEquals(2, searches, "a pass check searches once")
+            val before = copies
+            Engine.perform(state, Input.PassPriority(alice.id))
+            assertTrue(copies > before, "perform works on a copy")
+        } finally {
+            Engine.statesCopied = null
+            Engine.optionsSearched = null
+        }
+    }
+
     private fun game(seed: Long) = scenario(seed = seed) {
         val rnd = Random(seed)
         val pool = Cards.cubeNames

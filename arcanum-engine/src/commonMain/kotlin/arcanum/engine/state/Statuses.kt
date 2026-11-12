@@ -92,7 +92,22 @@ sealed interface ObjectStatus {
 
     /** Its owner's companion, revealed as the game began (CR 702.139a). */
     @Serializable @SerialName("revealed-companion") data object RevealedCompanion : ObjectStatus { override val key: String get() = "revealed-companion" }
+
+    /**
+     * The players a permission lets cast or play this card from where it is now (CR 601.3, 305.1, D41: flashback, escape, a
+     * foretold card, "you may play lands from the top of your library", "you may cast spells from your graveyard this turn"),
+     * each once, in turn order, castable now or not: the same permissions its cast or land play checks, their holder,
+     * condition, uses each turn and the top of a library included. Only in the view ([arcanum.engine.view.ObjectView.statuses]),
+     * never stored; on a card outside a hand, the Stack and the battlefield; a card whose every face is a land only for a
+     * player with a permission to play it (CR 305.9).
+     */
+    @Serializable @SerialName("playable") data class Playable(val by: List<PlayableBy>) : ObjectStatus { override val key: String get() = "playable" }
 }
+
+/** One player [ObjectStatus.Playable] names: [how] is [arcanum.api.PlayKind.Play] when a permission lets them play it (a land
+ * too), else [arcanum.api.PlayKind.Cast]. */
+@Serializable
+data class PlayableBy(val player: PlayerId, val how: arcanum.api.PlayKind)
 
 /**
  * A state of a mechanic the engine codes by hand, kept for a player with its value ([PlayerState.statuses]), stored only while

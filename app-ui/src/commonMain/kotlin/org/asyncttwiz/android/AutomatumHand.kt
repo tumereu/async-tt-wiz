@@ -81,7 +81,7 @@ class HandController(
      * is the raised one; a card in the other player's hand does nothing. */
     fun tap(cardId: String): Boolean {
         val play = current() ?: return false
-        if (!CastController.ownHand(play, cardId, viewer)) { lower(); return true }
+        if (CastController.inHandRow(play, cardId, viewer) != true) { lower(); return true }
         if (raised == cardId) return castRaised()
         // I-D50, I-D46 (b): a card Automatum doesn't allow now only shakes: no raise, no chips (Inspect says why)
         if (unplayable(play, cardId) == true) { lower(); shake(cardId); return true }
@@ -107,7 +107,8 @@ class HandController(
     fun follow() {
         val card = raised ?: return
         val play = current()
-        if (play == null || !CastController.ownHand(play, card, viewer) ||
+        // ZON-079: a card from another zone stays raised while the new board's plays are still worked out
+        if (play == null || CastController.inHandRow(play, card, viewer) == false ||
             card in castSpellSources(play.board)) { lower(); return }
         if (board !== play.board) compute(play)
     }
@@ -192,6 +193,45 @@ class HandController(
     companion object {
         /** [held] of the "Cast…" chip. */
         const val MORE = -1
+    }
+}
+
+/**
+ * ZON-079 (owner, 2026-11-12): a card of the viewer's hand row from another zone, at the row's right end after a thin
+ * divider with a badge of its [zone] (its pile still holds it). It glows and casts as a hand card when Automatum lets the
+ * viewer cast or play it now (TBL-117), and is dull and shakes otherwise (TBL-128).
+ */
+data class HandRowCard(val cardId: String, val zone: PlayZone)
+
+/** ZON-079: the cards of the viewer's hand row from other zones. */
+object HandRow {
+    /**
+     * The cards outside [viewer]'s hand on [play] a permission lets them cast or play from their pile, castable now or not, that
+     * they may see ([org.asyncttwiz.automatum.ComputedBoard.handRow], worked out with the board), and any other the engine lets
+     * them cast or play now ([org.asyncttwiz.automatum.HandPlays.offZone], once worked out), each with its pile's zone; none
+     * outside a Graveyard, Exile or Library pile, nor one whose spell is on the Stack. Empty without Automatum's values for
+     * [viewer].
+     */
+    fun cards(play: TableBoard, viewer: String): List<HandRowCard> {
+        val computed = AutomatumBoards.cached(play, viewer) ?: return emptyList()
+        val plays = AutomatumBoards.cachedHandPlays(play, viewer)?.offZone.orEmpty()
+        val ids = if (plays.all { it in computed.handRow }) computed.handRow else (computed.handRow + plays).distinct()
+        if (ids.isEmpty()) return emptyList()
+        val cast = castSpellSources(play.board)
+        return ids.mapNotNull { id ->
+            if (id in cast) return@mapNotNull null
+            val card = play.board.cards.singleOrNull { it.id == id } ?: return@mapNotNull null
+            val zone = play.board.containers.singleOrNull { it.id == card.containerId }?.zone
+            if (zone == PlayZone.GRAVEYARD || zone == PlayZone.EXILE || zone == PlayZone.LIBRARY) HandRowCard(id, zone) else null
+        }
+    }
+
+    /** The word a card of the hand row from [zone] is read aloud with ("…, from graveyard", ZON-079). */
+    fun zoneWord(zone: PlayZone): String = when (zone) {
+        PlayZone.GRAVEYARD -> "Graveyard"
+        PlayZone.EXILE -> "Exile"
+        PlayZone.LIBRARY -> "Library"
+        else -> zone.name.lowercase().replaceFirstChar { it.uppercase() }
     }
 }
 

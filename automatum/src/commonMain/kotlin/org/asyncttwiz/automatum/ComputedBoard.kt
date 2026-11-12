@@ -112,6 +112,9 @@ class ComputedBoard private constructor(
     /** ZON-094: the states of cards in exile the rules keep ("Plotted", "Foretold", "Warped"), by ATW card id; each is public
      * even for a card exiled face down. */
     val exileStates: Map<String, List<String>> = emptyMap(),
+    /** ZON-079 (owner, 2026-11-12): the cards outside the viewer's hand a permission lets them cast or play from where they are,
+     * castable now or not, that they may see ([OffZoneCards.permitted]), by ATW card id, in their hand row's order. */
+    val handRow: List<String> = emptyList(),
 ) {
     /**
      * TBL-136 effects marker (owner, 2026-11-12): the Battlefield cards (by ATW card id) a continuous effect other than counters
@@ -341,11 +344,11 @@ class ComputedBoard private constructor(
         fun of(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>, viewer: String,
             state: GameState, view: View): ComputedBoard {
             val (manualAbilities, manualCards) = manual(board, submitted, definitions, viewer)
-            return computed(board, manualAbilities, manualCards, state, view)
+            return computed(board, manualAbilities, manualCards, state, view, viewer)
         }
 
         private fun computed(board: BoardState, manualAbilities: Int, manualCards: List<Pair<String, Int>>, state: GameState,
-            view: View): ComputedBoard {
+            view: View, viewer: String): ComputedBoard {
             val ids = CardIds()
             val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
             val cards = LinkedHashMap<String, ComputedCard>()
@@ -376,7 +379,9 @@ class ComputedBoard private constructor(
                 val o = state.obj(ObjectId.Card(ids.engine(card.id), card.zoneChanges)) ?: return@mapNotNull null
                 if (o.marks.isEmpty()) null else CardStates.words(o, view[o.id]?.statuses ?: o.statuses).takeIf { it.isNotEmpty() }?.let { card.id to it }
             }.toMap()
-            return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates)
+            return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates,
+                // ZON-079: the cards from other zones the viewer's hand row shows, worked out with the board
+                handRow = OffZoneCards.permitted(state, view, viewer))
         }
 
         private fun manual(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>,

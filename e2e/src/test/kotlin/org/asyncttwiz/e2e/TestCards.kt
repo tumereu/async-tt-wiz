@@ -322,6 +322,9 @@ object TestCards {
     val trinket = card("Ember Trinket", "Artifact", "{0}", "Sacrifice this artifact: Draw a card.")
     val recall = card("Ember Recall", "Sorcery", "{0}", "Return target card from your graveyard to your hand.")
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
+    /** ZON-079: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
+    val flare = card("Ember Flare", "Sorcery", "{0}",
+        "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)")
 
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag = TestCard("Ember Path // Ember Crag", listOf(

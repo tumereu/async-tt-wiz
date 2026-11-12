@@ -80,9 +80,14 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             paint.textSize = previous; paint.color = previousColor; paint.isFakeBoldText = false
             return
         }
+        zoneGlyph(i.zone, cx, cy, z, ink)
+    }
+    /** The glyph of a pile's [zone] (a tombstone, a portal, the Stack's layers, a book), centred on [cx], [cy] at scale [z]: an
+     * empty pile's, and the zone badge of a hand row card from another zone (ZON-079). */
+    fun DrawScope.zoneGlyph(zone: PlayZone?, cx: Float, cy: Float, z: Float, ink: Color) {
         fun line(a: Float, b: Float, c: Float, d: Float) = drawLine(ink,
             xy(cx + a * z, cy + b * z), xy(cx + c * z, cy + d * z), 1.4f * density * z)
-        when (i.zone) {
+        when (zone) {
             PlayZone.GRAVEYARD -> {
                 val stone = androidx.compose.ui.graphics.Path().apply {
                     moveTo((cx - 7 * z) * density, (cy + 8 * z) * density)
@@ -161,6 +166,20 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         }
         drawPath(star, Color.White, style = Stroke(1.1f * z * density))
         drawPath(star, AutomatumViolet)
+    }
+    /**
+     * ZON-079 (owner, 2026-11-12): a card of the hand row from another zone: its pile's zone as a badge in its bottom-left
+     * corner (the empty pile's glyph, white in a dark teal disc ringed in white).
+     */
+    fun DrawScope.handZoneBadge(i: TableItem, x: Float, y: Float, cardWidth: Float, cardHeight: Float) {
+        val zone = i.handZone ?: return
+        val z = cardWidth / 28f
+        val r = 7.5f * maxOf(1f, z * .8f)
+        // Inside the room its outline leaves around the card (drawing is clipped there)
+        val cx = x + r - 2f; val cy = y + cardHeight - r + 2f
+        drawCircle(HandRowBadgeColor, r * density, xy(cx, cy))
+        drawCircle(Color.White, r * density, xy(cx, cy), style = Stroke(density))
+        zoneGlyph(zone, cx, cy + r * .06f, r / 13f, Color.White)
     }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
         counterBubbles(i, x, y, z)

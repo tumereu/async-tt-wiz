@@ -22,6 +22,10 @@ set's starting point, so a regression is caught where it is made.
   wording (see AGENTS.md, "Arcanum libraries").
 - **Unparsed text stays unparsed.** The parser never guesses.
 - One Gradle job at a time per worker, always through `bin/gradle-slot.sh` (machine-wide build slots).
+- Nobody loads `AllPrintings.json.gz` in a script of their own: it takes about 4.6 GB outside the builds' memory cap.
+  `bin/set-cards.py <CODE> [card name ...]` prints a set's cards from a small per-set extract, written once per set.
+- Several sets may be worked at once, each in its own worktree with its own orchestrator; the plan and merge steps take
+  turns through machine-wide locks (`bin/set-plan.sh`, `bin/plan-lock.sh`, `bin/merge-to-master.sh`).
 
 ## One-time setup
 Run `arcanum-tools/set-work/bin/setup.sh` from the repository root. Everything it fetches or writes lives in the local data
@@ -49,11 +53,10 @@ Below, `<code>` is the set code in lower case, `<CODE>` in upper case, `<plan>` 
 the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
 
 1. **Worktree.** `git worktree add ~/projects/atw-wt/set-<code> -b set/<code> master`. All workers work there, one at a time.
-2. **Plan.** In `<wt>`: `bin/gradle-slot.sh :arcanum-tools:coveredShapes`, then
-   `bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`. It writes `<plan>`: `plan.tsv` (each card `UNREAD`, `TEST`
+2. **Plan.** In `<wt>`: `bin/set-plan.sh <CODE>` (coveredShapes, then setPlan, under the plan lock). It writes `<plan>`: `plan.tsv` (each card `UNREAD`, `TEST`
    or `REPEAT`), `chunks/NN.md`, `digest.md`, `difficult.md` (over-inclusive warnings), `notes.md` and `audit/`.
-   `coveredShapes` writes one machine-wide file (`~/projects/atw-cache/set-plans/covered-shapes.tsv`), so run one set at a
-   time per machine.
+   `coveredShapes` writes one machine-wide file (`~/projects/atw-cache/set-plans/covered-shapes.tsv`), so sets take turns
+   through the lock, and a set started from the same sources as the last run reuses its file.
 3. **Starting point.** In `<wt>`: `bin/base-snapshot.sh <CODE>` (the parser's model of every local card, to
    `<plan>/parser-base.snapshot`; `bin/set-tests.sh <code> --full` compares against it).
 4. **Worker aids.** `python3 -I bin/chunk-pointers.py <wt> <plan>` adds, per card, the most alike existing parser test and
@@ -100,8 +103,8 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
     - `git merge master` (resolve conflicts; a parser `VERSION` conflict takes the higher number plus one).
     - `bin/base-snapshot.sh <CODE> --from master` replaces the starting point with current master's, so the comparison
       shows only this branch's changes.
-    - `bin/set-tests.sh <code> --full`, then `bin/gradle-slot.sh :arcanum-tools:setSupport :arcanum-tools:test`, then
-      `bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`: 0 unread.
+    - `bin/set-tests.sh <code> --full --long`, then `bin/gradle-slot.sh :arcanum-tools:setSupport :arcanum-tools:test`, then
+      `bin/plan-lock.sh bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`: 0 unread.
     - Add the set to `arcanum-tools/src/main/resources/arcanum/tools/supported-sets.txt` (code and name, sorted) and, in
       the same commit, its release note `release/notes/<YYYY-MM-DD>-set-<name-slug>.txt` holding one line
       `set: <full name as in supported-sets.txt>`. Run `setSupport` again: every card of the set must pass.
@@ -112,14 +115,16 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
       new lines, rewriting a line rather than appending when it is superseded, no set history and no real card names;
       in the closing commit.
     - Accept: every check green, every changed supported card named with a reason, nothing left in `fixes.md`. Then merge
-      `set/<code>` to master by the project's merge rule (here: sets merge as soon as they are accepted) and remove the
-      worktree.
+      `set/<code>` to master by the project's merge rule (here: sets merge as soon as they are accepted) with
+      `bin/merge-to-master.sh <code>` (in `<wt>`; it takes the merge lock, brings in master again if it moved and reruns
+      the checks), and remove the worktree.
 
 ## While it runs
 - **Time.** A chunk takes 10-80 minutes: test-only chunks about 10-25, heavy parser chunks 45-80. A 300-card set takes
   roughly a day of wall time; chunks run one at a time because they share one worktree and the build slots.
 - **Running times, roughly:** `coveredShapes` 6-8 minutes, `setPlan` under a minute, `base-snapshot.sh` 1-2 minutes,
-  `set-tests.sh` 1-3 minutes, with `--full` 8-12 minutes.
+  `set-tests.sh` 1-3 minutes, with `--full` about 3-4: it leaves out the engine's long random-game and fuzz classes;
+  `--full --long` (about 2 minutes more) runs them too and is what the fix, sweep and close steps use.
 - Gradle (through `gradle-slot.sh`) waits silently for a free build slot: no output for a while isn't a hang.
 - **Context.** Workers stop at about 250k context and report what's left. If one goes far past it, tell it to commit at
   the next green point and report the rest; the rest becomes a new chunk.

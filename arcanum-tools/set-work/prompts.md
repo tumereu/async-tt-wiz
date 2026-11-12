@@ -41,7 +41,7 @@ SET-WORK <code> sonnet review
 You check, from outside, parser models that Sonnet workers produced in this set's work, to learn whether Sonnet is accurate enough for ordinary parser chunks. A real misread is the important result.
 
 Worktree: <wt> (branch set/<code>; by absolute path). Don't commit; leave `git status` clean (delete files you add).
-Cards: <plan>/sonnet-sample.txt. Oracle text: read it from ~/projects/atw-cache/AllPrintings.json.gz with a short python script (set <CODE>, every face); never copy it into the repository. Rules: ~/projects/atw-cache/MagicCompRules-*.txt, by grep. Helper signatures: <plan>/helpers.md.
+Cards: <plan>/sonnet-sample.txt. Oracle text: `<wt>/arcanum-tools/set-work/bin/set-cards.py <CODE> [card name ...]` (never load AllPrintings.json.gz yourself); never copy it into the repository. Rules: ~/projects/atw-cache/MagicCompRules-*.txt, by grep. Helper signatures: <plan>/helpers.md.
 
 1. Print each card's current model with one throwaway parser test in arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/<code>/, run with `arcanum-tools/set-work/bin/set-tests.sh <code>`. Compare every model with the oracle text and the CR: each clause, targets, who chooses and controls, durations, "if you do", optional versus mandatory, filters, counts, every face, correctness with 3+ players.
 2. Play the 4 riskiest cards in throwaway scenarios in arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/<code>/ (copy the style of an existing scenario test there), one edge case each.
@@ -56,7 +56,7 @@ SET-WORK <code> fixes
 
 Worktree: <wt> (branch set/<code>; by absolute path).
 Fix every item in <plan>/fixes.md and every "found" item in <plan>/coordinator-log.md not marked fixed, as general parser or engine fixes. Each fix gets a test that fails before it and cites the CR. Every rules violation is fixed, additive API changes included; engine code must be right for any number of players. A test that cites a rule may change only where it encoded the rule wrongly: name each such test and why. A ruling question: settle it from the CR text and say how. If an item is too big for your context, leave it and say exactly what it needs; the next fix worker takes it.
-Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md, then also run `arcanum-tools/set-work/bin/gradle-slot.sh :arcanum-tools:setSupport`. A supported card outside this set may change only where one of your fixes requires it: name each and why.
+Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md, with `--full --long` for the last full run, then also run `arcanum-tools/set-work/bin/gradle-slot.sh :arcanum-tools:setSupport`. A supported card outside this set may change only where one of your fixes requires it: name each and why.
 If your context passes about 250k, stop at the next green point, commit, and report what remains.
 ```
 
@@ -74,7 +74,7 @@ For each engine or parser fix:
 3. For each sibling that plausibly has the same gap, write a probe test with an invented card, citing the CR, in arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/<code>/<Code>SweepScenariosTest.kt (or a parser probe in arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/<code>/<Code>SweepTest.kt). A probe that passes stays as a regression test.
 4. A probe that fails: fix it generally, with the probe as its failing-first test. If the fix is too big for your context (e.g. two duplicate code paths that should become one), keep the probe out of the suite and say exactly what it needs; it goes to a fix worker.
 
-Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md.
+Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md, with `--full --long` for the last full run.
 If your context passes about 250k, stop at the next green point, commit, and report what remains.
 
 Reply in at most 20 lines: per fix its class, the siblings probed, which failed and what you did; then totals (probes written, failing, fixed).
@@ -88,7 +88,7 @@ SET-WORK <code> quality sample
 You check, from outside, cards of this set marked REPEAT: they read, and every ability shape on them was judged already covered by other tests, so they got no test of their own. A real defect means that judgment was too loose; that is the important result.
 
 Worktree: <wt> (branch set/<code>; by absolute path). Don't commit; leave `git status` clean (delete files you add).
-Cards: <plan>/quality-sample.txt. Oracle text: from ~/projects/atw-cache/AllPrintings.json.gz with a short python script (set <CODE>); never copy it into the repository. Rules: ~/projects/atw-cache/MagicCompRules-*.txt, by grep. Helper signatures: <plan>/helpers.md.
+Cards: <plan>/quality-sample.txt. Oracle text: `<wt>/arcanum-tools/set-work/bin/set-cards.py <CODE> [card name ...]` (never load AllPrintings.json.gz yourself); never copy it into the repository. Rules: ~/projects/atw-cache/MagicCompRules-*.txt, by grep. Helper signatures: <plan>/helpers.md.
 
 1. Print each card's current model with one throwaway parser test, run with `arcanum-tools/set-work/bin/set-tests.sh <code>`. Compare each model with the oracle text and the CR: every clause, targets, who chooses and controls, durations, optional versus mandatory, filters, counts, correctness with 3+ players.
 2. Play the 4 riskiest cards (not basic lands or vanilla creatures) in throwaway scenarios, one edge case each, 3 players where opponents matter.

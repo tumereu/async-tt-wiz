@@ -82,11 +82,12 @@ internal object CardStates {
     /**
      * [o]'s states as Inspect lists them, one line each, as [viewer] may see them: "Ring-bearer: legendary, can't be blocked by
      * creatures with greater power" and what the Ring's level adds; "Goaded by Bob: …"; a Room's doors, a Class's level and
-     * the other marks by their word; "Protector: Bob" for a battle; what was chosen for it ("Chosen: blue"). [names] names the
-     * players by account; a face-down permanent's chosen values are its controller's to see. [statuses]: its statuses as its view
-     * has them.
+     * the other marks by their word; "Protector: Bob" for a battle; what was chosen for it ("Chosen: blue", "Chosen: Ember Cub"
+     * for a chosen permanent, named by [objectName] as the viewer may see it). [names] names the players by account; a face-down
+     * permanent's chosen values are its controller's to see. [statuses]: its statuses as its view has them.
      */
-    fun lines(state: GameState, o: GameObject, statuses: List<ObjectStatus>, viewer: String, names: Map<String, String>): List<EffectChange> = buildList {
+    fun lines(state: GameState, o: GameObject, statuses: List<ObjectStatus>, viewer: String, names: Map<String, String>,
+        objectName: (arcanum.engine.state.ObjectId) -> String? = { id -> state.obj(id)?.let { it.definition.faces.getOrNull(it.face)?.name } }): List<EffectChange> = buildList {
         fun who(id: String) = if (id == viewer) "you" else names[id] ?: "the opponent"
         val shown = Shown(statuses)
         for (word in words(o, shown)) when (word) {
@@ -102,12 +103,16 @@ internal object CardStates {
             else -> add(EffectChange(word))
         }
         shown.protector?.let { add(EffectChange("Protector: ${who(it.value)}")) }
-        if (!o.faceDown || o.controller?.value == viewer) chosen(o).forEach { add(EffectChange(it)) }
+        if (!o.faceDown || o.controller?.value == viewer) chosen(o, objectName).forEach { add(EffectChange(it)) }
     }
 
-    /** What was chosen for [o] and stays with it (CR 607.2d): a colour, a creature or card type, a card name. */
-    private fun chosen(o: GameObject): List<String> = o.linked.values.filterKeys { !it.startsWith("$") }.values.mapNotNull { value ->
+    /** What was chosen for [o] and stays with it (CR 607.2d): a colour, a creature or card type, a card name, a permanent ("As
+     * this enters, choose a nonland permanent", owner 2026-11-12: Scheming Fence; the parser's "chosen" memory). */
+    private fun chosen(o: GameObject, objectName: (arcanum.engine.state.ObjectId) -> String?): List<String> =
+        o.linked.values.filterKeys { !it.startsWith("$") }.mapNotNull { (key, value) ->
         when (value) {
+            is NamedValue.Objects -> if (!key.startsWith("chosen")) null
+                else value.ids.mapNotNull(objectName).takeIf { it.isNotEmpty() }?.let { "Chosen: " + it.joinToString(" and ") }
             is NamedValue.Colors -> value.colors.joinToString(" and ") { color ->
                 when (color.symbol) { 'W' -> "white"; 'U' -> "blue"; 'B' -> "black"; 'R' -> "red"; else -> "green" }
             }.takeIf { it.isNotEmpty() }?.let { "Chosen: $it" }

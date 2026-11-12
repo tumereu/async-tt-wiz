@@ -143,8 +143,28 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         paint.isFakeBoldText = false
         paint.textSize = 11 * density
     }
+    /**
+     * TBL-136 effects marker (owner, 2026-11-12): a small violet sparkle in the card's top-left corner while a continuous effect
+     * other than counters applies to it ([TableItem.effectsMarker]; Inspect lists them). A token's sits inside its cut corner.
+     */
+    fun DrawScope.effectsMarker(i: TableItem, x: Float, y: Float, z: Float) {
+        if (!i.effectsMarker) return
+        val r = 3.2f * z
+        val inset = if (i.token) 5.2f * z else 3.4f * z
+        val cx = (x + inset) * density; val cy = (y + inset) * density
+        val outer = r * density; val inner = outer * .32f
+        val star = androidx.compose.ui.graphics.Path().apply {
+            moveTo(cx, cy - outer)
+            lineTo(cx + inner, cy - inner); lineTo(cx + outer, cy); lineTo(cx + inner, cy + inner)
+            lineTo(cx, cy + outer); lineTo(cx - inner, cy + inner); lineTo(cx - outer, cy); lineTo(cx - inner, cy - inner)
+            close()
+        }
+        drawPath(star, Color.White, style = Stroke(1.1f * z * density))
+        drawPath(star, AutomatumViolet)
+    }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
         counterBubbles(i, x, y, z)
+        effectsMarker(i, x, y, z)
         // TBL-113: what Automatum changed on the card besides P/T, one violet-text chip under the title
         if (i.automatumMarks.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.

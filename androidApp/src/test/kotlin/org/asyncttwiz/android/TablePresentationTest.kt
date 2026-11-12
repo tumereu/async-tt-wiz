@@ -292,7 +292,7 @@ class TablePresentationTest {
     }
 
     // TBL-054, TBL-053: a tight stack's second and third cards show 3 dp each (later ones lie on the third), the top one
-    // carrying ×N; a land stack fans 8 dp per land; every member is drawn and the lower ones' strips are hit as
+    // carrying ×N; a land stack fans 8 dp per land, its top one carrying ×N too; every member is drawn and the lower ones' strips are hit as
     // themselves; a drop on the battlefield lights up that battlefield, no slot (TBL-004, TBL-052)
     @Test fun stacksLieTightOrFanOutAndShowTheirCount() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) for (tapped in listOf(false, true)) {
@@ -320,7 +320,8 @@ class TablePresentationTest {
         val scene = TableFixture.scene(lands)
         val fanned = (0..2).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }
         assertEquals(listOf(0f, 8f, 16f), fanned.map { it.bounds.x - fanned[0].bounds.x })
-        assertTrue(fanned.all { it.copies == 1 }, "a land stack shows its count by its fan")
+        // TBL-054 (owner, 2026-11-12): a land stack fans and carries ×N on its top card too
+        assertEquals(listOf(1, 1, 3), fanned.map { it.copies }, "a land stack's ×N on its top card")
     }
 
     @Test fun ownerIsNotFieldAndCoveredMetadataNeverLeaksThroughTableSemantics() {

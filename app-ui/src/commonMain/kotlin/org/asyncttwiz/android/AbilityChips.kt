@@ -45,6 +45,10 @@ fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, sce
     if (offered != null && (offered.size < 2 || offered.none { it.legal })) { LaunchedEffect(cardId, offered) { toolkit.closeAbilities() }; return }
     val item = scene?.items?.firstOrNull { it.cardId == cardId && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
     if (offered == null || item == null || toolkit.cast.open) return
+    // TBL-124 (owner 2026-11-12: chips said only "Mana ability"): what each chip reads, for a problem report
+    LaunchedEffect(cardId, offered.map { it.text }) {
+        AppLog.info("table", "Ability chips of $cardId: ${offered.joinToString(" | ") { "${it.text}${if (it.legal) "" else " (greyed)"}" }}")
+    }
     val held = toolkit.heldAbility
     val name = CastController.cardName(play, cardId)
     Layout(content = {

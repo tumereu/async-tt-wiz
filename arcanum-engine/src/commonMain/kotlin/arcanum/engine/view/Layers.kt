@@ -86,7 +86,7 @@ internal object Layers {
             val base = run.base[id] ?: return@mapNotNull null
             val characteristics = view[id]?.characteristics ?: return@mapNotNull null
             val steps = run.trace[id].orEmpty().toList()
-            id to Explanation(id, base, steps, characteristics, applied(state, steps))
+            id to Explanation(id, base, steps, characteristics, applied(state, steps), run.copies(id))
         }.toMap()
     }
 
@@ -266,6 +266,9 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** Every object's characteristics after layer 1 ([ObjectView.base]). */
     private var initial: Map<ObjectId, Characteristics> = emptyMap()
     private val copiable = Copiable(state, reads)
+
+    /** For [Layers.explain]: the copy effects that apply to [id] (layer 1). */
+    fun copies(id: ObjectId): List<AppliedCopy> = copiable.copiesOn(id)
     private val started = LinkedHashMap<String, Started>()
     private val withCounters: List<arcanum.engine.state.GameObject> by lazy { state.objects.values.filter { it.counters.isNotEmpty() } }
     /** The permanents, not phased out, with a mark that gives abilities ([arcanum.api.MarkRules]), in the battlefield's order. */

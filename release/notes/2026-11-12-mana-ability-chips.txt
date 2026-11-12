@@ -1,0 +1,1 @@
+fix: The ability buttons of lands such as dual lands show the mana they make instead of just "Mana ability".

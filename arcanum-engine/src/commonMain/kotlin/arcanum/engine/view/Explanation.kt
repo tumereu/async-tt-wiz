@@ -10,7 +10,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Where an object's characteristics come from ([arcanum.engine.Engine.explain], spec §7.1 "Inspect"): its values
+ * Where an object's characteristics come from ([arcanum.engine.Inspect.explain], spec §7.1 "Inspect"): its values
  * after layer 1 ([base]: printed, copied or face down, CR 613.2), then every continuous effect that changed them, in
  * the order the layer system applied them (CR 613.1–613.8). [characteristics] is the result, as
  * [arcanum.engine.Engine.view] gives it. [effects] lists the same steps by the effect that made them.

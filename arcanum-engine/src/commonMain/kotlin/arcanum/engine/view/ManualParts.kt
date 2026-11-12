@@ -10,9 +10,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * The parts of a card definition this engine leaves to the players ([arcanum.engine.Engine.manualParts]): text the
+ * The parts of a card definition this engine leaves to the players ([arcanum.engine.CardSupport.manualParts]): text the
  * parser couldn't read ([Ability.Unparsed]), a `Manual` step or cost part, and a keyword the engine doesn't carry out
- * ([KeywordMeanings.isManual]). Follows [arcanum.engine.Engine.SUPPORT_VERSION].
+ * ([KeywordMeanings.isManual]). Follows [arcanum.engine.CardSupport.SUPPORT_VERSION].
  */
 internal object ManualParts {
     private val json = Json

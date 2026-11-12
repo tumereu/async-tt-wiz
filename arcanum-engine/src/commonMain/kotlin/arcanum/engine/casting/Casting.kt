@@ -35,7 +35,7 @@ import arcanum.engine.state.PriorityState
 internal object Casting {
     /**
      * Why [input] (a land play, cast or activation) can't be begun on [snap]'s state with nothing open: the refusal its
-     * flow below throws before it does anything, word for word ([arcanum.engine.Engine.refusal]); null when it may be
+     * flow below throws before it does anything, word for word ([arcanum.engine.CastScreen.refusal]); null when it may be
      * begun, or for a card the state doesn't know (a viewer's state fills it in first, [fillPlayed]) and other inputs.
      */
     fun refusal(snap: Snapshot, input: Input): String? = when (input) {

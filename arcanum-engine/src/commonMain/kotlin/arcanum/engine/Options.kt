@@ -58,11 +58,11 @@ import arcanum.engine.view.Subtypes
 internal object Options {
     /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
     fun of(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): List<Input> {
-        Engine.optionsSearched?.invoke()
+        EngineProbes.optionsSearched?.invoke()
         return search(state, player, view)
     }
 
-    /** [of] without counting the search ([Engine.optionsSearched]): for a search already counted. */
+    /** [of] without counting the search ([EngineProbes.optionsSearched]): for a search already counted. */
     private fun search(state: GameState, player: PlayerId, view: arcanum.engine.view.View?): List<Input> {
         // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
@@ -86,7 +86,7 @@ internal object Options {
      * host asks this after every outcome, [AutoPass]).
      */
     fun any(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, predicate: (Input) -> Boolean): Boolean {
-        Engine.optionsSearched?.invoke()
+        EngineProbes.optionsSearched?.invoke()
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost || state.pending != null || !state.started ||
             Combat.waitingForDeclaration(state) || state.priority.holder != player) return search(state, player, view).any(predicate)
         val snap = snapshot(state, view)
@@ -219,13 +219,13 @@ internal object Options {
         return found
     }
 
-    /** [Engine.finishable]. */
+    /** [CastScreen.finishable]. */
     fun finishable(state: GameState): Boolean = goesOn(state, state.pending)
 
-    /** [Engine.anyReduction]. */
+    /** [CastScreen.anyReduction]. */
     fun anyReduction(state: GameState): Boolean = (state.pending?.continuation as? Continuation.Announcing)?.let { Plan(state, it).anyReduction } == true
 
-    /** [Engine.announcedMayPay]: the proof [announced] stops its tries at. */
+    /** [CastScreen.announcedMayPay]: the proof [announced] stops its tries at. */
     fun announcedMayPay(state: GameState, value: Int): Boolean {
         val pending = state.pending ?: return false
         val d = pending.decision as? Decision.Announce ?: return false
@@ -234,13 +234,13 @@ internal object Options {
         return manaFound(plan) || (plan.anyReduction && paysAtTheMostItCanFall(plan))
     }
 
-    /** [Engine.finishableWith]. */
+    /** [CastScreen.finishableWith]. */
     fun finishableWith(state: GameState, answer: Answer): Boolean {
         val pending = state.pending ?: return false
         return goesOnAfter(Snapshot(state), pending, answer)
     }
 
-    /** [Engine.selection]: see there. Candidates are tried with as few others as can be, so the budget goes to the near ones. */
+    /** [CastScreen.selection]: see there. Candidates are tried with as few others as can be, so the budget goes to the near ones. */
     fun selection(state: GameState, picked: List<arcanum.engine.state.TargetRef>): Selection {
         val pending = state.pending ?: return Selection(emptyList(), false)
         val d = pending.decision
@@ -290,7 +290,7 @@ internal object Options {
         return Selection(options.filter { it in selectable }, done)
     }
 
-    /** [Engine.castCosts]: see there. */
+    /** [CastScreen.castCosts]: see there. */
     fun castCosts(state: GameState): CastCosts {
         val pending = state.pending
         val first = (pending?.continuation as? Continuation.Announcing)?.takeIf { it.choices.paying == null }
@@ -362,7 +362,7 @@ internal object Options {
         }
     }
 
-    /** [Engine.fillPayment]: see there. */
+    /** [CastScreen.fillPayment]: see there. */
     fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
         exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> {
         val pending = state.pending ?: return emptyList()

@@ -63,8 +63,8 @@ sealed interface Input {
 
     /**
      * The host found a loop of mandatory actions (CR 104.4b, 732.4): where a player has priority, the game is in a state
-     * with the same [arcanum.engine.Engine.loopKey] as earlier, with only forced actions in between (priority passes
-     * [arcanum.engine.Engine.shouldPassFor] said, no decision answered). The engine can't see what happened in between:
+     * with the same [arcanum.engine.Host.loopKey] as earlier, with only forced actions in between (priority passes
+     * [arcanum.engine.Host.shouldPassFor] said, no decision answered). The engine can't see what happened in between:
      * the host vouches for it. The engine then waits on the loop choice (a [arcanum.engine.decision.Decision.ChooseOption]
      * saying the game is in such a loop): [arcanum.engine.decision.LoopStop.DRAW] makes the game a draw
      * ([arcanum.engine.setup.GameResult.Draw]), [arcanum.engine.decision.LoopStop.CONTINUE] goes on. Never offered by

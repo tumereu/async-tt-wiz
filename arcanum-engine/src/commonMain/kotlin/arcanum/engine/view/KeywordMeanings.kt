@@ -25,11 +25,12 @@ import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
 import arcanum.api.Zone
+import arcanum.engine.CardSupport
 
 /**
  * What a keyword ability means to the engine: its expansion from the shared table ([KeywordExpansions]), or, for a
  * keyword the engine doesn't automate yet (none today), abilities with a `Manual` step at its natural moment (as the spell is
- * cast, as the permanent enters, attacks, dies, …), which `Engine.manualParts` names, so it is never silently taken as
+ * cast, as the permanent enters, attacks, dies, …), which `CardSupport.manualParts` names, so it is never silently taken as
  * supported (D61). Keywords whose meaning is engine
  * code ([engineCode]: phasing, fuse, foretell) have no abilities.
  */

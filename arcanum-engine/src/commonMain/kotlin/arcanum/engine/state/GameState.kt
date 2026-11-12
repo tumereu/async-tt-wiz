@@ -59,7 +59,7 @@ data class GameState(
      * Whose view of the game this state is (D60, spec §7.0 "Hidden information"): null for full information (a host or
      * referee that knows every card); else that player's view, where cards they can't see are unknown and stay so.
      * The engine fills cards in as they become public or visible to the viewer, and forgets them as they become hidden
-     * from the viewer ([arcanum.engine.Engine.visible]). A setting of the game, not changed by play.
+     * from the viewer ([arcanum.engine.Host.visible]). A setting of the game, not changed by play.
      */
     var viewer: PlayerId? = null,
 ) {
@@ -167,7 +167,7 @@ data class GameState(
 
     /** An independent copy: the engine's own working state (D56). Objects inside are immutable and shared. */
     fun deepCopy(): GameState {
-        arcanum.engine.Engine.statesCopied?.invoke()
+        arcanum.engine.EngineProbes.statesCopied?.invoke()
         return copied()
     }
 

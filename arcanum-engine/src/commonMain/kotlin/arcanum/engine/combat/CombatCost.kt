@@ -10,7 +10,7 @@ import arcanum.engine.view.AppliedMechanic
 
 /**
  * One cost to attack or block with [creature] that a declaration of attackers or blockers asks (CR 508.1h, 509.1d), as
- * [arcanum.engine.Engine.attackCosts] and [arcanum.engine.Engine.blockCosts] list them: [cost], asked by [ability], with
+ * [arcanum.engine.CombatDeclarations.attackCosts] and [arcanum.engine.CombatDeclarations.blockCosts] list them: [cost], asked by [ability], with
  * its X and repetitions of mana worked out into plain mana parts as the declaration locks them in ("{X} … where X is the
  * number of enchantments you control" with three is {3}).
  *

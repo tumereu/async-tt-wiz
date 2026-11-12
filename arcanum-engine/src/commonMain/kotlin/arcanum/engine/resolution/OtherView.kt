@@ -36,7 +36,7 @@ internal object OtherView {
         return Progress.Waiting(Pending(decision(next, n.objects), next))
     }
 
-    /** [arcanum.engine.Engine.otherViewDecision]: the decision the steps wait for with [filled], as its player sees it. */
+    /** [arcanum.engine.Host.otherViewDecision]: the decision the steps wait for with [filled], as its player sees it. */
     fun next(state: GameState, filled: List<FilledObject>): Decision? {
         val pending = state.pending ?: return null
         val c = pending.continuation as? Continuation.Resolving ?: return null

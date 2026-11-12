@@ -298,7 +298,7 @@ sealed interface Change {
      * Cards whose identity [to] looks at (null: everyone sees them), where the state has full information
      * ([arcanum.engine.state.GameState.viewer] null) and so asks no host fill (D60): searched, scried, looked at, revealed,
      * the cards of a choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
-     * ([arcanum.engine.Engine.revealed]) and the engine which library places became known.
+     * ([arcanum.engine.Host.revealed]) and the engine which library places became known.
      */
     @Serializable @SerialName("shown")
     data class Shown(val to: PlayerId?, val ids: List<ObjectId>) : Change {

@@ -8,42 +8,56 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 ## Interface
 
 ```kotlin
+// the core
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
-Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
-Engine.explain(state, ids): Map<ObjectId, Explanation> // the same for several objects, one run of the layers
-Engine.restrictions(state, view, id): List<AppliedRestriction> // what continuous effects tell it it can't or must do ("can't block"), from the view at hand
-Engine.speed(state, player), ringTemptations(state, player), dungeonsCompleted(state, player): Int // rules state kept for a player
-Engine.dayOrNight(state): DayOrNight?            // CR 731; null while it is neither
-Engine.classLevel(state, id): Int?               // the level a Class has gained (CR 716.2)
 Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
-Engine.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
-Engine.finishableWith(state, answer): Boolean // finishable once answer is given to the open decision
-Engine.anyReduction(state): Boolean // whether a reduction may come to apply to the open cast as its choices are made (what it costs needn't rise with X then)
-Engine.announcedMayPay(state, value): Boolean // false: proof that this X and every larger one can't be paid, even at the most every reduction could take
-Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection, a total reached (CR 601.2c, 601.2f, 701.59a)
-Engine.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
-Engine.fillPayment(state, pinned, removed, exact): List<ManaUse> // the open payment around a player's picks: pinned sources stay (their colour free), exact uses stay as given, removed aren't used, Autotap's order fills in the rest
-Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
 Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
-Engine.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
-Engine.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
-Engine.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
-Engine.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
-Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
-Engine.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
-Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
-Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
-Engine.attackCosts(state, attacks[, view]): List<CombatCost> // the costs a declaration of attackers asks, each attacker's, X worked out (CR 508.1h)
-Engine.blockCosts(state, blocks[, view]): List<CombatCost>   // the costs a declaration of blockers asks, each blocker's, X worked out (CR 509.1d)
-Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
-Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
-Engine.manualParts(definition): List<String>     // the parts of a card the engine leaves to the players (empty: fully supported)
-Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
-Engine.layersWorkedOut: (() -> Unit)?            // tests and measurements: called each time the layers are worked out in full
-Engine.statesCopied: (() -> Unit)?               // tests and measurements: called each time a state is copied (deepCopy)
-Engine.optionsSearched: (() -> Unit)?            // tests and measurements: called each time options or a pass check searches
+
+// a host's cast and activation screens
+CastScreen.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
+CastScreen.finishableWith(state, answer): Boolean // finishable once answer is given to the open decision
+CastScreen.anyReduction(state): Boolean // whether a reduction may come to apply to the open cast as its choices are made (what it costs needn't rise with X then)
+CastScreen.announcedMayPay(state, value): Boolean // false: proof that this X and every larger one can't be paid, even at the most every reduction could take
+CastScreen.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection, a total reached (CR 601.2c, 601.2f, 701.59a)
+CastScreen.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
+CastScreen.fillPayment(state, pinned, removed, exact): List<ManaUse> // the open payment around a player's picks: pinned sources stay (their colour free), exact uses stay as given, removed aren't used, Autotap's order fills in the rest
+CastScreen.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
+
+// combat declarations
+CombatDeclarations.attackCosts(state, attacks[, view]): List<CombatCost> // the costs a declaration of attackers asks, each attacker's, X worked out (CR 508.1h)
+CombatDeclarations.blockCosts(state, blocks[, view]): List<CombatCost>   // the costs a declaration of blockers asks, each blocker's, X worked out (CR 509.1d)
+
+// a host's Inspect and the rules state it shows
+Inspect.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
+Inspect.explain(state, ids): Map<ObjectId, Explanation> // the same for several objects, one run of the layers
+Inspect.restrictions(state, view, id): List<AppliedRestriction> // what continuous effects tell it it can't or must do ("can't block"), from the view at hand
+Inspect.speed(state, player), ringTemptations(state, player), dungeonsCompleted(state, player): Int // rules state kept for a player
+Inspect.dayOrNight(state): DayOrNight?            // CR 731; null while it is neither
+Inspect.classLevel(state, id): Int?               // the level a Class has gained (CR 716.2)
+Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
+
+// a host running games
+Host.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
+Host.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
+Host.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
+Host.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
+Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
+Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
+Host.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
+Host.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
+Host.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
+
+// which cards the engine plays fully
+CardSupport.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
+CardSupport.manualParts(definition): List<String>     // the parts of a card the engine leaves to the players (empty: fully supported)
+
+// tests and measurements
+EngineProbes.layersWorkedOut: (() -> Unit)?            // tests and measurements: called each time the layers are worked out in full
+EngineProbes.statesCopied: (() -> Unit)?               // tests and measurements: called each time a state is copied (deepCopy)
+EngineProbes.optionsSearched: (() -> Unit)?            // tests and measurements: called each time options or a pass check searches
+
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
@@ -78,7 +92,7 @@ seeded random games of cube cards, failing on any open player decision without a
   Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
   revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
   (`Change.LibraryPlaces`); with full information the engine records what a player looked at as `Change.Shown`
-  (changes nothing; `Engine.revealed` reads it).
+  (changes nothing; `Host.revealed` reads it).
 - `change/` — `Change` (sealed, serializable): every change carries before- and after-values
   and its `Meaning`s (cast, died, sacrificed, …); events are logged for "this turn" questions.
   `Change.Reverted` takes a change back inside a batch (cancelling a cast). `Changes` builds
@@ -101,13 +115,13 @@ seeded random games of cube cards, failing on any open player decision without a
   it pays (`Decision.ChooseObjects.cost`, a `CostPartAt`: the part's index in the activated ability's own cost, or in the
   cost a spell's additional or alternative cost ability states), so a host can show its phrase (`Cost.spans`).
 - `view/` — `View`/`ObjectView`/`Characteristics` (`ObjectView.base`: the values after layer 1 only, to compare
-  with), `AbilityOrigin` (an ability's path, D42/D44); `Explanation` (`Engine.explain`, a host's Inspect): the values
+  with), `AbilityOrigin` (an ability's path, D42/D44); `Explanation` (`Inspect.explain`, a host's Inspect): the values
   after layer 1, then each continuous effect that changed the object in the order applied, with its layer, timestamp,
   values before and after and its `EffectSource` (a static ability, an effect object, counters), and the same steps
   by effect (`Explanation.effects`, `AppliedEffect`: one entry per effect with its steps in every layer, the object that
   made it and its duration, so a host can list "+3/+3 and trample until end of turn" and name the source on request);
-  `Engine.explain(state, ids)` explains several objects from one run of the layers;
-  `AppliedRestriction` (`Engine.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
+  `Inspect.explain(state, ids)` explains several objects from one run of the layers;
+  `AppliedRestriction` (`Inspect.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
   (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's
   own printed text and what a keyword means aren't listed (the host lists the keyword);
   the layer system (`Layers`, `Copiable`; `ObjectView.copiable` is an object's whole copiable values, `CopiableValues`, CR 707.2:
@@ -116,7 +130,7 @@ seeded random games of cube cards, failing on any open player decision without a
   definition, CR 712.9; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet (none today), abilities with a `Manual` step at its natural moment (cast, enters, attacks, dies, …), which
-  `Engine.manualParts` names, so no keyword is silently taken as supported (D61).
+  `CardSupport.manualParts` names, so no keyword is silently taken as supported (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
   make it differ (a host's state never caches; `Engine.view` works it out afresh). A host that keeps a state's view
   itself passes it in instead: `perform`'s `view` (the given state's), the `options`, `passCheck`, `shouldPassFor`,
@@ -124,7 +138,7 @@ seeded random games of cube cards, failing on any open player decision without a
   share one view either way); and
   `Outcome.view` hands back the working copy's view of the state after the changes when it was kept to the end (not
   serialised, not part of equality), so a host applying the changes needn't work it out again.
-  `view/KeptViewsTest` checks each of these against `Engine.view` worked out afresh. `Engine.refusal` gives the
+  `view/KeptViewsTest` checks each of these against `Engine.view` worked out afresh. `CastScreen.refusal` gives the
   reason `perform` refuses a land play, cast or activation before doing anything (the same text from the same checks,
   `Casting.refusal`) without copying the state, so a host greys out what it can't offer without trying each one
   (`casting/RefusalTest` compares it with `perform`'s refusals). Within a layer, dependencies are
@@ -183,7 +197,7 @@ loses to several state-based actions at once gets the first listed in CR 704.5; 
   saying why: Continue goes on (at the cap, with the next round in a new call); Draw logs `GameEvent.MandatoryLoop`
   and every remaining player leaves the game together (`GameResult.Draw`, CR 104.4b).
 - **Mandatory loops (CR 104.4b, 732.4):** the engine can't see what happens between calls, so the host finds them. A
-  host passing for players (`shouldPassFor`) keeps `Engine.loopKey` of each state it passes in with something on the
+  host passing for players (`shouldPassFor`) keeps `Host.loopKey` of each state it passes in with something on the
   Stack (the state as JSON without its log, ledgers, "this turn" counts of uses, the input count and timestamps, cards by name, ids
   replaced by their place in the zones; hashed); meeting a key again with only such passes since, it performs
   `Input.MandatoryLoop`. The engine waits on the loop choice saying the game is in a loop that makes it a draw
@@ -207,7 +221,7 @@ tests play). One rule, in the event pipeline and the effects that look:
   tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. With full information
   nothing is forgotten.
 - **What each player may see:** a face-down permanent is a nameless 2/2 creature even unseen (CR 708.2a); `options`
-  offers another player no answer naming cards hidden from them; `Engine.visible(state, player)` says what a host may
+  offers another player no answer naming cards hidden from them; `Host.visible(state, player)` says what a host may
   show each player. A pending decision over cards hidden from others (a search's matches) is shown only to its player.
 - **A host keeping one state per player** forwards each player's inputs to the other states:
   - Another player's `PlayLand`, `Cast` or `Activate` of a card the viewer doesn't know asks `HostFill` (public) for
@@ -223,7 +237,7 @@ tests play). One rule, in the event pipeline and the effects that look:
     put into a public zone or revealed, is filled in as it would have been asked; triggers are found as with the
     identities). The state keeps only the answers and which cards are hidden, so the identities come with every
     answer; while more are needed the engine asks `OtherView` again. Once nothing is hidden the resolution goes on as
-    usual. `Engine.otherViewDecision(state, filled)` gives a host that doesn't keep the player's state the decision
+    usual. `Host.otherViewDecision(state, filled)` gives a host that doesn't keep the player's state the decision
     they face.
   - Another player's companion check at the start (CR 103.2b) is theirs, made in their own state: the viewer's state
     doesn't look at their deck and offers every card of theirs outside the game that may be a companion; the one they
@@ -245,12 +259,12 @@ combat phase, this turn's when it is their turn and its combat is still to come.
 and every decision, option and input stays theirs (`Decision.player`, `Input.player`), so only their resources pay (723.3,
 723.5a). The engine's part for a host:
 
-- `Engine.decider(state, player)`: who makes `player`'s decisions now: the controller, else `player` (a controller goes on
+- `Host.decider(state, player)`: who makes `player`'s decisions now: the controller, else `player` (a controller goes on
   making their own, 723.8; a player controlling themselves decides as usual, 723.9; nobody controls a player who left).
-- `Engine.visible(state, controller)` adds what the controlled player may see of objects in the game (their hand, face-down
+- `Host.visible(state, controller)` adds what the controlled player may see of objects in the game (their hand, face-down
   permanents they control, cards they may look at), not their cards outside the game (723.4). `Knowledge.privateTo` (the
   "skip when I have no choice" rule) still counts only a player's own sight.
-- `Engine.shouldPassFor` follows the decider's "Skip when I have no choice" setting.
+- `Host.shouldPassFor` follows the decider's "Skip when I have no choice" setting.
 
 What the host does (the ATW side, a follow-up): route each decision of the controlled player and their priority, casts,
 activations, attacks and blocks to the decider (`options(state, player)` are offered to the decider, inputs performed as
@@ -263,7 +277,7 @@ both players who is controlling whom while `TurnState.controlled` is in force.
 
 Each player has a setting in the state, `PlayerState.skipWhenNoChoice` (on by default; a host changes it with
 `Change.SkipWhenNoChoice`, `Changes.skipWhenNoChoice`). The engine never passes priority by itself: a host asks
-`Engine.shouldPassFor(state, player)` after each outcome and performs `PassPriority` while it says so. It is true when the
+`Host.shouldPassFor(state, player)` after each outcome and performs `PassPriority` while it says so. It is true when the
 player holds priority, nothing is pending and `options` offers nothing but passing (mana abilities aside); on, that is
 enough; off, only when the player has no card only they may see (`Knowledge.privateTo`: hand, face-down permanents and
 spells, cards only they may look at; not cards outside the game), so an instant they can't afford is theirs to pass
@@ -460,7 +474,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once, and with no card to discard she may still take a
   Lesson, or choose none; the chosen Lesson is revealed and nothing else of those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
 - Done, collecting evidence as it resolves (CR 701.59a, b; `casting/GeneralSpecialActionsTest`): one `Decision.ChooseObjects` of any number
-  of the graveyard's cards, with its `total`, exiled together. An answer below the total is refused, `Engine.selection` is done only
+  of the graveyard's cards, with its `total`, exiled together. An answer below the total is refused, `CastScreen.selection` is done only
   from the total on, and it is asked whenever there is anything to choose, even when only all the cards reach the total. With no way to
   reach it nothing is exiled and no `KeywordActionDone` is recorded.
 - Done, Lorwyn Eclipsed (scenarios in `commonTest/…/sets/ecl/`): all 273 cards play. Blight as a cost (the source may blight itself;
@@ -585,7 +599,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
   ledger. "Venture into Undercity" only chooses Undercity dungeons, and a dungeon with `Mechanic.OnlyVentureInto` ("You can't
-  enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; `Engine.ventureRoom`
+  enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; `Inspect.ventureRoom`
   says which room a dungeon's marker is on (a host's display). Every room effect of the dungeons in the card data is carried out
   (scenarios on invented rooms with the printed templates in `dungeon/DungeonRoomsTest`; `SUPPORT_VERSION` 9). The initiative's three inherent triggers (CR 726.2: upkeep, combat
   damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers; when
@@ -640,7 +654,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   "no"; a payment (`ManaPayment`) is never handed to another player (800.4f), and another player's cast asking the one who left
   goes on with its next question (assist: the caster pays it all).
 - By hand still: nothing is asked by hand any more (`Decision.Manual` is no longer asked; the type stays until the owner agrees
-  its removal). What the engine doesn't carry out, `Engine.manualParts` names, so such a card isn't supported:
+  its removal). What the engine doesn't carry out, `CardSupport.manualParts` names, so such a card isn't supported:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
   - `Step.Manual` (does nothing when run) and `CostPart.Manual` (can't be paid on resolution); no card the parser reads has

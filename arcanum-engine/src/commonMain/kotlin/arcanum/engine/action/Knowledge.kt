@@ -83,7 +83,7 @@ internal object Knowledge {
         return ownVisible(state, view, player).filter { id -> others.any { id !in it } }.toSet()
     }
 
-    /** [arcanum.engine.Engine.revealed]. */
+    /** [arcanum.engine.Host.revealed]. */
     fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId, beforeView: View? = null, afterView: View? = null): Set<CardId> {
         val known = visible(before, beforeView ?: arcanum.engine.Engine.view(before), viewer).mapNotNull { (it as? ObjectId.Card)?.card }.toSet()
         val existing = before.objects.values.map { it.card }.toSet()

@@ -112,7 +112,7 @@ sealed interface Decision {
     /** Choose [min] to [max] (null: any number) of [options], not targeting (CR 608.2d, 701.x): a card to discard, a
      * creature to sacrifice, cards from among them. [text] says what for. [total], when given: the chosen must also add up
      * to at least that, its [arcanum.api.Total.atLeast] a fixed value (collecting evidence, CR 701.59a; crew, CR 702.122a); an
-     * answer below it is refused, and [arcanum.engine.Engine.selection] says when it is reached. */
+     * answer below it is refused, and [arcanum.engine.CastScreen.selection] says when it is reached. */
     @Serializable @SerialName("objects")
     data class ChooseObjects(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
@@ -254,7 +254,7 @@ sealed interface Decision {
     ) : Decision
 
     /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. The engine no longer asks it: what it can't carry out
-     * is named by [arcanum.engine.Engine.manualParts] and not done. Its removal waits for the owner (stored engine states may name it). */
+     * is named by [arcanum.engine.CardSupport.manualParts] and not done. Its removal waits for the owner (stored engine states may name it). */
     @Serializable @SerialName("manual")
     data class Manual(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,

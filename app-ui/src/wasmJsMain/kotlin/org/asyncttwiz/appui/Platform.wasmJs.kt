@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.window.PopupProperties
 import io.ktor.client.HttpClient
@@ -35,7 +36,7 @@ internal actual fun platformBuildInfo(): BuildInfo = later()
 @Composable actual fun DialogFillsScreen(): Unit = later()
 @Composable actual fun DialogDim(amount: Float): Unit = later()
 actual fun passThroughPopupProperties(): PopupProperties = later()
-actual fun coilImageBitmap(image: coil3.Image): ImageBitmap? = later()
+actual fun coilImageBitmap(image: coil3.Image): ImageBitmap? = (image as? coil3.BitmapImage)?.bitmap?.asComposeImageBitmap()
 actual fun NativeTextPaint(): NativeTextPaint = later()
 actual fun DrawScope.drawNativeText(text: String, x: Float, y: Float, paint: NativeTextPaint): Unit = later()
 actual fun DrawScope.nativeSaveCount(): Int = later()

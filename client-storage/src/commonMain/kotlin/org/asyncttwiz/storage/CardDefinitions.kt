@@ -12,18 +12,20 @@ import org.asyncttwiz.protocol.PrintedPart
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.GameCards
 import org.asyncttwiz.protocol.CardDefinition as GameCard
+import kotlin.concurrent.Volatile
 
 /**
  * Arcanum card definitions of a game's cards, parsed on the device with [OracleParser] from the game's own card data
- * (its [SubmittedDefinition]s, I-D2) and cached in [ClientStorage] by definition digest and parser version.
+ * (its [SubmittedDefinition]s, I-D2) and cached in a [CardDefinitionCache] (Android: ClientStorage; the browser:
+ * [BrowserCardDefinitionCache]) by definition digest and parser version.
  * Definitions of other parser versions are dropped on first use. Blocking: call on a worker, never the UI thread.
  */
 class CardDefinitions internal constructor(
-    private val storage: ClientStorage,
+    private val storage: CardDefinitionCache,
     private val parserVersion: Int,
     private val parse: (Layout, List<OracleCard>) -> CardDefinition,
 ) {
-    constructor(storage: ClientStorage) : this(storage, OracleParser.VERSION, OracleParser::parseCard)
+    constructor(storage: CardDefinitionCache) : this(storage, OracleParser.VERSION, OracleParser::parseCard)
 
     @Volatile private var evicted = false
 
@@ -73,7 +75,16 @@ class CardDefinitions internal constructor(
     }
 }
 
+/** Where [CardDefinitions] keeps what it parsed, by parser version and definition digest. */
+interface CardDefinitionCache {
+    /** Cached definitions made by parser [parserVersion] for these definition digests; absent ones were never cached. */
+    fun cachedCardDefinitions(parserVersion: Long, digests: Collection<String>): List<CachedCardDefinition>
+    fun cacheCardDefinitions(parserVersion: Long, entries: List<CachedCardDefinition>)
+    /** Drops definitions made by any other parser version. */
+    fun evictCardDefinitionsExcept(parserVersion: Long)
+}
+
 /** One row of the card definition cache: [definitionJson] null exactly when [problem] says why the card is
  * unreadable. */
-internal data class CachedCardDefinition(val digest: String, val definitionJson: String?, val manualAbilities: Long,
+data class CachedCardDefinition(val digest: String, val definitionJson: String?, val manualAbilities: Long,
     val problem: String?)

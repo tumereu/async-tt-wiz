@@ -7,21 +7,10 @@ import org.asyncttwiz.appui.ZonedDateTime
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.MatchRecord
 import org.asyncttwiz.protocol.ReconnectEpisode
-import org.asyncttwiz.storage.ArtworkReference
-import org.asyncttwiz.storage.CatalogCard
-import org.asyncttwiz.storage.CatalogNamedPart
-import org.asyncttwiz.storage.CatalogPrinting
-import org.asyncttwiz.storage.ParsedDeck
 
 // The browser's sides of the app's platform pieces come with the web shell and the web table (docs/specs/web-client.md
 // §11 steps 3 and 4).
 private fun later(): Nothing = throw NotImplementedError("web client step 3/4")
-
-actual fun ArtworkReference.Companion.from(record: CatalogPrinting, size: String): ArtworkReference? = later()
-actual fun CatalogCard.namedParts(): List<CatalogNamedPart> = later()
-actual fun cubeCobraLink(text: String?): String? = later()
-actual fun cubeCobraId(value: String): String = later()
-actual fun parseCubeCobra(json: String): ParsedDeck = later()
 
 actual fun gameLastActivity(game: GameSummary, clock: Clock): String = later()
 actual fun gameDate(game: GameSummary): String = later()

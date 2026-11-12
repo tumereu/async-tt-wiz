@@ -10,14 +10,6 @@ import java.io.File
 import java.util.Locale
 
 
-/** Each name a player can choose for this card with its own type line (CR 201.4b-f): a split card's halves, a
- * double-faced card's sides, an alternative name, each apart from the others. */
-fun CatalogCard.namedParts(): List<CatalogNamedPart> = faces.map { face ->
-    val raw = JsonParser.parseString(face.json).asJsonObject
-    fun field(key: String) = raw.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-    CatalogNamedPart(field("faceName").ifBlank { face.name }, field("type"))
-}
-
 /** Grouping identity of a printing: Scryfall's oracle id, or the name for records without one. */
 internal fun cardSearchKey(record: CatalogPrinting, json: JsonObject): String =
     json.get("identifiers")?.takeIf { it.isJsonObject }?.asJsonObject?.get("scryfallOracleId")

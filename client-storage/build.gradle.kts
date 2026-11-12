@@ -1,8 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // The app's local storage (docs/specs/web-client.md §1 items 1 and 4): commonMain holds the storage models and pure
-// logic both clients share; androidMain the Android implementation (SQLDelight on the device's SQLite, the card records
-// index, artwork downloads), unchanged. The browser's own implementation (IndexedDB) comes with the web shell (step 3).
+// logic both clients share, and the browser's storage logic over an asynchronous store (IndexedDB, adapted in app-ui's
+// wasm side); androidMain the Android implementation (SQLDelight on the device's SQLite, the card records index, artwork
+// downloads), unchanged.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
@@ -18,10 +19,12 @@ kotlin {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
         withHostTest {}
     }
-    // Kotlin/Wasm for the web client: compiled only; the tests are JVM tests on the Android host (androidHostTest).
+    // Kotlin/Wasm for the web client: the common tests (the browser storage logic over an in-memory store) also run on
+    // Node (wasmJsNodeTest); the Android implementation's tests are JVM tests on the Android host (androidHostTest).
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser { testTask { enabled = false } }
+        nodejs()
     }
     sourceSets {
         commonMain.dependencies {
@@ -29,12 +32,17 @@ kotlin {
             implementation(project(":protocol"))
             // The card catalog's format and files, and the card records it is indexed into (docs/specs/web-client.md section 3).
             api(project(":catalog"))
-            implementation(libs.serialization.json)
-            implementation(libs.sqldelight.runtime)
-        }
-        androidMain.dependencies {
             // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
             implementation(project(":arcanum-parser"))
+            implementation(libs.serialization.json)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.coroutines.test)
+        }
+        androidMain.dependencies {
             implementation(libs.sqldelight.android.driver)
             implementation(libs.gson)
             implementation(libs.okhttp)
@@ -49,6 +57,8 @@ kotlin {
                 implementation(project.dependencies.platform(libs.junit.bom))
                 implementation(libs.junit.jupiter)
                 runtimeOnly(libs.junit.launcher)
+                // The common tests' kotlin.test on JUnit 5
+                implementation(libs.kotlin.test.junit5)
             }
         }
     }

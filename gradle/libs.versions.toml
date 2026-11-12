@@ -56,6 +56,11 @@ cmp-material-icons = { module = "org.jetbrains.compose.material:material-icons-e
 cmp-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "cmp-lifecycle" }
 cmp-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "cmp-lifecycle" }
 collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }
+# The versions the app already resolves through Compose (web client step 3a: client-storage's browser storage logic and its
+# tests; the browser's APIs for app-ui's wasm side).
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version = "1.11.0" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version = "1.11.0" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version = "0.5.0" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }

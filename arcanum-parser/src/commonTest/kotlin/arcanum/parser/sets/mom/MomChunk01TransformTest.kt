@@ -520,4 +520,28 @@ class MomChunk01TransformTest {
                 doing(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))),
         ),
     )
+
+    // CR 400.11: cards outside the game (a sideboard) can be searched for; CR 701.23: shuffle only after searching the library
+    @Test
+    fun invasionOfMirrowyn() = cardFaces(Layout.Transform,
+        siege("Invasion of Mirrowyn", "{3}{U}{U}",
+            "When this Siege enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+            "7") to abilities(
+            triggered(entersSelf,
+                search(and(or(instant, sorcery), ObjectFilter.OwnedBy(PlayerFilter.You)), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard, Zone.Outside)),
+                move(Objects.Bound("found"), Zone.Hand),
+                ifThen(Condition.Searched("found", Zone.Library), shuffle)),
+        ),
+        card(
+            name = "Invocation of the Lorekeepers",
+            cost = null,
+            type = "Enchantment",
+            text = "Whenever you cast an instant or sorcery spell from your hand, you may copy that spell. You may choose new targets for the copy.",
+            colorIndicator = "U",
+        ) to abilities(
+            triggered(on(EventPattern.Cast(and(or(instant, sorcery), spellFilter), PlayerFilter.You, from = Zone.Hand)),
+                Step.May(listOf(doing(Effect.CopySpell(Objects.EventObject(arcanum.api.EventRole.Object), controller = Players.You, newTargets = true))),
+                    player = Players.You)),
+        ),
+    )
 }

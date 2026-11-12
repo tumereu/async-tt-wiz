@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.randomUuid
@@ -30,9 +30,9 @@ class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, pri
         if (state.query.isBlank()) { state = state.copy(searchError = "Enter a username."); return }
         val query = state.query; val generation = epoch; val version = ++searchVersion
         state = state.copy(searching = true, searchError = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch && version == searchVersion }) { api.search(token, query) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val result = runCatching { serviceRetry(current = { generation == epoch && version == searchVersion }) { api.search(token, query) } }
             post { if (!closed && generation == epoch && version == searchVersion) state = state.copy(searching = false,
                 searched = true, results = result.getOrNull()?.users ?: state.results, searchError = result.exceptionOrNull()?.let(::lobbyError)) }
         }
@@ -52,9 +52,9 @@ class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, pri
         // Fence a list read started before this removal so it cannot resurrect the contact.
         fenceRefresh()
         state = state.copy(mutating = true, busy = false, removingContact = null, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.remove(token, contact.accountId) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val result = runCatching { serviceRetry(current = { generation == epoch }) { api.remove(token, contact.accountId) } }
             post { if (!closed && generation == epoch) {
                 state = state.copy(mutating = false, contacts = if (result.isSuccess) state.contacts.filterNot { it.accountId == contact.accountId } else state.contacts,
                     error = result.exceptionOrNull()?.let(::lobbyError))
@@ -68,9 +68,9 @@ class LobbyContacts(private val scope: LobbyScope, private val api: Lobbies, pri
         val generation = epoch
         fenceRefresh()
         state = state.copy(mutating = true, busy = false, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.add(token, input) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val result = runCatching { serviceRetry(current = { generation == epoch }) { api.add(token, input) } }
             post { if (!closed && generation == epoch) {
                 val saved = result.getOrNull()
                 if (saved != null) pendingAdds.remove(contact.accountId)

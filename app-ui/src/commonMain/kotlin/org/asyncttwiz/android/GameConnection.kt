@@ -1,6 +1,9 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.GameSocketClient
+import org.asyncttwiz.storage.GameSocketListener
+import org.asyncttwiz.storage.GameSocketTransport
 
 /** One ordered socket. Credentials are headers only; redirects never forward them. */
 interface GameConnection : AutoCloseable {
@@ -20,5 +23,26 @@ interface GameConnection : AutoCloseable {
     fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit): Boolean = false
 }
 
-/** A socket to the game server at [origin] (Android: [SocketGameConnection], on OkHttp). */
+/** A socket to the game server at [origin] (Android: [SocketGameConnection], on OkHttp; the browser: WebSocket). */
 expect fun platformGameConnection(origin: String): GameConnection
+
+/** The game socket at [origin] over a platform's [transport]: client-storage's [GameSocketClient] (web client step 3b),
+ * the same logic on Android and in the browser. */
+open class TransportGameConnection(origin: String, transport: GameSocketTransport) : GameConnection {
+    private val client = GameSocketClient(origin, transport, { AccountApi.validToken(it) }) { message, failure ->
+        AppLog.warn("game", message, failure)
+    }
+    override fun connect(token: String, listener: GameConnection.Listener) = client.connect(token, object : GameSocketListener {
+        override fun opened() = listener.opened()
+        override fun message(message: GameServerMessage) = listener.message(message)
+        override fun disconnected(unauthorized: Boolean, cause: String) = listener.disconnected(unauthorized, cause)
+    })
+    override fun send(message: GameClientMessage) = client.send(message)
+    override fun chatRead(gameId: String, input: ReadChat?, complete: (ChatReadState?) -> Unit) = client.chatRead(gameId, input, complete)
+    override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit) =
+        client.chatPage(gameId, before, after, complete)
+    override fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit) =
+        client.historyPage(gameId, through, complete)
+    override fun disconnect() = client.disconnect()
+    override fun close() = client.close()
+}

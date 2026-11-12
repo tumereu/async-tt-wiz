@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import kotlin.concurrent.Volatile
@@ -68,9 +68,9 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
         val delays = if (firstLoad) firstLoadRetryDelays else quickRetryDelays
         state = state.copy(busy = true, backgroundLoading = background,
             error = if (background || state.draft != null) state.error else null)
-        worker.execute {
-            if (!current()) return@execute
-            val result = runCatching { runBlocking {
+        worker.executeSuspending {
+            if (!current()) return@executeSuspending
+            val result = runCatching { run {
                 val contacts = mutableListOf<AccountIdentity>(); val games = mutableListOf<GameSummary>(); val invites = mutableListOf<GameSummary>()
                 val removedGames = mutableListOf<String>(); val removedInvites = mutableListOf<String>()
                 var gamesToken: String? = null; var invitesToken: String? = null
@@ -86,16 +86,16 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                     (if (since != null) api.gamesSince(token, invitations, since, cursor) else null)
                         ?: api.games(token, invitations, cursor)
                 var delta = changes
-                if (!changes && !pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!changes && !pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@run null
                 if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { list(false, sinceGames.takeIf { changes }, cursor) }.let {
                         if (cursor == null) { gamesToken = it.token; if (changes && it.token == null) delta = false }
-                        games.addAll(it.games); removedGames.addAll(it.removed); it.next } }) return@runBlocking null
+                        games.addAll(it.games); removedGames.addAll(it.removed); it.next } }) return@run null
                 if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { list(true, sinceInvitations.takeIf { changes }, cursor) }.let {
                         if (cursor == null) invitesToken = it.token
-                        invites.addAll(it.games); removedInvites.addAll(it.removed); it.next } }) return@runBlocking null
+                        invites.addAll(it.games); removedInvites.addAll(it.removed); it.next } }) return@run null
                 // A server that can't answer changes answered whole lists: then they are read as such (contacts too)
                 if (changes && !delta) {
-                    if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                    if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@run null
                 }
                 val detail = selected?.takeIf { needsHead }?.let {
                     try { serviceRetry(current = ::current, delays = delays) { api.head(token, it) } } catch (failure: LobbyFailure) {

@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.AtomicLong
 
@@ -86,9 +86,9 @@ class ResetController(
 
     private fun work(action: suspend () -> Unit, success: () -> Unit) {
         val epoch = generation.get()
-        worker.execute {
-            if (generation.get() != epoch) return@execute
-            val failure = try { runBlocking { action() }; null }
+        worker.executeSuspending {
+            if (generation.get() != epoch) return@executeSuspending
+            val failure = try { action(); null }
                 catch (error: AccountFailure) { error }
                 catch (_: Exception) { AccountFailure("network") }
             post {

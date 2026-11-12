@@ -5,7 +5,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readRemaining
 import kotlin.coroutines.cancellation.CancellationException
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import kotlinx.io.readByteArray
 
 import org.asyncttwiz.storage.ParsedDeck
@@ -14,10 +14,10 @@ import org.asyncttwiz.storage.ParsedDeck
 class CubeCobraFailure(message: String) : Exception(message)
 
 /** Public provider request: no account credentials, fixed HTTPS origin, no redirects or shared cache. */
-fun fetchCubeCobra(id: String): ParsedDeck {
+suspend fun fetchCubeCobra(id: String): ParsedDeck {
     require(cubeCobraId(id) == id)
     val body = try {
-        runBlocking {
+        run {
             AccountApi.client().use { client ->
                 // Large cubes are megabytes of JSON; allow slow mobile links more than the account API default.
                 val response = client.get("https://cubecobra.com/cube/api/cubeJSON/$id") {
@@ -43,7 +43,7 @@ fun fetchCubeCobra(id: String): ParsedDeck {
 }
 
 /** Executed on the import worker on the phone, without account credentials. */
-fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlocking {
+suspend fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = run {
     AccountApi.client().use { client ->
         suspend fun read(url: String, accept: String): String {
             val response = client.get(url) { header("Accept", accept) }

@@ -38,7 +38,9 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 error(503, "unavailable"); return true
             }
             boundary = UnavailabilityBoundary.GAME_HTTP_AUTHENTICATION
-            val token = request.getHeaders("Authorization").toList().singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
+            val authorization = request.getHeaders("Authorization").toList()
+            val token = if (authorization.isEmpty() && socket) browserSocketToken(request)
+                else authorization.singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(401, "authentication_required"); return true }
             if (socket) {
@@ -46,6 +48,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 if (request.method != "GET" || request.queryString != null) { error(400, "invalid_request"); return true }
                 val container = request.servletContext.getAttribute("jakarta.websocket.server.ServerContainer") as ServerContainer
                 val config = ServerEndpointConfig.Builder.create(Endpoint::class.java, "/v1/socket")
+                    .subprotocols(listOf(GameWire.SOCKET_PROTOCOL))
                     .configurator(object : ServerEndpointConfig.Configurator() {
                         override fun <T : Any> getEndpointInstance(clazz: Class<T>): T = clazz.cast(hub.endpoint(token, principal.account.accountId))
                     }).build()
@@ -105,5 +108,13 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             error(503, "unavailable")
         }
         return true
+    }
+
+    /** A browser's socket can't carry an Authorization header: its token comes as the subprotocol
+     * [GameWire.SOCKET_TOKEN_PREFIX] + token beside [GameWire.SOCKET_PROTOCOL], which the upgrade answers with. */
+    private fun browserSocketToken(request: HttpServletRequest): String? {
+        val offered = request.getHeaders("Sec-WebSocket-Protocol").toList().flatMap { it.split(',') }.map { it.trim() }
+        if (GameWire.SOCKET_PROTOCOL !in offered) return null
+        return offered.filter { it.startsWith(GameWire.SOCKET_TOKEN_PREFIX) }.singleOrNull()?.removePrefix(GameWire.SOCKET_TOKEN_PREFIX)
     }
 }

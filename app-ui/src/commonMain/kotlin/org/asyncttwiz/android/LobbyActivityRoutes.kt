@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 
@@ -32,9 +32,9 @@ class LobbyActivityRoutes(private val scope: LobbyScope, private val api: Lobbie
         if (closed || state.mutating) return
         if (route.accountId != accountId() || !current()) return activityUnavailable()
         val generation = epoch; val version = ++routeVersion
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking {
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val result = runCatching { run {
                 val target = read(token, route)
                 require(target.gameId == route.gameId)
                 target to if (target.destination == ActivityDestination.UNAVAILABLE) null else api.head(token, route.gameId)

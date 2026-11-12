@@ -60,13 +60,19 @@ class GameSocketTest {
         val response = post(settings, "/v1/invitations", input, a.token)
         assertEquals(201, response.statusCode()); return input to json.decodeFromString(response.body())
     }
+    /** A socket like the app's; [protocols] instead of the Authorization header: a browser's (subprotocols only). */
     private inner class Socket(settings: ServiceSettings, token: String,
-        val hello: GameHello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)) : WebSocket.Listener, AutoCloseable {
+        val hello: GameHello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION),
+        protocols: List<String>? = null) : WebSocket.Listener, AutoCloseable {
         private val queue = LinkedBlockingQueue<GameServerMessage>()
         private val saved = mutableListOf<GameServerMessage>()
         private val text = StringBuilder()
-        private val socket = client.newWebSocketBuilder().header("Authorization", "Bearer $token")
-            .connectTimeout(Duration.ofSeconds(5)).buildAsync(URI("ws://127.0.0.1:${settings.publicPort()}/v1/socket"), this).get(10, TimeUnit.SECONDS)
+        private val socket = client.newWebSocketBuilder().apply {
+            if (protocols == null) header("Authorization", "Bearer $token")
+            else subprotocols(protocols.first(), *protocols.drop(1).toTypedArray())
+        }.connectTimeout(Duration.ofSeconds(5)).buildAsync(URI("ws://127.0.0.1:${settings.publicPort()}/v1/socket"), this).get(10, TimeUnit.SECONDS)
+        /** The subprotocol the server answered with ("" for none). */
+        val protocol: String get() = socket.subprotocol
         override fun onOpen(webSocket: WebSocket) { webSocket.request(1) }
         override fun onText(webSocket: WebSocket, data: CharSequence, last: Boolean): CompletionStage<*>? {
             text.append(data)
@@ -146,6 +152,31 @@ class GameSocketTest {
                     assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
                     newer.send(GameCommand(id(), GameScope(game.id), GameAction.AcceptInvitation, id(), "1"))
                     assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
+                }
+            }
+        }
+    }
+
+    // Web client step 3b: a browser can't send an Authorization header on a WebSocket, so its token comes as a subprotocol
+    @Test fun `a browser socket authenticates by its token subprotocol and is answered with the socket protocol`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
+                val a = account(settings, "BrowserOwner"); val b = account(settings, "BrowserRecipient")
+                val (_, game) = create(settings, a, b)
+                Socket(settings, a.token, protocols = listOf(GameWire.SOCKET_PROTOCOL, GameWire.SOCKET_TOKEN_PREFIX + a.token)).use { browser ->
+                    assertEquals(GameWire.SOCKET_PROTOCOL, browser.protocol)
+                    browser.negotiate()
+                    browser.subscribe(game)
+                }
+                // The app's socket asks for no subprotocol and gets none
+                Socket(settings, a.token).use { app -> assertEquals("", app.protocol); app.negotiate() }
+                // Refused before the upgrade: a wrong token, or the token without the socket protocol
+                for (protocols in listOf(listOf(GameWire.SOCKET_PROTOCOL, GameWire.SOCKET_TOKEN_PREFIX + "x".repeat(43)),
+                        listOf(GameWire.SOCKET_TOKEN_PREFIX + a.token))) {
+                    val failure = assertThrows(java.util.concurrent.ExecutionException::class.java) { Socket(settings, a.token, protocols = protocols) }
+                    assertEquals(401, (failure.cause as WebSocketHandshakeException).response.statusCode())
                 }
             }
         }

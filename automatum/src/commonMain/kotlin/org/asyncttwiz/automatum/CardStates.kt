@@ -3,7 +3,7 @@ package org.asyncttwiz.automatum
 import arcanum.api.Door
 import arcanum.api.ObjectMark
 import arcanum.api.RulesGlossary
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.NamedValue
@@ -24,7 +24,7 @@ internal object CardStates {
         if (o.phasedOut) add("Phased out")
         for (mark in o.marks) word(mark)?.let(::add)
         doors(o)?.let(::add)
-        Engine.classLevel(state, o.id)?.takeIf { it > 1 }?.let { add("Level $it") }
+        Inspect.classLevel(state, o.id)?.takeIf { it > 1 }?.let { add("Level $it") }
     }
 
     private fun word(mark: ObjectMark): String? = when (mark) {
@@ -64,7 +64,7 @@ internal object CardStates {
         fun who(id: String) = if (id == viewer) "you" else names[id] ?: "the opponent"
         for (word in words(state, o)) when (word) {
             "Ring-bearer" -> {
-                val level = Engine.ringTemptations(state, o.controller ?: o.owner).coerceIn(1, RulesGlossary.ringLevels.size)
+                val level = Inspect.ringTemptations(state, o.controller ?: o.owner).coerceIn(1, RulesGlossary.ringLevels.size)
                 add(EffectChange("Ring-bearer: " + RulesGlossary.ringLevels.take(level).joinToString("; "), RING))
             }
             "Goaded" -> {

@@ -396,7 +396,7 @@ class ActivationTest {
     fun manaAbilityWithADelayedTriggerAsksNothing() = scenario {
         val vale = Cards.invent("Wandering Vale", null, "Land",
             "{T}: Add one mana of any color. An opponent gains control of this land at the beginning of the next end step.")
-        assertEquals(emptyList(), arcanum.engine.Engine.manualParts(Cards.definition(vale)))
+        assertEquals(emptyList(), arcanum.engine.CardSupport.manualParts(Cards.definition(vale)))
         alice.battlefield(vale)
         alice.activates(vale, color = Color.Blue)
         assertEquals(null, pending)

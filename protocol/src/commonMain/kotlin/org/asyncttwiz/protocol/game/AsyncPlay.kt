@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
@@ -72,9 +73,9 @@ object NextStop {
         }
     }
 
-    /** Whether [player]'s own device passes for them on [state] under Auto-skip: [Engine.shouldPassFor] with their
+    /** Whether [player]'s own device passes for them on [state] under Auto-skip: [Host.shouldPassFor] with their
      * "Skip when I have no choice" on (the shared state keeps it off). */
-    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean = Engine.passCheck(state, player).ownSkipOn
+    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean = Host.passCheck(state, player).ownSkipOn
 }
 
 /**
@@ -104,7 +105,7 @@ object Rewind {
             val engine = event.engine
             if (engine != null) {
                 // Your own library counts here: a draw, a look, a scry, a search are something new
-                if (Engine.revealed(model.engine, engine.changes, player, model.keptView(), null).isNotEmpty()) return "shown"
+                if (Host.revealed(model.engine, engine.changes, player, model.keptView(), null).isNotEmpty()) return "shown"
                 // Also in an event that starts a line (a branch whose outcome flips a coin): every rewind starts a new
                 // line, so a free undo past a seen result would roll it again (§9, §10)
                 if (event.table.any { it is TableChange.LineMoved } && InformationRule.randomResult(event, model.engine)) return "random"
@@ -112,7 +113,7 @@ object Rewind {
             model.apply(event)
             // A wait for the other player's decision whose source you can't see (§5's hidden-source tell)
             val d = model.engine.pending?.decision
-            if (d != null && Engine.decider(model.engine, d.player) != player && d.source != null &&
+            if (d != null && Host.decider(model.engine, d.player) != player && d.source != null &&
                 d.source !in model.visible(player)) return "hiddenSource"
             undone += event
         }

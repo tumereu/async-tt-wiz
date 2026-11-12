@@ -1,6 +1,7 @@
 package org.asyncttwiz.server.game
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.input.Input
@@ -384,7 +385,7 @@ class EngineGameServiceTest {
             val s = sessions.getValue(alice).model.engine
             val keep = Answer.Option("Keep")
             val decision = s.pending?.decision
-            val (player, input) = if (decision != null) Engine.decider(s, decision.player).let { p ->
+            val (player, input) = if (decision != null) Host.decider(s, decision.player).let { p ->
                 p to Engine.options(s, p).filterIsInstance<Input.Answer>().let { o -> o.firstOrNull { it.answer == keep } ?: o.first() }
             } else s.players.flatMap { p -> Engine.options(s, p.id).filter { it !is Input.Concede }.map { p.id to it } }.let { o ->
                 o.firstOrNull { it.second is Input.PassPriority } ?: o.first()

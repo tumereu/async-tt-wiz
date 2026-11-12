@@ -277,7 +277,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     }
 
     fun run(): View {
-        arcanum.engine.Engine.layersWorkedOut?.invoke()
+        arcanum.engine.EngineProbes.layersWorkedOut?.invoke()
         val board = WorkBoard(state, initialWork(), reads)
         initial = board.work.mapValues { it.value.chars }
         if (traced.isNotEmpty()) base = traced.mapNotNull { id -> board.work[id]?.chars?.let { id to it } }.toMap()

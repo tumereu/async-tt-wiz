@@ -21,7 +21,7 @@ data class ManaTaps(
     val picks: List<ManaUse> get() = chosen + tapped
     val empty: Boolean get() = tapped.isEmpty() && chosen.isEmpty() && outs.isEmpty()
 
-    /** What a payment's engine checks are, for [ManaTaps]' rules: [fill] the open payment around picks ([arcanum.engine.Engine.fillPayment]:
+    /** What a payment's engine checks are, for [ManaTaps]' rules: [fill] the open payment around picks ([arcanum.engine.CastScreen.fillPayment]:
      * pinned, removed, exact) and whether uses [pays] it. */
     class Engine(val fill: (List<ManaUse>, List<ManaUse>, List<ManaUse>) -> List<ManaUse>, val pays: (List<ManaUse>) -> Boolean)
 

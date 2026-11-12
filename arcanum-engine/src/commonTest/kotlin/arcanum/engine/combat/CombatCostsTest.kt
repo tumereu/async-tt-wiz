@@ -13,6 +13,7 @@ import arcanum.api.Players
 import arcanum.api.Recipients
 import arcanum.api.TurnStep
 import arcanum.api.Zone
+import arcanum.engine.CombatDeclarations
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Decision
@@ -207,18 +208,18 @@ class CombatCostsTest {
         "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.")
 
     // CR 508.1h: a declaration's costs to attack are each attacker's own: "{2} for each creature attacking you" is {2} for
-    // each of two attackers, both asked by the enchantment (Engine.attackCosts)
+    // each of two attackers, both asked by the enchantment (CombatDeclarations.attackCosts)
     @Test
     fun aCostForEachCreatureAttackingYouIsEachAttackersOwn() = scenario {
         libraries()
         alice.battlefield(tollWard)
         bob.battlefield(bear, bear)
         val attacks = listOf(Attack(card(bear, 0), TargetRef.Player(alice.id)), Attack(card(bear, 1), TargetRef.Player(alice.id)))
-        val costs = Engine.attackCosts(state, attacks)
+        val costs = CombatDeclarations.attackCosts(state, attacks)
         assertEquals(listOf(card(bear, 0), card(bear, 1)), costs.map { it.creature })
         assertEquals(listOf("{2}", "{2}"), costs.map { c -> c.cost.parts.joinToString { (it as CostPart.Mana).cost.toString() } })
         assertTrue(costs.all { it.ability.source == card(tollWard) && it.ability.mechanic is Mechanic.AttackCost })
-        assertEquals(listOf(card(bear, 1)), Engine.attackCosts(state, attacks.drop(1)).map { it.creature })
-        assertEquals(emptyList(), Engine.attackCosts(state, emptyList()))
+        assertEquals(listOf(card(bear, 1)), CombatDeclarations.attackCosts(state, attacks.drop(1)).map { it.creature })
+        assertEquals(emptyList(), CombatDeclarations.attackCosts(state, emptyList()))
     }
 }

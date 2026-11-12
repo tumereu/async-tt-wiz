@@ -53,7 +53,7 @@ import org.asyncttwiz.appui.concurrentMapOf
  */
 class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
     private val unsupported: (Collection<String>) -> Set<String>?,
-    val parserVersion: Int = OracleParser.VERSION, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
+    val parserVersion: Int = OracleParser.VERSION, val engineVersion: Int = arcanum.engine.CardSupport.SUPPORT_VERSION) {
 
     /** The cards' Automatum definitions (the device's cache), for Stats' mana sources (DRF-115). Blocking. */
     fun parsed(definitions: Collection<SubmittedDefinition>): Map<String, ParsedCard> = parse(definitions.distinctBy { it.digest })

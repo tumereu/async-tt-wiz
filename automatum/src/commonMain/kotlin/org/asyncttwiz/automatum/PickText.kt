@@ -8,6 +8,7 @@ import arcanum.api.Keyword
 import arcanum.api.Mechanic
 import arcanum.api.TextSpan
 import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.decision.Announced
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.CostPartAt
@@ -244,7 +245,7 @@ data class PickText(val parts: List<Part>, val roles: List<Pair<TargetRef, Strin
         companion object {
             fun of(state: GameState, what: Announced, rulesText: String?): What? {
                 val view = Engine.view(state)
-                fun abilitiesOf(id: ObjectId?): List<AbilityInstance> = id?.let { view[it]?.characteristics?.abilities ?: Engine.lastKnown(state, it)?.characteristics?.abilities }.orEmpty()
+                fun abilitiesOf(id: ObjectId?): List<AbilityInstance> = id?.let { view[it]?.characteristics?.abilities ?: Inspect.lastKnown(state, it)?.characteristics?.abilities }.orEmpty()
                 return when (what) {
                     is Announced.Spell -> {
                         val abilities = abilitiesOf(what.card)

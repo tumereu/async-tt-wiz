@@ -1,6 +1,8 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
+import arcanum.engine.Host
 import arcanum.engine.input.Input
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,15 +14,15 @@ import kotlin.test.assertTrue
  * Engine-responsiveness R2: a [GameModel] works the layers out once per state. Its [GameModel.view] and
  * [GameModel.visible] sets are kept until the engine state next changes through it ([GameModel.apply],
  * [GameModel.revert], an [EventBuilder] on it, an event's drop of older log entries) and never outlive that change; a
- * [GameModel.copy] keeps nothing. Counted with [Engine.layersWorkedOut] (no timing); [GameModel.checkKept] checks every
+ * [GameModel.copy] keeps nothing. Counted with [EngineProbes.layersWorkedOut] (no timing); [GameModel.checkKept] checks every
  * kept read against working it out afresh.
  */
 class GameModelViewsTest {
     /** How many times the layers were worked out in full by [block]. */
     private fun layers(block: () -> Unit): Int {
         var count = 0
-        Engine.layersWorkedOut = { count++ }
-        try { block() } finally { Engine.layersWorkedOut = null }
+        EngineProbes.layersWorkedOut = { count++ }
+        try { block() } finally { EngineProbes.layersWorkedOut = null }
         return count
     }
 
@@ -44,8 +46,8 @@ class GameModelViewsTest {
         val bob = model.engine.players[1].id
         assertEquals(1, layers { model.view(); model.view(); model.visible(alice); model.visible(bob); model.visible(alice) })
         assertEquals(Engine.view(model.engine), model.view())
-        assertEquals(Engine.visible(model.engine, alice), model.visible(alice))
-        assertEquals(Engine.visible(model.engine, bob), model.visible(bob))
+        assertEquals(Host.visible(model.engine, alice), model.visible(alice))
+        assertEquals(Host.visible(model.engine, bob), model.visible(bob))
     }
 
     @Test
@@ -69,14 +71,14 @@ class GameModelViewsTest {
                 assertTrue(model.changes > changes, "an event's engine changes count")
                 assertEquals(Engine.view(model.engine), model.view(), "the view after ${event.id}")
             }
-            assertEquals(Engine.visible(model.engine, alice), model.visible(alice))
+            assertEquals(Host.visible(model.engine, alice), model.visible(alice))
             // Reverting drops the view of the state after it; applying again too
             if (event.engine != null) {
                 model.view()
                 model.revert(event)
                 assertNull(model.keptView(), "reverting ${event.id} drops the view")
                 assertEquals(Engine.view(model.engine), model.view())
-                assertEquals(Engine.visible(model.engine, alice), model.visible(alice))
+                assertEquals(Host.visible(model.engine, alice), model.visible(alice))
                 model.apply(event)
                 assertNull(model.keptView(), "applying ${event.id} drops the view")
                 assertEquals(Engine.view(model.engine), model.view())
@@ -144,7 +146,7 @@ class GameModelViewsTest {
             if (games.over(model)) return@repeat
             val holder = model.engine.priority.holder
             if (holder != null && model.engine.pending == null) {
-                assertEquals(Engine.passCheck(model.engine, holder), model.passCheck(holder))
+                assertEquals(Host.passCheck(model.engine, holder), model.passCheck(holder))
                 assertEquals(0, layers { model.passCheck(holder) }, "kept")
                 val input = Input.PassPriority(holder)
                 val probe = EventBuilder(model, "probe$it", parent, holder.value)

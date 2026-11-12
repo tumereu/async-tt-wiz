@@ -29,6 +29,7 @@ import arcanum.api.Step
 import arcanum.api.Trigger
 import arcanum.api.Value
 import arcanum.api.Zone
+import arcanum.engine.Host
 import arcanum.engine.action.Actions
 import arcanum.engine.action.Cause
 import arcanum.engine.action.PlannedMove
@@ -487,7 +488,7 @@ internal object Effects {
                 kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
             }
             // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
-            // Engine.decider who makes their decisions
+            // Host.decider who makes their decisions
             is Effect.ControlNextTurn -> {
                 val controller = scope.players(effect.controller).firstOrNull() ?: return
                 scope.players(effect.players).forEach { p ->

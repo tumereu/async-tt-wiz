@@ -3,7 +3,7 @@ package org.asyncttwiz.automatum
 import arcanum.api.CounterKind
 import arcanum.api.Designation
 import arcanum.api.RulesGlossary
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import arcanum.engine.view.DayOrNight
@@ -49,12 +49,12 @@ object PlayerStates {
                 Designation.CitysBlessing -> chip("City's blessing", "citys-blessing", "C")
                 Designation.EnduringStory -> chip("Enduring story", "enduring-story", "St")
             })
-            Engine.speed(state, id).takeIf { it > 0 }?.let { add(chip("Speed $it", "speed", "S$it")) }
-            Engine.ringTemptations(state, id).takeIf { it > 0 }?.coerceAtMost(RING_LEVELS)?.let { level ->
+            Inspect.speed(state, id).takeIf { it > 0 }?.let { add(chip("Speed $it", "speed", "S$it")) }
+            Inspect.ringTemptations(state, id).takeIf { it > 0 }?.coerceAtMost(RING_LEVELS)?.let { level ->
                 add(chip("Ring $level/$RING_LEVELS", "the-ring", "R$level")) }
             val taken = mapNotNullTo(HashSet()) { (it.glyph as? StateGlyph.Letters)?.text?.takeWhile(Char::isLetter) }
             for (entry in player.counters) if (entry.count != 0) add(counter(entry.kind, entry.count, taken))
-            Engine.dungeonsCompleted(state, id).takeIf { it > 0 }?.let { add(chip("Dungeons $it", "dungeons-completed", "D$it")) }
+            Inspect.dungeonsCompleted(state, id).takeIf { it > 0 }?.let { add(chip("Dungeons $it", "dungeons-completed", "D$it")) }
             state.turn.extraTurns.count { it == id }.takeIf { it > 0 }?.let {
                 add(chip(if (it == 1) "Extra turn" else "Extra turns $it", "extra-turn", if (it == 1) "+T" else "+${it}T")) }
             state.turn.skippedTurns.count { it == id }.takeIf { it > 0 }?.let {
@@ -64,7 +64,7 @@ object PlayerStates {
     }
 
     /** TRN-073: "Day" or "Night" (CR 731), null while it is neither. */
-    fun dayOrNight(state: GameState): StateChip? = when (Engine.dayOrNight(state)) {
+    fun dayOrNight(state: GameState): StateChip? = when (Inspect.dayOrNight(state)) {
         DayOrNight.Day -> StateChip("Day", RulesGlossary.state("day"), StateGlyph.Day)
         DayOrNight.Night -> StateChip("Night", RulesGlossary.state("night"), StateGlyph.Night)
         null -> null

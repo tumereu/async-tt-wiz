@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -166,7 +167,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     /** Keeps answering [player]'s own decisions of a flow with the first answer listed ([choose] picks otherwise). */
     fun flow(player: PlayerId, choose: (Decision, List<Input.Answer>) -> Input.Answer? = { _, a -> a.firstOrNull() }): (GameModel) -> Input? = { model ->
         val d = model.engine.pending?.decision
-        if (d == null || d is Decision.Random || Engine.decider(model.engine, d.player) != player) null
+        if (d == null || d is Decision.Random || Host.decider(model.engine, d.player) != player) null
         else choose(d, Engine.options(model.engine, player).filterIsInstance<Input.Answer>())
     }
 

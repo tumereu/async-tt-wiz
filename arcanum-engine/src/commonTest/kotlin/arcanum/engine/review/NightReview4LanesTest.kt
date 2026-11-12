@@ -6,6 +6,7 @@ import arcanum.api.Mechanic
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -457,8 +458,8 @@ class NightReview4LanesTest {
         val id = put(alice, listOf(tithe), Zone.Command, faceDown = true).single()
         state.objects[id] = state.objOrThrow(id).copy(memory = arcanum.engine.state.Bindings.EMPTY.with(
             arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME, arcanum.engine.state.NamedValue.Name(bear)))
-        assertTrue(id in Engine.visible(state, alice.id), "Its owner may look at it")
-        assertFalse(id in Engine.visible(state, bob.id), "bob doesn't know it")
+        assertTrue(id in Host.visible(state, alice.id), "Its owner may look at it")
+        assertFalse(id in Host.visible(state, bob.id), "bob doesn't know it")
         assertFailsWith<IllegalArgumentException> {
             perform(Input.Activate(bob.id, id, AbilityOrigin.Expansion(AbilityOrigin.Printed(0, 0), 0)))
         }

@@ -799,7 +799,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             ?.also { device.endChain("own press") }
     }) { performed ->
         val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
-        if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
+        if (arcanum.engine.Host.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
         device.act(Input.PassPriority(holder), performed = performed)
     }
 

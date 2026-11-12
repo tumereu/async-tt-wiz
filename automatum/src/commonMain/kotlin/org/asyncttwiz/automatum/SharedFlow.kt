@@ -1,7 +1,10 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.TurnStep
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
+import arcanum.engine.Host
+import arcanum.engine.Inspect
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
@@ -168,8 +171,8 @@ class SharedFlow private constructor(
     }
 
     /** What may be picked in the open choice of objects with [picked] so far, and whether [picked] is a finished selection
-     * ([Engine.selection]). Blocking: the app runs it on the Automatum worker. */
-    fun selection(picked: List<TargetRef>): arcanum.engine.Selection = Engine.selection(state, picked)
+     * ([CastScreen.selection]). Blocking: the app runs it on the Automatum worker. */
+    fun selection(picked: List<TargetRef>): arcanum.engine.Selection = CastScreen.selection(state, picked)
 
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
      * and creature types only of objects the deciding player may see ([ShownAnswers], I-D27). Worked out once per flow
@@ -215,15 +218,15 @@ class SharedFlow private constructor(
     }
 
     /** STK-024: the open payment (or the open "you may pay"'s [payment]) around the player's own picks: [pinned] stay, [removed]
-     * aren't used, Autotap fills in the rest ([Engine.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly
+     * aren't used, Autotap fills in the rest ([CastScreen.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly
      * as given (a way the player chose for a source, STK-024). */
     fun fill(pinned: List<ManaUse>, removed: List<ManaUse>, exact: List<ManaUse> = emptyList()): List<ManaUse> {
-        if (decision is Decision.ManaPayment) return Engine.fillPayment(state, pinned, removed, exact)
+        if (decision is Decision.ManaPayment) return CastScreen.fillPayment(state, pinned, removed, exact)
         val open = decision as? Decision.May ?: return emptyList()
         return try {
             call().run {
                 perform(Input.Answer(open.id, Answer.YesNo(true)))
-                Engine.fillPayment(working, pinned, removed, exact)
+                CastScreen.fillPayment(working, pinned, removed, exact)
             }
         } catch (_: IllegalArgumentException) {
             emptyList()
@@ -262,12 +265,12 @@ class SharedFlow private constructor(
     }
 
     /** The objects whose identity [player] may be shown now (D60, I-D27): public cards and their own. */
-    fun visible(player: String): Set<ObjectId> = Engine.visible(state, PlayerId(player))
+    fun visible(player: String): Set<ObjectId> = Host.visible(state, PlayerId(player))
 
     /** Whether [id] is an option of the open choice that no longer exists and was face up as it last existed (an explorer that left the
      * battlefield, CR 701.44c, d): what it was stays public, so it is shown by what it was. */
     fun offeredAfterLeaving(id: ObjectId): Boolean = state.obj(id) == null &&
-        (decision as? Decision.ChooseObjects)?.options?.contains(id) == true && Engine.lastKnown(state, id)?.characteristics?.name != null
+        (decision as? Decision.ChooseObjects)?.options?.contains(id) == true && Inspect.lastKnown(state, id)?.characteristics?.name != null
 
     /** The ATW reference of an engine object or player (target glow, labels). */
     fun ref(target: TargetRef): MtgRef = view.ids.ref(target)

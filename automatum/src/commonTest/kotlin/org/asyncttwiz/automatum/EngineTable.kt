@@ -3,6 +3,7 @@ package org.asyncttwiz.automatum
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.state.CardId
 import arcanum.engine.state.ControlSince
@@ -115,7 +116,7 @@ internal class EngineTable {
     /** What [viewer] may do with each card of [state] ([CardPlays]). */
     fun plays(state: GameState = state(), viewer: String = alice): CardPlays {
         val view = Engine.view(state)
-        return CardPlays.of(state, viewer, view, Engine.visible(state, PlayerId(viewer), view))
+        return CardPlays.of(state, viewer, view, Host.visible(state, PlayerId(viewer), view))
     }
 
     /** A cast source on [state]. */

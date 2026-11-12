@@ -3,6 +3,7 @@ package org.asyncttwiz.automatum
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Keyword
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
@@ -130,15 +131,15 @@ class CastFlow private constructor(
     }
 
     /** Castability §3: what may be picked in the open choice of targets or objects with [picked] so far, and whether [picked] is
-     * a selection that can be finished ([Engine.selection]). Blocking: the app runs it on the Automatum worker. */
-    fun selection(picked: List<arcanum.engine.state.TargetRef>): arcanum.engine.Selection = Engine.selection(call.working, picked)
+     * a selection that can be finished ([CastScreen.selection]). Blocking: the app runs it on the Automatum worker. */
+    fun selection(picked: List<arcanum.engine.state.TargetRef>): arcanum.engine.Selection = CastScreen.selection(call.working, picked)
 
     /** STK-024: the open payment around the player's own picks: [pinned] stay, [removed] aren't used, Autotap fills in the rest
-     * ([Engine.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly as given (a way the player chose
+     * ([CastScreen.fillPayment]); empty when the rest can't be filled. Each of [exact] stays exactly as given (a way the player chose
      * for a source, STK-024), a pinned source's colour is free. */
     fun fill(pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>,
         exact: List<arcanum.engine.decision.ManaUse> = emptyList()): List<arcanum.engine.decision.ManaUse> =
-        Engine.fillPayment(call.working, pinned, removed, exact)
+        CastScreen.fillPayment(call.working, pinned, removed, exact)
 
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
      * and creature types only of objects the player may see ([ShownAnswers], I-D27). */

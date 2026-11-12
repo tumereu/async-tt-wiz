@@ -13,7 +13,7 @@ import arcanum.api.ObjectMark
 import arcanum.api.Objects
 import arcanum.api.RulesGlossary
 import arcanum.api.Value
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.query.Evaluator
@@ -26,7 +26,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** [Engine.restrictions], [Engine.speed], [Engine.ringTemptations], [Engine.dayOrNight], [Engine.classLevel] and the
+/** [Inspect.restrictions], [Inspect.speed], [Inspect.ringTemptations], [Inspect.dayOrNight], [Inspect.classLevel] and the
  * glossary of states: what the rules keep beyond characteristics, for a host's Inspect and chips. */
 class RestrictionsTest {
     private val cub = Cards.invent("Hollow Cub", "{1}{G}", "Creature — Bear", "", "2/2")
@@ -40,14 +40,14 @@ class RestrictionsTest {
     private val beckon = Cards.invent("Hollow Beckoning", "{B}", "Sorcery", "The Ring tempts you.")
 
     private fun arcanum.engine.scenario.Scenario.texts(name: String): List<String> =
-        Engine.restrictions(state, view(), card(name)).map { it.text }
+        Inspect.restrictions(state, view(), card(name)).map { it.text }
 
     // CR 509.1b: "can't block" from an effect is listed, with what made it and how long it lasts
     @Test
     fun anEffectsCantBlockNamesItsSourceAndDuration() = scenario {
         alice.battlefield(cub, wings)
         val made = effect(alice, Mechanic.CantBlock(ObjectFilter.Any), on = listOf(cub), duration = Duration.EndOfTurn)
-        val restriction = Engine.restrictions(state, view(), card(cub)).single()
+        val restriction = Inspect.restrictions(state, view(), card(cub)).single()
         assertEquals("Can't block", restriction.text)
         assertEquals(made, restriction.effect)
         assertEquals(Duration.EndOfTurn, restriction.duration)
@@ -58,7 +58,7 @@ class RestrictionsTest {
     fun aStaticAbilityOfAnotherPermanentIsItsMaker() = scenario {
         alice.battlefield(snare)
         bob.battlefield(cub)
-        val restriction = Engine.restrictions(state, view(), card(cub)).single()
+        val restriction = Inspect.restrictions(state, view(), card(cub)).single()
         assertEquals("Can't attack", restriction.text)
         assertEquals(card(snare), restriction.madeBy)
         assertNull(restriction.duration)
@@ -87,7 +87,7 @@ class RestrictionsTest {
     fun aGrantedAbilityCountsAsTheEffect() = scenario {
         alice.battlefield(cub, wings)
         val made = effect(alice, Mechanic.GainAbilities(listOf(Ability.Static(listOf(Mechanic.DoesntUntap), Affected.Objects(Objects.Self)))), on = listOf(cub), duration = Duration.UntilYourNextTurn)
-        val restriction = Engine.restrictions(state, view(), card(cub)).single()
+        val restriction = Inspect.restrictions(state, view(), card(cub)).single()
         assertEquals("Doesn't untap", restriction.text)
         assertEquals(made, restriction.effect)
         assertEquals(Duration.UntilYourNextTurn, restriction.duration)
@@ -99,7 +99,7 @@ class RestrictionsTest {
         alice.battlefield(cub)
         setup()
         change(Change.Status(card(cub), StatusFlag.Marked(ObjectMark.Suspected), false, true))
-        val restriction = Engine.restrictions(state, view(), card(cub)).single()
+        val restriction = Inspect.restrictions(state, view(), card(cub)).single()
         assertEquals("Can't block", restriction.text)
         assertNull(restriction.madeBy)
     }
@@ -130,26 +130,26 @@ class RestrictionsTest {
     fun aPlayersAndTheGamesStates() = scenario {
         alice.battlefield("Swamp", cub)
         alice.hand(beckon)
-        assertEquals(0, Engine.ringTemptations(state, alice.id))
-        assertEquals(0, Engine.speed(state, alice.id))
-        assertNull(Engine.dayOrNight(state))
+        assertEquals(0, Inspect.ringTemptations(state, alice.id))
+        assertEquals(0, Inspect.speed(state, alice.id))
+        assertNull(Inspect.dayOrNight(state))
         change(Change.Ledger(alice.id, Speed.KEY, 0, 2))
-        assertEquals(2, Engine.speed(state, alice.id))
+        assertEquals(2, Inspect.speed(state, alice.id))
         alice.casts(beckon)
         allPass()
-        assertEquals(1, Engine.ringTemptations(state, alice.id))
+        assertEquals(1, Inspect.ringTemptations(state, alice.id))
         change(Change.Ledger(null, Evaluator.DAY_NIGHT, 0, Evaluator.NIGHT))
-        assertEquals(DayOrNight.Night, Engine.dayOrNight(state))
+        assertEquals(DayOrNight.Night, Inspect.dayOrNight(state))
     }
 
     // CR 716.2: a Class is level 1 until it levels up
     @Test
     fun aClasssLevel() = scenario {
         alice.battlefield(tale, cub)
-        assertEquals(1, Engine.classLevel(state, card(tale)))
-        assertNull(Engine.classLevel(state, card(cub)))
+        assertEquals(1, Inspect.classLevel(state, card(tale)))
+        assertNull(Inspect.classLevel(state, card(cub)))
         change(Change.Memory(card(tale), Evaluator.CLASS_LEVEL, null, arcanum.engine.state.NamedValue.Number(2)))
-        assertEquals(2, Engine.classLevel(state, card(tale)))
+        assertEquals(2, Inspect.classLevel(state, card(tale)))
     }
 
     // The glossary explains every mark and designation a host may show, in its own words

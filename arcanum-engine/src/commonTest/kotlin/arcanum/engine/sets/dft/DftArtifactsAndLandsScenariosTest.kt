@@ -121,7 +121,7 @@ class DftArtifactsAndLandsScenariosTest {
     fun bleachboneBrinkNeedsAPlainsOrSwamp() = scenario {
         alice.battlefield(DftSet.bleachboneBrink)
         val second = view()[card(DftSet.bleachboneBrink)]!!.characteristics!!.abilities.filter { it.ability is arcanum.api.Ability.Activated }[1].origin
-        val refused = arcanum.engine.Engine.refusal(state, arcanum.engine.input.Input.Activate(alice.id, card(DftSet.bleachboneBrink), second))
+        val refused = arcanum.engine.CastScreen.refusal(state, arcanum.engine.input.Input.Activate(alice.id, card(DftSet.bleachboneBrink), second))
         assertEquals(true, refused != null)
     }
 

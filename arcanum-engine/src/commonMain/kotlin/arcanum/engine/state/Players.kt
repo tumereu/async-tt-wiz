@@ -38,7 +38,7 @@ data class PlayerState(
     val ledger: Map<String, Int> = emptyMap(),
     /**
      * "Skip when I have no choice" (I-D18), on by default: the engine skips this player's questions that leave nothing
-     * to choose, and [arcanum.engine.Engine.shouldPassFor] says to pass priority for them when they can do nothing.
+     * to choose, and [arcanum.engine.Host.shouldPassFor] says to pass priority for them when they can do nothing.
      * Off: a skip or a pass that depends on cards only this player may see (their hand, face-down cards) is asked
      * instead, so how fast the game goes on tells the other players nothing about those cards. Skips that depend on
      * nothing hidden stay automatic either way (P5). A host changes it with [arcanum.engine.change.Change.SkipWhenNoChoice].
@@ -50,7 +50,7 @@ data class PlayerState(
      * at or revealed where it lies, put back in a chosen order), a group number above 0 for cards put in together in a
      * random order (their places are known as a group, not which is where). Cards without an entry are the unknown part.
      * Entries of cards that left the library are dropped when it next changes. Kept by the engine
-     * ([arcanum.engine.change.Change.LibraryPlaces]); a host reorders only unknown parts ([arcanum.engine.Engine.unknownOrder]).
+     * ([arcanum.engine.change.Change.LibraryPlaces]); a host reorders only unknown parts ([arcanum.engine.Host.unknownOrder]).
      */
     val libraryPlaces: Map<ObjectId, Int> = emptyMap(),
 ) {

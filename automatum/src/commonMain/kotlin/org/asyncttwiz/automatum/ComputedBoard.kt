@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import arcanum.engine.Inspect
 import org.asyncttwiz.protocol.Faults
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
@@ -9,7 +10,6 @@ import arcanum.api.Duration
 import arcanum.api.Keyword
 import arcanum.api.Layer
 import arcanum.api.Zone
-import arcanum.engine.Engine
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.view.Characteristics
@@ -121,12 +121,12 @@ class ComputedBoard private constructor(
         val view = view ?: return emptyList()
         cards[cardId] ?: return emptyList()
         val id = objectOf(cardId) ?: return emptyList()
-        val explanation = Engine.explain(state, id) ?: return emptyList()
+        val explanation = Inspect.explain(state, id) ?: return emptyList()
         fun name(source: ObjectId?): String? {
             if (source == null) return null
             val obj = state.obj(source) ?: (source as? ObjectId.Card)?.let { c ->
                 state.objects.values.lastOrNull { (it.id as? ObjectId.Card)?.card == c.card } }
-                ?: return Engine.lastKnown(state, source)?.characteristics?.name?.takeIf { LastKnown.public(state, source) }
+                ?: return Inspect.lastKnown(state, source)?.characteristics?.name?.takeIf { LastKnown.public(state, source) }
             if (obj.faceDown || obj.zone !in PUBLIC) return "a card"
             return view[obj.id]?.name ?: obj.definition?.faces?.getOrNull(obj.face)?.name
         }
@@ -187,7 +187,7 @@ class ComputedBoard private constructor(
         val view = view ?: return emptyMap()
         val objects = cardIds.filter { it in cards }.mapNotNull { card -> objectOf(card)?.let { card to it } }
         if (objects.isEmpty()) return emptyMap()
-        val explanations = Engine.explain(state, objects.map { it.second })
+        val explanations = Inspect.explain(state, objects.map { it.second })
         val durations = DurationText(state, view, viewer, names)
         return objects.mapNotNull { (card, id) ->
             val explanation = explanations[id] ?: return@mapNotNull null
@@ -225,7 +225,7 @@ class ComputedBoard private constructor(
 
     /**
      * TBL-134: what continuous effects tell each of [cardIds] (on the Battlefield, or a spell on the Stack) it can't or must do,
-     * from the board's own view ([Engine.restrictions]): "Can't block until end of turn", with its source as [viewer] may see
+     * from the board's own view ([Inspect.restrictions]): "Can't block until end of turn", with its source as [viewer] may see
      * it. A Ring-bearer's rule from the Ring is its own line ([states]).
      */
     fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
@@ -235,7 +235,7 @@ class ComputedBoard private constructor(
         return cardIds.mapNotNull { card ->
             val id = ids?.engine(card)?.let { engine -> state.objects.keys.firstOrNull {
                 (it as? ObjectId.Card)?.card == engine && state.objects[it]?.zone.let { z -> z == Zone.Battlefield || z == Zone.Stack } } } ?: return@mapNotNull null
-            val changes = Engine.restrictions(state, view, id).mapNotNull { restriction ->
+            val changes = Inspect.restrictions(state, view, id).mapNotNull { restriction ->
                 val from = restriction.madeBy?.let { state.obj(it) }
                 if (from?.zone == Zone.Command && from.definition?.faces?.firstOrNull()?.name == CardStates.RING) return@mapNotNull null
                 val made = restriction.effect?.let { state.effects[it] }

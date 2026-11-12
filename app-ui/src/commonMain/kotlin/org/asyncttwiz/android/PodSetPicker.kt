@@ -23,7 +23,7 @@ fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = cod
 
 /** A set's support as a list's (LOB-115's icon and hold): its unsupported cards (DRF-161), from the card catalog's marks. */
 fun DraftableSet.support(): CardListSupport =
-    CardListSupport(OracleParser.VERSION, unsupported, arcanum.engine.Engine.SUPPORT_VERSION)
+    CardListSupport(OracleParser.VERSION, unsupported, arcanum.engine.CardSupport.SUPPORT_VERSION)
 
 /** Which packs of the pack grid (DRF-178) a set is being chosen for: one cell, a round's row or a pack's column. */
 sealed interface PodPackTarget {

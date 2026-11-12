@@ -6,6 +6,7 @@ import arcanum.api.Color
 import arcanum.api.Each
 import arcanum.api.Modification
 import arcanum.api.Step
+import arcanum.engine.CardSupport
 import arcanum.engine.action.Act
 import arcanum.engine.action.Actions
 import arcanum.engine.action.Cause
@@ -137,7 +138,7 @@ internal object Steps {
                 } while (times < REPEAT_LIMIT && scope.holds(step.condition))
             }
             is Step.Choose -> choose(scope, step)
-            // Text a definition couldn't express: not carried out. Engine.manualParts names it, so the card isn't supported
+            // Text a definition couldn't express: not carried out. CardSupport.manualParts names it, so the card isn't supported
             is Step.Manual -> Unit
         }
     }

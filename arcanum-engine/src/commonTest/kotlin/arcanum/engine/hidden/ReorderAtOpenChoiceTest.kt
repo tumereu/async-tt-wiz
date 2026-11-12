@@ -1,7 +1,7 @@
 package arcanum.engine.hidden
 
 import arcanum.api.Zone
-import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Decision
 import arcanum.engine.cards.Cards
 import arcanum.engine.scenario.Scenario
@@ -34,7 +34,7 @@ class ReorderAtOpenChoiceTest {
     private fun Scenario.newLine(): Boolean {
         val before = state.player(alice.id).library.toList()
         state.players.toList().forEach { p ->
-            Engine.reorderUnknown(state, p.id, Engine.unknownOrder(state, p.id).map { it.reversed() })?.let(::change)
+            Host.reorderUnknown(state, p.id, Host.unknownOrder(state, p.id).map { it.reversed() })?.let(::change)
         }
         return state.player(alice.id).library != before
     }
@@ -49,7 +49,7 @@ class ReorderAtOpenChoiceTest {
         val asked = assertNotNull(pending as? Decision.ChooseObjects)
         val top = state.player(alice.id).library.take(2)
         assertEquals(top.toSet(), asked.options.toSet())
-        assertEquals(listOf(state.player(alice.id).library.drop(2)), Engine.unknownOrder(state, alice.id))
+        assertEquals(listOf(state.player(alice.id).library.drop(2)), Host.unknownOrder(state, alice.id))
         assertTrue(newLine(), "the rest of the library moves")
         assertEquals(top, state.player(alice.id).library.take(2))
         alice.chooses("Elvish Seer")

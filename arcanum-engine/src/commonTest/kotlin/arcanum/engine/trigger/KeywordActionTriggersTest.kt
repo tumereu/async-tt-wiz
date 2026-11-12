@@ -19,7 +19,7 @@ import arcanum.api.Step
 import arcanum.api.Trigger
 import arcanum.api.Value
 import arcanum.api.Zone
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.cards.Cards
 import arcanum.engine.cards.face
 import arcanum.engine.casting.Snapshot
@@ -227,7 +227,7 @@ class KeywordActionTriggersTest {
         val asked = resolve().let { decision<arcanum.engine.decision.Decision.ChooseObjects>() }
         assertEquals(setOf(left, card(other)), asked.options.toSet())
         // As it last existed: its name for the panel
-        assertEquals("Lost Goner", Engine.lastKnown(state, left)?.characteristics?.name)
+        assertEquals("Lost Goner", Inspect.lastKnown(state, left)?.characteristics?.name)
         answer(Answer.Objects(listOf(left)))
         answer(Answer.YesNo(true))
         settleAll()

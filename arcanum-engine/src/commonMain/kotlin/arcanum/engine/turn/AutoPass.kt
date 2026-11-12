@@ -13,7 +13,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 
 /**
- * [arcanum.engine.Engine.shouldPassFor] (I-D3, I-D18): whether a host passes priority for a player at once because they
+ * [arcanum.engine.Host.shouldPassFor] (I-D3, I-D18): whether a host passes priority for a player at once because they
  * can't do anything with it (CR 117.3). The engine itself never passes for anyone; a host asks this after every
  * outcome and performs [Input.PassPriority] while it is true.
  */

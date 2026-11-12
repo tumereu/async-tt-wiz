@@ -2,6 +2,7 @@ package org.asyncttwiz.e2e
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
@@ -113,7 +114,7 @@ class StaleTapTest : E2e() {
         repeat(10) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != alice.me) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != alice.me) return inputs
             input = Engine.options(copy, alice.me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input
         }

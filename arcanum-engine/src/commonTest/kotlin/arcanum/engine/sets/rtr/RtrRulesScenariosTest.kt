@@ -5,6 +5,7 @@ import arcanum.api.CounterKind
 import arcanum.api.Subtype
 import arcanum.api.TurnStep
 import arcanum.api.Zone
+import arcanum.engine.CombatDeclarations
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
@@ -92,7 +93,7 @@ class RtrRulesScenariosTest {
     }
 
     /** Before the declaration a host reads the cost as it stands, X worked out from the board: {2} with two enchantments,
-     * {3} once a third enters (Engine.attackCosts). */
+     * {3} once a third enters (CombatDeclarations.attackCosts). */
     // CR 508.1h
     @Test
     fun theCostToAttackReadsWithItsXWorkedOut() = scenario {
@@ -100,7 +101,7 @@ class RtrRulesScenariosTest {
         alice.battlefield(bulwark, sigil)
         bob.battlefield(bear)
         fun cost(): String {
-            val cost = Engine.attackCosts(state, listOf(Attack(card(bear), TargetRef.Player(alice.id)))).single()
+            val cost = CombatDeclarations.attackCosts(state, listOf(Attack(card(bear), TargetRef.Player(alice.id)))).single()
             assertEquals(card(bear), cost.creature)
             assertTrue(cost.ability.mechanic is arcanum.api.Mechanic.AttackCost)
             return cost.cost.parts.joinToString { (it as arcanum.api.CostPart.Mana).cost.toString() }

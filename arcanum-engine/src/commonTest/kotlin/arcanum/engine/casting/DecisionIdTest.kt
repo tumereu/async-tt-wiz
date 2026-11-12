@@ -1,6 +1,7 @@
 package arcanum.engine.casting
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.scenario
@@ -56,8 +57,8 @@ class DecisionIdTest {
     fun aLibrarysReorderChangesNoId() = scenario {
         val cast = seerCast()
         val plain = state.deepCopy()
-        val parts = Engine.unknownOrder(state, alice.id)
-        val reorder = assertNotNull(Engine.reorderUnknown(state, alice.id, parts.map { it.reversed() }))
+        val parts = Host.unknownOrder(state, alice.id)
+        val reorder = assertNotNull(Host.reorderUnknown(state, alice.id, parts.map { it.reversed() }))
         state.apply(reorder)
         perform(cast)
         assertEquals(assertNotNull(Engine.perform(plain, cast).pending).decision.id, assertNotNull(pending).id)

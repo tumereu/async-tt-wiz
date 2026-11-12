@@ -3,6 +3,7 @@ package arcanum.engine.hidden
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
@@ -96,8 +97,8 @@ class ViewerKnowledgeTest {
 
         val seer = state.player(bob.id).hand.single()
         assertEquals(viewer == bob, known(seer))
-        assertTrue(seer in Engine.visible(state, bob.id))
-        assertFalse(seer in Engine.visible(state, alice.id))
+        assertTrue(seer in Host.visible(state, bob.id))
+        assertFalse(seer in Host.visible(state, alice.id))
         assertTrue(filledIds().isEmpty())
     }
 
@@ -173,8 +174,8 @@ class ViewerKnowledgeTest {
 
         val top = card("Forest")
         assertEquals(viewer == alice, known(top))
-        assertTrue(top in Engine.visible(state, alice.id))
-        assertFalse(top in Engine.visible(state, bob.id))
+        assertTrue(top in Host.visible(state, alice.id))
+        assertFalse(top in Host.visible(state, bob.id))
         val plays = Engine.options(state, alice.id).filterIsInstance<Input.PlayLand>().map { it.card }
         assertEquals(viewer == alice, top in plays)
         assertFalse(known(card("Island")), "only the top card")

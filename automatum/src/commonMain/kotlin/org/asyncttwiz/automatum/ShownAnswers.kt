@@ -1,6 +1,7 @@
 package org.asyncttwiz.automatum
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.state.GameState
@@ -15,7 +16,7 @@ import arcanum.engine.state.GameState
 internal object ShownAnswers {
     fun of(state: GameState, decision: Decision, answers: List<Answer>): List<Answer> {
         if (decision !is Decision.ChooseCardName && !(decision is Decision.ChooseSubtype && decision.among == null)) return answers
-        val seen = Engine.visible(state, decision.player)
+        val seen = Host.visible(state, decision.player)
         val view = Engine.view(state)
         val names = seen.mapNotNull { state.obj(it)?.definition?.faces?.firstOrNull()?.name }.toSet()
         val types = seen.flatMap { view[it]?.characteristics?.subtypes.orEmpty() }.toSet()

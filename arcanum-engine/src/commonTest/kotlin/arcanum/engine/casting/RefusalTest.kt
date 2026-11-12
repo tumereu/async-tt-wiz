@@ -3,6 +3,7 @@ package arcanum.engine.casting
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Zone
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.input.Input
@@ -18,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * [Engine.refusal] gives [Engine.perform]'s own refusal of a land play, cast or activation without performing it: on
+ * [CastScreen.refusal] gives [Engine.perform]'s own refusal of a land play, cast or activation without performing it: on
  * seeded random games of cube cards, every hand card's cast or land play and every activated ability and special action
  * of every object, for each player, is asked both ways. A reason given is word for word the one `perform` throws; none
  * given, `perform` begins it (or refuses it later, while it is announced, never with one of the checks made before
@@ -41,10 +42,10 @@ class RefusalTest {
         alice.hand("Storm Spark")
         bob.hand("Storm Spark")
         val input = Input.Cast(bob.id, state.player(bob.id).hand.single())
-        val reason = Engine.refusal(state, input)
+        val reason = CastScreen.refusal(state, input)
         assertEquals(runCatching { Engine.perform(state, input) }.exceptionOrNull()?.message, reason)
         assertTrue(reason != null && reason.startsWith("Can't cast that: "), "$reason")
-        assertNull(Engine.refusal(state, Input.PassPriority(alice.id)), "only inputs that begin something")
+        assertNull(CastScreen.refusal(state, Input.PassPriority(alice.id)), "only inputs that begin something")
     }
 
     private fun game(seed: Long) = scenario(seed = seed) {
@@ -79,8 +80,8 @@ class RefusalTest {
     }
 
     private fun check(state: GameState, view: View, input: Input) {
-        val reason = Engine.refusal(state, input, view)
-        assertEquals(reason, Engine.refusal(state, input), "with and without the view: $input")
+        val reason = CastScreen.refusal(state, input, view)
+        assertEquals(reason, CastScreen.refusal(state, input), "with and without the view: $input")
         val thrown = try { Engine.perform(state, input); null } catch (e: IllegalArgumentException) { e.message.orEmpty() }
             catch (e: IllegalStateException) { "(state) ${e.message}" }
         if (reason != null) {

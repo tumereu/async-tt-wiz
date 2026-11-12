@@ -18,7 +18,7 @@ import arcanum.engine.state.ObjectId
 import kotlinx.serialization.Serializable
 
 /**
- * Whether it is day or night (CR 731, [arcanum.engine.Engine.dayOrNight]).
+ * Whether it is day or night (CR 731, [arcanum.engine.Inspect.dayOrNight]).
  */
 @Serializable
 sealed interface DayOrNight {
@@ -28,7 +28,7 @@ sealed interface DayOrNight {
 
 /**
  * A rule a continuous effect puts on an object beyond its characteristics (CR 113.12: "can't block" from an Aura, an effect
- * with its own text), as [arcanum.engine.Engine.restrictions] lists it: [text] in plain words without a full stop ("Can't
+ * with its own text), as [arcanum.engine.Inspect.restrictions] lists it: [text] in plain words without a full stop ("Can't
  * block", "Can't be blocked by creatures with flying"), [mechanic] what it is, [madeBy] the object that made it (null: the
  * rules themselves, a suspected creature's "can't block"), and for an effect object its [effect] and [duration]; a static
  * ability has neither: it applies while it functions (CR 611.3a).
@@ -43,7 +43,7 @@ data class AppliedRestriction(
     val timestamp: Long,
 )
 
-/** [arcanum.engine.Engine.restrictions]: read from a [View]'s [ObjectView.mechanics], with the words for each kind. */
+/** [arcanum.engine.Inspect.restrictions]: read from a [View]'s [ObjectView.mechanics], with the words for each kind. */
 internal object Restrictions {
     fun of(state: GameState, view: View, id: ObjectId): List<AppliedRestriction> {
         val o = view[id] ?: return emptyList()

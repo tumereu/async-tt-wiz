@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -63,7 +64,7 @@ class SameDecisionRulesTest {
         repeat(10) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != alice) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != alice) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
             else Engine.options(copy, alice).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
                 .first()
@@ -102,9 +103,9 @@ class SameDecisionRulesTest {
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.stack.add(land) }), "a new Stack object")
         // Stable decision identity (owner, 2026-11-05): a new line's reshuffle of a library's unknown part is no new
         // decision; an input in between is
-        val parts = Engine.unknownOrder(s, alice)
+        val parts = Host.unknownOrder(s, alice)
         assertTrue(parts.any { it.size > 1 }, "an unknown part to reorder")
-        val reorder = assertNotNull(Engine.reorderUnknown(s, alice, parts.map { it.reversed() }))
+        val reorder = assertNotNull(Host.reorderUnknown(s, alice, parts.map { it.reversed() }))
         assertTrue(GameDevice.sameDecision(s, s.deepCopy().also { it.apply(reorder) }), "the library reshuffled")
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.inputCount += 1 }), "an input in between")
     }

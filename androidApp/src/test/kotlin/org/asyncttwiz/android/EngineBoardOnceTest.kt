@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
+import arcanum.engine.Host
 import arcanum.engine.input.Input
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.automatum.CardPlays
@@ -29,7 +31,7 @@ class EngineBoardOnceTest {
     private val shown = mutableListOf<EngineGame.Shown>()
 
     @Before fun clean() = AutomatumBoards.reset()
-    @After fun reset() { Engine.layersWorkedOut = null; AutomatumBoards.reset() }
+    @After fun reset() { EngineProbes.layersWorkedOut = null; AutomatumBoards.reset() }
 
     /** The engine thread inline, the main thread's work at once; with [early] an own action's board shows at its
      * performed point, as on the app's engine thread. */
@@ -60,8 +62,8 @@ class EngineBoardOnceTest {
         var layers = 0
         val boards = game.boardsBuilt
         val points = game.read { it.pointsWorkedOut }
-        Engine.layersWorkedOut = { layers++ }
-        try { work() } finally { Engine.layersWorkedOut = null }
+        EngineProbes.layersWorkedOut = { layers++ }
+        try { work() } finally { EngineProbes.layersWorkedOut = null }
         return Triple(layers, game.boardsBuilt - boards, game.read { it.pointsWorkedOut } - points)
     }
 
@@ -140,10 +142,10 @@ class EngineBoardOnceTest {
             val publishedBefore = shown.size + shown.sumOf { it.transition?.steps?.size ?: 0 }
             val steps = shown.sumOf { it.transition?.steps?.size ?: 0 }
             var table = 0
-            Engine.layersWorkedOut = { table++ }
+            EngineProbes.layersWorkedOut = { table++ }
             try {
                 for (play in boards) { computedOf(play); HandPlays.of(stateOf(play), f.a, null) }
-            } finally { Engine.layersWorkedOut = null }
+            } finally { EngineProbes.layersWorkedOut = null }
             println("R3 $what: boards built before $publishedBefore, after ${built + steps} ($steps motion steps); " +
                 "layer computations now $layers on the engine thread, 0 on the table's; the table's thread before: $table")
             assertTrue(built + steps <= publishedBefore)
@@ -161,7 +163,7 @@ class EngineBoardOnceTest {
     private fun cardPlaysOf(play: TableBoard): CardPlays {
         val state = stateOf(play)
         val view = Engine.view(state)
-        return CardPlays.of(state, f.a, view, Engine.visible(state, PlayerId(f.a), view))
+        return CardPlays.of(state, f.a, view, Host.visible(state, PlayerId(f.a), view))
     }
 
     private fun assertComputed(expected: ComputedBoard, actual: ComputedBoard, play: TableBoard) {

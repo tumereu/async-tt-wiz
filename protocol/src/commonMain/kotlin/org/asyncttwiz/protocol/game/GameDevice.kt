@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
@@ -911,7 +912,7 @@ class GameDevice(
         for (i in line.lastIndex downTo at) before.revert(line[i])
         if (before.stale) return true
         fun cards(ids: Collection<ObjectId>) = ids.mapNotNullTo(HashSet()) { (it as? ObjectId.Card)?.card }
-        val seen = cards(Engine.visible(before.engine, me))
+        val seen = cards(Host.visible(before.engine, me))
         val state = before.engine
         fun offered() { (state.pending?.decision as? Decision.ChooseObjects)?.takeIf { it.player == me }?.let { seen += cards(it.options) } }
         for (step in event.engine?.steps.orEmpty()) {
@@ -1149,7 +1150,7 @@ class GameDevice(
         if (s.stack.isEmpty()) return "stack empty"
         if (reveal != null) return "reveal"
         val d = s.pending?.decision
-        if (d != null && d !is Decision.Random && Engine.decider(s, d.player) == me && WhoActs.automaticAnswer(model, d) == null) return "decision"
+        if (d != null && d !is Decision.Random && Host.decider(s, d.player) == me && WhoActs.automaticAnswer(model, d) == null) return "decision"
         return null
     }
 
@@ -1192,7 +1193,7 @@ class GameDevice(
     private fun own(s: GameState, m: GameModel = model, at: String = session.tip): Input? {
         val d = s.pending?.decision
         if (d != null) {
-            if (d is Decision.Random || Engine.decider(s, d.player) != me) return null
+            if (d is Decision.Random || Host.decider(s, d.player) != me) return null
             return WhoActs.automaticAnswer(m, d) ?: oneAnswer(s, d, m)?.takeIf { !keeps(at) }
         }
         val holder = s.priority.holder
@@ -1624,12 +1625,12 @@ class GameDevice(
             if (d != null) {
                 if (d is Decision.Random) { builder.answerRandoms(); return@repeat }
                 val answer = WhoActs.automaticAnswer(model, d)
-                    ?: if (own && Engine.decider(s, d.player) == me) oneAnswer(s, d) else null
+                    ?: if (own && Host.decider(s, d.player) == me) oneAnswer(s, d) else null
                 builder.perform(answer ?: return)
                 return@repeat
             }
             val holder = s.priority.holder ?: return
-            val mine = Engine.decider(s, holder) == me
+            val mine = Host.decider(s, holder) == me
             // After an assumed input only engine-automatic answers fold: the player's own inputs are their own event
             if (mine && !own) return
             // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04),
@@ -1642,7 +1643,7 @@ class GameDevice(
             // TRN-060 (CR 104.4b): a pass nobody could avoid is a forced one, or the player's own where they can do nothing
             // but pass: what they hold can't stop the loop (a hand of only lands, owner 2026-11-05)
             val unavoidable = forced || (yields && check.ownSkipOn)
-            val key = if (yields || s.stack.isNotEmpty() && unavoidable) Engine.loopKey(s) else null
+            val key = if (yields || s.stack.isNotEmpty() && unavoidable) Host.loopKey(s) else null
             if (!unavoidable) forcedSeen.clear()
             else if (key != null && s.stack.isNotEmpty() && !forcedSeen.add(key)) {
                 builder.perform(Input.MandatoryLoop)
@@ -2429,7 +2430,7 @@ class GameDevice(
         val s = model.engine
         if (s.turn.number != 0) return null
         val d = s.pending?.decision
-        if (d != null && Engine.decider(s, d.player) == me) return Input.Answer(d.id, answer)
+        if (d != null && Host.decider(s, d.player) == me) return Input.Answer(d.id, answer)
         return Input.SetupAnswer(me, answer).takeIf { Engine.options(s, me).any { it is Input.SetupAnswer && it.player == me } }
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
@@ -39,7 +40,7 @@ object AutomatumOpening {
         val pending = s.pending ?: return 0
         val stage = (pending.continuation as? Continuation.Setup)?.stage as? SetupStage.Bottom ?: return 0
         if (me !in stage.mulligans.taking || me in stage.done) return 0
-        (pending.decision as? Decision.ChooseObjects)?.takeIf { Engine.decider(s, it.player) == me }?.let { return it.min }
+        (pending.decision as? Decision.ChooseObjects)?.takeIf { Host.decider(s, it.player) == me }?.let { return it.min }
         return Engine.options(s, me).firstNotNullOfOrNull { input ->
             ((input as? Input.SetupAnswer)?.takeIf { it.player == me }?.answer as? Answer.Objects)?.chosen?.size
         } ?: 0

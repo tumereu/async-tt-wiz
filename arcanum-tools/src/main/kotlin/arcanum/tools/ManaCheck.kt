@@ -9,6 +9,7 @@ import arcanum.api.Layout
 import arcanum.api.Mechanic
 import arcanum.api.Zone
 import arcanum.api.isManaAbility
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -154,7 +155,7 @@ private object ManaBoards {
             val outcome = runCatching { Engine.perform(state, Input.Cast(alice, id)) }.getOrNull() ?: continue
             val after = state.deepCopy()
             outcome.changes.forEach { after.apply(it) }
-            val least = Engine.castCosts(after).least ?: continue
+            val least = CastScreen.castCosts(after).least ?: continue
             if (arcanum.api.ManaCost.parse("{4}") != least) return "lowers"
         }
         val state = game()
@@ -164,7 +165,7 @@ private object ManaBoards {
         val outcome = runCatching { Engine.perform(state, Input.Cast(alice, id)) }.getOrNull() ?: return "look: its cast isn't begun on this board"
         val after = state.deepCopy()
         outcome.changes.forEach { after.apply(it) }
-        val least = Engine.castCosts(after).least
+        val least = CastScreen.castCosts(after).least
         val printed = card.faces.first().manaCost
         return if (least != null && least != printed) "lowers" else "look: not lowered on this board"
     }

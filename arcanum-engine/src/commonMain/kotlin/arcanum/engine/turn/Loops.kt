@@ -24,7 +24,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * A game state with object ids, timestamps and what is recorded about the past left out ([arcanum.engine.Engine.loopKey]):
+ * A game state with object ids, timestamps and what is recorded about the past left out ([arcanum.engine.Host.loopKey]):
  * two states with the same key differ only in those. A hash of the state's canonical form, so a host can keep many.
  */
 @Serializable
@@ -106,7 +106,7 @@ internal object Loops {
     private fun id(id: ObjectId): String = json.encodeToJsonElement(ObjectId.serializer(), id).jsonPrimitive.content
 
     /**
-     * [arcanum.engine.Engine.loopKey]: [state] in JSON without its log, ledgers, per-turn counts, input count and
+     * [arcanum.engine.Host.loopKey]: [state] in JSON without its log, ledgers, per-turn counts, input count and
      * timestamps, cards'
      * definitions by name, every object, Stack item, effect and delayed trigger id replaced by its place (zones in
      * order first: libraries, hands, graveyards, outside the game, the battlefield, the Stack, exile, the command zone;

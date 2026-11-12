@@ -28,7 +28,7 @@ import arcanum.engine.state.TargetRef
  * defines is chosen by the payer as they pay, from 0 to the most they may pay (CR 107.3f), and the rest of the resolution reads it as X;
  * "its mana cost" is the mana cost of the resolving ability's source (CR 107.3h: its X is 0 unless it is a spell on the Stack; no mana
  * cost is an unpayable cost, CR 118.6). A [CostPart.Manual] (text a definition couldn't express, which
- * [arcanum.engine.Engine.manualParts] names) can't be paid.
+ * [arcanum.engine.CardSupport.manualParts] names) can't be paid.
  */
 internal object Costs {
     fun describe(cost: Cost): String = cost.parts.joinToString(", ") { part ->

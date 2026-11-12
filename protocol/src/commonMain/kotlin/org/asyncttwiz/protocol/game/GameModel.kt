@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
 import arcanum.engine.EngineTrace
+import arcanum.engine.Host
 import arcanum.engine.Outcome
 import arcanum.engine.PassCheck
 import arcanum.engine.change.Change
@@ -65,22 +66,22 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         return Engine.view(engine).also { if (keepViews) keptView = it }
     }
 
-    /** What [player] may see of the engine state ([Engine.visible], from [view]), kept until the next change. */
+    /** What [player] may see of the engine state ([Host.visible], from [view]), kept until the next change. */
     fun visible(player: PlayerId): Set<ObjectId> {
         keptVisible[player]?.let { kept ->
-            if (checkKept) check(kept == Engine.visible(engine, player)) { "A kept visible set differs from the state's" }
+            if (checkKept) check(kept == Host.visible(engine, player)) { "A kept visible set differs from the state's" }
             return kept
         }
-        return Engine.visible(engine, player, view()).also { if (keepViews) keptVisible[player] = it }
+        return Host.visible(engine, player, view()).also { if (keepViews) keptVisible[player] = it }
     }
 
-    /** [Engine.passCheck] of [player] on the engine state (with [view]), kept until the next change. */
+    /** [Host.passCheck] of [player] on the engine state (with [view]), kept until the next change. */
     fun passCheck(player: PlayerId): PassCheck {
         keptPasses[player]?.let { kept ->
-            if (checkKept) check(kept == Engine.passCheck(engine, player)) { "A kept pass check differs from the state's" }
+            if (checkKept) check(kept == Host.passCheck(engine, player)) { "A kept pass check differs from the state's" }
             return kept
         }
-        return Engine.passCheck(engine, player, view()).also { if (keepViews) keptPasses[player] = it }
+        return Host.passCheck(engine, player, view()).also { if (keepViews) keptPasses[player] = it }
     }
 
     /** The kept outcome of [input] performed on the engine state as it is now ([EventBuilder.perform]), or null. */
@@ -304,7 +305,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
 
     /**
      * Starts line [number] (I-D56 §9): as the event's first step, each player's library's unknown parts
-     * ([Engine.unknownOrder]) are put in a new order from the new line's stream, one random answer per part, in players'
+     * ([Host.unknownOrder]) are put in a new order from the new line's stream, one random answer per part, in players'
      * order; cards whose place a player knows stay where they are. Shown nowhere.
      */
     fun startLine(number: Int) {
@@ -312,10 +313,10 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         line = Line(number, 0)
         val changes = mutableListOf<Change>()
         for (player in model.engine.players) {
-            val parts = Engine.unknownOrder(model.engine, player.id).map { part ->
+            val parts = Host.unknownOrder(model.engine, player.id).map { part ->
                 LineRandom.order(model.table.secret, line.number, line.drawn, part).also { line = line.copy(drawn = line.drawn + 1) }
             }
-            Engine.reorderUnknown(model.engine, player.id, parts)?.let { reorder ->
+            Host.reorderUnknown(model.engine, player.id, parts)?.let { reorder ->
                 pristine = false
                 model.changing()
                 model.engine.apply(reorder)

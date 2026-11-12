@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -21,8 +22,8 @@ import kotlin.random.Random
  *
  * The leak oracle runs on every event a device shows or sends: while the player's line is tentative on the server (an
  * assumption of theirs not yet confirmed), nothing shown may reveal a card they couldn't see before (I-D56 §5, §13). It
- * is worked out here, independently of the code under test ([InformationRule], [Engine.revealed]): the cards
- * [Engine.visible] gives the player after each step of the event, and those shown or revealed to them in passing
+ * is worked out here, independently of the code under test ([InformationRule], [Host.revealed]): the cards
+ * [Host.visible] gives the player after each step of the event, and those shown or revealed to them in passing
  * ([Change.Shown], [arcanum.engine.change.GameEvent.Revealed]), less what they saw before and their own library's. The
  * equivalence oracle ([equivalence]) replays the main line's inputs on the bare engine.
  */
@@ -125,9 +126,9 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     }
 
     /** The cards [event] shows [me] that they couldn't see on [before], apart from their own library's (I-D56 §5), worked
-     * out without the code under test: [Engine.visible] after each step, and what is shown or revealed in passing. */
+     * out without the code under test: [Host.visible] after each step, and what is shown or revealed in passing. */
     private fun shownTo(before: arcanum.engine.state.GameState, event: GameEvent, me: PlayerId): Set<arcanum.engine.state.CardId> {
-        fun seen(state: arcanum.engine.state.GameState) = Engine.visible(state, me).mapNotNull { state.obj(it)?.card }
+        fun seen(state: arcanum.engine.state.GameState) = Host.visible(state, me).mapNotNull { state.obj(it)?.card }
         val known = seen(before).toSet() + before.player(me).library.mapNotNull { before.obj(it)?.card }
         val existing = before.objects.values.map { it.card }.toSet()
         val state = before.deepCopy()
@@ -321,7 +322,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     /** Keeps answering [player]'s own decisions of a flow with a random listed answer. */
     fun flow(player: PlayerId, rnd: Random): (GameModel) -> Input? = { model ->
         val d = model.engine.pending?.decision
-        if (d == null || d is Decision.Random || Engine.decider(model.engine, d.player) != player) null
+        if (d == null || d is Decision.Random || Host.decider(model.engine, d.player) != player) null
         else Engine.options(model.engine, player).filterIsInstance<Input.Answer>().randomOrNull(rnd)
     }
 }

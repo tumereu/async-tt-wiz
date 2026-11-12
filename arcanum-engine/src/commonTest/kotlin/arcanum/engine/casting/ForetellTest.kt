@@ -4,6 +4,7 @@ import arcanum.api.ObjectMark
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Decision
 import arcanum.engine.foretell.Foretell
@@ -103,8 +104,8 @@ class ForetellTest {
         alice.hand(tidings)
         alice.takesSpecialAction(tidings, "foretell")
         val id = card(tidings)
-        assertTrue(id in Engine.visible(state, alice.id))
-        assertFalse(id in Engine.visible(state, bob.id))
+        assertTrue(id in Host.visible(state, alice.id))
+        assertFalse(id in Host.visible(state, bob.id))
     }
 
     // D60: in another player's view the card is foretold without being revealed, and stays unknown in exile

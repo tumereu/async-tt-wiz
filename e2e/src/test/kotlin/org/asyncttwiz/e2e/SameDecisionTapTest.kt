@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -84,7 +85,7 @@ class SameDecisionTapTest : E2e() {
         repeat(10) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != alice.me) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != alice.me) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
             else Engine.options(copy, alice.me).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.first()
             inputs += input

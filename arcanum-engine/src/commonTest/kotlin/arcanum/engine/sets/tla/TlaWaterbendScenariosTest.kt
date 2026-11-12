@@ -180,9 +180,9 @@ class TlaWaterbendScenariosTest {
         resolveAll()
         assertEquals(listOf(arcanum.engine.state.PlayerControl(bob.id, alice.id, combatOnly = true)), state.turn.controlNext)
         advanceTo(arcanum.api.TurnStep.PrecombatMain, turn = 2)
-        assertEquals(bob.id, arcanum.engine.Engine.decider(state, bob.id))
+        assertEquals(bob.id, arcanum.engine.Host.decider(state, bob.id))
         advanceTo(arcanum.api.TurnStep.BeginningOfCombat, turn = 2)
-        assertEquals(alice.id, arcanum.engine.Engine.decider(state, bob.id))
+        assertEquals(alice.id, arcanum.engine.Host.decider(state, bob.id))
         expect { TlaSet.secretOfVeinshaping.zone shouldBe Zone.Exile }
     }
 

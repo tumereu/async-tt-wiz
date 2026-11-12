@@ -1,6 +1,6 @@
 package org.asyncttwiz.catalog
 
-import arcanum.engine.Engine
+import arcanum.engine.CardSupport
 import arcanum.parser.OracleParser
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -94,7 +94,7 @@ class CatalogBuilder(
             CatalogSetRecord(info.code, info.name, info.type, info.released, info.keyrune, draftable = info.type in draftTypes)
         }
         val header = CatalogHeader(CardCatalogFormat.FORMAT, metadata.version, metadata.date, CardSearchRules.FORMATS,
-            OracleParser.VERSION, Engine.SUPPORT_VERSION, setRecords.size, faces.size, printings.size, recipes.size)
+            OracleParser.VERSION, CardSupport.SUPPORT_VERSION, setRecords.size, faces.size, printings.size, recipes.size)
         val unmarked = CardCatalog(header, setRecords, faces, printings, recipes)
         return mark(unmarked)
     }

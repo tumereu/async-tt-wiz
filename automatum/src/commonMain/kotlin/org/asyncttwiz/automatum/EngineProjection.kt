@@ -2,6 +2,8 @@ package org.asyncttwiz.automatum
 
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
+import arcanum.engine.Inspect
 import arcanum.engine.change.Change
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
@@ -34,7 +36,7 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
 
 /**
  * A game on engine state shown with ATW's table (I-D54 item 2, I-D56 step C): the board the table draws, made from the
- * engine's state ([Engine.view], [Engine.visible]) and the table state, as one player sees it ([Board]: the plain data the
+ * engine's state ([Engine.view], [Host.visible]) and the table state, as one player sees it ([Board]: the plain data the
  * table draws, engine-responsiveness R4a; the engine state stays beside it, never on it, and nothing is ever applied to
  * it).
  *
@@ -395,7 +397,7 @@ object EngineProjection {
     fun dungeon(state: GameState, player: String): ShownDungeon? {
         val obj = state.command.mapNotNull { state.objects[it] }.firstOrNull { it.owner.value == player && isDungeon(it) } ?: return null
         val face = obj.definition?.faces?.firstOrNull() ?: return null
-        val room = Engine.ventureRoom(state, obj.id)?.let { face.rooms.getOrNull(it)?.name }.orEmpty()
+        val room = Inspect.ventureRoom(state, obj.id)?.let { face.rooms.getOrNull(it)?.name }.orEmpty()
         return ShownDungeon(obj.card.value, face.name, room)
     }
 

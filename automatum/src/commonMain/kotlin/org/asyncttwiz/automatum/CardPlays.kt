@@ -6,7 +6,9 @@ import arcanum.api.CardType
 import arcanum.api.CostPart
 import arcanum.api.Zone
 import arcanum.api.isManaAbility
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -75,7 +77,7 @@ class CardPlays private constructor(
         /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
          * information, not changed here; the card ids are the game's), [view] its view and [visible] what [viewer] may
-         * see of it ([Engine.visible]), which the caller already has (worked out once on the engine thread, nothing
+         * see of it ([Host.visible]), which the caller already has (worked out once on the engine thread, nothing
          * copied).
          */
         fun of(state: GameState, viewer: String, view: View, visible: Set<ObjectId>): CardPlays =
@@ -151,13 +153,13 @@ class CardPlays private constructor(
             }
 
         /** Why the engine refuses [input] now: the refusal [Engine.perform] gives before anything is done, asked without
-         * performing it ([Engine.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin
+         * performing it ([CastScreen.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin
          * (refused later, if at all: a target or a cost it can't have) is [CardPlay.Refusal.Other]. */
         private fun refusal(state: GameState, view: View, input: Input, ability: Ability? = null): CardPlay.Refusal {
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }
             // Every cast, land play, activation and special action needs priority (CR 117.1, 116.2)
             if (state.priority.holder != player) return CardPlay.Refusal.Priority(state.priority.holder?.value)
-            val message = Engine.refusal(state, input, view) ?: return CardPlay.Refusal.Other
+            val message = CastScreen.refusal(state, input, view) ?: return CardPlay.Refusal.Other
             val loyalty = (ability as? Ability.Activated)?.cost?.parts?.any { it is CostPart.Loyalty } == true
             return when {
                 loyalty && "loyalty ability" in message -> CardPlay.Refusal.Loyalty

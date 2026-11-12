@@ -65,7 +65,7 @@ internal object Perform {
         return runOn(recorder, input).also { it.view = recorder.state.viewCache?.view }
     }
 
-    /** [Engine.refusal]: the checks [untraced] and [runOn] make before anything is done, in their order, on [state]
+    /** [CastScreen.refusal]: the checks [untraced] and [runOn] make before anything is done, in their order, on [state]
      * itself (nothing is changed, so no copy). */
     fun refusal(state: GameState, input: Input, view: arcanum.engine.view.View?): String? {
         if (input !is Input.PlayLand && input !is Input.Cast && input !is Input.Activate) return null

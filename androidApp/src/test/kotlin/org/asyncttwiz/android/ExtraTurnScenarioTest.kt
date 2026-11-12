@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -45,7 +46,7 @@ class ExtraTurnScenarioTest {
         while (true) {
             Engine.perform(copy, next).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != a) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != a) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else Engine.options(copy, a).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next

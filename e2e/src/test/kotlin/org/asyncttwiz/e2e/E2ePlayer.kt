@@ -99,7 +99,10 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         accountId = { auth.state.account?.accountId }, authenticationRequired = ::authenticationRequired,
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         accountOrigin = link.origin, podApi = PodApi(link.origin, authenticationRequired = ::authenticationRequired),
-        clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker)
+        clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker,
+        // STK-062: the cards the phone names for the engine come from its card records, as the app's do ([withCatalog])
+        namedCards = org.asyncttwiz.protocol.game.NamedCards { name ->
+            catalog?.let { records -> org.asyncttwiz.android.CatalogNamedCards { records.repository }.definition(name) } })
     /** Holds the card catalog's download until the test lets it through ([holdCatalog]). */
     val catalogGate = java.util.concurrent.CountDownLatch(if (holdCatalog) 1 else 0)
     private val catalogDirectory = if (withCatalog) kotlin.io.path.createTempDirectory("e2e-catalog-${account.name}").toFile() else null

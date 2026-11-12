@@ -78,7 +78,7 @@ class NamedCardTest {
         s.player(bob).hand.first { s.obj(it)?.definition?.faces?.first()?.name == copier }
     }
 
-    // CR 707.12: Bob's Copier names Ember Study; his phone gives the engine the Study from his card records, the copy is made
+    // STK-062, CR 707.12: Bob's Copier names Ember Study; his phone gives the engine the Study from his card records, the copy is made
     // (a copy of a card, not a card) and cast, and resolves: he draws a card; both phones see the same game
     @Test
     fun theNamedCardIsAnsweredFromTheCardRecords() {
@@ -97,7 +97,7 @@ class NamedCardTest {
         assertEquals(s, sim.device(sim.alice).model.engine, "Alice's phone has the same game")
     }
 
-    // Without card records (none installed), the decision waits for them; nothing else answers it
+    // STK-062: without card records (none installed), the decision waits for them; nothing else answers it
     @Test
     fun withoutCardRecordsTheNamedCardWaits() {
         val sim = sim(NamedCards.NONE)

@@ -71,7 +71,7 @@ class CatalogNamesTest {
         assertEquals(listOf("Dawn Bear"), catalogNames(listOf(plain, token), "dawn", ObjectFilter.Any))
     }
 
-    // CR 707.12: "create a copy of the card with the chosen name": the card of that name in the records, built as a deck's card
+    // STK-062, CR 707.12: "create a copy of the card with the chosen name": the card of that name in the records, built as a deck's card
     // is (its card data through the parser), never a token of that name
     @Test
     fun aNamedCardIsTheRecordsCardOfThatName() {

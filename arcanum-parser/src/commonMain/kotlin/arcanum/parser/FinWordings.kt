@@ -136,7 +136,8 @@ internal object Fin {
     val ATTACHED_CLAUSES = Regex("""(Equipped creature|Enchanted creature) ((?:gets|has|is) .+?)\.?""")
     val HAS_QUOTE = Regex("""has "(.+)"""")
     val IS_A_IN_ADDITION = Regex("""is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) in addition to its other types""")
-    val CLAUSE_SEPARATOR = Regex(""",? and (?=(?:is|has|gets) )|, (?:and )?""")
+    // lci chunk 01: also ' and "' before a quoted ability ('has reach, "…," and "…"')
+    val CLAUSE_SEPARATOR = Regex(""",? and (?=(?:is|has|gets) |")|, (?:and )?""")
     // fin chunk 01: "Whenever you cast a noncreature spell and whenever you draw your third card each turn, put …"
     val WHENEVER_AND_WHENEVER = Regex("""Whenever (.+?) and whenever (.+?), (.+)""")
     val IF_THAT_CARD_ENTERS_TAPPED_ATTACKING = Regex("""If that card is an? (.+?), it enters tapped and attacking\.""")

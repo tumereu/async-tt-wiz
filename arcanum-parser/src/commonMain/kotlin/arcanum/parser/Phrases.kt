@@ -471,6 +471,11 @@ internal object Filters {
     // chunk 14
     private val OR_SPELL = Regex("""(\w+ or \w+) spells?""")
     private val PERMANENT_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+
+    /** lci chunk 01: the kind a cast names before "spell" ("you cast a creature spell"); a "permanent spell" is an artifact, battle,
+     * creature, enchantment, or planeswalker spell (CR 110.4b), not a permanent on the battlefield. */
+    fun spellKind(text: String): ObjectFilter? =
+        if (text == "permanent") ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }) else noun(text)
     // chunk 20
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
@@ -671,7 +676,7 @@ internal object Events {
             return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
         }
         YOU_CAST.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
         }
         // chunk 25: "a creature is put into your graveyard from the battlefield": a card goes to its owner's graveyard
@@ -693,7 +698,7 @@ internal object Events {
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)
         // chunk 14: "a player casts an instant or sorcery spell", "a player taps an Island for mana", "an opponent gains life"
         PLAYER_CASTS.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(kind, by = PlayerFilter.Any)
         }
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
@@ -998,6 +1003,7 @@ internal object Conditions {
         SosPhrases.condition(text, self)?.let { return it } // sos
         TmtPhrases.condition(text, self)?.let { return it } // tmt
         MshPhrases.condition(text, self)?.let { return it } // msh
+        LciPhrases.condition(text)?.let { return it } // lci
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr

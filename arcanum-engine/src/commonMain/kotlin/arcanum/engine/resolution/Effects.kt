@@ -1515,6 +1515,16 @@ internal object Effects {
             if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
+        // lci: an expansion's "you" is the player doing the action: "Then that player discovers X" discovers from that player's library
+        // and that player casts the card (CR 701.57a); "target player investigates" makes the Clue theirs (CR 701.16a)
+        if (scope.actor != scope.you || (action is KeywordAction.Discover && bind != null)) KeywordExpansions.expand(action)?.let { steps ->
+            val doer = if (scope.actor == scope.you) scope else Scope(act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor)
+            Steps.run(doer, steps)
+            scope.names = doer.names
+            // lci: CR 701.57c: the bind names the discovered card, which the expansion found
+            if (action is KeywordAction.Discover) scope.bind(bind, doer.names["discovered"] ?: NamedValue.Objects(emptyList()))
+            return
+        }
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
         val cause = scope.cause
         when (action) {

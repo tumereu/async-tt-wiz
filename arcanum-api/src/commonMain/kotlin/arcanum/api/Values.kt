@@ -220,6 +220,10 @@ sealed interface Condition {
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
+    // rvr
+    /** [of] was cast during a main phase of the player who cast it (addendum, an ability word, CR 207.2c: "If you cast this
+     * spell during your main phase"; main phases, CR 505.1). A copy wasn't cast (CR 707.10), so for a copy this is false. */
+    @Serializable @SerialName("cast-during-main-phase") data class CastDuringMainPhase(val of: Objects) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(

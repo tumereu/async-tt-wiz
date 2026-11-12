@@ -851,6 +851,7 @@ internal object Events {
     private val GTC_YOU_TAP_FOR_MANA = Regex("""you tap (.+) for mana""")
     private val GTC_BECOMES_TAPPED = Regex("""(.+) becomes tapped""")
     private val GTC_IS_TAPPED_FOR_MANA = Regex("""(.+) is tapped for mana""")
+    private val ENCHANTED_SUBTYPE = Regex("""enchanted [A-Z][a-z]+""")
     private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals combat damage""")
     private val GTC_DEALS_COMBAT_DAMAGE_TO_YOU = Regex("""(.+) deals combat damage to you""")
     private val GTC_PUT_INTO_OPPONENTS_GRAVEYARD = Regex("""(.+) is put into an opponent's graveyard from anywhere""")
@@ -867,7 +868,8 @@ internal object Events {
         // CR 701.54e
         if (text == "your Ring-bearer" || text == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         // gtc chunk 08
-        if (text == "enchanted land") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
+        // rvr chunk 01: "enchanted Forest" (an Aura with "Enchant Forest")
+        if (text == "enchanted land" || ENCHANTED_SUBTYPE.matches(text)) return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
@@ -1001,6 +1003,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        RvrPhrases.condition(text, self)?.let { return it } // rvr
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1117,8 +1120,9 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
                 ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))), from = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
         // chunk 21
-        SELF_IS_UNTAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)))
+        // rvr chunk 01: also "equipped creature is untapped" (false while it is attached to nothing)
+        SELF_IS_UNTAPPED.matchEntire(text)?.let { tappedSubject(it.groupValues[1], self) }?.let {
+            return Condition.ObjectMatches(it, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)))
         }
         // chunk 20: "the sacrificed creature's toughness was 4 or greater" (its last known information, CR 608.2h)
         SACRIFICED_AT_LEAST.matchEntire(text)?.let { m ->
@@ -1126,8 +1130,8 @@ internal object Conditions {
             val filter = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return Condition.ObjectMatches(Objects.Bound(SACRIFICED), filter)
         }
-        SELF_IS_TAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
+        SELF_IS_TAPPED.matchEntire(text)?.let { tappedSubject(it.groupValues[1], self) }?.let {
+            return Condition.ObjectMatches(it, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
         CARDS_IN_YOUR_GRAVEYARD.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -1334,6 +1338,13 @@ internal object Conditions {
     private val WAS_KICKED = Regex("""(.+) was kicked""")
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more card types among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
+
+    /** The object of "[this] is tapped" / "is untapped": this object, or the creature it is attached to (rvr chunk 01). */
+    private fun tappedSubject(subject: String, self: Set<String>): Objects? = when {
+        subject in self -> Objects.Self
+        subject == "equipped creature" || subject == "enchanted creature" -> Objects.AttachedTo(Objects.Self)
+        else -> null
+    }
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different (names|powers)""")

@@ -1223,6 +1223,13 @@ internal class Sentences(
                 return spell.copy(abilityWord = s.groupValues[1].ifEmpty { null }, instructions = spell.instructions.copy(
                     steps = listOf(Step.If(condition, then = listOf(Step.Do(create.copy(count = Value.Fixed(n)))), otherwise = listOf(usual)))))
             }
+            // rvr chunk 01: "Addendum — If …, it deals 5 damage instead.": the same damage to the same recipients, another amount
+            SELF_DEALS_N.matchEntire(s.groupValues[3])?.takeIf { it.groupValues[1] == "it" || isSelf(it.groupValues[1]) }?.let { d ->
+                val steps = spell.instructions.steps
+                val usual = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.DealDamage ?: return null
+                return spell.copy(abilityWord = s.groupValues[1].ifEmpty { null }, instructions = spell.instructions.copy(steps = steps.dropLast(1) +
+                    Step.If(condition, then = listOf(Step.Do(usual.copy(amount = Value.Fixed(d.groupValues[2].toInt())))), otherwise = listOf(steps.last()))))
+            }
             val replacement = instructions(s.groupValues[3].replaceFirstChar { it.uppercase() } + ".", spell.instructions.targets)
                 ?.takeIf { it.targets == spell.instructions.targets } ?: return null
             return spell.copy(abilityWord = s.groupValues[1].ifEmpty { null }, instructions = spell.instructions.copy(
@@ -1254,6 +1261,17 @@ internal class Sentences(
      */
     fun continuation(line: String, previous: Instructions): Instructions? {
         val text = ABILITY_WORD.matchEntire(line)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.groupValues?.get(2) ?: line
+        // rvr chunk 01: "If …, put a +1/+1 counter on each of those creatures and they gain vigilance until end of turn." (the objects the
+        // paragraph before affected)
+        Rvr.IF_COUNTER_ON_EACH_OF_THOSE_AND_THEY_GAIN.matchEntire(text)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            val those = (((previous.steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics)?.affects as? arcanum.api.Affected.Objects)?.objects
+                ?: return null
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
+            return previous.copy(steps = previous.steps + Step.If(condition, then = listOf(
+                Step.Do(Effect.PutCounters(those, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(those), arcanum.api.Duration.EndOfTurn)))))
+        }
         val read = instructions(text, seedTargets = previous.targets) ?: return null
         return previous.copy(targets = read.targets, steps = previous.steps + read.steps, replacements = previous.replacements + read.replacements,
             announced = (previous.announced + read.announced).distinct())
@@ -1770,10 +1788,11 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)), affects = Affected.Objects(Objects.Self))
         }
         // chunk 42: "This creature gets +2/+2 as long as there are three or more land cards in your graveyard."
-        SELF_GETS_AS_LONG_AS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // rvr chunk 01: also "Enchanted creature gets an additional +2/+0 as long as …"
+        SELF_GETS_AS_LONG_AS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) || Rtr.ATTACHED_SUBJECT.matches(it.groupValues[1]) }?.let { m ->
             val condition = Conditions.condition(m.groupValues[4], self) ?: return null
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
-                condition = condition, affects = Affected.Objects(Objects.Self))
+                condition = condition, affects = Affected.Objects(if (isSelf(m.groupValues[1])) Objects.Self else Objects.AttachedTo(Objects.Self)))
         }
         // chunk 42: "This creature gets +1/+1 for each creature card in your graveyard."
         SELF_GETS_FOR_EACH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -2065,6 +2084,8 @@ internal class Sentences(
                 else -> Value.Times(per, n)
             }
             Mechanic.ModifyPowerToughness(amount(m.groupValues[1].toInt()), amount(m.groupValues[2].toInt()))
+        } ?: BlbGaps.BASE_PT.matchEntire(predicate)?.let { m -> // rvr chunk 01: "has base power and toughness 1/1" (layer 7b)
+            Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))
         } ?: HAS_KEYWORDS.matchEntire(predicate)?.let { m ->
             Mechanic.GainAbilities(m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
         } ?: when (predicate) {
@@ -2751,6 +2772,8 @@ internal class Sentences(
         // dft chunk 04: also "this creature attacks while saddled" (this creature, saddled)
         if (event is EventPattern.Attack && (event.attacker as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
+        // rvr chunk 01: "if enchanted creature is untapped, tap it": "it" is the attached object the intervening if is about (CR 603.4)
+        if (them is Objects.AttachedTo) context.it = them
         context.definedX = x // tla
         if (stateTriggerSelf) context.it = Objects.Self // fdn
         // chunk 20
@@ -5366,9 +5389,9 @@ internal class Sentences(
         // chunk 40: "Tap or untap another target permanent.": one of the two, chosen as it resolves
         TAP_OR_UNTAP.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[2]
-            val filter = Filters.noun(noun) ?: return null
-            val target = context.target(Filters.slotName(noun),
-                if (m.groupValues[1].isEmpty()) filter else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter))
+            // rvr chunk 01: "Tap or untap equipped creature." (no target)
+            val target = if (m.groupValues[3].isNotEmpty()) Objects.AttachedTo(Objects.Self) else context.target(Filters.slotName(noun),
+                (Filters.noun(noun) ?: return null).let { filter -> if (m.groupValues[1].isEmpty()) filter else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter) })
             return listOf(
                 Step.Choose(arcanum.api.Choice.Option(listOf("tap", "untap")), bind = "tapOrUntap", chooser = Players.You),
                 Step.If(arcanum.api.Condition.Chose("tapOrUntap", "tap"),
@@ -5618,10 +5641,14 @@ internal class Sentences(
         EXILE_UP_TO_TARGET.matchEntire(sentence)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val noun = m.groupValues[3]
-            val other = if (m.groupValues[2].isEmpty()) emptyList() else listOf(context.another())
-            val filter = Filters.all(*(other + listOf(Filters.noun(noun) ?: return null)).toTypedArray())
-            val slot = Filters.slotName(noun)
-            context.targets += TargetSlot(slot, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(n))
+            val base = Filters.noun(noun) ?: return null
+            // rvr chunk 01: "Exile target artifact or enchantment. … exile up to one other target artifact or enchantment": "other" after a
+            // target of the same kind is a different object from that target (CR 115.3), not one other than this object
+            val earlier = if (m.groupValues[2].isEmpty()) null else context.targets.lastOrNull { (it.what as? TargetKind.Objects)?.filter == base }
+            val other = if (m.groupValues[2].isEmpty() || earlier != null) emptyList() else listOf(context.another())
+            val filter = if (earlier != null) base else Filters.all(*(other + listOf(base)).toTypedArray())
+            val slot = Filters.slotName(noun).let { if (earlier == null) it else nextTargetName(it, context.targets.map { t -> t.name }) }
+            context.targets += TargetSlot(slot, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(n), distinctFrom = listOfNotNull(earlier?.name))
             context.it = Objects.Bound("exiled")
             // dsk chunk 04: linked to "cards exiled with this creature" (CR 607.2a)
             return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Exile), postBind = "exiled"))) +
@@ -8798,7 +8825,9 @@ internal class Sentences(
         // rtr chunk 01: "Enchanted creature can't attack or block, and its activated abilities can't be activated." (an Arrest)
         Rtr.CANT_ATTACK_OR_BLOCK_OR_ACTIVATE.matchEntire(line)?.let { m ->
             val affects = rtrSubject(m.groupValues[1]) ?: return@let
-            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any), Mechanic.CantBeActivated(manaAbilities = true)), affects = affects)
+            // rvr chunk 01: "… can't be activated unless they're mana abilities." keeps mana abilities (CR 605)
+            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any), Mechanic.CantBeActivated(manaAbilities = m.groupValues[2].isEmpty())),
+                affects = affects)
         }
         // rtr chunk 02: 'Enchanted land has "{T}: …"', 'Enchanted creature gets +2/+1 and has "{R}: …"' (layers 6, 7c; the granted
         // ability's "this creature"/"this land" is the object that has it, CR 113.10)
@@ -10770,7 +10799,7 @@ internal class Sentences(
         val UNTAP_IT = "Untap it."
         val SACRIFICE_A_AND_A = Regex("""Sacrifice (an? \w+) and (an? \w+)""")
         // rtr chunk 01
-        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated\.""")
+        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated( unless they're mana abilities)?\.""")
         val ATTACHED_SUBJECT = Regex("""(?:Enchanted|Equipped) (?:creature|land|permanent|artifact)""")
         val DETAIN = Regex("""Detain (?:(up to \w+) )?target (.+)\.""")
         val THEN_POPULATE = Regex("""(.+), then populate\.""")
@@ -11419,7 +11448,7 @@ internal class Sentences(
         val BECOMES_ADDITIONAL_TYPE = Regex("""becomes an? (\w+) in addition to its other creature types""")
         val SELF_GETS_UNTIL_EOT = Regex("""(.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
         val CANT_BE_BLOCKED_EXCEPT_BY_THIS_TURN = Regex("""(.+) can't be blocked this turn except by creatures with (\w+)\.""")
-        val TAP_OR_UNTAP = Regex("""Tap or untap (another )?target (.+)\.""")
+        val TAP_OR_UNTAP = Regex("""Tap or untap (?:(another )?target (.+)|(equipped creature|enchanted creature))\.""")
         val GAINS_PROTECTION_OF_CHOICE = Regex("""(Another target|Target) (.+) gains protection from (colorless or from )?the color of your choice until end of turn\.""")
         val CHANGE_A_TARGET_TO = Regex("""Change a target of target (.+) to (.+)\.""")
         // chunk 41

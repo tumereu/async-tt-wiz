@@ -895,6 +895,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
+        // rvr: addendum (CR 207.2c, 505.1)
+        is Condition.CastDuringMainPhase -> objects(condition.of).any { id -> facts(id)?.duringOwnMainPhase == true }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()

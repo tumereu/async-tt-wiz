@@ -572,6 +572,39 @@ class CastController(
         return targetGlow(play, pick.options.map(f::ref))
     }
 
+    /**
+     * STK-047 (owner 2026-11-11, which pick is which): the text of what is cast or activated with the phrase picked now and
+     * what was chosen for the phrases before ([org.asyncttwiz.automatum.PickText]); null without a pick on the table or a
+     * text to show it in. Worked out once per pick and picks so far.
+     */
+    fun pickText(play: TableBoard): org.asyncttwiz.automatum.PickText? {
+        val f = flow ?: return null
+        val pick = pick ?: return null
+        pickTextOf?.let { (of, now, text) -> if (of === f && now == picked) return text }
+        val costs = f.steps.mapNotNull { (d, a) ->
+            (d as? Decision.ChooseObjects)?.cost?.let { at -> at to (a as? Answer.Objects)?.chosen.orEmpty() } }
+        val announcing = org.asyncttwiz.automatum.PickText.announcing(f.call.pending?.continuation, pick.decision)
+        val text = announcing?.let {
+            runCatching { org.asyncttwiz.automatum.PickText.of(f.state, it, pick.decision, costs, picked, rulesTextOf(play, f.cardId)) }
+                .onFailure { problem -> AppLog.warn("cast", "No pick text for ${pick.decision.id.value}: $problem") }.getOrNull()
+        }
+        if (pickTextOf?.first !== f) AppLog.info("cast", "Pick text for ${pick.decision.id.value} (${pick.decision.kind}" +
+            "${(pick.decision as? Decision.ChooseObjects)?.cost?.let { ", cost part $it" } ?: ""}): " +
+            (text?.let { t -> "now \"${t.now}\", ${t.parts.size} parts, roles ${t.roles.map { it.second }}" } ?: "none") +
+            ", earlier cost choices ${costs.size}")
+        pickTextOf = Triple(f, picked, text)
+        return text
+    }
+    private var pickTextOf: Triple<CastFlow, List<TargetRef>, org.asyncttwiz.automatum.PickText?>? = null
+
+    /** STK-047 (owner 2026-11-11): what each table card picked so far in the open cast is for ("Target", "Sacrificed",
+     * "Equip"), by its card id, for its chip on the table. */
+    fun pickRoles(play: TableBoard): Map<String, String> {
+        val f = flow ?: return emptyMap()
+        if (!targeting) return emptyMap()
+        return pickText(play)?.roles.orEmpty().mapNotNull { (ref, role) -> (f.ref(ref) as? MtgRef.Card)?.cardId?.let { it to role } }.toMap()
+    }
+
     /** STK-047: the table items picked so far for a question that takes several, drawn as picked. */
     fun pickedGlow(play: TableBoard): Set<String> {
         val f = flow ?: return emptySet()

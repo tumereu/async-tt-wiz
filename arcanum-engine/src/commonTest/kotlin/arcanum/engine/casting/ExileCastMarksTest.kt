@@ -304,7 +304,9 @@ class ExileCastMarksTest {
         alice.hand(omens)
         alice.takesSpecialAction(omens, "foretell")
         val facts = state.objOrThrow(card(omens)).facts
-        assertEquals(listOf(MarkGained(ObjectMark.Foretold, state.turn.number, listOf(mana("{1}{U}")))), facts.marksGained)
+        // Where the cost is printed (Cost.spans) is text only
+        assertEquals(listOf(MarkGained(ObjectMark.Foretold, state.turn.number, listOf(mana("{1}{U}")))),
+            facts.marksGained.map { it.copy(costs = it.costs.map { c -> c.copy(spans = emptyList()) }) })
     }
 
     // ---- Abilities while marked

@@ -95,7 +95,9 @@ seeded random games of cube cards, failing on any open player decision without a
   `Continuation`, the open flow the host stores opaquely (D58). Decisions carry text for people (`Texts`): a "you
   may", a choice or a cost to pay reads as the sentence of the ability's printed text, modes and triggers to order
   as their printed lines (with the trigger's `AbilityOrigin`), replacements to order as their ability's text; plain
-  words where a definition has no text.
+  words where a definition has no text. A cost's choice of objects while casting or activating names the printed part
+  it pays (`Decision.ChooseObjects.cost`, a `CostPartAt`: the part's index in the activated ability's own cost, or in the
+  cost a spell's additional or alternative cost ability states), so a host can show its phrase (`Cost.spans`).
 - `view/` — `View`/`ObjectView`/`Characteristics` (`ObjectView.base`: the values after layer 1 only, to compare
   with), `AbilityOrigin` (an ability's path, D42/D44); `Explanation` (`Engine.explain`, a host's Inspect): the values
   after layer 1, then each continuous effect that changed the object in the order applied, with its layer, timestamp,

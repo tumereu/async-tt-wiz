@@ -85,7 +85,7 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
     val source = castSource(play, toolkit.viewer, flow, cast.abilityText)
     if (cast.targeting) {
         // The target bar stays while a target is picked from the Stack's list (STK-048)
-        AboveHand(handRow) { TargetBar(cast, flow, play, source, toolkit.viewer) }
+        AboveHand(handRow) { TargetBar(cast, flow, play, source, toolkit.viewer, names) }
         return
     }
     // STK-024: the panel's height says which of the sources paying lie under it
@@ -241,7 +241,7 @@ fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? =
 }
 
 @Composable
-private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String) {
+private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
     val pick = cast.pick ?: return
     val decision = pick.decision
     val inspector = remember { ChoiceInspector() }
@@ -249,7 +249,11 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
     // choice, the card it is for sits at the right. D1: a cost of battlefield permanents (a sacrifice) is picked the same way
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision), pickCount(pick, cast.picked.size))
+        // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
+        val pieces = cast.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, viewer, names) }
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+            TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision), pickCount(pick, cast.picked.size), pieces)
+        }
         // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
         if (pick.max != 1 || pick.min == 0) {
             val none = cast.picked.isEmpty()

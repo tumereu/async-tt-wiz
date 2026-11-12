@@ -46,6 +46,10 @@ The definition model (overview in `Definitions.kt`):
 - `TargetSlot.span` (`TextSpan`): where a slot's target phrase ("any target", "up to two target creatures") sits in the
   printed text of its ability, or of its mode (`Mode.text`) for a mode's slot, so a host can show a spell or ability with
   its chosen targets' names in place of the phrase. Text only, no rules meaning; null when unknown.
+- `Cost.spans` (`TextSpan`s, one per part, or none): where each cost part's phrase sits in its printed text ("{2}",
+  "{T}", "Pay 1 life"; a part choosing objects as the objects' phrase, "a creature" in "Sacrifice a creature"): an
+  activated ability's text, a static ability's sentence for an additional or alternative cost, a keyword's line for a
+  keyword's cost (its expansion keeps it). Text only, no rules meaning; empty when unknown.
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).

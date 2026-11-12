@@ -98,6 +98,32 @@ class TablePickTest {
         assertEquals(22, kit.state().player(kit.me).life.toInt(), "the ability resolved: Alice gained 2")
     }
 
+    // STK-047 (owner 2026-11-11, which pick is which), CR 702.6a, 601.2c, 601.2h: Alice taps her Ember Hauberk ("Equip—Sacrifice a
+    // creature."): its target, picked first, has no phrase of its own, so "Equip" shines; then the sacrifice's "a creature"
+    // shines, the target named after "Equip" in brackets, and the picked Pup carries an "Equip" chip on the table
+    @Test fun theEquipsTargetAndSacrificeShowWhichPickIsWhich() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.HAUBERK, Choices.PUP, Choices.ELF_BEAR))))
+        kit.opening()
+        kit.castFree(Choices.HAUBERK)
+        kit.castFree(Choices.PUP)
+        kit.castFree(Choices.ELF_BEAR)
+        val hauberk = kit.atw(kit.field(Choices.HAUBERK).single())
+        val pup = kit.atw(kit.field(Choices.PUP).single())
+        kit.tap(kit.item(hauberk))
+        val cast = kit.toolkit.cast
+        assertTrue(cast.targeting, "the equip's target is picked on the table: ${kit.toolkit.error}")
+        assertEquals("Equip", cast.pickText(kit.alice.play())?.now)
+        kit.tap(kit.item(pup))
+        assertIs<TablePick.Objects>(cast.pick, "then the sacrifice: ${kit.toolkit.error}")
+        render(kit)
+        compose.onNodeWithContentDescription("Question: Equip (${Choices.PUP})—Sacrifice a creature.", useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Choosing now: a creature", useUnmergedTree = true).assertExists()
+        compose.onNode(hasTestTag(ROLE_CHIP_TAG) and hasContentDescription("Equip: ${Choices.PUP}", substring = true), useUnmergedTree = true).assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/table-pick/equip-sacrifice-bar.png",
+            "Alice tapped her Ember Hauberk and picked her Ash Pup as its equip target: the bar shows \"Equip (Ash Pup)—Sacrifice a " +
+                "creature.\" with \"a creature\" lit in violet as the pick now, and the Pup carries a violet \"Equip\" chip on the table.")
+    }
+
     // D1, STK-030, STK-047: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
     // answer the chosen cards; a choice of cards in the hand (a discard) keeps its panel
     @Test fun onlyAChoiceAmongBattlefieldPermanentsIsPickedOnTheTable() {

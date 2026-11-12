@@ -78,6 +78,53 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
     }
 }
 
+/** The test tag of a picked card's role chip (STK-047). */
+const val ROLE_CHIP_TAG = "role-chip"
+
+/**
+ * STK-047 (owner 2026-11-11, which pick is which): each card on the table picked so far in the open cast or trigger (the one
+ * picked now included) carries a small violet chip just above its top left corner saying what it is for: "Target", "Sacrificed",
+ * "Tapped", or a keyword's target by its keyword ("Equip"). Drawn only: taps reach the card. [bounds]: where each item is
+ * drawn now.
+ */
+@Composable
+fun PickRoleChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene, bounds: (TableItem) -> TableBounds) {
+    val roles = toolkit.cast.pickRoles(play) + toolkit.flows.pickRoles(play)
+    if (roles.isEmpty()) return
+    val chips = roles.mapNotNull { (card, role) ->
+        val item = scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } ?: return@mapNotNull null
+        val shown = bounds(item)
+        val field = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds
+        if (field != null && !field.contains(shown.center)) null else RoleChip(card, role, item.label.substringBefore(", owner"), shown)
+    }
+    for (chip in chips) key(chip.card) {
+        LeftCornerPlaced(chip.bounds) {
+            Surface(shape = RoundedCornerShape(8.dp), color = AutomatumViolet, shadowElevation = 2.dp,
+                modifier = Modifier.testTag(ROLE_CHIP_TAG).semantics { contentDescription = "${chip.role}: ${chip.name}" }) {
+                Text(chip.role, Modifier.padding(horizontal = 5.dp), fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** A picked card's role chip: its table card, what it is for, its name, where it is drawn. */
+private class RoleChip(val card: String, val role: String, val name: String, val bounds: TableBounds)
+
+/** [content] near [card]'s top left corner, kept on the table. */
+@Composable
+private fun LeftCornerPlaced(card: TableBounds, content: @Composable () -> Unit) {
+    Layout(content = { Box { content() } }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val placeable = measurables.first().measure(Constraints())
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            // Just above the top edge from the left corner, leaving the card's name in view
+            val x = card.x.dp.roundToPx() - placeable.width / 4
+            val y = card.y.dp.roundToPx() - placeable.height + 2.dp.roundToPx()
+            placeable.place(x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0)),
+                y.coerceIn(0, (constraints.maxHeight - placeable.height).coerceAtLeast(0)))
+        }
+    }
+}
+
 /** One paying source's corner chip: its table card, name, where it is drawn, the way it pays and all its ways. */
 private class PayChip(val card: String, val name: String, val bounds: TableBounds, val use: ManaUse, val ways: List<ManaUse>)
 

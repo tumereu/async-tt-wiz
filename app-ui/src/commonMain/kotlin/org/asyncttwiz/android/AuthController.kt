@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.AtomicLong
@@ -45,7 +45,7 @@ class AuthController(
     private val store: SessionStore,
     private val worker: ExecutorService,
     private val local: AccountLocalData = object : AccountLocalData {},
-    private val revoke: (String) -> Unit = { token -> worker.execute { runCatching { runBlocking { accounts.revoke(token) } } } },
+    private val revoke: (String) -> Unit = { token -> worker.executeSuspending { runCatching { accounts.revoke(token) } } },
     private val clearPrivateWork: () -> Unit = {},
     val accountSwitcher: Boolean = false,
     private val post: (() -> Unit) -> Unit,
@@ -131,11 +131,11 @@ class AuthController(
         val epoch = generation.get()
         state = state.copy(account = previous.copy(username = name, avatar = avatar), profileBusy = true,
             profileError = null, avatarChooser = false, profileDialog = false)
-        worker.execute {
+        worker.executeSuspending {
             var accepted = previous
             try {
                 // Existing endpoints save independently. Retain an accepted username if the avatar fails.
-                runBlocking {
+                run {
                     if (name != previous.username) accepted = accounts.changeUsername(credential, name)
                     if (avatar != previous.avatar) accepted = accounts.changeAvatar(credential, avatar)
                 }
@@ -263,11 +263,11 @@ class AuthController(
 
     private fun work(action: suspend () -> AuthState?) {
         val epoch = generation.get()
-        worker.execute {
-            if (generation.get() != epoch) return@execute
-            val next = try { runBlocking { action()?.let(::withRemembered) } } catch (failure: Exception) {
+        worker.executeSuspending {
+            if (generation.get() != epoch) return@executeSuspending
+            val next = try { action()?.let(::withRemembered) } catch (failure: Exception) {
                 storageFailure(store.permanentFailure(failure))
-            } ?: return@execute
+            } ?: return@executeSuspending
             post { if (!closed && generation.get() == epoch) {
                 val context = reauthenticationContext
                 if (next.account != null && context != null) {
@@ -360,7 +360,7 @@ class AuthController(
         }
         state = AuthState(restoring = false, busy = true, message = "Signing out on this device…")
         val epoch = generation.get()
-        worker.execute {
+        worker.executeSuspending {
             if (!retryingCleanup) logoutRevokeAttempted = false
             var outgoing = oldToken
             val next = try {
@@ -392,7 +392,7 @@ class AuthController(
                 } else null
                 if (saved != null) {
                     store.save(saved.token)
-                    runBlocking { restoreSaved(epoch) }?.let(::withRemembered) ?: AuthState(restoring = false)
+                    run { restoreSaved(epoch) }?.let(::withRemembered) ?: AuthState(restoring = false)
                 } else withRemembered(AuthState(restoring = false))
             } catch (_: Exception) {
                 AuthState(restoring = false, logoutFailed = true, error = true,

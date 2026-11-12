@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.randomUuid
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 
 /**
@@ -49,8 +49,8 @@ class LobbyPodDeck(private val scope: LobbyScope, private val pods: Pods?, priva
         saving = true
         val generation = scope.epoch
         AppLog.info("lobby", "Pod deck $what from game ${game.id.take(8)}'s lobby (pod ${pod.take(8)})")
-        worker.execute {
-            val result = runCatching { runBlocking {
+        worker.executeSuspending {
+            val result = runCatching { run {
                 // The pod's current draft attempt, which its requests name
                 val attempt = api.detail(token, pod).draftAttemptId ?: throw PodFailure("not_drafting")
                 request(api, token, pod, attempt)

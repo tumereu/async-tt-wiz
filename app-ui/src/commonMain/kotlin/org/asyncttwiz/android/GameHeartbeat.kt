@@ -6,7 +6,7 @@ import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.postToMainDelayed
 import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.randomUuid
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.appui.newDiscardOldestExecutor
 
 /** Dialogs have their own Window and bypass the activity's input: what is done there counts just like the table
@@ -32,8 +32,8 @@ class GameHeartbeatTracker(private val presenceId: String = randomUuid()) {
  * Leaving always goes over HTTP too: a socket send only queues, and on a dead or soon frozen socket the
  * "left" mark is lost while the app sits in the background. */
 class GameHeartbeatController(
-    private val http: (String, GamePresence) -> Unit = { token, presence -> runBlocking {
-        ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
+    private val http: suspend (String, GamePresence) -> Unit = { token, presence ->
+        ActivityApi(AppBuild.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } },
     private val socket: (String, GamePresence) -> Boolean,
 ) : AutoCloseable {
     private val tracker = GameHeartbeatTracker()
@@ -57,7 +57,7 @@ class GameHeartbeatController(
     fun input() = tracker.input()
     private fun send(token: String?, presence: GamePresence) {
         if (token == null || socket(token, presence) && !presence.left) return
-        worker.execute { runCatching { http(token, presence) } }
+        worker.executeSuspending { runCatching { http(token, presence) } }
     }
     override fun close() { display(null, token); cancelPulse(); worker.shutdown() }
 }

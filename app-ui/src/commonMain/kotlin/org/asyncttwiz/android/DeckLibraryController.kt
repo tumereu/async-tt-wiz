@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import kotlin.concurrent.Volatile
@@ -60,14 +60,14 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         val generation = ++epoch
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.deck.id == id },
             busy = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             try {
-                val result = runBlocking { serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, generation) } }
-                if (id != null && result == null) return@execute
-                val decks = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@execute else null
-                val drafts = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
-                if (generation != epoch) return@execute
+                val result = serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, generation) }
+                if (id != null && result == null) return@executeSuspending
+                val decks = if (id == null) run { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@executeSuspending else null
+                val drafts = if (id == null) run { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
+                if (generation != epoch) return@executeSuspending
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
                     decks = decks ?: state.decks.map { if (it.id == id && result != null) result.saved.deck else it },
                     draftDecks = drafts ?: state.draftDecks.map { if (it.id == id && result != null) result.saved.deck else it },
@@ -117,10 +117,10 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         pending = operation
         val generation = ++epoch
         state = state.copy(mutating = true, busy = false, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             try {
-                val copy = runBlocking { serviceRetry(current = { generation == epoch }) {
+                val copy = run { serviceRetry(current = { generation == epoch }) {
                     if (operation.delete != null) { api.delete(token, operation.id, operation.delete); null }
                     else if (operation.copy != null) api.copy(token, operation.id, operation.copy)
                     else { operation.update?.let { api.update(token, operation.id, it) }

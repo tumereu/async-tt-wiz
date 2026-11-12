@@ -11,7 +11,7 @@ import org.asyncttwiz.appui.newSingleThreadExecutor
 import org.asyncttwiz.appui.newSingleThreadScheduler
 import kotlin.reflect.KClass
 import org.asyncttwiz.appui.randomUuid
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 
 /** The app's controllers for the signed-in shell, kept across configuration changes; [services]: the platform's. */
 class AuthViewModel constructor(services: AppServices) : ViewModel() {
@@ -74,8 +74,8 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
         newSingleThreadExecutor("account-entry"),
         local = local,
         accountSwitcher = AppBuild.ACCOUNT_SWITCHER,
-        revoke = { token -> revocations.execute {
-            runCatching { runBlocking {
+        revoke = { token -> revocations.executeSuspending {
+            runCatching { run {
                 AccountApi(AppBuild.ACCOUNT_ORIGIN).use { it.revoke(token) }
             } }
         } },

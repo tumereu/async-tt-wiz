@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import org.asyncttwiz.appui.randomUuid
@@ -111,8 +111,8 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
         // The newest page the first time, then what is newer than the newest message held
         val after = view(podId).messages.lastOrNull()?.ordinal ?: if (view(podId).loaded) "0" else null
         reading += podId
-        worker.execute {
-            val result = runCatching { runBlocking { api.chat(token, podId, after = after) } }
+        worker.executeSuspending {
+            val result = runCatching { api.chat(token, podId, after = after) }
             post {
                 if (generation != epoch) return@post
                 reading -= podId
@@ -153,8 +153,8 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
         val generation = epoch
         update(podId) { it.copy(draft = if (fromDraft) "" else it.draft, outgoing = it.outgoing + PodChatOutgoing(requestId, text)) }
         AppLog.info("pod-chat", "Pod $podId: sending message $requestId (${text.length} chars)")
-        worker.execute {
-            val result = runCatching { runBlocking { api.sendChat(token, podId, SendPodChat(requestId, text)) } }
+        worker.executeSuspending {
+            val result = runCatching { api.sendChat(token, podId, SendPodChat(requestId, text)) }
             post {
                 if (generation != epoch) return@post
                 result.onSuccess { message ->
@@ -182,8 +182,8 @@ class PodChatController(private val api: Pods, private val credential: () -> Str
         val generation = epoch
         cursors += podId
         AppLog.info("pod-chat", "Pod $podId: read through #${message.ordinal} (message ${message.id})")
-        worker.execute {
-            val result = runCatching { runBlocking { api.readChat(token, podId, ReadChat(message.id)) } }
+        worker.executeSuspending {
+            val result = runCatching { api.readChat(token, podId, ReadChat(message.id)) }
             post {
                 if (generation != epoch) return@post
                 cursors -= podId

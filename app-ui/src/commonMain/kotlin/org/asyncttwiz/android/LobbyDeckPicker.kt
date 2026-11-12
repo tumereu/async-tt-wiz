@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 
@@ -53,16 +53,16 @@ class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?
         if (picker.confirming) return
         val generation = epoch; val version = ++pickerVersion
         state = state.copy(picker = picker.copy(loading = true, error = null))
-        worker.execute {
-            val result = runCatching { runBlocking {
+        worker.executeSuspending {
+            val result = runCatching { run {
                 val decks = linkedMapOf<String, DeckSummary>(); val seen = mutableSetOf<String>(); var next: String? = null
                 do {
-                    if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
+                    if (generation != epoch || version != pickerVersion) return@run emptyList()
                     val page = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.list(token, next) }; page.decks.forEach { decks[it.id] = it }; next = page.next
                     next.let { check(it == null || seen.add(it)) }
                 } while (next != null)
                 // Draft decks are playable too; the picker lists them under their own heading.
-                if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
+                if (generation != epoch || version != pickerVersion) return@run emptyList()
                 serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.drafts(token) }.decks.forEach { decks[it.id] = it }
                 decks.values.toList()
             } }
@@ -82,12 +82,12 @@ class LobbyDeckPicker(private val scope: LobbyScope, private val deckApi: Decks?
         if (closed || picker.confirming || picker.loading) return
         val generation = epoch; val version = ++pickerVersion
         state = state.copy(picker = picker.copy(confirming = true, error = null))
-        worker.execute {
-            val result = runCatching { runBlocking {
-                if (generation != epoch || version != pickerVersion) return@runBlocking null
+        worker.executeSuspending {
+            val result = runCatching { run {
+                if (generation != epoch || version != pickerVersion) return@run null
                 val saved = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.read(token, source.id) }
                 if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
-                if (generation != epoch || version != pickerVersion) return@runBlocking null
+                if (generation != epoch || version != pickerVersion) return@run null
                 // Its cards built from the card records by printing, as the server builds them (owner 2026-11-10)
                 val cards = saved.cards()
                 saved to cardRecords.read(cards.mapNotNull { it.printingId }).submitted(cards)

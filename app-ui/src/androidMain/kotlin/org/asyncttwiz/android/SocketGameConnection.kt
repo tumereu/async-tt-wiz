@@ -4,121 +4,74 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.ByteString
-import org.asyncttwiz.protocol.*
-import kotlinx.serialization.encodeToString
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
+import org.asyncttwiz.storage.GameSocketEvents
+import org.asyncttwiz.storage.GameSocketHandle
+import org.asyncttwiz.storage.GameSocketTransport
 import org.asyncttwiz.storage.evictConnectionsInBackground
 import org.asyncttwiz.appui.AppBuild
 
 
 actual fun platformGameConnection(origin: String): GameConnection = SocketGameConnection(origin)
 
-class SocketGameConnection(private val origin: String) : GameConnection {
+/** The game socket on OkHttp: [OkHttpGameTransport] under the shared logic ([TransportGameConnection]). */
+class SocketGameConnection(origin: String) : TransportGameConnection(origin.also(::requireGameOrigin), OkHttpGameTransport())
+
+private fun requireGameOrigin(origin: String) {
+    require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
+        it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
+        (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) })
+}
+
+/** OkHttp's socket (pinged every 25 s; no redirects) and its HTTP reads, one at a time on their own thread. */
+class OkHttpGameTransport : GameSocketTransport {
     private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS).pingInterval(25, TimeUnit.SECONDS).build()
-    private var socket: WebSocket? = null
-    @Volatile private var token: String? = null
     private val reads = Executors.newSingleThreadExecutor()
-    init {
-        require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
-            it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
-            (it.scheme == "https" || (AppBuild.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) })
-    }
-    override fun connect(token: String, listener: GameConnection.Listener) {
-        disconnect()
-        if (origin.isEmpty() || !AccountApi.validToken(token)) { listener.disconnected(false, "invalidConnectionConfiguration"); return }
-        this.token = token
-        socket = client.newWebSocket(Request.Builder().url(origin + "/v1/socket")
+
+    override fun open(url: String, token: String, events: GameSocketEvents): GameSocketHandle {
+        val socket = client.newWebSocket(Request.Builder().url(url)
             .header("Authorization", "Bearer $token").build(), object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) = listener.opened()
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                val message = runCatching {
-                    require(text.toByteArray().size <= GameWire.MAX_MESSAGE_BYTES)
-                    GameWire.json.decodeFromString<GameServerMessage>(text)
-                }.getOrNull()
-                if (message == null) { webSocket.cancel(); listener.disconnected(false, "invalidServerMessage") } else listener.message(message)
-            }
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) { webSocket.cancel(); listener.disconnected(false, "unexpectedBinaryMessage") }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                webSocket.close(code, null)
-                listener.disconnected(false, "socketClose:$code:${reason.take(123)}")
-            }
+            override fun onOpen(webSocket: WebSocket, response: Response) = events.opened(handle(webSocket))
+            override fun onMessage(webSocket: WebSocket, text: String) = events.text(handle(webSocket), text)
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) = events.binary(handle(webSocket))
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = events.closing(handle(webSocket), code, reason)
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 AppLog.warn("game", "Socket failed (HTTP ${response?.code})", t)
-                listener.disconnected(response?.code == 401,
+                events.failed(handle(webSocket), response?.code == 401,
                     if (t is java.net.SocketTimeoutException && t.message?.contains("ping", ignoreCase = true) == true) "socketPingTimeout"
                     else "socketFailure:${t.javaClass.simpleName}:http=${response?.code}")
             }
         })
+        return handle(socket)
     }
-    override fun send(message: GameClientMessage) = socket?.send(GameWire.json.encodeToString(message)) == true
-    override fun chatRead(gameId: String, input: ReadChat?, complete: (ChatReadState?) -> Unit): Boolean {
-        val credential = token ?: return false
-        if (!DeckValidation.uuid(gameId) || input?.let { !DeckValidation.uuid(it.messageId) } == true) return false
+
+    private fun handle(socket: WebSocket) = object : GameSocketHandle {
+        override fun send(text: String) = socket.send(text)
+        override fun cancel() = socket.cancel()
+        override fun close(code: Int) { socket.close(code, null) }
+    }
+
+    override fun read(url: String, token: String, json: String?, maxBytes: Int, current: () -> Boolean,
+        complete: (Result<String>) -> Unit) {
         reads.execute {
-            val state = runCatching {
-                check(token == credential)
-                val builder = Request.Builder().url("$origin/v1/games/$gameId/chat/read")
-                    .header("Authorization", "Bearer $credential")
-                if (input != null) builder.put(GameWire.json.encodeToString(input).toRequestBody("application/json".toMediaType()))
+            complete(runCatching {
+                check(current())
+                val builder = Request.Builder().url(url).header("Authorization", "Bearer $token")
+                if (json != null) builder.put(json.toRequestBody("application/json".toMediaType()))
                 client.newCall(builder.build()).execute().use { response ->
-                    require(response.isSuccessful)
-                    GameWire.json.decodeFromString<ChatReadState>(requireNotNull(response.body).byteStream()
-                        .bounded(4096).toString(Charsets.UTF_8)).also {
-                        require(it.gameId == gameId && it.unread >= 0)
-                        require(GameWire.ordinal(it.readThrough) <= GameWire.ordinal(it.throughRevision))
-                    }
-                }
-            }.onFailure { AppLog.warn("game", "Chat read state failed", it) }.getOrNull()
-            complete(state)
-        }
-        return true
-    }
-    override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit): Boolean {
-        val credential = token ?: return false
-        if (!DeckValidation.uuid(gameId) || (before != null && after != null)) return false
-        val cursor = before ?: after
-        if (cursor != null && runCatching { GameWire.ordinal(cursor) }.isFailure) return false
-        reads.execute {
-            val page = runCatching {
-                check(token == credential)
-                val query = if (before != null) "?before=$before" else if (after != null) "?after=$after" else ""
-                client.newCall(Request.Builder().url("$origin/v1/games/$gameId/chat$query")
-                    .header("Authorization", "Bearer $credential").build()).execute().use { response ->
-                    require(response.isSuccessful)
-                    GameWire.json.decodeFromString<ChatPage>(requireNotNull(response.body).byteStream()
-                        .bounded(ChatPaging.MAX_BYTES).toString(Charsets.UTF_8)).also {
-                        require(it.gameId == gameId && it.messages.size <= ChatPaging.SIZE)
-                    }
-                }
-            }.onFailure { AppLog.warn("game", "Chat page failed", it) }.getOrNull()
-            complete(page)
-        }
-        return true
-    }
-    override fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit): Boolean {
-        val credential = token ?: return false
-        if (!DeckValidation.uuid(gameId) || !DeckValidation.uuid(through)) return false
-        reads.execute {
-            val page = runCatching {
-                check(token == credential)
-                client.newCall(Request.Builder().url("$origin/v1/games/$gameId/timeline?through=$through")
-                    .header("Authorization", "Bearer $credential").build()).execute().use { response ->
                     require(response.isSuccessful) { "HTTP ${response.code}" }
-                    GameWire.json.decodeFromString<EngineHistoryPage>(requireNotNull(response.body).byteStream()
-                        .bounded(GameWire.MAX_MESSAGE_BYTES).toString(Charsets.UTF_8)).also { require(it.through == through) }
+                    requireNotNull(response.body).byteStream().bounded(maxBytes).toString(Charsets.UTF_8)
                 }
-            }.onFailure { AppLog.warn("game", "History page failed", it) }.getOrNull()
-            complete(page)
+            })
         }
-        return true
     }
-    override fun disconnect() { socket?.cancel(); socket = null; token = null }
-    override fun close() { disconnect(); reads.shutdown(); client.dispatcher.executorService.shutdown(); client.evictConnectionsInBackground() }
+
+    override fun close() { reads.shutdown(); client.dispatcher.executorService.shutdown(); client.evictConnectionsInBackground() }
 }
 
 private fun InputStream.bounded(limit: Int): ByteArray {

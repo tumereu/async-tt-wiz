@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import org.asyncttwiz.appui.ExecutorService
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 import kotlin.concurrent.Volatile
@@ -31,7 +31,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private val resolve: (String) -> DeckImportResult,
     private val resolveCobra: (ParsedDeck) -> DeckImportResult,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
-    private val fetchCobra: (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable, CardListEditor {
+    private val fetchCobra: suspend (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(CubeState())
         private set
     /** The editor's catalog search page (a section header's +). */
@@ -295,10 +295,10 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val generation = ++epoch
         val token = credential()
         state = if (link) state.copy(busy = true, fetching = true, linkError = null) else state.copy(busy = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             try {
-                val apply = runBlocking { action { !closed && generation == epoch && credential() == token } }
+                val apply = action { !closed && generation == epoch && credential() == token }
                 post { if (!closed && generation == epoch) {
                     // Credential expiry fences data, not completion. Keep ambiguous save intent for retry.
                     state = state.copy(busy = false, saving = false, fetching = false)

@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.appui.ExecutorService
 import kotlinx.coroutines.delay
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
 import org.asyncttwiz.protocol.*
 import kotlin.concurrent.Volatile
 import org.asyncttwiz.appui.randomUuid
@@ -64,9 +64,9 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
         val generation = ++epoch
         inFlight = 0
         state = PodCubePreparationState(pod = pod, loading = true)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val outcome = runCatching { runBlocking {
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val outcome = runCatching { run {
                 val cube = serviceRetry(current = { generation == epoch }) { api.cube(token, pod) }
                 val faces = cardRecords.read(cube.entries.mapNotNull { it.printingId })
                 cube to cube.entries.distinctBy { it.definition }.associate { entry ->
@@ -111,9 +111,9 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
             undo = if (undoable) (state.undo + move).takeLast(PreparationUndo.LIMIT) else state.undo)
         inFlight++
         val request = MovePodCubeCards(randomUuid(), move.definition, move.from, move.quantity)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val outcome = runCatching { runBlocking { serviceRetry(wait, current = { generation == epoch }) { api.moveCube(token, pod, request) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val outcome = runCatching { serviceRetry(wait, current = { generation == epoch }) { api.moveCube(token, pod, request) } }
             post {
                 if (generation != epoch) return@post
                 inFlight--
@@ -138,9 +138,9 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     private fun reconnect(pod: String, token: String, generation: Long) {
         if (reconnecting) return
         reconnecting = true
-        worker.execute {
-            if (generation != epoch) return@execute
-            val outcome = runCatching { runBlocking { wait(RECONNECT_MILLIS); api.cube(token, pod) } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val outcome = runCatching { wait(RECONNECT_MILLIS); api.cube(token, pod) }
             post {
                 if (generation != epoch) return@post
                 reconnecting = false
@@ -154,9 +154,9 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     }
 
     private fun reload(pod: String, token: String, generation: Long) {
-        worker.execute {
-            if (generation != epoch) return@execute
-            val outcome = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.cube(token, pod) } } }
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
+            val outcome = runCatching { serviceRetry(current = { generation == epoch }) { api.cube(token, pod) } }
             post { if (generation == epoch && inFlight == 0) outcome.onSuccess { state = state.copy(cube = it) } }
         }
     }

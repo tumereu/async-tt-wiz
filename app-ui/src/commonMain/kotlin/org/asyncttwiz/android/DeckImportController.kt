@@ -12,7 +12,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.ExecutorService
 import kotlin.concurrent.Volatile
 import org.asyncttwiz.appui.randomUuid
-import org.asyncttwiz.appui.runBlocking
+import org.asyncttwiz.appui.executeSuspending
+import org.asyncttwiz.appui.executeSuspending
 
 data class DeckImportState(val active: Boolean = false, val text: String = "", val busy: Boolean = false,
     val result: DeckImportResult? = null, val preview: Boolean = false, val name: String = "",
@@ -108,7 +109,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     @Volatile private var epoch = 0L
     private var closed = false
     private var pendingSave: DeckSave? = null
-    private var saveAction: (() -> ((DeckSave) -> SavedDeck)?)? = null
+    private var saveAction: (() -> (suspend (DeckSave) -> SavedDeck)?)? = null
     private var saved: (SavedDeck) -> Unit = {}
     /** Called on the worker after an accepted save (import or edit) with the saved definitions. */
     var acceptedDefinitions: (deckId: String, definitions: List<SubmittedDefinition>) -> Unit = { _, _ -> }
@@ -123,8 +124,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var saveAfterLookup = false
     private var chosenCover: SubmittedDefinition? = null
     private var resolveParsed: (ParsedDeck) -> DeckImportResult = { resolve(it.text) }
-    private var fetchUrl: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl
-    fun connectUrl(resolve: (ParsedDeck) -> DeckImportResult, fetch: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl) {
+    private var fetchUrl: suspend (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl
+    fun connectUrl(resolve: (ParsedDeck) -> DeckImportResult, fetch: suspend (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl) {
         resolveParsed = resolve; fetchUrl = fetch
     }
     /** The top bar's "Import from link": a dialog over the unchanged editor. */
@@ -167,8 +168,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         }
         val generation = ++epoch
         state = state.copy(busy = true, fetchingUrl = true, linkError = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             val fetched = runCatching { fetchUrl(location) }
             val imported = fetched.getOrNull()
             val resolved = imported?.let { runCatching { resolveParsed(it.parsed) } }
@@ -225,13 +226,13 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             else if (state.lookupFailed || state.result?.issues?.isNotEmpty() == true) lookup()
         }
     }
-    fun connectSave(action: () -> ((DeckSave) -> SavedDeck)?, saved: (SavedDeck) -> Unit) {
+    fun connectSave(action: () -> (suspend (DeckSave) -> SavedDeck)?, saved: (SavedDeck) -> Unit) {
         saveAction = action; this.saved = saved
     }
     /** Shared production wiring: reacquire credentials on retry, never regenerate retained intent. */
     fun connectSave(api: Decks, credential: () -> String?, saved: (SavedDeck) -> Unit) {
         connectSave(action = {
-            credential()?.let { token -> { plan: DeckSave -> runBlocking {
+            credential()?.let { token -> val save: suspend (DeckSave) -> SavedDeck = { plan ->
                 AppLog.info("decks", "save ${if (plan.target == null) "new deck" else "deck ${plan.target}"}: ${plan.entries.size} entries, " +
                     "${plan.entries.count { it.printingId == null }} without a printing, request ${plan.requestId}")
                 // One request: the server builds the cards from its catalog (owner 2026-11-10) and works out their
@@ -239,21 +240,21 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                 serviceRetry(current = { credential() == token }) {
                     if (plan.target == null) api.create(token, plan.create()) else api.update(token, plan.target, plan.update())
                 }
-            } } }
+            }; save }
         }, saved = saved)
     }
-    private var deleteAction: (() -> ((String, DeleteDeck) -> Unit)?)? = null
+    private var deleteAction: (() -> (suspend (String, DeleteDeck) -> Unit)?)? = null
     private var deleted: (String) -> Unit = {}
     /** A delete that failed keeps its request id, so retrying it cannot delete twice. */
     private var pendingDelete: Pair<String, DeleteDeck>? = null
-    fun connectDelete(action: () -> ((String, DeleteDeck) -> Unit)?, deleted: (String) -> Unit) {
+    fun connectDelete(action: () -> (suspend (String, DeleteDeck) -> Unit)?, deleted: (String) -> Unit) {
         deleteAction = action; this.deleted = deleted
     }
     fun connectDelete(api: Decks, credential: () -> String?, deleted: (String) -> Unit) {
         connectDelete(action = {
-            credential()?.let { token -> { id: String, request: DeleteDeck -> runBlocking {
+            credential()?.let { token -> val delete: suspend (String, DeleteDeck) -> Unit = { id, request ->
                 serviceRetry(current = { credential() == token }) { api.delete(token, id, request) }
-            }; Unit } }
+            }; delete }
         }, deleted = deleted)
     }
     /** The name the deck was saved with, for the delete confirmation. */
@@ -270,7 +271,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         val request = pendingDelete?.takeIf { it.first == id } ?: (id to DeleteDeck(randomUuid()))
         pendingDelete = request
         state = state.copy(deleting = true, deleteError = null)
-        worker.execute {
+        worker.executeSuspending {
             val outcome = runCatching { action(id, request.second) }
             post { if (!closed) {
                 if (outcome.isSuccess) {
@@ -369,8 +370,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         val retained = placeholders
         val cover = input.cover ?: coverCards.firstOrNull()?.printing
         state = state.copy(saving = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
+        worker.executeSuspending {
+            if (generation != epoch) return@executeSuspending
             var plan = previous
             try {
                 if (plan == null) plan = DeckSave.from(checkNotNull(input.result), input.name, input.target,

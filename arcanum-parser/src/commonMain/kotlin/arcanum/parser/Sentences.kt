@@ -7521,6 +7521,7 @@ internal class Sentences(
             // chunk 14: "The flashback cost is equal to its mana cost." completes the sentence before it.
             if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,") || sentence.startsWith("The flashback cost is") ||
                     sentence.startsWith("When you do,") || // chunk 31
+                    (sentence.startsWith("If you don't,") && acc.lastOrNull()?.startsWith("You may sacrifice ") == true) || // woe chunk 03
                     (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
                     acc.lastOrNull()?.contains(" When you do, ") == true) && acc.isNotEmpty())
@@ -15695,6 +15696,25 @@ internal class Sentences(
 
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe chunk 03: "Up to one target creature gets -X/-X until end of turn, where X is …"
+        Woe.TARGET_GETS_MINUS_X_UNTIL_EOT.matchEntire(sentence)?.takeIf { announcedX }?.let { m ->
+            val target = eoeTarget(m.groupValues[1], context) ?: return null
+            val x = Value.Times(Value.Announced(name = "X"), -1)
+            return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(x, x)))
+        }
+        // woe chunk 03: "You may sacrifice an artifact, enchantment, or token. If you don't, tap this creature." (CR 118.12: the payment's result)
+        Woe.MAY_PAY_IF_YOU_DONT.matchEntire(sentence)?.let { m ->
+            val parts = costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.Pay(Cost(parts), bind = "paid", payer = Players.You),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = then))
+        }
+        // woe chunk 03: "When this creature enters, create half X Food tokens, rounded up." (X it was cast with)
+        Woe.CREATE_HALF_X.matchEntire(sentence)?.let { m ->
+            val (_, token) = Tokens.spec("a " + m.groupValues[1]) ?: return null
+            val x = if (isSpell || announcedX) Value.Announced(name = "X") else Value.CastX(of = Objects.Self)
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Half(x, roundUp = m.groupValues[2] == "up"), Players.You)))
+        }
         // woe chunk 01: "For each creature your opponents control, create a Cursed Role token attached to that creature."; "For each of those
         // creatures, create a Monster Role token attached to it." (the earlier target's objects)
         Woe.FOR_EACH_CREATE_ATTACHED.matchEntire(sentence)?.let { m ->

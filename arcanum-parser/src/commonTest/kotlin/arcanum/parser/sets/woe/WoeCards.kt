@@ -219,3 +219,9 @@ fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = empt
 fun role(kind: String): TokenSpec = TokenSpec.Predefined("$kind Role")
 /** "Create a [kind] Role token attached to [to]" (CR 303.4i: not created when [to] is undefined). */
 fun createRole(kind: String, to: Objects): Step = Step.Do(Effect.CreateToken(role(kind), n(1), Players.You, attachedTo = toObjects(to)))
+
+// ---- woe chunk 03: Food
+
+val food: TokenSpec = TokenSpec.Predefined("Food")
+val createFood: Step = create(food)
+val yourUpkeep: Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.You)

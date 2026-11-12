@@ -418,6 +418,7 @@ internal object Triggers {
         if (waiting.isEmpty()) return Progress.Done
         val mark = recorder.changes.size
         val act = Act(recorder, Asker(answers, arcanum.engine.casting.askerPrefix(recorder.state, "triggers")))
+        val placing = Placing()
         return try {
             // CR 610.3: an "until" return not done yet (its event happened outside the event pipeline) happens first;
             // state-based actions are checked again before triggers go on the Stack (Perform.checks goes round)
@@ -429,12 +430,12 @@ internal object Triggers {
             // CR 603.3b: APNAP order: the active player's go on the Stack first, so they resolve last
             act.state.apnap().forEach { player ->
                 val mine = waiting.filter { it.controller == player }
-                order(act, player, mine).forEach { push(act, it) }
+                order(act, player, mine).forEach { push(act, it, placing) }
             }
             Progress.Done
         } catch (n: NeedDecision) {
             recorder.rollback(mark)
-            Progress.Waiting(Pending(n.decision, Continuation.PlacingTriggers(waiting, answers = answers)))
+            Progress.Waiting(Pending(n.decision, Continuation.PlacingTriggers(waiting, current = placing.current, answers = answers)))
         }
     }
 
@@ -473,10 +474,28 @@ internal object Triggers {
     }
 
     /** CR 603.3d: modes and targets are chosen as it is put on the Stack; without a legal target it is removed. */
-    private fun push(act: Act, t: WaitingTrigger) {
+    /** The trigger being put on the Stack while its modes, targets or division are chosen, with its choices so far
+     * ([Continuation.PlacingTriggers.current]); null while none is (the order of triggers is chosen). */
+    private class Placing { var current: Continuation.Announcing? = null }
+
+    private fun push(act: Act, t: WaitingTrigger, placing: Placing) {
         val ability = t.ability as? Ability.Triggered ?: return
         val stackId = ObjectId.StackItem("trigger:${act.state.nextTimestamp()}")
-        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event) ?: return
+        fun announcing(stage: arcanum.engine.decision.AnnounceStage, modes: List<Int>, targets: Map<String, List<TargetRef>>) =
+            Continuation.Announcing(t.controller, arcanum.engine.decision.Announced.Trigger(t), stage,
+                arcanum.engine.decision.Choices(modes = modes, targets = targets))
+        placing.current = announcing(arcanum.engine.decision.AnnounceStage.Modes, emptyList(), emptyMap())
+        var chosen: Pair<List<Int>, Map<String, List<TargetRef>>>? = null
+        val choices = try {
+            Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event,
+                watch = { modes, targets -> chosen = modes to targets })
+        } catch (n: NeedDecision) {
+            // CR 603.3d: a decision of its modes or targets: what was chosen before it, for the one choosing
+            chosen?.let { (modes, targets) -> placing.current = announcing(arcanum.engine.decision.AnnounceStage.Targets, modes, targets.toMap()) }
+            throw n
+        }
+        if (choices == null) { placing.current = null; return }
+        placing.current = announcing(arcanum.engine.decision.AnnounceStage.Divide, choices.first, choices.second)
         t.source?.let { recordTriggerCount(act, it, t.origin) }
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
@@ -485,6 +504,7 @@ internal object Triggers {
             snapshots = (listOfNotNull(t.sourceSeen) + t.snapshots).distinctBy { it.id }, event = t.event, delayedTrigger = t.delayedTrigger,
             timestamp = act.state.nextTimestamp(),
         )
+        placing.current = null
         act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))
         // tla: its source attacking made it trigger (CR 603.2): "attacking causes a triggered ability of that creature to trigger"
         val source = t.source

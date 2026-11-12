@@ -56,11 +56,13 @@ internal object Casts {
     /**
      * Modes (CR 700.2) and targets (CR 601.2c) for [instructions] of a triggered ability controlled by [controller];
      * with [required], null when a target slot that needs a target has none (it is then removed from the Stack,
-     * CR 603.3d).
+     * CR 603.3d). [watch] is given the chosen modes and the targets map, filled in as each slot is chosen, before any
+     * target is asked: what was chosen so far when a decision interrupts it.
      */
     fun announceOrNull(
         act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings, self: ObjectId?, required: Boolean,
         event: arcanum.engine.state.TriggerEvent? = null,
+        watch: ((List<Int>, Map<String, List<TargetRef>>) -> Unit)? = null,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
             // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
@@ -100,6 +102,7 @@ internal object Casts {
         }.orEmpty()
         val slots = instructions.targets + modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
         val targets = LinkedHashMap<String, List<TargetRef>>()
+        watch?.invoke(modes, targets)
         // A triggered ability's targets may depend on its event ("with lesser mana value", CR 603.3d)
         val e = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
         // inr: a later slot sees the targets chosen for the earlier ones ("up to one target creature that player or that

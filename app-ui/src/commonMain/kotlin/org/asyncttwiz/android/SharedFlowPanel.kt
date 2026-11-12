@@ -226,7 +226,7 @@ fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, vie
     if (item == null) {
         // An ability being put on the Stack (a trigger's targets and modes, CR 603.3d): its source's card asks
         val ability = when (val c = flow.state.pending?.continuation) {
-            is Continuation.PlacingTriggers -> (c.current?.what as? Announced.Ability)?.takeIf { it.source == source }?.ability
+            is Continuation.PlacingTriggers -> (c.current?.what as? Announced.Trigger)?.trigger?.takeIf { it.source == source }?.ability
                 ?: c.waiting.firstOrNull { it.source == source && it.controller == decision.player }?.ability
             is Continuation.Announcing -> (c.what as? Announced.Ability)?.takeIf { it.source == source }?.ability
             else -> null

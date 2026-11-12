@@ -75,6 +75,33 @@ class PickTextTest {
         assertEquals("Sacrificed", withPicked?.roles?.toMap()?.get(TargetRef.Object(table.obj(elves))))
     }
 
+    // STK-047, CR 603.3d (found 2026-11-12, C3a): a trigger with two target slots, its targets chosen as it is put on the
+    // Stack: while the second is chosen, the first phrase reads as what was chosen for it
+    @Test fun aTriggersSecondTargetShowsTheFirstAsChosen() {
+        val instigator = Cards.invent("Pick Instigator", "{0}", "Enchantment",
+            "Whenever you cast a spell, target creature you control fights target creature you don't control.")
+        val spark = Cards.invent("Pick Quiet Spark", "{0}", "Sorcery", "You gain 1 life.")
+        table.put(alice, Zone.Battlefield, instigator)
+        // Two candidates for each slot, so each is asked
+        val (seer) = table.put(alice, Zone.Battlefield, "Elvish Seer", "Elvish Seer")
+        val (elves) = table.put(table.bob, Zone.Battlefield, "Thicketwood Elves", "Thicketwood Elves")
+        val (card) = table.put(alice, Zone.Hand, spark)
+        val state = table.state()
+        fun perform(input: Input): Decision {
+            val out = arcanum.engine.Engine.perform(state, input)
+            out.changes.forEach(state::apply)
+            return assertNotNull(state.pending?.decision, "a decision open")
+        }
+        val names = mapOf<TargetRef, String>(TargetRef.Object(table.obj(seer)) to "Elvish Seer", TargetRef.Object(table.obj(elves)) to "Thicketwood Elves")
+        fun text(decision: Decision) = assertNotNull(PickText.of(state,
+            assertNotNull(PickText.announcing(state.pending?.continuation, decision)), decision, emptyList())).shown { names.getValue(it) }
+        val first = assertIs<Decision.Targets>(perform(Input.Cast(PlayerId(alice), table.obj(card))))
+        assertIs<arcanum.engine.decision.Continuation.PlacingTriggers>(state.pending?.continuation)
+        assertEquals("Whenever you cast a spell, [target creature you control] fights target creature you don't control.", text(first))
+        val second = assertIs<Decision.Targets>(perform(Input.Answer(first.id, Answer.Targets(listOf(TargetRef.Object(table.obj(seer)))))))
+        assertEquals("Whenever you cast a spell, <Elvish Seer> fights [target creature you don't control].", text(second))
+    }
+
     // A phrase nothing was chosen for reads as none of it
     @Test fun noneChosen() {
         assertEquals("no creature", PickText.none("up to one target creature"))

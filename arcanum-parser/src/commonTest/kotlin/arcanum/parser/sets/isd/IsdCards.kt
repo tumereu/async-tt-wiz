@@ -204,3 +204,26 @@ val clue: TokenSpec = TokenSpec.Predefined("Clue")
 val food: TokenSpec = TokenSpec.Predefined("Food")
 val zombie: TokenSpec = creatureToken("Zombie", listOf(Color.Black), 2, 2)
 val flashbackReminder = "(You may cast this card from your graveyard for its flashback cost. Then exile it.)"
+
+// ---- isd chunk 02: transforming double-faced cards (CR 701.27, 712)
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+fun dies(filter: ObjectFilter): Trigger = on(EventPattern.ZoneChange(filter, from = Zone.Battlefield, to = Zone.Graveyard))
+fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = emptyList()): Step = Step.If(condition, then.toList(), otherwise)
+val transformSelf: Step = Step.Do(Effect.Transform(Objects.Self))
+val yourUpkeep: Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.You)
+val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
+val eachUpkeep: Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.Any)
+/** "if no spells were cast last turn" (by any player, CR 603.4) */
+val noSpellsLastTurn: Condition = Condition.Not(Condition.HappenedLastTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.Any), atLeast = 1, measure = Measure.Events))
+/** "if a player cast [n] or more spells last turn": one player cast them all */
+fun aPlayerCastLastTurn(n: Int): Condition = Condition.PlayerExists(PlayerFilter.Where(Condition.HappenedLastTurn(
+    EventPattern.Cast(ObjectFilter.Any, PlayerFilter.Is(Players.Tested)), atLeast = n, measure = Measure.Events)), atLeast = 1)
+/** "At the beginning of each upkeep, if no spells were cast last turn, transform this creature." */
+val werewolfFront: Ability = triggered(eachUpkeep, transformSelf, interveningIf = noSpellsLastTurn)
+/** "At the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature." */
+val werewolfBack: Ability = triggered(eachUpkeep, transformSelf, interveningIf = aPlayerCastLastTurn(2))
+val wolf: TokenSpec = creatureToken("Wolf", listOf(Color.Green), 2, 2)
+val vampire2: TokenSpec = creatureToken("Vampire", listOf(Color.Black), 2, 2, abilities = listOf(Keyword.Flying))
+/** "if you control N or more [filter]" */
+fun youControl(filter: ObjectFilter, atLeast: Int): Condition = Condition.Exists(and(filter, you), atLeast = atLeast)

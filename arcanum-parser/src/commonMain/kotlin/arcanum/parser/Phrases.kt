@@ -61,6 +61,7 @@ internal object Filters {
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
+        IsdPhrases.noun(phrase)?.let { return it } // isd
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -1003,6 +1004,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        IsdPhrases.condition(text, self)?.let { return it } // isd
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

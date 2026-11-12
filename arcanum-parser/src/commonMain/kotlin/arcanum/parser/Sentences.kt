@@ -2980,6 +2980,15 @@ internal class Sentences(
                 Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned")))))))
             return steps.dropLast(1) + iff.copy(then = iff.then + delayed)
         }
+        // isd chunk 02: "If a creature card is discarded this way, untap this creature, then transform it." after "Draw a card, then discard a card."
+        // (the cards the discard moved, CR 701.9a; a discard of nothing leaves nothing to match)
+        Isd.IF_A_CARD_IS_DISCARDED_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val discard = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Discard)?.takeIf { it.postBind == null } ?: return@let
+            val filter = Filters.noun(m.groupValues[1] + " card") ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let
+            return steps.dropLast(1) + Step.Do(discard.copy(postBind = "discarded")) + Step.If(
+                arcanum.api.Condition.Compare(Value.Count(Objects.Where(Objects.Bound("discarded"), filter)), arcanum.api.Comparison.AtLeast, Value.Fixed(1)), then = then)
+        }
         // dsk chunk 10: "If you discarded a card this way, draw a card." after each player discards
         if (sentence == "If you discarded a card this way, draw a card.") {
             val discard = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Discard)?.takeIf { it.postBind == null } ?: return null
@@ -5300,7 +5309,10 @@ internal class Sentences(
         }
         // chunk 56: "Transform this creature." / "transform it" (CR 701.27)
         TRANSFORM.matchEntire(sentence)?.let { m ->
-            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null else return@let
+            // isd chunk 02: "Transform all Humans." (every permanent of that kind; only a double-faced permanent transforms, CR 701.27c)
+            val all = m.groupValues[1].removePrefix("all ").takeIf { it != m.groupValues[1] }?.let { Filters.noun(it) }
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null
+                else if (all != null) Objects.Each(Filters.all(all, ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent))) else return@let
             context.it = objects // "Transform this land, then untap it." (inr chunk 02)
             return listOf(Step.Do(Effect.Transform(objects)))
         }
@@ -15536,6 +15548,18 @@ internal class Sentences(
 
     /** isd: single-sentence effects. */
     private fun isdEffect(sentence: String, context: Context): List<Step>? {
+        // isd chunk 02: "Then if there are five or more hatchling counters on it, remove all of them and transform it." (the counters of that kind
+        // on this permanent; the condition is checked as the ability resolves, CR 608.2c)
+        Isd.THEN_IF_N_COUNTERS_REMOVE_ALL_AND.matchEntire(sentence)?.let { m ->
+            if (m.groupValues[3] != "it" && m.groupValues[3] !in self) return@let
+            val kind = Counters.kind(m.groupValues[2]) ?: return@let
+            // "it" is the permanent the counters are on
+            if (context.it == null) context.it = Objects.Self
+            val rest = effect(m.groupValues[4].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = Numbers.count(m.groupValues[1]) ?: return@let)),
+                then = listOf(Step.Do(Effect.RemoveCounters(Objects.Self, kind,
+                    Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single)))) + rest))
+        }
         // isd chunk 01: "Target player shuffles up to three target cards from their graveyard into their library." (the cards go to their
         // owner's library, then that player shuffles, CR 400.3, 701.24a)
         Isd.TARGET_PLAYER_SHUFFLES_UP_TO_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->

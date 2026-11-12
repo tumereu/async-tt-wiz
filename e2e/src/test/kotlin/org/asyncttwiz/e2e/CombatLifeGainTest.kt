@@ -49,13 +49,19 @@ class CombatLifeGainTest : E2e() {
             }
             assertEquals(18, alice.state.player(bob.me).life, "Bob took 2")
             assertEquals(22, alice.state.player(alice.me).life, "Alice gained 2 with lifelink")
-            assertTrue(alice.shows(heart), "the heart on Alice's band: ${alice.screen()}")
+            // The hold is set as the damage is dealt, while the table's steps before it still play (HIS-113): the heart shows
+            // once they reach the damage
+            waitUntil("the heart on Alice's band") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Damage || alice.shows(heart) }
+            assertTrue(alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && alice.shows(heart),
+                "the heart on Alice's band while the damage holds her view: ${alice.screen()}")
             assertTrue(alice.shows(hasContentDescription("${bob.name} took 2 combat damage")), "Bob's total on his chip")
             assertTrue(alice.shows(hasContentDescription("Gained 2 life with the combat damage")), "the +2 at her life square")
             assertFalse(alice.shows(perLane), "nothing per lane")
-            // Bob's phone shows the same from his side
+            // Bob's phone shows the same from his side, once his playback's steps reach the damage
             waitUntil("the damage holds Bob's view", along = listOf(alice)) { bob.shown.combatHold?.kind == GameDevice.CombatMoment.Damage }
-            assertTrue(bob.shows(heart), "the heart on Bob's band: ${bob.screen()}")
+            waitUntil("the heart on Bob's band") { bob.shown.combatHold?.kind != GameDevice.CombatMoment.Damage || bob.shows(heart) }
+            assertTrue(bob.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && bob.shows(heart),
+                "the heart on Bob's band while the damage holds his view: ${bob.screen()}")
             assertFalse(bob.shows(perLane), "nothing per lane")
             // The combat over, the band closed: the heart is gone with it (CMB-001: it fades out where it was)
             waitUntil("the combat over on Alice's phone", along = listOf(bob)) {

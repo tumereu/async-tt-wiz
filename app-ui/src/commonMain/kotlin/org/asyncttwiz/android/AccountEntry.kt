@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -57,8 +58,8 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
     }
     theme {
-        BackHandler(enabled = reset.state != null) { reset.dismiss() }
-        BackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
+        ScreenBackHandler(enabled = reset.state != null) { reset.dismiss() }
+        ScreenBackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
             controller.page(AuthPage.LOGIN)
         }
         // Transient bars can be visible for a frame on resume. They overlay an immersive table;

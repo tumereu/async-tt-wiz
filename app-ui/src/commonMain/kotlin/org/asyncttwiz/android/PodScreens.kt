@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -57,7 +58,7 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {
         if (state.setup != null) { delay(600); controller.flushSetup() }
     }
-    BackHandler(state.selected != null || state.creating != null) { controller.back() }
+    ScreenBackHandler(state.selected != null || state.creating != null) { controller.back() }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {

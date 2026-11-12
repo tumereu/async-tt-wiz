@@ -10,6 +10,11 @@ data class DeckImportLocation(val site: DeckImportSite, val id: String) {
     val endpoint: String get() = when (site) {
         DeckImportSite.ARCHIDEKT -> "https://archidekt.com/api/decks/$id/"
     }
+
+    /** The same deck through the ATW server at [origin] (the web client: the site allows no browser requests). */
+    fun proxied(origin: String): String = when (site) {
+        DeckImportSite.ARCHIDEKT -> "$origin/v1/import/archidekt/$id"
+    }
 }
 data class ImportedDeck(val name: String, val parsed: ParsedDeck)
 

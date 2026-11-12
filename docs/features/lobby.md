@@ -159,9 +159,9 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### App updates
 
-- **LOB-084** When a newer version is published, or a game needs a newer app, the app shows only an "Update required" screen with the version and an Update button; it can't be used until updated. (r18)
-- **LOB-085** The update downloads (from GitHub first) with a progress bar "x / y MB", keeps the screen on, continues where an interrupted download stopped and is checked before the installer opens. (r28)
-- **LOB-086** A failed update says why in plain words and offers "Download from server" and "Download from GitHub" with install instructions, plus "Send problem report". (r28)
+- **LOB-084** (Android; the web reloads itself instead, WEB-006) When a newer version is published, or a game needs a newer app, the app shows only an "Update required" screen with the version and an Update button; it can't be used until updated. (r18)
+- **LOB-085** (Android) The update downloads (from GitHub first) with a progress bar "x / y MB", keeps the screen on, continues where an interrupted download stopped and is checked before the installer opens. (r28)
+- **LOB-086** (Android) A failed update says why in plain words and offers "Download from server" and "Download from GitHub" with install instructions, plus "Send problem report". (r28)
 
 ### What's new
 

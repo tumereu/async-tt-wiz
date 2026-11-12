@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.ui.text.input.ImeAction
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -141,7 +142,7 @@ fun GameDeletionDialogs(controller: LobbyController) {
 fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean = false,
     importDeck: (() -> Unit)? = null) {
     val state = controller.state
-    BackHandler { controller.back() }
+    ScreenBackHandler { controller.back() }
     // TRN-065 (owner, 2026-11-09): a concession or an accepted suggestion leaves both players at the table until both OKs stand
     val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
     if (atTable != null) {

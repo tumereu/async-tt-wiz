@@ -13,6 +13,13 @@ import androidx.compose.ui.window.PopupProperties
 /** Calls [onBack] on the system's Back while composed and [enabled] (Android: the activity's BackHandler). */
 @Composable expect fun BackHandler(enabled: Boolean = true, onBack: () -> Unit)
 
+/**
+ * [BackHandler] for Back that moves between screens (leaving a saved deck for the list, a game's lobby for Games), not
+ * one that closes a dialog, panel or other layer. Android: [BackHandler] exactly. The web: only the on-screen Back
+ * (WEB-003) calls it; the browser's Back moves between screens by their addresses and Esc closes only layers.
+ */
+@Composable expect fun ScreenBackHandler(enabled: Boolean = true, onBack: () -> Unit)
+
 /** The screen's width in dp (Android: the configuration's screenWidthDp). */
 @Composable expect fun screenWidthDp(): Int
 

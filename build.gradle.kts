@@ -75,6 +75,8 @@ tasks.register("verifyModuleBoundaries") {
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":app-ui"),
             // The shared Compose UI for Android and the web (docs/specs/web-client.md §1).
             ":app-ui" to setOf(":core", ":protocol", ":automatum", ":client-storage"),
+            // The web client's page: the shared UI in a browser.
+            ":webApp" to setOf(":app-ui"),
             ":server" to setOf(":core", ":protocol", ":arcanum-api", ":arcanum-engine", ":catalog"),
             // The card catalog: its format and reader, the MTGJSON import, and the build with Automatum's support marks.
             ":catalog" to setOf(":protocol", ":automatum"),
@@ -183,7 +185,7 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
     doLast {
         val prefixes = mapOf("table.md" to setOf("TBL"), "zones.md" to setOf("ZON"),
             "turns-combat-stack.md" to setOf("TRN", "CMB", "STK"), "history.md" to setOf("HIS"),
-            "lobby.md" to setOf("LOB"), "draft.md" to setOf("DRF"), "rules.md" to setOf("SYS"))
+            "lobby.md" to setOf("LOB"), "draft.md" to setOf("DRF"), "rules.md" to setOf("SYS"), "web.md" to setOf("WEB"))
         val id = Regex("""\b(?:${prefixes.values.flatten().joinToString("|")})-\d{3}\b""")
         val entry = Regex("""^- \*\*([A-Z]{3}-\d{3})\*\* \S""")
         val problems = mutableListOf<String>()

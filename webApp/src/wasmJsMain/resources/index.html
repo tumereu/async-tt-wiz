@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#244c46">
+    <title>ATW</title>
+    <style>
+        /* No pull-to-refresh or long-press callouts over the app (docs/specs/web-client.md §8.5) */
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f7f8f9;
+            overscroll-behavior: none; -webkit-touch-callout: none; }
+        /* WEB-005: the first load's loading screen, until the app draws (later visits load from the browser's cache) */
+        #atw-loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 16px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #244c46; background: #f7f8f9;
+            text-align: center; padding: 24px; box-sizing: border-box; z-index: 10; }
+        #atw-loading h1 { margin: 0; font-size: 22px; letter-spacing: 3px; }
+        #atw-loading p { margin: 0; color: #6b7788; font-size: 15px; }
+        #atw-loading .bar { width: 200px; height: 4px; border-radius: 2px; background: #dde3e8; overflow: hidden; }
+        #atw-loading .bar::after { content: ""; display: block; width: 40%; height: 100%; background: #107e7a; border-radius: 2px;
+            animation: atw-slide 1.2s ease-in-out infinite; }
+        @keyframes atw-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+        @media (prefers-reduced-motion: reduce) { #atw-loading .bar::after { animation: none; width: 100%; } }
+    </style>
+    <script>
+        // The server replaces these with the build's folder and name (webApp's webDist); a development server leaves them.
+        globalThis.atwBase = '%ATW_BASE%'.charAt(0) === '%' ? '/' : '%ATW_BASE%';
+        globalThis.atwBuild = '%ATW_BUILD%'.charAt(0) === '%' ? '' : '%ATW_BUILD%';
+    </script>
+</head>
+<body>
+<div id="atw-loading" role="status">
+    <svg width="96" height="80" viewBox="0 0 96 80" aria-hidden="true">
+        <path fill="#244C46" d="M24,58 C14,58 8,61 5,64 C0,69 8,73 20,75 C43,80 73,77 88,71 C95,68 94,65 88,62 C84,60 79,59 73,58 Z"/>
+        <path fill="#365F53" d="M23,61 C29,46 30,30 40,18 C48,8 60,7 74,12 C62,12 55,18 57,25 C60,35 66,44 74,61 C58,68 39,68 23,61 Z"/>
+        <path fill="#244C46" d="M74,12 C62,12 55,18 57,25 C60,35 66,44 74,61 L61,63 C59,46 47,32 51,23 C54,17 63,13 74,12 Z"/>
+        <path fill="#D7BB6D" d="M27,50 C40,55 55,56 68,50 L73,60 C58,67 39,67 23,61 Z"/>
+        <path fill="#EAD99D" d="M43,27 L46,34 L53,37 L46,40 L43,47 L40,40 L33,37 L40,34 Z"/>
+        <path fill="#365F53" d="M8,65 C26,72 65,75 88,64 C79,73 49,79 20,73 C11,71 7,68 8,65 Z"/>
+    </svg>
+    <h1>ATW</h1>
+    <p id="atw-loading-text">Loading Async Tabletop Wizards…</p>
+    <div class="bar"></div>
+    <noscript><p>ATW needs JavaScript turned on.</p></noscript>
+</div>
+<script>
+    (function () {
+        var script = document.createElement('script');
+        script.src = globalThis.atwBase + 'atw.js';
+        script.onerror = function () {
+            var text = document.getElementById('atw-loading-text');
+            if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
+        };
+        document.body.appendChild(script);
+        // Browsers without WebAssembly garbage collection can't run the app
+        if (typeof WebAssembly !== 'object' || typeof WebAssembly.validate !== 'function') {
+            document.getElementById('atw-loading-text').textContent = 'This browser is too old for ATW. Update it and reload.';
+        }
+    })();
+</script>
+</body>
+</html>

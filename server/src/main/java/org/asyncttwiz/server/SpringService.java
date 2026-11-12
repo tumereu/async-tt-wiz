@@ -155,6 +155,8 @@ public final class SpringService implements AutoCloseable {
         private final org.asyncttwiz.server.releases.AppReleaseHttp appReleases;
         private final org.asyncttwiz.server.catalog.CatalogHttp catalog;
         private final org.asyncttwiz.server.diagnostics.ProblemReportHttp problemReports;
+        private final org.asyncttwiz.server.web.ArchidektProxyHttp archidekt;
+        private final org.asyncttwiz.server.web.WebAppHttp webApp;
         Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
             this.runtime = runtime;
             this.health = health;
@@ -169,6 +171,8 @@ public final class SpringService implements AutoCloseable {
             appReleases = health ? null : new org.asyncttwiz.server.releases.AppReleaseHttp();
             catalog = health ? null : new org.asyncttwiz.server.catalog.CatalogHttp();
             problemReports = health ? null : new org.asyncttwiz.server.diagnostics.ProblemReportHttp(runtime);
+            archidekt = health ? null : new org.asyncttwiz.server.web.ArchidektProxyHttp();
+            webApp = health ? null : new org.asyncttwiz.server.web.WebAppHttp();
         }
 
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -183,6 +187,9 @@ public final class SpringService implements AutoCloseable {
             if (!health && lobby.handle(request, response)) return;
             if (!health && activity.handle(request, response)) return;
             if (!health && crashReports.handle(request, response)) return;
+            if (!health && archidekt.handle(request, response)) return;
+            // Last: the web client's page answers its own addresses only (docs/specs/web-client.md §2.1)
+            if (!health && webApp.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";
             if (health && (request.getMethod().equals("GET") || request.getMethod().equals("HEAD"))) {

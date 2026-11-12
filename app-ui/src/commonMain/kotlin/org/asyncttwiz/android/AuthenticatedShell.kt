@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.ScreenBackHandler
 import org.asyncttwiz.protocol.Faults
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -46,7 +47,7 @@ fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: 
     val podPlay = state.destination == ShellDestination.PODS && pods?.state?.let {
         it.selected != null && it.creating == null && it.detail?.phase.let { phase -> phase != null && phase != org.asyncttwiz.protocol.PodPhase.SETUP }
     } == true
-    BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
+    ScreenBackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     LaunchedEffect(state.destination) {
         if (state.destination != ShellDestination.DECKS && !(state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true)) deckImport?.exit()
         if (state.destination == ShellDestination.DECKS && decks?.state?.selected == null) decks?.refresh()

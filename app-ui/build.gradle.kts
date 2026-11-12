@@ -64,6 +64,9 @@ kotlin {
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.browser)
             implementation(libs.coroutines.core)
+            // The web shell's Back (step 3): Esc and the close watcher go through Compose's own Back handling.
+            implementation(libs.cmp.ui.backhandler)
+            implementation(libs.navigationevent)
         }
     }
 }

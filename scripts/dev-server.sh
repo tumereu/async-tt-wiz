@@ -104,6 +104,8 @@ wait_http catalog http://127.0.0.1:18081/api/v5/Meta.json
 
 # The server's card catalog, built from the same invented cards the dev catalog serves (prism v1)
 export CATALOG_DIR=$DEV/catalog
+# The web client, once built (./scripts/gradle.sh :webApp:webDist); without a build the server serves none
+export WEB_APP_DIR=$ROOT/webApp/build/web
 if ! running server; then
     ./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR --file $ROOT/tests/fixtures/catalogs/prism/v1/AllPrintings.json.gz"
     ./scripts/gradle.sh :server:installDist
@@ -114,6 +116,7 @@ if ! running server; then
 fi
 wait_http server http://127.0.0.1:8081/health/ready
 echo "API: http://127.0.0.1:8080 (an unknown path returns 404)"
+echo "Web client: http://127.0.0.1:8080/ (build it first: ./scripts/gradle.sh :webApp:webDist; it is read at each request)"
 echo "Health: http://127.0.0.1:8081/health/ready"
 echo "Catalog: http://127.0.0.1:18081/api/v5/ (synthetic prism/v1); the server's: http://127.0.0.1:8080/v1/catalog"
 echo "Mailpit: http://127.0.0.1:18025 | PostgreSQL: 127.0.0.1:55432/atw_dev"

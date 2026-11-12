@@ -71,6 +71,8 @@ object E2eStack {
             "TEST_GAME_SECRET_FILE" to secret.path,
             // The card catalog of the invented test cards (tests/fixtures/card-catalog, :catalog:testCardsCatalog)
             "CATALOG_DIR" to requireNotNull(System.getProperty("atw.e2e.catalogDir")),
+            // The web client's build (webApp's webDist), which WebSmokeTest loads in a real browser
+            "WEB_APP_DIR" to System.getProperty("atw.e2e.webDir").orEmpty(),
             "JAVA_OPTS" to "-Djava.net.preferIPv4Stack=true -Xmx768m")
         fun launch(command: String, log: File): Process = ProcessBuilder(server, command).redirectErrorStream(true)
             .redirectOutput(log).also { it.environment().putAll(environment) }.start()

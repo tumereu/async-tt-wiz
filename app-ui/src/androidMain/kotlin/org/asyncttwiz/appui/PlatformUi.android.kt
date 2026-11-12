@@ -23,6 +23,10 @@ import androidx.compose.ui.window.PopupProperties
     androidx.activity.compose.BackHandler(enabled, onBack)
 }
 
+@Composable actual fun ScreenBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    androidx.activity.compose.BackHandler(enabled, onBack)
+}
+
 @Composable actual fun screenWidthDp(): Int = LocalConfiguration.current.screenWidthDp
 
 @Composable actual fun screenHeightDp(): Int = LocalConfiguration.current.screenHeightDp

@@ -52,7 +52,9 @@ suspend fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = run {
             check(bytes.size <= DeckApi.MAX_BODY) { "Deck response is too large. Paste the list instead." }
             return bytes.decodeToString(throwOnInvalidSequence = true)
         }
-        val body = read(location.endpoint, "application/json")
+        // The web reads it through the ATW server (same origin): Archidekt allows no browser requests
+        val body = read(if (org.asyncttwiz.appui.importsThroughServer) location.proxied(org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN)
+            else location.endpoint, "application/json")
         DeckUrlImport.parse(location.site, body)
     }
 }

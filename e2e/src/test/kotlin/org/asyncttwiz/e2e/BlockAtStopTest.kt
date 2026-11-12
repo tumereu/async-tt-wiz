@@ -122,8 +122,11 @@ class BlockAtStopTest : E2e() {
     /** Turns 4 and 5: Alice attacks with the same Brute again; no block from the earlier combat shows on either phone (no
      * staging left on the table), every combat copy is a card the board has, and neither phone crashed. */
     private fun theNextAttackShowsNoOldBlock() {
-        waitUntil("no block staging left on either table", along = listOf(alice, bob)) {
+        // Each plays along only on a settled game: Bob's declaration at the stop takes back the board Alice's own play had
+        // moved on to, and her tap on that board while his declaration is on its way isn't taken (SYS-011)
+        waitUntil("no block staging left on either table") {
             goOn(alice)
+            for (player in listOf(alice, bob)) if (player.settled(this)) player.playAlong()
             alice.shown.board.engine!!.table.blockDraft == null && bob.shown.board.engine!!.table.blockDraft == null
         }
         waitUntil("Bob's second Main 1", along = listOf(alice)) { goOn(alice); bob.inOwnMain() && bob.state.turn.number >= 4 }

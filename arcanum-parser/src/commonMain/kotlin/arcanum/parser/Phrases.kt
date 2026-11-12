@@ -32,6 +32,8 @@ internal object Numbers {
         "twenty" to 20,
         // hob chunk 10
         "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14, "fifteen" to 15)
+    /** isd chunk 01: every counted number word above, for a regex alternation ("thirteen tapped 2/2 … tokens"). */
+    val WORD_PATTERN: String = WORDS.keys.sortedByDescending { it.length }.joinToString("|")
     private val ORDINALS = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4, "fifth" to 5,
         // msh
         "sixth" to 6, "seventh" to 7, "eighth" to 8, "ninth" to 9, "tenth" to 10)
@@ -1427,7 +1429,7 @@ internal object Tokens {
     }
 
     private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
-    private val COUNTED = Regex("""(a|an|one|two|three|four|five) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
+    private val COUNTED = Regex("""(${Numbers.WORD_PATTERN}) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
     // chunk 26
     private val QUOTED = Regex(""""(.+)"""")
     private val TOKEN = Regex("""an? (\d+/\d+|X/X) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")

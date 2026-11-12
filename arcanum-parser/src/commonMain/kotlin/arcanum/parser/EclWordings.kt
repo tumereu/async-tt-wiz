@@ -94,7 +94,8 @@ internal object Ecl {
     val EXCEPT_IT_HAS = Regex("""it has (.+)""")
     // ecl chunk 07
     val AS_ENTERS_CHOOSE_TYPE_AMONG = Regex("""As (.+?) enters, choose ((?:[A-Z]\w+, )+or [A-Z]\w+)\.""")
-    val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a creature type\. (.+)""")
+    // isd chunk 01: also "Choose a permanent type." / "Choose a card type." (CR 205.2a, 110.4a)
+    val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a (creature|permanent|card) type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
     val IT_DEALS_INSTEAD_IF =Regex("""It deals (\d+) damage to that creature instead if (.+)\.""")
     val GET_X_X_WHERE = Regex("""(.+?) get \+X/\+X, where X is (.+)\.""")

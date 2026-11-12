@@ -2780,6 +2780,7 @@ internal class Sentences(
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
                 ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
                 ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
+                ?: isdWhole(body.replaceFirstChar { it.uppercase() }, context) // isd
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
@@ -3654,10 +3655,12 @@ internal class Sentences(
         }
         // dsk chunk 11: "One or two target creatures can't block this turn."
         N_OR_M_TARGETS_CANT_BLOCK.matchEntire(sentence)?.let { m ->
-            val noun = m.groupValues[3]
+            val noun = m.groupValues[4]
             val name = Filters.slotName(noun)
-            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
-                max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+            val upTo = m.groupValues[3].isNotEmpty()
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null),
+                min = Value.Fixed(if (upTo) 0 else Numbers.count(m.groupValues[1]) ?: return null),
+                max = Value.Fixed(Numbers.count(if (upTo) m.groupValues[3] else m.groupValues[2]) ?: return null))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), arcanum.api.Affected.Objects(Objects.Target(name)), arcanum.api.Duration.EndOfTurn)))
         }
         // dsk chunk 11: "It deals 3 damage to up to one target creature." (this object)
@@ -4064,6 +4067,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        isdEffect(sentence, context)?.let { return it } // isd
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
@@ -4866,7 +4870,9 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
         DISCARD.matchEntire(sentence)?.let { m ->
-            return listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), filter = ObjectFilter.Any)))
+            // isd chunk 01: "discard a card at random" (CR 701.9b: the card is chosen at random)
+            return listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), filter = ObjectFilter.Any,
+                random = m.groupValues[2].isNotEmpty())))
         }
         // chunk 35: "Create a 1/1 … token for each +1/+1 counter on this creature." (read from the source, its last known
         // information once it has left, CR 113.7a, 608.2h)
@@ -11050,7 +11056,7 @@ internal class Sentences(
         val ADD_MANA_RESTRICTED = Regex("""Add (.+)\. Spend this mana only to cast (?:an? )?(.+) spells?\.""")
         val ADD_MANA_FOR_EACH = Regex("""Add (\{.\}) for each (.+)\.""")
         val DRAW = Regex("""Draw (a|one|two|three|four|five|six|seven) cards?\.""")
-        val DISCARD = Regex("""[Dd]iscard (a|one|two|three|four|five|six|seven) cards?\.""")
+        val DISCARD = Regex("""[Dd]iscard (a|one|two|three|four|five|six|seven) cards?( at random)?\.""")
         val CREATE_TOKEN = Regex("""[Cc]reate (.+ tokens?(?: with .+)?(?: that(?:'s| are) tapped and attacking)?)\.""")
         val SELF_DEALS_DAMAGE_TO_EACH = Regex("""(.+?) deals (\d+) damage to (each .+)\.""")
         val EXILE_THEN_RETURN = Regex("""Exile (another )?target (.+), then return (?:it|that card) to the battlefield under its owner's control\.""")
@@ -11134,7 +11140,8 @@ internal class Sentences(
         val ATTACHED_GETS_X_COUNTERS = Regex("""Equipped creature gets (\+X|[+-]\d+)/(\+X|[+-]\d+), where X is the number of (\S+) counters on (.+)\.""")
         val GAIN_CONTROL_UNTIL_EOT = Regex("""Gain control of target (.+) until end of turn\.""")
         val SELF_DEALS_N_TO_THEM = Regex("""(.+) deals (\d+) damage to them\.""")
-        val N_OR_M_TARGETS_CANT_BLOCK = Regex("""(One|Up to one|\w+) or (\w+) target (.+) can't block this turn\.""")
+        // isd chunk 01: also "Up to two target creatures can't block this turn."
+        val N_OR_M_TARGETS_CANT_BLOCK = Regex("""(?:(One|Up to one|\w+) or (\w+)|Up to (\w+)) target (.+) can't block this turn\.""")
         val SELF_DEALS_TO_UP_TO_ONE = Regex("""(.+?) deals (\d+|X) damage to up to one target (.+)\.""") // inr chunk 09: X
         val TARGET_DEALS_POWER_TO_EACH_OTHER = Regex("""Target (.+) deals damage equal to its power to each other (.+)\.""")
         val IF_THAT_WOULD_DIE_THIS_TURN = Regex("""If that (?:creature|creature or planeswalker) would die this turn, exile it instead\.""")
@@ -15525,6 +15532,41 @@ internal class Sentences(
         return null
     }
 
+    // ---- isd
+
+    /** isd: single-sentence effects. */
+    private fun isdEffect(sentence: String, context: Context): List<Step>? {
+        // isd chunk 01: "Target player shuffles up to three target cards from their graveyard into their library." (the cards go to their
+        // owner's library, then that player shuffles, CR 400.3, 701.24a)
+        Isd.TARGET_PLAYER_SHUFFLES_UP_TO_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val max = Numbers.count(m.groupValues[1]) ?: return@let
+            val player = context.targetPlayer()
+            val name = mh2NewSlotName(context, "cards")
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.Is(player)))), min = Value.Fixed(0), max = Value.Fixed(max))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Library))), Step.Do(Effect.Shuffle(player)))
+        }
+        return null
+    }
+
+    /** isd: whole multi-sentence effects. */
+    private fun isdWhole(text: String, context: Context): List<Step>? {
+        // isd chunk 01: "Each player chooses a creature they control. Destroy the rest." (each player chooses in turn order, then all the
+        // others are destroyed at once, CR 101.4, 608.2e)
+        Isd.EACH_CHOOSES_ONE_THEY_CONTROL_REST.matchEntire(text)?.let { m ->
+            val who = if (m.groupValues[1] == "opponent") PlayerFilter.Opponent else PlayerFilter.Any
+            val theirs = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player"))))
+            val choose = Step.Choose(arcanum.api.Choice.Objects(theirs, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.Bound("player"))
+            val rest = Objects.Except(Objects.Each(theirs), Objects.Bound("chosen"))
+            val act = when (m.groupValues[3]) {
+                "Destroy" -> Effect.Destroy(rest)
+                else -> Effect.Move(rest, Destination(Zone.Exile))
+            }
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(who)), "player", together = true, steps = listOf(choose, Step.Do(act))))
+        }
+        return null
+    }
+
     // ---- inr
 
     /** inr: single-sentence effects. */
@@ -18459,15 +18501,22 @@ internal class Sentences(
     private fun eclWhole3(text: String, context: Context): List<Step>? {
         // ecl chunk 06: "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield." (the type chosen
         // now, not one kept by the card)
-        Ecl.CHOOSE_A_CREATURE_TYPE_THEN.matchEntire(text)?.takeIf { it.groupValues[1].contains("the chosen type") }?.let { m ->
+        Ecl.CHOOSE_A_CREATURE_TYPE_THEN.matchEntire(text)?.takeIf { it.groupValues[2].contains("the chosen type") }?.let { m ->
             val rest = mutableListOf<Step>()
-            for (sentence in sentences(m.groupValues[1])) rest += effect(sentence, context) ?: return null
+            for (sentence in sentences(m.groupValues[2])) rest += effect(sentence, context) ?: return null
             val json = kotlinx.serialization.json.Json
             val serializer = kotlinx.serialization.builtins.ListSerializer(Step.serializer())
-            val remembered = json.encodeToString(arcanum.api.SubtypeRef.serializer(), arcanum.api.SubtypeRef.Remembered("type"))
-            val chosen = json.encodeToString(arcanum.api.SubtypeRef.serializer(), arcanum.api.SubtypeRef.Chosen("type"))
-            val steps = json.decodeFromString(serializer, json.encodeToString(serializer, rest).replace(remembered, chosen))
-            return listOf(Step.Choose(arcanum.api.Choice.CreatureType, bind = "type", chooser = Players.You)) + steps
+            val filters = ObjectFilter.serializer()
+            val remembered = json.encodeToString(filters, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
+            // isd chunk 01: "Choose a permanent type." reads "of the chosen type" as that card type (CR 110.4a lists the permanent types)
+            val (choice, chosen) = when (m.groupValues[1]) {
+                "creature" -> arcanum.api.Choice.CreatureType to ObjectFilter.Sub(arcanum.api.SubtypeRef.Chosen("type"))
+                "permanent" -> arcanum.api.Choice.CardType(listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment,
+                    CardType.Land, CardType.Planeswalker)) to ObjectFilter.Type(arcanum.api.CardTypeRef.Chosen("type"))
+                else -> arcanum.api.Choice.CardType() to ObjectFilter.Type(arcanum.api.CardTypeRef.Chosen("type"))
+            }
+            val steps = json.decodeFromString(serializer, json.encodeToString(serializer, rest).replace(remembered, json.encodeToString(filters, chosen)))
+            return listOf(Step.Choose(choice, bind = "type", chooser = Players.You)) + steps
         }
         // ecl chunk 15: "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost
         // if the spell's mana value is less than or equal to the amount of life you gained this turn. Otherwise, put it into your hand."

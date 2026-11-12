@@ -3,11 +3,14 @@
 package org.asyncttwiz.web
 
 import org.asyncttwiz.android.pageOrigin
+import org.asyncttwiz.android.runEngineBench
 import org.asyncttwiz.android.startWebApp
 import org.asyncttwiz.appui.BuildInfo
 
 /** The web client's entry point (docs/specs/web-client.md §1 item 1): the build's values, then the app (:app-ui). */
 fun main() {
+    // Dev only: a test build opened at #engine-bench measures the engine's Web Worker in place of the app
+    if (!WebBuildValues.RELEASE && pageHash() == "#engine-bench") { runEngineBench(assetBase()); return }
     val origin = pageOrigin()
     startWebApp(WebBuildInfo(origin), assetBase())
 }
@@ -35,3 +38,6 @@ private class WebBuildInfo(origin: String) : BuildInfo {
 
 /** Where this build's own files are (index.html says: the server's /web/<build>/, or the page's folder). */
 private fun assetBase(): String = js("(typeof globalThis.atwBase === 'string') ? globalThis.atwBase : '/'")
+
+/** The page address's fragment ("#..."), "" without one. */
+private fun pageHash(): String = js("(typeof location !== 'undefined') ? location.hash : ''")

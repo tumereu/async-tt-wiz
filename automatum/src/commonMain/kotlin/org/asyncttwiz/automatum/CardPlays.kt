@@ -19,13 +19,16 @@ import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.Functioning
 import arcanum.engine.view.View
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * One thing the engine offers for a card (integration spec §3 I4, I-D28): casting it one way, playing it (a land),
  * activating one of its activated abilities (a mana ability too) or taking a special action it offers (turning a
  * face-down card face up, unlocking a door). [input] is what the engine takes now; null when it doesn't allow it now,
- * with [refusal] saying why.
+ * with [refusal] saying why. Serializable: it crosses the engine boundary ([org.asyncttwiz.automatum.boundary.EngineAnswer]).
  */
+@Serializable
 data class CardPlay(
     val kind: Kind,
     /** What the menu shows: the way to cast ("Flashback"), or the ability's printed text ("{T}: Add {G}."). */
@@ -35,28 +38,30 @@ data class CardPlay(
 ) {
     val legal: Boolean get() = input != null
 
+    @Serializable
     sealed interface Kind {
-        data object Cast : Kind
-        data object Play : Kind
-        data object Ability : Kind
-        data object Mana : Kind
-        data object Special : Kind
+        @Serializable @SerialName("cast") data object Cast : Kind
+        @Serializable @SerialName("play") data object Play : Kind
+        @Serializable @SerialName("ability") data object Ability : Kind
+        @Serializable @SerialName("mana") data object Mana : Kind
+        @Serializable @SerialName("special") data object Special : Kind
     }
 
     /** Why the engine doesn't allow it now. */
+    @Serializable
     sealed interface Refusal {
         /** Another player holds priority ([holder]; null: nobody does, as while attackers are awaited). */
-        data class Priority(val holder: String?) : Refusal
+        @Serializable @SerialName("priority") data class Priority(val holder: String?) : Refusal
         /** Only as a sorcery: in its controller's main phase with an empty Stack (CR 307.1, 602.5d). */
-        data object Timing : Refusal
+        @Serializable @SerialName("timing") data object Timing : Refusal
         /** A loyalty ability: once each turn, as a sorcery (CR 606.3). */
-        data object Loyalty : Refusal
+        @Serializable @SerialName("loyalty") data object Loyalty : Refusal
         /** It was used as often as it may be this turn (or this game). */
-        data object Used : Refusal
+        @Serializable @SerialName("used") data object Used : Refusal
         /** The card belongs to (or is controlled by) another player: only they may play it. */
-        data object NotYours : Refusal
+        @Serializable @SerialName("not-yours") data object NotYours : Refusal
         /** Anything else: a cost that can't be paid, no legal target, a condition not met. */
-        data object Other : Refusal
+        @Serializable @SerialName("other") data object Other : Refusal
     }
 }
 
@@ -75,6 +80,9 @@ class CardPlays private constructor(
 
     companion object {
         val NONE = CardPlays(emptyMap())
+
+        /** These plays as the engine boundary carried them ([org.asyncttwiz.automatum.boundary.CardPlaysSerializer]). */
+        internal fun restored(byCard: Map<String, List<CardPlay>>): CardPlays = CardPlays(byCard)
 
         /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full

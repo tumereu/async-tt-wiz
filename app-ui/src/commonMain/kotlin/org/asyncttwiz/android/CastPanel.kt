@@ -869,7 +869,7 @@ fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>
 fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
     else flow.engine?.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
-        ?: flow.engine?.let { arcanum.engine.Engine.lastKnown(it, id) }?.characteristics?.name
+        ?: flow.engine?.let { arcanum.engine.Inspect.lastKnown(it, id) }?.characteristics?.name
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) }
         ?: Faults.placeholder("CastPanel", "object without a name", "An object", mapOf("object" to id.toString()))
 

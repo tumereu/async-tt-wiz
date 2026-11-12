@@ -19,6 +19,7 @@ import arcanum.api.Players
 import arcanum.api.SharedQuality
 import arcanum.api.Step
 import arcanum.api.Value
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
@@ -508,11 +509,11 @@ class CastabilityTest {
         alice.hand(tapCreature)
         assertTrue(tapCreature in casts(alice))
         perform(Input.Cast(alice.id, card(tapCreature)))
-        val selection = Engine.selection(state, emptyList())
+        val selection = CastScreen.selection(state, emptyList())
         assertEquals(listOf(TargetRef.Object(card(bear))), selection.candidates, "only the Bear leaves mana")
-        assertFalse(Engine.selection(state, listOf(TargetRef.Object(card(elf)))).done, "Done only on what can be paid")
-        assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(bear)))).done)
-        assertFalse(Engine.finishableWith(state, Answer.Objects(listOf(card(elf)))))
+        assertFalse(CastScreen.selection(state, listOf(TargetRef.Object(card(elf)))).done, "Done only on what can be paid")
+        assertTrue(CastScreen.selection(state, listOf(TargetRef.Object(card(bear)))).done)
+        assertFalse(CastScreen.finishableWith(state, Answer.Objects(listOf(card(elf)))))
     }
 
     // Deny only with proof (CR 205.3m, 701.4a): creature types are looked at through a sample of those in the game: the ninth, the only one with two
@@ -559,9 +560,9 @@ class CastabilityTest {
         alice.hand(giant)
         assertTrue(giant in casts(alice))
         perform(Input.Cast(alice.id, card(giant)))
-        assertFalse(Engine.finishableWith(state, Answer.Number(0)), "{4}")
-        assertFalse(Engine.finishableWith(state, Answer.Number(1)), "{5}: mana value 5")
-        assertTrue(Engine.finishableWith(state, Answer.Number(2)), "mana value 6: {2}")
+        assertFalse(CastScreen.finishableWith(state, Answer.Number(0)), "{4}")
+        assertFalse(CastScreen.finishableWith(state, Answer.Number(1)), "{5}: mana value 5")
+        assertTrue(CastScreen.finishableWith(state, Answer.Number(2)), "mana value 6: {2}")
         assertEquals(Answer.Number(2), Engine.options(state, alice.id).filterIsInstance<Input.Answer>().first().answer, "the least that works")
     }
 
@@ -593,7 +594,7 @@ class CastabilityTest {
         perform(Input.Cast(alice.id, card(five)))
         val payment = decision<Decision.ManaPayment>()
         val one = listOf(prismA, prismB, prismC, prismD, prismE).map { p -> payment.options.first { it.isOf(card(p)) } }
-        val filled = Engine.fillPayment(state, one, emptyList())
+        val filled = CastScreen.fillPayment(state, one, emptyList())
         assertEquals(5, filled.size)
         answer(Answer.ManaPayment(filled))
         assertTrue(state.pending == null)
@@ -722,7 +723,7 @@ class CastabilityTest {
     private fun Scenario.targetNames(refs: List<TargetRef>) = refs.map { nameOf(state.objOrThrow((it as TargetRef.Object).id)).toString() }.sorted()
 
     private fun Scenario.selectable(vararg picked: String) =
-        Engine.selection(state, picked.map { TargetRef.Object(card(it)) })
+        CastScreen.selection(state, picked.map { TargetRef.Object(card(it)) })
 
     // CR 601.2f: {5}, {1} less per target, 3 lands: one target {4} doesn't pay, two {3} do
     @Test fun aCostFallingWithMoreTargetsIsCastableAndOnlyAPairFinishes() = scenario {
@@ -810,7 +811,7 @@ class CastabilityTest {
         bob.battlefield(bear)
         bob.battlefield(ox, tapped = true)
         perform(Input.Cast(alice.id, card(banish)))
-        val costs = Engine.castCosts(state)
+        val costs = CastScreen.castCosts(state)
         assertEquals("{2}{W}", costs.least.toString(), "the tapped one's, though the untapped is listed first")
         assertTrue(costs.several)
         assertTrue(costs.castable)
@@ -822,7 +823,7 @@ class CastabilityTest {
         alice.hand(plain)
         bob.battlefield(bear)
         perform(Input.Cast(alice.id, card(plain)))
-        val costs = Engine.castCosts(state)
+        val costs = CastScreen.castCosts(state)
         assertEquals("{2}{W}", costs.least.toString())
         assertFalse(costs.several)
     }
@@ -836,7 +837,7 @@ class CastabilityTest {
         perform(Input.Cast(alice.id, card(two)))
         val payment = decision<Decision.ManaPayment>()
         val mountain = payment.options.first { (it as? ManaUse.Ability)?.source == card("Mountain") }
-        val filled = Engine.fillPayment(state, listOf(mountain), emptyList())
+        val filled = CastScreen.fillPayment(state, listOf(mountain), emptyList())
         assertEquals(2, filled.size)
         assertTrue(mountain in filled)
     }
@@ -854,14 +855,14 @@ class CastabilityTest {
         fun ford(color: Color) = payment.options.filterIsInstance<ManaUse.Ability>().first { it.source == card(dual) && it.color == color }
         val island = payment.options.first { (it as? ManaUse.Ability)?.source == card("Island") }
         val plains = payment.options.first { (it as? ManaUse.Ability)?.source == card("Plains") }
-        val blue = Engine.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.Blue)))
+        val blue = CastScreen.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.Blue)))
         assertEquals(setOf(ford(Color.Blue), plains), blue.toSet())
-        val white = Engine.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.White)))
+        val white = CastScreen.fillPayment(state, emptyList(), emptyList(), exact = listOf(ford(Color.White)))
         assertEquals(setOf(ford(Color.White), island), white.toSet())
-        assertTrue(Engine.fillPayment(state, emptyList(), listOf(island), exact = listOf(ford(Color.White))).isEmpty(),
+        assertTrue(CastScreen.fillPayment(state, emptyList(), listOf(island), exact = listOf(ford(Color.White))).isEmpty(),
             "white from the ford leaves {U} unpaid without the Island")
         // Pinned by its source only, the colour is free: the payment is found with the Island taken out
-        assertEquals(setOf(ford(Color.Blue), plains), Engine.fillPayment(state, listOf(ford(Color.White)), listOf(island)).toSet())
+        assertEquals(setOf(ford(Color.Blue), plains), CastScreen.fillPayment(state, listOf(ford(Color.White)), listOf(island)).toSet())
     }
 
     @Test fun aSourceTakenOutIsNotUsedAgain() = scenario {
@@ -871,11 +872,11 @@ class CastabilityTest {
         perform(Input.Cast(alice.id, card(two)))
         val payment = decision<Decision.ManaPayment>()
         val plains = payment.options.filterIsInstance<ManaUse.Ability>().first { it.source == card("Plains", 0) }
-        val filled = Engine.fillPayment(state, emptyList(), listOf(plains))
+        val filled = CastScreen.fillPayment(state, emptyList(), listOf(plains))
         assertEquals(2, filled.size)
         assertFalse(plains in filled)
         val mountain = payment.options.first { (it as? ManaUse.Ability)?.source == card("Mountain") }
-        assertTrue(Engine.fillPayment(state, emptyList(), listOf(plains, mountain)).isEmpty(), "the rest can't be filled")
+        assertTrue(CastScreen.fillPayment(state, emptyList(), listOf(plains, mountain)).isEmpty(), "the rest can't be filled")
     }
 
     // A way exists but only by hand: an announced amount isn't searched, and doesn't deny

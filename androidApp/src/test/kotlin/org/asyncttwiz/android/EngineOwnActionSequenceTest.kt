@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -104,7 +105,7 @@ class EngineOwnActionSequenceTest {
         while (true) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val decision = copy.pending?.decision ?: break
-            if (decision is Decision.Random || Engine.decider(copy, decision.player) != me) break
+            if (decision is Decision.Random || Host.decider(copy, decision.player) != me) break
             input = if (decision is Decision.ManaPayment) Input.Answer(decision.id, Answer.ManaPayment(decision.suggestion))
                 else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == decision.id }
             inputs += input
@@ -214,6 +215,6 @@ class EngineOwnActionSequenceTest {
     private fun cardPlaysOf(play: TableBoard): CardPlays {
         val state = assertNotNull(play.engine).state
         val view = Engine.view(state)
-        return CardPlays.of(state, f.a, view, Engine.visible(state, PlayerId(f.a), view))
+        return CardPlays.of(state, f.a, view, Host.visible(state, PlayerId(f.a), view))
     }
 }

@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.input.Input
@@ -256,7 +256,7 @@ object EngineEventText {
         val card = (id as? ObjectId.Card)?.card ?: return null
         val s = state ?: return null
         val obj = s.objects[id] ?: s.objects.values.lastOrNull { it.card == card } ?: return null
-        if (obj.faceDown || obj.id !in Engine.visible(s, PlayerId(viewer))) return null
+        if (obj.faceDown || obj.id !in Host.visible(s, PlayerId(viewer))) return null
         return obj.definition?.faces?.getOrNull(obj.face)?.name
     }
 

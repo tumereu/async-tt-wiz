@@ -3,6 +3,7 @@ package arcanum.engine.review
 import arcanum.api.CardType
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.Outcome
 import arcanum.engine.action.Knowledge
 import arcanum.engine.cards.Cards
@@ -158,7 +159,7 @@ internal class LongGame(
         if (d is Decision.OtherView) {
             // As the host: the identities, and the other player's next answer in their view (D31), when one is needed
             val filled = d.objects.map { FilledObject(it, truth(it)) }
-            val next = Engine.otherViewDecision(state, filled)
+            val next = Host.otherViewDecision(state, filled)
             return Input.Answer(d.id, Answer.OtherView(filled, listOfNotNull(next?.let { someAnswer(it) })))
         }
         if (!state.started && d == null) return Input.StartGame()
@@ -173,7 +174,7 @@ internal class LongGame(
         else listed.filter { it !in doing || it is Input.DeclareAttackers || it is Input.DeclareBlockers }.ifEmpty { listed }.random(rnd)
     }
 
-    /** A legal answer to [d], a decision another player faces in their view ([Engine.otherViewDecision]), chosen at
+    /** A legal answer to [d], a decision another player faces in their view ([Host.otherViewDecision]), chosen at
      * random where it is a choice. */
     private fun someAnswer(d: Decision): Answer = when (d) {
         is Decision.Random -> random(d.what)

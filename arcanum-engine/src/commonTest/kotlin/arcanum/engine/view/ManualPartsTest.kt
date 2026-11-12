@@ -12,13 +12,13 @@ import arcanum.api.ManaCost
 import arcanum.api.Players
 import arcanum.api.Step
 import arcanum.api.Value
-import arcanum.engine.Engine
+import arcanum.engine.CardSupport
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Engine.manualParts: what the engine leaves to the players in a card definition; invented cards, oracle-style wording. */
+/** CardSupport.manualParts: what the engine leaves to the players in a card definition; invented cards, oracle-style wording. */
 class ManualPartsTest {
     private fun card(text: String) = CardDefinition(Layout.Normal,
         listOf(OracleParser.parse(OracleCard("Mossback Cub", "{1}{G}", "Creature — Bear", text, power = "2", toughness = "2"))))
@@ -27,37 +27,37 @@ class ManualPartsTest {
         types = listOf(CardType.Instant), abilities = listOf(Ability.Spell(Instructions(steps = steps.toList(), announced = listOf("X")))))))
 
     @Test fun aFullyReadCardHasNoManualParts() {
-        assertEquals(emptyList(), Engine.manualParts(card("Trample\nWhen this creature enters, you gain 2 life.")))
+        assertEquals(emptyList(), CardSupport.manualParts(card("Trample\nWhen this creature enters, you gain 2 life.")))
     }
 
     @Test fun unreadTextAndManualStepsAreLeftToThePlayers() {
         assertEquals(listOf("unread text: Whenever the moon is full, this creature dances a slow jig."),
-            Engine.manualParts(card("Whenever the moon is full, this creature dances a slow jig.")))
-        assertEquals(listOf("by hand: Do the odd thing"), Engine.manualParts(spell(Step.Manual("Do the odd thing"))))
+            CardSupport.manualParts(card("Whenever the moon is full, this creature dances a slow jig.")))
+        assertEquals(listOf("by hand: Do the odd thing"), CardSupport.manualParts(spell(Step.Manual("Do the odd thing"))))
     }
 
     // CR 701.48a: the engine plays learn by its expansion, the host bringing the cards outside the game
     @Test fun learnIsNotLeftToThePlayers() {
-        assertEquals(emptyList(), Engine.manualParts(spell(Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Learn)))))
+        assertEquals(emptyList(), CardSupport.manualParts(spell(Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Learn)))))
     }
 
     // CR 107.3f: a cost paid on resolution with an X the definition doesn't set is chosen as it is paid, so it isn't left to the
     // players; nor is "its mana cost" (CR 107.3h)
     @Test fun aResolutionCostIsPlayedWithOrWithoutItsX() {
         val x = ManaCost.parse("{X}")!!
-        assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x))), payer = Players.You))))
-        assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x, x = Value.Announced("X")))), payer = Players.You))))
-        assertEquals(emptyList(), Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.ItsManaCost)), payer = Players.You))))
+        assertEquals(emptyList(), CardSupport.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x))), payer = Players.You))))
+        assertEquals(emptyList(), CardSupport.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Mana(x, x = Value.Announced("X")))), payer = Players.You))))
+        assertEquals(emptyList(), CardSupport.manualParts(spell(Step.Pay(Cost(listOf(CostPart.ItsManaCost)), payer = Players.You))))
     }
 
     // CR 605.3b: a mana ability whose other steps ask something is played (asked as it resolves), not left to the players
     @Test fun aManaAbilityThatAsksIsPlayed() {
-        assertEquals(emptyList(), Engine.manualParts(card("{T}: Add one mana of any color. An opponent gains control of this creature at the beginning of the next end step.")))
+        assertEquals(emptyList(), CardSupport.manualParts(card("{T}: Add one mana of any color. An opponent gains control of this creature at the beginning of the next end step.")))
     }
 
     // A cost part the definition can't express is named, as a Manual step is
     @Test fun aManualCostPartIsLeftToThePlayers() {
         assertEquals(listOf("by hand: Pay the odd price"),
-            Engine.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Manual("Pay the odd price"))), payer = Players.You))))
+            CardSupport.manualParts(spell(Step.Pay(Cost(listOf(CostPart.Manual("Pay the odd price"))), payer = Players.You))))
     }
 }

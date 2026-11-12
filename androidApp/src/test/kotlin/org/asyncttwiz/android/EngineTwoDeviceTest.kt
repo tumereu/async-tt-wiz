@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Attack
@@ -252,7 +253,7 @@ class EngineTwoDeviceTest {
             val outcome = try { Engine.perform(copy, input) } catch (_: RuntimeException) { return inputs.dropLast(1).ifEmpty { listOf(first) } }
             outcome.changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != me) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != me) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else Engine.options(copy, me).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.randomOrNull(rnd) ?: return inputs
             inputs += input

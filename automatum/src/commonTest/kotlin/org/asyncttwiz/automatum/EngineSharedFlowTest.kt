@@ -57,7 +57,7 @@ class EngineSharedFlowTest {
         assertTrue(left in choice.options)
         assertNull(flow.state.obj(left))
         assertTrue(flow.offeredAfterLeaving(left))
-        assertEquals("Parting Goner", arcanum.engine.Engine.lastKnown(flow.state, left)?.characteristics?.name)
+        assertEquals("Parting Goner", arcanum.engine.Inspect.lastKnown(flow.state, left)?.characteristics?.name)
         // One still there isn't one that left
         assertTrue(!flow.offeredAfterLeaving(choice.options.first { it != left }))
     }

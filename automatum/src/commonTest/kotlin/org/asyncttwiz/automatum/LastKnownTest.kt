@@ -32,7 +32,7 @@ class LastKnownTest {
         val resolved = table.flow(table.flow(working).pass(alice).working).pass(bob).working
         assertNull(resolved.obj(died))
         assertTrue(LastKnown.public(resolved, died), "the Martyr died from the battlefield")
-        assertEquals("Lingering Martyr", arcanum.engine.Engine.lastKnown(resolved, died)?.characteristics?.name)
+        assertEquals("Lingering Martyr", arcanum.engine.Inspect.lastKnown(resolved, died)?.characteristics?.name)
         assertNull(resolved.obj(cast))
         assertFalse(LastKnown.public(resolved, cast), "the Sweep left Alice's hand")
         assertFalse(LastKnown.public(resolved, table.obj(land)), "the Island is still there")

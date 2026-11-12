@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -96,7 +97,7 @@ class QueuedUndoTest {
         repeat(10) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != alice) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != alice) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
             else Engine.options(copy, alice).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input

@@ -1,8 +1,8 @@
 package arcanum.engine.view
 
+import arcanum.engine.Host
 import arcanum.engine.change.GameEvent
 import arcanum.api.Zone
-import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
@@ -199,7 +199,7 @@ class LearnTest {
         var guard = 6
         while (pending != null && guard-- > 0) {
             val d = pending
-            val asked = if (d is Decision.OtherView) Engine.otherViewDecision(state, otherView(d, emptyList()).filled) else d
+            val asked = if (d is Decision.OtherView) Host.otherViewDecision(state, otherView(d, emptyList()).filled) else d
             when (asked) {
                 is Decision.ChooseOption -> alice.answers(lessonOption)
                 is Decision.ChooseObjects -> alice.chooses(treatise)

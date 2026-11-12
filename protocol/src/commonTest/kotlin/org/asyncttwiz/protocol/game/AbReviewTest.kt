@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -337,7 +338,7 @@ class AbReviewTest {
         val choosing = assertIs<GameDevice.Wait.Choosing>(waiting.reason)
         val state = bobs.model.engine
         val source = assertNotNull(choosing.source, "the spell on the Stack is public")
-        assertTrue(source in Engine.visible(state, bob))
+        assertTrue(source in Host.visible(state, bob))
         // The same choice as if from a card in Alice's hand (a "reveal this from your hand" trigger): no id
         val pending = assertNotNull(state.pending)
         val hidden = state.player(alice).hand.first()

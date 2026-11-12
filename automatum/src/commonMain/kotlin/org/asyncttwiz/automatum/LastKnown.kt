@@ -1,7 +1,7 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.Zone
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.change.Change
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -22,7 +22,7 @@ object LastKnown {
             return move.before.zone in PUBLIC && !move.before.faceDown
         }
         // Removed rather than moved (a token or copy that ceased to exist), or known only from a Stack item's snapshot
-        val known = Engine.lastKnown(state, id) ?: return false
+        val known = Inspect.lastKnown(state, id) ?: return false
         return known.zone in PUBLIC && known.characteristics?.name != null
     }
 }

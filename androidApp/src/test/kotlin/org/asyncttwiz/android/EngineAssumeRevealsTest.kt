@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -31,7 +32,7 @@ class EngineAssumeRevealsTest {
         while (true) {
             Engine.perform(copy, next).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: break
-            if (d is Decision.Random || Engine.decider(copy, d.player) != me) break
+            if (d is Decision.Random || Host.decider(copy, d.player) != me) break
             next = if (d is Decision.Targets) Input.Answer(d.id, Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(PlayerId(f.b)))))
                 else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next

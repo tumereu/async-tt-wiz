@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -60,7 +61,7 @@ class DungeonPlayTest {
 
     private fun GameObject.named() = definition?.faces?.first()?.name
     private fun AsyncServer.dungeon(): GameObject? = state().engine.let { s -> s.command.mapNotNull { s.obj(it) }.firstOrNull { it.owner == alice } }
-    private fun AsyncServer.room(): String? = dungeon()?.let { d -> Engine.ventureRoom(state().engine, d.id)?.let { d.definition!!.faces.first().rooms[it].name } }
+    private fun AsyncServer.room(): String? = dungeon()?.let { d -> Inspect.ventureRoom(state().engine, d.id)?.let { d.definition!!.faces.first().rooms[it].name } }
     private fun AsyncServer.life(p: PlayerId) = state().engine.player(p).life
     private fun AsyncServer.hand(name: String): ObjectId = state().engine.player(alice).hand.first { state().engine.obj(it)?.named() == name }
 

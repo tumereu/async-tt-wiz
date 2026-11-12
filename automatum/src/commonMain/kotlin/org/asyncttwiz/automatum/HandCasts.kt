@@ -4,6 +4,7 @@ import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.CostPart
 import arcanum.api.Mechanic
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.decision.AnnounceStage
 import arcanum.engine.decision.Announced
@@ -130,7 +131,7 @@ data class HandCastChips(
 
 /**
  * Works out a hand card's cost chips (I-D50) by asking the engine of each choice: the cast is begun ([CastFlow]) with the extras
- * answered as chosen, and [Engine.castCosts] says its smallest cost, whether it can have others, whether it can be done (the same
+ * answered as chosen, and [CastScreen.castCosts] says its smallest cost, whether it can have others, whether it can be done (the same
  * verdict as [Engine.options]: a chip never denies what the engine lists, castability §1.4) and which sources Autotap would
  * tap for the smallest. Blocking; the app runs it on the Automatum worker.
  */
@@ -235,14 +236,14 @@ object HandCasts {
     /**
      * The open cast [flow] taken on to its payment (STK-024, owner 2026-11-07: the cast panel shows and lets the player
      * choose what pays while earlier questions are open): every question before it answered as the chips are worked out
-     * (the way to its smallest cost, [Engine.castCosts]: X at its least). [flow] itself when its payment is open; null
+     * (the way to its smallest cost, [CastScreen.castCosts]: X at its least). [flow] itself when its payment is open; null
      * when it reaches no payment (a free spell, or a question without a listed answer). Blocking (one replay per question).
      */
     fun ahead(flow: CastFlow): CastFlow? {
         val open = flow.pending ?: return null
         if (open is Decision.ManaPayment) return flow
         var at = flow
-        for (answer in Engine.castCosts(flow.state).answers) {
+        for (answer in CastScreen.castCosts(flow.state).answers) {
             at = try { at.answer(answer) } catch (_: IllegalArgumentException) { return null }
         }
         return at.takeIf { it.pending is Decision.ManaPayment }
@@ -356,7 +357,7 @@ object HandCasts {
     /**
      * STK-023 (owner playtest 2026-11-05 evening): the most the announcement open in [flow] ([Decision.Announce], an X)
      * may be so that the cast can still be finished, given the cheapest targets still to come (CR 601.2b before 601.2c:
-     * [Engine.finishableWith], so an earlier choice is never a dead end); one less than its least when even that can't be
+     * [CastScreen.finishableWith], so an earlier choice is never a dead end); one less than its least when even that can't be
      * paid; at most [cap] (and the decision's own most). Null when no announcement is open. Blocking (a look-ahead per value
      * tried); the app runs it on the Automatum worker.
      */
@@ -372,16 +373,16 @@ object HandCasts {
     fun announceable(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Announceable? {
         val open = flow.pending as? Decision.Announce ?: return null
         val top = minOf(open.max ?: cap, cap).coerceAtLeast(open.min)
-        fun pays(value: Int) = Engine.finishableWith(flow.state, Answer.Number(value))
+        fun pays(value: Int) = CastScreen.finishableWith(flow.state, Answer.Number(value))
         // CR 202.3e, 601.2f: a reduction may start to apply as X grows: what can be paid has gaps, so each value is tried, up to a run of those that can't
-        if (Engine.anyReduction(flow.state)) {
+        if (CastScreen.anyReduction(flow.state)) {
             var most = open.min - 1
             var value = open.min
             var proven = false
             val unpayable = mutableSetOf<Int>()
             while (value <= top && value - most <= GAP_TRIED) {
                 // STK-023: a value that can't be paid even at the most every reduction could take ends the look exactly
-                if (!Engine.announcedMayPay(flow.state, value)) { proven = true; break }
+                if (!CastScreen.announcedMayPay(flow.state, value)) { proven = true; break }
                 if (pays(value)) most = value else unpayable += value
                 value++
             }
@@ -480,7 +481,7 @@ object HandCasts {
 
     private fun manaOf(mechanic: Mechanic.AdditionalCost): String? = manaOf(mechanic.cost)
 
-    /** What the engine says of a choice ([Engine.castCosts]): its smallest [cost], whether it can have [more], the [sources] Autotap
+    /** What the engine says of a choice ([CastScreen.castCosts]): its smallest [cost], whether it can have [more], the [sources] Autotap
      * would tap for that, whether it can be done, and whether it [asks] anything before the payment. */
     private class Probe(val cost: String?, val sources: Set<String>, val affordable: Boolean, val asks: Boolean = false, val more: Boolean = false)
 
@@ -488,7 +489,7 @@ object HandCasts {
     private fun probe(start: () -> CastFlow): Probe {
         val flow = try { start() } catch (_: IllegalArgumentException) { return Probe(null, emptySet(), false) }
         val open = flow.pending ?: return Probe(null, emptySet(), true)
-        val costs = Engine.castCosts(flow.state)
+        val costs = CastScreen.castCosts(flow.state)
         return Probe(costs.least?.toString()?.ifEmpty { null }, sources(flow, costs.suggestion), costs.castable, costs.asks || open !is Decision.ManaPayment, costs.several)
     }
 

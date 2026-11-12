@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -132,7 +133,7 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
             val options = Engine.options(s, other)
             val decision = s.pending?.decision
             when {
-                decision != null && Engine.decider(s, decision.player) == other ->
+                decision != null && Host.decider(s, decision.player) == other ->
                     options.firstOrNull { it is Input.Answer && it.decision == decision.id }?.let { bob.send(listOf(it)) }
                 options.any { it is Input.DeclareAttackers } -> bob.send(listOf(Input.DeclareAttackers(other, emptyList())))
                 options.any { it is Input.DeclareBlockers } -> bob.send(listOf(Input.DeclareBlockers(other, emptyList())))

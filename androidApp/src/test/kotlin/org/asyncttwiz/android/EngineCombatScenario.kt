@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -75,7 +76,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
         while (true) {
             Engine.perform(copy, next).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Engine.decider(copy, d.player) != me) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != me) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
                 else if (d is Decision.Targets && target != null) Input.Answer(d.id, Answer.Targets(listOf(target)))
                 else choose(d)?.let { Input.Answer(d.id, it) } ?: Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }

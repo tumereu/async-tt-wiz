@@ -155,7 +155,7 @@ class NoFalseDenialFuzzTest {
                 for (card in state.player(alice.id).hand) {
                     if (card in listed) continue
                     val input = Input.Cast(alice.id, card)
-                    if (Engine.refusal(state, input) != null) continue
+                    if (CastScreen.refusal(state, input) != null) continue
                     denied++
                     val tries = Tries()
                     val way = wayFrom(state, input, tries)
@@ -196,8 +196,8 @@ class NoFalseDenialFuzzTest {
                     looked++
                     val all = subsets(options, min, max).toList()
                     for (picked in all) {
-                        val done = Engine.selection(at, picked).done
-                        if (done) assertTrue(Engine.finishableWith(at, answer(picked)), "Board $seed: $d: done with $picked, but it can't be finished")
+                        val done = CastScreen.selection(at, picked).done
+                        if (done) assertTrue(CastScreen.finishableWith(at, answer(picked)), "Board $seed: $d: done with $picked, but it can't be finished")
                         if (done) {
                             // Autotap's suggestion at that payment, when it has one, is accepted: it doesn't use what the rest of the cost uses (CR 601.2g before 601.2h)
                             val next = try { Engine.perform(at, Input.Answer(d.id, answer(picked))) } catch (_: IllegalArgumentException) { continue }
@@ -208,7 +208,7 @@ class NoFalseDenialFuzzTest {
                             catch (e: IllegalArgumentException) { fail("Board $seed: Autotap's ${payment.suggestion} is refused after $picked: ${e.message}") }
                         }
                     }
-                    val left = options - Engine.selection(at, emptyList()).candidates.toSet()
+                    val left = options - CastScreen.selection(at, emptyList()).candidates.toSet()
                     for (out in left) for (picked in all.filter { out in it }) {
                         val way = wayFrom(at, Input.Answer(d.id, answer(picked)), Tries())
                         if (way != null) fail("Board $seed: $d: $out was left out, but $picked finishes it: $way")

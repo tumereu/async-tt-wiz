@@ -1,6 +1,6 @@
 package arcanum.engine.hidden
 
-import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.scenario.scenario
@@ -13,8 +13,8 @@ import kotlin.test.assertTrue
 
 /**
  * Which library places a player knows ([arcanum.engine.state.PlayerState.libraryPlaces]) and the host's new random order
- * of the rest ([Engine.unknownOrder], [Engine.reorderUnknown]): a reorder never moves a card whose place someone knows.
- * And what an outcome shows a player in passing ([Engine.revealed]).
+ * of the rest ([Host.unknownOrder], [Host.reorderUnknown]): a reorder never moves a card whose place someone knows.
+ * And what an outcome shows a player in passing ([Host.revealed]).
  */
 class LibraryPlacesTest {
     // CR 401.2: a library's order is unknown; CR 701.22a: a scried card put on the bottom has a known place there
@@ -24,7 +24,7 @@ class LibraryPlacesTest {
         alice.hand("Glance Ahead")
         alice.library("Forest", "Storm Spark", "Swamp", "Plains", "Mountain")
         val start = state.player(alice.id).library.toList()
-        assertEquals(listOf(start), Engine.unknownOrder(state, alice.id))
+        assertEquals(listOf(start), Host.unknownOrder(state, alice.id))
 
         alice.casts("Glance Ahead")
         allPass()
@@ -33,15 +33,15 @@ class LibraryPlacesTest {
         val library = state.player(alice.id).library
         val forest = library.last()
         assertEquals(mapOf(forest to 0), state.player(alice.id).libraryPlaces)
-        assertEquals(listOf(library.dropLast(1)), Engine.unknownOrder(state, alice.id))
+        assertEquals(listOf(library.dropLast(1)), Host.unknownOrder(state, alice.id))
         // A host's new order of the unknown part: the scried card stays at the bottom
         val reversed = library.dropLast(1).reversed()
-        val reorder = Engine.reorderUnknown(state, alice.id, listOf(reversed))!!
+        val reorder = Host.reorderUnknown(state, alice.id, listOf(reversed))!!
         assertEquals(reversed + forest, reorder.after)
         change(reorder)
         assertEquals(forest, state.player(alice.id).library.last())
         // Only a new order of the same cards is taken
-        assertFailsWith<IllegalArgumentException> { Engine.reorderUnknown(state, alice.id, listOf(listOf(forest))) }
+        assertFailsWith<IllegalArgumentException> { Host.reorderUnknown(state, alice.id, listOf(listOf(forest))) }
     }
 
     // CR 401.4: a card put on top of its owner's library by a known action has a known place
@@ -68,7 +68,7 @@ class LibraryPlacesTest {
         val before = library.map { recorder.state.objOrThrow(it) }
         recorder.record(Change.Shuffle(alice.id, before, before.reversed().map { it.copy(id = it.id.next()) }))
         assertTrue(recorder.state.player(alice.id).libraryPlaces.isEmpty())
-        assertEquals(1, Engine.unknownOrder(recorder.state, alice.id).size)
+        assertEquals(1, Host.unknownOrder(recorder.state, alice.id).size)
     }
 
     // CR 702.75a (hideaway): the rest go to the bottom in a random order: one group, known as a group only
@@ -91,9 +91,9 @@ class LibraryPlacesTest {
         assertEquals(1, places.values.toSet().size)
         assertTrue(places.values.first() > 0)
         // The unknown part on top (two cards), then the group: each reordered only among its own places
-        val parts = Engine.unknownOrder(state, alice.id)
+        val parts = Host.unknownOrder(state, alice.id)
         assertEquals(listOf(top, group), parts)
-        val reorder = Engine.reorderUnknown(state, alice.id, parts.map { it.reversed() })!!
+        val reorder = Host.reorderUnknown(state, alice.id, parts.map { it.reversed() })!!
         assertEquals(top.reversed() + group.reversed(), reorder.after)
     }
 
@@ -101,8 +101,8 @@ class LibraryPlacesTest {
     @Test
     fun nothingToReorderInALibraryOfOne() = scenario {
         alice.library("Forest")
-        assertTrue(Engine.unknownOrder(state, alice.id).isEmpty())
-        assertNull(Engine.reorderUnknown(state, alice.id, emptyList()))
+        assertTrue(Host.unknownOrder(state, alice.id).isEmpty())
+        assertNull(Host.reorderUnknown(state, alice.id, emptyList()))
     }
 
     // CR 402.3: a player looking at another player's hand sees its cards, though they stay hidden afterwards
@@ -117,11 +117,11 @@ class LibraryPlacesTest {
         alice.casts("Cerebral Scan", target = "bob")
         allPass()
         val changes = applied.toList()
-        val seen = Engine.revealed(before, changes, alice.id)
+        val seen = Host.revealed(before, changes, alice.id)
         // Bob's hand in passing, and Alice's draw: her own library's card (cards are compared by card, not object)
         assertEquals(setOf(card("Storm Spark"), card("Denial"), card("Forest")).map { (it as ObjectId.Card).card }.toSet(), seen)
         // Bob sees only Alice's spell, which was public once cast
-        assertEquals(setOf((card("Cerebral Scan") as ObjectId.Card).card), Engine.revealed(before, changes, bob.id))
+        assertEquals(setOf((card("Cerebral Scan") as ObjectId.Card).card), Host.revealed(before, changes, bob.id))
         assertTrue(changes.any { it is Change.Shown && it.to == alice.id })
     }
 }

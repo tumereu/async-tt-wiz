@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import arcanum.api.Layout
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
 import arcanum.engine.input.Input
 import arcanum.engine.setup.DeckCard
 import arcanum.engine.setup.Seat
@@ -100,9 +101,9 @@ class EndTurnBenchmark {
         val tip0 = game.read { it.session.tip }
         val events0 = game.read { it.session.pending.size + it.session.events.size }
         var layers = 0
-        Engine.layersWorkedOut = { layers++ }
+        EngineProbes.layersWorkedOut = { layers++ }
         val t0 = System.nanoTime()
-        try { op(game) } finally { Engine.layersWorkedOut = null }
+        try { op(game) } finally { EngineProbes.layersWorkedOut = null }
         val total = System.nanoTime() - t0
         val info = game.read { it.informationNanos } - info0
         check(game.read { it.session.tip } != tip0) { "nothing happened" }
@@ -118,7 +119,7 @@ class EndTurnBenchmark {
         val game = board.game()
         val counts = HashMap<String, Int>()
         fun key(e: StackTraceElement) = e.className.substringAfterLast('.').substringBefore('$') + "." + e.methodName.substringBefore('$')
-        Engine.layersWorkedOut = {
+        EngineProbes.layersWorkedOut = {
             val stack = Thread.currentThread().stackTrace.toList().filter { !it.className.contains("EndTurnBenchmark") }
             val host = stack.firstOrNull { it.className.startsWith("org.asyncttwiz.") }?.let(::key) ?: "?"
             val apiAt = stack.indexOfLast { it.className == "arcanum.engine.Engine" }
@@ -128,7 +129,7 @@ class EndTurnBenchmark {
                     .any { k.startsWith(it) } }.distinct().take(4).reversed().joinToString(">")
             counts.merge("$host <- $api: $path", 1, Int::plus)
         }
-        try { op(game) } finally { Engine.layersWorkedOut = null }
+        try { op(game) } finally { EngineProbes.layersWorkedOut = null }
         println("BENCH census ${board.name} $name: ${counts.values.sum()} layer computations")
         counts.entries.sortedByDescending { it.value }.forEach { (k, v) -> println("BENCH   %4d %s".format(v, k)) }
     }

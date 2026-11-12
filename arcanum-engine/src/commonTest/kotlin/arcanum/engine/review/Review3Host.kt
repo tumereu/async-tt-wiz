@@ -3,6 +3,7 @@ package arcanum.engine.review
 import arcanum.api.CardDefinition
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -169,7 +170,7 @@ internal class FakeHost(
             return
         }
         // What the other player decides in their view, for translating their answer (a shuffle there gives new ids)
-        val asked = if (viewDecision is Decision.OtherView) Engine.otherViewDecision(v.state, otherView(v, viewDecision, emptyList()).filled)
+        val asked = if (viewDecision is Decision.OtherView) Host.otherViewDecision(v.state, otherView(v, viewDecision, emptyList()).filled)
             else viewDecision
         val translated = translate(v, input, asked).let { t ->
             // The other player's answer in their view, sent with the identities only they may see
@@ -207,7 +208,7 @@ internal class FakeHost(
             if (other != null) {
                 // D31: the identities alone when the steps need no answer of the other player's now
                 val answer = otherView(v, other, emptyList())
-                if (Engine.otherViewDecision(v.state, answer.filled) != null) break
+                if (Host.otherViewDecision(v.state, answer.filled) != null) break
                 otherViewAnswers++
                 v.state = perform(v.state, Input.Answer(other.id, answer)) ?: run {
                     diverge(v, "other view refused: $lastRefusal"); return

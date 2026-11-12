@@ -1,6 +1,7 @@
 package org.asyncttwiz.automatum
 
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.Outcome
 import arcanum.engine.Pending
 import arcanum.engine.change.Change
@@ -65,7 +66,7 @@ class EngineRun(
                     val filled = decision.objects.map(::filled)
                     // D31: the identities alone carry on while that player has nothing to decide there; random results
                     // there are the host's too
-                    when (val next = Engine.otherViewDecision(working, filled)) {
+                    when (val next = Host.otherViewDecision(working, filled)) {
                         null -> Answer.OtherView(filled, emptyList())
                         is Decision.Random -> Answer.OtherView(filled, listOf(random(next)))
                         else -> return working.pending

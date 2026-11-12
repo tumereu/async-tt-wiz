@@ -30,6 +30,7 @@ import arcanum.api.Timing
 import arcanum.api.Total
 import arcanum.api.Value
 import arcanum.api.Zone
+import arcanum.engine.CastScreen
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
@@ -431,7 +432,7 @@ class GeneralSpecialActionsTest {
         alice.battlefield(skiff, eager)
         expect { eager.power shouldBe 1 }
         perform(Engine.options(state, alice.id).filterIsInstance<Input.Activate>().single { it.source == card(skiff) })
-        assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(eager)))).done)
+        assertTrue(CastScreen.selection(state, listOf(TargetRef.Object(card(eager)))).done)
         answer(Answer.Objects(listOf(card(eager))))
         assertTrue(state.objOrThrow(card(eager)).tapped)
         assertEquals(1, state.stack.size, "crew on the Stack")
@@ -444,7 +445,7 @@ class GeneralSpecialActionsTest {
         alice.graveyard(one, two, four)
         toTheChoice()
         answer(Answer.YesNo(true))
-        fun done(vararg names: String) = Engine.selection(state, names.map { TargetRef.Object(card(it)) }).done
+        fun done(vararg names: String) = CastScreen.selection(state, names.map { TargetRef.Object(card(it)) }).done
         assertFalse(done())
         assertFalse(done(one))
         assertFalse(done(one, two))
@@ -452,8 +453,8 @@ class GeneralSpecialActionsTest {
         assertTrue(done(four, one))
         assertTrue(done(one, two, four))
         val all = setOf(one, two, four).map { TargetRef.Object(card(it)) }.toSet()
-        assertEquals(all, Engine.selection(state, emptyList()).candidates.toSet())
-        assertEquals(all, Engine.selection(state, listOf(TargetRef.Object(card(four)))).candidates.toSet())
+        assertEquals(all, CastScreen.selection(state, emptyList()).candidates.toSet())
+        assertEquals(all, CastScreen.selection(state, listOf(TargetRef.Object(card(four)))).candidates.toSet())
     }
 
     // CR 701.59a, I-D18: the graveyard's one card is exactly what is needed: still asked, either way the skip is set, and confirmed.
@@ -469,7 +470,7 @@ class GeneralSpecialActionsTest {
             answer(Answer.YesNo(true))
             val choice = decision<Decision.ChooseObjects>()
             assertEquals(listOf(card(four)), choice.options)
-            assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(four)))).done)
+            assertTrue(CastScreen.selection(state, listOf(TargetRef.Object(card(four)))).done)
             answer(Answer.Objects(listOf(card(four))))
             expect {
                 alice.exile has four

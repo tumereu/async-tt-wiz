@@ -6,14 +6,14 @@ import arcanum.api.Keyword
 import arcanum.api.Layer
 import arcanum.api.Mechanic
 import arcanum.api.Value
-import arcanum.engine.Engine
+import arcanum.engine.Inspect
 import arcanum.engine.scenario.scenario
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** [Engine.explain]: where an object's characteristics come from (spec §7.1, a host's Inspect). */
+/** [Inspect.explain]: where an object's characteristics come from (spec §7.1, a host's Inspect). */
 class ExplanationTest {
     private fun modify(power: Int, toughness: Int) = Mechanic.ModifyPowerToughness(Value.Fixed(power), Value.Fixed(toughness))
 
@@ -26,7 +26,7 @@ class ExplanationTest {
         val growth = effect(alice, modify(3, 3), on = listOf("Elvish Seer"), duration = Duration.EndOfTurn)
         val seer = card("Elvish Seer")
         val hierophant = card("Elvish Hierophant")
-        val explanation = Engine.explain(state, seer)!!
+        val explanation = Inspect.explain(state, seer)!!
         assertEquals(1, explanation.base.power)
         assertEquals(1, explanation.base.toughness)
         assertEquals(7, explanation.characteristics.power)
@@ -46,10 +46,10 @@ class ExplanationTest {
     fun grantedKeywordIsALayerSixStep() = scenario {
         alice.battlefield("Elvish Seer", "Lineage Druid")
         effect(alice, Mechanic.GainAbilities(listOf(Keyword.Flying)), on = listOf("Elvish Seer"))
-        val step = Engine.explain(state, card("Elvish Seer"))!!.steps.single()
+        val step = Inspect.explain(state, card("Elvish Seer"))!!.steps.single()
         assertEquals(Layer.Ability, step.layer)
         assertTrue(step.after.hasKeyword(Keyword.Flying) && !step.before.hasKeyword(Keyword.Flying))
-        assertEquals(emptyList(), Engine.explain(state, card("Lineage Druid"))!!.steps)
+        assertEquals(emptyList(), Inspect.explain(state, card("Lineage Druid"))!!.steps)
     }
 
     // CR 611.2, 611.3a, 613.1f, 613.4c: one effect changing two layers is one applied effect with both steps, with the
@@ -60,7 +60,7 @@ class ExplanationTest {
         val growth = effect(alice, modify(3, 3), Mechanic.GainAbilities(listOf(Keyword.Trample)), on = listOf("Elvish Seer"),
             duration = Duration.EndOfTurn)
         state.effects[growth] = state.effects.getValue(growth).copy(source = card("Lineage Druid"))
-        val explanation = Engine.explain(state, card("Elvish Seer"))!!
+        val explanation = Inspect.explain(state, card("Elvish Seer"))!!
         assertEquals(3, explanation.steps.size)
         // In the order first applied: the pump's trample in layer 6 before the anthem in 7c
         val (pump, anthem) = explanation.effects
@@ -82,14 +82,14 @@ class ExplanationTest {
         effect(alice, Mechanic.GainAbilities(listOf(Keyword.Flying)), on = listOf("Lineage Druid"))
         val ids = listOf(card("Elvish Hierophant"), card("Elvish Seer"), card("Lineage Druid"))
         val nobody = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("nobody"), 0)
-        val all = Engine.explain(state, ids + nobody)
+        val all = Inspect.explain(state, ids + nobody)
         assertEquals(ids.toSet(), all.keys)
-        ids.forEach { id -> assertEquals(Engine.explain(state, id), all[id]) }
+        ids.forEach { id -> assertEquals(Inspect.explain(state, id), all[id]) }
     }
 
     @Test
     fun noObjectNoExplanation() = scenario {
         alice.battlefield("Elvish Seer")
-        assertNull(Engine.explain(state, arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("nobody"), 0)))
+        assertNull(Inspect.explain(state, arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("nobody"), 0)))
     }
 }

@@ -5,7 +5,7 @@ import arcanum.api.Keyword
 import arcanum.api.Subtype
 import arcanum.api.TurnStep
 import arcanum.api.Zone
-import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -240,10 +240,10 @@ class InrConditionsCopiesCountersScenariosTest {
         assertEquals(bob.id, state.turn.active)
         advanceTo(TurnStep.PrecombatMain, turn = 3)
         assertEquals(players[2].id, state.turn.active)
-        assertEquals(alice.id, Engine.decider(state, players[2].id))
+        assertEquals(alice.id, Host.decider(state, players[2].id))
         advanceTo(TurnStep.PrecombatMain, turn = 4)
         assertEquals(players[2].id, state.turn.active)
-        assertEquals(players[2].id, Engine.decider(state, players[2].id))
+        assertEquals(players[2].id, Host.decider(state, players[2].id))
         advanceTo(TurnStep.PrecombatMain, turn = 5)
         assertEquals(alice.id, state.turn.active)
     }

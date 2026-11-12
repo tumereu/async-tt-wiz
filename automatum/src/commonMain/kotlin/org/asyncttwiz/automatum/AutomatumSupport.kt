@@ -1,12 +1,12 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.CardDefinition
-import arcanum.engine.Engine
+import arcanum.engine.CardSupport
 import org.asyncttwiz.protocol.game.OutsideCards
 
 /**
  * Whether Automatum plays a card fully by the rules (I-D51): a card is supported when its definition has no part the
- * engine leaves to the players ([Engine.manualParts]: no text the parser couldn't read, no `Manual` step or cost part, no
+ * engine leaves to the players ([CardSupport.manualParts]: no text the parser couldn't read, no `Manual` step or cost part, no
  * keyword done only by hand, pivot review #3). Worked out from the parsed definition, so it follows the parser and engine of
  * this app version. Venturing into the dungeon and the initiative are played by the rules: the player's
  * device brings its catalog's dungeon cards to the game ([org.asyncttwiz.protocol.game.OutsideCards]).
@@ -26,7 +26,7 @@ object AutomatumSupport {
     fun handParts(definition: CardDefinition, dungeons: Set<OutsideCards.Need> = ALL_DUNGEONS): List<String> {
         val found = mutableListOf<String>()
         if (!dungeons.containsAll(OutsideCards.needs(definition))) found += NO_DUNGEON
-        found += Engine.manualParts(definition)
+        found += CardSupport.manualParts(definition)
         return found.distinct()
     }
 }

@@ -11,7 +11,7 @@ Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
   the parser still leaves unparsed). `./scripts/gradle.sh :arcanum-tools:patternFrequencies`
 - `setSupport`: checks that every card of each supported set (`src/main/resources/arcanum/tools/supported-sets.txt`,
   one MTGJSON set code and name per line) is fully supported: its faces read as a host's card data gives them
-  (`OracleParser.layout`, `OracleParser.parseCard`) and nothing left to the players (`Engine.manualParts`), the check
+  (`OracleParser.layout`, `OracleParser.parseCard`) and nothing left to the players (`CardSupport.manualParts`), the check
   behind a host's "fully supported" mark. Un-cards, online-only and rebalanced printings are skipped; reprints are
   checked once. Reads the sets from the pinned MTGJSON file. Prints every unsupported card with the parts left to the
   players and fails when there is any. `./scripts/gradle.sh :arcanum-tools:setSupport [-Psets=LTR,BLB]`

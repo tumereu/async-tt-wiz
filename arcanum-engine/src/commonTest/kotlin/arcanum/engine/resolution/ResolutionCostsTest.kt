@@ -8,6 +8,7 @@ import arcanum.api.Effect
 import arcanum.api.Players
 import arcanum.api.Step
 import arcanum.api.Value
+import arcanum.engine.CardSupport
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -91,7 +92,7 @@ class ResolutionCostsTest {
         expect { alice.life shouldBe 20 }
     }
 
-    // A cost part the definition can't express (Engine.manualParts names it) can't be paid, so nothing is asked by hand
+    // A cost part the definition can't express (CardSupport.manualParts names it) can't be paid, so nothing is asked by hand
     @Test
     fun aManualCostPartCantBePaid() = scenario {
         val oddity = payer("Echo Oddity", "{1}", "Artifact", CostPart.Manual("Pay the odd price"))

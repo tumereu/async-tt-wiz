@@ -6,6 +6,7 @@ import arcanum.api.Mechanic
 import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.Outcome
 import arcanum.engine.action.Knowledge
 import arcanum.engine.cards.Cards
@@ -350,10 +351,10 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         Answer.OtherView(d.objects.map { FilledObject(it, hostKnows(it)) }, answers)
 
     /** What the harness, as the host, answers [d] by itself: the identities, with a random result when the steps wait for
-     * one ([Engine.otherViewDecision]); null when they wait for a player's decision, which the scenario answers. */
+     * one ([Host.otherViewDecision]); null when they wait for a player's decision, which the scenario answers. */
     private fun hostOtherView(d: Decision.OtherView): Answer.OtherView? {
         val filled = otherView(d, emptyList())
-        return when (val next = Engine.otherViewDecision(state, filled.filled)) {
+        return when (val next = Host.otherViewDecision(state, filled.filled)) {
             null -> filled
             is Decision.Random -> filled.copy(answers = listOf(randomAnswer(next.what)))
             else -> null

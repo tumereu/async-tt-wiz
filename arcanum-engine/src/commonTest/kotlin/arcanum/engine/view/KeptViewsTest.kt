@@ -1,6 +1,8 @@
 package arcanum.engine.view
 
 import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.scenario
@@ -13,8 +15,8 @@ import kotlin.test.assertTrue
 /**
  * A host that keeps a state's view (engine-responsiveness R2) gets the same results as one that has the engine work it
  * out each time: [arcanum.engine.Outcome.view] is the view of the state after the outcome's changes, [Engine.perform]
- * given the state's view gives the same outcome, the [Engine.visible] and [Engine.revealed] overloads given views
- * give the same sets, and the option searches given the view ([Engine.options], [Engine.passCheck], [Engine.shouldPassFor],
+ * given the state's view gives the same outcome, the [Host.visible] and [Host.revealed] overloads given views
+ * give the same sets, and the option searches given the view ([Engine.options], [Host.passCheck], [Host.shouldPassFor],
  * R3) the same results. Each is compared with [Engine.view] worked out afresh, on seeded random games of cube cards (every
  * input listed for any player is tried, then one is played), with [Layers.checkShortcuts] on as in [ShortcutsTest].
  */
@@ -39,19 +41,19 @@ class KeptViewsTest {
         alice.battlefield("Elvish Hierophant", "Mountain")
         alice.hand("Storm Spark")
         var count = 0
-        Engine.layersWorkedOut = { count++ }
+        EngineProbes.layersWorkedOut = { count++ }
         try {
             val view = Engine.view(state)
             assertEquals(1, count, "a host's state: worked out afresh")
             Engine.view(state)
             assertEquals(2, count, "a host's state keeps no view")
-            Engine.visible(state, alice.id, view)
-            Engine.revealed(state, emptyList(), alice.id, view, view)
+            Host.visible(state, alice.id, view)
+            Host.revealed(state, emptyList(), alice.id, view, view)
             assertEquals(2, count, "given views aren't worked out again")
-            Engine.visible(state, alice.id)
+            Host.visible(state, alice.id)
             assertEquals(3, count)
         } finally {
-            Engine.layersWorkedOut = null
+            EngineProbes.layersWorkedOut = null
         }
     }
 
@@ -61,21 +63,21 @@ class KeptViewsTest {
         alice.hand("Storm Spark")
         var copies = 0
         var searches = 0
-        Engine.statesCopied = { copies++ }
-        Engine.optionsSearched = { searches++ }
+        EngineProbes.statesCopied = { copies++ }
+        EngineProbes.optionsSearched = { searches++ }
         try {
             state.deepCopy()
             assertEquals(1, copies, "a host's copy")
             Engine.options(state, alice.id)
             assertEquals(1, searches, "one options call, one search")
-            Engine.passCheck(state, alice.id)
+            Host.passCheck(state, alice.id)
             assertEquals(2, searches, "a pass check searches once")
             val before = copies
             Engine.perform(state, Input.PassPriority(alice.id))
             assertTrue(copies > before, "perform works on a copy")
         } finally {
-            Engine.statesCopied = null
-            Engine.optionsSearched = null
+            EngineProbes.statesCopied = null
+            EngineProbes.optionsSearched = null
         }
     }
 
@@ -90,12 +92,12 @@ class KeptViewsTest {
         repeat(STEPS) {
             if (Engine.result(state) != null) return@scenario
             val view = Engine.view(state)
-            for (p in players) assertEquals(Engine.visible(state, p.id), Engine.visible(state, p.id, view), "visible with the view")
+            for (p in players) assertEquals(Host.visible(state, p.id), Host.visible(state, p.id, view), "visible with the view")
             // The option searches started from the state's view: the same lists and pass checks
             for (p in players) {
                 assertEquals(Engine.options(state, p.id), Engine.options(state, p.id, view), "options with the view")
-                assertEquals(Engine.passCheck(state, p.id), Engine.passCheck(state, p.id, view), "passCheck with the view")
-                assertEquals(Engine.shouldPassFor(state, p.id), Engine.shouldPassFor(state, p.id, view), "shouldPassFor with the view")
+                assertEquals(Host.passCheck(state, p.id), Host.passCheck(state, p.id, view), "passCheck with the view")
+                assertEquals(Host.shouldPassFor(state, p.id), Host.shouldPassFor(state, p.id, view), "shouldPassFor with the view")
             }
             val listed = players.flatMap { p -> Engine.options(state, p.id) }.distinct()
             if (listed.isEmpty()) return@scenario
@@ -106,7 +108,7 @@ class KeptViewsTest {
     }
 
     /** [input] performed on [state] (whose view is [view]) without and with the view: the same outcome, and each view
-     * carried is the view of the state after it; [Engine.revealed] with the views gives the same cards. */
+     * carried is the view of the state after it; [Host.revealed] with the views gives the same cards. */
     private fun arcanum.engine.scenario.Scenario.check(state: GameState, view: View, input: Input) {
         val plain = runCatching { Engine.perform(state, input) }.getOrNull() ?: return
         val given = Engine.perform(state, input, view = view)
@@ -116,8 +118,8 @@ class KeptViewsTest {
         outcomes++
         plain.view?.let { carried++; assertEquals(fresh, it, "Outcome.view: $input") }
         given.view?.let { assertEquals(fresh, it, "Outcome.view with the state's view given: $input") }
-        for (p in players) assertEquals(Engine.revealed(state, plain.changes, p.id),
-            Engine.revealed(state, plain.changes, p.id, view, fresh), "revealed with the views: $input")
+        for (p in players) assertEquals(Host.revealed(state, plain.changes, p.id),
+            Host.revealed(state, plain.changes, p.id, view, fresh), "revealed with the views: $input")
     }
 
     private companion object {

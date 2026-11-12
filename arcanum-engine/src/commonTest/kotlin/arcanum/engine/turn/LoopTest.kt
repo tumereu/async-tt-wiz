@@ -7,6 +7,7 @@ import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.Trigger
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.change.GameEvent
@@ -93,8 +94,8 @@ class LoopTest {
         var passes = 0
         while (pending == null && Engine.result(state) == null && passes < limit) {
             val holder = state.priority.holder ?: break
-            if (!Engine.shouldPassFor(state, holder)) break
-            if (state.stack.isNotEmpty() && !seen.add(Engine.loopKey(state))) {
+            if (!Host.shouldPassFor(state, holder)) break
+            if (state.stack.isNotEmpty() && !seen.add(Host.loopKey(state))) {
                 perform(Input.MandatoryLoop)
                 break
             }
@@ -146,18 +147,18 @@ class LoopTest {
         alice.hand(revenant)
         alice.casts(revenant)
         allPass()
-        val cast = Engine.loopKey(state)
+        val cast = Host.loopKey(state)
         allPass()
         allPass()
         // The Revenant returned: its enters trigger is on the Stack again
-        val entered = Engine.loopKey(state)
+        val entered = Host.loopKey(state)
         assertNotEquals(cast, entered, "the first time it was a permanent that had been cast (CR 400.7d)")
-        assertEquals(entered, Engine.loopKey(state.deepCopy()))
+        assertEquals(entered, Host.loopKey(state.deepCopy()))
         allPass()
-        assertNotEquals(entered, Engine.loopKey(state), "it died: another position of the lap")
+        assertNotEquals(entered, Host.loopKey(state), "it died: another position of the lap")
         allPass()
-        assertEquals(entered, Engine.loopKey(state), "it returned as a new object: the same position")
+        assertEquals(entered, Host.loopKey(state), "it returned as a new object: the same position")
         val poorer = state.deepCopy().also { s -> s.players[0] = s.players[0].copy(life = 19) }
-        assertNotEquals(entered, Engine.loopKey(poorer), "a life total is part of the game")
+        assertNotEquals(entered, Host.loopKey(poorer), "a life total is part of the game")
     }
 }

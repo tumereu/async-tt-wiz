@@ -6,6 +6,7 @@ import arcanum.api.Keyword
 import arcanum.api.Mechanic
 import arcanum.api.TurnStep
 import arcanum.api.Zone
+import arcanum.engine.CombatDeclarations
 import arcanum.engine.Engine
 import arcanum.engine.Pending
 import arcanum.engine.change.Change
@@ -456,7 +457,7 @@ object CombatFlow {
     /**
      * CMB-037, CMB-044 (CR 508.1g, 508.1h): the optional "as it attacks" costs each of [candidates] (ATW card and object) may
      * choose, as toggle chips: worked out by the engine for a declaration of every candidate attacking the defending player
-     * and paying all of them ([Engine.attackCosts]), an X as its amount.
+     * and paying all of them ([CombatDeclarations.attackCosts]), an X as its amount.
      */
     private fun optionalCosts(call: EngineRun, view: arcanum.engine.view.View, candidates: List<Pair<String, ObjectId>>): Map<String, List<CombatCostShown>> {
         val s = call.working
@@ -466,7 +467,7 @@ object CombatFlow {
         if (offered.isEmpty()) return emptyMap()
         val defender = s.players.firstOrNull { it.id != s.turn.active && !it.lost }?.id ?: return emptyMap()
         val worked = worked(call, "the optional costs to attack of ${offered.map { it.first }}") {
-            Engine.attackCosts(s, offered.map { (_, o, ms) -> Attack(o, TargetRef.Player(defender), paying = ms.mapNotNull { it.origin }.distinct()) }, view)
+            CombatDeclarations.attackCosts(s, offered.map { (_, o, ms) -> Attack(o, TargetRef.Player(defender), paying = ms.mapNotNull { it.origin }.distinct()) }, view)
         }
         return offered.associate { (atw, o, ms) ->
             // [offered] keeps only mechanics with an origin.
@@ -483,7 +484,7 @@ object CombatFlow {
 
     /** CMB-044 (CR 508.1h): each staged attacker's share of the costs to attack the declaration the lanes hold, [attacks],
      * asks: its "can't attack … unless … pays" costs as the engine works them out for the whole declaration
-     * ([Engine.attackCosts]); the optional costs chosen are chips of their own ([optionalCosts]). */
+     * ([CombatDeclarations.attackCosts]); the optional costs chosen are chips of their own ([optionalCosts]). */
     private fun attackCosts(call: EngineRun, attacks: List<LaneAttack>): Map<String, List<CombatCostShown>> {
         val s = call.working
         val staged = attacks.filter { a -> runCatching { objectOf(s, call.ids, a.cardId); a.target?.let { objectOf(s, call.ids, it) } }.isSuccess }
@@ -492,12 +493,12 @@ object CombatFlow {
         val asked = staged.mapNotNull { a -> objectOf(s, call.ids, a.cardId).let { o ->
             view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AttackCost }.takeIf { it.isNotEmpty() }?.let { Triple(a.cardId, o, it) } } }
         if (asked.isEmpty()) return emptyMap()
-        val worked = worked(call, "the costs to attack with ${staged.map { it.cardId }}") { Engine.attackCosts(s, attackInput(call, staged).attacks, view) }
+        val worked = worked(call, "the costs to attack with ${staged.map { it.cardId }}") { CombatDeclarations.attackCosts(s, attackInput(call, staged).attacks, view) }
         return shares(call, asked, worked?.filter { it.ability.mechanic is Mechanic.AttackCost })
     }
 
     /** CMB-044 (CR 509.1d): each staged blocker's share of the costs to block the declaration the lanes hold, [blocks], asks
-     * ([Engine.blockCosts]): one for each attacker a cost applies to as it blocks. */
+     * ([CombatDeclarations.blockCosts]): one for each attacker a cost applies to as it blocks. */
     private fun blockCosts(call: EngineRun, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
         val s = call.working
         val staged = blocks.filter { b -> runCatching { objectOf(s, call.ids, b.blockerId); objectOf(s, call.ids, b.attackerId) }.isSuccess }
@@ -506,7 +507,7 @@ object CombatFlow {
         val asked = staged.distinctBy { it.blockerId }.mapNotNull { b -> objectOf(s, call.ids, b.blockerId).let { o ->
             view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.BlockCost }.takeIf { it.isNotEmpty() }?.let { Triple(b.blockerId, o, it) } } }
         if (asked.isEmpty()) return emptyMap()
-        val worked = worked(call, "the costs to block with ${staged.map { it.blockerId }}") { Engine.blockCosts(s, blockInput(call, staged).blocks, view) }
+        val worked = worked(call, "the costs to block with ${staged.map { it.blockerId }}") { CombatDeclarations.blockCosts(s, blockInput(call, staged).blocks, view) }
         return shares(call, asked, worked)
     }
 

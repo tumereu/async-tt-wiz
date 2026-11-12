@@ -18,6 +18,7 @@ import arcanum.api.Step
 import arcanum.api.Value
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
@@ -39,7 +40,7 @@ import kotlin.test.fail
 
 /**
  * "Skip when I have no choice" (I-D18), a per-player setting in the game state. On (the default): priority is passed for
- * a player who can do nothing ([Engine.shouldPassFor], I-D3) and questions with nothing to choose are skipped. Off: a
+ * a player who can do nothing ([Host.shouldPassFor], I-D3) and questions with nothing to choose are skipped. Off: a
  * pass or skip that depends on cards only that player may see (hand, face-down cards) is theirs: a priority window they
  * pass themselves, or the question with only its forced answer. Skips that depend on nothing hidden stay automatic (P5).
  * Each scenario runs with full information and on both players' views (D60).
@@ -59,7 +60,7 @@ class SkipWhenNoChoiceTest {
 
     /** The decision asked now: in a viewer's state that waits on the other player's view, the one asked there. */
     private fun Scenario.asked(): Decision? = when (val d = pending) {
-        is Decision.OtherView -> Engine.otherViewDecision(state, otherView(d, emptyList()).filled)
+        is Decision.OtherView -> Host.otherViewDecision(state, otherView(d, emptyList()).filled)
         else -> d
     }
 
@@ -101,13 +102,13 @@ class SkipWhenNoChoiceTest {
                 bob.hand("Denial")
                 aliceSparksBob()
                 assertTrue(Engine.options(state, bob.id).any { it is Input.Activate }, "his Island's mana ability is listed")
-                assertEquals(on && v != "alice", Engine.shouldPassFor(state, bob.id), "on=$on viewer=$v")
-                assertFalse(Engine.shouldPassFor(state, alice.id), "only the holder is passed for")
+                assertEquals(on && v != "alice", Host.shouldPassFor(state, bob.id), "on=$on viewer=$v")
+                assertFalse(Host.shouldPassFor(state, alice.id), "only the holder is passed for")
             }
         }
     }
 
-    /** [Engine.passCheck] answers [Engine.shouldPassFor] as set and with bob's own setting on, from one search: the
+    /** [Host.passCheck] answers [Host.shouldPassFor] as set and with bob's own setting on, from one search: the
      * same as asking it twice with the setting changed in between. */
     // I-D18, CR 117.3d
     @Test
@@ -116,14 +117,14 @@ class SkipWhenNoChoiceTest {
         bob.battlefield("Island")
         bob.hand("Denial")
         aliceSparksBob()
-        val check = Engine.passCheck(state, bob.id)
-        assertEquals(Engine.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on viewer=$v")
+        val check = Host.passCheck(state, bob.id)
+        assertEquals(Host.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on viewer=$v")
         val skip = Changes.skipWhenNoChoice(state, bob.id, true)
         state.apply(skip)
-        val withSkip = Engine.shouldPassFor(state, bob.id)
+        val withSkip = Host.shouldPassFor(state, bob.id)
         state.revert(skip)
         assertEquals(withSkip, check.ownSkipOn, "own skip on, on=$on viewer=$v")
-        assertEquals(arcanum.engine.PassCheck.NONE, Engine.passCheck(state, alice.id), "only the holder")
+        assertEquals(arcanum.engine.PassCheck.NONE, Host.passCheck(state, alice.id), "only the holder")
     }
 
     /** With an empty hand nothing hidden decides: priority is passed for bob whatever his setting and whoever's view. */
@@ -133,7 +134,7 @@ class SkipWhenNoChoiceTest {
         bob.skipWhenNoChoice = on
         bob.battlefield("Island")
         aliceSparksBob()
-        assertTrue(Engine.shouldPassFor(state, bob.id))
+        assertTrue(Host.shouldPassFor(state, bob.id))
     }
 
     /** A face-down permanent is a card only its controller sees (CR 708.5): off, bob passes himself. */
@@ -143,10 +144,10 @@ class SkipWhenNoChoiceTest {
         bob.skipWhenNoChoice = on
         bob.battlefield("Undead Soothsayer", faceDown = true)
         aliceSparksBob()
-        assertEquals(on && v != "alice", Engine.shouldPassFor(state, bob.id), "on=$on viewer=$v")
+        assertEquals(on && v != "alice", Host.shouldPassFor(state, bob.id), "on=$on viewer=$v")
     }
 
-    /** A host passes for each player while [Engine.shouldPassFor] says so: on, the spell resolves at once although bob
+    /** A host passes for each player while [Host.shouldPassFor] says so: on, the spell resolves at once although bob
      * holds an instant; off, the host stops at bob's window and he passes himself. */
     // I-D18, I-D3, CR 117.4
     @Test
@@ -157,7 +158,7 @@ class SkipWhenNoChoiceTest {
             alice.battlefield("Mountain")
             alice.hand("Storm Spark")
             alice.casts("Storm Spark", target = "bob")
-            while (state.stack.isNotEmpty() && pending == null && state.priority.holder?.let { Engine.shouldPassFor(state, it) } == true) passPriority()
+            while (state.stack.isNotEmpty() && pending == null && state.priority.holder?.let { Host.shouldPassFor(state, it) } == true) passPriority()
             if (on) {
                 expect { bob.life shouldBe 17 }
             } else {

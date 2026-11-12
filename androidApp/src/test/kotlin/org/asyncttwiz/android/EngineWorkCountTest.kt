@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
 /**
  * The engine API rework's exact work count (owner, 2026-11-12; spec `docs/specs/arcanum-engine-api.md`, "Performance
  * guard"): fixed scenarios on the device's engine path ([EngineGame], the engine thread inline), each with the exact
- * number of full layer runs ([Engine.layersWorkedOut]), state copies ([Engine.statesCopied]) and option searches
- * ([Engine.optionsSearched]) it costs, and the bytes ([org.asyncttwiz.protocol.game.EngineJson]) of the events it stores
+ * number of full layer runs ([EngineProbes.layersWorkedOut]), state copies ([EngineProbes.statesCopied]) and option searches
+ * ([EngineProbes.optionsSearched]) it costs, and the bytes ([org.asyncttwiz.protocol.game.EngineJson]) of the events it stores
  * and of the checkpoint after it. Counted, never timed.
  *
  * The rules for these numbers:
@@ -29,7 +29,7 @@ import kotlin.test.assertTrue
 class EngineWorkCountTest {
     @Before fun clean() = AutomatumBoards.reset()
     @After fun reset() {
-        Engine.layersWorkedOut = null; Engine.statesCopied = null; Engine.optionsSearched = null
+        EngineProbes.layersWorkedOut = null; EngineProbes.statesCopied = null; EngineProbes.optionsSearched = null
         AutomatumBoards.reset()
     }
 
@@ -41,10 +41,10 @@ class EngineWorkCountTest {
         var layers = 0
         var copies = 0
         var searches = 0
-        Engine.layersWorkedOut = { layers++ }
-        Engine.statesCopied = { copies++ }
-        Engine.optionsSearched = { searches++ }
-        try { op() } finally { Engine.layersWorkedOut = null; Engine.statesCopied = null; Engine.optionsSearched = null }
+        EngineProbes.layersWorkedOut = { layers++ }
+        EngineProbes.statesCopied = { copies++ }
+        EngineProbes.optionsSearched = { searches++ }
+        try { op() } finally { EngineProbes.layersWorkedOut = null; EngineProbes.statesCopied = null; EngineProbes.optionsSearched = null }
         return game.read { d ->
             val made = (d.session.events + d.session.pending).filter { it.id !in known }
             assertTrue(made.isNotEmpty(), "no event was made")

@@ -131,7 +131,7 @@ data class NameSuggestion(val name: String, val source: NameSource)
 /**
  * STK-041 (owner gallery review, 2026-11-06): the game's names offered first for "choose a card name", those passing
  * [decision]'s restriction and containing [typed]: the cards of [viewer]'s own library as their device knows them, then
- * the cards [viewer] may see now (public zones, their own hand: [arcanum.engine.Engine.visible]), each name once, by
+ * the cards [viewer] may see now (public zones, their own hand: [arcanum.engine.Host.visible]), each name once, by
  * name in each group. Each name of a card is apart, the restriction judged by its own part (CR 709.4a, 201.4b-f). Nothing of
  * the other player's hidden cards (I-D27), whoever is deciding.
  */
@@ -144,7 +144,7 @@ fun gameNames(state: GameState, viewer: String, decision: Decision.ChooseCardNam
     val me = state.players.firstOrNull { it.id.value == viewer } ?: return emptyList()
     val own = me.library.toSet()
     val library = names(own)
-    val seen = names(arcanum.engine.Engine.visible(state, me.id).filter { it !in own }) - library.toSet()
+    val seen = names(arcanum.engine.Host.visible(state, me.id).filter { it !in own }) - library.toSet()
     return library.map { NameSuggestion(it, NameSource.Library) } + seen.map { NameSuggestion(it, NameSource.Seen) }
 }
 

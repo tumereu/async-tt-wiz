@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import arcanum.engine.Host
 import org.asyncttwiz.protocol.Faults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -803,7 +804,7 @@ class CastController(
         val mana = if (ahead != null && due != null) chosen(ahead, due, autotapOn, custom, keep, picks) else emptyList()
         val pending = next.pending
         val listed = if (pending != null && pending !is Decision.Targets && pending !is Decision.ManaPayment) next.listedAnswers() else emptyList()
-        return Step.Show(next, mana, if (ahead != null && due != null) ahead.pays(mana) else true, listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear,
+        return Step.Show(next, mana, if (ahead != null && due != null) ahead.pays(mana) else true, listed, Host.visible(next.state, PlayerId(viewer)), ways, clear,
             mostAnnounced(next), ahead, if (pending is Decision.Targets || pending is Decision.ChooseObjects) next.selection(emptyList()) else null, hand, choosing)
     }
 

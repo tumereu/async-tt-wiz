@@ -1,5 +1,6 @@
 package org.asyncttwiz.protocol
 
+import arcanum.engine.CardSupport
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
@@ -127,7 +128,7 @@ object SavedCards {
 /** I-D51: the cards of a deck, cube or set Automatum can't play yet, by the card catalog's marks (SYS-082), made with the
  * parser of [parserVersion]. [byHand] names those cards (distinct, sorted); empty: Automatum plays every card. */
 @Serializable data class CardListSupport(val parserVersion: Int, val byHand: List<String> = emptyList(),
-    /** The rules engine's support version (`Engine.SUPPORT_VERSION`) it was worked out with; 0 before it was kept. */
+    /** The rules engine's support version (`CardSupport.SUPPORT_VERSION`) it was worked out with; 0 before it was kept. */
     val engineVersion: Int = 0) {
     val supported: Boolean get() = byHand.isEmpty()
 }

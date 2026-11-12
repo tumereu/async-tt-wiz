@@ -3,7 +3,7 @@ package arcanum.tools
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Keyword
-import arcanum.engine.Engine
+import arcanum.engine.CardSupport
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import kotlinx.serialization.json.JsonArray
@@ -43,7 +43,7 @@ internal fun judge(layout: String, faces: List<OracleCard>, covered: CoveredShap
     val shapes = abilities.map { shapeId(abilityShape(it)) }
     if (definition == null || abilities.any { it is Ability.Unparsed }) return CardVerdict(Verdict.Unread, "(a) the parser doesn't read it", shapes)
     val failures = listOfNotNull(
-        Engine.manualParts(definition).firstOrNull()?.let { "(a) the engine leaves it to the players: $it" },
+        CardSupport.manualParts(definition).firstOrNull()?.let { "(a) the engine leaves it to the players: $it" },
         if (layout == "normal" && faces.size == 1) null else "(b) layout $layout, ${faces.size} faces",
         uncovered(abilities, covered),
         if (faces.size == 1) linesConnected(faces.single(), abilities) else "(d) not judged on several faces",

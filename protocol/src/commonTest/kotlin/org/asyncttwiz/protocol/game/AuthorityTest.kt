@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -242,7 +243,7 @@ class AuthorityTest {
         server.seen(alice, waiting)
         // Her own pass lets the spell resolve: Bob looks at her hand as the rules allow
         val accepted = assertIs<Acceptance.Accepted>(server.act(alice, Input.PassPriority(alice)).getOrThrow())
-        assertTrue(Engine.revealed(server.stateAt(waiting).engine, accepted.event.engine!!.changes, bob).isNotEmpty())
+        assertTrue(Host.revealed(server.stateAt(waiting).engine, accepted.event.engine!!.changes, bob).isNotEmpty())
     }
 
     // I-D56 §7: playback stops by the player's private response mode

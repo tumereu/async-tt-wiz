@@ -1,6 +1,6 @@
 package arcanum.tools
 
-import arcanum.engine.Engine
+import arcanum.engine.CardSupport
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import com.google.gson.JsonObject
@@ -9,7 +9,7 @@ import kotlin.system.exitProcess
 /**
  * Checks that the parser and engine play every card of each supported set (`supported-sets.txt` beside this class)
  * fully by the rules: each card's faces are read from the pinned MTGJSON AllPrintings file ([PinnedMtgJson]) as a host's
- * card data gives them ([OracleParser.layout], [OracleParser.parseCard]) and [Engine.manualParts] must find nothing left
+ * card data gives them ([OracleParser.layout], [OracleParser.parseCard]) and [CardSupport.manualParts] must find nothing left
  * to the players, the check a host makes to say "this card is supported". Un-cards, online-only and rebalanced printings
  * are skipped; reprints of one card (one oracle id) are checked once. Prints every unsupported card with the parts left
  * to the players and exits with 1 when there is any. Args: [set codes, comma-separated; default every supported set].
@@ -62,7 +62,7 @@ internal class SetCard(val name: String, val layout: String, val faces: List<Jso
         } catch (e: RuntimeException) {
             return listOf("unreadable: ${e.message ?: e::class.simpleName}") // printed values the parser can't read
         }
-        return Engine.manualParts(definition)
+        return CardSupport.manualParts(definition)
     }
 }
 

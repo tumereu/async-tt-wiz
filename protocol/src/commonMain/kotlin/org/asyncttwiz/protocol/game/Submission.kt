@@ -1,7 +1,9 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.api.Zone
+import arcanum.engine.CombatDeclarations
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -162,7 +164,7 @@ object Authority {
 
 /**
  * Who may submit which input (I-D56 §6), the same rules on the server and the device: a player's own real inputs where
- * they are the decider ([Engine.decider], CR 723.5); engine-automatic answers any device may make because they decide
+ * they are the decider ([Host.decider], CR 723.5); engine-automatic answers any device may make because they decide
  * nothing for anyone; random answers (the host's, D25); and the other player's input assumed by the author, of the
  * assumable kinds only (§3). Nothing else: no passing, choosing, dividing or declaring for the other player.
  */
@@ -197,7 +199,7 @@ object WhoActs {
         val decision = (input as? Input.Answer)?.let { a -> state.pending?.decision?.takeIf { it.id == a.decision } }
         if (decision is Decision.Random) return if (assumed) throw Refusal("Not an assumable input") else Kind.Random
         val player = playerOf(state, input) ?: throw Refusal("Refused by the engine: no such decision")
-        val decider = Engine.decider(state, player)
+        val decider = Host.decider(state, player)
         if (!assumed) {
             if (decider == author) return Kind.Own
             if (automatic(model, input, player, decision)) return Kind.Automatic
@@ -225,7 +227,7 @@ object WhoActs {
 
     /**
      * §6's engine-automatic answers: (a) a pass of a player who could only pass, judged without cards only they can see
-     * (the shared state keeps every player's "Skip when I have no choice" off, so [Engine.shouldPassFor] is that public
+     * (the shared state keeps every player's "Skip when I have no choice" off, so [Host.shouldPassFor] is that public
      * judgement), never at their own main phase ([Stops.forcedPass]); (b) an order-free division of combat damage answered with the engine's suggestion (CMB-033: one
      * creature, or enough for lethal damage to each); (c) the decider's own early answer (I-D33), applied as its decision
      * opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5).
@@ -266,7 +268,7 @@ object WhoActs {
             else -> null
         }
         input is Input.DeclareBlockers ->
-            if (Engine.blockCosts(state, input.blocks).isNotEmpty()) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
+            if (CombatDeclarations.blockCosts(state, input.blocks).isNotEmpty()) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
         keep(input) -> when {
             state.turn.number != 0 -> "Not an assumable input"
             state.turn.active != author -> "Only the starting player assumes the other player's keep (I-D56 §3)"
@@ -295,11 +297,11 @@ object Stops {
     fun stop(state: GameState, player: PlayerId): Boolean = state.turn.active == player && state.stack.isEmpty() &&
         (state.turn.step == arcanum.api.TurnStep.PrecombatMain || state.turn.step == arcanum.api.TurnStep.PostcombatMain)
 
-    /** Whether [player]'s pass on [state] is engine-automatic (§6 a): they could only pass ([Engine.shouldPassFor], the
+    /** Whether [player]'s pass on [state] is engine-automatic (§6 a): they could only pass ([Host.shouldPassFor], the
      * public judgement), and it isn't their [stop]: their own main phases wait for them even with nothing to do (owner,
      * smoke 2026-11-04: a turn is never passed away without its player, STK-036). */
     fun forcedPass(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): Boolean =
-        Engine.shouldPassFor(state, player, view) && !stop(state, player)
+        Host.shouldPassFor(state, player, view) && !stop(state, player)
 
     /** [forcedPass] on [model]'s engine state, with the pass check it keeps for the state ([GameModel.passCheck]). */
     fun forcedPass(model: GameModel, player: PlayerId): Boolean = model.passCheck(player).asSet && !stop(model.engine, player)
@@ -530,7 +532,7 @@ object MainLine {
 object InformationRule {
     /**
      * The cards [changes] (made on [before]) show [viewer] at some moment that weren't visible to them in [before]
-     * ([Engine.revealed]: compared by card, looks and reveals in passing included), apart from cards of their own library
+     * ([Host.revealed]: compared by card, looks and reveals in passing included), apart from cards of their own library
      * (protected by the reseed, §9) and the cards the game's [allowed] settings let through (LOB-135: the other player's
      * library, their hand; where the card was in [before]).
      */
@@ -542,7 +544,7 @@ object InformationRule {
      * made), so the layers aren't worked out again (engine-responsiveness R2); null ones are worked out. */
     fun revealing(before: Before, changes: List<Change>, viewer: PlayerId, after: arcanum.engine.view.View?,
         allowed: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Set<arcanum.engine.state.CardId> =
-        Engine.revealed(before.state, changes, viewer, before.view, after).filterTo(mutableSetOf()) { card ->
+        Host.revealed(before.state, changes, viewer, before.view, after).filterTo(mutableSetOf()) { card ->
             before.state.current(card)?.let { !passes(it, viewer, allowed) } ?: true
         }
 

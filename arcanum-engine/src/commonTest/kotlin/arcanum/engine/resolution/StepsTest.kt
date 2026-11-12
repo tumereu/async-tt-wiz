@@ -30,6 +30,7 @@ import arcanum.api.TargetSlot
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
+import arcanum.engine.CardSupport
 import arcanum.engine.action.Events
 import arcanum.engine.action.PlannedEvent
 import arcanum.engine.cards.Cards
@@ -127,7 +128,7 @@ class StepsTest {
         expect { bob.graveyard has "Umbral Elves" }
     }
 
-    // D61: a part the definition can't express isn't carried out (Engine.manualParts names it) and asks nothing
+    // D61: a part the definition can't express isn't carried out (CardSupport.manualParts names it) and asks nothing
     @Test
     fun manualStep() = scenario {
         /** "Draw a card. [Something only a player can do.]" */

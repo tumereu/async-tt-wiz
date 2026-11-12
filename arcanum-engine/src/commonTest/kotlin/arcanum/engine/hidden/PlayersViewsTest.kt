@@ -2,6 +2,7 @@ package arcanum.engine.hidden
 
 import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.Host
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -28,7 +29,7 @@ class PlayersViewsTest {
     /** What alice decides in her view while bob's view waits on an [Decision.OtherView]. */
     private fun Scenario.inHerView(): Decision {
         val d = decision<Decision.OtherView>()
-        return Engine.otherViewDecision(state, otherView(d, emptyList()).filled) ?: kotlin.test.fail("Nothing to decide in her view")
+        return Host.otherViewDecision(state, otherView(d, emptyList()).filled) ?: kotlin.test.fail("Nothing to decide in her view")
     }
 
     private fun Scenario.name(id: ObjectId): String? = state.objOrThrow(id).definition?.faces?.first()?.name

@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import arcanum.engine.EngineProbes
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Attack
@@ -298,12 +299,12 @@ class GameDeviceTest {
         assertEquals(stop, sim.load(alice).status, "loaded again")
     }
 
-    /** The engine searches (layer computations, [Engine.layersWorkedOut]) and points worked out while [ticks] run. */
+    /** The engine searches (layer computations, [EngineProbes.layersWorkedOut]) and points worked out while [ticks] run. */
     private fun searches(device: GameDevice, ticks: () -> Unit): Pair<Int, Int> {
         var layers = 0
         val points = device.pointsWorkedOut
-        Engine.layersWorkedOut = { layers++ }
-        try { ticks() } finally { Engine.layersWorkedOut = null }
+        EngineProbes.layersWorkedOut = { layers++ }
+        try { ticks() } finally { EngineProbes.layersWorkedOut = null }
         return layers to device.pointsWorkedOut - points
     }
 

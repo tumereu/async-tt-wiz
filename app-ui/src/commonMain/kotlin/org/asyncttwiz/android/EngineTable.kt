@@ -458,6 +458,14 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         }
     }
 
+    /** TRN-063, STK-029 (owner playtest 2026-11-12): only a play shown or a combat's hold keeps the device from a step of
+     * the player's own it makes by itself: the main button holds nothing meanwhile. */
+    fun ownStepHeld(): Boolean = game()?.shown?.ownStepHeld == true
+
+    /** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for the other
+     * player ([quietWaitText]), or null. */
+    fun quietWait(): String? = (status() as? GameDevice.Status.Waiting)?.let { quietWaitText(it.reason, opponentName) }
+
     /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
     private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
         ?.takeIf { it is GameDevice.Wait.Choosing || it == GameDevice.Wait.Blockers || it == GameDevice.Wait.Keep }
@@ -543,6 +551,18 @@ const val REFUSAL_SHAKEN = "Refusal shaken:"
 
 /** A player's own action the game moved on from before it reached the server (SYS-012). */
 const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
+
+/** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for [opponent]
+ * and the button holds nothing, in plain words; null where nobody else is waited on (your own events on their way, an undo
+ * request or a result suggestion, answered in their own dialogs). */
+fun quietWaitText(wait: GameDevice.Wait, opponent: String): String? = when (wait) {
+    is GameDevice.Wait.Respond, is GameDevice.Wait.MayAct, GameDevice.Wait.HiddenCards -> "$opponent's answer…"
+    GameDevice.Wait.Blockers -> "$opponent is blocking…"
+    GameDevice.Wait.Keep -> "$opponent's mulligan…"
+    is GameDevice.Wait.Choosing -> "$opponent is choosing…"
+    GameDevice.Wait.TheirTurn -> "$opponent's move…"
+    GameDevice.Wait.Sending, GameDevice.Wait.Request, GameDevice.Wait.Suggestion -> null
+}
 
 /** The waiting bar's words (§14) for [wait]. */
 fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
@@ -646,7 +666,7 @@ fun AssumeResolves.meaning(): String = when (this) {
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
  * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, Normal, When they have no
- * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) the same response mode cell and "Autotap mana".
+ * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) the same three, Assume resolves greyed.
  * A new response mode applies from the next point on: the stop the player stands at stays ([GameDevice.settings]).
  */
 @Composable
@@ -663,8 +683,10 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     // colour, a tap going on to the next mode), so the mode it stops by always shows
     val mode = Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
         ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null)
-    val cells = if (shown.behind) listOf(mode, autotap)
-    else listOf(
+    // TRN-059 (owner playtest 2026-11-12, the always-show rule): the three cells always show in the same places; in catch-up
+    // playback, where the device assumes nothing, Assume resolves stays greyed (a tap shakes it, holding it says why)
+    val assumeIdle = shown.behind
+    val cells = listOf(
         mode,
         // TRN-059: a tap goes on to the next of Never, Normal, When they have no mana and Always
         Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
@@ -674,6 +696,7 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
         val (name, label, icon) = what
         val (toggle, on) = action
         val choice = name == "Assume resolves setting"
+        val greyed = choice && assumeIdle
         // TRN-059 (owner playtest 2026-11-06): the mode and Assume cells always fill in their choice's colour; the
         // toggles fill violet when on
         val fillColor = when {
@@ -681,18 +704,19 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
             choice -> settings.assume.color()
             else -> AutomatumViolet
         }
-        val filled = on == true || on == null
+        val filled = (on == true || on == null) && !greyed
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode; it applies from the next point on."
             "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
-        val control = MenuControl(name, enabled, selected = on == true, color = fillColor) { toggle() }
+        val control = MenuControl(name, enabled && !greyed, selected = on == true, color = fillColor,
+            refused = if (greyed) assumeIdleReason(settings.assume) else null) { toggle() }
         RingPress(control, Modifier.weight(1f).height(48.dp).semantics {
                 stateDescription = if (choice) settings.assume.label() else if (on == null) settings.mode.label() else if (filled) "On" else "Off" },
             fillColor, fill = if (filled) fillColor else Color.White, role = if (on == null) Role.Button else Role.Switch,
             tooltip = tooltip) {
-            val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled) 1f else .45f) }
+            val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled && !greyed) 1f else .45f) }
             Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -707,6 +731,10 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
         }
     }
 }
+
+/** TRN-059: what holding the greyed Assume resolves cell says in catch-up playback, where the device assumes nothing. */
+fun assumeIdleReason(assume: AssumeResolves): String = "Assume resolves: ${assume.label()}. Not used while you catch up on " +
+    "moves already made; it works again once you're caught up."
 
 /**
  * The async play panels of a game on engine state (I-D56 §14), docked above the hand like every Automatum panel: the

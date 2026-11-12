@@ -224,7 +224,7 @@ class EngineTableScreenshotTest {
     }
 
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
-    // says so and nothing stands in the step arrow's place: his keep is never assumed
+    // says so and nothing stands in the step arrow's place (TRN-004: only its quiet status): his keep is never assumed
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
@@ -236,8 +236,10 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("wait-band").assertExists()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
         compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
+        // TRN-004 (owner playtest 2026-11-12): the quiet waiting status in the main button's place
+        compose.onNode(hasTestTag(QUIET_WAIT_TAG) and hasText("Bob's mulligan…")).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: a dark band under his hand, edge to edge and fading out toward both sides, says Bob is deciding on a mulligan, nothing covers her hand, and the main button's place is empty (his keep is never assumed).")
+            "Alice kept while Bob is online: a dark band under his hand, edge to edge and fading out toward both sides, says Bob is deciding on a mulligan, nothing covers her hand, and the main button's place holds no button (his keep is never assumed) but the quiet grey words \"Bob's mulligan…\".")
     }
 
     // TRN-066 (owner, 2026-11-09): in landscape the band lies under the other player's hand as well, and takes no touch: a tap
@@ -286,9 +288,10 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         compose.onNodeWithContentDescription("Response mode").assertExists()
-        compose.onNodeWithContentDescription("Assume resolves setting").assertDoesNotExist()
+        // TRN-059 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
+        compose.onNodeWithContentDescription("Assume resolves setting").assertIsNotEnabled()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions: the response mode cell as in live play (Quick, amber) and Autotap mana; nothing plays until he taps the text.")
+            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle {
             assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")

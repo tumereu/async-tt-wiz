@@ -31,10 +31,10 @@ number	item	screenshot	catalog	decisions	sequence
 30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
 31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
-33	Wait band under the other player's hand	engine/waiting-bar.png	TRN-066 TRN-070
+33	Wait band under the other player's hand, quiet waiting status in the main button's place	engine/waiting-bar.png	TRN-066 TRN-070 TRN-004
 34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
 35	Assume resolves on the main button	engine/stack-assume.png	STK-028 TRN-070 HIS-096
-36	Catch-up: has made moves	engine/catch-up.png	HIS-094
+36	Catch-up: has made moves, Assume resolves greyed	engine/catch-up.png	HIS-094 TRN-059
 37	Playback paused by a tap	engine/playback-paused.png	HIS-095
 38	Playback stop at an assumed pass	engine/decision-stop.png	HIS-091 HIS-095 HIS-105
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021

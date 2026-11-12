@@ -1119,6 +1119,27 @@ class GameDevice(
         return decideStep().also { made -> if (!made) idleAt = key }
     }
 
+    /**
+     * TRN-063, STK-029 (owner playtest 2026-11-12): whether only a view hold (a play shown or a combat's hold, HIS-112,
+     * HIS-113) keeps this player's device from making a step of their own at the head now: their pass by their response
+     * mode, an End turn or a Resolve chain going on, an automatic answer. The main button then shows no press meanwhile:
+     * the device makes it itself once the hold is done. Worked out once per point while a hold lasts.
+     */
+    val ownStepHeld: Boolean get() {
+        if (!showHolds()) return false
+        if (needsReload || holding || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
+        val key = pointKey()
+        stepHeldAt?.let { (at, held) -> if (key.same(at)) return held }
+        val s = model.engine
+        val held = Engine.result(s) == null && Attention.of(s).let { who -> who != null && (who == me || declares(s)) } &&
+            !held() && own(s)?.let { input -> reveals["${session.tip}:$input"] != true } == true
+        stepHeldAt = key to held
+        return held
+    }
+
+    /** [ownStepHeld] at its point, worked out last. */
+    private var stepHeldAt: Pair<PointKey, Boolean>? = null
+
     /** [automaticStep] worked out: whether the device made its own step at the head. */
     private fun decideStep(): Boolean {
         val s = model.engine

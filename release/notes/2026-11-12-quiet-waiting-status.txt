@@ -1,0 +1,1 @@
+add: While you wait on the other player, the main button's place says what you're waiting for, such as "Bob's answer…".

@@ -1,0 +1,1 @@
+fix: The main button no longer flashes Resolve while a play is shown and your phone is about to go on by itself.

@@ -1,0 +1,1 @@
+mod: The other player's plays and the triggers now fly in from where they come from on the table; several at once pile up large in the middle and then show one after another.

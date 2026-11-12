@@ -35,7 +35,9 @@ sealed interface TableIntent {
         val sources: Map<String, TableMoveSource> = emptyMap(), val invocationId: String? = null,
         val handDoubleTap: Boolean = false,
         /** Made by dragging (or its accessibility action): with Automatum on it means an engine action (I-D36). */
-        val drag: Boolean = false) : TableIntent
+        val drag: Boolean = false,
+        /** ZON-079: dragged from a card of the hand row from another zone (not its pile or panel). */
+        val fromHandRow: Boolean = false) : TableIntent
     data class Submit(val action: org.asyncttwiz.protocol.PlayAction, val invocationId: String?) : TableIntent
     /** A tap on empty table or hand space: lowers a raised hand card and drops the combat selection. */
     data object EmptyTap : TableIntent

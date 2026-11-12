@@ -62,7 +62,11 @@ class EngineBoardValues constructor(
 
     /** Engine thread: the hand plays, worked out now when not yet. Never throws (as the table's did: none on failure). */
     fun workedHandPlays(): HandPlays = handPlays ?: try {
-        HandPlays.of(state, viewer, view)
+        HandPlays.of(state, viewer, view).also { plays ->
+            // ZON-079: the cards from other zones the hand row shows on this board
+            if (plays.offZone.isNotEmpty()) AppLog.info("automatum", "Hand row from other zones on ${board.board.turn.number}: " +
+                plays.offZone.joinToString { id -> "$id (${board.board.cards.singleOrNull { it.id == id }?.containerId})" })
+        }
     } catch (problem: Exception) {
         AppLog.warn("automatum", "Couldn't list plays: ${simpleClassName(problem)}")
         HandPlays.NONE

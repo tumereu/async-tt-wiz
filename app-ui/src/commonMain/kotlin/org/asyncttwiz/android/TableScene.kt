@@ -199,13 +199,19 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val laid = if (paying.isEmpty()) layout else layout.copy(paying = paying)
+        // ZON-079 (owner, 2026-11-12): your cards from other zones a permission lets you cast or play, at your hand row's end
+        // (worked out with the board; the engine's own casts from elsewhere join them once worked out)
+        val cachedPlays = AutomatumBoards.cachedHandPlays(play, accountId)
+        val handRow = remember(IdentityKey(play.board), play.values, cachedPlays, accountId, runtime.reviewing, toolkit) {
+            if (runtime.reviewing || toolkit == null) emptyList() else HandRow.cards(play, accountId)
+        }
         // A board the scene can't be built from (a state nobody tested, prod crash WCRF3Q) keeps the last scene shown, reported
         val lastScene = remember(play.playId, accountId) { LastScene() }
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots, handRow) {
             try {
                 TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                     maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots).also { lastScene.scene = it }
+                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots, handRow = handRow).also { lastScene.scene = it }
             } catch (failure: RuntimeException) {
                 Faults.report("TableScene", "table scene not built", mapOf("game" to game.id, "node" to play.nodeId,
                     "failure" to failure.stackTraceToString().take(4_000)))

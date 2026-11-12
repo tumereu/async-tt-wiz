@@ -43,7 +43,8 @@ fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTransform ?
 
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. A dock pile's members are:
  * they have no drawing of their own, so a move between two piles changes nothing else in the scene. */
-val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
+// ZON-079: a card of the hand row from another zone animates as itself, apart from its pile's or panel's drawing
+val TableItem.animationId get() = if (kind == TableItemKind.CARD && handZone == null) "card/$cardId" else id
 val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
     listOf(it.bounds, it.tapped, it.covered, it.faceId, it.cards.takeIf { _ -> it.dockPile }) }
 private val TableItem.dockPile get() = kind == TableItemKind.PILE && zone in DOCK_PILE_ZONES

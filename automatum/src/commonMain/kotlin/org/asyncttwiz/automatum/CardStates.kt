@@ -35,7 +35,9 @@ internal object CardStates {
                 is ObjectStatus.RingBearer, is ObjectStatus.VentureRoom, ObjectStatus.CopyOfCard, is ObjectStatus.PrepareSpellOf,
                 ObjectStatus.DeathtouchDamage, is ObjectStatus.Merged, ObjectStatus.Flipped, is ObjectStatus.GainedInCopying,
                 is ObjectStatus.FixedCopies, ObjectStatus.DealtCombatDamage, ObjectStatus.DealtDamage, ObjectStatus.HeldPhasedOut,
-                is ObjectStatus.MarksGained, ObjectStatus.TurnedFaceUp, is ObjectStatus.PairedWith, ObjectStatus.RevealedCompanion -> Unit
+                is ObjectStatus.MarksGained, ObjectStatus.TurnedFaceUp, is ObjectStatus.PairedWith, ObjectStatus.RevealedCompanion,
+                // ZON-079: shown by the card's place in its player's hand row
+                is ObjectStatus.Playable -> Unit
             }
         }
     }

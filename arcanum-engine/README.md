@@ -37,6 +37,7 @@ Inspect.restrictions(state, view, id): List<AppliedRestriction> // what continuo
 Inspect.events(state): List<LoggedChange>        // the tagged events the state keeps (D33), for a host's history and displays
 // the rules state kept for objects, players and the game: typed statuses in the view (stored ones on the state too)
 view[id].statuses: List<ObjectStatus>             // ClassLevel (1 for a Class without one stored, CR 716.2), VentureRoom, Goaded, Protector, …
+                                                  // Playable (view only): the players a permission lets cast or play a card from outside a hand (CR 601.3)
 view.players[p].statuses: List<PlayerStatus>      // Speed, RingTempted, DungeonsCompleted, Designated(designation)
 view.game.statuses: List<GameStatus>              // DayNight (CR 731); none while it is neither; view.game.rules: the rules in force
 Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)

@@ -257,8 +257,16 @@ class CastFlow private constructor(
             if (way.way.fused) fusedName(definition)?.let { parts += it }
             else if (way.way.face != 0 || (definition?.faces?.size ?: 1) > 1) definition?.faces?.getOrNull(way.way.face)?.name?.let { parts += it }
             way.way.alternative?.let { parts += abilityText(definition, it) ?: "Alternative cost" }
-            if (way.way.permission != null) parts += "With permission"
+            if (way.way.permission != null) parts += permissionText(definition, way) ?: "With permission"
             return parts.joinToString(" · ").ifEmpty { null }
+        }
+
+        /** ZON-079: the printed text of the card's own ability whose permission [cast] uses ("Flashback {R}"), null for a
+         * permission from elsewhere (another object's, a rule's) or none. */
+        fun permissionText(definition: CardDefinition?, cast: Input.Cast): String? {
+            val permission = cast.way.permission ?: return null
+            if (permission.source != cast.card) return null
+            return permission.ability?.let { abilityText(definition, it) }?.ifBlank { null }
         }
 
         /** The printed text (or keyword) of the ability at [origin] of [definition]. */
@@ -287,10 +295,17 @@ class CastFlow private constructor(
 }
 
 /**
- * What a player may cast or play from their hand now (§3 I2, I-D28): the engine's [Input.Cast] and [Input.PlayLand]
- * options by ATW card id, in the engine's order (the plain way first). A card without any is not castable now.
+ * What a player may cast or play now from their hand row (§3 I2, I-D28, ZON-079): the engine's [Input.Cast] and
+ * [Input.PlayLand] options by ATW card id, in the engine's order (the plain way first), for the cards in their hand and
+ * the cards elsewhere they may cast or play now and may see ([offZone]). A card without any is not castable now.
  */
-class HandPlays private constructor(val byCard: Map<String, List<Input>>) {
+class HandPlays private constructor(
+    val byCard: Map<String, List<Input>>,
+    /** ZON-079 (owner, 2026-11-12): the cards outside the player's hand they may cast or play now (flashback, a foretold card,
+     * the top of their library under a permission, …) and may see (I-D27, [OffZoneCards.shown]), by ATW card id: a
+     * graveyard's first, then exile's, then a library's, each in the engine's order. */
+    val offZone: List<String> = emptyList(),
+) {
     fun of(cardId: String): List<Input> = byCard[cardId].orEmpty()
 
     companion object {
@@ -304,18 +319,25 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>) {
         fun of(state: GameState, viewer: String, view: View?): HandPlays = of(state, CardIds(), viewer, view)
 
         private fun of(state: GameState, ids: CardIds, viewer: String, view: View?): HandPlays {
+            val player = PlayerId(viewer)
             val hand = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().toSet()
-            val byCard = LinkedHashMap<String, MutableList<Input>>()
-            for (input in Engine.options(state, PlayerId(viewer), view, EnginePreferences.of(state))) {
+            val byObject = LinkedHashMap<ObjectId, MutableList<Input>>()
+            for (input in Engine.options(state, player, view, EnginePreferences.of(state))) {
                 val card = when (input) {
                     is Input.Cast -> input.card
                     is Input.PlayLand -> input.card
                     else -> continue
                 }
-                if (card !in hand) continue
-                byCard.getOrPut(ids.atw((card as ObjectId.Card).card)) { mutableListOf() } += input
+                if (card !is ObjectId.Card) continue
+                byObject.getOrPut(card) { mutableListOf() } += input
             }
-            return HandPlays(byCard)
+            // ZON-079, I-D27: a card elsewhere only when the viewer may see it (a public card face up needs no look; the
+            // top of a library or a card face down in exile asks the engine)
+            val elsewhere = byObject.keys.filter { it !in hand }
+            val shown = if (elsewhere.isEmpty()) emptyList() else OffZoneCards.shown(state, view, player, elsewhere)
+            val byCard = LinkedHashMap<String, List<Input>>()
+            for ((id, inputs) in byObject) if (id in hand || id in shown) byCard[ids.atw((id as ObjectId.Card).card)] = inputs
+            return HandPlays(byCard, shown.map(OffZoneCards::atw))
         }
     }
 }

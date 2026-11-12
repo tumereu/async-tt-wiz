@@ -48,7 +48,6 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
 
 - Bug, a cost choice's phrase isn't highlighted right (STK-047; owner: Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): the pick bar must highlight exactly the cost phrase being picked, as for targets. Check the parser's cost spans for keyword costs (Equip—Sacrifice …) and the bar's use of them; screenshot + e2e.
-- Cards castable from other zones in the hand row (ZON-079; owner): a card you may cast or play from a graveyard, exile or another pile shows at the right end of your hand row after a thin divider, as a hand card with a small badge of its zone; it's tapped and cast like a hand card and greyed while it can't be cast now. Its pile still holds it.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

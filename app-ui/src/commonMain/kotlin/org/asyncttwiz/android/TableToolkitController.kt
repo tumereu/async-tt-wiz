@@ -115,10 +115,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
 
     /** Whether [cardId], a card in the viewer's hand, is known to have no cast, play, special action or ability from the
-     * hand (foretell, plot, cycling, channel: a way chip, ZON-080) Automatum allows now (I-D46). */
+     * hand (foretell, plot, cycling, channel: a way chip, ZON-080) Automatum allows now (I-D46); a card of the hand row from
+     * another zone (ZON-079), no cast or play. */
     private fun unplayable(play: TableBoard, cardId: String): Boolean {
         val plays = AutomatumBoards.cachedCardPlays(play, viewer) ?: return false
-        if (!CastController.ownHand(play, cardId, viewer)) return false
+        if (CastController.inHandRow(play, cardId, viewer) != true) return false
+        if (!CastController.ownHand(play, cardId, viewer)) return plays.of(cardId).none { it.legal &&
+            (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play) }
         return plays.of(cardId).none { it.legal && (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast ||
             it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Special ||
             it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Ability || it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana) }
@@ -636,7 +639,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             dismiss()
             // TBL-118: while the other player's choice is open the viewer's own hand card only shakes
             val card = item.cardId
-            if (card != null && othersChoice() && CastController.ownHand(play, card, viewer)) { hand.lower(); shake(card); return }
+            if (card != null && othersChoice() && CastController.inHandRow(play, card, viewer) == true) { hand.lower(); shake(card); return }
             card?.let(hand::tap)
             return
         }
@@ -764,9 +767,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The message the last gesture left (shaken or shown), for the log. */
     private var gestureMessage: String? = null
 
+    /** ZON-079: the cards from other zones in the viewer's hand row on [play]. */
+    private fun handRowIds(play: TableBoard): Set<String> = HandRow.cards(play, viewer).mapTo(HashSet()) { it.cardId }
+
     /** Whether [intent] is a drag that leaves the card where it was ([AutomatumDrags.Route.Stay]). */
     private fun stays(intent: TableIntent.Move): Boolean =
-        intent.drag && current()?.let { AutomatumDrags.route(it, intent) } == AutomatumDrags.Route.Stay
+        intent.drag && current()?.let { AutomatumDrags.route(it, intent, handRowIds(it)) } == AutomatumDrags.Route.Stay
 
     /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card; null for anything else. */
     private fun gestureTarget(intent: TableIntent): String? = when (intent) {
@@ -826,7 +832,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      */
     private fun automatumDrag(intent: TableIntent.Move): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        when (val route = AutomatumDrags.route(play, intent)) {
+        when (val route = AutomatumDrags.route(play, intent, handRowIds(play))) {
             AutomatumDrags.Route.Cast -> {
                 if (intent.scope.cardIds.distinct().size > 1) { error = AutomatumDrags.ONE_AT_A_TIME; return false }
                 return castFromHand(intent.scope.contextId)

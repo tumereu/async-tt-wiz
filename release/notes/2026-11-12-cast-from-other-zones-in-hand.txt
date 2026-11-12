@@ -1,0 +1,1 @@
+add: Cards you may cast from your graveyard, exile or the top of your library (flashback, foretold cards and the like) show at the end of your hand, with a small mark of where they are; tap them to cast them like hand cards.

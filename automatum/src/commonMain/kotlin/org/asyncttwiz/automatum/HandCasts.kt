@@ -462,7 +462,8 @@ object HandCasts {
             if (way.fused) CastFlow.fusedName(definition)?.let { parts += it }
             else if (way.face != 0) definition?.faces?.getOrNull(way.face)?.name?.let { parts += it }
             way.alternative?.let { origin -> parts += CastFlow.abilityText(definition, origin)?.let(::withoutSymbols)?.ifBlank { null } ?: "Alternative cost" }
-            if (way.permission != null) parts += "With permission"
+            // ZON-079: a card's own permission by its keyword ("Flashback"), another's plainly
+            if (way.permission != null) parts += CastFlow.permissionText(definition, input)?.let(::withoutSymbols)?.ifBlank { null } ?: "With permission"
             parts.joinToString(" · ").ifEmpty { "Cast" }
         }
         // A special action or an ability from the hand: its keyword ("Plot", "Foretell", "Cycling", "Swampcycling") or the

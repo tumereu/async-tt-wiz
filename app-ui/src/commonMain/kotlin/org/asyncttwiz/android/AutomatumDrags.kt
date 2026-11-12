@@ -21,7 +21,9 @@ object AutomatumDrags {
         data class Refused(val reason: String) : Route
     }
 
-    fun route(play: TableBoard, intent: TableIntent.Move): Route {
+    /** [handRow]: the cards from other zones in the dragging player's hand row (ZON-079): one dragged from there
+     * ([TableIntent.Move.fromHandRow]) is dragged as a hand card. */
+    fun route(play: TableBoard, intent: TableIntent.Move, handRow: Set<String> = emptySet()): Route {
         val board = play.board
         val ids = intent.scope.cardIds.ifEmpty { listOf(intent.scope.contextId) }
         if (ids.any { it in CombatStackRules.stack(board).cards }) return Route.Refused(STACK)
@@ -38,7 +40,10 @@ object AutomatumDrags {
             return if (target.zone == PlayZone.BATTLEFIELD) Route.LeaveDraft else Route.Refused(MANUAL_MOVE)
         val from = ids.map { id -> board.cards.singleOrNull { it.id == id }?.containerId
             ?.let { c -> board.containers.singleOrNull { it.id == c } } ?: return Route.Refused(MANUAL_MOVE) }
-        if (from.all { it.zone == PlayZone.HAND } && target.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return Route.Cast
+        val fromRow = intent.fromHandRow && ids.all { it in handRow }
+        if ((from.all { it.zone == PlayZone.HAND } || fromRow) && target.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return Route.Cast
+        // ZON-079: a card of the hand row from another zone dropped back on the hand goes back, nothing said
+        if (fromRow && target.zone == PlayZone.HAND) return Route.Stay
         // ZON-077: within its own hand or Battlefield the card goes back, nothing said (no reordering, no placing by hand)
         if (from.all { it.id == target.id } && (target.zone == PlayZone.HAND || target.zone == PlayZone.BATTLEFIELD)) return Route.Stay
         return Route.Refused(MANUAL_MOVE)

@@ -198,7 +198,7 @@ class CastController(
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
         if (revealing()) { fail(REVEAL_BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
-        if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
+        if (inHandRow(play, cardId, viewer) != true) { fail(NOT_YOURS); return false }
         val autotapOn = autotap
         starting = cardId; startedAt = takeBacks()
         hidden = false
@@ -231,7 +231,7 @@ class CastController(
         if (open) { fail(BUSY); return false }
         if (revealing()) { fail(REVEAL_BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
-        if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
+        if (inHandRow(play, cardId, viewer) != true) { fail(NOT_YOURS); return false }
         val autotapOn = autotap
         starting = cardId; startedAt = takeBacks()
         hidden = false
@@ -919,6 +919,14 @@ class CastController(
         fun ownHand(play: TableBoard, cardId: String, viewer: String): Boolean {
             val card = play.board.cards.singleOrNull { it.id == cardId } ?: return false
             return play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }
+        }
+
+        /** Whether [cardId] is in [viewer]'s hand row (ZON-079): their own hand, or a card from another zone the row shows
+         * ([HandRow.cards]); null when Automatum hasn't worked [play] out for [viewer] (not known yet). */
+        fun inHandRow(play: TableBoard, cardId: String, viewer: String): Boolean? {
+            if (ownHand(play, cardId, viewer)) return true
+            if (AutomatumBoards.cached(play, viewer) == null) return null
+            return HandRow.cards(play, viewer).any { it.cardId == cardId }
         }
 
         /** The hand menu's Play with Automatum on (ZON-007): "Play" for a land, "Cast" for anything else, and "Cast" for a

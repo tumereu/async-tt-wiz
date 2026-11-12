@@ -836,7 +836,41 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             )
         }
         val players = state.players.associate { it.id to PlayerView(it.id, it.life, playerMechanics[it.id].orEmpty(), it.statuses) }
-        return View(objects, players, GameView(state.statuses, rules))
+        return playable(View(objects, players, GameView(state.statuses, rules)))
+    }
+
+    /**
+     * [view] with [arcanum.engine.state.ObjectStatus.Playable] on each card outside a hand, the Stack and the battlefield that a
+     * permission in it lets a player cast or play from there: [arcanum.engine.casting.Legality.permissions], what its cast
+     * and land play check, read from [view] itself (no layers worked out again), only for cards with a
+     * [arcanum.api.Mechanic.MayPlay]. A permission's condition may read the tagged events: the view is then kept as one that
+     * read them ([ViewCache]).
+     */
+    private fun playable(view: View): View {
+        val held = view.objects.values.filter { o ->
+            o.obj != null && o.zone != Zone.Hand && o.zone != Zone.Stack && o.zone != Zone.Battlefield &&
+                o.mechanics.any { it.mechanic is arcanum.api.Mechanic.MayPlay }
+        }
+        if (held.isEmpty()) return view
+        if (held.any { o -> o.mechanics.any { (it.mechanic as? arcanum.api.Mechanic.MayPlay)?.condition != null } }) reads.log = true
+        val snap = arcanum.engine.casting.Snapshot(state) { view }
+        val players = state.players.filter { !it.lost }.map { it.id }
+        val objects = LinkedHashMap(view.objects)
+        for (o in held) {
+            val definition = o.obj!!.definition
+            val lands = definition.faces.isNotEmpty() && definition.faces.all { arcanum.api.CardType.Land in it.types }
+            val by = players.mapNotNull { player ->
+                val kinds = arcanum.engine.casting.Legality.permissions(snap, player, o.id, arcanum.api.PlayKind.Cast)
+                    .map { (it.second.mechanic as arcanum.api.Mechanic.MayPlay).how }
+                when {
+                    arcanum.api.PlayKind.Play in kinds -> arcanum.engine.state.PlayableBy(player, arcanum.api.PlayKind.Play)
+                    kinds.isNotEmpty() && !lands -> arcanum.engine.state.PlayableBy(player, arcanum.api.PlayKind.Cast)
+                    else -> null
+                }
+            }
+            if (by.isNotEmpty()) objects[o.id] = o.copy(statuses = (o.statuses + arcanum.engine.state.ObjectStatus.Playable(by)).sortedBy { it.key })
+        }
+        return view.copy(objects = objects)
     }
 
     /** [o]'s statuses with those the view derives: level 1 for a Class on the battlefield that has gained none (CR 716.2a). */

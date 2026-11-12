@@ -27,6 +27,8 @@ fun startEngineWorker(base: String): MessageEngineChannel {
         } else channel.received(text)
     }) { problem ->
         EngineBoundary.log.log(true, "Engine boundary: the worker failed: $problem")
+        // The table's plays are worked out on the page from now on
+        EngineBoundary.lost(problem)
     }
     EngineBoundary.log.log(false, "Engine boundary: worker started from $url")
     return channel

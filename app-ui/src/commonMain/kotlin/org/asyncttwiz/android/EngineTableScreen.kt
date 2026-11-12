@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.LeaveScreenBackHandler
+import org.asyncttwiz.appui.secondBackLeavesTable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -221,7 +223,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val podUnread = podView?.unread(accountId) ?: 0
     val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true
     val overlay = toolkit.hasBackOverlay || state.chatOpen
-    BackHandler {
+    if (secondBackLeavesTable) BackHandler {
         // HIS-097: a branch's take-back can't be skipped or left
         if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
@@ -231,6 +233,15 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.EXIT_REVIEW -> {}
         }
+    } else {
+        // WEB-002, WEB-004: in the browser Back and Esc close what is open (the chat, a panel, timeline mode) and then
+        // leave the table at once
+        BackHandler(enabled = takingBack || overlay || routes.review != null) {
+            if (takingBack) return@BackHandler
+            if (!overlay && routes.review != null) routes.leaveReview()
+            else if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
+        }
+        LeaveScreenBackHandler { controller.back() }
     }
     // HIS-008: timeline mode's look, also while a branch's take-back goes back (HIS-106)
     val reviewing = reviewPlay != null || rewindingBranch

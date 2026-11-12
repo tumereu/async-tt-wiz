@@ -404,6 +404,11 @@ Two batches come first, in this order:
   served as `engine.js`; a test build at `#engine-bench` measures it). Not yet behind it: the device's own work
   (End turn, passes, own actions, server events, projection, which Android's main thread waits for synchronously) and
   the cast, combat and shared-flow steps; the web page still runs those on its own thread.
+- Built in 4b (2026-11-13): games open in the browser (the placeholder gone; WEB-007); the page starts the worker and
+  asks it for each board's hand plays and card plays (`EngineBoundary.remote`, a snapshot per board; a reader that can't
+  wait works them out on the page); browser gestures off the table and the draft (WEB-011), haptics (WEB-012), Esc and
+  Back leaving the table and draft (WEB-004). Tests: `WebEnginePlaysTest`, the browser smoke's move, `WebMixedTest`.
+  Not yet: boards sent as events instead of snapshots, the device's own work in the worker.
 
 ### Step 5: desktop table
 

@@ -15,7 +15,7 @@ sealed interface StorageOpenResult {
  * Synchronization serializes reads, atomic accepted writes and close on this repository only.
  * Account/session fences and complete-baseline staging are supplied by GameplayTreeCache.
  */
-class ClientStorage private constructor(private val driver: SqlDriver) : AutoCloseable {
+class ClientStorage private constructor(private val driver: SqlDriver) : AutoCloseable, CardDefinitionCache {
     private val database = ClientDatabase(driver)
     private val lock = Any()
     private var closed = false
@@ -139,14 +139,14 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
 
     /** Cached Arcanum definitions made by parser [parserVersion] for these definition digests; absent ones were never
      * cached. */
-    internal fun cachedCardDefinitions(parserVersion: Long, digests: Collection<String>): List<CachedCardDefinition> = access {
+    override fun cachedCardDefinitions(parserVersion: Long, digests: Collection<String>): List<CachedCardDefinition> = access {
         // API29's SQLite allows 999 bound values per statement.
         digests.distinct().chunked(500).flatMap { chunk ->
             database.cardDefinitionCacheQueries.selectDefinitions(parserVersion, chunk, ::CachedCardDefinition).executeAsList()
         }
     }
 
-    internal fun cacheCardDefinitions(parserVersion: Long, entries: List<CachedCardDefinition>) = access {
+    override fun cacheCardDefinitions(parserVersion: Long, entries: List<CachedCardDefinition>) = access {
         database.transaction {
             entries.forEach {
                 database.cardDefinitionCacheQueries.putDefinition(it.digest, parserVersion, it.definitionJson, it.manualAbilities, it.problem)
@@ -155,7 +155,7 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
     }
 
     /** Drops definitions made by any other parser version. */
-    internal fun evictCardDefinitionsExcept(parserVersion: Long) = access {
+    override fun evictCardDefinitionsExcept(parserVersion: Long) = access {
         database.cardDefinitionCacheQueries.deleteOtherParserVersions(parserVersion)
         Unit
     }

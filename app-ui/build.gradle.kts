@@ -59,5 +59,11 @@ kotlin {
             implementation(libs.compose.material.icons)
             implementation(libs.okhttp)
         }
+        // The browser's sides of the storage, card records and pictures (web client step 3a): IndexedDB, fetch, the Cache
+        // API and DecompressionStream, through the browser API declarations Compose already brings (same version).
+        wasmJsMain.dependencies {
+            implementation(libs.kotlinx.browser)
+            implementation(libs.coroutines.core)
+        }
     }
 }

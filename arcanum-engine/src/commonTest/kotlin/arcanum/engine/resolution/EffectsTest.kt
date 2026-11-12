@@ -6,6 +6,9 @@ import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
+import arcanum.engine.cards.Cards
+import arcanum.engine.change.Change
+import arcanum.engine.change.GameEvent
 import arcanum.engine.scenario.scenario
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -717,5 +720,45 @@ class EffectsTest {
             alice.graveyard has "Seer of Morrows"
             alice.hand.names shouldBe listOf("Island")
         }
+    }
+}
+
+/** Who reveals: the player whose hand or library the cards come from, as the wording's subject says. */
+class RevealedByTest {
+    private val exposure = Cards.invent("Auto3 Hand Exposure", "{0}", "Sorcery", "Target player reveals their hand.")
+    private val augury = Cards.invent("Auto3 Top Augury", "{0}", "Sorcery", "Target player reveals the top two cards of their library.")
+    private val insight = Cards.invent("Auto3 Top Insight", "{0}", "Sorcery", "Reveal the top card of your library and put that card into your hand.")
+
+    private fun arcanum.engine.scenario.Scenario.revealers() = applied.filterIsInstance<Change.Happened>()
+        .mapNotNull { it.event as? GameEvent.Revealed }.map { it.player }
+
+    // CR 701.20a: "Target player reveals their hand": the targeted player reveals, not the spell's controller
+    @Test
+    fun theTargetPlayerRevealsTheirHand() = scenario {
+        alice.hand(exposure)
+        bob.hand("Forest", "Storm Spark")
+        alice.castsWithoutCosts(exposure, target = "bob")
+        resolve()
+        assertEquals(listOf(bob.id), revealers())
+    }
+
+    // CR 701.20a: "Target player reveals the top two cards of their library": that player reveals them
+    @Test
+    fun theTargetPlayerRevealsTheirTopCards() = scenario {
+        alice.hand(augury)
+        bob.library("Forest", "Island")
+        alice.castsWithoutCosts(augury, target = "bob")
+        resolve()
+        assertEquals(listOf(bob.id), revealers())
+    }
+
+    // CR 701.20a: "Reveal the top card of your library": the spell's controller reveals their own card
+    @Test
+    fun youRevealYourOwnTopCard() = scenario {
+        alice.hand(insight)
+        alice.library("Forest")
+        alice.castsWithoutCosts(insight)
+        resolve()
+        assertEquals(listOf(alice.id), revealers())
     }
 }

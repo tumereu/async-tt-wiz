@@ -132,7 +132,7 @@ internal object Effects {
             is Effect.Reveal -> {
                 val ids = scope.objects(effect.objects)
                 act.fill(scope.actor, scope.self, ids, "revealed", public = true)
-                if (ids.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(scope.actor, ids)))
+                if (ids.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(revealer(scope, ids), ids)))
                 scope.bind(effect.bind, NamedValue.Objects(ids))
             }
             is Effect.LookAt -> {
@@ -518,6 +518,21 @@ internal object Effects {
     }
 
     /** One coin flip by [player] (CR 705): whether they won it. */
+    /**
+     * CR 701.20a: who reveals [ids]. Cards revealed from one player's hand or library are revealed by that player, the
+     * subject of every such wording ("Target player reveals their hand", "Reveal the top card of your library"), whoever
+     * controls the effect; anything else (cards in public zones, a face-down permanent, several players' cards) by the
+     * resolving ability's player.
+     */
+    private fun revealer(scope: Scope, ids: List<ObjectId>): PlayerId {
+        val owners = ids.map { id ->
+            val o = scope.act.state.obj(id) ?: return scope.actor
+            if (o.zone != Zone.Hand && o.zone != Zone.Library) return scope.actor
+            o.owner
+        }.distinct()
+        return owners.singleOrNull() ?: scope.actor
+    }
+
     private fun flipOne(scope: Scope, player: PlayerId): Boolean {
         val act = scope.act
         // fin: "those coins come up heads and you win those flips": a replacement of the flip (CR 705.2, 614.1a)

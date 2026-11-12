@@ -3,6 +3,8 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
@@ -148,5 +150,33 @@ class RevealStopTest : E2e() {
         bob.revealOk()
         waitUntil("Bob's panel gone") { !bob.showsRevealOk() }
         assertFalse(alice.showsRevealOk(), "Alice's stays dismissed")
+    }
+
+    // HIS-110 (owner problem 2026-11-12): Alice casts Ember Exposure ("Target player reveals their hand") at Bob: her panel
+    // names who revealed, "Bob revealed · Ember Exposure", not "You revealed"; Bob revealed his own hand, cards he already
+    // sees, so no panel opens on his phone
+    @Test fun aRevealTheOtherPlayersSpellMakesNamesWhoRevealed() {
+        val deck = TestDeck("Exposures", listOf(TestCards.mountain to 20, TestCards.exposure to 20))
+        startGame(deck, deck, deal = { a, _ -> "Ember Exposure" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.playFromHand("Ember Exposure", this)
+        waitUntil("Alice's target bar") { alice.shows(hasText("Choose target player") and isHeading()) }
+        alice.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
+        var bobsPanel: GameDevice.Reveal? = null
+        waitUntil("Alice's reveal panel", along = listOf(bob)) {
+            bob.game?.shown?.reveal?.let { bobsPanel = it }
+            alice.shown.reveal != null && alice.showsText("revealed · Ember Exposure", substring = true)
+        }
+        assertTrue(alice.showsText("${bob.name} revealed · Ember Exposure"), "named who revealed: ${alice.screen()}")
+        assertFalse(alice.showsText("You revealed · Ember Exposure"))
+        assertEquals(bob.me, alice.shown.reveal?.by)
+        alice.revealOk()
+        waitUntil("Alice's panel closed, the Exposure resolved on Bob's phone too", along = listOf(bob)) {
+            bob.game?.shown?.reveal?.let { bobsPanel = it }
+            !alice.showsRevealOk() && bob.state.stack.isEmpty() && bob.engine { device.session.pending.isEmpty() }
+        }
+        repeat(3) { run(skip = Duration.ofSeconds(1)); bob.game?.shown?.reveal?.let { bobsPanel = it } }
+        assertEquals(null, bobsPanel, "Bob's own hand opens no panel of his")
     }
 }

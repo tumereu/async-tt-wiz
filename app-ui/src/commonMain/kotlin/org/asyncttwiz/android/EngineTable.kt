@@ -712,7 +712,9 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
     val reveal = shown.reveal.takeIf { !reviewing }
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
-        RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent) {
+        // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
+        RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
+            reveal.left?.owner?.let { names[it.value] } ?: opponent) {
             AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}")
             game.dismissReveal(); routes.pump()
         }

@@ -1,5 +1,9 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.performClick
+import arcanum.engine.decision.Decision
 import org.asyncttwiz.android.HistoryPlaybackPreferences
 import org.asyncttwiz.android.PLAY_SHOW_FLIGHT_MILLIS
 import org.asyncttwiz.android.PlayShowProbe
@@ -30,7 +34,8 @@ class RepeatedPlaysTest : E2e() {
     // HIS-112, HIS-021: the first Martyr trigger shows for the whole 1.2 s, the second 35% shorter, the third shorter again,
     // their flights likewise; the wipe (a spell) keeps its whole time; and the three resolve on her table as on his
     @Test fun repeatedTriggersShowFasterEachTime() {
-        startGame(TestDeck.glimmers(), TestDeck("Martyrs", listOf(TestCards.martyr to 30, TestCards.reckoning to 10)), bobStarts = true,
+        // Alice holds only lands: she has nothing to answer with, so her table plays Bob's moves on without stopping
+        startGame(TestDeck("Mountains", listOf(TestCards.mountain to 40)), TestDeck("Martyrs", listOf(TestCards.martyr to 30, TestCards.reckoning to 10)), bobStarts = true,
             bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { _, b -> hand(b).count { it == "Ember Martyr" } >= 3 && "Ember Reckoning" in hand(b) })
         HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis = HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS
@@ -48,6 +53,11 @@ class RepeatedPlaysTest : E2e() {
         val life = bob.state.player(bob.me).life
         PlayShowProbe.listener = { me, show, repeats, millis, flight -> if (me == alice.id) seen += Seen(show.kind, repeats, millis, flight) }
         bob.playFromHand("Ember Reckoning", this)
+        // CR 603.3b: three sources' triggers: Bob orders them (as they are, OK)
+        waitUntil("Bob ordering the Martyrs' triggers", along = listOf(alice)) {
+            bob.state.pending?.decision is Decision.OrderTriggers && bob.shows(hasText("Order triggers") and isHeading())
+        }
+        bob.text("OK").performClick()
         waitUntil("the Martyrs' triggers resolved on Alice's table", timeoutSeconds = 90) {
             alice.state.player(bob.me).life == life + 6 && alice.state.stack.isEmpty() && alice.shown.show == null
         }

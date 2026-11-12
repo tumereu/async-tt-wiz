@@ -654,6 +654,10 @@ sealed interface Modification {
      * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
      * steps may do anything ("you get an emblem", "choose an opponent"). */
     @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
+    // mkm
+    /** "As this creature is turned face up, …" (CR 614.1e): [steps] happen while the permanent is turned face up, not afterward and not on
+     * the Stack, with the permanent already face up; used on a [Mechanic.Replacement] of [EventPattern.TurnedFaceUp]. */
+    @Serializable @SerialName("as-turned-face-up") data class AsTurnedFaceUp(val steps: List<Step>) : Modification
     /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
      * coins come up heads and you win those flips", CR 705.2). */
     @Serializable @SerialName("win-flips") data object WinFlips : Modification

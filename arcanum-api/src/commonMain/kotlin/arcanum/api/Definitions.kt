@@ -186,6 +186,9 @@ sealed interface Ability {
         /** Only while this holds ("turn a face-down permanent face up", CR 702.37e; "the companion you revealed"). */
         val condition: Condition? = null,
         val text: String? = null,
+        // mkm
+        /** A change of [cost] ("Disguise {5}{R}. This cost is reduced by {1} for each …", CR 118.7). */
+        val costChange: CostChange? = null,
     ) : Ability
 
     /** Text the parser could not read, kept exactly as printed (reminder text included) so it can be shown and

@@ -119,6 +119,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
     val isSpecialAction = ability is Ability.SpecialAction
+    /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
+     * {1} for each …" on the special action (CR 118.7). */
+    private val ownCostChange: CostChange? get() = (ability as? Ability.Activated)?.rules?.costChange ?: (ability as? Ability.SpecialAction)?.costChange
 
     /** Before any provisional item: what the card and the board are now. */
     private val plain = Snapshot(base)
@@ -474,7 +477,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
+        ownCostChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
@@ -507,7 +510,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val anyReduction: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
         return (assistable > 0 && choices.assist?.amount == null) ||
-            (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
+            ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
             snap.view.game.rules.any { lower(it.mechanic) }
     }
@@ -527,7 +530,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             repeat(times.coerceAtLeast(0)) { symbols += change.mana.symbols }
             return true
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
+        ownCostChange?.let { if (!add(it)) return null }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
@@ -563,7 +566,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      */
     val costMayVary: Boolean get() {
         fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
-        val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
+        val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
             instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||

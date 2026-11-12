@@ -38,7 +38,8 @@ internal object Fdn {
     val PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE = Regex("""During your turn, you may play cards you don't own with (\S+) counters on them from exile, and mana of any type can be spent to cast those spells\.""")
     val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it from their graveyard with an? (\S+) counter on it\.""")
     val GAINS_AND_GETS_UNTIL_EOT = Regex("""(.+?) gains (.+?) and gets ([+-]\w+)/([+-]\w+) until end of turn\.?""")
-    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of target (.+?)\.""")
+    // mkm chunk 01: also "any number of target permanents you control"
+    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of (any number of )?target (.+?)\.""")
     val DESTROY_ALL_GAIN_FOR_EACH = Regex("""Destroy all (.+?)\. You gain (\d+) life for each (?:.+?) destroyed this way\.""")
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")

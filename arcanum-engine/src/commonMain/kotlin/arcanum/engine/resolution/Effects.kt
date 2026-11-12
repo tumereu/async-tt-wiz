@@ -229,6 +229,8 @@ internal object Effects {
                 // CR 613.7f: it gets a new timestamp
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 effect.counters.forEach { c -> Actions.putCounters(act, cause, TargetRef.Object(id), c.kind, scope.value(c.amount)) }
+                // mkm: CR 614.1e: "As this creature is turned face up, …" happens as it turns, before anything sees it face up
+                asTurnedFaceUp(scope, id)
                 // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
                 arcanum.engine.conspiracy.Conspiracies.revealed(act, id)
             }
@@ -943,6 +945,18 @@ internal object Effects {
             .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
             .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTransforms>().flatMap { it.steps } }
         if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "transforms:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
+    }
+
+    /** mkm: "As this creature is turned face up, …" (CR 614.1e): its now face-up characteristics' replacements of the turning do their steps
+     * as part of it, not on the Stack. */
+    private fun asTurnedFaceUp(scope: Scope, id: ObjectId) {
+        val act = scope.act
+        val controller = act.controllerOf(id) ?: return
+        val steps = act.view()[id]?.characteristics?.abilities.orEmpty()
+            .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
+            .filter { it.event == arcanum.api.EventPattern.TurnedFaceUp(arcanum.api.ObjectFilter.Is(Objects.Self)) }
+            .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTurnedFaceUp>().flatMap { it.steps } }
+        if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "turned-face-up:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
     }
 
     /**

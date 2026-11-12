@@ -210,6 +210,10 @@ internal object Filters {
             val statuses = m.groupValues[1].split(LazyRegexes.OR_LIST).map { word(it) ?: return null }
             return all(ObjectFilter.Or(statuses), noun(m.groupValues[2]) ?: return null)
         }
+        // mkm chunk 01: "permanent you own but don't control"
+        Mkm.OWNED_NOT_CONTROLLED.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You), ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))
+        }
         // dsk chunk 09: "creatures and/or enchantments you own"
         OWNED.matchEntire(phrase)?.let { m -> noun(m.groupValues[1].replace(" and/or ", " or "))?.let { return and(it, ObjectFilter.OwnedBy(PlayerFilter.You)) } }
         CONTROLLED.matchEntire(phrase)?.let { m ->
@@ -357,7 +361,9 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ")
+            .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
+            .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -545,6 +551,11 @@ internal object Events {
         ATTACKS_OR_BLOCKS.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject, attacker = ObjectFilter.Any))
+        }
+        // mkm chunk 01: "this creature enters or is turned face up" (CR 702.168d: turning it face up isn't entering)
+        Mkm.ENTERS_OR_TURNED_FACE_UP.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.TurnedFaceUp(subject))
         }
         // chunk 36: "Korvold enters or attacks"
         ENTERS_OR_ATTACKS.matchEntire(text)?.let { m ->

@@ -365,7 +365,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
 /**
  * The phone's socket, which can stage a head overtaking revisions on their way (a head is read as soon as asked for, a
  * revision published up to a moment after its commit): from [holdRevisions], its game's revisions wait here until a head with
- * engine state has been handed on; then they follow, in order, and [overtaken] says so.
+ * engine state has been handed on; then they follow, in order, and [overtaken] says so. It can also stop the revisions right
+ * after one ([holdRevisionsAfter]) until [releaseRevisions]: the other phone's events sent together reaching this one apart.
  */
 internal class HeadFirstConnection(private val real: org.asyncttwiz.android.GameConnection) : org.asyncttwiz.android.GameConnection by real {
     private val held = mutableListOf<org.asyncttwiz.protocol.GameRevision>()
@@ -375,15 +376,37 @@ internal class HeadFirstConnection(private val real: org.asyncttwiz.android.Game
 
     @Synchronized fun holdRevisions() { holding = true; overtaken = false }
 
+    private var holdAfter: ((org.asyncttwiz.protocol.GameRevision) -> Boolean)? = null
+    private var listener: org.asyncttwiz.android.GameConnection.Listener? = null
+
+    /** The first revision from now that [first] matches is handed on; the revisions after it wait here until
+     * [releaseRevisions]. */
+    @Synchronized fun holdRevisionsAfter(first: (org.asyncttwiz.protocol.GameRevision) -> Boolean) { holdAfter = first }
+
+    private var afterHeld = false
+
+    /** Hands on what [holdRevisionsAfter] held, in order, and lets the next ones through. */
+    @Synchronized fun releaseRevisions() {
+        holdAfter = null
+        if (!afterHeld) return
+        afterHeld = false; holding = false
+        held.forEach { listener?.message(it) }
+        held.clear()
+    }
+
     override fun connect(token: String, listener: org.asyncttwiz.android.GameConnection.Listener) =
         real.connect(token, object : org.asyncttwiz.android.GameConnection.Listener {
+            init { synchronized(this@HeadFirstConnection) { this@HeadFirstConnection.listener = listener } }
             override fun opened() = listener.opened()
             override fun disconnected(unauthorized: Boolean) = listener.disconnected(unauthorized)
             override fun disconnected(unauthorized: Boolean, cause: String) = listener.disconnected(unauthorized, cause)
             override fun message(message: org.asyncttwiz.protocol.GameServerMessage) = synchronized(this@HeadFirstConnection) {
                 if (holding && message is org.asyncttwiz.protocol.GameRevision) { held += message; return@synchronized }
                 listener.message(message)
-                if (holding && message is org.asyncttwiz.protocol.GameHead && message.engine != null) {
+                if (message is org.asyncttwiz.protocol.GameRevision && holdAfter?.invoke(message) == true) {
+                    holdAfter = null; holding = true; afterHeld = true
+                }
+                if (holding && !afterHeld && message is org.asyncttwiz.protocol.GameHead && message.engine != null) {
                     holding = false
                     held.forEach(listener::message)
                     held.clear()

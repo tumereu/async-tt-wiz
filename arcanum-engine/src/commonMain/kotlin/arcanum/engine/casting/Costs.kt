@@ -143,7 +143,8 @@ internal object Costs {
     /**
      * CR 118.7: a reduction by generic mana reduces only generic mana (118.7a); by coloured or colourless mana, the
      * matching symbols, and generic mana for what the cost doesn't have (118.7b–d); Phyrexian by one mana of its colour
-     * (118.7f); snow by generic (118.7g). Generic mana never goes below [minimum].
+     * (118.7f); snow by generic (118.7g). The cost's mana, every symbol counted, never goes below [minimum] by taking off generic mana
+     * ("This effect can't reduce the mana in that cost to less than one mana": {1}{U} reduced by {1} is {U}, {1} stays {1}).
      */
     fun reduce(cost: ManaCost, reduction: ManaCost, minimum: Int = 0): ManaCost {
         val symbols = cost.symbols.toMutableList()
@@ -169,8 +170,8 @@ internal object Costs {
             }
         }
         val generic = symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        val left = maxOf(minOf(generic, minimum), generic - genericOff)
         val rest = symbols.filterNot { it is ManaSymbol.Generic }
+        val left = maxOf(minOf(generic, minimum - rest.size), generic - genericOff)
         return ManaCost((if (left > 0) listOf(ManaSymbol.Generic(left)) else emptyList()) + rest)
     }
 

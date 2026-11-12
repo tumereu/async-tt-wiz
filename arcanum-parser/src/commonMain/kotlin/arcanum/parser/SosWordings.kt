@@ -46,7 +46,7 @@ internal object Sos {
     // sos chunk 04: stun counters (CR 122.1d) and tapping
     val TAP_IF_YOUR_TURN_STUN = Regex("""Tap target (.+?)\. If it's your turn, put a stun counter on it\.""")
     val TAP_PUT_TWICE_X_STUN = Regex("""Tap target (.+?)\. Put twice X stun counters on it\.""")
-    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)\. Put a stun counter on each of them\.""")
+    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)(?:\. Put| and put) a stun counter on each of them\.""") // mkm chunk 02: " and put"
     val ENTERS_WITH_STUN_THREE_MINUS_X = Regex("""(.+) enters with a number of stun counters on it equal to (\w+) minus X\. If X is (\d+) or less, it enters tapped\.""")
 
     // sos chunk 05: infusion (an ability word)

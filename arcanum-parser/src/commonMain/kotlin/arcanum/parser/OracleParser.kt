@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 78
+    const val VERSION: Int = 79
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -156,6 +156,8 @@ object OracleParser {
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
         sentences.finChosenCreatureLinked = text.contains("When the chosen creature leaves the battlefield")
+        // mkm chunk 02: "for each target beyond the first" counts the card's "any number of target players"
+        sentences.anyNumberOfTargets = ANY_NUMBER_OF_TARGET.find(text)?.groupValues?.get(1)
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -741,6 +743,7 @@ object OracleParser {
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06
+    private val ANY_NUMBER_OF_TARGET = Regex("""any number of target (\w+)""")
     private val PAWPRINT_CHOOSE = Regex("""Choose up to (\w+) \{P\} worth of modes\. You may choose the same mode more than once\.""")
     private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
     // blb chunk 05

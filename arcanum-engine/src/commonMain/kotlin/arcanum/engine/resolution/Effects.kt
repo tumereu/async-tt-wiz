@@ -1529,7 +1529,15 @@ internal object Effects {
             if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
-        KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
+        // mkm chunk 02: what a keyword action is made of is done by the player doing it, its "you" (CR 701.16a: "Each player who controls the most
+        // creatures investigates": each of them creates their own Clue, CR 111.2)
+        KeywordExpansions.expand(action)?.let { steps ->
+            if (scope.actor == scope.you) return Steps.run(scope, steps)
+            val performed = Scope(scope.act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor, scope.batch, scope.entering)
+            Steps.run(performed, steps)
+            scope.names = performed.names
+            return
+        }
         val cause = scope.cause
         when (action) {
             // CR 701.27a: choose any number of permanents and/or players with counters; give each another of each kind

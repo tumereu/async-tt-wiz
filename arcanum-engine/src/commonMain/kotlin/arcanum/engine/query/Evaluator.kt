@@ -263,7 +263,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun players(players: Players): List<PlayerId> = when (players) {
         Players.You -> listOf(ctx.you)
-        is Players.Target -> boundPlayers(ctx.names[players.slot])
+        // mkm chunk 02: as for objects, a spell's own static ability reads the players it targets ("costs {W}{U} more for each target beyond the
+        // first", CR 601.2f)
+        is Players.Target -> ctx.names[players.slot]?.let { boundPlayers(it) }
+            ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(players.slot)?.filterIsInstance<TargetRef.Player>()?.map { it.id } }.orEmpty()
         is Players.Bound -> boundPlayers(ctx.names[players.name])
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
         // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)

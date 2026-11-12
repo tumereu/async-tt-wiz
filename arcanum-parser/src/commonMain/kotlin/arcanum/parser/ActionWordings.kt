@@ -51,6 +51,9 @@ internal object ActionWordings {
         "suspected" to ObjectMark.Suspected, // CR 701.60a
     )
 
+    /** mkm chunk 02: the mark [word] names ("suspected"), for effects that give or take it. */
+    fun mark(word: String): ObjectMark? = MARKS[word]
+
     private val PLAYERS = listOf<Pair<String, PlayerFilter>>("you " to PlayerFilter.You, "an opponent " to PlayerFilter.Opponent, "a player " to PlayerFilter.Any)
 
     /** "You" did [kind]. */

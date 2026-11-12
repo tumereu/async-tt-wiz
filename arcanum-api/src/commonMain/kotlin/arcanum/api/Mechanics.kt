@@ -371,8 +371,8 @@ sealed interface Mechanic {
      * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
     @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
-     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
-     * below (0: no minimum). */
+     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the mana, every symbol counted, a reduction can't take the
+     * cost below (0: no minimum; 1: "This effect can't reduce the mana in that cost to less than one mana", CR 118.7). */
     @Serializable @SerialName("cost-change") data class CostChange(
         val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {

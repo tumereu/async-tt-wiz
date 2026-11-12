@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Runs a set's parser and engine tests in one Gradle call (through gradle-slot.sh) and prints only counts and failures.
 #   set-tests.sh <code> [extra --tests patterns...]   e.g. set-tests.sh inr '*MechanicWordingsTest*'
-#   set-tests.sh <code> --full                        the whole parser and engine suites (invented card names are global) and parserDiff
+#   set-tests.sh <code> --full                        the whole parser and engine suites (invented card names are global) and parserDiff,
+#                                                     without the engine's long random-game and fuzz classes
+#   set-tests.sh <code> --full --long                 the same with the long classes (the fix, sweep and close steps)
 # Before the set's own parser test folder exists, a quick run runs the whole parser suite (about a minute).
 # Extra test patterns apply to the engine only once the set's engine test folder exists.
 # Run from the worktree root. The base snapshot is ~/projects/atw-cache/set-plans/<CODE>/parser-base.snapshot (base-snapshot.sh
@@ -9,8 +11,9 @@
 set -u
 [ $# -ge 1 ] || { echo "Usage: set-tests.sh <code> [--full] ['<test pattern>' ...]" >&2; exit 2; }
 code=$(echo "$1" | tr 'A-Z' 'a-z'); CODE=$(echo "$1" | tr 'a-z' 'A-Z'); shift
-full=0; extra=()
-for a in "$@"; do if [ "$a" = --full ]; then full=1; else extra+=(--tests "$a"); fi; done
+full=0; long=0; extra=()
+for a in "$@"; do case "$a" in --full) full=1 ;; --long) long=1 ;; *) extra+=(--tests "$a") ;; esac; done
+skip=(); [ $long = 1 ] || skip=(-Parcanum.skipLongTests=true)
 T=$(cd "$(dirname "$0")" && pwd); plan=$HOME/projects/atw-cache/set-plans/$CODE
 log=$(mktemp); trap 'rm -f "$log"' EXIT
 out=$plan/full-run
@@ -25,7 +28,7 @@ pt=(); et=()
 [ -d "arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/$code" ] && et=(:arcanum-engine:jvmTest --tests "arcanum.engine.sets.$code.*" "${extra[@]}")
 if [ $full = 1 ]; then
   cp "$plan/parser-base.snapshot" "$out/base.snapshot"
-  "$T/gradle-slot.sh" :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
+  "$T/gradle-slot.sh" "${skip[@]}" :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
     :arcanum-tools:parserDiff --args="compare $out/base.snapshot" -PparserOutputs="$out" --continue >"$log" 2>&1
 else
   "$T/gradle-slot.sh" :arcanum-parser:jvmTest "${pt[@]}" "${extra[@]}" "${et[@]}" --continue >"$log" 2>&1
@@ -35,7 +38,7 @@ rc=$?
 if grep -q "FqNames can't be derived\|Could not perform incremental compilation" "$log"; then
   echo "(incremental compile glitch: rerunning once with kotlin.incremental=false)"
   if [ $full = 1 ]; then
-    "$T/gradle-slot.sh" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
+    "$T/gradle-slot.sh" "${skip[@]}" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
       :arcanum-tools:parserDiff --args="compare $out/base.snapshot" -PparserOutputs="$out" --continue >"$log" 2>&1
   else
     "$T/gradle-slot.sh" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false :arcanum-parser:jvmTest "${pt[@]}" "${extra[@]}" "${et[@]}" --continue >"$log" 2>&1
@@ -43,6 +46,7 @@ if grep -q "FqNames can't be derived\|Could not perform incremental compilation"
   rc=$?
 fi
 grep -E "^e: |error:|Compilation error|BUILD (SUCCESSFUL|FAILED)|No tests found|What went wrong" "$log" | head -20
+[ $full = 1 ] && python3 -I "$T/set-cards.py" "$CODE" --names >/dev/null
 python3 -I - "$CODE" "$out" "$full" <<'EOF'
 import glob,sys,re,os,gzip,json
 import xml.etree.ElementTree as ET
@@ -66,8 +70,7 @@ if full:
     for l in open(p):
         if l.strip() and not l.startswith(' '): cur=l.strip(); secs[cur]=[]
         elif re.match(r'  \S',l) and cur: secs[cur].append(re.sub(r' (at \d+|\[held-out\])$','',l.strip()))
-    d=json.load(gzip.open(os.path.expanduser('~/projects/atw-cache/AllPrintings.json.gz')))['data']
-    mine={c['name'] for c in d.get(code,{}).get('cards',[])}
+    mine={c['name'] for c in json.load(open(os.path.expanduser(f'~/projects/atw-cache/set-plans/{code}/cards.json'),encoding='utf8'))}
     for s,names in secs.items():
         if s.startswith('Supported sets'):
             other=[x for x in names if x not in mine]

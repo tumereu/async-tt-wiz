@@ -6,16 +6,20 @@ sets sold in draft or play boosters (masters, Modern Horizons), that are release
 cards, aren't online-only and have at least 150 cards in their base set (MTGJSON's baseSetSize), so Jumpstart, small
 supplements and bonus sheets don't count. They are sets of tournament-legal cards: at least 90% of their cards are legal or
 restricted in Vintage (MTGJSON's legalities.vintage) and the set type is never funny or memorabilia, so Un-sets, collector
-editions and playtest grab-bags aren't candidates. At most 40 sets, plus the NEXT one if it is older. Usage: next-set.py"""
-import datetime, gzip, json, os, sys
+editions and playtest grab-bags aren't candidates. At most 40 sets, plus the NEXT one if it is older; --all lists every candidate. Usage: next-set.py [--all]"""
+import datetime, fcntl, gzip, json, os, sys
 
-if len(sys.argv) != 1: sys.exit('Usage: next-set.py (no arguments)')
+if sys.argv[1:] not in ([], ["--all"]): sys.exit("Usage: next-set.py [--all]")
+limit = 10**6 if sys.argv[1:] == ["--all"] else 40
 here = os.path.dirname(os.path.abspath(__file__))
 supported_file = os.path.join(here, '..', '..', 'src', 'main', 'resources', 'arcanum', 'tools', 'supported-sets.txt')
 mtgjson = os.path.expanduser('~/projects/atw-cache/AllPrintings.json.gz')
 if not os.path.isfile(mtgjson): sys.exit(f'No {mtgjson}: run arcanum-tools/set-work/bin/setup.sh first')
 supported = {l.split()[0] for l in open(supported_file, encoding='utf8') if l.strip() and not l.startswith('#')}
+# about 4.6 GB outside the build's memory cap: one AllPrintings load at a time on this machine
+lock = open(os.path.expanduser('~/projects/atw-cache/locks/allprintings.lock'), 'w'); fcntl.flock(lock, fcntl.LOCK_EX)
 with gzip.open(mtgjson, 'rt', encoding='utf8') as f: d = json.load(f)
+lock.close()
 today = datetime.date.today().isoformat()
 rows = []
 for code, s in d['data'].items():
@@ -31,7 +35,7 @@ rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
 nxt = next((r[1] for r in rows if r[1] not in supported), None)
 print(f"MTGJSON {d['meta'].get('version')}; released by {today}, base set of 150+ cards, 90%+ Vintage-legal; newest first (date code type cards base name)")
 for i, (date, code, kind, cards, base, name) in enumerate(rows):
-    if i >= 40 and code != nxt: continue
+    if i >= limit and code != nxt: continue
     mark = '  SUPPORTED' if code in supported else '  NEXT' if code == nxt else ''
     print(f"{date} {code:<5} {kind:<16} {cards:>4} {base:>4}  {name}{mark}")
 print(f'NEXT: {nxt}' if nxt else 'NEXT: none (every candidate set is supported)')

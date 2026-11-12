@@ -61,12 +61,15 @@ alarm gets a test showing the model right. Name each one and which it was in you
   set's parser and engine tests, printing counts and failures only.
   Before your set's parser test folder exists it runs the whole parser suite (about a minute).
   Extra patterns apply to the engine only once your set's engine test folder exists.
-- Last: `bin/set-tests.sh <code> --full`: the whole parser and engine suites plus a comparison of every card's model with
+- Last: `bin/set-tests.sh <code> --full`: the whole parser and engine suites (without the engine's long random-game and
+  fuzz classes, which later steps run) plus a comparison of every card's model with
   the set's starting point. Supported cards changed outside your set, cube changes and cards no longer read must all be 0,
   or named in your reply with the reason. Check each held-out card it lists as read differently and fix any now wrong.
   If you change anything after this run, run it again.
 - Every Gradle task goes through `bin/gradle-slot.sh <tasks>` (or the scripts above), one at a time; never `./gradlew` or
   `./scripts/gradle.sh` directly.
+- A card's oracle text: `bin/set-cards.py <CODE> [card name ...]`. Never load `AllPrintings.json.gz` in a script of your
+  own: it takes about 4.6 GB of memory outside the builds' cap, and several workers run at once.
 - Commit in the worktree. Never merge or push.
 - Append at most 5 lines to `<plan>/notes.md`: what later chunks can reuse (a new table, helper, scenario technique). No history.
 - Stop every background command or monitor you started before your final reply.

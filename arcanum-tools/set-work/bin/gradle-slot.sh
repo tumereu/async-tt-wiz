@@ -13,11 +13,15 @@ slots=${ARCANUM_GRADLE_SLOTS:-2}
 [[ $slots =~ ^[1-9][0-9]*$ ]] || { echo "gradle-slot.sh: ARCANUM_GRADLE_SLOTS must be a positive number, not '$slots'" >&2; exit 2; }
 L=$HOME/projects/atw-cache/locks
 mkdir -p "$L"
-end=$((SECONDS + 10800))
+begin=$SECONDS; end=$((SECONDS + 10800))
 while :; do
   for ((n = 1; n <= slots; n++)); do
     exec 9>"$L/heavy-$n.lock"
-    if flock -n 9; then ./scripts/gradle.sh "$@"; rc=$?; flock -u 9; exit $rc; fi
+    if flock -n 9; then
+      # waits over a minute go to slot-wait.log, so a coordinator can tell whether more slots or fewer workers would help
+      ((SECONDS - begin > 60)) && echo "$(date -Is) waited $((SECONDS - begin))s for slot $n of $slots: $PWD" >>"$L/slot-wait.log"
+      ./scripts/gradle.sh "$@"; rc=$?; flock -u 9; exit $rc
+    fi
   done
   ((SECONDS > end)) && { echo "No Gradle slot free for 3 hours" >&2; exit 75; }
   sleep 20

@@ -61,6 +61,19 @@ kotlin {
     }
 }
 
+// The JVM tests run in three JVMs at once: a few long random-game and fuzz classes take most of the suite's time.
+// -Parcanum.skipLongTests=true leaves those classes out (set work's per-chunk full runs; the set's fix, sweep and close
+// steps and the full-suite batches run them).
+tasks.named<Test>("jvmTest") {
+    maxParallelForks = 3
+    if (providers.gradleProperty("arcanum.skipLongTests").orNull == "true") {
+        listOf(
+            "review.NightReview4LongGamesTest", "review.Review3HostTest", "review.Review2LongGamesTest",
+            "review.Review3CubeDecksTest", "OptionsFuzzTest", "NoFalseDenialFuzzTest",
+        ).forEach { filter.excludeTestsMatching("arcanum.engine.$it") }
+    }
+}
+
 // The module's tests once more, noting which abilities they cover (:arcanum-tools:coveredShapes reads the file); jvmTest records nothing.
 // A failing test just covers nothing, so it doesn't stop the run.
 tasks.register<Test>("recordCoveredAbilities") {

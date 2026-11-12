@@ -592,7 +592,9 @@ internal object Events {
         }
         // dsk chunk 12: "one or more land cards are put into your graveyard from your library" (a batch)
         PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY.matchEntire(text)?.let { m ->
-            return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You)),
+            val what = m.groupValues[1].ifEmpty { m.groupValues[3] }
+            val owner = if (m.groupValues[2].ifEmpty { m.groupValues[4] } == "your") PlayerFilter.You else PlayerFilter.Opponent
+            return EventPattern.ZoneChange(Filters.all(subject(what, self) ?: return null, ObjectFilter.OwnedBy(owner)),
                 from = Zone.Library, to = Zone.Graveyard)
         }
         // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
@@ -908,7 +910,8 @@ internal object Events {
     private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
     // dsk chunk 12
     private val BECOMES_TARGET_OF_OPPONENTS = Regex("""(.+) becomes the target of a spell or ability an opponent controls""")
-    private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(one or more .+) are put into your graveyard from your library""")
+    // isd chunk 05: also "a creature card is put into an opponent's graveyard from their library" (each card, its owner's graveyard and library)
+    private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(one or more .+) are put into (your) graveyard from your library|(an? .+) is put into (your|an opponent's) graveyard from (?:your|their) library""")
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
@@ -1490,6 +1493,7 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

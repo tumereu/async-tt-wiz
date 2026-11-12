@@ -28,9 +28,27 @@ internal object Isd {
     val BECOMES_BLOCKED_BY_A = Regex("""(.+?) becomes blocked by an? (.+)""")
     // isd chunk 04: Sharpened Pitchfork: "equipped creature is a Human"
     val ATTACHED_IS = Regex("""(equipped|enchanted) creature is (legendary|an? .+)""")
+    // isd chunk 05: Undead Alchemist
+    val WOULD_DEAL_DAMAGE_TO_PLAYER_INSTEAD = Regex("""If (.+?) would deal (combat |noncombat |)damage to (a player|an opponent), instead (.+)\.""")
+    // isd chunk 05: Caravan Vigil
+    val MAY_PUT_ONTO_BATTLEFIELD_INSTEAD_OF_HAND_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?You may put (?:that card|it) onto the battlefield instead of putting it into your hand if (.+)\.""")
+    // isd chunk 05: Heretic's Punishment, Mindshrieker: "the milled card's mana value", "the greatest mana value among the milled cards"
+    val AN_X = Regex("""\bX\b""")
+    val MILLED_CARDS_VALUE = Regex("""the milled card's (mana value|power|toughness)|the greatest (mana value|power|toughness) among the milled cards""")
 }
 
 internal object IsdPhrases {
+    /** isd chunk 05: what a mill just before put into the graveyard, bound as "milled" by the sentence that reads it (CR 701.17c). "The
+     * milled card" of a one-card mill that milled several through replacement effects is their total (CR 701.17d). */
+    fun value(text: String): arcanum.api.Value? {
+        val m = Isd.MILLED_CARDS_VALUE.matchEntire(text) ?: return null
+        val word = m.groupValues[1].ifEmpty { m.groupValues[2] }
+        val property = when (word) { "power" -> arcanum.api.NumericProperty.Power; "toughness" -> arcanum.api.NumericProperty.Toughness
+            else -> arcanum.api.NumericProperty.ManaValue }
+        val combine = if (m.groupValues[1].isNotEmpty()) arcanum.api.Combine.Total else arcanum.api.Combine.Greatest
+        return arcanum.api.Value.Of(property, arcanum.api.Objects.Bound("milled"), combine)
+    }
+
     /** isd chunk 02: "creatures other than Werewolves and Wolves": the kind, but none of the listed kinds. */
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
         val m = Isd.OTHER_THAN.matchEntire(phrase) ?: return null

@@ -974,8 +974,10 @@ internal class Sentences(
         // dft chunk 01: "Return a creature or Vehicle card from your graveyard to your hand." (chosen as it resolves, not targeted)
         Dft.RETURN_A_CARD_FROM_YOUR_GRAVEYARD.matchEntire(sentence)?.let { m ->
             val filter = dftInYourGraveyard(Filters.noun(m.groupValues[1]) ?: return null)
-            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+            // isd chunk 05: "a creature card at random": no player chooses (CR 701.20c, the host picks)
+            val pick = if (m.groupValues[2].isNotEmpty()) Step.Bind(Objects.Random(Objects.Each(filter), Value.Fixed(1)), "chosen")
+                else Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You)
+            return listOf(pick, Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         }
         // dft chunk 01: "Return up to one target artifact card from your graveyard to the battlefield."
         Dft.RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
@@ -1239,6 +1241,7 @@ internal class Sentences(
             return spell.copy(abilityWord = s.groupValues[1].ifEmpty { null }, instructions = spell.instructions.copy(
                 steps = listOf(Step.If(condition, then = replacement.steps, otherwise = spell.instructions.steps))))
         }
+        isdInsteadOf(line, spell)?.let { return it } // isd
         val m = INSTEAD_IF.matchEntire(line) ?: return null
         if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
         val condition = Conditions.condition(m.groupValues[3], self) ?: return null
@@ -2843,6 +2846,7 @@ internal class Sentences(
         mshModify(sentence, steps, context)?.let { return it } // msh
         hobModify(sentence, steps, context)?.let { return it } // hob
         fraModify(sentence, steps, context)?.let { return it } // fra
+        isdModify(sentence, steps, context)?.let { return it } // isd
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
         // gtc chunk 11: 'Create a 1/1 white and black Cleric creature token. It has "[ability]."' (CR 111.4: part of the token)
@@ -4645,8 +4649,10 @@ internal class Sentences(
         // isd chunk 03: "<players> mill(s) two cards." for any player phrase ("that player" at a Curse's upkeep trigger, "each player")
         PLAYERS_MILL.matchEntire(sentence)?.let { m ->
             val players = playersIn(m.groupValues[1], context)
-            val count = Numbers.count(m.groupValues[2])
-            if (players != null && count != null) return listOf(Step.Do(Effect.Mill(players, Value.Fixed(count))))
+            // isd chunk 05: "that many" (the amount counted before, or the event's: the damage a replacement replaces)
+            val count = if (m.groupValues[2] == "that many") context.thatMuch ?: Value.EventAmount.takeIf { context.event != null }
+                else Numbers.count(m.groupValues[2])?.let { Value.Fixed(it) }
+            if (players != null && count != null) return listOf(Step.Do(Effect.Mill(players, count)))
         }
         LOOK_PUT_BACK.matchEntire(sentence)?.let { m ->
             return listOf(
@@ -7085,6 +7091,8 @@ internal class Sentences(
             Recipients(target = name)
         }
         "that player" -> Recipients(players = context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null } ?: return null)
+        // isd chunk 05: "that permanent or player" after "Choose any target" (the chosen target, CR 115.4)
+        "that permanent or player" -> Recipients(target = context.targets.firstOrNull { it.name == "any" }?.name ?: return null)
         "each opponent" -> Recipients(players = Players.Each(PlayerFilter.Opponent))
         // inr chunk 08: "each creature that player controls"
         else -> (if (text.startsWith("each ")) Filters.noun(text.removePrefix("each "))?.let { Objects.Each(it) } else null)
@@ -11129,7 +11137,7 @@ internal class Sentences(
         val DISCARD_UNLESS_ATTACKED = Regex("""Discard (a|one|two) cards? unless you attacked this turn\.""")
         val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+)\.""")
         val TARGET_PLAYER_MILLS = Regex("""Target player mills (\w+) cards?\.""")
-        val PLAYERS_MILL = Regex("""([A-Za-z ]+?) mills? (\w+) cards?\.""")
+        val PLAYERS_MILL = Regex("""([A-Za-z ]+?) mills? (that many|\w+) cards?\.""")
         val LOOK_PUT_BACK = Regex("""Look at the top (\w+) cards of your library, then put them back in any order\.""")
         val TARGET_GETS_UNTIL_EOT = Regex("""Target (.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
@@ -15621,6 +15629,19 @@ internal class Sentences(
 
     /** isd: static abilities. */
     private fun isdStatic(line: String): Ability? {
+        // isd chunk 05: "If a Zombie you control would deal combat damage to a player, instead that player mills that many cards." (a
+        // replacement: the damage isn't dealt, CR 614.1a; "that player" is the player it would be dealt to, "that many" its amount)
+        Isd.WOULD_DEAL_DAMAGE_TO_PLAYER_INSTEAD.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1]
+            val source = Filters.noun(subject.removePrefix("a ").removePrefix("an ")).takeIf { subject.startsWith("a ") || subject.startsWith("an ") } ?: return@let
+            val players = if (m.groupValues[3] == "an opponent") PlayerFilter.Opponent else PlayerFilter.Any
+            val combat = when (m.groupValues[2]) { "combat " -> true; "noncombat " -> false; else -> null }
+            val event = EventPattern.Damage(source, RecipientFilter(players = players), combat = combat)
+            val context = Context().also { it.event = event; it.thatMuch = Value.EventAmount }
+            val steps = effect(m.groupValues[4].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let
+            if (context.targets.isNotEmpty()) return@let
+            return Ability.Static(listOf(Mechanic.Replacement(event, instead = Instructions(steps = steps))), affects = Affected.Objects(Objects.Self))
+        }
         // isd chunk 04: "If equipped creature would deal combat damage, it deals double that damage instead.", "If another creature would deal
         // combat damage to equipped creature, it deals double that damage to equipped creature instead." (CR 614.1a; "another": other than
         // the creature named, the equipped one)
@@ -15646,6 +15667,43 @@ internal class Sentences(
             val inner = static("${m.groupValues[1]} ${m.groupValues[3]}") as? Ability.Static ?: return@let
             if (inner.condition != null) return@let
             return inner.copy(mechanics = listOf(Mechanic.GainAbilities(keywords)) + inner.mechanics)
+        }
+        return null
+    }
+
+    /** isd: sentences that change the steps before them. */
+    private fun isdModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // isd chunk 05: a sentence that reads "the milled card(s)" after a mill ("Target player mills a card. This creature gets +X/+X until
+        // end of turn, where X is the milled card's mana value."): the mill binds the cards it moved (CR 701.17c, d)
+        val xIsMilled = (context.definedX as? Value.Of)?.objects == Objects.Bound("milled") && Isd.AN_X.containsMatchIn(sentence)
+        if (sentence.contains("the milled card") || xIsMilled) {
+            val at = steps.indexOfLast { (it as? Step.Do)?.effect is Effect.Mill }
+            if (at < 0) return null
+            val mill = (steps[at] as Step.Do).effect as Effect.Mill
+            if (mill.postBind != null && mill.postBind != "milled") return null
+            val rest = effect(sentence, context) ?: return null
+            return steps.toMutableList().also { it[at] = Step.Do(mill.copy(postBind = "milled")) } + rest
+        }
+        return null
+    }
+
+    /** isd: a spell's later paragraph that changes what the paragraph before does. */
+    private fun isdInsteadOf(line: String, spell: Ability.Spell): Ability.Spell? {
+        // isd chunk 05: "Morbid — You may put that card onto the battlefield instead of putting it into your hand if a creature died this
+        // turn." (the card the paragraph before puts into your hand; when the condition holds, you choose where it goes, CR 608.2c)
+        Isd.MAY_PUT_ONTO_BATTLEFIELD_INSTEAD_OF_HAND_IF.matchEntire(line)?.let { m ->
+            if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            val steps = spell.instructions.steps
+            val at = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Move)?.to?.zone == Zone.Hand }
+            if (at < 0) return null
+            val toHand = steps[at]
+            val move = (toHand as Step.Do).effect as Effect.Move
+            val put = Step.Pay(steps = listOf(Step.Do(move.copy(to = Destination(Zone.Battlefield)))), payer = Players.You, bind = "put")
+            val choice = Step.If(condition, then = listOf(put, Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("put")), then = listOf(toHand))),
+                otherwise = listOf(toHand))
+            return spell.copy(abilityWord = m.groupValues[1].ifEmpty { null },
+                instructions = spell.instructions.copy(steps = steps.toMutableList().also { it[at] = choice }))
         }
         return null
     }

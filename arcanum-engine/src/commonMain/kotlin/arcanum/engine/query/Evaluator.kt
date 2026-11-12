@@ -412,7 +412,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                         a is TargetRef.Object && a.id == id && matches(f, other)
                     }
                 } ?: true
-                toOk && attachmentsOk
+                // isd chunk 07: attached to one of these players (CR 303.4e)
+                val toPlayersOk = filter.toPlayers?.let { p ->
+                    val a = o?.attachedTo
+                    a is TargetRef.Player && a.id in players(p)
+                } ?: true
+                toOk && attachmentsOk && toPlayersOk
             }
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id, role = filter.role)
             // tmt: tapped this turn to pay a crew cost of one of the Vehicles (CR 702.122c)

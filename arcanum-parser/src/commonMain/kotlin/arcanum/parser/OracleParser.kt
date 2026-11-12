@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 83
+    const val VERSION: Int = 84
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -395,19 +395,25 @@ object OracleParser {
         }
     }
 
-    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h). */
+    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h); isd chunk 07:
+     * one that reads "the exiled card" (bound as "exiled") names the card its additional cost exiles (CR 601.2h, 400.7). */
     private fun dftSacrificedCost(abilities: List<Ability>): List<Ability> {
         val json = kotlinx.serialization.json.Json
-        val reads = abilities.filterIsInstance<Ability.Spell>().any {
-            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$SACRIFICED\"}")
+        fun reads(name: String) = abilities.filterIsInstance<Ability.Spell>().any {
+            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$name\"}")
         }
-        if (!reads) return abilities
+        val sacrificed = reads(SACRIFICED)
+        val exiled = reads("exiled")
+        if (!sacrificed && !exiled) return abilities
         return abilities.map { ability ->
             val static = ability as? Ability.Static ?: return@map ability
             val additional = static.mechanics.singleOrNull() as? arcanum.api.Mechanic.AdditionalCost ?: return@map ability
-            val sacrifice = additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice ?: return@map ability
-            if (sacrifice.preBind != null) return@map ability
-            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(sacrifice.copy(preBind = SACRIFICED))))))
+            val named = when (val part = additional.cost.parts.singleOrNull()) {
+                is arcanum.api.CostPart.Sacrifice -> part.takeIf { sacrificed && it.preBind == null }?.copy(preBind = SACRIFICED)
+                is arcanum.api.CostPart.Exile -> part.takeIf { exiled && it.preBind == null && it.postBind == null && it.remember == null }?.copy(postBind = "exiled")
+                else -> null
+            } ?: return@map ability
+            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(named)))))
         }
     }
 
@@ -743,7 +749,8 @@ object OracleParser {
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
     // isd chunk 06: also a creature type, "protection from Zombies" (CR 702.16a)
-    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+)""")
+    // isd chunk 07: "protection from non-Human creatures"
+    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+|non-[A-Z][a-z]+ [a-z]+)""")
     private val PROTECTION_LIST_ITEM = Regex("""(?:and )?from ([A-Za-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")

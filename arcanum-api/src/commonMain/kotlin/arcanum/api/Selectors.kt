@@ -173,8 +173,8 @@ sealed interface ObjectFilter {
     /** A spell or ability that targets something in [objects] or [players] ("spells that target you"). */
     @Serializable @SerialName("targets") data class Targets(val objects: Objects? = null, val players: Players? = null) : ObjectFilter
     /** Attached to something in [objects] ("Auras attached to it") or has attachments matching [attachments]
-     * ("enchanted creatures"). */
-    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null) : ObjectFilter
+     * ("enchanted creatures"); or attached to one of [toPlayers] ("Curses attached to you", an Aura enchanting a player, CR 303.4e). */
+    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null, val toPlayers: Players? = null) : ObjectFilter
     /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"), in [role] of the
      * event when given (any role when null): "creature that dealt damage this turn" is the [EventRole.Source] of a damage
      * event, "creature that was dealt damage this turn" its [EventRole.Object]. */

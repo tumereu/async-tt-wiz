@@ -2,6 +2,12 @@ package arcanum.parser
 
 /** Wordings first met in Innistrad (ISD). */
 internal object Isd {
+    // isd chunk 07: Charmbreaker Devils, Ghoulraiser, Make a Wish, Moldgraf Monstrosity
+    val RETURN_AT_RANDOM_FROM_GRAVEYARD = Regex("""[Rr]eturn (\w+) (.+?) at random from your graveyard to (your hand|the battlefield)\.""")
+    // isd chunk 07: Cellar Door
+    val PLAYER_PUTS_BOTTOM_CARD_INTO_GRAVEYARD = Regex("""(Target player|You) puts? the bottom card of (?:their|your) library into (?:their|your) graveyard\.""")
+    // isd chunk 07: Runic Repetition
+    val RETURN_TARGET_EXILED_CARD_WITH_KEYWORD = Regex("""Return target exiled card with ([a-z]+) you own to your hand\.""")
     // isd chunk 06: Manor Gargoyle
     val LOSES_KEYWORDS = Regex("""loses? ([a-z][a-z ,]*)""")
     // isd chunk 06: Mirror-Mad Phantasm

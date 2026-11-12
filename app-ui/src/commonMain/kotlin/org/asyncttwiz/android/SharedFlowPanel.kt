@@ -106,7 +106,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> flows.pick?.let { pick ->
-                    FlowTargetBar(flows, flow, play, pick, decisionSource(flows, flow, play, viewer, decision))
+                    FlowTargetBar(flows, flow, play, pick, decisionSource(flows, flow, play, viewer, decision), names)
                 }
                 // STK-049 (owner playtest 2026-11-09): a payment while something resolves is made on the table, its bar slim
                 flows.paying -> flows.payment?.let { payment ->
@@ -396,13 +396,15 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedFlow, play: Tabl
  * says only the choice, the [source] sits at the right (STK-044). */
 @Composable
 private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, pick: TablePick,
-    source: ChoiceCardData?) {
+    source: ChoiceCardData?, names: Map<String, String>) {
     val decision = pick.decision
     val inspector = remember(decision.id) { ChoiceInspector() }
     // D1: a choice of battlefield permanents (an edict's sacrifice, "choose a creature") is picked as targets are
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source), pickCount(pick, flows.picked.size))
+        // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
+        val pieces = flows.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, LocalChoiceFrame.current.viewer, names) }
+        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source), pickCount(pick, flows.picked.size), pieces)
         // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
         if (pick.max != 1 || pick.min == 0) {
             val none = flows.picked.isEmpty()

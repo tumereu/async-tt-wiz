@@ -379,13 +379,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 else -> plain.view[itemId]?.characteristics?.manaCost?.let { Cost.mana(it) }
                     ?: (if (snap0Face()?.manaCost != null) Cost.mana(snap0Face()!!.manaCost!!) else null)
             }
-            base?.let { add(Costs.Contribution("base", it)) }
+            base?.let { add(Costs.Contribution("base", it, printed = alternative?.takeIf { a -> a.second.cost === it }?.let { a -> Costs.Printed(a.first.origin) })) }
             additionalCosts.forEach { (inst, m) ->
                 val key = "add:${inst.origin.key}"
                 when {
-                    m.optional -> optionalTimes(inst)?.takeIf { it > 0 }?.let { add(Costs.Contribution(key, m.cost, it)) }
-                    m.times != null -> eval.value(m.times!!).takeIf { it > 0 }?.let { add(Costs.Contribution(key, m.cost, it)) }
-                    else -> add(Costs.Contribution(key, m.cost))
+                    m.optional -> optionalTimes(inst)?.takeIf { it > 0 }?.let { add(Costs.Contribution(key, m.cost, it, Costs.Printed(inst.origin))) }
+                    m.times != null -> eval.value(m.times!!).takeIf { it > 0 }?.let { add(Costs.Contribution(key, m.cost, it, Costs.Printed(inst.origin))) }
+                    else -> add(Costs.Contribution(key, m.cost, printed = Costs.Printed(inst.origin)))
                 }
             }
             choices.modes.forEachIndexed { p, index ->
@@ -397,9 +397,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         } else {
             when (val a = ability) {
                 // hob: "you may pay {0} rather than pay the equip cost" (CR 118.9, 602.2b): a free alternative is never worse, so it is used
-                is Ability.Activated -> add(Costs.Contribution("base", freeAlternative() ?: a.cost))
+                is Ability.Activated -> add(freeAlternative()?.let { Costs.Contribution("base", it) } ?: Costs.Contribution("base", a.cost, printed = Costs.Printed(null)))
                 // CR 118.9: so for a special action ("the first card you foretell each turn costs {0} to foretell")
-                is Ability.SpecialAction -> add(Costs.Contribution("base", freeAlternative() ?: a.cost))
+                is Ability.SpecialAction -> add(freeAlternative()?.let { Costs.Contribution("base", it) } ?: Costs.Contribution("base", a.cost, printed = Costs.Printed(null)))
                 else -> Unit
             }
         }
@@ -862,7 +862,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
-            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) })
+            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) },
+            cost = total.parts.firstOrNull { it.key == q.key }?.at)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
@@ -872,7 +873,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             Mana.suggest(snap, q.player, q.cost, itemId, emptyList()))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
-            Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose")
+            Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose",
+                cost = total.parts.firstOrNull { it.key == q.key }?.at)
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved)

@@ -118,6 +118,9 @@ sealed interface Decision {
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String,
         val total: arcanum.api.Total? = null,
+        /** For a choice made paying a cost while casting or activating (CR 601.2f–h): the printed cost part it chooses for,
+         * so a host can show its phrase ([arcanum.api.Cost.spans]); null for other choices or a cost not printed. */
+        val cost: CostPartAt? = null,
     ) : Decision
 
     /** Choose one of named [options] ("odd or even"). [text], when given, says what the choice is about where neither a
@@ -258,6 +261,14 @@ sealed interface Decision {
         val text: String,
     ) : Decision
 }
+
+/**
+ * Where a cost part a choice pays for is printed: part [part] (an index in [arcanum.api.Cost.parts]) of the cost of the ability
+ * being activated when [ability] is null, else of the cost stated by the spell's ability [ability] (an additional cost, an
+ * alternative cost, CR 601.2b, f; a keyword's ability stands for its keyword's cost).
+ */
+@Serializable
+data class CostPartAt(val ability: arcanum.engine.view.AbilityOrigin?, val part: Int)
 
 /** One mode of a modal spell or ability (CR 700.2), with its printed [text] when known. */
 @Serializable

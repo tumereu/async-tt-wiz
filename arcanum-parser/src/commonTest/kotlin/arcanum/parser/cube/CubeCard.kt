@@ -73,6 +73,46 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     assertEquals(expected, face.abilities.map(::withoutText), printed.name)
     checkTexts(printed, face.abilities)
     checkSpans(printed.name, face.abilities)
+    checkCostSpans(printed.name, face.abilities)
+}
+
+/**
+ * Each cost part of a parsed ability knows where its phrase sits in its printed text ([Cost.spans]): every activated
+ * ability's cost written before a colon has a span for each part, in order without overlapping; a static ability's
+ * additional or alternative cost has them when it has any, each one a phrase of its text.
+ */
+fun checkCostSpans(name: String, abilities: List<Ability>) {
+    fun check(text: String?, cost: Cost, required: Boolean, what: String) {
+        if (text == null) return
+        if (cost.spans.isEmpty()) {
+            assertEquals(false, required, "$name: $what cost ${cost.parts} has no spans in \"$text\"")
+            return
+        }
+        assertEquals(cost.parts.size, cost.spans.size, "$name: $what cost ${cost.parts} has ${cost.spans.size} spans in \"$text\"")
+        var last: arcanum.api.TextSpan? = null
+        for ((part, span) in cost.parts.zip(cost.spans)) {
+            val phrase = span.of(text)
+            assertEquals(true, !phrase.isNullOrBlank() && phrase.trim() == phrase,
+                "$name: $what cost part $part's span $span (\"$phrase\") isn't a phrase of \"$text\"")
+            assertEquals(true, last == null || span.start >= last.end,
+                "$name: $what cost part $part's span $span overlaps or precedes the one before it in \"$text\"")
+            last = span
+        }
+    }
+    abilities.forEach { ability ->
+        when (ability) {
+            is Ability.Activated -> check(ability.text, ability.cost, required = ability.text?.contains(':') == true, what = "activated")
+            is Ability.Static -> ability.mechanics.forEach { m ->
+                when (m) {
+                    is arcanum.api.Mechanic.AdditionalCost -> check(ability.text, m.cost, required = false, what = "additional")
+                    is arcanum.api.Mechanic.AlternativeCost -> check(ability.text, m.cost, required = false, what = "alternative")
+                    else -> {}
+                }
+            }
+            is arcanum.api.Keyword.ClassLevel -> checkCostSpans(name, ability.abilities)
+            else -> {}
+        }
+    }
 }
 
 /**
@@ -118,13 +158,30 @@ fun withoutText(ability: Ability): Ability = withoutOwnText(withoutEmblemTexts(a
 
 private fun withoutOwnText(ability: Ability): Ability = when (ability) {
     is Ability.Spell -> ability.copy(text = null, instructions = withoutText(ability.instructions))
-    is Ability.Activated -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    is Ability.Activated -> ability.copy(text = null, cost = ability.cost.copy(spans = emptyList()), instructions = withoutText(ability.instructions))
     is Ability.Triggered -> ability.copy(text = null, instructions = withoutText(ability.instructions))
-    is Ability.Static -> ability.copy(text = null)
-    is Ability.SpecialAction -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    is Ability.Static -> ability.copy(text = null, mechanics = ability.mechanics.map { m ->
+        when (m) {
+            is arcanum.api.Mechanic.AdditionalCost -> m.copy(cost = m.cost.copy(spans = emptyList()))
+            is arcanum.api.Mechanic.AlternativeCost -> m.copy(cost = m.cost.copy(spans = emptyList()))
+            else -> m
+        }
+    })
+    is Ability.SpecialAction -> ability.copy(text = null, cost = ability.cost.copy(spans = emptyList()), instructions = withoutText(ability.instructions))
     // blb: a class level bar's abilities keep their lines too
     is arcanum.api.Keyword.ClassLevel -> ability.copy(abilities = ability.abilities.map(::withoutText))
+    // A keyword's cost keeps where its parts sit in the keyword's line (checked by [checkCostSpans])
+    is arcanum.api.Keyword -> withoutCostSpans(ability)
     else -> ability
+}
+
+/** [keyword] without its cost's spans ([Cost.spans]), through its JSON form as the parser adds them. */
+internal fun withoutCostSpans(keyword: arcanum.api.Keyword): Ability {
+    val cost = (keyword as? arcanum.api.HasCost)?.cost ?: (keyword as? arcanum.api.Keyword.Mayhem)?.cost
+    if (cost == null || cost.spans.isEmpty()) return keyword
+    val encoded = definitionJson.encodeToJsonElement(Ability.serializer(), keyword) as kotlinx.serialization.json.JsonObject
+    val plain = definitionJson.encodeToJsonElement(Cost.serializer(), cost.copy(spans = emptyList()))
+    return definitionJson.decodeFromJsonElement(Ability.serializer(), kotlinx.serialization.json.JsonObject(encoded + ("cost" to plain)))
 }
 
 /** [instructions] without its modes' texts and its slots' places in the text ([TargetSlot.span], checked by

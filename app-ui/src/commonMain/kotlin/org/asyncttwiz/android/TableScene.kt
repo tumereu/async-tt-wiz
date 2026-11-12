@@ -402,6 +402,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             StateChipsOverlay(scene)
             // STK-024 (owner playtest 2026-11-09): each source paying the open payment carries the mana it pays at its corner
             if (toolkit != null && !runtime.reviewing) PaymentCornerChips(toolkit, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+            // STK-047 (owner 2026-11-11, which pick is which): what each picked card is for, at its other corner
+            if (toolkit != null && !runtime.reviewing) PickRoleChips(toolkit, play, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // LOB-136, LOB-137 (owner, 2026-11-08): chat messages as speech bubbles at the life squares, over what lies there;
             // last here, so a tap on the other player's takes that tap from the table and its chips
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }

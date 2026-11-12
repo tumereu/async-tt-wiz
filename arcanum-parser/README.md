@@ -21,6 +21,13 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   controlled by different players"), and a reflexive trigger's sentence ("When you do, …") is left to that trigger. A slot
   with no phrase of its own (a keyword action that targets: "earthbend 2", "support 2"), or a text whose phrases don't
   pair up with its slots, has none. Every parse test checks the spans.
+- Cost spans (`CostSpans.kt`): each part of a parsed cost gets its phrase's place in `Cost.spans`, read the same way
+  after parsing: an activated ability's cost before its colon, a keyword's cost in its line after the keyword's name
+  ("Equip—Sacrifice a creature."), an additional or alternative cost in its static ability's sentence. A mana or tap
+  symbol is itself, a part choosing objects is the objects' phrase ("a creature", "two other cards named …", the second
+  of "Sacrifice a Swamp and a Forest" after the "and"), a part of the source itself or another part its whole phrase. A
+  cost whose parts' phrases aren't all found in order gets none. Every parse test checks that each activated ability's
+  cost has them.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").

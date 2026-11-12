@@ -90,6 +90,34 @@ class CostsTest {
         assertEquals(listOf(PaidCost(null, 1)), facts("Bone Splinters").paid)
     }
 
+    // CR 602.2b, 601.2h: a cost's choice of objects names the printed part it pays, so a host can show its phrase: the activated
+    // ability's own cost, part 0 ("Sacrifice a creature")
+    @Test
+    fun anActivatedCostsChoiceNamesItsPart() = scenario {
+        alice.battlefield("Goblin Volley Pit", "Elvish Seer", "Thicketwood Elves")
+        val origin = view()[card("Goblin Volley Pit")]!!.characteristics!!.abilities.first { it.ability is Ability.Activated }.origin
+        perform(Input.Activate(alice.id, card("Goblin Volley Pit"), origin))
+        answer(Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(bob.id))))
+        val choice = assertIs<Decision.ChooseObjects>(pending)
+        assertEquals(arcanum.engine.decision.CostPartAt(null, 0), choice.cost)
+        val ability = view()[card("Goblin Volley Pit")]!!.characteristics!!.abilities.first { it.origin == origin }.ability as Ability.Activated
+        assertEquals("a creature", ability.cost.span(0)?.of(ability.text!!))
+    }
+
+    // CR 601.2f: a spell's additional cost names the static ability stating it
+    @Test
+    fun anAdditionalCostsChoiceNamesItsAbility() = scenario {
+        alice.battlefield("Swamp", "Elvish Seer", "Thicketwood Elves")
+        bob.battlefield("Wall of Portents")
+        alice.hand("Bone Splinters")
+        perform(Input.Cast(alice.id, card("Bone Splinters")))
+        answer(Answer.Targets(listOf(arcanum.engine.state.TargetRef.Object(card("Wall of Portents")))))
+        val statics = view()[card("Bone Splinters")]!!.characteristics!!.abilities.filter { inst ->
+            (inst.ability as? Ability.Static)?.mechanics?.any { it is Mechanic.AdditionalCost } == true }
+        if (pending is Decision.ChooseOption) answer(Answer.Option("Sacrifice"))
+        assertEquals(statics.single().origin, assertIs<Decision.ChooseObjects>(pending).cost?.ability)
+    }
+
     // P5: when only one option of "A or B" can be paid, it is chosen without asking
     @Test
     fun onlyPayableOptionIsChosen() = scenario {

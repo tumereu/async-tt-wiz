@@ -112,9 +112,9 @@ object TestCards {
         "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1", "1")
     /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
     val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
-    /** A spell whose sentence, with its long reminder text, is taller than half the table in a target bar (STK-047). */
-    val cascade = card("Ember Cascade", "Instant", "{R}", "Ember Cascade deals 3 damage to any target. (" +
-        "on and on, as the longest printed reminders do, ".repeat(60) + "it goes.)")
+    /** A spell whose text is taller than half the table in a target bar (STK-047; the bar shows the text without reminder text,
+     * so it is long by its own sentences). */
+    val cascade = card("Ember Cascade", "Instant", "{R}", "Ember Cascade deals 3 damage to any target." + " You gain 1 life.".repeat(160))
     /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
      * while the evidence couldn't be collected). */
     val lark = card("Cinder Lark", "Enchantment Creature — Elemental Bird", "{R}",
@@ -255,6 +255,11 @@ object TestCards {
     /** A free artifact whose ability's cost sacrifices a creature (an Ember Martyr's trigger then goes on the Stack above
      * the ability: two of its controller's own items there). */
     val altar = card("Ember Altar", "Artifact", "{0}", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life.")
+    /** A free creature whose death trigger targets a player when it or another creature dies (owner playtest 2026-11-11: the
+     * trigger's target bar showed no sentence when the creature was sacrificed). */
+    val vigil = card("Ember Vigil", "Creature — Vampire", "{0}", "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.", "0", "1")
+    /** Free Equipment whose equip cost sacrifices a creature (owner, 2026-11-11: which pick is which, the target or the sacrifice). */
+    val hauberk = card("Ember Hauberk", "Artifact — Equipment", "{0}", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature.")
     /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
     val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
     /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */

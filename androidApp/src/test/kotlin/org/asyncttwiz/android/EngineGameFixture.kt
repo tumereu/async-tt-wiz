@@ -102,6 +102,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val ALTAR = "Ember Altar"
         /** A free 1/1 creature with nothing to do: identical ones lie in one stack (TBL-053). */
         const val PUP = "Ash Pup"
+        /** Free Equipment whose equip cost sacrifices a creature (STK-047: which pick is which, the target or the sacrifice). */
+        const val HAUBERK = "Ember Hauberk"
         // Castability's screens (castability spec §6)
         const val REBUKE = "Ember Rebuke"
         const val DROWSY = "Drowsy Pup"
@@ -163,6 +165,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
         free("altar", Choices.ALTAR, "Artifact", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."),
         free("pup", Choices.PUP, "Creature — Elemental Dog", "", "1", "1"),
+        free("hauberk", Choices.HAUBERK, "Artifact — Equipment", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature."),
         Invented(DefinitionFace("rebuke", Choices.REBUKE, typeLine = "Sorcery", manaCost = "{3}{R}", rulesText = REBUKE_TEXT),
             OracleCard(Choices.REBUKE, "{3}{R}", "Sorcery", REBUKE_TEXT)),
         free("drowsy", Choices.DROWSY, "Creature — Dog", "This creature enters tapped.", "1", "1"),

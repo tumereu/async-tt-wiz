@@ -14,7 +14,9 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 
 /** One part of a total cost with a stable [key]: where its choices are kept while casting. */
-internal data class KeyedPart(val key: String, val part: CostPart, val doneAs: arcanum.api.KeywordActionKind? = null)
+internal data class KeyedPart(val key: String, val part: CostPart, val doneAs: arcanum.api.KeywordActionKind? = null,
+    /** Where the part is printed, when known (its contribution's [Costs.Contribution.printed]). */
+    val at: arcanum.engine.decision.CostPartAt? = null)
 
 /**
  * The total cost of a spell or ability (CR 601.2f, 118): its mana, with X replaced and cost changes applied (CR
@@ -36,7 +38,14 @@ internal data class TotalCost(
 internal object Costs {
     /** Cost contributions in order: the base (mana cost, an alternative cost or none), additional costs, chosen optional
      * costs (each repeated its times), mode costs; each with a key prefix. */
-    data class Contribution(val key: String, val cost: Cost, val times: Int = 1)
+    data class Contribution(val key: String, val cost: Cost, val times: Int = 1,
+        /** Where [cost] is printed: on the ability being activated (an [arcanum.engine.decision.CostPartAt] without an
+         * ability), on the spell's ability of this origin (an additional or alternative cost); null when not printed (a
+         * permission's, a mode's, a cost the engine makes). */
+        val printed: Printed? = null)
+
+    /** [Contribution.printed]: the cost is [ability]'s (null: the ability being activated). */
+    data class Printed(val ability: arcanum.engine.view.AbilityOrigin?)
 
     /**
      * The total: mana parts merged ({X} replaced by [x], `times` and `x` values of mana parts evaluated, "its mana cost"
@@ -51,6 +60,7 @@ internal object Costs {
         val parts = mutableListOf<KeyedPart>()
         var waterbend = 0
         var waterbends = false
+        var at: arcanum.engine.decision.CostPartAt? = null
         fun add(key: String, part: CostPart) {
             when (part) {
                 // tla: CR 701.67a: its mana is part of the total; its generic mana may be paid by tapping (701.67b)
@@ -71,19 +81,23 @@ internal object Costs {
                 is CostPart.ItsManaCostLess -> itsManaCost?.let { symbols += reduce(withX(it, x), part.less).symbols }
                 is CostPart.OneOf -> {
                     val chosen = oneOf(key)
-                    if (chosen == null) parts += KeyedPart(key, part)
+                    if (chosen == null) parts += KeyedPart(key, part, at = at)
                     else part.options.getOrNull(chosen)?.parts?.forEachIndexed { j, p -> add("$key.o$chosen.$j", p) }
                 }
                 // blb: forage is "A or B" (CR 701.61a); its parts' keys carry FORAGE so paying it can be told
                 is CostPart.Action -> asCostPart(part).let { p ->
                     if (p is CostPart.OneOf) add(key + FORAGE, p)
                     // CR 701.59a: paid as the exile it is, and it is still collecting evidence
-                    else parts += KeyedPart(key, p, arcanum.api.KeywordActionKind.CollectEvidence.takeIf { part.action is arcanum.api.KeywordAction.CollectEvidence })
+                    else parts += KeyedPart(key, p, arcanum.api.KeywordActionKind.CollectEvidence.takeIf { part.action is arcanum.api.KeywordAction.CollectEvidence }, at)
                 }
-                else -> parts += KeyedPart(key, part)
+                else -> parts += KeyedPart(key, part, at = at)
             }
         }
-        contributions.forEach { c -> repeat(c.times) { t -> c.cost.parts.forEachIndexed { j, p -> add("${c.key}.$t.$j", p) } } }
+        contributions.forEach { c -> repeat(c.times) { t -> c.cost.parts.forEachIndexed { j, p ->
+            // A part a chosen option or a keyword action stands for is still where its printed part is
+            at = c.printed?.let { arcanum.engine.decision.CostPartAt(it.ability, j) }
+            add("${c.key}.$t.$j", p)
+        } } }
         increases.forEach { symbols += it.symbols }
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }

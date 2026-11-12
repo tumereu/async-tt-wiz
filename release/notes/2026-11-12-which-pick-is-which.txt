@@ -1,0 +1,1 @@
+add: While you pick targets or what to pay with, the bar shows the whole card text with the part you are picking now lit up, and what you already picked named in it; each picked card on the table says what it is for ("Target", "Sacrificed", "Equip").

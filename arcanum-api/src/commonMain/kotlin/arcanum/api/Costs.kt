@@ -6,7 +6,22 @@ import kotlinx.serialization.Serializable
 /** A cost (CR 118): its parts are paid together, in any order the player chooses, except that random parts and moving
  * cards from a library to a public zone are paid last (CR 601.2h). It can't be paid in part. */
 @Serializable
-data class Cost(val parts: List<CostPart>) {
+data class Cost(
+    val parts: List<CostPart>,
+    /**
+     * Where each of [parts] sits in the printed text holding this cost, by index: a part's phrase ("{2}", "{T}", "Pay 2
+     * life"; for a part that chooses objects the objects' phrase: "a creature" in "Sacrifice a creature", "two cards" in
+     * "Discard two cards"). The text is [Ability.Activated.text] for an activated ability's cost, [Ability.Static.text] for
+     * an additional or alternative cost a static ability states, and the keyword's printed line without its reminder text
+     * for a keyword's cost ("Equip—Sacrifice a creature."; the keyword's expansion keeps the cost and its spans). For hosts
+     * that show which part a choice is for and what was chosen for it. Empty when not known (a cost written by hand or made
+     * by an effect or the engine, a wording whose phrases the parser couldn't pair with its parts). It has no rules meaning.
+     */
+    val spans: List<TextSpan> = emptyList(),
+) {
+    /** Where part [index] sits in its printed text ([spans]), or null when not known. */
+    fun span(index: Int): TextSpan? = spans.getOrNull(index)
+
     companion object {
         fun mana(cost: ManaCost) = Cost(listOf(CostPart.Mana(cost)))
     }

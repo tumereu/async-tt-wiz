@@ -224,3 +224,4 @@ number	item	screenshot	catalog	decisions	sequence
 223	Counters: the bubbles up close (+1/+1, shield, stun, -1/-1, a white one for oil)	states-counters-close-portrait.png	TBL-135		Counters as visuals
 224	On a smaller phone: the other player's hand as a fan in their row, the open band leaving their lands in view	combat-band/staged-small-phone.png	ZON-001 TRN-034 CMB-007	
 225	Settings: the Edge to edge switch (the table in the camera's strip)	settings/settings-portrait-full-top.png	SYS-085	
+226	Which pick is which: the equip target named after "Equip", the sacrifice's phrase lit, the picked card's role chip	table-pick/equip-sacrifice-bar.png	STK-047	Targets	

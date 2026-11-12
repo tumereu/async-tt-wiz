@@ -293,6 +293,42 @@ class SharedFlowController(
     }
 
     /** STK-047: the table items picked so far for a decision that takes several, drawn as picked. */
+    /**
+     * STK-047, STK-030 (owner 2026-11-11, which pick is which): the text of the trigger (or other announcement) whose targets
+     * the viewer picks on the table, with the phrase picked now and what was chosen for the ones before
+     * ([org.asyncttwiz.automatum.PickText]); null when the open pick isn't part of one or there is no text. Its words are
+     * public: an ability on the Stack is (the source card may have left the battlefield or be hidden).
+     */
+    fun pickText(play: TableBoard): org.asyncttwiz.automatum.PickText? {
+        val flow = view ?: return null
+        val pick = pick ?: return null
+        pickTextOf?.let { (of, now, text) -> if (of === pick.decision && now == picked) return text }
+        val announcing = org.asyncttwiz.automatum.PickText.announcing(flow.state.pending?.continuation, pick.decision)
+        val source = when (val what = announcing?.what) {
+            is arcanum.engine.decision.Announced.Ability -> what.source
+            is arcanum.engine.decision.Announced.Trigger -> what.trigger.source
+            is arcanum.engine.decision.Announced.Spell -> what.card
+            null -> null
+        }
+        val text = announcing?.let {
+            runCatching { org.asyncttwiz.automatum.PickText.of(flow.state, it, pick.decision, emptyList(), picked,
+                source?.let { s -> rulesTextOf(play, atwCard(s)) }) }
+                .onFailure { problem -> AppLog.warn("decision", "No pick text for ${pick.decision.id.value}: $problem") }.getOrNull()
+        }
+        if (pickTextOf?.first !== pick.decision) AppLog.info("decision", "Pick text for ${pick.decision.id.value} (${pick.decision.kind}, " +
+            "${if (flow.state.pending?.continuation is arcanum.engine.decision.Continuation.PlacingTriggers) "placing triggers" else "other"}, source $source): " +
+            (text?.let { t -> "now \"${t.now}\", ${t.parts.size} parts, roles ${t.roles.map { it.second }}" } ?: "none"))
+        pickTextOf = Triple(pick.decision, picked, text)
+        return text
+    }
+    private var pickTextOf: Triple<Decision, List<TargetRef>, org.asyncttwiz.automatum.PickText?>? = null
+
+    /** STK-047 (owner 2026-11-11): what each table card picked so far is for ("Target"), by its card id, for its chip. */
+    fun pickRoles(play: TableBoard): Map<String, String> {
+        val flow = view ?: return emptyMap()
+        return pickText(play)?.roles.orEmpty().mapNotNull { (ref, role) -> (flow.ref(ref) as? MtgRef.Card)?.cardId?.let { it to role } }.toMap()
+    }
+
     fun pickedGlow(play: TableBoard): Set<String> {
         val flow = view ?: return emptySet()
         if (pick == null) return emptySet()

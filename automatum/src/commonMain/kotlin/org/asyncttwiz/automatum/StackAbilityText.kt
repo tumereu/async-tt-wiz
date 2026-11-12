@@ -150,7 +150,7 @@ object StackAbilityText {
 
     /** Where a chosen mode's slot keeps its targets in the Stack item, as the engine keys them (CR 700.2d: a mode chosen
      * again, or a name an earlier mode used, is "name@position"). */
-    private fun slotKey(instructions: arcanum.api.Instructions, modes: List<Int>, position: Int, name: String): String {
+    internal fun slotKey(instructions: arcanum.api.Instructions, modes: List<Int>, position: Int, name: String): String {
         val options = instructions.modes?.options.orEmpty()
         val usedBefore = instructions.targets.any { it.name == name } ||
             modes.take(position).any { index -> options.getOrNull(index)?.instructions?.targets.orEmpty().any { it.name == name } }

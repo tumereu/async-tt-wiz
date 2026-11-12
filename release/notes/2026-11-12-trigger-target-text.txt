@@ -1,0 +1,1 @@
+fix: A trigger of a creature that just died (sacrificed to pay a cost) asks its target with its text again, not over a hidden card.

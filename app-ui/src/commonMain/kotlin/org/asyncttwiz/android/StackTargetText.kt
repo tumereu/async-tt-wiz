@@ -71,6 +71,32 @@ object StackTargetText {
             StackTextPiece(StackAbilities.targetName(play, ref, viewer, names, you = you, hidden = hidden), controller(play, ref)))
     }
 
+    /**
+     * STK-047 (owner 2026-11-11, which pick is which): [text] as a target bar's pieces for [viewer]: the phrase picked now as
+     * printed, marked; a phrase already chosen as the names chosen for it in their controllers' colours ("Ash Pup and Ember
+     * Cub"; [PickText.Part.Chosen.none] when nothing was: "no creature"); names for a choice with no phrase in brackets after
+     * the words before them. [ref] gives a pick's table reference.
+     */
+    fun pickPieces(play: TableBoard, text: org.asyncttwiz.automatum.PickText, ref: (arcanum.engine.state.TargetRef) -> MtgRef,
+        viewer: String, names: Map<String, String>, you: String = "you", hidden: String = "a card"): List<PickPiece> {
+        var before = ""
+        return text.parts.flatMap { part ->
+            when (part) {
+                is org.asyncttwiz.automatum.PickText.Part.Plain -> listOf(PickPiece(part.text))
+                is org.asyncttwiz.automatum.PickText.Part.Now -> listOf(PickPiece(part.text, now = true))
+                is org.asyncttwiz.automatum.PickText.Part.Chosen -> if (part.chosen.isEmpty()) listOf(PickPiece(part.none)) else {
+                    // A phrase that is its clause's subject ("Target player draws two cards") names the viewer by name
+                    val subject = before.isBlank() || before.trimEnd().let { it.endsWith('.') || it.endsWith(':') || it.endsWith('\n') }
+                    named(play, part.chosen.map(ref).distinct(), viewer, names, if (subject) names[viewer] ?: you else you, hidden)
+                        .map { PickPiece(it.text, it.controller) }
+                }
+                is org.asyncttwiz.automatum.PickText.Part.After ->
+                    listOf(PickPiece(" (")) + named(play, part.chosen.map(ref).distinct(), viewer, names, you, hidden)
+                        .map { PickPiece(it.text, it.controller) } + PickPiece(")")
+            }.also { pieces -> before += pieces.joinToString("") { it.text } }
+        }
+    }
+
     /** Who controls [ref]: a player themselves, a card the player whose zone holds it (its owner without one), a Stack entry
      * its controller. */
     fun controller(play: TableBoard, ref: MtgRef): String? = when (ref) {

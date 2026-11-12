@@ -15,7 +15,9 @@ import kotlin.test.assertTrue
 
 /** Keyword lines (CR 702). Test cards are invented: our own names and costs, real oracle wording. */
 class OracleParserKeywordTest {
+    // Without where their costs sit in the line (CostSpansTest)
     private fun abilities(text: String, name: String = "Test Card"): List<Ability> = OracleParser.parse(name, text).abilities
+        .map { if (it is Keyword) arcanum.parser.cube.withoutCostSpans(it) else it }
     private fun mana(text: String) = Cost.mana(ManaCost.parse(text)!!)
 
     // CR 702.9 Flying, 702.7 First strike, 702.15 Lifelink

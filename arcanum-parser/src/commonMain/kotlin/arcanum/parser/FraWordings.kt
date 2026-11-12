@@ -73,7 +73,8 @@ internal object Fra {
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted permanent is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?) and )?"(.+)"""")
     val HAVE_NO_MORE_THAN_ATTACK = Regex("""(.+?) you control have "No more than (\w+) creatures? can attack this planeswalker each combat\."""")
-    val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: .+)"""")
+    // one chunk 01: Ichormoon Gauntlet, two quoted loyalty abilities ("[0]: Proliferate" and "[−12]: Take an extra turn after this one.")
+    val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: [^"]+)"(?: and "(\[[^\]]+\]: [^"]+)")?""")
     val AS_LONG_AS_MAY_CAST_EXILED = Regex("""As long as (.+?), you may cast the exiled card, and mana of any type can be spent to cast that spell\.""")
     val SPELLS_WITH_MV_AT_MOST = Regex("""spells with mana value less than or equal to (.+)""")
     val MAY_CAST_FROM_HAND_WITHOUT_PAYING = Regex("""You may cast (spells(?: with .+?)?) from your hand without paying their mana costs\.""")
@@ -113,7 +114,7 @@ internal object Fra {
     val UNTAP_ALL = Regex("""Untap all (.+)\.""")
     val UNTIL_NEXT_TURN_WHENEVER_ATTACK_OPPONENT = Regex("""Until your next turn, whenever one or more creatures attack one of your opponents, those creatures get \+(\d+)/\+(\d+) and gain (\w+) until end of turn\.""")
     val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each (color|different mana value) among (.+)\.""")
-    val PROLIFERATE_TIMES = Regex("""Proliferate (\w+) times\.""")
+    val PROLIFERATE_TIMES = Regex("""[Pp]roliferate (?:(\w+) times|(twice))\.""") // one chunk 01: Ezuri, "proliferate twice"
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")
     val PER_OPPONENT = Regex("""(destroy|tap|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")

@@ -762,7 +762,8 @@ internal object Actions {
     fun payLife(act: Act, cause: Cause?, player: PlayerId, amount: Int): Int =
         loseLife(act, cause, player, amount, listOf(Meaning.LifePaid, Meaning.LifeLost))
 
-    private fun modifyAmount(act: Act, n: Int, r: Replacement): Int? {
+    /** One replacement's change to an amount (doubling, "plus one", skipping: null). */
+    fun modifyAmount(act: Act, n: Int, r: Replacement): Int? {
         var amount = n
         val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
         r.mechanic.modify.forEach { mod ->

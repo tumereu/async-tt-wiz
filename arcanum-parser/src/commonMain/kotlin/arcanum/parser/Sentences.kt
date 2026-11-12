@@ -1336,6 +1336,7 @@ internal class Sentences(
         mshStatic(line)?.let { return it } // msh
         hobStatic(line)?.let { return it } // hob
         fraStatic(line)?.let { return it } // fra
+        oneStatic(line)?.let { return it } // one
         gtcStatic(line)?.let { return it } // gtc
         blbStatic(line)?.let { return it }
         blbGapsStatic(line)?.let { return it } // blb gaps
@@ -2780,6 +2781,7 @@ internal class Sentences(
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
                 ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
                 ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
+                ?: oneWhole(body.replaceFirstChar { it.uppercase() }, context) // one
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
@@ -2820,6 +2822,7 @@ internal class Sentences(
         mshModify(sentence, steps, context)?.let { return it } // msh
         hobModify(sentence, steps, context)?.let { return it } // hob
         fraModify(sentence, steps, context)?.let { return it } // fra
+        oneModify(sentence, steps, context)?.let { return it } // one: after hob's and fra's own "mana value was" wordings
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
         // gtc chunk 11: 'Create a 1/1 white and black Cleric creature token. It has "[ability]."' (CR 111.4: part of the token)
@@ -4535,8 +4538,9 @@ internal class Sentences(
             return listOf(
                 Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
                 Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(most), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
-                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1))))
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[4].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")),
+                    Destination(Zone.Library, libraryPosition = -1, randomOrder = m.groupValues[5] == "a random"))))
         }
         // In a mana trigger on tapping a permanent: its controller tapped it (CR 605.1b).
         THAT_PLAYER_ADDS_ADDITIONAL.matchEntire(sentence)?.let { m ->
@@ -7210,10 +7214,12 @@ internal class Sentences(
 
         // chunk 31
         RETURN_ALL_OR_SELF_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
-            val to = Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty())
+            val to = Destination(Zone.Battlefield, tapped = m.groupValues[4].isNotEmpty(), controller = Players.You.takeIf { m.groupValues[5].isNotEmpty() })
             val what = m.groupValues[2]
-            if (m.groupValues[1].isEmpty()) return if (isSelf(what)) listOf(Step.Do(Effect.Move(Objects.Self, to))) else null
-            val filter = Filters.all(Filters.noun(what) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val yours = m.groupValues[3] == "your"
+            if (m.groupValues[1].isEmpty()) return if (isSelf(what) && yours) listOf(Step.Do(Effect.Move(Objects.Self, to))) else null
+            val filter = if (yours) Filters.all(Filters.noun(what) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+                else Filters.all(Filters.noun(what) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
             val objects = if (m.groupValues[1] == "target ") context.target(Filters.slotName(what), filter) else Objects.Each(filter)
             return listOf(Step.Do(Effect.Move(objects, to)))
         }
@@ -10138,9 +10144,12 @@ internal class Sentences(
         // fra chunk 09: 'Planeswalkers you control have "[+2]: This planeswalker deals 1 damage to each opponent and you gain 1 life."'
         Fra.HAVE_QUOTED_LOYALTY.matchEntire(line)?.let { m ->
             val holders = fraPlural(m.groupValues[1] + " you control") ?: return null
-            val granted = Sentences(setOf("this planeswalker", "This planeswalker")).line(m.groupValues[2]) ?: return null
-            if (granted is Ability.Unparsed) return null
-            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.Each(holders)))
+            val granted = listOf(m.groupValues[2], m.groupValues[3]).filter { it.isNotEmpty() }.map { quoted ->
+                // a quoted ability may end without a period ("[0]: Proliferate")
+                Sentences(setOf("this planeswalker", "This planeswalker")).line(if (quoted.endsWith(".")) quoted else "$quoted.")?.takeIf { it !is Ability.Unparsed }
+                    ?: return null
+            }
+            return Ability.Static(listOf(Mechanic.GainAbilities(granted)), affects = Affected.Objects(Objects.Each(holders)))
         }
         // fra chunk 04: "Threshold — As long as there are seven or more cards in your graveyard, you may cast the exiled card, and mana of
         // any type can be spent to cast that spell." (CR 607.2a: the card the other ability exiled)
@@ -10593,7 +10602,7 @@ internal class Sentences(
         }
         // fra chunk 09: "Proliferate X times." (CR 701.34)
         Fra.PROLIFERATE_TIMES.matchEntire(sentence)?.let { m ->
-            val n = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val n = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(if (m.groupValues[2].isNotEmpty()) 2 else Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(Step.Repeat(n, listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Proliferate)))))
         }
         // fra chunk 09: "Remove up to three counters from another target creature or planeswalker."
@@ -11327,7 +11336,8 @@ internal class Sentences(
         val RETURN_THEM_TO_BATTLEFIELD = Regex("""Return them to the battlefield( tapped)?\.""")
         val RETURN_ALL_PUT_THERE_THIS_TURN = Regex("""(Each player returns|Return) to the battlefield all (.+?) in (their|your) graveyard that were put there from the battlefield this turn\.""")
         val PUT_THERE_FROM_BATTLEFIELD_THIS_TURN = ObjectFilter.ThisTurn(EventPattern.ZoneChange(from = Zone.Battlefield, to = Zone.Graveyard, objects = ObjectFilter.Any))
-        val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in any order\.""")
+        // one chunk 01: Expand the Sphere, "onto the battlefield tapped and the rest on the bottom of your library in a random order"
+        val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) from among them onto the battlefield( tapped)?(?:\. Put| and) the rest on the bottom of your library in (any|a random) order\.""")
         val THAT_PLAYER_ADDS_ADDITIONAL = Regex("""That player adds an additional (\{.\})\.""")
         // chunk 20
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
@@ -11380,7 +11390,8 @@ internal class Sentences(
         val PUT_THE_REST = Regex("""Put the rest (on the bottom of your library in a random order|into your graveyard)\.""")
         val LOOK_PUT_UP_TO_ONE_ON_TOP = Regex("""Look at the top (\w+) cards of your library\. Put up to one of them on top of your library and the rest on the bottom of your library in a random order\.""")
         val WIN_IF_X_AT_LEAST = Regex("""If X is greater than or equal to (.+), you win the game\.""")
-        val RETURN_ALL_OR_SELF_TO_BATTLEFIELD = Regex("""Return (target |all )?(.+) from your graveyard to the battlefield( tapped)?\.""")
+        // one chunk 01: Vat Emergence, "Put target creature card from a graveyard onto the battlefield under your control."
+        val RETURN_ALL_OR_SELF_TO_BATTLEFIELD = Regex("""(?:Return|Put) (target |all )?(.+) from (your|a) graveyard (?:to|onto) the battlefield( tapped)?( under your control)?\.""")
         val GAINS_FLASHBACK = Regex("""[Tt]arget (.+) gains flashback until end of turn\. The flashback cost is equal to (?:its|that card's) mana cost\.""")
         val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
         val MAY_PUT_FROM_HAND = Regex("""You may put an? (.+) from your hand onto the battlefield( tapped)?\.""")
@@ -14186,13 +14197,6 @@ internal class Sentences(
             return steps + Step.If(arcanum.api.Condition.Exists(filter, atLeast = n), then = listOf(Step.Do(Effect.LoseLife(player,
                 Value.Half(Value.LifeOf(player), roundUp = m.groupValues[3] == "up")))))
         }
-        // tmt chunk 07: "If its mana value was 4 or less, create a Food token." after destroying a target (as it last existed, CR 608.2h)
-        Tmt.IF_ITS_MANA_VALUE_WAS.matchEntire(sentence)?.let { m ->
-            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
-            val comparison = if (m.groupValues[2] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
-            val then = effect(tmtSentence(m.groupValues[3]), context) ?: return null
-            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.ManaValue(comparison, Value.Fixed(m.groupValues[1].toInt()))), then = then)
-        }
         // tmt chunk 08: "Then if that creature is a Mutant, Ninja, or Turtle, double the number of +1/+1 counters on it." (CR 701.10e)
         Tmt.THEN_IF_DOUBLE_COUNTERS.matchEntire(sentence)?.let { m ->
             val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
@@ -15528,6 +15532,51 @@ internal class Sentences(
     // ---- inr
 
     /** inr: single-sentence effects. */
+    /** one: static abilities. */
+    private fun oneStatic(line: String): Ability? {
+        // one chunk 01: Tekuthal, "If you would proliferate, proliferate twice instead." (CR 614.1a; two of them: four times, CR 614.5)
+        One.WOULD_DO_TWICE_INSTEAD.matchEntire(line)?.takeIf { it.groupValues[1] == it.groupValues[2] }?.let { m ->
+            val kind = ActionWordings.playerAction(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.KeywordActionDone(kind, PlayerFilter.You),
+                modify = listOf(Modification.MultiplyAmount(2)))), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
+    /** one: wordings of several sentences read as one. */
+    private fun oneWhole(text: String, context: Context): List<Step>? {
+        // one chunk 01: Ichormoon Gauntlet, "choose a counter on target permanent. Put an additional counter of that kind on that permanent."
+        // (CR 122.1, 122.6)
+        One.CHOOSE_COUNTER_PUT_ADDITIONAL.matchEntire(text)?.takeIf { it.groupValues[1] == it.groupValues[2] }?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.OneMoreCounterOfChosenKind(Recipients(objects = target))))
+        }
+        return null
+    }
+
+    /** one: sentences that change the steps before them, tried after the other sets' in [modify]. */
+    private fun oneModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // one chunk 01 (from tmt chunk 07): "If that permanent's mana value was 3 or less, proliferate.", "If that permanent had mana value 3 or
+        // less, …", "If its mana value was 4 or less, …" after destroying, countering or bouncing a target (as it last existed, CR 608.2h)
+        One.IF_MANA_VALUE_WAS.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val comparison = if (m.groupValues[2] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
+            val then = effect(tmtSentence(m.groupValues[3]), context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.ManaValue(comparison, Value.Fixed(m.groupValues[1].toInt()))), then = then)
+        }
+        // one chunk 01: "If you put fewer than two lands onto the battlefield this way, proliferate a number of times equal to the difference." (the
+        // cards the earlier step actually put there, CR 400.7; none fewer: no repeat)
+        One.IF_PUT_FEWER_REPEAT_DIFFERENCE.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val at = steps.indexOfLast { s -> ((s as? Step.Do)?.effect as? Effect.Move)?.let { it.to.zone == Zone.Battlefield && it.postBind == null } == true }
+            if (at < 0) return null
+            val move = (steps[at] as Step.Do).let { it.copy(effect = (it.effect as Effect.Move).copy(postBind = "put")) }
+            val then = effect(tmtSentence(m.groupValues[2]), context) ?: return null
+            return steps.toMutableList().also { it[at] = move } + Step.Repeat(Value.Difference(Value.Fixed(n), Value.Count(Objects.Bound("put"))), then)
+        }
+        return null
+    }
+
     private fun inrEffect(sentence: String, context: Context): List<Step>? {
         // inr chunk 09: "For each creature, its controller sacrifices it unless they pay X life." (each controller decides for each of their
         // creatures in turn order, then those not paid for are sacrificed at once, CR 101.4, 118.12a, 119.4)

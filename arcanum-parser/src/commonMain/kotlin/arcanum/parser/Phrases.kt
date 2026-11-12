@@ -296,12 +296,13 @@ internal object Filters {
     private fun gtcNoun(phrase: String): ObjectFilter? {
         // gtc chunk 03: "artifacts and creatures your opponents control": each object of either type
         GTC_TYPES_AND.matchEntire(phrase)?.let { m ->
-            val a = CARD_TYPES[m.groupValues[1]]; val b = CARD_TYPES[m.groupValues[2]]
+            val leading = m.groupValues[1].split(", ").filter { it.isNotEmpty() }.map { CARD_TYPES[it.removeSuffix("s")] }
+            val a = CARD_TYPES[m.groupValues[2]]; val b = CARD_TYPES[m.groupValues[3]]
             // inr chunk 09: "creatures and nonbasic lands your opponents control" (the second type with a supertype negated)
-            val bFilter = b?.let { ObjectFilter.Type(it) } ?: m.groupValues[2].takeIf { it.startsWith("non") && ' ' in it }?.let { noun(it) }
-            if (a != null && bFilter != null) {
-                val either = ObjectFilter.Or(listOf(ObjectFilter.Type(a), bFilter))
-                return if (m.groupValues[3].isEmpty()) either else all(either, noun("permanents" + m.groupValues[3])?.let { p ->
+            val bFilter = b?.let { ObjectFilter.Type(it) } ?: m.groupValues[3].takeIf { it.startsWith("non") && ' ' in it }?.let { noun(it) }
+            if (a != null && bFilter != null && leading.all { it != null }) {
+                val either = ObjectFilter.Or(leading.map { ObjectFilter.Type(it!!) } + listOf(ObjectFilter.Type(a), bFilter))
+                return if (m.groupValues[4].isEmpty()) either else all(either, noun("permanents" + m.groupValues[4])?.let { p ->
                     (p as? ObjectFilter.And)?.all?.firstOrNull { it is ObjectFilter.ControlledBy } } ?: return null)
             }
         }
@@ -342,7 +343,8 @@ internal object Filters {
 
     // gtc
     private val GTC_TYPE_AND_TYPE = Regex("""([a-z]+) and ([a-z]+)""")
-    private val GTC_TYPES_AND = Regex("""([a-z]+)s and ((?:non[a-z]+ )?[a-z]+)s(| you control| your opponents control| an opponent controls)""")
+    // one chunk 01: three or more ("artifacts, creatures, and planeswalkers you control")
+    private val GTC_TYPES_AND = Regex("""((?:[a-z]+s, )*)([a-z]+)s,? and ((?:non[a-z]+ )?[a-z]+)s(| you control| your opponents control| an opponent controls)""")
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")

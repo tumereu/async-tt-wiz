@@ -108,7 +108,7 @@ class Review1PriorityTest {
     fun aPlayerWhoLostIsntWaitedFor() = scenario(players = 3) {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
-        state.players[2] = state.players[2].copy(lost = true)
+        state._players[2] = state.players[2].copy(lost = true)
         alice.casts("Storm Spark", target = "bob")
         alice.passes()
         bob.passes()

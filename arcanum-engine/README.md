@@ -47,6 +47,7 @@ Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // 
 Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Host.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
 Host.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
+Host.seenBy(state, player[, visible]): GameState // a copy of the state as a player sees it: what they can't see unknown (D60)
 Host.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 
 // which cards the engine plays fully
@@ -59,6 +60,12 @@ EngineProbes.statesCopied: (() -> Unit)?               // tests and measurements
 EngineProbes.optionsSearched: (() -> Unit)?            // tests and measurements: called each time options or a pass check searches
 
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
+state.forgetOlderTurns(); state.rememberOlderTurns(entries); state.rewindTimestampCounter(counter) // a host's housekeeping, not changes
+
+// tests only: @ArcanumTestSetup (opt in per test file; checkArcanumTestSetup fails when main code opts in)
+GameState.of(players, objects, …, turn, …): GameState // a test board with these fields
+GameState.start(players, life, step): GameState       // a test board at turn 1, nothing in any zone
+state.setup.objects[id] = obj; state.setup.turn = …   // the state's fields, writable, outside the rules
 ```
 
 `options` lists what can be begun: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
@@ -80,7 +87,8 @@ what the payment has by then. `OptionsFuzzTest` checks the contract on
 seeded random games of cube cards, failing on any open player decision without a listed answer (a payment apart); `NoFalseDenialFuzzTest` tries each card left out on generated boards without bounds: no way may exist. `revert` takes changes back last first; after a host drops older turns' events
 (`GameState.forgetOlderTurns`) undo still reaches those turns, but "this turn" questions there see none of their events.
 
-- `state/` — `GameState` (serializable, mutable): players in turn order with their zones,
+- `state/` — `GameState` (serializable; read-only outside the engine: internal constructor and setters, fields read as
+  `List` and `Map`, changed only by `apply` and `revert`; inside, mutable collections copied once per `perform`): players in turn order with their zones,
   life, counters, mana pool; every card/token object by `ObjectId` (`Card(card, zoneChanges)`
   or `StackItem(id)`, D21/D35) with owner, controller, zone, face, status, counters, damage,
   attachment, timestamp (D34), control start (CR 302.6), card memory and per-instance facts

@@ -173,7 +173,7 @@ class Review1MultiplayerTest {
     fun aLostPlayerIsntATarget() = scenario(players = 3) {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
-        state.players[2] = state.players[2].copy(lost = true)
+        state._players[2] = state.players[2].copy(lost = true)
         perform(Input.Cast(alice.id, card("Storm Spark")))
         assertFalse(TargetRef.Player(carol.id) in decision<Decision.Targets>().options)
     }

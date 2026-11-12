@@ -345,7 +345,7 @@ class Review1SpellsTest {
         allPass()
         val reverted = state.deepCopy()
         applied.asReversed().forEach { reverted.revert(it) }
-        reverted.timestampCounter = before.timestampCounter
+        reverted._timestampCounter = before.timestampCounter
         assertEquals(before, reverted)
     }
 }

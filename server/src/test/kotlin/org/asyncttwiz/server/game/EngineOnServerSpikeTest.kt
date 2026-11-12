@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.server.game
 
 import arcanum.api.CounterKind
@@ -22,6 +24,8 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import arcanum.engine.state.TurnState
+import arcanum.engine.state.setup
+import arcanum.engine.state.start
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -230,14 +234,14 @@ class EngineOnServerSpikeTest {
         fun put(owner: PlayerId, zone: Zone, vararg names: String, tapped: Boolean = false,
             counters: List<Pair<CounterKind, Int>> = emptyList()): List<ObjectId> = names.map { name ->
             val id = ObjectId.Card(CardId("${owner.value}.${++next}"), 0)
-            val stamp = ++state.timestampCounter
+            val stamp = ++state.setup.timestampCounter
             val onBattlefield = zone == Zone.Battlefield
-            state.objects[id] = GameObject(id = id, owner = owner, controller = if (onBattlefield) owner else null, zone = zone,
+            state.setup.objects[id] = GameObject(id = id, owner = owner, controller = if (onBattlefield) owner else null, zone = zone,
                 definition = Cards.definition(name), tapped = tapped, timestamp = stamp,
                 counters = counters.map { (k, n) -> CounterEntry(k, n, stamp) },
                 controlSince = if (onBattlefield) ControlSince(owner, -1) else null)
             when (zone) {
-                Zone.Battlefield -> state.battlefield.add(id)
+                Zone.Battlefield -> state.setup.battlefield.add(id)
                 Zone.Hand -> state.updatePlayerForTest(owner) { it.copy(hand = it.hand + id) }
                 Zone.Library -> state.updatePlayerForTest(owner) { it.copy(library = it.library + id) }
                 else -> error("not used")
@@ -248,7 +252,7 @@ class EngineOnServerSpikeTest {
 
     private fun board(step: TurnStep = TurnStep.PrecombatMain, build: Board.() -> Unit): GameState {
         val state = GameState.start(listOf(alice, bob))
-        state.turn = TurnState(3, alice, step, turnStarted = mapOf(alice to 3, bob to 2))
+        state.setup.turn = TurnState(3, alice, step, turnStarted = mapOf(alice to 3, bob to 2))
         Board(state).build()
         return state
     }
@@ -410,5 +414,5 @@ internal val SCRIPTS = MapSerializer(Long.serializer(), ListSerializer(Input.ser
 
 private fun GameState.updatePlayerForTest(id: PlayerId, change: (arcanum.engine.state.PlayerState) -> arcanum.engine.state.PlayerState) {
     val i = players.indexOfFirst { it.id == id }
-    players[i] = change(players[i])
+    setup.players[i] = change(players[i])
 }

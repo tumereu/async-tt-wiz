@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.automatum
 
 import arcanum.api.Ability
@@ -13,6 +15,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
 import arcanum.parser.OracleCard
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.EngineRecordKind
@@ -61,7 +64,7 @@ class EngineCombatTest {
         val obj = table.obj(card)
         val o = state.objects.getValue(obj)
         val face = o.definition!!.faces.single()
-        state.objects[obj] = o.copy(definition = o.definition!!.copy(faces = listOf(face.copy(abilities = face.abilities +
+        state.setup.objects[obj] = o.copy(definition = o.definition!!.copy(faces = listOf(face.copy(abilities = face.abilities +
             Ability.Static(listOf(Mechanic.CanBlockAdditional(1)), Affected.Objects(Objects.Self))))))
     }
 
@@ -181,7 +184,7 @@ class EngineCombatTest {
         val (bobBear) = table.put(bob, Zone.Battlefield, "Stout Bear")
         val state = table.state()
         val siegeObj = table.obj(siege)
-        state.objects[siegeObj] = state.objects.getValue(siegeObj).copy(protector = PlayerId(bob),
+        state.setup.objects[siegeObj] = state.objects.getValue(siegeObj).copy(protector = PlayerId(bob),
             counters = listOf(CounterEntry(CounterKind.Defense, 3, 1)))
         val choices = CombatFlow.choices(run(state))
         assertEquals(listOf(null, siege), choices.attacks.getValue(bear), "the player and the Siege")

@@ -73,6 +73,15 @@ object Host {
     fun visible(state: GameState, player: PlayerId, view: View): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view, player)
 
+    /** [state] as [player] sees it (D60, [GameState.viewer]): a copy where every object not in [visible] that [state] knows
+     * is unknown (no definition). [state] itself isn't changed. */
+    fun seenBy(state: GameState, player: PlayerId, visible: Set<arcanum.engine.state.ObjectId> = visible(state, player)): GameState {
+        val shown = state.deepCopy()
+        for ((id, obj) in state.objects) if (id !in visible && obj.definition != null) shown._objects[id] = obj.copy(definition = null)
+        shown._viewer = player
+        return shown
+    }
+
     /**
      * The cards whose identity [changes] (made on [before] in order, such as an [Outcome]'s) show [viewer] at some moment
      * that [visible] didn't give them in [before]: put where they may see them (a hand they own, a public zone face up),

@@ -78,7 +78,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     /** Sets this player's counters of [kind] (poison, energy, …) during setup. */
     fun counters(kind: CounterKind, count: Int) {
         scenario.setup()
-        state.timestampCounter++
+        state._timestampCounter++
         val stamp = state.timestampCounter
         state.updatePlayerForSetup { p ->
             p.copy(counters = (p.counters.filter { it.kind != kind } + CounterEntry(kind, count, stamp))
@@ -88,7 +88,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
 
     private fun arcanum.engine.state.GameState.updatePlayerForSetup(change: (arcanum.engine.state.PlayerState) -> arcanum.engine.state.PlayerState) {
         val index = players.indexOfFirst { it.id == id }
-        players[index] = change(players[index])
+        _players[index] = change(_players[index])
     }
 
     /** This player's counters of [kind]. */

@@ -59,7 +59,7 @@ class ExplanationTest {
         alice.battlefield("Elvish Hierophant", "Elvish Seer", "Lineage Druid")
         val growth = effect(alice, modify(3, 3), Mechanic.GainAbilities(listOf(Keyword.Trample)), on = listOf("Elvish Seer"),
             duration = Duration.EndOfTurn)
-        state.effects[growth] = state.effects.getValue(growth).copy(source = card("Lineage Druid"))
+        state._effects[growth] = state.effects.getValue(growth).copy(source = card("Lineage Druid"))
         val explanation = Inspect.explain(state, card("Elvish Seer"))!!
         assertEquals(3, explanation.steps.size)
         // In the order first applied: the pump's trample in layer 6 before the anthem in 7c

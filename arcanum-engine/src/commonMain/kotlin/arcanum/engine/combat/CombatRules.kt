@@ -212,7 +212,7 @@ internal object CombatRules {
         val tapping = tappedByAttack(snap, attacks).filter { snap.state.obj(it)?.tapped == false }
         if (tapping.isEmpty()) return snap
         val s = snap.state.deepCopy()
-        tapping.forEach { id -> s.objects[id] = s.objOrThrow(id).copy(tapped = true) }
+        tapping.forEach { id -> s._objects[id] = s.objOrThrow(id).copy(tapped = true) }
         return Snapshot(s)
     }
 

@@ -37,7 +37,7 @@ class Review1CastingTest {
     /** The state as it was, for "nothing changed" checks: the timestamp counter (D34) and the input count aside (it counts
      * every input, a cancel too: stable decision ids, owner 2026-11-05). */
     private fun Scenario.assertSameAs(before: arcanum.engine.state.GameState) {
-        val now = state.deepCopy().also { it.timestampCounter = before.timestampCounter; it.inputCount = before.inputCount }
+        val now = state.deepCopy().also { it._timestampCounter = before.timestampCounter; it._inputCount = before.inputCount }
         if (now != before) fail("The game isn't as before:\n" + StateDiff.between(before, now))
     }
 

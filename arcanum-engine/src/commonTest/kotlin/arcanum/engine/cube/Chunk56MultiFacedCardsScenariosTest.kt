@@ -283,7 +283,7 @@ class Chunk56MultiFacedCardsScenariosTest {
     /** Sets [name] up transformed with [loyalty] counters (setup only). */
     private fun Scenario.transformed(name: String, loyalty: Int) {
         val id = card(name)
-        state.objects[id] = state.objOrThrow(id).copy(face = 1,
+        state._objects[id] = state.objOrThrow(id).copy(face = 1,
             counters = listOf(arcanum.engine.state.CounterEntry(CounterKind.Loyalty, loyalty, state.objOrThrow(id).timestamp)))
     }
 
@@ -373,7 +373,7 @@ class Chunk56MultiFacedCardsScenariosTest {
         alice.battlefield("Crimson Hexcaller", "Corpse Gnawer", "Elvish Seer")
         alice.battlefield(blood, blood, blood, blood)
         state.battlefield.filter { state.objOrThrow(it).definition?.faces?.first()?.name == blood }.forEach {
-            state.objects[it as arcanum.engine.state.ObjectId.Card] = state.objOrThrow(it).copy(token = true)
+            state._objects[it as arcanum.engine.state.ObjectId.Card] = state.objOrThrow(it).copy(token = true)
         }
         alice.activates("Corpse Gnawer", choosing = listOf("Elvish Seer"))
         expect { stack.names shouldBe listOf("ability of Corpse Gnawer", "ability of Crimson Hexcaller") }

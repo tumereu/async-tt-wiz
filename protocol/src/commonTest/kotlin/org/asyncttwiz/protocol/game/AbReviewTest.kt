@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
@@ -11,6 +13,7 @@ import arcanum.engine.setup.GameResult
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.setup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -349,9 +352,9 @@ class AbReviewTest {
             is Decision.Targets -> d.copy(source = hidden)
             else -> error("unexpected decision $d")
         }
-        state.pending = pending.copy(decision = from)
+        state.setup.pending = pending.copy(decision = from)
         try {
             assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Choosing(null)), bobs.status)
-        } finally { state.pending = pending }
+        } finally { state.setup.pending = pending }
     }
 }

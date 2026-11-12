@@ -169,12 +169,12 @@ internal object Setup {
             )
         }
         return GameState(
-            players = players.toMutableList(),
-            objects = objects,
-            turn = TurnState(0, seats.first().player, TurnStep.Untap),
-            priority = PriorityState(null),
-            timestampCounter = stamp,
-            skipFirstDraw = skipFirstDraw,
+            _players = players.toMutableList(),
+            _objects = objects,
+            _turn = TurnState(0, seats.first().player, TurnStep.Untap),
+            _priority = PriorityState(null),
+            _timestampCounter = stamp,
+            _skipFirstDraw = skipFirstDraw,
         )
     }
 

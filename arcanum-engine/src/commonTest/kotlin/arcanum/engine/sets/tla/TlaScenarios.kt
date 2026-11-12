@@ -68,5 +68,5 @@ internal fun Scenario.pay() {
 /** Sets [name] up with its back face up (setup only). */
 internal fun Scenario.backFaceUp(name: String) {
     val id = card(name)
-    state.objects[id] = state.objOrThrow(id).copy(face = 1)
+    state._objects[id] = state.objOrThrow(id).copy(face = 1)
 }

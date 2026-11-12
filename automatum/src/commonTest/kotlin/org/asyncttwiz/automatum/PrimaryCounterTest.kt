@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.automatum
 
 import arcanum.api.CounterKind
@@ -6,6 +8,7 @@ import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameState
+import arcanum.engine.state.setup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -25,7 +28,7 @@ class PrimaryCounterTest {
     private fun computed(card: String, vararg counters: CounterEntry): ComputedCard {
         val state: GameState = table.state()
         val id = table.obj(card)
-        state.objects[id] = state.objects.getValue(id).copy(counters = counters.toList())
+        state.setup.objects[id] = state.objects.getValue(id).copy(counters = counters.toList())
         val board = ComputedBoard.of(table.board(state, table.alice), table.base().definitions, table.definitions, table.alice, state,
             Engine.view(state))
         return board.cards.getValue(card)

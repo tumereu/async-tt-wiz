@@ -243,8 +243,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
      * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
     val snap: Snapshot = base.deepCopy().also { s ->
-        s.stackItems[itemId] = item
-        if (!isSpell && itemId !in s.stack) s.stack.add(itemId)
+        s._stackItems[itemId] = item
+        if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
     }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */

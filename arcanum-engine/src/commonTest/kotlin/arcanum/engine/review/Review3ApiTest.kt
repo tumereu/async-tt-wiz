@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 class Review3ApiTest {
     // The timestamp counter never goes back (D34), and the input count counts every input, a cancel too (stable
     // decision ids, owner 2026-11-05): bookkeeping, not game state a player sees
-    private fun GameState.normalized() = deepCopy().also { it.timestampCounter = 0; it.inputCount = 0 }
+    private fun GameState.normalized() = deepCopy().also { it._timestampCounter = 0; it._inputCount = 0 }
 
     /** Undo of the last batch (the mana payment) gives back the state before it; another payment is then accepted and
      * gives the same game as choosing it in the first place, timestamps aside (D34). */

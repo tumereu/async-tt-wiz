@@ -70,7 +70,8 @@ tasks.register<JavaExec>("setSupport") {
 tasks.register<JavaExec>("manaCheck") {
     group = "arcanum"
     description = "Fails listing every mana ability of the supported sets that doesn't pay; lists every cost reducer."
-    classpath = sourceSets["main"].runtimeClasspath
+    // In the test source set: its boards are built with the engine's test setup (@ArcanumTestSetup), which only tests may use.
+    classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("arcanum.tools.ManaCheckKt")
     maxHeapSize = "2g"
     parserToolPaths()

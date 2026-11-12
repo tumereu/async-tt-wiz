@@ -129,6 +129,42 @@ tasks.register("verifyModuleBoundaries") {
     }
 }
 
+// The Arcanum engine's test setup (@ArcanumTestSetup: GameState.of, GameState.start, GameState.setup) builds and changes a
+// game state outside the rules. Only test source sets may opt in to it: this fails when main code opts in (an @OptIn of
+// it, a declaration marked with it, which propagates the opt-in) or a build script opts a whole compilation in.
+// The engine's own TestSetup.kt, which declares it, is the one exception. Runs before every test task.
+val checkArcanumTestSetup = tasks.register("checkArcanumTestSetup") {
+    val sources = fileTree(".") {
+        include("*/src/*Main/**/*.kt", "*/src/main/**/*.kt")
+        exclude("**/build/**", "arcanum-engine/src/commonMain/kotlin/arcanum/engine/state/TestSetup.kt")
+    }
+    val scripts = fileTree(".") {
+        include("*/build.gradle.kts", "gradle.properties", "*/gradle.properties")
+        exclude("**/build/**")
+    }
+    inputs.files(sources).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(scripts).withPathSensitivity(PathSensitivity.RELATIVE)
+    val marker = layout.buildDirectory.file("arcanum-test-setup/checked")
+    outputs.file(marker)
+    val root = rootDir
+    doLast {
+        val inSource = Regex("""ArcanumTestSetup\s*::\s*class|@(arcanum\.engine\.state\.)?ArcanumTestSetup\b""")
+        val inScript = Regex("""(optIn|opt-in|OptIn)\W.*ArcanumTestSetup""")
+        val problems = sources.files.sortedBy { it.path }.flatMap { file ->
+            file.readLines().withIndex().filter { inSource.containsMatchIn(it.value) }
+                .map { (i, line) -> "${file.relativeTo(root).invariantSeparatorsPath}:${i + 1}: main code opts in to @ArcanumTestSetup\n    ${line.trim()}" }
+        } + scripts.files.sortedBy { it.path }.flatMap { file ->
+            file.readLines().withIndex().filter { inScript.containsMatchIn(it.value) }
+                .map { (i, line) -> "${file.relativeTo(root).invariantSeparatorsPath}:${i + 1}: a build script opts in to @ArcanumTestSetup\n    ${line.trim()}" }
+        }
+        check(problems.isEmpty()) {
+            "Arcanum test setup check failed: only test source sets may opt in (per file, @file:OptIn(ArcanumTestSetup::class))\n" +
+                problems.joinToString("\n")
+        }
+        marker.get().asFile.apply { parentFile.mkdirs(); writeText("${sources.files.size} main files checked\n") }
+    }
+}
+
 // The feature catalog (docs/features) is the list of behaviours the owner wants kept. This keeps its IDs unique and in
 // the right file, and fails when a test, a catalog entry or the backlog cites an ID that no longer exists, so removing
 // an entry forces a look at the tests that protect it. Runs before every test task.
@@ -243,6 +279,7 @@ subprojects {
     tasks.withType<Test>().configureEach {
         dependsOn(checkFeatureCatalog)
         dependsOn(checkClientNotNull)
+        dependsOn(checkArcanumTestSetup)
         // Test JVMs keep temp files in the module's build directory, not /tmp: here /tmp is a small in-memory disk,
         // and Robolectric unpacks ~200 MB per test JVM that stays behind whenever a JVM is killed.
         val tmp = layout.buildDirectory.dir("tmp/test-jvm").get().asFile

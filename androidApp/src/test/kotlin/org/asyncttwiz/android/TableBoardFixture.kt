@@ -1,8 +1,11 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.EngineSnapshot
@@ -90,7 +93,7 @@ internal class EngineFixture private constructor(play: PlayState, viewer: String
          */
         private fun engineModel(play: PlayState): GameModel {
             val state = TestEngineState.of(play)
-            StepFlow.settledPriority(state)?.let { state.priority = it }
+            StepFlow.settledPriority(state)?.let { state.setup.priority = it }
             return GameModel(state, TableState(secret = LineRandom.secret(ByteArray(32) { 7 })))
         }
     }

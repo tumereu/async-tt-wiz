@@ -269,7 +269,7 @@ class NightReview4MoreTest {
     @Test
     fun aLeavingPlayersConspiracyIsRevealed() = scenario(players = 3) {
         val id = put(bob, listOf(tithe), Zone.Command, faceDown = true).single()
-        state.objects[id] = state.objOrThrow(id).copy(memory = arcanum.engine.state.Bindings.EMPTY.with(
+        state._objects[id] = state.objOrThrow(id).copy(memory = arcanum.engine.state.Bindings.EMPTY.with(
             arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME, arcanum.engine.state.NamedValue.Name(bear)))
         val outcome = perform(Input.Concede(bob.id))
         val revealed = outcome.changes.filterIsInstance<Change.Happened>().mapNotNull { it.event as? GameEvent.Revealed }.flatMap { it.ids }

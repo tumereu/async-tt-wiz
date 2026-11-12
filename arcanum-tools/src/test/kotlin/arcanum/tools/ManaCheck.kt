@@ -1,3 +1,5 @@
+@file:OptIn(ArcanumTestSetup::class)
+
 package arcanum.tools
 
 import arcanum.api.Ability
@@ -15,6 +17,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
+import arcanum.engine.state.ArcanumTestSetup
 import arcanum.engine.state.CardId
 import arcanum.engine.state.ControlSince
 import arcanum.engine.state.CounterEntry
@@ -22,6 +25,8 @@ import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
+import arcanum.engine.state.start
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import java.io.File
@@ -78,7 +83,7 @@ fun main(args: Array<String>) {
     if (failed > 0) exitProcess(1)
 }
 
-/** Test boards made directly on a game state. */
+/** Test boards made directly on a game state (the engine's test setup: this tool lives with the tests for that). */
 private object ManaBoards {
     private val alice = PlayerId("alice")
     private val bob = PlayerId("bob")
@@ -99,19 +104,21 @@ private object ManaBoards {
     private val enchantmentSpell = definition("Check Enchantment", "Enchantment", "{4}", "")
 
     private fun game(): GameState = GameState.start(listOf(alice, bob)).also { s ->
-        s.turn = s.turn.copy(turnStarted = mapOf(alice to 1, bob to 0))
-        s.players.indices.forEach { i -> s.players[i] = s.players[i].copy(library = emptyList()) }
+        s.setup.turn = s.turn.copy(turnStarted = mapOf(alice to 1, bob to 0))
+        s.players.indices.forEach { i -> s.setup.players[i] = s.players[i].copy(library = emptyList()) }
     }
 
     private fun GameState.put(definition: CardDefinition, zone: Zone, counters: List<Pair<CounterKind, Int>> = emptyList()): ObjectId {
         val id = ObjectId.Card(CardId("alice.${++next}"), 0)
         val on = zone == Zone.Battlefield
-        val t = ++timestampCounter
-        objects[id] = GameObject(id = id, owner = alice, controller = if (on) alice else null, zone = zone, definition = definition,
-            counters = counters.map { (kind, n) -> CounterEntry(kind, n, t) }, timestamp = t, controlSince = if (on) ControlSince(alice, -1) else null)
-        if (on) battlefield.add(id) else {
-            val p = players.indexOfFirst { it.id == alice }
-            players[p] = players[p].copy(hand = players[p].hand + id)
+        with(setup) {
+            val t = ++timestampCounter
+            objects[id] = GameObject(id = id, owner = alice, controller = if (on) alice else null, zone = zone, definition = definition,
+                counters = counters.map { (kind, n) -> CounterEntry(kind, n, t) }, timestamp = t, controlSince = if (on) ControlSince(alice, -1) else null)
+            if (on) battlefield.add(id) else {
+                val p = players.indexOfFirst { it.id == alice }
+                players[p] = players[p].copy(hand = players[p].hand + id)
+            }
         }
         return id
     }

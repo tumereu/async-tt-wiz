@@ -23,7 +23,7 @@ class ChangeRevertTest {
             // Change.Shown only says what a player looked at: it changes nothing by design
             if (change !is Change.Shown) assertNotEquals(state, copy, "${change::class.simpleName} changed nothing")
             copy.revert(change)
-            copy.timestampCounter = state.timestampCounter
+            copy._timestampCounter = state.timestampCounter
             if (copy != state) fail("${change::class.simpleName} didn't revert exactly:\n${StateDiff.between(state, copy)}")
         }
     }
@@ -34,9 +34,9 @@ class ChangeRevertTest {
             val copy = state.deepCopy()
             copy.apply(change)
             copy.apply(change.inverse())
-            copy.timestampCounter = state.timestampCounter
+            copy._timestampCounter = state.timestampCounter
             // Applying the inverse logs it as a new event; the state otherwise matches.
-            copy.log = state.log.toMutableList()
+            copy._log = state.log.toMutableList()
             assertEquals(state, copy, "${change::class.simpleName}.inverse()")
         }
     }

@@ -44,7 +44,7 @@ class HiddenAgendaTest {
             var memory = Bindings.EMPTY
             names.getOrNull(0)?.let { memory = memory.with(Conspiracies.CHOSEN_NAME, NamedValue.Name(it)) }
             names.getOrNull(1)?.let { memory = memory.with(Conspiracies.SECOND_NAME, NamedValue.Name(it)) }
-            state.objects[id] = state.objOrThrow(id).copy(memory = memory)
+            state._objects[id] = state.objOrThrow(id).copy(memory = memory)
         }
         return id
     }

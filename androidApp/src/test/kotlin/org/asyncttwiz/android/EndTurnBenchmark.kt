@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import arcanum.api.Layout
@@ -14,6 +16,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.setup
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import org.asyncttwiz.protocol.CardDefinition
@@ -258,7 +261,7 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
         check(model.engine.turn.number == 1) { "turn ${model.engine.turn}" }
         for (p in listOf(a, b)) put(model.engine, PlayerId(p), boardOf(p))
         for (p in listOf(a, b)) toHand(model.engine, PlayerId(p), hand)
-        if (life != null) model.engine.players.indices.forEach { i -> model.engine.players[i] = model.engine.players[i].copy(life = life) }
+        if (life != null) model.engine.players.indices.forEach { i -> model.engine.setup.players[i] = model.engine.players[i].copy(life = life) }
         val codec = EngineJson(GameDefinitions.of(model.engine))
         EngineSnapshot(codec.encodeDefinitions(), f.id("root"), head.id, codec.encodeModel(model),
             localHeads = mapOf(a to head.id, b to head.id), settings = PLAYS_ON)
@@ -275,7 +278,7 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
         }
         val index = s.players.indexOfFirst { it.id == player }
         val p = s.players[index]
-        s.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand - moved.toSet(),
+        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand - moved.toSet(),
             libraryPlaces = p.libraryPlaces - moved.toSet())
         val creatures = moved.filter { s.obj(it)!!.definition!!.faces[0].types.contains(arcanum.api.CardType.Creature) }
         var next = 0
@@ -283,10 +286,10 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
             val o = s.obj(id)!!
             val face = o.definition!!.faces[0]
             val attaches = face.subtypes.any { it.name == "Equipment" || it.name == "Aura" }
-            s.objects[id] = o.copy(zone = Zone.Battlefield, controller = player, controlSince = ControlSince(player, -1),
-                timestamp = ++s.timestampCounter,
+            s.setup.objects[id] = o.copy(zone = Zone.Battlefield, controller = player, controlSince = ControlSince(player, -1),
+                timestamp = ++s.setup.timestampCounter,
                 attachedTo = if (attaches && creatures.isNotEmpty()) TargetRef.Object(creatures[next++ % creatures.size]) else null)
-            s.battlefield.add(id)
+            s.setup.battlefield.add(id)
         }
     }
 
@@ -299,8 +302,8 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
         }
         val index = s.players.indexOfFirst { it.id == player }
         val p = s.players[index]
-        s.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand + moved, libraryPlaces = p.libraryPlaces - moved.toSet())
-        for (id in moved) s.objects[id] = s.obj(id)!!.copy(zone = Zone.Hand)
+        s.setup.players[index] = p.copy(library = p.library - moved.toSet(), hand = p.hand + moved, libraryPlaces = p.libraryPlaces - moved.toSet())
+        for (id in moved) s.setup.objects[id] = s.obj(id)!!.copy(zone = Zone.Hand)
     }
 
     /** The game loaded afresh, at Alice's first main phase with priority. */

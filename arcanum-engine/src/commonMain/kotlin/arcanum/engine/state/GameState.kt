@@ -5,6 +5,8 @@ import arcanum.api.Zone
 import arcanum.engine.Pending
 import arcanum.engine.change.Applier
 import arcanum.engine.change.Change
+import arcanum.engine.decision.WaitingTrigger
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,57 +14,82 @@ import kotlinx.serialization.Serializable
  * zones, the Stack with its items, effect objects, delayed triggers, turn and priority, ledgers, this and last turn's
  * tagged events, and the open continuation.
  *
- * Mutable for speed, but only [apply] and [revert] change it (D56, D59). [arcanum.engine.Engine] never changes the
- * state it is given: it works on [deepCopy] and returns the changes.
+ * Read-only from outside the engine: its fields can be read, and only [apply] and [revert] change them (D56, D59).
+ * Inside, the collections are mutable for speed, and [arcanum.engine.Engine] never changes the state it is given: it works
+ * on [deepCopy] and returns the changes. Hosts start a game with [arcanum.engine.Engine.newGame]; tests in other modules
+ * build boards with the [ArcanumTestSetup] API ([GameState.of], [GameState.start], [setup]).
  */
+@ConsistentCopyVisibility
 @Serializable
-data class GameState(
+data class GameState internal constructor(
+    @SerialName("players") internal var _players: MutableList<PlayerState>,
+    @SerialName("objects") internal var _objects: MutableMap<ObjectId, GameObject> = mutableMapOf(),
+    @SerialName("battlefield") internal var _battlefield: MutableList<ObjectId> = mutableListOf(),
+    @SerialName("stack") internal var _stack: MutableList<ObjectId> = mutableListOf(),
+    @SerialName("exile") internal var _exile: MutableList<ObjectId> = mutableListOf(),
+    @SerialName("command") internal var _command: MutableList<ObjectId> = mutableListOf(),
+    @SerialName("stackItems") internal var _stackItems: MutableMap<ObjectId, StackItem> = mutableMapOf(),
+    @SerialName("effects") internal var _effects: MutableMap<EffectId, EffectObject> = mutableMapOf(),
+    @SerialName("delayedTriggers") internal var _delayedTriggers: MutableMap<EffectId, DelayedTrigger> = mutableMapOf(),
+    @SerialName("turn") internal var _turn: TurnState,
+    @SerialName("priority") internal var _priority: PriorityState = PriorityState(null),
+    @SerialName("combat") internal var _combat: CombatState? = null,
+    @SerialName("ledger") internal var _ledger: MutableMap<String, Int> = mutableMapOf(),
+    @SerialName("log") internal var _log: MutableList<LoggedChange> = mutableListOf(),
+    @SerialName("pending") internal var _pending: Pending? = null,
+    @SerialName("timestampCounter") internal var _timestampCounter: Long = 0,
+    @SerialName("inputCount") internal var _inputCount: Int = 0,
+    @SerialName("triggered") internal var _triggered: MutableList<WaitingTrigger> = mutableListOf(),
+    @SerialName("skipFirstDraw") internal var _skipFirstDraw: Boolean = true,
+    @SerialName("viewer") internal var _viewer: PlayerId? = null,
+) {
     /** In turn order (CR 101.4, D61). */
-    var players: MutableList<PlayerState>,
+    val players: List<PlayerState> get() = _players
     /** Every card and token object, in any zone, by its current id. */
-    var objects: MutableMap<ObjectId, GameObject> = mutableMapOf(),
-    var battlefield: MutableList<ObjectId> = mutableListOf(),
+    val objects: Map<ObjectId, GameObject> get() = _objects
+    val battlefield: List<ObjectId> get() = _battlefield
     /** Bottom first: the last is the top of the Stack (CR 405.2). Spells' cards and [StackItem]-only objects. */
-    var stack: MutableList<ObjectId> = mutableListOf(),
-    var exile: MutableList<ObjectId> = mutableListOf(),
+    val stack: List<ObjectId> get() = _stack
+    val exile: List<ObjectId> get() = _exile
     /** Emblems and other command-zone objects (CR 408). */
-    var command: MutableList<ObjectId> = mutableListOf(),
+    val command: List<ObjectId> get() = _command
     /** The choices of every spell and ability on the Stack, by id. */
-    var stackItems: MutableMap<ObjectId, StackItem> = mutableMapOf(),
-    var effects: MutableMap<EffectId, EffectObject> = mutableMapOf(),
-    var delayedTriggers: MutableMap<EffectId, DelayedTrigger> = mutableMapOf(),
-    var turn: TurnState,
-    var priority: PriorityState = PriorityState(null),
-    var combat: CombatState? = null,
+    val stackItems: Map<ObjectId, StackItem> get() = _stackItems
+    /** Effects of resolved spells and abilities still in force. */
+    val effects: Map<EffectId, EffectObject> get() = _effects
+    val delayedTriggers: Map<EffectId, DelayedTrigger> get() = _delayedTriggers
+    val turn: TurnState get() = _turn
+    val priority: PriorityState get() = _priority
+    val combat: CombatState? get() = _combat
     /** Game-scoped ledger entries (D22), by key. */
-    var ledger: MutableMap<String, Int> = mutableMapOf(),
+    val ledger: Map<String, Int> get() = _ledger
     /** Tagged events (D33): every applied event change with its turn number. Questions about "this turn" and "last
      * turn" read it; the host may drop entries older than last turn ([forgetOlderTurns]). */
-    var log: MutableList<LoggedChange> = mutableListOf(),
+    val log: List<LoggedChange> get() = _log
     /** The open decision and the flow waiting for it (D58); while set, only its answer (or Cancel) is accepted. */
-    var pending: Pending? = null,
+    val pending: Pending? get() = _pending
     /** The game-wide timestamp counter (CR 613.7, D34): the highest timestamp given so far. Never goes back, also not
      * on [revert]. */
-    var timestampCounter: Long = 0,
+    val timestampCounter: Long get() = _timestampCounter
     /** How many inputs the game has had on its line so far ([arcanum.engine.input.Input]s performed, every player's;
      * [arcanum.engine.change.Change.InputCounted] each, taken back with the input): the engine names each decision by
      * what it asks, for whom, and this count, so the same question asked again after an undo has the same id and any
      * input in between gives it another. Nothing else moves it (state-based actions, triggers, a host's reorder). */
-    var inputCount: Int = 0,
+    val inputCount: Int get() = _inputCount
     /** Triggered abilities that triggered and wait to be put on the Stack the next time a player would get priority
      * (CR 603.3, D42), in the order they triggered. */
-    var triggered: MutableList<arcanum.engine.decision.WaitingTrigger> = mutableListOf(),
+    val triggered: List<WaitingTrigger> get() = _triggered
     /** The starting player skips the draw step of turn 1 (CR 103.8a, two players); the host sets false where nobody
      * skips it (CR 103.8c). A setting of the game, not changed by play. */
-    var skipFirstDraw: Boolean = true,
+    val skipFirstDraw: Boolean get() = _skipFirstDraw
     /**
      * Whose view of the game this state is (D60, spec §7.0 "Hidden information"): null for full information (a host or
      * referee that knows every card); else that player's view, where cards they can't see are unknown and stay so.
      * The engine fills cards in as they become public or visible to the viewer, and forgets them as they become hidden
      * from the viewer ([arcanum.engine.Host.visible]). A setting of the game, not changed by play.
      */
-    var viewer: PlayerId? = null,
-) {
+    val viewer: PlayerId? get() = _viewer
+
     /** The engine's cached view of its own working copy (never set on a host's state). */
     @kotlinx.serialization.Transient
     internal var viewCache: arcanum.engine.view.ViewCache? = null
@@ -74,7 +101,7 @@ data class GameState(
     internal fun updatePlayer(id: PlayerId, change: (PlayerState) -> PlayerState) {
         val index = players.indexOfFirst { it.id == id }
         require(index >= 0) { "No player $id" }
-        players[index] = change(players[index])
+        _players[index] = change(_players[index])
     }
 
     /** Players still in the game, in turn order starting with [first] (APNAP from the active player, CR 101.4); when
@@ -119,10 +146,10 @@ data class GameState(
 
     internal fun setZone(zone: Zone, owner: PlayerId?, ids: List<ObjectId>) {
         when (zone) {
-            Zone.Battlefield -> battlefield = ids.toMutableList()
-            Zone.Stack -> stack = ids.toMutableList()
-            Zone.Exile -> exile = ids.toMutableList()
-            Zone.Command -> command = ids.toMutableList()
+            Zone.Battlefield -> _battlefield = ids.toMutableList()
+            Zone.Stack -> _stack = ids.toMutableList()
+            Zone.Exile -> _exile = ids.toMutableList()
+            Zone.Command -> _command = ids.toMutableList()
             Zone.Library -> updatePlayer(owner!!) { it.copy(library = ids) }
             Zone.Hand -> updatePlayer(owner!!) { it.copy(hand = ids) }
             Zone.Graveyard -> updatePlayer(owner!!) { it.copy(graveyard = ids) }
@@ -162,7 +189,20 @@ data class GameState(
      * Undo still reaches the turns dropped ([revert]), but "this turn" questions there see none of their events: a host
      * that lets players undo that far keeps the log. */
     fun forgetOlderTurns() {
-        log = log.filter { it.turn >= turn.number - 1 }.toMutableList()
+        _log = _log.filter { it.turn >= turn.number - 1 }.toMutableList()
+    }
+
+    /** Puts back [entries] that [forgetOlderTurns] dropped, before every entry kept: housekeeping for a host that takes
+     * back what it did after dropping them, not a change. */
+    fun rememberOlderTurns(entries: List<LoggedChange>) {
+        _log.addAll(0, entries)
+    }
+
+    /** Sets the timestamp counter back to [counter] (D34: [revert] leaves it where it is): housekeeping for a host that has
+     * taken back every change made since the counter was [counter], so that play goes on from there with the same
+     * timestamps; not a change. */
+    fun rewindTimestampCounter(counter: Long) {
+        _timestampCounter = counter
     }
 
     /** An independent copy: the engine's own working state (D56). Objects inside are immutable and shared. */
@@ -172,29 +212,22 @@ data class GameState(
     }
 
     private fun copied(): GameState = copy(
-        players = players.toMutableList(),
-        objects = LinkedHashMap(objects),
-        battlefield = battlefield.toMutableList(),
-        stack = stack.toMutableList(),
-        exile = exile.toMutableList(),
-        command = command.toMutableList(),
-        stackItems = LinkedHashMap(stackItems),
-        effects = LinkedHashMap(effects),
-        delayedTriggers = LinkedHashMap(delayedTriggers),
-        ledger = LinkedHashMap(ledger),
-        log = log.toMutableList(),
-        triggered = triggered.toMutableList(),
+        _players = _players.toMutableList(),
+        _objects = LinkedHashMap(_objects),
+        _battlefield = _battlefield.toMutableList(),
+        _stack = _stack.toMutableList(),
+        _exile = _exile.toMutableList(),
+        _command = _command.toMutableList(),
+        _stackItems = LinkedHashMap(_stackItems),
+        _effects = LinkedHashMap(_effects),
+        _delayedTriggers = LinkedHashMap(_delayedTriggers),
+        _ledger = LinkedHashMap(_ledger),
+        _log = _log.toMutableList(),
+        _triggered = _triggered.toMutableList(),
     )
 
-    companion object {
-        /** A game with [players] (in turn order) at 20 life, turn 1 of the first player in [step]. */
-        fun start(players: List<PlayerId>, life: Int = 20, step: TurnStep = TurnStep.PrecombatMain): GameState =
-            GameState(
-                players = players.map { PlayerState(it, life, startingLife = life) }.toMutableList(),
-                turn = TurnState(1, players.first(), step, turnStarted = mapOf(players.first() to 1)),
-                priority = PriorityState(players.first()),
-            )
-    }
+    /** Holds the test setup's [GameState.of] and [GameState.start] ([ArcanumTestSetup]). */
+    companion object
 }
 
 /** One tagged event (D33) of turn [turn]. */

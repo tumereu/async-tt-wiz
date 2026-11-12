@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.automatum
 
 import arcanum.api.TurnStep
@@ -14,6 +16,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.PlayerState
 import arcanum.engine.state.PriorityState
 import arcanum.engine.state.TurnState
+import arcanum.engine.state.of
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.InitialShuffle
 import org.asyncttwiz.protocol.InitialStarter
@@ -69,7 +72,7 @@ internal class EngineTable {
     fun obj(cardId: String): ObjectId.Card = objects.keys.filterIsInstance<ObjectId.Card>().single { it.card.value == cardId }
 
     /** The game's engine state now (a fresh copy each time). */
-    fun state(): GameState = GameState(
+    fun state(): GameState = GameState.of(
         players = listOf(alice, bob).map { p ->
             PlayerState(PlayerId(p), life = 20, library = zones[p to Zone.Library].orEmpty(), hand = zones[p to Zone.Hand].orEmpty(),
                 graveyard = zones[p to Zone.Graveyard].orEmpty())

@@ -21,7 +21,7 @@ class Review2MultiFacedTest {
     /** Sets [name] up with its back face up (setup only). */
     private fun Scenario.backFaceUp(name: String) {
         val id = card(name)
-        state.objects[id] = state.objOrThrow(id).copy(face = 1)
+        state._objects[id] = state.objOrThrow(id).copy(face = 1)
     }
 
     /** A modal double-faced card with a land back face is a creature card in the graveyard: Knight of the Relic Vault

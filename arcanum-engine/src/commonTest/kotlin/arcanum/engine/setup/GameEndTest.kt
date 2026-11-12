@@ -234,7 +234,7 @@ class GameEndTest {
     fun whatALeavingPlayerControlsButDoesNotOwnIsExiled() = scenario(players = 3) {
         bob.battlefield("Undead Soothsayer")
         val stolen = card("Undead Soothsayer")
-        state.objects[stolen] = state.objOrThrow(stolen).copy(controller = carol.id)
+        state._objects[stolen] = state.objOrThrow(stolen).copy(controller = carol.id)
         passPriority()
         passPriority()
         perform(Input.Concede(carol.id))

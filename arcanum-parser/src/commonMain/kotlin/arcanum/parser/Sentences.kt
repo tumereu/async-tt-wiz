@@ -2820,6 +2820,7 @@ internal class Sentences(
         mshModify(sentence, steps, context)?.let { return it } // msh
         hobModify(sentence, steps, context)?.let { return it } // hob
         fraModify(sentence, steps, context)?.let { return it } // fra
+        woeModify(sentence, steps, context)?.let { return it } // woe
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
         // gtc chunk 11: 'Create a 1/1 white and black Cleric creature token. It has "[ability]."' (CR 111.4: part of the token)
@@ -5677,6 +5678,8 @@ internal class Sentences(
         // "[A], then [B].": tried last, after the wordings that contain ", then" themselves.
         THEN.matchEntire(sentence)?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return null
+            // woe chunk 02: the second part may change the first ("return it to the battlefield …, then create a Role token attached to it")
+            modify(m.groupValues[2].replaceFirstChar { it.uppercase() }, first, context)?.let { return it }
             val second = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
             return first + second
         }
@@ -15674,6 +15677,22 @@ internal class Sentences(
         return null
     }
 
+    /** woe: sentences that change the steps before them. */
+    private fun woeModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // woe chunk 02: "Return target creature card … to the battlefield. Create a Young Hero Role token attached to it.", "return it to the
+        // battlefield …, then create a Wicked Role token attached to it.": "it" is the permanent the move put onto the battlefield, a new
+        // object (CR 400.7)
+        Woe.CREATE_ATTACHED_TO.matchEntire(sentence)?.takeIf { it.groupValues[2] == "it" || it.groupValues[2] == "that creature" }?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            if (move.to.zone != Zone.Battlefield) return null
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            val name = move.postBind ?: "returned"
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = name)) +
+                Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, attachedTo = Recipients(objects = Objects.Bound(name))))
+        }
+        return null
+    }
+
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
         // woe chunk 01: "For each creature your opponents control, create a Cursed Role token attached to that creature."; "For each of those
@@ -15691,7 +15710,8 @@ internal class Sentences(
             val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
             val to = when (val phrase = m.groupValues[2]) {
                 "it" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it
-                "that creature" -> context.that ?: context.it
+                // woe chunk 02: "Target creature you control gains hexproof until end of turn. Create a Royal Role token attached to that creature."
+                "that creature" -> context.that ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it
                 else -> eoeTarget(phrase, context)
             } ?: return null
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, attachedTo = Recipients(objects = to))))
@@ -21230,8 +21250,9 @@ internal class Sentences(
         Eoe.UNTIL_EOT_GETS_AND_GAINS_QUOTED.matchEntire(sentence)?.let { m ->
             val target = eoeTarget(m.groupValues[1], context) ?: return null
             val quoted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[4].let { if (it.endsWith(".")) it else "$it." }) ?: return null
-            return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
-                Mechanic.GainAbilities(listOf(quoted))))
+            val bonus = if (m.groupValues[2].isEmpty()) emptyList()
+                else listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())))
+            return listOf(eoeUntilEndOfTurn(target, *(bonus + Mechanic.GainAbilities(listOf(quoted))).toTypedArray()))
         }
         // 'Until end of turn, target creature gains "Whenever this creature is dealt damage, you draw that many cards and lose that much life."
         // That creature's controller may have this artifact deal 1 damage to it.'

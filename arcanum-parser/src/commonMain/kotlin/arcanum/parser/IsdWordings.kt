@@ -16,7 +16,18 @@ internal object Isd {
     val AS_LONG_AS_ITS_A_OTHERWISE = Regex("""(.+?) ((?:gets|has|can't) .+?) as long as it's an? ([A-Z]\w+)\. Otherwise, it (.+)\.""")
     // isd chunk 03: Curse of the Pierced Heart
     val DEALS_TO_THAT_PLAYER_OR_THEIR_PLANESWALKER = Regex("""(.+?) deals (\d+) damage to that player or a planeswalker that player controls\.""")
-        val IF_A_CARD_IS_DISCARDED_THIS_WAY = Regex("""If an? (.+?) card is discarded this way, (.+)\.""")
+    val IF_A_CARD_IS_DISCARDED_THIS_WAY = Regex("""If an? (.+?) card is discarded this way, (.+)\.""")
+    // isd chunk 04: Inquisitor's Flail
+    val ATTACHED_WOULD_DEAL_DOUBLE = Regex("""If (equipped creature|enchanted creature|another creature) would deal (combat |noncombat |)damage(?: to (equipped creature|enchanted creature))?, it deals double that damage(?: to (equipped creature|enchanted creature))? instead\.""")
+    // isd chunk 04: Runechanter's Pike
+    val HAS_KEYWORDS_AND_GETS_X_WHERE = Regex("""(.+?) has ([a-z ,]+?) and (gets [+-]X/[+-](?:X|0), where X is .+\.)""")
+    // isd chunk 04: Trepanation Blade
+    val REVEAL_UNTIL_GETS_FOR_EACH_REVEALED = Regex("""(.+?) reveals cards from the top of their library until they reveal an? (.+?) card\. (The creature|That creature|It) gets \+(\d+)/\+(\d+) until end of turn for each card revealed this way\. That player puts the revealed cards into their graveyard\.""")
+    // isd chunk 04: Wooden Stake
+    val BLOCKS_OR_BECOMES_BLOCKED_BY_A = Regex("""(.+?) blocks or becomes blocked by an? (.+)""")
+    val BECOMES_BLOCKED_BY_A = Regex("""(.+?) becomes blocked by an? (.+)""")
+    // isd chunk 04: Sharpened Pitchfork: "equipped creature is a Human"
+    val ATTACHED_IS = Regex("""(equipped|enchanted) creature is (legendary|an? .+)""")
 }
 
 internal object IsdPhrases {
@@ -29,6 +40,12 @@ internal object IsdPhrases {
     }
 
     fun condition(text: String, self: Set<String>): arcanum.api.Condition? {
+        // isd chunk 04: "equipped creature is a Human", "enchanted creature is legendary" (the object this permanent is attached to)
+        Isd.ATTACHED_IS.matchEntire(text)?.let { m ->
+            val filter = if (m.groupValues[2] == "legendary") arcanum.api.ObjectFilter.Super(arcanum.api.Supertype.Legendary)
+                else Filters.noun(m.groupValues[2].substringAfter(' ')) ?: return null
+            return arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.AttachedTo(arcanum.api.Objects.Self), filter)
+        }
         // isd chunk 02: "this creature didn't attack this turn" (Homicidal Brute's end step; the opposite of "attacked this turn")
         Isd.DIDNT_ATTACK_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self,

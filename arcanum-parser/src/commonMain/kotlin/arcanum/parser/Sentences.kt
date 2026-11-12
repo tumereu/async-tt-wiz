@@ -1352,6 +1352,7 @@ internal class Sentences(
         blbGapsStatic(line)?.let { return it } // blb gaps
         blbGaps2Static(line)?.let { return it } // blb gaps 2
         rtrStatic(line)?.let { return it } // rtr
+        isdStatic(line)?.let { return it } // isd
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -1859,7 +1860,12 @@ internal class Sentences(
             // dsk chunk 04: "As long as …, it gets +3/+3 and has hexproof.": "it" is this object
             // dsk chunk 13: "he's a 3/4 Ninja creature": this object
             val pronoun = LazyRegexes.PRONOUN_IS_AT_START.find(rest)
+            // isd chunk 04: "As long as equipped creature is a Human, it gets an additional +1/+0.": "it" is the equipped creature;
+            // "an additional" bonus is one more modification on top of the others (CR 613.4c)
+            val attached = Isd.ATTACHED_IS.matchEntire(text)?.groupValues?.get(1)
             val inner = condition?.let { static(when {
+                attached != null && rest.startsWith("It ") ->
+                    attached.replaceFirstChar { c -> c.uppercase() } + " creature " + rest.removePrefix("It ").replace(Regex("""^gets an additional """), "gets ")
                 pronoun != null -> "This permanent is " + rest.substring(pronoun.range.last + 1)
                 rest.startsWith("It ") -> "This permanent " + rest.removePrefix("It ")
                 else -> rest
@@ -2537,6 +2543,10 @@ internal class Sentences(
         is EventPattern.ZoneChange -> Objects.EventObject(if (event.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before)
         is EventPattern.Discard -> Objects.EventObject(arcanum.api.EventRole.After)
         is EventPattern.Unattach -> Objects.EventObject(arcanum.api.EventRole.From)
+        // isd chunk 04: "Whenever this creature blocks a creature / becomes blocked by a creature, destroy that creature": the other
+        // combatant the trigger names (CR 509.3b, 509.3d)
+        is EventPattern.Block -> Objects.EventObject(if (event.perAttacker) EventRole.OtherCombatant else EventRole.Object)
+        is EventPattern.BecomesBlocked -> Objects.EventObject(if (event.perBlocker) EventRole.OtherCombatant else EventRole.Object)
         else -> Objects.EventObject(role = EventRole.Object)
     }
 
@@ -15609,8 +15619,57 @@ internal class Sentences(
         return null
     }
 
+    /** isd: static abilities. */
+    private fun isdStatic(line: String): Ability? {
+        // isd chunk 04: "If equipped creature would deal combat damage, it deals double that damage instead.", "If another creature would deal
+        // combat damage to equipped creature, it deals double that damage to equipped creature instead." (CR 614.1a; "another": other than
+        // the creature named, the equipped one)
+        Isd.ATTACHED_WOULD_DEAL_DOUBLE.matchEntire(line)?.let { m ->
+            val to = m.groupValues[3]
+            if (m.groupValues[4].isNotEmpty() && m.groupValues[4] != to) return@let
+            val attached = ObjectFilter.Is(Objects.AttachedTo(Objects.Self))
+            fun named(text: String) = if (text == "equipped creature" || text == "enchanted creature") attached else null
+            val source = when {
+                m.groupValues[1] == "another creature" && to.isNotEmpty() && named(to) != null ->
+                    Filters.all(ObjectFilter.Not(attached), ObjectFilter.Type(arcanum.api.CardType.Creature))
+                else -> named(m.groupValues[1]) ?: return@let
+            }
+            val recipient = if (to.isEmpty()) RecipientFilter() else RecipientFilter(objects = named(to) ?: return@let)
+            val combat = when (m.groupValues[2]) { "combat " -> true; "noncombat " -> false; else -> null }
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(source, recipient, combat = combat),
+                modify = listOf(Modification.MultiplyAmount(2)))), affects = Affected.Objects(Objects.Self))
+        }
+        // isd chunk 04: "Equipped creature has first strike and gets +X/+0, where X is the number of instant and sorcery cards in your
+        // graveyard." (the "gets" part may hold " and ", so it is read whole after the keywords; both apply to the same object, CR 613.1f, 613.4c)
+        Isd.HAS_KEYWORDS_AND_GETS_X_WHERE.matchEntire(line)?.let { m ->
+            val keywords = keywords(m.groupValues[2]) ?: return@let
+            val inner = static("${m.groupValues[1]} ${m.groupValues[3]}") as? Ability.Static ?: return@let
+            if (inner.condition != null) return@let
+            return inner.copy(mechanics = listOf(Mechanic.GainAbilities(keywords)) + inner.mechanics)
+        }
+        return null
+    }
+
     /** isd: whole multi-sentence effects. */
     private fun isdWhole(text: String, context: Context): List<Step>? {
+        // isd chunk 04: "defending player reveals cards from the top of their library until they reveal a land card. The creature gets +1/+0
+        // until end of turn for each card revealed this way. That player puts the revealed cards into their graveyard." (every card turned
+        // over counts, the land too, CR 701.20a; "the creature" is the trigger's object)
+        Isd.REVEAL_UNTIL_GETS_FOR_EACH_REVEALED.matchEntire(text)?.let { m ->
+            val player = playersIn(m.groupValues[1], context) ?: return@let
+            val filter = Filters.noun(m.groupValues[2]) ?: return@let
+            val creature = when (m.groupValues[3]) {
+                "The creature", "That creature" -> context.that ?: return@let
+                else -> context.it ?: return@let
+            }
+            val revealed = Objects.Union(listOf(Objects.Bound("found"), Objects.Bound("rest")))
+            val per = Value.Count(revealed)
+            fun times(n: Int) = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
+            return listOf(Step.Do(Effect.RevealUntil(filter, player, Value.Fixed(1), reveal = true, foundBind = "found", restBind = "rest")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[4].toInt()), times(m.groupValues[5].toInt()))),
+                    Affected.Objects(creature), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.Move(revealed, Destination(Zone.Graveyard))))
+        }
         // isd chunk 01: "Each player chooses a creature they control. Destroy the rest." (each player chooses in turn order, then all the
         // others are destroyed at once, CR 101.4, 608.2e)
         Isd.EACH_CHOOSES_ONE_THEY_CONTROL_REST.matchEntire(text)?.let { m ->

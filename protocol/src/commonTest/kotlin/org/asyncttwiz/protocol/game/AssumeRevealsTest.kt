@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.protocol.game
 
 import arcanum.api.TurnStep
@@ -11,6 +13,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.setup
 import org.asyncttwiz.protocol.AssumeReveals
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -112,8 +115,8 @@ class AssumeRevealsTest {
         val own = state.player(bob).library.first()
         val handCard = state.player(alice).library[1]
         val faceDown = state.player(alice).library[2]
-        state.objects[handCard] = state.obj(handCard)!!.copy(zone = Zone.Hand)
-        state.objects[faceDown] = state.obj(faceDown)!!.copy(zone = Zone.Exile, faceDown = true)
+        state.setup.objects[handCard] = state.obj(handCard)!!.copy(zone = Zone.Hand)
+        state.setup.objects[faceDown] = state.obj(faceDown)!!.copy(zone = Zone.Exile, faceDown = true)
         fun cardOf(id: ObjectId) = state.obj(id)!!.card
         fun shown(allowed: AssumeReveals) =
             InformationRule.revealing(state, listOf(Change.Shown(bob, listOf(library, own, handCard, faceDown))), bob, allowed)

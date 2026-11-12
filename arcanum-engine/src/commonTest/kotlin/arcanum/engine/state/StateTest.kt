@@ -33,8 +33,8 @@ class StateTest {
     // CR 101.4: active player first, then the others in turn order.
     @Test
     fun apnapStartsWithTheActivePlayer() {
-        val state = GameState.start(listOf("alice", "bob", "carol").map(::PlayerId))
-        state.turn = state.turn.copy(active = PlayerId("bob"))
+        val state = GameState.started(listOf("alice", "bob", "carol").map(::PlayerId))
+        state._turn = state.turn.copy(active = PlayerId("bob"))
         assertEquals(listOf("bob", "carol", "alice"), state.apnap().map { it.value })
     }
 }

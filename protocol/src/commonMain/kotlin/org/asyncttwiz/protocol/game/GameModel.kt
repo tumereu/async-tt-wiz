@@ -151,7 +151,7 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
             for (change in event.table) table = change.apply(table)
         } catch (e: RuntimeException) {
             for (i in applied - 1 downTo 0) engine.revert(engineChanges[i])
-            engine.timestampCounter = counter
+            engine.rewindTimestampCounter(counter)
             table = tableBefore
             throw e
         }
@@ -171,11 +171,11 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         val drop = kept.lastOrNull()?.takeIf { it.turn == turn && turnBefore(changes) != turn }
         if (drop != null) {
             kept.removeAt(kept.lastIndex)
-            engine.log.addAll(0, drop.dropped)
+            engine.rememberOlderTurns(drop.dropped)
             floor = drop.floor
         }
         for (change in changes.asReversed()) engine.revert(change)
-        engine.timestampCounter = part.timestampBefore
+        engine.rewindTimestampCounter(part.timestampBefore)
         if ((engine.turn.number - 1).coerceAtLeast(0) < floor) stale = true
     }
 
@@ -342,7 +342,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
             for (change in step.changes.asReversed()) model.engine.revert(change)
             randomSteps.remove(steps.size)
         }
-        model.engine.timestampCounter = mark.counter
+        model.engine.rewindTimestampCounter(mark.counter)
         line = mark.line
     }
 
@@ -367,7 +367,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         model.changing()
         for (change in table.asReversed()) model.applyTable(change.inverse())
         for (step in steps.asReversed()) for (change in step.changes.asReversed()) model.engine.revert(change)
-        model.engine.timestampCounter = timestampBefore
+        model.engine.rewindTimestampCounter(timestampBefore)
         // The engine state is the one it began on again
         model.restore(keptBefore)
     }

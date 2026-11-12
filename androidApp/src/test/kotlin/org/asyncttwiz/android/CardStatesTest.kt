@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.ScrollState
@@ -36,6 +38,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.NamedValue
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.PlayerStates
 import org.asyncttwiz.automatum.StateGlyph
@@ -75,17 +78,17 @@ class CardStatesTest {
     private val blocker = f.source(f.b, "2/3")
 
     private fun id(card: PlayCard) = ObjectId.Card(CardId(card.id), card.zoneChanges)
-    private fun GameState.mark(card: PlayCard, edit: (GameObject) -> GameObject) { objects[id(card)] = edit(objects.getValue(id(card))) }
+    private fun GameState.mark(card: PlayCard, edit: (GameObject) -> GameObject) { setup.objects[id(card)] = edit(objects.getValue(id(card))) }
     private fun GameState.player(account: String, edit: (arcanum.engine.state.PlayerState) -> arcanum.engine.state.PlayerState) {
         val at = players.indexOfFirst { it.id.value == account }
-        players[at] = edit(players[at])
+        setup.players[at] = edit(players[at])
     }
 
     /** The table [viewer] draws of [play] with [edit] made to its engine state, as [EngineFixture] makes it. */
     private fun board(play: PlayState = f.initial, viewer: String = f.a, edit: GameState.() -> Unit): TableBoard {
         // The emblems' records are what a board shows of the engine's emblems: the test's state doesn't hold them
         val state = TestEngineState.of(play.copy(board = play.board.copy(engineRecords = emptyList())))
-        StepFlow.settledPriority(state)?.let { state.priority = it }
+        StepFlow.settledPriority(state)?.let { state.setup.priority = it }
         state.edit()
         val model = GameModel(state, TableState(secret = LineRandom.secret(ByteArray(32) { 7 })))
         val me = PlayerId(viewer)
@@ -159,7 +162,7 @@ class CardStatesTest {
     // TBL-134: what an effect tells a creature it can't do is a line in Inspect with its source, like a change line; not on the chip
     @Test fun anEffectsRestrictionIsAnInspectLineWithItsSource() {
         val board = board {
-            effects[EffectId("E1")] = EffectObject(EffectId("E1"), listOf(Mechanic.CantBlock(arcanum.api.ObjectFilter.Any)), affects = null,
+            setup.effects[EffectId("E1")] = EffectObject(EffectId("E1"), listOf(Mechanic.CantBlock(arcanum.api.ObjectFilter.Any)), affects = null,
                 locked = listOf(id(sentinel)), source = id(blocker), controller = PlayerId(f.b), timestamp = 900, createdTurn = 1, duration = Duration.EndOfTurn)
         }
         val line = changes(board, sentinel).single { it.text.startsWith("Can't block") }
@@ -174,10 +177,10 @@ class CardStatesTest {
         val board = board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
             val emblem = ObjectId.Card(CardId("ring-emblem"), 0)
-            objects[emblem] = GameObject(emblem, PlayerId(f.a), PlayerId(f.a), Zone.Command, CardDefinition(Layout.Normal, listOf(FaceDefinition("The Ring",
+            setup.objects[emblem] = GameObject(emblem, PlayerId(f.a), PlayerId(f.a), Zone.Command, CardDefinition(Layout.Normal, listOf(FaceDefinition("The Ring",
                 abilities = listOf(arcanum.api.Ability.Static(listOf(Mechanic.CantBeBlockedBy(arcanum.api.ObjectFilter.Any)),
                     arcanum.api.Affected.Objects(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.HasStatus(arcanum.api.Status.Marked(ObjectMark.RingBearer))))))))), timestamp = 900)
-            command.add(emblem)
+            setup.command.add(emblem)
         }
         assertEquals(1, changes(board, sentinel).count { it.text.contains("blocked") }, "${changes(board, sentinel)}")
     }
@@ -188,7 +191,7 @@ class CardStatesTest {
             counters = listOf(CounterEntry(CounterKind.Poison, 3, 1))) }
         player(f.b) { it.copy(designations = listOf(Designation.Initiative, Designation.CitysBlessing),
             ledger = mapOf("ring-tempted" to 6), counters = listOf(CounterEntry(CounterKind.Energy, 5, 1))) }
-        ledger["\$day-night"] = 2
+        setup.ledger["\$day-night"] = 2
     }
 
     /** Emblems for both, as in TRN-053. */
@@ -200,10 +203,10 @@ class CardStatesTest {
     /** A dungeon on the opponent's side with its marker on a room (TRN-069). */
     private fun GameState.dungeon() {
         val crypt = ObjectId.Card(CardId("00000000-0000-5000-8000-0000000000d1"), 0)
-        objects[crypt] = GameObject(crypt, PlayerId(f.b), PlayerId(f.b), Zone.Command, CardDefinition(Layout.Normal, listOf(FaceDefinition("Lantern Crypt",
+        setup.objects[crypt] = GameObject(crypt, PlayerId(f.b), PlayerId(f.b), Zone.Command, CardDefinition(Layout.Normal, listOf(FaceDefinition("Lantern Crypt",
             types = listOf(CardType.Dungeon), rooms = listOf(arcanum.api.DungeonRoom("Hall of Moths", arcanum.api.Instructions(), emptyList()))))),
             timestamp = 901, memory = arcanum.engine.state.Bindings.EMPTY.with("\$venture-room", NamedValue.Number(0)))
-        command.add(crypt)
+        setup.command.add(crypt)
     }
 
     // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows a glyph (owner gallery
@@ -420,7 +423,7 @@ class CardStatesTest {
         mark(river) { it.copy(goadedBy = listOf(PlayerId(f.b)), marks = listOf(ObjectMark.Monstrous)) }
         mark(blocker) { it.copy(marks = listOf(ObjectMark.Suspected)) }
         player(f.a) { it.copy(ledger = mapOf("ring-tempted" to 2)) }
-        effects[EffectId("E1")] = EffectObject(EffectId("E1"), listOf(Mechanic.DoesntUntap), affects = null, locked = listOf(id(sentinel)),
+        setup.effects[EffectId("E1")] = EffectObject(EffectId("E1"), listOf(Mechanic.DoesntUntap), affects = null, locked = listOf(id(sentinel)),
             source = id(blocker), controller = PlayerId(f.b), timestamp = 900, createdTurn = 1, duration = Duration.UntilYourNextTurn)
     }
 

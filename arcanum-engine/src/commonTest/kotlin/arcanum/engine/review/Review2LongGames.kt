@@ -76,10 +76,10 @@ internal class LongGame(
     private val truths = mutableMapOf<CardId, arcanum.api.CardDefinition>()
     val state: GameState = Engine.newGame(ids.map { Seat(it, deck(it)) }).also { game ->
         if (viewer != null) {
-            game.viewer = viewer
+            game._viewer = viewer
             game.objects.values.toList().forEach { o ->
                 truths[o.card] = o.definition!!
-                if (!Knowledge.mayKnow(o, viewer)) game.objects[o.id] = o.copy(definition = null)
+                if (!Knowledge.mayKnow(o, viewer)) game._objects[o.id] = o.copy(definition = null)
             }
         }
     }
@@ -240,7 +240,7 @@ internal class LongGame(
         } catch (e: Throwable) {
             fail("Applying or reverting the outcome of $input failed: ${e.message}", e)
         }
-        copy.timestampCounter = state.timestampCounter
+        copy._timestampCounter = state.timestampCounter
         if (copy != state) fail("Reverting the outcome of $input didn't restore the state (D59)")
         outcome.changes.forEach { state.apply(it); applied += it }
         // D60: a card that becomes hidden from the viewer (put into another player's hand, face down where the viewer
@@ -325,7 +325,7 @@ internal class LongGame(
         } catch (e: Throwable) {
             fail("Reverting the whole game failed: ${e.message}", e)
         }
-        reverted.timestampCounter = start.timestampCounter
+        reverted._timestampCounter = start.timestampCounter
         if (reverted != start) fail("Reverting the whole game didn't give back its start (D59)")
     }
 

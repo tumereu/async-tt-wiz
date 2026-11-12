@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.automatum
 
 import arcanum.api.Affected
@@ -22,6 +24,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.NamedValue
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -46,7 +49,7 @@ class DurationTextTest {
         val state = table.state()
         change(state)
         val id = table.obj(card)
-        state.effects[EffectId("e1")] = EffectObject(EffectId("e1"), listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))),
+        state.setup.effects[EffectId("e1")] = EffectObject(EffectId("e1"), listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))),
             Affected.Objects(Objects.Bound("affected")), locked = listOf(id), source = table.obj(herald), controller = PlayerId(controller),
             timestamp = 100, createdTurn = state.turn.number, duration = duration, names = Bindings(bound))
         val view = Engine.view(state)
@@ -100,7 +103,7 @@ class DurationTextTest {
         assertEquals("Haste as long as it has a stun counter on it", line(
             Duration.AsLongAs(Condition.ObjectMatches(Objects.Bound("t"), ObjectFilter.HasCounter(CounterKind.Stun, atLeast = 1))),
             bound = mapOf("t" to NamedValue.Objects(listOf(table.obj(ogre))))) { s ->
-            s.objects[table.obj(ogre)] = s.objects.getValue(table.obj(ogre)).copy(counters = listOf(CounterEntry(CounterKind.Stun, 1, 1)))
+            s.setup.objects[table.obj(ogre)] = s.objects.getValue(table.obj(ogre)).copy(counters = listOf(CounterEntry(CounterKind.Stun, 1, 1)))
         })
     }
 

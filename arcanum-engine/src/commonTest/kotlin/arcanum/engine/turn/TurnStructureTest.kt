@@ -82,7 +82,7 @@ class TurnStructureTest {
     @Test
     fun withoutTheFlagTheFirstTurnDraws() = scenario(players = 3) {
         turn(1, step = TurnStep.Upkeep)
-        state.skipFirstDraw = false
+        state._skipFirstDraw = false
         alice.library("Forest")
         advanceTo(TurnStep.PrecombatMain)
         expect { alice.hand has "Forest" }
@@ -232,7 +232,7 @@ class TurnStructureTest {
     @Test
     fun extraTurnComesNext() = scenario {
         players.forEach { it.library("Island", "Island", "Island") }
-        state.turn = state.turn.copy(extraTurns = listOf(alice.id))
+        state._turn = state.turn.copy(extraTurns = listOf(alice.id))
         advanceTo(TurnStep.Upkeep, turn = 2)
         assertEquals(alice.id, state.turn.active)
         advanceTo(TurnStep.Upkeep, turn = 3)

@@ -21,6 +21,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.Bindings
 import arcanum.engine.state.CardId
 import arcanum.engine.state.NamedValue
+import arcanum.engine.state.started
 import arcanum.engine.state.ControlSince
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.EffectId
@@ -73,7 +74,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     /** The game: changed directly during setup, only by changes afterwards; [start] makes it from the player ids instead
      * (a game before it begins, [Engine.newGame]). */
     val state: GameState = start?.invoke(players.map { it.id })
-        ?: GameState.start(players.map { it.id }).also { it.turn = it.turn.copy(turnStarted = players.associate { p -> p.id to 0 } + (players.first().id to 1)) }
+        ?: GameState.started(players.map { it.id }).also { it._turn = it.turn.copy(turnStarted = players.associate { p -> p.id to 0 } + (players.first().id to 1)) }
 
     /** All changes applied since setup ended, in order. */
     val applied = mutableListOf<Change>()
@@ -95,8 +96,8 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             val order = players.indexOf(p) - players.indexOf(active)
             p.id to (number + order - (if (order > 0) players.size else 0)).coerceAtLeast(0)
         }
-        state.turn = TurnState(number, active.id, step, turnStarted = started)
-        state.priority = PriorityState(priority?.id)
+        state._turn = TurnState(number, active.id, step, turnStarted = started)
+        state._priority = PriorityState(priority?.id)
     }
 
     /** Scripts the next random results, used before seeded ones (D25): coin flips, die rolls, random picks. */
@@ -123,7 +124,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     ): EffectId {
         setup()
         val id = EffectId("E${state.effects.size + 1}")
-        val timestamp = ++state.timestampCounter
+        val timestamp = ++state._timestampCounter
         var frozen = Bindings(names.mapValues { (_, name) -> NamedValue.Objects(listOf(preferred(name, inPlay))) })
         val eval = arcanum.engine.casting.Snapshot(state).evaluator(controller.id, names = frozen)
         val layered = mechanics.any { it.layer != null }
@@ -137,7 +138,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             layered && affects is arcanum.api.Affected.Objects -> eval.objects(affects.objects)
             else -> null
         }
-        state.effects[id] = EffectObject(
+        state._effects[id] = EffectObject(
             id = id, mechanics = mechanics.toList(), affects = affected, locked = locked,
             lockedPlayers = (affects as? arcanum.api.Affected.Players)?.let { eval.players(it.players) },
             source = null, controller = controller.id, timestamp = timestamp, createdTurn = state.turn.number, duration = duration,
@@ -152,10 +153,10 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
      */
     fun viewer(player: ScenarioPlayer) {
         setup()
-        state.viewer = player.id
+        state._viewer = player.id
         state.objects.values.toList().filter { !it.unknown && !Knowledge.mayKnow(it, player.id) }.forEach { o ->
             secrets[o.card] = o.definition!!
-            state.objects[o.id] = o.copy(definition = null)
+            state._objects[o.id] = o.copy(definition = null)
         }
     }
 
@@ -164,7 +165,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     fun attach(attachment: String, to: String) {
         setup()
         val id = card(attachment)
-        state.objects[id] = state.objOrThrow(id).copy(attachedTo = target(to), timestamp = ++state.timestampCounter)
+        state._objects[id] = state.objOrThrow(id).copy(attachedTo = target(to), timestamp = ++state._timestampCounter)
     }
 
     internal fun put(
@@ -177,7 +178,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             val definition = Cards.definition(name)
             val card = CardId("${owner.id.value}.${++nextCard}")
             val id = ObjectId.Card(card, 0)
-            val timestamp = ++state.timestampCounter
+            val timestamp = ++state._timestampCounter
             if (hidden) secrets[card] = definition
             val onBattlefield = zone == Zone.Battlefield
             var o = GameObject(
@@ -195,7 +196,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
                 secrets[card] = definition
                 o = o.copy(definition = null)
             }
-            state.objects[id] = o
+            state._objects[id] = o
             val list = state.zone(zone, owner.id).toMutableList()
             if (top) list.add(0, id) else list.add(id)
             setZone(zone, owner.id, list)
@@ -205,14 +206,14 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     private fun setZone(zone: Zone, owner: PlayerId, ids: List<ObjectId>) {
         when (zone) {
-            Zone.Battlefield -> state.battlefield = ids.toMutableList()
-            Zone.Stack -> state.stack = ids.toMutableList()
-            Zone.Exile -> state.exile = ids.toMutableList()
-            Zone.Command -> state.command = ids.toMutableList()
+            Zone.Battlefield -> state._battlefield = ids.toMutableList()
+            Zone.Stack -> state._stack = ids.toMutableList()
+            Zone.Exile -> state._exile = ids.toMutableList()
+            Zone.Command -> state._command = ids.toMutableList()
             else -> {
                 val index = state.players.indexOfFirst { it.id == owner }
                 val p = state.players[index]
-                state.players[index] = when (zone) {
+                state._players[index] = when (zone) {
                     Zone.Library -> p.copy(library = ids)
                     Zone.Hand -> p.copy(hand = ids)
                     Zone.Graveyard -> p.copy(graveyard = ids)
@@ -507,7 +508,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val reverted = state.deepCopy()
         applied.asReversed().forEach { reverted.revert(it) }
         check(reverted.timestampCounter >= start.timestampCounter) { "The timestamp counter went back (D34)" }
-        reverted.timestampCounter = start.timestampCounter
+        reverted._timestampCounter = start.timestampCounter
         if (reverted != start) fail("Reverting the scenario's changes didn't restore its start (D59):\n${StateDiff.between(start, reverted)}")
     }
 

@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import arcanum.api.CardDefinition
@@ -20,6 +22,8 @@ import arcanum.engine.state.PlayerState
 import arcanum.engine.state.PriorityState
 import arcanum.engine.state.TargetRef
 import arcanum.engine.state.TurnState
+import arcanum.engine.state.of
+import arcanum.engine.state.setup
 import org.asyncttwiz.automatum.PrintedCards
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatStackRules
@@ -105,7 +109,7 @@ internal object TestEngineState {
         val other = board.players.firstOrNull { it.accountId != board.turn.accountId }?.accountId
         val turnStarted = mapOf(PlayerId(board.turn.accountId) to number) +
             listOfNotNull(other?.takeIf { number > 1 }?.let { PlayerId(it) to number - 1 })
-        val state = GameState(
+        val state = GameState.of(
             players = players.toMutableList(),
             objects = objects,
             battlefield = byTimestamp(Zone.Battlefield).toMutableList(),
@@ -195,6 +199,6 @@ internal object TestEngineState {
         val view = Engine.view(state)
         fun strikesFirst(id: ObjectId) = view[id]?.has { it == Mechanic.FirstStrike || it == Mechanic.DoubleStrike } == true
         val inCombat = (combat.attackers.map { it.id } + combat.blockers.map { it.id }).distinct().filter { it in state.battlefield }
-        state.combat = combat.copy(firstStrikeStep = true, firstStrikers = inCombat.filter(::strikesFirst))
+        state.setup.combat = combat.copy(firstStrikeStep = true, firstStrikers = inCombat.filter(::strikesFirst))
     }
 }

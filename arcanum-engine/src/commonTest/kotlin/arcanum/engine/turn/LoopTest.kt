@@ -158,7 +158,7 @@ class LoopTest {
         assertNotEquals(entered, Host.loopKey(state), "it died: another position of the lap")
         allPass()
         assertEquals(entered, Host.loopKey(state), "it returned as a new object: the same position")
-        val poorer = state.deepCopy().also { s -> s.players[0] = s.players[0].copy(life = 19) }
+        val poorer = state.deepCopy().also { s -> s._players[0] = s.players[0].copy(life = 19) }
         assertNotEquals(entered, Host.loopKey(poorer), "a life total is part of the game")
     }
 }

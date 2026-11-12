@@ -90,7 +90,7 @@ class CopiableValuesScenariosTest {
 
     private fun Scenario.unlockLeftOf(name: String) {
         val id = card(name, zone = Zone.Battlefield) as ObjectId.Card
-        state.objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Left)))
+        state._objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Left)))
     }
 
     // ---- Rooms
@@ -334,7 +334,7 @@ class CopiableValuesScenariosTest {
     fun aFlippedPermanentKeepsItsStatusWhateverItCopies() = scenario {
         alice.battlefield(novice, bear, clay)
         val copy = card(clay) as ObjectId.Card
-        state.objects[copy] = state.objOrThrow(copy).copy(flippedStatus = true)
+        state._objects[copy] = state.objOrThrow(copy).copy(flippedStatus = true)
         effect(alice, copyMechanic, on = listOf(clay), names = mapOf("original" to bear), duration = Duration.Indefinitely)
         assertEquals("Moss Bear", seen(copy).characteristics!!.name)
         assertTrue(state.objOrThrow(copy).flipped)
@@ -363,7 +363,7 @@ class CopiableValuesScenariosTest {
     fun aTransformedPermanentCopyingAFlipCardIsUnflipped() = scenario {
         alice.battlefield(werewolf, novice)
         val id = card(werewolf) as ObjectId.Card
-        state.objects[id] = state.objOrThrow(id).copy(face = 1)
+        state._objects[id] = state.objOrThrow(id).copy(face = 1)
         effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to novice), duration = Duration.Indefinitely)
         assertEquals("Glass Novice", seen(id).characteristics!!.name)
         assertFalse(state.objOrThrow(id).flipped)
@@ -374,7 +374,7 @@ class CopiableValuesScenariosTest {
     fun aRoomCastAsItsRightHalfCopyingAFlipCardIsUnflipped() = scenario {
         alice.battlefield(novice, room)
         val id = card(room) as ObjectId.Card
-        state.objects[id] = state.objOrThrow(id).copy(face = 1, marks = listOf(ObjectMark.Unlocked(Door.Right)))
+        state._objects[id] = state.objOrThrow(id).copy(face = 1, marks = listOf(ObjectMark.Unlocked(Door.Right)))
         effect(alice, copyMechanic, on = listOf(room), names = mapOf("original" to novice), duration = Duration.Indefinitely)
         assertEquals("Glass Novice", seen(id).characteristics!!.name)
     }
@@ -498,9 +498,9 @@ class CopiableValuesScenariosTest {
         alice.battlefield(room, blank)
         effect(alice, copyWithFlying, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
         val id = card(blank) as ObjectId.Card
-        state.objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Left), ObjectMark.Unlocked(Door.Right)))
+        state._objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Left), ObjectMark.Unlocked(Door.Right)))
         assertEquals(1, flyingOn(id))
-        state.objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Right)))
+        state._objects[id] = state.objOrThrow(id).copy(marks = listOf(ObjectMark.Unlocked(Door.Right)))
         assertEquals(1, flyingOn(id))
         assertEquals("Quiet Pantry", seen(id).characteristics!!.name)
     }
@@ -546,7 +546,7 @@ class CopiableValuesScenariosTest {
         alice.battlefield(clay, flyer, mold)
         val id = card(clay) as ObjectId.Card
         val part = state.objOrThrow(card(flyer))
-        state.objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(part.id, part.owner, part.definition, timestamp = 1)))
+        state._objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(part.id, part.owner, part.definition, timestamp = 1)))
         assertEquals(1, flyingOn(id))
         assertEquals(listOf<Ability>(arcanum.api.Keyword.Flying), seen(id).copiable!!.gained, "ObjectView.copiable has them")
         alice.activates(mold, target = clay)
@@ -560,7 +560,7 @@ class CopiableValuesScenariosTest {
     private fun Scenario.mergeOnto(onto: String, part: String) {
         val p = state.objOrThrow(card(part))
         val id = card(onto) as ObjectId.Card
-        state.objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(p.id, p.owner, p.definition, timestamp = 1)))
+        state._objects[id] = state.objOrThrow(id).copy(mergedBelow = listOf(arcanum.engine.state.MergedPart(p.id, p.owner, p.definition, timestamp = 1)))
     }
 
     // CR 702.140e, 709.5: a merged Room with its own card on top has its other part's abilities with both doors locked
@@ -615,7 +615,7 @@ class CopiableValuesScenariosTest {
         alice.battlefield(room, walker, blank)
         val id = card(room) as ObjectId.Card
         val p = state.objOrThrow(card(walker))
-        state.objects[id] = state.objOrThrow(id).copy(token = true, gainedInCopying = listOf(arcanum.api.Keyword.Flying),
+        state._objects[id] = state.objOrThrow(id).copy(token = true, gainedInCopying = listOf(arcanum.api.Keyword.Flying),
             mergedBelow = listOf(arcanum.engine.state.MergedPart(p.id, p.owner, p.definition, timestamp = 1)))
         effect(alice, copyMechanic, on = listOf(blank), names = mapOf("original" to room), duration = Duration.Indefinitely)
         fun vigilance(of: ObjectId) = seen(of).characteristics!!.abilities.count { it.ability == arcanum.api.Keyword.Vigilance }

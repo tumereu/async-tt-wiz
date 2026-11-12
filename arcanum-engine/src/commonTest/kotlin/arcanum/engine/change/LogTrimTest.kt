@@ -24,8 +24,28 @@ class LogTrimTest {
         val trimmed = state.deepCopy().also { it.forgetOlderTurns() }
         assertTrue(trimmed.log.size < state.log.size && trimmed.log.isNotEmpty())
         applied.asReversed().forEach { trimmed.revert(it) }
-        trimmed.timestampCounter = start.timestampCounter
+        trimmed.rewindTimestampCounter(start.timestampCounter)
         assertEquals(start, trimmed)
+    }
+
+    /** A host that takes back what it did after dropping older turns' events puts them back
+     * ([arcanum.engine.state.GameState.rememberOlderTurns]): the log is as before the drop. */
+    // D33
+    @Test
+    fun droppedEventsCanBePutBack() = scenario {
+        alice.battlefield("Mountain")
+        alice.hand("Storm Spark")
+        alice.library("Island", "Island", "Island")
+        bob.library("Island", "Island", "Island")
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        advanceTo(TurnStep.Upkeep, turn = 3)
+        val before = state.deepCopy()
+        val dropped = before.log.takeWhile { it.turn < before.turn.number - 1 }
+        val trimmed = state.deepCopy().also { it.forgetOlderTurns() }
+        assertTrue(dropped.isNotEmpty())
+        trimmed.rememberOlderTurns(dropped)
+        assertEquals(before, trimmed)
     }
 
     /** While the log still holds events, a change is taken back only as the last one (last first, D59). */

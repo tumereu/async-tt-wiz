@@ -117,18 +117,18 @@ internal object Loops {
         // in its own way
         fun byTime(ids: List<ObjectId>) = ids.sortedBy { state.obj(it)?.timestamp ?: 0L }.toMutableList()
         val light = state.copy(
-            battlefield = byTime(state.battlefield),
-            exile = byTime(state.exile),
-            command = byTime(state.command),
-            players = state.players.map { it.copy(ledger = emptyMap()) }.toMutableList(),
-            objects = state.objects.mapValuesTo(LinkedHashMap()) { (_, o) ->
+            _battlefield = byTime(state.battlefield),
+            _exile = byTime(state.exile),
+            _command = byTime(state.command),
+            _players = state.players.map { it.copy(ledger = emptyMap()) }.toMutableList(),
+            _objects = state.objects.mapValuesTo(LinkedHashMap()) { (_, o) ->
                 o.copy(definition = o.definition?.let(::named), facts = o.facts.withoutCounts())
             },
-            stackItems = state.stackItems.mapValuesTo(LinkedHashMap()) { (_, item) -> item.copy(facts = item.facts?.withoutCounts()) },
-            ledger = mutableMapOf(),
-            log = mutableListOf(),
-            timestampCounter = 0,
-            inputCount = 0,
+            _stackItems = state.stackItems.mapValuesTo(LinkedHashMap()) { (_, item) -> item.copy(facts = item.facts?.withoutCounts()) },
+            _ledger = mutableMapOf(),
+            _log = mutableListOf(),
+            _timestampCounter = 0,
+            _inputCount = 0,
         )
         val canon = Canon()
         state.players.forEach { p -> (p.library + p.hand + p.graveyard + p.outside).forEach { canon.known(id(it)) } }

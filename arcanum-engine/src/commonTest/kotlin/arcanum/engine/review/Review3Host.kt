@@ -90,7 +90,7 @@ internal class FakeHost(
         views = ids.map { v ->
             // A viewer's game made by the public API: decks as unknown cards, the viewer set (D60)
             val state = Engine.newGame(seats.map { s -> s.copy(deck = s.deck.map { it.copy(definition = null) }) })
-            state.viewer = v
+            state._viewer = v
             View(v, state)
         }
     }

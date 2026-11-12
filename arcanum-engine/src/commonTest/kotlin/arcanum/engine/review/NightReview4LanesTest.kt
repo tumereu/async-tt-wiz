@@ -456,7 +456,7 @@ class NightReview4LanesTest {
             Spells with the chosen name you cast cost {1} less to cast.
         """.trimIndent())
         val id = put(alice, listOf(tithe), Zone.Command, faceDown = true).single()
-        state.objects[id] = state.objOrThrow(id).copy(memory = arcanum.engine.state.Bindings.EMPTY.with(
+        state._objects[id] = state.objOrThrow(id).copy(memory = arcanum.engine.state.Bindings.EMPTY.with(
             arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME, arcanum.engine.state.NamedValue.Name(bear)))
         assertTrue(id in Host.visible(state, alice.id), "Its owner may look at it")
         assertFalse(id in Host.visible(state, bob.id), "bob doesn't know it")

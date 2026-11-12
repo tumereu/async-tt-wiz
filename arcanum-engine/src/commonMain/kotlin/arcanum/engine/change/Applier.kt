@@ -19,7 +19,7 @@ internal object Applier {
             is Change.Reverted -> revert(state, change.change)
             else -> {
                 applyState(state, change)
-                if (change.isEvent) state.log.add(LoggedChange(state.turn.number, change))
+                if (change.isEvent) state._log.add(LoggedChange(state.turn.number, change))
             }
         }
     }
@@ -35,7 +35,7 @@ internal object Applier {
                 if (change.isEvent && state.log.isNotEmpty()) {
                     val last = state.log.last()
                     check(last.change == change) { "Reverting a change that isn't the last logged event: $change" }
-                    state.log.removeAt(state.log.lastIndex)
+                    state._log.removeAt(state.log.lastIndex)
                 }
                 applyState(state, change.inverse())
             }
@@ -90,45 +90,45 @@ internal object Applier {
             }
             is Change.StackItemAdded -> {
                 check(change.item.id !in state.stackItems) { "Stack item ${change.item.id} exists already" }
-                state.stackItems[change.item.id] = change.item
-                change.index?.let { state.stack.add(it, change.item.id) }
+                state._stackItems[change.item.id] = change.item
+                change.index?.let { state._stack.add(it, change.item.id) }
                 stamp(state, change.item.timestamp)
             }
             is Change.StackItemRemoved -> {
                 check(state.stackItems[change.item.id] == change.item) { "Stack item ${change.item.id} isn't as expected" }
-                state.stackItems.remove(change.item.id)
+                state._stackItems.remove(change.item.id)
                 change.index?.let {
                     check(state.stack.getOrNull(it) == change.item.id) { "Stack position $it isn't ${change.item.id}" }
-                    state.stack.removeAt(it)
+                    state._stack.removeAt(it)
                 }
             }
             is Change.StackItemUpdated -> {
                 check(state.stackItems[change.before.id] == change.before) { "Stack item ${change.before.id} isn't as expected" }
-                state.stackItems.remove(change.before.id)
-                state.stackItems[change.after.id] = change.after
+                state._stackItems.remove(change.before.id)
+                state._stackItems[change.after.id] = change.after
             }
             is Change.EffectAdded -> {
                 check(change.effect.id !in state.effects) { "Effect ${change.effect.id} exists already" }
-                state.effects[change.effect.id] = change.effect
+                state._effects[change.effect.id] = change.effect
                 stamp(state, change.effect.timestamp)
             }
             is Change.EffectRemoved -> {
                 check(state.effects[change.effect.id] == change.effect) { "Effect ${change.effect.id} isn't as expected" }
-                state.effects.remove(change.effect.id)
+                state._effects.remove(change.effect.id)
             }
             is Change.EffectUpdated -> {
                 check(state.effects[change.before.id] == change.before) { "Effect ${change.before.id} isn't as expected" }
-                state.effects.remove(change.before.id)
-                state.effects[change.after.id] = change.after
+                state._effects.remove(change.before.id)
+                state._effects[change.after.id] = change.after
             }
             is Change.DelayedTriggerAdded -> {
                 check(change.trigger.id !in state.delayedTriggers) { "Delayed trigger ${change.trigger.id} exists already" }
-                state.delayedTriggers[change.trigger.id] = change.trigger
+                state._delayedTriggers[change.trigger.id] = change.trigger
                 stamp(state, change.trigger.timestamp)
             }
             is Change.DelayedTriggerRemoved -> {
                 check(state.delayedTriggers[change.trigger.id] == change.trigger) { "Delayed trigger ${change.trigger.id} isn't as expected" }
-                state.delayedTriggers.remove(change.trigger.id)
+                state._delayedTriggers.remove(change.trigger.id)
             }
             is Change.Attached -> updateObject(state, change.id) { o ->
                 check(o.attachedTo == change.before && o.timestamp == change.timestampBefore) { "${change.id} isn't attached to ${change.before}" }
@@ -164,19 +164,19 @@ internal object Applier {
             }
             is Change.Step -> {
                 check(state.turn == change.before) { "Turn isn't ${change.before}" }
-                state.turn = change.after
+                state._turn = change.after
             }
             is Change.Priority -> {
                 check(state.priority == change.before) { "Priority isn't ${change.before}" }
-                state.priority = change.after
+                state._priority = change.after
             }
             is Change.Combat -> {
                 check(state.combat == change.before) { "Combat isn't ${change.before}" }
-                state.combat = change.after
+                state._combat = change.after
             }
             is Change.Ledger -> if (change.player == null) {
                 check((state.ledger[change.key] ?: 0) == change.before) { "Ledger ${change.key} isn't ${change.before}" }
-                if (change.after == 0) state.ledger.remove(change.key) else state.ledger[change.key] = change.after
+                if (change.after == 0) state._ledger.remove(change.key) else state._ledger[change.key] = change.after
             } else state.updatePlayer(change.player) { p ->
                 check((p.ledger[change.key] ?: 0) == change.before) { "Ledger ${change.key} of ${change.player} isn't ${change.before}" }
                 p.copy(ledger = if (change.after == 0) p.ledger - change.key else p.ledger + (change.key to change.after))
@@ -197,8 +197,8 @@ internal object Applier {
             is Change.Shuffle -> {
                 val library = state.player(change.player).library
                 check(library == change.before.map { it.id }) { "Library of ${change.player} isn't as expected" }
-                change.before.forEach { check(state.objects.remove(it.id) == it) { "${it.id} isn't as expected" } }
-                change.after.forEach { state.objects[it.id] = it }
+                change.before.forEach { check(state._objects.remove(it.id) == it) { "${it.id} isn't as expected" } }
+                change.after.forEach { state._objects[it.id] = it }
                 state.setZone(arcanum.api.Zone.Library, change.player, change.after.map { it.id })
             }
             is Change.Reorder -> {
@@ -220,22 +220,22 @@ internal object Applier {
             }
             is Change.TriggersWaiting -> {
                 check(state.triggered == change.before) { "Waiting triggers aren't as expected" }
-                state.triggered = change.after.toMutableList()
+                state._triggered = change.after.toMutableList()
             }
             is Change.InputCounted -> {
                 check(state.inputCount == change.before) { "The input count isn't ${change.before}" }
-                state.inputCount = change.after
+                state._inputCount = change.after
             }
             is Change.PendingSet -> {
                 check(state.pending == change.before) { "Pending isn't as expected" }
-                state.pending = change.after
+                state._pending = change.after
             }
             is Change.Reverted -> error("Reverted is handled by apply and revert")
         }
     }
 
     private fun stamp(state: GameState, timestamp: Long) {
-        if (timestamp > state.timestampCounter) state.timestampCounter = timestamp
+        if (timestamp > state.timestampCounter) state._timestampCounter = timestamp
     }
 
     private fun insert(state: GameState, obj: GameObject, index: Int) {
@@ -244,7 +244,7 @@ internal object Applier {
         check(obj.counters.distinctBy { it.kind }.size == obj.counters.size) { "Object ${obj.id} has two entries of one counter kind: ${obj.counters}" }
         val zone = state.zone(obj.zone, obj.owner)
         check(index in 0..zone.size) { "Position $index is outside ${obj.zone} (size ${zone.size})" }
-        state.objects[obj.id] = obj
+        state._objects[obj.id] = obj
         state.setZone(obj.zone, obj.owner, zone.toMutableList().apply { add(index, obj.id) })
         stamp(state, obj.timestamp)
     }
@@ -253,13 +253,13 @@ internal object Applier {
         check(state.objects[obj.id] == obj) { "Object ${obj.id} isn't as expected:\n  ${state.objects[obj.id]}\n  $obj" }
         val zone = state.zone(obj.zone, obj.owner)
         check(zone.getOrNull(index) == obj.id) { "Position $index of ${obj.zone} isn't ${obj.id}" }
-        state.objects.remove(obj.id)
+        state._objects.remove(obj.id)
         state.setZone(obj.zone, obj.owner, zone.toMutableList().apply { removeAt(index) })
     }
 
     private fun updateObject(state: GameState, id: ObjectId, change: (GameObject) -> GameObject) {
         val o = state.objects[id] ?: error("No object $id")
-        state.objects[id] = change(o)
+        state._objects[id] = change(o)
     }
 
     private fun GameObject.has(flag: StatusFlag): Boolean = when (flag) {

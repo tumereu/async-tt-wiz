@@ -58,7 +58,7 @@ class OptionsFuzzTest {
         val copy = state.deepCopy()
         outcome.changes.forEach { copy.apply(it) }
         outcome.changes.asReversed().forEach { copy.revert(it) }
-        copy.timestampCounter = state.timestampCounter
+        copy._timestampCounter = state.timestampCounter
         assertEquals(state, copy, "$where: reverting the outcome of $input didn't restore the state (D59)")
     }
 

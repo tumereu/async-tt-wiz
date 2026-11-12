@@ -284,7 +284,7 @@ class Chunk45GraveyardCastingAndCantBlockScenariosTest {
     fun velmoraAsCompanion() = scenario {
         alice.battlefield("Plains", "Swamp", "Forest")
         val id = put(alice, listOf("Velmora of the Sleep-Den"), Zone.Outside).single()
-        state.objects[id] = state.objOrThrow(id).copy(memory = Bindings.EMPTY.with(Evaluator.REVEALED_COMPANION, NamedValue.Number(1)))
+        state._objects[id] = state.objOrThrow(id).copy(memory = Bindings.EMPTY.with(Evaluator.REVEALED_COMPANION, NamedValue.Number(1)))
         val action = view()[id]!!.characteristics!!.abilities.first { it.ability is Ability.SpecialAction }
         perform(Input.Activate(alice.id, id, action.origin))
         answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))

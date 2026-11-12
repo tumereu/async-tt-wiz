@@ -2671,7 +2671,7 @@ class GameDevice(
          * Any other change (a new Stack object, another step, a chosen target gone, a hidden card shown) is a different
          * decision: the player never saw that point.
          */
-        fun sameDecision(seen: GameState, now: GameState): Boolean = seen === now || decisionPoint(seen) == decisionPoint(now)
+        fun sameDecision(seen: GameState, now: GameState): Boolean = seen === now || sameDecisionPoint(seen, now)
 
         /**
          * HIS-096, TRN-070 (owner 2026-11-06): whether the Assume [setting] of [me] assumes [holder]'s pass on [s] (their
@@ -2834,9 +2834,16 @@ class GameDevice(
             return PlayShow(event.id, item.controller, item.id, kind, card)
         }
 
-        /** [state] without what never makes a decision another ([sameDecision]). */
-        private fun decisionPoint(state: GameState): GameState = state.copy(log = mutableListOf(), timestampCounter = 0,
-            players = state.players.map { it.copy(library = it.library.sortedBy(ObjectId::toString)) }.toMutableList())
+        /** Whether [a] and [b] are equal but for what never makes a decision another ([sameDecision]): the logged events, the
+         * timestamp counter and the order of the libraries. Every other field of [GameState] is compared. */
+        private fun sameDecisionPoint(a: GameState, b: GameState): Boolean {
+            fun players(s: GameState) = s.players.map { it.copy(library = it.library.sortedBy(ObjectId::toString)) }
+            return players(a) == players(b) && a.objects == b.objects && a.battlefield == b.battlefield && a.stack == b.stack &&
+                a.exile == b.exile && a.command == b.command && a.stackItems == b.stackItems && a.effects == b.effects &&
+                a.delayedTriggers == b.delayedTriggers && a.turn == b.turn && a.priority == b.priority && a.combat == b.combat &&
+                a.ledger == b.ledger && a.pending == b.pending && a.inputCount == b.inputCount && a.triggered == b.triggered &&
+                a.skipFirstDraw == b.skipFirstDraw && a.viewer == b.viewer
+        }
 
         /**
          * SYS-011 (smoke 2026-11-04): whether End turn tapped on the board [seen] still ends the same turn on [now], the

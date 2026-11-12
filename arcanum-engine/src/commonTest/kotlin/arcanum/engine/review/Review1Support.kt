@@ -51,7 +51,7 @@ internal fun Scenario.performReverting(input: Input): Outcome {
     val after = state.deepCopy()
     outcome.changes.forEach { after.apply(it) }
     outcome.changes.asReversed().forEach { after.revert(it) }
-    after.timestampCounter = before.timestampCounter
+    after._timestampCounter = before.timestampCounter
     assertEquals(before, after, "Reverting one outcome didn't restore the state before it (D59)")
     return perform(input)
 }

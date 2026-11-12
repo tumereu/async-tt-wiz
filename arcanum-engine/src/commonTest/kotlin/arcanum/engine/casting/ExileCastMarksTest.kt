@@ -58,7 +58,7 @@ class ExileCastMarksTest {
 
     private fun Scenario.marked(name: String, vararg marks: ObjectMark, change: (GameObject) -> GameObject = { it }): arcanum.engine.state.ObjectId {
         val id = card(name)
-        state.objects[id] = change(state.objOrThrow(id).copy(marks = marks.toList()))
+        state._objects[id] = change(state.objOrThrow(id).copy(marks = marks.toList()))
         return id
     }
 

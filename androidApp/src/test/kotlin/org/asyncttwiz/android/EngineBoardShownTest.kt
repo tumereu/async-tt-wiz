@@ -1,9 +1,12 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import arcanum.api.CounterKind
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
+import arcanum.engine.state.setup
 import org.asyncttwiz.protocol.EngineSnapshot
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.PlayZone
@@ -74,7 +77,7 @@ class EngineBoardShownTest {
         // Alice controls a Mountain Bob owns (as a card that gains control of a permanent leaves it)
         val game = edited(kit, kit.f.a) { s ->
             val id = battlefieldObject(s, mountain)
-            s.objects[id] = s.objects.getValue(id).copy(owner = kit.other, controller = kit.me)
+            s.setup.objects[id] = s.objects.getValue(id).copy(owner = kit.other, controller = kit.me)
         }
         val play = game.play()
         assertEquals(kit.f.b, play.board.cards.single { it.id == mountain }.owner, "owned by Bob")
@@ -96,7 +99,7 @@ class EngineBoardShownTest {
         val cub = kit.castCub()
         val game = edited(kit, kit.f.a) { s ->
             val id = battlefieldObject(s, cub)
-            s.objects[id] = s.objects.getValue(id).copy(counters = listOf(CounterEntry(CounterKind.PowerToughness(1, 1), 2, 1)))
+            s.setup.objects[id] = s.objects.getValue(id).copy(counters = listOf(CounterEntry(CounterKind.PowerToughness(1, 1), 2, 1)))
         }
         val computed = assertNotNull(game.play().values).computed.cards.getValue(cub)
         assertEquals("4/3", computed.corner)

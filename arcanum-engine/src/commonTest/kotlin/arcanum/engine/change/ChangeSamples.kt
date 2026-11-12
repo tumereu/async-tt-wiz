@@ -94,7 +94,7 @@ internal object ChangeSamples {
         val druidObject = base.objOrThrow(druid)
         val library = base.player(alice).library.map { base.objOrThrow(it) }
         val unknown = base.objOrThrow(spark).copy(definition = null)
-        val withUnknown = base.deepCopy().also { it.objects[spark] = unknown }
+        val withUnknown = base.deepCopy().also { it._objects[spark] = unknown }
 
         val samples = listOf(
             on(base, Changes.move(base, listOf(druid, forest), Zone.Graveyard)),

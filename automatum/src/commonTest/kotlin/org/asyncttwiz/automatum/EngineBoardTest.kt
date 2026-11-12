@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.automatum
 
 import arcanum.api.CounterKind
@@ -13,6 +15,7 @@ import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.setup
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.PlayZone
@@ -71,7 +74,7 @@ class EngineBoardTest {
         table.put(alice, Zone.Library, "Island", "Island")
         table.put(bob, Zone.Library, "Island", "Island")
         val start = table.state()
-        start.objects[table.obj(bear)] = start.objects.getValue(table.obj(bear)).copy(
+        start.setup.objects[table.obj(bear)] = start.objects.getValue(table.obj(bear)).copy(
             counters = listOf(CounterEntry(CounterKind.PowerToughness(1, 1), 1, 1)), damage = 1)
         val casting = cast(start, alice, spark, at(bear))
         val shownToBob = table.board(casting, viewer = bob).cards.single { it.id == spark }
@@ -93,7 +96,7 @@ class EngineBoardTest {
     @Test fun aCardInExileKeepsItsCounters() {
         val (bear) = table.put(alice, Zone.Exile, "Stout Bear")
         val start = table.state()
-        start.objects[table.obj(bear)] = start.objects.getValue(table.obj(bear)).copy(
+        start.setup.objects[table.obj(bear)] = start.objects.getValue(table.obj(bear)).copy(
             counters = listOf(CounterEntry(CounterKind.Time, 3, 1)))
         val board = table.board(start, viewer = bob)
         assertEquals(PlayZone.EXILE, zoneOf(board, bear))
@@ -109,7 +112,7 @@ class EngineBoardTest {
         val (spark) = table.put(alice, Zone.Hand, "Storm Spark")
         val (soldier, land) = table.put(bob, Zone.Battlefield, "Stout Bear", "Mountain")
         val start = table.state()
-        for (token in listOf(soldier, land)) start.objects[table.obj(token)] = start.objects.getValue(table.obj(token)).copy(token = true)
+        for (token in listOf(soldier, land)) start.setup.objects[table.obj(token)] = start.objects.getValue(table.obj(token)).copy(token = true)
         val board = table.board(start)
         assertEquals(1, board.cards.single { it.id == soldier }.placement!!.position.y)
         assertEquals(0, board.cards.single { it.id == land }.placement!!.position.y)
@@ -125,10 +128,10 @@ class EngineBoardTest {
         val digests = table.board(start).cards.associate { it.id to it.definition }
         val host = start.objects.getValue(table.obj(bear))
         val merging = start.objects.getValue(table.obj(ogre))
-        start.objects[host.id] = host.copy(mergedAbove = listOf(arcanum.engine.state.MergedPart(merging.id as arcanum.engine.state.ObjectId.Card,
+        start.setup.objects[host.id] = host.copy(mergedAbove = listOf(arcanum.engine.state.MergedPart(merging.id as arcanum.engine.state.ObjectId.Card,
             merging.owner, merging.definition, timestamp = 99)))
-        start.objects.remove(merging.id)
-        start.battlefield.remove(merging.id)
+        start.setup.objects.remove(merging.id)
+        start.setup.battlefield.remove(merging.id)
         val board = table.board(start)
         val part = board.cards.single { it.id == ogre }
         assertEquals(board.cards.single { it.id == bear }.containerId, part.containerId)
@@ -144,7 +147,7 @@ class EngineBoardTest {
         table.put(alice, Zone.Library, "Island", "Island")
         table.put(bob, Zone.Library, "Island", "Island")
         val start = table.state()
-        start.objects[table.obj(ogre)] = start.objects.getValue(table.obj(ogre)).copy(damage = 2)
+        start.setup.objects[table.obj(ogre)] = start.objects.getValue(table.obj(ogre)).copy(damage = 2)
         assertEquals("2", table.board(start).cards.single { it.id == ogre }.damage)
         val next = passUntil(start) { it.turn.number == start.turn.number + 1 && it.priority.holder != null }
         assertEquals("", table.board(next).cards.single { it.id == ogre }.damage)
@@ -198,7 +201,7 @@ class EngineBoardTest {
         table.step = TurnStep.CombatDamage
         table.priority = alice
         assertEquals(TurnPosition.FIRST_STRIKE_DAMAGE,
-            TurnPosition.of(table.board(table.state().copy(combat = CombatState(firstStrikeStep = true))).turn))
+            TurnPosition.of(table.board(table.state().also { it.setup.combat = CombatState(firstStrikeStep = true) }).turn))
         table.step = TurnStep.Upkeep
         var state = table.state()
         val seen = mutableListOf<TurnPosition>()
@@ -244,7 +247,7 @@ class EngineBoardTest {
         table.put(alice, Zone.Library, "Island")
         table.put(bob, Zone.Library, "Island")
         val start = table.state()
-        start.objects[table.obj(token)] = start.objects.getValue(table.obj(token)).copy(token = true)
+        start.setup.objects[table.obj(token)] = start.objects.getValue(table.obj(token)).copy(token = true)
         val triggered = passUntil(cast(start, alice, spark, at(token))) { s ->
             s.stack.any { s.stackItems[it]?.kind is arcanum.engine.state.StackItemKind.Triggered }
         }

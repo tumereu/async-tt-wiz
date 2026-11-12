@@ -25,9 +25,7 @@ class EngineView(state: GameState, val table: TableState, val viewer: PlayerId, 
         if (player == null) return state.deepCopy()
         if (player == viewer) seen?.let { return it.deepCopy() }
         val visible = if (player == viewer) visibleIds else Host.visible(state, player)
-        val shown = state.deepCopy()
-        for ((id, obj) in state.objects) if (id !in visible && obj.definition != null) shown.objects[id] = obj.copy(definition = null)
-        shown.viewer = player
+        val shown = Host.seenBy(state, player, visible)
         if (player == viewer) seen = shown
         return shown.deepCopy()
     }

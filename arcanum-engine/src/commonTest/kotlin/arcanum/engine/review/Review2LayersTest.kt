@@ -349,7 +349,7 @@ class Review2LayersTest {
     fun aPhasedOutPermanentDoesntExist() = scenario {
         alice.battlefield("Elvish Hierophant", "Elvish Seer", "Velo, Master of Ceremonies", "Velo, Master of Ceremonies")
         listOf(card("Elvish Hierophant"), card("Velo, Master of Ceremonies", 1)).forEach { id ->
-            state.objects[id] = state.objOrThrow(id).copy(phasedOut = true)
+            state._objects[id] = state.objOrThrow(id).copy(phasedOut = true)
         }
         bob.battlefield("Mountain")
         bob.hand("Storm Spark")

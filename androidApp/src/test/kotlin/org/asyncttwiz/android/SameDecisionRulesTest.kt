@@ -1,3 +1,5 @@
+@file:OptIn(arcanum.engine.state.ArcanumTestSetup::class)
+
 package org.asyncttwiz.android
 
 import arcanum.api.TurnStep
@@ -9,6 +11,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.setup
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
@@ -79,15 +82,15 @@ class SameDecisionRulesTest {
         val game = aliceInMain(land = true)
         val s = game.device.model.engine
         val bob = PlayerId(f.b)
-        val combat = s.deepCopy().also { it.turn = it.turn.copy(step = TurnStep.BeginningOfCombat) }
+        val combat = s.deepCopy().also { it.setup.turn = it.turn.copy(step = TurnStep.BeginningOfCombat) }
         assertTrue(GameDevice.sameEndTurn(s, combat, alice), "another step of her turn")
-        assertFalse(GameDevice.sameEndTurn(s, s.deepCopy().also { it.turn = it.turn.copy(number = it.turn.number + 1, active = bob) }, alice),
+        assertFalse(GameDevice.sameEndTurn(s, s.deepCopy().also { it.setup.turn = it.turn.copy(number = it.turn.number + 1, active = bob) }, alice),
             "Bob's turn")
         assertFalse(GameDevice.sameEndTurn(s, combat, bob), "not Bob's own turn")
         val cast = s.deepCopy().also { c -> for (input in spark(s)) Engine.perform(c, input).changes.forEach(c::apply) }
         assertTrue(cast.stack.isNotEmpty(), "Storm Spark on the Stack")
         assertTrue(GameDevice.sameEndTurn(s, cast, alice), "her own spell")
-        val theirs = cast.deepCopy().also { c -> c.stackItems.replaceAll { _, item -> item.copy(controller = bob) } }
+        val theirs = cast.deepCopy().also { c -> c.setup.stackItems.replaceAll { _, item -> item.copy(controller = bob) } }
         assertFalse(GameDevice.sameEndTurn(s, theirs, alice), "a Stack object of Bob's she never saw")
     }
 
@@ -96,18 +99,18 @@ class SameDecisionRulesTest {
     @Test fun theSameDecisionIsTheSameGameApartFromItsRecord() {
         val game = aliceInMain(land = true)
         val s = game.device.model.engine
-        assertTrue(GameDevice.sameDecision(s, s.deepCopy().also { it.log.clear(); it.timestampCounter += 5 }))
-        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.turn = it.turn.copy(step = TurnStep.BeginningOfCombat) }), "another step")
+        assertTrue(GameDevice.sameDecision(s, s.deepCopy().also { it.setup.log.clear(); it.setup.timestampCounter += 5 }))
+        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.setup.turn = it.turn.copy(step = TurnStep.BeginningOfCombat) }), "another step")
         val land: ObjectId = s.battlefield.first()
-        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.battlefield.remove(land) }), "the target gone")
-        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.stack.add(land) }), "a new Stack object")
+        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.setup.battlefield.remove(land) }), "the target gone")
+        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.setup.stack.add(land) }), "a new Stack object")
         // Stable decision identity (owner, 2026-11-05): a new line's reshuffle of a library's unknown part is no new
         // decision; an input in between is
         val parts = Host.unknownOrder(s, alice)
         assertTrue(parts.any { it.size > 1 }, "an unknown part to reorder")
         val reorder = assertNotNull(Host.reorderUnknown(s, alice, parts.map { it.reversed() }))
         assertTrue(GameDevice.sameDecision(s, s.deepCopy().also { it.apply(reorder) }), "the library reshuffled")
-        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.inputCount += 1 }), "an input in between")
+        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.setup.inputCount += 1 }), "an input in between")
     }
 
     // ---- The server's race: the other player's event taken before the player's own move

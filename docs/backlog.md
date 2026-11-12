@@ -51,6 +51,19 @@ Playtest notes (owner, 2026-11-09), queued after the two running lanes:
 
 - Tokens in Inspect (TBL-104, TBL-018; owner): Inspect shows a token's picture as it is, with normal corners, so the cut corners no longer hide its P/T and text; the battlefield keeps the cut corners.
 
+Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
+
+- Bug, a cost choice's phrase isn't highlighted right (STK-047; owner: Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): the pick bar must highlight exactly the cost phrase being picked, as for targets. Check the parser's cost spans for keyword costs (Equip—Sacrifice …) and the bar's use of them; screenshot + e2e.
+- Bug, a saved cube's view mode shows no unsupported marks (DRF-161, LOB entries on support): the unsupported-card stamp shows on cards in view mode as it does in edit mode.
+- Bug, Inspect misses gained abilities and copied things (TBL-104; owner: Scheming Fence): Inspect must list every effect on a card, abilities it gained or lost and what it copies or chose (e.g. "Has the activated abilities of Ember Cub"), generically from the engine's view of the object's effects, not per card; fix the engine/ATW gap whichever side it is.
+- Counter bubbles without letters (TBL-135; owner): a counter without a designed colour is a plain white bubble with only its number, no initial.
+- Bug, mana ability chips say only "Mana ability" (TBL-124; owner): a chip names what it does: mana abilities show the mana they make as symbols ({G}, "{R} or {G}", "Any colour"), other abilities a short form of their text or cost; audit every generic chip or label left ("Ability", "Mana ability", "Activated ability") and route any unavoidable stand-in through `Faults.placeholder` (owner rule).
+- Bug, a library search shows no other cards (STK-056 says "Other cards" shows the searched zone's other cards, dimmed; owner: Recruiter of the Guard showed none): find why (a search that reveals? a filtered search?) and show them; e2e test failing first.
+- Pile glow when it holds a choice (STK-047, ZON entries on piles): a graveyard, exile or other pile holding a card you may target or choose glows clearly, an animated glow over the whole pile, so it reads "tap me, your choices are inside".
+- Quick actions always shown (TRN-059, TRN-015; owner, the always-show rule): the response mode, Assume and Autotap quick actions always show in the same places; one that doesn't apply now is greyed (holding it says why), so the row never changes between two and three buttons.
+- No main button press the device is about to make itself (TRN-063, STK-029; owner): while a play or animation runs and Quick (or the response mode) would pass by itself, the main button doesn't show "Resolve" (or any press) meanwhile; it shows what you will actually have to press, so it doesn't flicker.
+- Bug, a reveal's OK dismisses late (HIS-110; owner): pressing OK on a reveal must close the panel at once, locally; it isn't tied to the other player's OK. Find the wait (log timings around it) and remove it.
+
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
@@ -75,6 +88,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
 
 ## Later (nice to have)
+
+- Automatic answers (owner wishlist, 2026-11-12): remembered answers to "you may" choices (always yes / always no per ability), perhaps for other repeated choices too, like the remembered trigger orders below.
 
 - Remembered trigger orders (owner, 2026-11-06): conveniences like "always resolve these triggers in this order".
 - Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as what you did comes out the same on top of their real opening (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority. Spec draft for the owner's review: `docs/specs/first-turn-during-mulligans.md` (2026-11-08).

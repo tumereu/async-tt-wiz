@@ -230,3 +230,26 @@ val youCastThis: Trigger = youCast(ObjectFilter.Is(Objects.Self))
 /** A 0/1 colorless Eldrazi Spawn creature token with "Sacrifice this token: Add {C}." */
 val eldraziSpawn: TokenSpec = creatureToken("Eldrazi Spawn", emptyList(), 0, 1, abilities = listOf(
     activated(cost(sacrificeSelf), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse("{C}")!!)), Players.You)))))
+
+// mh3 chunk 02: energy (CR 107.14, 122.1)
+/** "You get {E}{E}": energy counters for you. */
+fun getEnergy(amount: Value): Step = Step.Do(Effect.GivePlayerCounters(Players.You, CounterKind.Energy, amount))
+fun getEnergy(amount: Int): Step = getEnergy(n(amount))
+/** "When this … enters, you get {E}{E}." */
+fun entersGetEnergy(amount: Int): Ability = triggered(entersSelf, getEnergy(amount))
+/** "Pay {E}{E}" */
+fun payEnergy(amount: Int): CostPart = CostPart.PayEnergy(n(amount))
+/** "Then you may pay any amount of {E}": the number chosen is "that much", "{E} paid this way". */
+val payAnyAmountOfEnergy: List<Step> = listOf(
+    Step.Choose(arcanum.api.Choice.Number(n(0), Value.PlayerCounters(Players.You, CounterKind.Energy)), bind = "energy", chooser = Players.You),
+    Step.Pay(cost(CostPart.PayEnergy(Value.Bound("energy"))), payer = Players.You, mandatory = true, bind = "energy paid"))
+val energyPaid: Value = Value.Bound("energy")
+/** "You may pay {E}{E}. If you do, …" */
+fun mayPayEnergy(amount: Int, vararg then: Step): List<Step> = listOf(
+    Step.Pay(cost(payEnergy(amount)), payer = Players.You, bind = "paid"), ifThen(Condition.Did("paid"), *then))
+/** "You may pay {E}{E}. When you do, …" (CR 603.12) */
+fun mayPayEnergyWhenYouDo(amount: Int, reflexive: Instructions): List<Step> = listOf(
+    Step.Pay(cost(payEnergy(amount)), payer = Players.You, bind = "paid"), ifThen(Condition.Did("paid"), Step.Do(Effect.ReflexiveTrigger(reflexive))))
+/** "[Do] unless you pay {E}" (CR 118.12a) */
+fun unlessYouPayEnergy(amount: Int, vararg steps: Step): List<Step> = listOf(
+    Step.Pay(cost(payEnergy(amount)), payer = Players.You, bind = "paid"), ifThen(Condition.Not(Condition.Did("paid")), *steps))

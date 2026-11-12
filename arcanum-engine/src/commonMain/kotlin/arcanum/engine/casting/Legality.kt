@@ -172,6 +172,8 @@ internal object Legality {
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
         val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
+            // mh3: an alternative cost that lets the spell cast by paying it be cast as though it had flash (CR 601.3c)
+            alternative(snap, card, way, player)?.second?.flash == true ||
             // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
             chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"

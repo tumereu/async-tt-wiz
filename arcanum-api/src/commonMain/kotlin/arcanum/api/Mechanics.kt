@@ -327,6 +327,10 @@ sealed interface Mechanic {
         val duringYour: TurnStep? = null,
         // eoe
         val from: Zone? = null,
+        // mh3
+        /** A spell cast by paying it may be cast as though it had flash ("If you cast a spell this way, you may cast it as though it
+         * had flash", CR 601.3c). */
+        val flash: Boolean = false,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */

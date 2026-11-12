@@ -49,7 +49,14 @@ internal object Casts {
                     meanings = listOf(Meaning.PlayedLand))))
                 continue
             }
-            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }
+            // mh3 chunk 02: the cost's amounts are the resolving ability's ("an amount of {E} equal to its mana value": the exiled card's), fixed
+            // now, as the casting plan doesn't know the ability's names (CR 608.2h)
+            val cost = effect.cost?.let { c -> c.copy(parts = c.parts.map { p -> when (p) {
+                is arcanum.api.CostPart.PayEnergy -> p.copy(amount = arcanum.api.Value.Fixed(e.value(p.amount)))
+                is arcanum.api.CostPart.PayLife -> p.copy(amount = arcanum.api.Value.Fixed(e.value(p.amount)))
+                else -> p
+            } }) }
+            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
     }

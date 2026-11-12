@@ -19,11 +19,13 @@ import org.junit.Test
  * which the page mirrors into its document (test tags are element ids). Not a Robolectric test: the app runs in Chrome.
  */
 class WebSmokeTest {
-    // WEB-001, WEB-002, WEB-005, WEB-009: load, sign in, list games; the address and the browser's Back follow the screens,
-    // a refresh keeps the screen and the sign-in, and the card records are kept in the browser
+    // WEB-001, WEB-002, WEB-005, WEB-007, WEB-009: load, sign in, list games; a started game shows the placeholder; the
+    // address and the browser's Back follow the screens, a refresh keeps the screen and the sign-in, and the card records
+    // are kept in the browser
     @Test fun loadSignInAndListGames() {
         val (alice, bob) = ServerSetup.fresh()
         ServerSetup.invitation(alice, bob, "Web smoke game")
+        val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Web started game").ready()
         val origin = E2eStack.origin
         Playwright.create().use { playwright ->
             val browser = playwright.chromium().launch(BrowserType.LaunchOptions().setChannel("chrome").setHeadless(true))
@@ -51,6 +53,7 @@ class WebSmokeTest {
                     tap(page, "#menu-GAMES")
                     waitForText(page, "Web smoke game")
                     assertEquals("/games", path(page))
+                    waitForText(page, "Web started game")
                     // A refresh opens the same screen, still signed in (the session is kept in the browser)
                     page.reload()
                     waitForText(page, "Web smoke game", 120_000.0)
@@ -66,12 +69,21 @@ class WebSmokeTest {
                         db.close();
                         return count > 0;
                     }""", null, Page.WaitForFunctionOptions().setTimeout(60_000.0))
+                    // WEB-007: a started game, opened by its address, says it opens in the app for now; its Back leaves
+                    page.navigate("$origin/games/${started.id}")
+                    page.waitForSelector("#game-elsewhere", Page.WaitForSelectorOptions().setTimeout(60_000.0).setState(WaitForSelectorState.ATTACHED))
+                    assertEquals("/games/${started.id}", path(page))
+                    tap(page, "div[role=button]:text-is('Back to Games')")
+                    waitForText(page, "Web smoke game")
+                    assertEquals("/games", path(page))
                     val faults = console.filter { it.contains("pageerror") || it.contains("ATW/crash") || it.contains("NotImplementedError") }
                     assertTrue(faults.isEmpty(), "The page reported faults:\n${faults.joinToString("\n")}")
                 } catch (failure: Throwable) {
                     val dir = File(E2eStack.output, "failures/WebSmokeTest").apply { mkdirs() }
                     runCatching { page.screenshot(Page.ScreenshotOptions().setPath(Paths.get(dir.path, "page.png"))) }
                     File(dir, "console.log").writeText(console.joinToString("\n"))
+                    // The semantics mirror the controls were looked for in: each element's tag, id, role, label, text, place
+                    runCatching { File(dir, "semantics.txt").writeText(page.evaluate(SEMANTICS).toString()) }
                     throw failure
                 }
             }
@@ -79,6 +91,22 @@ class WebSmokeTest {
     }
 
     private fun path(page: Page): String = java.net.URI(page.url()).path
+
+    private companion object {
+        /** The page's semantics mirror (inside the app's shadow root) as lines, for a failure's evidence. */
+        const val SEMANTICS = """() => {
+            const out = [];
+            const walk = (root) => { for (const e of root.querySelectorAll('*')) {
+                if (e.shadowRoot) walk(e.shadowRoot);
+                if (!e.id && !e.getAttribute('role')) continue;
+                const r = e.getBoundingClientRect();
+                out.push(e.tagName + '#' + e.id + ' role=' + e.getAttribute('role') + ' label=' + (e.getAttribute('aria-label') || '') +
+                    ' text=' + (e.textContent || '').slice(0, 60) + ' @' + [r.x, r.y, r.width, r.height].map(Math.round).join(','));
+            } };
+            walk(document);
+            return out.join('\n');
+        }"""
+    }
 
     /** A tap in the middle of the control [selector] finds: on the page's canvas, as a player's (the semantics mirror
      * only says where controls are). */

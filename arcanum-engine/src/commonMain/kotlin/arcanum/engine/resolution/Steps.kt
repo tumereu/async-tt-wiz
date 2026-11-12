@@ -411,6 +411,8 @@ internal object Steps {
             is Modification.EntersWithCounters -> m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
             is Modification.EntersUnderControlOf -> m.copy(controller = e.players(modification.players).firstOrNull() ?: m.controller)
             is Modification.EntersWithAbilities -> m.copy(abilities = m.abilities + modification.abilities)
+            // mh3: what it enters as, chosen as it enters ("it becomes your choice of a 3/3 creature with flying, …", CR 614.12)
+            is Modification.EntersAs -> if (m.to == arcanum.api.Zone.Battlefield) m.copy(entersAs = m.entersAs + modification.mechanics) else m
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")

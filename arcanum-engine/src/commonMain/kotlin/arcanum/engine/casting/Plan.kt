@@ -622,8 +622,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             List(total.waterbend) { ManaPaymentWay.Waterbend }
     }
 
-    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b). */
-    val manaAsAnyColor: Boolean get() = permission?.first?.manaAsAnyColor == true
+    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b); mh3: or only
+     * colorless mana as though it were mana of any colour. */
+    val manaAsAnyColor: Mana.AsAnyColor get() = permission?.first.let { p ->
+        when {
+            p?.manaAsAnyColor == true -> Mana.AsAnyColor.All
+            p?.colorlessAsAnyColor == true -> Mana.AsAnyColor.Colorless
+            else -> Mana.AsAnyColor.None
+        }
+    }
 
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
     val cantSpendMana: Boolean = isSpell &&
@@ -870,7 +877,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
         is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
         // CR 702.132a, 106.6: the assisting player spends mana to cast this spell: mana restricted to such spells may pay
-        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), false),
+        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList()),
             Mana.suggest(snap, q.player, q.cost, itemId, emptyList()))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->

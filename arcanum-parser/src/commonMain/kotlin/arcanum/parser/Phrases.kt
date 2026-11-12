@@ -194,6 +194,9 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
+            // mh3 chunk 01: "with mana value 4, 5, or 6": any of those
+            if (m.groupValues[2].contains(", ")) return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(m.groupValues[2].split(", ", "or ")
+                .filter { it.isNotBlank() }.map { ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(it.trim().toInt())) }))
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // blb gaps 2: "… or greater"
             val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
@@ -432,7 +435,7 @@ internal object Filters {
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
-    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less| or greater)?""")
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X|(?:\d+, )+or \d+)( or less| or greater)?""")
     // blb gaps 2
     private val SPELLS_OF_TYPES_YOU_CAST = Regex("""(\w+) and (\w+) spells you cast""")
     private val WITH_X_IN_MANA_COST = Regex("""(.+) with \{X\} in (?:its|their) mana costs?""")
@@ -1095,10 +1098,15 @@ internal object Conditions {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
         }
         // chunk 32: "{R}{R} was spent to cast it" (at least that much mana of that colour)
+        // mh3 chunk 01: "{C} was spent to cast it", "{C} wasn't spent to cast it" (colorless mana, CR 106.1b)
         MANA_WAS_SPENT.matchEntire(text)?.let { m ->
             val symbols = arcanum.api.ManaCost.parse(m.groupValues[1])?.symbols ?: return null
-            val colors = symbols.map { (it as? arcanum.api.ManaSymbol.Colored)?.color ?: return null }.distinct()
-            return Condition.Compare(Value.ManaSpent(color = colors.singleOrNull() ?: return null, of = Objects.Self), Comparison.AtLeast, Value.Fixed(symbols.size))
+            val spent = if (symbols.all { it == arcanum.api.ManaSymbol.Colorless }) Value.ManaSpent(colorless = true, of = Objects.Self) else {
+                val colors = symbols.map { (it as? arcanum.api.ManaSymbol.Colored)?.color ?: return null }.distinct()
+                Value.ManaSpent(color = colors.singleOrNull() ?: return null, of = Objects.Self)
+            }
+            val was = Condition.Compare(spent, Comparison.AtLeast, Value.Fixed(symbols.size))
+            return if (m.groupValues[2] == "wasn't") Condition.Not(was) else was
         }
         // chunk 32: "you've discarded a card this turn"
         if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
@@ -1329,7 +1337,7 @@ internal object Conditions {
     private val CONTROL_AT_LEAST = Regex("""you control at least (\w+) (other )?(.+)""")
     private val SELF_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
     // chunk 32
-    private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRG]\})+) was spent to cast it""")
+    private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRGC]\})+) (was|wasn't) spent to cast it""")
     // chunk 33
     private val WAS_KICKED = Regex("""(.+) was kicked""")
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more card types among cards in your graveyard""")

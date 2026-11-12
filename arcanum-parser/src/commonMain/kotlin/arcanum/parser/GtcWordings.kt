@@ -152,7 +152,6 @@ internal object Gtc {
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")
     val YOU_CAST_FROM_YOUR_LIBRARY = Regex("""you cast an? (.+) spell from your library""")
-    val OPPONENT_CASTS_DURING_YOUR_TURN_AND_DIES = Regex("""Whenever an opponent casts a spell during your turn and when (.+) dies, (.+)""")
 
     val RETURN_SELF_TO_HAND_COST = Regex("""Return (.+) to its owner's hand""")
     val EXILE_SELF_COST = Regex("""Exile (.+)""")

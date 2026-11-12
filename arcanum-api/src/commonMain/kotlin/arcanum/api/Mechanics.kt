@@ -305,6 +305,10 @@ sealed interface Mechanic {
         val costChange: arcanum.api.CostChange? = null,
         /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
         val landsEnterTapped: Boolean = false,
+        // mh3
+        /** Only colorless mana may be spent as though it were mana of any colour for them ("you may spend colorless mana as
+         * though it were mana of any color to cast that spell", CR 609.4b); [manaAsAnyColor] is all mana. */
+        val colorlessAsAnyColor: Boolean = false,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.

@@ -55,6 +55,9 @@ sealed interface Value {
         // hob
         /** Only mana produced by a source matching this ("if mana from a Treasure was spent to cast it", CR 106.3). */
         val source: ObjectFilter? = null,
+        // mh3
+        /** Only colorless mana ("if {C} was spent to cast it"; colorless is a type of mana, not a colour, CR 106.1b). */
+        val colorless: Boolean = false,
     ) : Value
     /** How many times [keyword]'s optional cost was paid for [of] ("for each time it was kicked", CR 702.33d–f). */
     @Serializable @SerialName("times-paid") data class TimesPaid(

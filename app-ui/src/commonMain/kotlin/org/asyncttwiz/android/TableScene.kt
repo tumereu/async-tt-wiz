@@ -376,6 +376,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
                     attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
             }
+            // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
+            // pulsing, in a layer of its own
+            PileChoiceGlow(scene, castGlow, rendered)
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState, groupTaps)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players

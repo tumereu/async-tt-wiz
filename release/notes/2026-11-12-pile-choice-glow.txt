@@ -1,0 +1,1 @@
+mod: A graveyard, exile or other pile holding a card you may pick now glows and pulses, so you know to tap it.

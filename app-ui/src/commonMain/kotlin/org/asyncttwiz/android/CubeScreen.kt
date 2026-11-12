@@ -126,12 +126,16 @@ fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube:
                     visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
                         preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
                         val key = "$section/${tile.digest}"
-                        VisualDeckCard(tile, key, section.sectionLabel(), onHold = { open ->
-                            if (open) {
-                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
-                                held = key to tile
-                            } else if (held?.first == key) held = null
-                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
+                        Box {
+                            VisualDeckCard(tile, key, section.sectionLabel(), onHold = { open ->
+                                if (open) {
+                                    previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                    held = key to tile
+                                } else if (held?.first == key) held = null
+                            }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
+                            // DRF-161, LOB-144: a card Automatum can't play yet, as in the cube editor
+                            CardSupportMark(tile.definition?.faces?.firstOrNull()?.scryfallId, Modifier.matchParentSize())
+                        }
                     }
                 }
             }

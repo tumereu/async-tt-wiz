@@ -228,3 +228,5 @@ number	item	screenshot	catalog	decisions	sequence
 227	Draft: Stats subtype counts, the rest behind "+4 more"	pod-stats-subtypes.png	DRF-180 DRF-112		
 228	Draft: Prepare deck of a pod game, the deck's cover and a pen to rename it	prepare-pod-deck-header.png	LOB-047 DRF-105 DRF-166		
 229	Effects marker: a violet sparkle on a card an effect changes	states/effects-marker.png	TBL-136 TBL-104	
+230	Saved cube view: warning sign on cards Automatum can't play yet	non-gameplay/cube-detail-unsupported-portrait.png	DRF-161 LOB-144		
+231	A graveyard holding a target glows and pulses while it is picked	table-pick/pile-choice-glow.png	STK-047		

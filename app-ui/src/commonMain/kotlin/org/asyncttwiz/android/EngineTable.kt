@@ -302,7 +302,26 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
 
-    override fun revealing(): Boolean = game()?.shown?.reveal != null
+    override fun revealing(): Boolean = openReveal() != null
+
+    /**
+     * HIS-110 (owner, 2026-11-12: OK dismissed late): the reveals this table's OK dismissed whose dismissal the engine thread
+     * hasn't published yet. OK closes the panel at once, on this phone, whatever the engine thread is busy with; the device
+     * catches up ([EngineGame.dismissReveal]). By event: what was dismissed never opens again (HIS-110), so they are kept.
+     */
+    private val dismissedReveals = mutableStateListOf<String>()
+
+    /** HIS-110: the reveal whose panel is open on this table: the shown one, unless its OK was tapped already. */
+    fun openReveal(): GameDevice.Reveal? = game()?.shown?.reveal?.takeIf { it.event !in dismissedReveals }
+
+    /** HIS-110: the player tapped the reveal panel's OK on [reveal]: it closes now; the engine thread dismisses it after. */
+    fun dismissReveal(reveal: GameDevice.Reveal) {
+        val current = game() ?: return
+        if (reveal.event in dismissedReveals) return
+        dismissedReveals += reveal.event
+        current.dismissReveal(reveal, org.asyncttwiz.appui.nanoTime())
+        sent()
+    }
 
     override fun showing(): Boolean = game()?.shown?.show != null
 
@@ -710,13 +729,15 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
     // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
-    val reveal = shown.reveal.takeIf { !reviewing }
+    // (owner, 2026-11-12) OK closes it at once on this phone, before the engine thread has published the dismissal
+    val reveal = routes.openReveal().takeIf { !reviewing }
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
         // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
         RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
             reveal.left?.owner?.let { names[it.value] } ?: opponent) {
-            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}")
-            game.dismissReveal(); routes.pump()
+            AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}; " +
+                "the panel closes at once")
+            routes.dismissReveal(reveal)
         }
     }
     // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the

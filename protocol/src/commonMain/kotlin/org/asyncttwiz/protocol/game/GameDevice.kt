@@ -788,11 +788,15 @@ class GameDevice(
     /** HIS-110: every reveal not dismissed yet, oldest first (one panel each, in order). */
     val openReveals: List<Reveal> get() { syncReveals(); return revealsOpen.toList() }
 
-    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or playback goes on. True when one was open. */
-    fun dismissReveal(): Boolean {
+    /** HIS-110: the player dismissed the open reveal panel (the one of [event] when given, else the oldest; when the other
+     * player's same event took the place of the player's own meanwhile, SYS-077, that one): the next one opens, or playback
+     * goes on. True when it was open. */
+    fun dismissReveal(event: String? = null): Boolean {
         syncReveals()
-        if (revealsOpen.isEmpty()) return false
-        remember("reveal dismissed in ${revealsOpen.removeAt(0).event}")
+        val ids = listOfNotNull(event, event?.let(::adoptedAs))
+        val index = if (event == null) 0.takeIf { revealsOpen.isNotEmpty() } else revealsOpen.indexOfFirst { it.event in ids }.takeIf { it >= 0 }
+        if (index == null) { remember("reveal dismissal in ${event ?: "the oldest"}: none open (${revealsOpen.size})"); return false }
+        remember("reveal dismissed in ${revealsOpen.removeAt(index).event}")
         return true
     }
 

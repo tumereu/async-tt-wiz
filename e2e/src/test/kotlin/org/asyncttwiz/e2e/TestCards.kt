@@ -294,6 +294,12 @@ object TestCards {
     /** A free permanent, so what it mills is all that is in the graveyard. */
     val sifter = card("Ember Sifter", "Artifact", "{0}", "When this artifact enters, mill two cards.")
 
+    /** STK-056 (owner, 2026-11-12: Recruiter of the Guard): a free creature whose trigger may search its controller's library
+     * for a small creature, the search inside its sentence. */
+    val recruiter = card("Ember Recruiter", "Creature — Human Soldier", "{0}",
+        "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+        "1", "1")
+
     /** A free source of two colours (STK-024: its ways to pay). */
     val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
     /** A free Vehicle with crew 2 (CR 702.122a). */

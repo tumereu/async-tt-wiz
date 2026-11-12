@@ -1,0 +1,1 @@
+fix: Tapping OK on revealed cards closes the panel at once.

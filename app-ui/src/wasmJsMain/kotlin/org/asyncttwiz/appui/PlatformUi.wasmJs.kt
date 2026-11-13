@@ -144,11 +144,15 @@ actual fun edgeToEdgeDialogProperties(): DialogProperties = DialogProperties(use
 // Text at exact pixel positions: laid out by Compose's own text measurer (the fonts the rest of the page uses), since the
 // browser's Skia has no system fonts of its own.
 
-private val fontResolver by lazy { createFontFamilyResolver() }
+/**
+ * The page's one font resolver: the screens' (the web shell provides it as their LocalFontFamilyResolver) and the table's
+ * text here share it, so the fallback fonts preloaded into it at start draw in both.
+ */
+internal val webFontResolver by lazy { createFontFamilyResolver() }
 private var measurer: Pair<Float, TextMeasurer>? = null
 
 private fun measurer(density: Float): TextMeasurer = measurer?.takeIf { it.first == density }?.second
-    ?: TextMeasurer(fontResolver, Density(density), LayoutDirection.Ltr).also { measurer = density to it }
+    ?: TextMeasurer(webFontResolver, Density(density), LayoutDirection.Ltr).also { measurer = density to it }
 
 private class BrowserTextPaint : NativeTextPaint {
     override var textSize: Float = 12f

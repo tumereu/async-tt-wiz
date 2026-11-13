@@ -19,8 +19,9 @@ class WebMixedTest : E2e() {
         E2eBrowser().use { web ->
             try {
                 web.signIn(aliceAccount, "/games/${game.id}")
-                waitUntil("Keep on Alice's main button in her browser", timeoutSeconds = 180) { web.mainWords()?.contains("Keep") == true }
-                web.tap("#main-button")
+                // TRN-062: the opening's Keep is a quick action, beside the greyed main button
+                waitUntil("Keep among Alice's quick actions in her browser", timeoutSeconds = 180) { web.showsControl("Keep") }
+                web.tap(web.control("Keep"))
                 waitUntil("Bob's phone holding Alice's keep from her browser") {
                     bob.shown.held.any { it.author == aliceAccount.id && it.assumed == null }
                 }

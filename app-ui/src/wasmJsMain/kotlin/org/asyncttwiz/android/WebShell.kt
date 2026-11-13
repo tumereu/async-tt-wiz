@@ -26,6 +26,7 @@ import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.LocalCompatNavigationEventDispatcherOwner
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -61,7 +62,10 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
             jsLoadingMessage("ATW couldn't load. Check your connection and reload the page.")
             throw failure
         }
-        AppPlatform.install(WebAppPlatform(assets, jsFirstVisit()))
+        val platform = WebAppPlatform(assets, jsFirstVisit())
+        AppPlatform.install(platform)
+        // Symbols Roboto lacks fall back to the bundled Noto fonts, as on Android to its system fonts
+        preloadFallbackFonts(platform)
         // The card records and the session need the page's own storage before anything reads them
         val storage = BrowserStorage.open(pageScope)
         val catalog = BrowserCatalogController(storage, build.accountOrigin, build.catalogChecksum.ifEmpty { null }, pageScope)
@@ -81,7 +85,9 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
             return@launch
         }
         // The screens' semantics mirrored into the page (screen readers; the browser smoke finds controls by them)
-        ComposeViewport(body, configure = { isA11YEnabled = true }) { shell.Content() }
+        ComposeViewport(body, configure = { isA11YEnabled = true }) {
+            CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { shell.Content() }
+        }
         jsHideLoading()
     }
 }

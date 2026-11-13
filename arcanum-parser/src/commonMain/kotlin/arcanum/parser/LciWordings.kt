@@ -70,6 +70,10 @@ internal object Lci {
     val EACH_RETURNS_ALL_NOT_PUT_THERE_THIS_WAY = Regex("""Then each player returns all (.+?) cards from their graveyard that weren't put there this way to the battlefield\.""")
     val EACH_PLAYER_SACRIFICES_ALL_OTHER = Regex("""Each player sacrifices all other (.+?) they control\.""")
     val EXILE_ONE_OR_MORE_TOTAL_MANA_VALUE_X = Regex("""Exile one or more (other )?(.+?)s you control with total mana value X""")
+    // lci chunk 10
+    val IF_ABILITY_OF_COUNTERED_LOSES_ALL = Regex("""If an ability of (an? .+?) is countered this way, that permanent loses all abilities for as long as (.+?) remains on the battlefield\.""")
+    val OPPONENTS_WHO_CONTROL = Regex("""the number of opponents who control an? (.+)""")
+    val WHICHEVER_IS_GREATER = Regex("""(\w+) or (.+), whichever is greater""")
     val CRAFT = Regex("""Craft with (.+?) ((?:\{[^}]+\})+)""")
     val CRAFT_EACH_OF = Regex("""(?:an? [A-Z]\w+, )+and an? [A-Z]\w+""")
     val CRAFT_COUNT = Regex("""(\w+)( or more)?(?: (.+))?""")
@@ -111,6 +115,17 @@ internal object LciPhrases {
 
     /** "the mana value of the exiled card used to craft it", "the total power of …", "the number of colors among …" (CR 702.167c). */
     fun value(text: String): Value? {
+        // lci chunk 10: "the number of opponents who control an artifact" (CR 102.2)
+        Lci.OPPONENTS_WHO_CONTROL.matchEntire(text)?.let { o ->
+            val filter = Filters.noun(o.groupValues[1]) ?: return null
+            return Value.CountPlayers(Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.Exists(
+                Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1))))))
+        }
+        // lci chunk 10: "2 or the greatest power among Dinosaurs you control, whichever is greater"
+        Lci.WHICHEVER_IS_GREATER.matchEntire(text)?.let { g ->
+            val n = Numbers.count(g.groupValues[1]) ?: return null
+            return Value.Max(listOf(Value.Fixed(n), Values.value(g.groupValues[2]) ?: return null))
+        }
         val m = Lci.CRAFTED_WITH_VALUE.matchEntire(text) ?: return null
         val crafted = craftedWith(m.groupValues[2]) ?: return null
         return when (m.groupValues[1]) {
@@ -118,6 +133,19 @@ internal object LciPhrases {
             "the total power" -> Value.Of(arcanum.api.NumericProperty.Power, crafted, arcanum.api.Combine.Total)
             else -> Value.CountDistinct(crafted, arcanum.api.SharedQuality.Color)
         }
+    }
+
+    /** lci chunk 10: abilities on the Stack: "activated or triggered ability", "activated ability", "triggered ability" (CR 113.7; mana
+     * abilities never are on the Stack, CR 605.3a). */
+    fun noun(phrase: String): ObjectFilter? {
+        fun ability(kind: arcanum.api.AbilityKind) = ObjectFilter.AbilityOf(kind = kind)
+        val kinds = when (phrase) {
+            "activated or triggered ability" -> listOf(ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered))))
+            "activated ability" -> listOf(ability(arcanum.api.AbilityKind.Activated))
+            "triggered ability" -> listOf(ability(arcanum.api.AbilityKind.Triggered))
+            else -> return null
+        }
+        return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), *kinds.toTypedArray())
     }
 
     /** Trigger events. */

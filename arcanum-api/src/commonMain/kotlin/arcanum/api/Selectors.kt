@@ -60,6 +60,10 @@ sealed interface Objects {
     /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
      * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
     @Serializable @SerialName("granter") data object Granter : Objects
+    // lci
+    /** The source of each activated or triggered ability on the Stack among [of] (CR 113.7, 113.8): "that permanent" after "if an ability
+     * of a creature is countered this way". Bind it before the ability leaves the Stack. */
+    @Serializable @SerialName("source-of") data class SourceOf(val of: Objects) : Objects
 }
 
 /**

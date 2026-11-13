@@ -646,6 +646,9 @@ sealed interface Modification {
         // spm
         /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
         val bind: String? = null,
+        // lci
+        /** "enter tapped as a copy of": tapped only if it enters as a copy (CR 614.1c, 707.9). */
+        val tapped: Boolean = false,
     ) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification

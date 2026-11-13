@@ -175,6 +175,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Union -> objects.parts.flatMap { objects(it) }.distinct()
         Objects.Affected -> listOfNotNull(ctx.affected)
         // CR 702.95b
+        // lci: the source of an ability on the Stack (CR 113.7)
+        is Objects.SourceOf -> objects(objects.of).mapNotNull { id -> state.stackItems[id]?.takeIf {
+            it.kind == StackItemKind.Activated || it.kind == StackItemKind.Triggered }?.source }.distinct()
         is Objects.PairedWith -> objects(objects.of).mapNotNull { arcanum.engine.soulbond.Soulbond.partner(state, it) }.distinct()
         is Objects.LinkedTo -> boundObjects(selfMemory(objects.keyword.id))
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->

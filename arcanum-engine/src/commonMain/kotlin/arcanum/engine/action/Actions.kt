@@ -247,7 +247,8 @@ internal object Actions {
                         if (bind != null && then != null) linked += WaitingTrigger(controller = r.controller,
                             ability = arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), then), origin = null, source = r.source,
                             names = r.names.with(bind, NamedValue.Objects(listOf(of))))
-                        move.copy(copyOf = of to mod.except)
+                        // lci: "enter tapped as a copy of": tapped only as a copy
+                        move.copy(copyOf = of to mod.except, tapped = move.tapped || mod.tapped)
                     } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null

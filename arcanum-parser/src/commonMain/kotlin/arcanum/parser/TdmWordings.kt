@@ -105,7 +105,7 @@ internal object Tdm {
     // tdm chunk 09: "Destroy all creatures and enchantments. Draw a card for each permanent destroyed this way."
     val DESTROY_ALL_DRAW_FOR_EACH = Regex("""Destroy all (.+?)\. Draw a card for each permanent destroyed this way\.""")
     // tdm chunk 09: "it deals 3 damage to each creature and each planeswalker"
-    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (\d+) damage to each (\w+) and each (\w+)\.""")
+    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (X|\d+) damage to each (\w+) and each (\w+)\.""")
     // tdm chunk 09: "Double the power and toughness of target creature you control until end of turn. Then it fights up to one target creature an
     // opponent controls."
     val DOUBLE_PT_THEN_FIGHTS = Regex("""Double the power and toughness of target (.+?) until end of turn\. Then it fights up to one target (.+)\.""")

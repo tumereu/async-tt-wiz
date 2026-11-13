@@ -59,6 +59,7 @@ internal object Filters {
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
+        LciPhrases.noun(phrase)?.let { return it } // lci
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -363,6 +364,8 @@ internal object Filters {
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
         if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
+        // lci chunk 10: "activated or triggered ability"
+        if (core == "activated or triggered ability") return "ability"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 

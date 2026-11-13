@@ -180,6 +180,12 @@ sealed interface Effect {
      * whose amount goes down by the damage it prevents. [from] limits the sources ("by a source of your choice"). */
     @Serializable @SerialName("prevent-damage") data class PreventDamage(
         val to: Recipients, val amount: Value, val from: ObjectFilter, val duration: Duration,
+        // rvr
+        /** "The next [amount] damage that would be dealt to [to] this turn is dealt to [redirectTo] instead": a redirection shield (a
+         * replacement effect, CR 614.9; not prevention, so damage that can't be prevented is still redirected) with the same countdown:
+         * up to the amount left of each damage event goes to [redirectTo], the rest stays. It does nothing while [to] or [redirectTo]
+         * isn't a creature, planeswalker or battle on the battlefield, or a player in the game (CR 614.9). Fixed as it resolves. */
+        val redirectTo: Recipients? = null,
     ) : Effect
     /** Remove [objects] from combat (CR 506.4). */
     @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect

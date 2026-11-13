@@ -89,6 +89,8 @@ internal object Rvr {
     // rvr chunk 05: Nicol Bolas, Dragon-God
     val HAS_ALL_LOYALTY_ABILITIES_OF = Regex("""(.+?) has all loyalty abilities of all (other )?(.+?)\.""")
     val EACH_OPPONENT_EXILES_FROM_HAND_OR_PERMANENT = Regex("""Each opponent exiles a card from their hand or an? (.+?) they control\.""")
+    // rvr fixes: Carom
+    val NEXT_DAMAGE_DEALT_TO_INSTEAD = Regex("""The next (\d+) damage that would be dealt to (target .+?) this turn is dealt to (another )?(target .+?) instead\.""")
     val EACH_OPPONENT_WHO_DOESNT_CONTROL_LOSES = Regex("""Each opponent who doesn't control an? (.+?) loses the game\.""")
 }
 

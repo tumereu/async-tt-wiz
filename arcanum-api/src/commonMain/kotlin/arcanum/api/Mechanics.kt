@@ -572,6 +572,9 @@ sealed interface Mechanic {
         val event: EventPattern, val each: Value? = null,
         // dsk gaps
         val additional: Instructions? = null,
+        // rvr
+        /** On a shield with an amount ([Effect.PreventDamage.redirectTo]): the damage is dealt to these instead of prevented (CR 614.9). */
+        val redirectTo: Recipients? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }

@@ -527,7 +527,9 @@ internal object Actions {
         val linked = mutableListOf<WaitingTrigger>()
         // dsk gaps: prevention effects' additional effects, done immediately after the damage event (CR 615.5)
         val afterwards = mutableListOf<() -> Unit>()
-        val after = parts.filter { it.amount > 0 }.mapNotNull { part ->
+        // rvr fixes: damage a redirection shield moved to another recipient, its replacements applied in turn (CR 614.9, 616.1)
+        val redirected = mutableListOf<DamageDealt>()
+        fun replaced(list: List<DamageDealt>) = list.filter { it.amount > 0 }.mapNotNull { part ->
             val affected = when (val r = part.recipient) {
                 is TargetRef.Player -> r.id
                 is TargetRef.Object -> act.controllerOf(r.id) ?: act.state.turn.active
@@ -537,7 +539,7 @@ internal object Actions {
                 proposed = { d -> Change.Damage(listOf(d)) },
                 modify = { d, r, instance ->
                     if (r.prevention == null) modifyDamage(act, d, r)
-                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards)
+                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards, redirected)
                 },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
@@ -546,7 +548,14 @@ internal object Actions {
                 skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) },
                 extra = preventions(act),
             )
-        }.filter { recipientExists(act, it.recipient) && it.amount > 0 }
+        }
+        var replacedParts = replaced(parts)
+        while (redirected.isNotEmpty()) {
+            val moved = redirected.toList()
+            redirected.clear()
+            replacedParts = replacedParts + replaced(moved)
+        }
+        val after = replacedParts.filter { recipientExists(act, it.recipient) && it.amount > 0 }
         if (after.isEmpty()) {
             afterwards.forEach { it() }
             return DamageResult(emptyList(), 0)
@@ -726,7 +735,7 @@ internal object Actions {
         val shields = act.state.effects.values.filter { it.amountLeft != null }.sortedBy { it.timestamp }.mapNotNull { shield ->
             val m = shield.mechanics.filterIsInstance<Mechanic.Prevention>().firstOrNull() ?: return@mapNotNull null
             Replacement(Mechanic.Replacement(m.event), shield.controller, shield.source, shield.names, null, own = false,
-                key = "shield:${shield.id.value}", prevention = Prevention.Shield(shield.id))
+                key = "shield:${shield.id.value}", prevention = Prevention.Shield(shield.id, m.redirectTo))
         }
         return protection + effects + shields
     }
@@ -735,8 +744,21 @@ internal object Actions {
      * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5). */
     private fun prevent(
         act: Act, d: DamageDealt, r: Replacement, p: Prevention, cantBePrevented: Boolean, instance: TriggerEvent,
-        afterwards: MutableList<() -> Unit>,
+        afterwards: MutableList<() -> Unit>, redirected: MutableList<DamageDealt>,
     ): DamageDealt? {
+        // rvr fixes, CR 614.9: a redirection shield moves up to its amount left to its new recipient, even damage that can't be prevented;
+        // it does nothing while either recipient can't be dealt damage that way
+        if (p is Prevention.Shield && p.redirectTo != null) {
+            val shield = act.state.effects[p.effect] ?: return d
+            val has = shield.amountLeft ?: return d
+            val to = recipientsOf(Evaluator(act.board(), Context(r.controller, r.source, shield.names)), p.redirectTo).firstOrNull()
+                ?.takeIf { redirectable(act, d.recipient) && redirectable(act, it) } ?: return d
+            val moved = minOf(has, d.amount)
+            if (has - moved <= 0) act.record(Change.EffectRemoved(shield, listOf(Meaning.ShieldUsed)))
+            else act.record(Change.EffectUpdated(shield, shield.copy(amountLeft = has - moved)))
+            redirected += DamageDealt(d.source, to, moved)
+            return if (d.amount > moved) d.copy(amount = d.amount - moved) else null
+        }
         if (p is Prevention.Amount && p.additional != null) {
             val steps = p.additional.steps
             afterwards += {

@@ -305,7 +305,7 @@ class RvrChunk02FightHellbentMentorMillOverloadScenariosTest {
         }
     }
 
-    /** Overloaded: every instant and sorcery card in its owner's graveyard, each copy cast. */
+    /** Overloaded: every instant and sorcery card in its owner's graveyard, each copy cast (in the order the caster chooses, CR 608.2f). */
     // CR 702.96b, 707.12
     @Test
     fun overloadedMasteryCastsEveryCopy() = scenario {
@@ -315,8 +315,9 @@ class RvrChunk02FightHellbentMentorMillOverloadScenariosTest {
         alice.casts(mastery, way = ownAlternative(mastery))
         var guard = 10
         while (guard-- > 0) {
-            when (pending) {
+            when (val d = pending) {
                 is Decision.May -> may(true)
+                is Decision.ChooseObjects -> alice.answers(Answer.Objects(d.options.take(1)))
                 is Decision.Targets -> targets("bob")
                 null -> if (state.stack.isEmpty()) break else allPass()
                 else -> break

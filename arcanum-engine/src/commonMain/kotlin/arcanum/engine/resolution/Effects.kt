@@ -611,18 +611,31 @@ internal object Effects {
 
     private fun dealDamage(scope: Scope, effect: Effect.DealDamage) {
         val act = scope.act
-        val source = scope.objects(effect.source).firstOrNull() ?: return
-        val targets = recipients(scope, effect.to)
-        val divided = scope.cause.item?.divided.orEmpty()
-        val parts = targets.map { r ->
-            val share = divided.firstOrNull { it.target == r }?.amount
-            DamageDealt(source, r, scope.eval(dividedShare = share).value(effect.amount))
-        }
+        val parts = damageParts(scope, effect)
+        if (parts.isEmpty() && scope.objects(effect.source).isEmpty()) return
         val result = Actions.damage(act, scope.cause, parts, effect.cantBePrevented)
         effect.bind?.let { bind ->
             scope.bind(bind, NamedValue.Number(result.total))
             scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excess))
         }
+    }
+
+    /** The damage [effect] would deal in [scope]: its source to each recipient (a divided share each, CR 601.2d). */
+    private fun damageParts(scope: Scope, effect: Effect.DealDamage): List<DamageDealt> {
+        val source = scope.objects(effect.source).firstOrNull() ?: return emptyList()
+        val divided = scope.cause.item?.divided.orEmpty()
+        return recipients(scope, effect.to).map { r ->
+            val share = divided.firstOrNull { it.target == r }?.amount
+            DamageDealt(source, r, scope.eval(dividedShare = share).value(effect.amount))
+        }
+    }
+
+    /** rvr fixes, CR 608.2f: one action on several objects, "each deals damage …", is processed simultaneously: the damage of every
+     * one of [scopes] (a loop over the objects) is dealt as one event, so a "whenever … is dealt damage" ability triggers once. */
+    fun dealDamageTogether(scopes: List<Scope>, effect: Effect.DealDamage) {
+        val first = scopes.firstOrNull() ?: return
+        val parts = scopes.flatMap { damageParts(it, effect) }
+        if (parts.isNotEmpty()) Actions.damage(first.act, first.cause, parts, effect.cantBePrevented)
     }
 
     // dsk gaps
@@ -1240,12 +1253,21 @@ internal object Effects {
         scope.names = scope.names.with(SHIELDED, NamedValue.Objects(objects)).with(SHIELDED_PLAYERS, NamedValue.Players(players))
         val pattern = EventPattern.Damage(effect.from, RecipientFilter(
             objects = ObjectFilter.Is(Objects.Bound(SHIELDED)), players = PlayerFilter.Is(Players.Bound(SHIELDED_PLAYERS))))
-        applyMechanics(scope, listOf(Mechanic.Prevention(pattern)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
+        // rvr fixes, CR 614.9: a redirection shield's new recipients are fixed as it resolves
+        val redirect = effect.redirectTo?.let { to ->
+            val refs = recipients(scope, to)
+            scope.names = scope.names.with(REDIRECT_TO, NamedValue.Objects(refs.filterIsInstance<TargetRef.Object>().map { it.id }))
+                .with(REDIRECT_TO_PLAYERS, NamedValue.Players(refs.filterIsInstance<TargetRef.Player>().map { it.id }))
+            arcanum.api.Recipients(objects = Objects.Bound(REDIRECT_TO), players = Players.Bound(REDIRECT_TO_PLAYERS))
+        }
+        applyMechanics(scope, listOf(Mechanic.Prevention(pattern, redirectTo = redirect)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
         scope.names = saved
     }
 
     private const val SHIELDED = "\$shielded"
     private const val SHIELDED_PLAYERS = "\$shielded-players"
+    private const val REDIRECT_TO = "\$redirect-to"
+    private const val REDIRECT_TO_PLAYERS = "\$redirect-to-players"
 
     /** CR 701.19a: "The next time it would be destroyed this turn, instead remove all damage marked on it and its
      * controller taps it. If it's an attacking or blocking creature, remove it from combat." (D26) */

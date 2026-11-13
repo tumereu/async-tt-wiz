@@ -16253,6 +16253,15 @@ internal class Sentences(
     }
 
     private fun rvrEffect(sentence: String, context: Context): List<Step>? {
+        // rvr fixes: Carom: "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead."
+        // (a redirection shield, CR 614.9; "another target" is a different object from the first target, CR 115.3)
+        Rvr.NEXT_DAMAGE_DEALT_TO_INSTEAD.matchEntire(sentence)?.let { m ->
+            val from = tlaTarget(m.groupValues[2], context) as? Objects.Target ?: return null
+            val to = tlaTarget(m.groupValues[4], context) ?: return null
+            if (m.groupValues[3].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(distinctFrom = listOf(from.slot))
+            return listOf(Step.Do(Effect.PreventDamage(Recipients(objects = from), Value.Fixed(m.groupValues[1].toInt()), ObjectFilter.Any,
+                arcanum.api.Duration.EndOfTurn, redirectTo = Recipients(objects = to))))
+        }
         // rvr chunk 05: Nicol Bolas, Dragon-God: "Each opponent exiles a card from their hand or a permanent they control." (each chooses one of
         // their own, in turn order, CR 101.4) and "Each opponent who doesn't control a legendary creature or planeswalker loses the game." (CR 104.3e)
         Rvr.EACH_OPPONENT_EXILES_FROM_HAND_OR_PERMANENT.matchEntire(sentence)?.let { m ->

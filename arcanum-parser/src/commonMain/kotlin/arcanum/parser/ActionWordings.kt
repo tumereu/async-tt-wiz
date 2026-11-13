@@ -54,6 +54,9 @@ internal object ActionWordings {
 
     private val PLAYERS = listOf<Pair<String, PlayerFilter>>("you " to PlayerFilter.You, "an opponent " to PlayerFilter.Opponent, "a player " to PlayerFilter.Any)
 
+    /** The action a player does with no object, by its base form ("proliferate"); null when it isn't one. */
+    fun playerAction(base: String): KeywordActionKind? = BY_PLAYERS.firstOrNull { it.base == base }?.kind
+
     /** "You" did [kind]. */
     fun youDid(kind: KeywordActionKind): EventPattern = EventPattern.KeywordActionDone(kind, PlayerFilter.You)
 

@@ -109,10 +109,22 @@ internal object EoePhrases {
         }
         // eoe chunk 13: "you play a land or cast a spell" (CR 305.1, 601.2i)
         if (Eoe.PLAY_LAND_OR_CAST.matches(text)) return listOf(EventPattern.PlayLand(ObjectFilter.Any, PlayerFilter.You), EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You))
-        // eoe chunk 11: "this creature blocks a creature with flying" (CR 509.1)
+        // isd chunk 04: "equipped creature blocks or becomes blocked by a Vampire" (once for each such creature it blocks or that blocks it,
+        // CR 509.3b, 509.3d)
+        Isd.BLOCKS_OR_BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            val other = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(EventPattern.Block(subject, other, perAttacker = true), EventPattern.BecomesBlocked(subject, other, perBlocker = true))
+        }
+        // isd chunk 04: "this creature becomes blocked by a Vampire" (once for each such blocker, CR 509.3d)
+        Isd.BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            return listOf(EventPattern.BecomesBlocked(subject, Filters.noun(m.groupValues[2]) ?: return null, perBlocker = true))
+        }
+        // eoe chunk 11: "this creature blocks a creature with flying": once for each such attacker it blocks (CR 509.3b)
         Eoe.BLOCKS_A.matchEntire(text)?.let { m ->
-            if (m.groupValues[1] !in self) return@let
-            return listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null))
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            return listOf(EventPattern.Block(subject, Filters.noun(m.groupValues[2]) ?: return null, perAttacker = true))
         }
         // eoe chunk 09: "an opponent discards a card" (CR 701.9a)
         if (text == "an opponent discards a card") return listOf(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.Opponent))
@@ -157,7 +169,7 @@ internal object Eoe {
     val AS_LONG_AS_DRAW_PLUS_ONE = Regex("""As long as (.+?), if you would draw one or more cards, you draw that many cards plus one instead\.""")
     val COUNTER_ON_TARGET_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on target (.+?) and draw a card\.""")
     val DEFENDING_PLAYER_MILLS = Regex("""[Dd]efending player mills (\w+) cards\.""")
-    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_GAINS = Regex("""([Uu]p to one (?:other )?target .+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains ([a-z ]+) until end of turn\.""")
     val COUNTER_IF_SPENT_LESS_DRAW = Regex("""Counter target spell\. If the amount of mana spent to cast that spell was less than its mana value, you draw a card\.""")
     val NTH_SPELL_EACH_TURN_COSTS_LESS = Regex("""The (\w+) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast\.""")
@@ -240,7 +252,7 @@ internal object Eoe {
     val LIFE_BECOMES_HALF_STARTING = Regex("""[Yy]our life total becomes half your starting life total, rounded (up|down)\.""")
     val ADD_X_ANY_ONE_COLOR_COUNTERS = Regex("""Add X mana of any one color, where X is the number of (\S+) counters on (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_GAINS = Regex("""Target player draws (\w+) cards and gains (\d+) life\.""")
-    val THAT_PLAYER_GETS_POISON = Regex("""[Tt]hat player gets (\w+) poison counters\.""")
+    val THAT_PLAYER_GETS_POISON = Regex("""(That player|that player|Its controller|its controller|Target opponent|target opponent|Target player|target player|Each opponent|each opponent|Each player|each player|You|you) gets? (an additional|\w+) (poison) counters?\.""")
     val CREATE_COPY_EXCEPT_LEGENDARY = Regex("""Create a token that's a copy of target (.+?), except it's legendary\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets ([+-]\d+)/([+-]\d+) and has "(.+?\.)"""")
     val TAP_X_UNTAPPED = Regex("""Tap X untapped (.+)""")

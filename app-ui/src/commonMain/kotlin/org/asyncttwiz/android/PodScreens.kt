@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.LeaveScreenBackHandler
 import org.asyncttwiz.appui.ScreenBackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -59,6 +60,8 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
         if (state.setup != null) { delay(600); controller.flushSetup() }
     }
     ScreenBackHandler(state.selected != null || state.creating != null) { controller.back() }
+    // WEB-004: in the browser Esc leaves the draft as Back does, once nothing is open over it
+    LeaveScreenBackHandler(pickTab) { controller.back() }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {

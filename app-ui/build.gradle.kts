@@ -29,6 +29,8 @@ kotlin {
             implementation(project(":core"))
             implementation(project(":protocol"))
             implementation(project(":automatum"))
+            // The engine side without UI (EngineGame and what it uses), which the engine's Web Worker builds too.
+            api(project(":app-engine"))
             implementation(libs.cmp.runtime)
             implementation(libs.cmp.foundation)
             implementation(libs.cmp.ui)

@@ -86,7 +86,7 @@ internal object Ecl {
     val GETS_AND_LOSES_ALL_TYPES = Regex("""Target creature gets ([+-]\d+)/([+-]\d+) and loses all creature types until end of turn\.""")
     val ENTERED_OR_CAST_FROM_GRAVEYARD = Regex("""Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them\. This ability triggers only once each turn\.""")
     val RETURN_TWO_SHARING_TYPE = Regex("""Return two target (creature cards) that share a creature type from your graveyard to your hand\.""")
-    val TARGET_OPPONENT_EXILES_FROM_HAND = Regex("""Target opponent exiles (two|three) cards from their hand\.""")
+    val TARGET_OPPONENT_EXILES_FROM_HAND = Regex("""([Tt]arget opponent|[Tt]arget player|[Tt]hat player) exiles (two|three) cards from their (hand|graveyard)\.""")
     val PLAYERS_CANT_DRAW_OR_GAIN = Regex("""Players can't draw cards or gain life\.""")
     val EACH_DRAW_STEP_LOSES_SEARCHES = Regex("""At the beginning of each player's draw step, that player loses (\d+) life, searches their library for a card, puts it into their hand, then shuffles\.""")
     val CAST_FROM_EXILED_WITH_REMOVING_COUNTERS = Regex("""During your turn, you may cast creature spells from among cards you own exiled with (.+?) by removing (\w+) counters from among creatures you control in addition to paying their other costs\.""")
@@ -95,7 +95,8 @@ internal object Ecl {
     val EXCEPT_IT_HAS = Regex("""it has (.+)""")
     // ecl chunk 07
     val AS_ENTERS_CHOOSE_TYPE_AMONG = Regex("""As (.+?) enters, choose ((?:[A-Z]\w+, )+or [A-Z]\w+)\.""")
-    val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a creature type\. (.+)""")
+    // isd chunk 01: also "Choose a permanent type." / "Choose a card type." (CR 205.2a, 110.4a)
+    val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a (creature|permanent|card) type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
     val IT_DEALS_INSTEAD_IF =Regex("""(It|.+?) deals (\d+) damage to that creature instead if (.+)\.""") // otj chunk 11: its name
     val GET_X_X_WHERE = Regex("""(.+?) get \+X/\+X, where X is (.+)\.""")

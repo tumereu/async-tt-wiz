@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.timeline
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasTestTag

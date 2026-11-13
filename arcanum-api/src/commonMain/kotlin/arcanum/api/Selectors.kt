@@ -60,6 +60,12 @@ sealed interface Objects {
     /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
      * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
     @Serializable @SerialName("granter") data object Granter : Objects
+    // isd
+    /** In a token's ability, the object whose ability created the token, as long as it is still that object ('create a green Ooze
+     * creature token with "This token's power and toughness are each equal to the number of slime counters on Gutter Grime."',
+     * CR 201.5a); a copy of the token refers to the object that created the original. Nothing once that object has left its zone
+     * (CR 400.7) or for an object no ability created. */
+    @Serializable @SerialName("creator") data object Creator : Objects
 }
 
 /**
@@ -85,12 +91,12 @@ sealed interface EventRole {
     @Serializable @SerialName("defender") data object Defender : EventRole
     /** In an unattach event: the object or player it was attached to. */
     @Serializable @SerialName("from") data object From : EventRole
-    // otj
-    /** In an attach event: the object it became attached to ("that creature" of "whenever this Equipment becomes attached to a
-     * creature", CR 701.3a). */
-    @Serializable @SerialName("to") data object To : EventRole
     /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
     @Serializable @SerialName("rest") data object Rest : EventRole
+    // otj, one
+    /** In an attach event: the object or player it became attached to ("that creature" of "whenever this Equipment becomes
+     * attached to a creature", "for as long as this Equipment remains attached to it", CR 701.3a, 608.2h). */
+    @Serializable @SerialName("to") data object To : EventRole
 }
 
 /**
@@ -177,8 +183,8 @@ sealed interface ObjectFilter {
     /** A spell or ability that targets something in [objects] or [players] ("spells that target you"). */
     @Serializable @SerialName("targets") data class Targets(val objects: Objects? = null, val players: Players? = null) : ObjectFilter
     /** Attached to something in [objects] ("Auras attached to it") or has attachments matching [attachments]
-     * ("enchanted creatures"). */
-    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null) : ObjectFilter
+     * ("enchanted creatures"); or attached to one of [toPlayers] ("Curses attached to you", an Aura enchanting a player, CR 303.4e). */
+    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null, val toPlayers: Players? = null) : ObjectFilter
     /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"), in [role] of the
      * event when given (any role when null): "creature that dealt damage this turn" is the [EventRole.Source] of a damage
      * event, "creature that was dealt damage this turn" its [EventRole.Object]. */

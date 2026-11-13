@@ -12,6 +12,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.LeaveScreenBackHandler
+import org.asyncttwiz.appui.secondBackLeavesTable
 import org.asyncttwiz.appui.rememberShortNote
 import kotlinx.coroutines.delay
 import org.asyncttwiz.appui.elapsedRealtime
@@ -75,13 +77,13 @@ fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -
     }
     val back = remember(game.id) { TableBackStateMachine() }
     val shortNote = rememberShortNote()
-    BackHandler {
+    if (secondBackLeavesTable) BackHandler {
         when (back.back(elapsedRealtime(), false, false)) {
             TableBackAction.PROMPT -> shortNote("Press back again to leave")
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.CLOSE_OVERLAY, TableBackAction.EXIT_REVIEW -> {}
         }
-    }
+    } else LeaveScreenBackHandler { controller.back() }
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
         TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,
             message = state.connectionMessage ?: if (loadTimedOut) "Connection timed out." else null,

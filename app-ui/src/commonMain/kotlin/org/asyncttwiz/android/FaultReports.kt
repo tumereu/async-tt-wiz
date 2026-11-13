@@ -49,8 +49,8 @@ object FaultReports {
     private fun upload(report: ProblemReport) {
         scope.launch {
             try {
-                AutomatumReports.logBoard()
-                val full = fitProblemReport(report.copy(log = AppLog.text(), automatum = AutomatumReports.text()))
+                AutomatumReports.logBoardNow()
+                val full = fitProblemReport(report.copy(log = AppLog.text(), automatum = AutomatumReports.textNow()))
                 val code = AccountApi(AppBuild.ACCOUNT_ORIGIN, AccountApi.client(requestTimeout = 90_000))
                     .use { it.sendProblemReport(full, DebugCrashes.sessionToken()) }
                 AppLog.info(TAG, "Fault report sent: $code")

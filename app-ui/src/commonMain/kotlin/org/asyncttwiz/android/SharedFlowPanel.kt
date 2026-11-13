@@ -33,7 +33,6 @@ import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import org.asyncttwiz.automatum.Divisions
-import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
 
@@ -53,14 +52,13 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     val shown = !toolkit.cast.open && AutomatumBoards.sharedFlowShown(play)
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
-        val ready = AutomatumBoards.cachedFlow(play)
-        // SYS-025: the flow worked out off the main thread (with the open decision and its early answer, I-D33)
-        val next = if (ready != null && play.board.engineRecords.none { it.kind == EngineRecordKind.PreAnswer }) ready
-            else toolkit.boardWork(Dispatchers.Default) {
-                (ready ?: AutomatumBoards.sharedFlow(play))?.also { it.decision; it.early }
-            }
+        // SYS-025: the flow worked out off the main thread (with the open decision, its early answer, I-D33, and what its
+        // panel draws), then shown at once; web client step 4e: in the browser asked of the engine's worker, shown when it
+        // answers
+        if (!flows.remote && AutomatumBoards.cachedSharedValue(play) == null)
+            toolkit.boardWork(Dispatchers.Default) { AutomatumBoards.sharedValue(play) }
         // I-D56 §6: the device running the step makes the engine-automatic answers itself
-        flows.show(next)
+        flows.load(play)
     }
     if (!shown) return
     // HIS-110: the other player's reveal panel comes first; the choice shows once it is dismissed
@@ -190,12 +188,12 @@ private fun WaitingBar(play: TableBoard, text: String, card: ChoiceCardData?, ac
 
 /** What the other player is choosing, in the observer's words (UI review round 2 #2): the card it comes from ("Fertile
  * Passing"), else what it is ("Order triggers", "Legend rule"), never the chooser's own "You may". */
-fun observerWhat(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
+fun observerWhat(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision): String =
     commonSource(decision)?.let { sourceName(flows, flow, play, decision, it) }
         ?: if (decision is Decision.May) "a choice" else choiceWhat(decision)
 
 /** The card an open choice comes from, drawn on the other player's waiting bar (I-D48); null when none is shown. */
-private fun observedCard(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
+private fun observedCard(flows: SharedFlowController, flow: SharedShown, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
     val source = commonSource(decision) ?: return null
     val card = (if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source else source) ?: return null
     return choiceCardOf(flows, play, viewer, card).takeIf { it.cardId != null }
@@ -206,7 +204,7 @@ private fun commonSource(decision: Decision): ObjectId? = decision.source
     ?: (decision as? Decision.OrderTriggers)?.triggers?.map { it.source }?.distinct()?.singleOrNull()
 
 /** The Stack item an open choice belongs to: named by the decision, or the resolving top of the Stack from its source. */
-private fun decisionItem(flow: SharedFlow, decision: Decision): StackItem? =
+private fun decisionItem(flow: SharedShown, decision: Decision): StackItem? =
     decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source } }
 
 /**
@@ -215,7 +213,7 @@ private fun decisionItem(flow: SharedFlow, decision: Decision): StackItem? =
  * spell or permanent as its card (covered when the viewer may not see it), the one source all the triggers to order share
  * (UI review round 2 N10); null when it has none (a discard to hand size, the legend rule).
  */
-fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
+fun decisionSource(flows: FlowQuestions, flow: SharedShown, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
     if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
     val item = decisionItem(flow, decision)
     val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
@@ -248,7 +246,7 @@ fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, vie
 
 /** The ability [item] as its entry on the Stack shows it (STK-046: its source card as the table keeps it, the
  * ability's text), or null when it is no ability on the Stack or [viewer] may not see its source. */
-private fun stackEntrySource(flow: SharedFlow, play: TableBoard, viewer: String, item: StackItem?): ChoiceCardData? {
+private fun stackEntrySource(flow: SharedShown, play: TableBoard, viewer: String, item: StackItem?): ChoiceCardData? {
     if (item == null || (item.kind !is StackItemKind.Triggered && item.kind !is StackItemKind.Activated)) return null
     val ref = flow.ref(TargetRef.Object(item.id))
     val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id ?: return null
@@ -261,7 +259,7 @@ private fun stackEntrySource(flow: SharedFlow, play: TableBoard, viewer: String,
  * title saying only what the choice is (I-D47, STK-030) with the source at the right (STK-044), an ability's own line,
  * the cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
 @Composable
-private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, names: Map<String, String>,
+private fun DecisionPanel(flows: SharedFlowController, flow: SharedShown, play: TableBoard, names: Map<String, String>,
     decision: Decision, forOther: Boolean, otherName: String) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
@@ -284,7 +282,7 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: T
  * sentence of what is chosen ([askedSentence]); null where the question's own words are that sentence ([hasOwnText]) or
  * the viewer may not see the source.
  */
-private fun askedLine(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, decision: Decision, source: ChoiceCardData?): String? {
+private fun askedLine(flows: FlowQuestions, flow: SharedShown, play: TableBoard, decision: Decision, source: ChoiceCardData?): String? {
     if (hasOwnText(decision)) return null
     val item = decisionItem(flow, decision)
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
@@ -366,7 +364,7 @@ fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: tap sources on the
  * source at the right; the sources are tapped on the table (Autotap's already chosen when it is on), and Pay is the main button.
  */
 @Composable
-private fun FlowPayBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision, payment: Decision.ManaPayment,
+private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision, payment: Decision.ManaPayment,
     source: ChoiceCardData?) {
     val inspector = remember(decision.id) { ChoiceInspector() }
     val line = if (decision is Decision.May) decision.text else askedLine(flows, flow, play, decision, source)
@@ -395,7 +393,7 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedFlow, play: Tabl
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. The title
  * says only the choice, the [source] sits at the right (STK-044). */
 @Composable
-private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, pick: TablePick,
+private fun FlowTargetBar(flows: SharedFlowController, flow: SharedShown, play: TableBoard, pick: TablePick,
     source: ChoiceCardData?, names: Map<String, String>) {
     val decision = pick.decision
     val inspector = remember(decision.id) { ChoiceInspector() }
@@ -444,7 +442,7 @@ private fun faceName(play: TableBoard, card: PlayCard): String? =
         ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
 
 /** The decision's source ([source], its own by default) by name: the card or ability it is about. */
-private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision,
+private fun sourceName(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision,
     source: ObjectId? = decision.source): String {
     source ?: return if (decision is Decision.OrderTriggers) "Triggers" else "Automatum"
     if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source?.let { return objectName(flows, play, it) }
@@ -459,7 +457,7 @@ private fun hasOwnText(decision: Decision) =
         (decision is Decision.ChooseObjects && ObjectsShape.of(decision).search)
 
 /** What the decision asks, in a few words: the card's sentence when it has one. */
-private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String = when (decision) {
+private fun prompt(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision): String = when (decision) {
     is Decision.May -> decision.text
     is Decision.ChooseObjects -> decision.text
     is Decision.Manual -> decision.text

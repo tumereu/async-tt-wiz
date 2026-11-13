@@ -49,6 +49,33 @@ class OlderHistory(private val codec: EngineJson, private val keptPages: Int = 8
         else -> events.first().parentId.takeIf { it != rootId }
     }
 
+    /**
+     * The first page asked for while nothing is loaded yet ([asking]) ends at the line start of that moment: [waiting]. The
+     * session may trim its line before the page arrives (the other player catching up moves the earliest local head on):
+     * the events it trims meanwhile wait in [gap] (from [waiting] on, in order), so the page still joins the line ([add])
+     * instead of being kept for states only, and [events] still end at the session's line start.
+     */
+    private var waiting: String? = null
+    private var gap: List<GameEvent> = emptyList()
+
+    /** The page to ask for next, as [through], remembering it when nothing is loaded yet (see [waiting]): while its answer
+     * is awaited past a trim, the same page is asked for again. */
+    fun asking(lineStart: String, rootId: String?): String? {
+        if (complete || events.isNotEmpty()) return through(lineStart, rootId)
+        val asked = waiting
+        if (asked != null && (gap.isNotEmpty() || asked == lineStart)) return asked
+        gap = emptyList()
+        waiting = lineStart.takeIf { it != rootId }
+        return waiting
+    }
+
+    /** The trimmed events the last page joined the line through ([waiting]), for the device's record; 0 when none. */
+    var joined: Int = 0
+        private set
+
+    /** The trimmed events waiting for the first page ([waiting]), for the device's record. */
+    val waitingTrimmed: Int get() = gap.size
+
     /** Whether [id] is one of [events]. */
     fun holds(id: String): Boolean = events.any { it.id == id }
 
@@ -65,6 +92,13 @@ class OlderHistory(private val codec: EngineJson, private val keptPages: Int = 8
         if (page.through == through(lineStart, rootId)) {
             events = decoded + events
             if (page.fromStart) complete = true
+            waiting = null; gap = emptyList(); joined = 0
+        } else if (events.isEmpty() && page.through == waiting && gap.lastOrNull()?.id == lineStart) {
+            // Asked for before the session trimmed its line: it joins the line through the events trimmed meanwhile
+            events = decoded + gap
+            if (page.fromStart) complete = true
+            joined = gap.size
+            waiting = null; gap = emptyList()
         }
         return true
     }
@@ -97,7 +131,16 @@ class OlderHistory(private val codec: EngineJson, private val keptPages: Int = 8
      * loaded and they go.
      */
     fun trimmed(oldLineStart: String, moved: List<GameEvent>) {
-        if (moved.isEmpty() || events.isEmpty()) return
+        if (moved.isEmpty()) return
+        if (events.isEmpty()) {
+            // The first page is on its way ([waiting]): what is trimmed meanwhile waits for it, in order (at most
+            // [GAP_MOST], so a page that never comes doesn't keep a long game's line)
+            val asked = waiting ?: return
+            val follows = if (gap.isEmpty()) oldLineStart == asked else gap.last().id == oldLineStart
+            gap = if (follows && gap.size + moved.size <= GAP_MOST) gap + moved else emptyList()
+            if (gap.isEmpty()) waiting = null
+            return
+        }
         events = if (events.last().id == oldLineStart) events + moved else emptyList()
         if (events.isEmpty()) complete = false
     }
@@ -117,5 +160,10 @@ class OlderHistory(private val codec: EngineJson, private val keptPages: Int = 8
             next.complete = complete
         }
         return next
+    }
+
+    private companion object {
+        /** The trimmed events that wait for the first page at most ([trimmed]). */
+        const val GAP_MOST = 2000
     }
 }

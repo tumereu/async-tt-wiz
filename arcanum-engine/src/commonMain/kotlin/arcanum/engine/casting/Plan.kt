@@ -369,6 +369,16 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     fun optionalTimes(inst: AbilityInstance): Int? = (choices.costs[optionalKey(inst)] as? NamedValue.Number)?.value
 
+    /** isd: why the total cost can't be paid, once that is known (CR 118.6: a spell with no mana cost cast for it, or a cost based on the
+     * mana cost of an object with no mana cost; an alternative cost or a permission's cost may still be paid, CR 118.6a). */
+    val unpayable: String? get() = when {
+        isSpell && permission?.first?.withoutPaying != true && choices.names[Casting.FACE_DOWN] == null && alternative == null &&
+            permission?.first?.cost == null && !way.fused && plain.view[itemId]?.characteristics?.manaCost == null && snap0Face()?.manaCost == null ->
+            "it has no mana cost, an unpayable cost (CR 118.6)"
+        total.unpayable -> "its cost is based on the mana cost of an object with no mana cost, an unpayable cost (CR 118.6)"
+        else -> null
+    }
+
     val contributions: List<Costs.Contribution> = buildList {
         if (isSpell) {
             val base: Cost? = when {
@@ -615,8 +625,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val (increases, reductions) = changes()
         val x = choices.announced.mapNotNull { (k, v) -> k.singleOrNull()?.let { it to v } }.toMap()
         val its = plain.view[itemId]?.characteristics?.manaCost ?: plain.view[sourceId]?.characteristics?.manaCost
+        // isd: "pay its mana cost" of an object the cost chose: read from the choice (CR 601.2b, 601.2f)
+        val chosen by lazy { eval.with(eval.ctx.copy(names = eval.ctx.names.with(chosenCostObjects()))) }
         Costs.total(contributions, eval, x, its, { key -> (choices.names[ONE_OF + key] as? NamedValue.Number)?.value },
-            increases, reductions)
+            increases, reductions, manaCostOf = { objects ->
+                chosen.objects(objects).takeIf { it.isNotEmpty() }?.map { id -> plain.view[id]?.characteristics?.manaCost }
+            })
     }
 
     /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2); ecl: also those

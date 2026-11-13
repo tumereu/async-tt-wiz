@@ -15,9 +15,10 @@ class OtjChunk10ConditionsTest {
     private fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(n(1),
         colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { ColorRef.Literal(it) })), Players.You)))
 
-    // CR 614.1c: checked as it enters; "two or fewer other lands" = not three or more, so it enters tapped unless that holds
+    // CR 614.1c: checked as it enters; it enters tapped unless the other lands you control number two or fewer
     private val entersTappedUnlessTwoOrFewer = static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-        modify = listOf(Modification.EntersTapped)), condition = Condition.Not(Condition.Not(Condition.Exists(and(another, land, you), atLeast = 3))))
+        modify = listOf(Modification.EntersTapped)), condition = Condition.Not(Condition.Compare(Value.Count(Objects.Each(and(another, land, you))),
+        Comparison.AtMost, Value.Fixed(2))))
 
     private fun fastLand(name: String, a: String, b: String) = card(
         name = name,

@@ -1,1 +1,1 @@
-add: ATW in a web browser: sign in, see your games, contacts, decks and cubes, and change settings. Games still open in the Android app for now.
+add: ATW in a web browser: sign in, play your games, see contacts, decks, cubes and pods, and change settings.

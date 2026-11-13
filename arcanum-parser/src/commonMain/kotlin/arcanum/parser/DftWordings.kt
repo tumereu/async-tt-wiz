@@ -20,7 +20,8 @@ internal object Dft {
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|one|two|three) (\S+) counters? on it\.""")
     val FOR_EACH_PLAYER_DESTROY_UP_TO_ONE = Regex("""For each player, destroy up to one target (.+?) that player controls\. If an? (.+?) you controlled was destroyed this way, (.+)""")
     val GAIN_CONTROL_AS_LONG_AS_CANT_ATTACK_OR_BLOCK = Regex("""Gain control of target (.+?) for as long as you control (.+?)\. That creature can't attack or block for as long as you control (.+?)\.""")
-    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card from your graveyard to your hand\.""")
+    // isd chunk 05: also "a creature card at random" (Woodland Sleuth)
+    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card( at random)? from your graveyard to your hand\.""")
     val RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD = Regex("""Return up to one target (.+?) card from your graveyard to the battlefield\.""")
     val CREATE_THAT_MANY = Regex("""[Cc]reate that many (tapped )?(.+)\.""")
     // dft chunk 02
@@ -99,7 +100,7 @@ internal object Dft {
     val MAY_PUT_FROM_HAND_IF_ARTIFACT_COUNTERS = Regex("""You may put an? (.+?) card from your hand onto the battlefield\. If you put an artifact onto the battlefield this way, put (\w+) (\S+) counters on it\.""")
     val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control\.""")
     val RETURN_UP_TO_ONE_EACH_TO_HAND = Regex("""Return (up to one target .+) from your graveyard to your hand\.""")
-    val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other types\.""")
+    val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other (?:creature )?types\.""")
     // dft chunk 15
     val PUT_FROM_GRAVEYARD_FINALITY_GAINS_EXILE_NEXT_END = Regex("""Put target (.+?) from a graveyard onto the battlefield under your control with a finality counter on it\. That creature gains ([a-z ,]+)\. At the beginning of your next end step, exile that creature\.""")
     val AS_ENTERS_EXILE_UP_TO_X_COUNTERS_FOR_EACH = Regex("""As (.+?) enters, exile up to X (.+?) cards from your graveyard\. It enters with (\w+) (\S+) counters on it for each \2 card exiled this way\.""")

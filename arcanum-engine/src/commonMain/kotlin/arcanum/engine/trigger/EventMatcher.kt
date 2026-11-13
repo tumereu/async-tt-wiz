@@ -344,7 +344,9 @@ internal object EventMatcher {
 
     private fun moveEvent(e: Evaluator, m: Move, proposed: Boolean, from: Zone?, objectRole: EventRole? = null): TriggerEvent {
         val tested = tested(m, from, proposed)
-        val player = m.seen?.controller ?: m.before.controller ?: m.before.owner
+        // isd sweep: a permanent entering is the player's it enters under the control of (CR 110.2), who may not be the card's owner
+        // or the controller it had in its previous zone
+        val player = (if (m.to == Zone.Battlefield) m.after.controller else null) ?: m.seen?.controller ?: m.before.controller ?: m.before.owner
         return TriggerEvent(
             objects = listOf(
                 RoleObjects(EventRole.Object, listOf(if (objectRole == EventRole.Before) m.before.id else tested)),
@@ -380,8 +382,10 @@ internal object EventMatcher {
         if ((put && delta <= 0) || (!put && delta >= 0)) return emptyList()
         if (kind != null && kind != c.kind) return emptyList()
         if (last && c.after != null) return emptyList()
-        if (!e.matches(objects, holder.id)) return emptyList()
-        return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
+        // the holder as it was as the counters changed: its controller then (CR 608.2h), as it last existed if it has left since
+        val then = c.controller?.let { Evaluator(ControllerThenBoard(LastKnownBoard(e.board), holder.id, it), e.ctx) } ?: e
+        if (!then.matches(objects, holder.id)) return emptyList()
+        return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(c.controller ?: e.controllerOf(holder.id)),
             kotlin.math.abs(delta), counterKinds = listOf(c.kind)))
     }
 
@@ -523,4 +527,10 @@ internal object EventMatcher {
 internal class LastKnownBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
     override fun controller(id: ObjectId): PlayerId? = base.controller(id)
         ?: if (base.state.obj(id) == null && id !in base.state.stackItems) { base.readingLog(); base.snapshot(id)?.let { it.controller ?: it.owner } } else null
+}
+
+/** A [base] board on which [id]'s controller is [controller]: the controller it had as an earlier event happened (CR 608.2h). */
+internal class ControllerThenBoard(private val base: arcanum.engine.query.Board, private val id: ObjectId, private val controller: PlayerId) :
+    arcanum.engine.query.Board by base {
+    override fun controller(id: ObjectId): PlayerId? = if (id == this.id) controller else base.controller(id)
 }

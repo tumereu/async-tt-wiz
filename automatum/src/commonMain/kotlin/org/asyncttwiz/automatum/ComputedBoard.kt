@@ -38,6 +38,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  * - [keywords]: every keyword ability it has.
  * - [states]: TBL-133: the states the rules keep on it ("Ring-bearer", "Goaded", "Monstrous", [CardStates.words]).
  */
+@kotlinx.serialization.Serializable
 data class ComputedCard(
     val cardId: String,
     val power: Int?,
@@ -85,6 +86,7 @@ data class ComputedCard(
  * [count] counters of one kind on a card as the table shows them (owner, 2026-11-11: counters as visuals): [kind] the engine's
  * kind (null when it can't be read), [name] as players read it ("+1/+1", "loyalty", "Flying counter", "charge").
  */
+@kotlinx.serialization.Serializable
 data class ShownCounter(val kind: CounterKind?, val name: String, val count: Int) {
     /** The words Inspect lists it with ("+1/+1 counter ×2", "loyalty counter"). */
     val words: String get() = (if (name.endsWith(" counter")) name else "$name counter").let { if (count == 1) it else "$it ×$count" }
@@ -107,7 +109,7 @@ class ComputedBoard private constructor(
     /** The cards with manual abilities [viewer] may see (I-D27), by name, with how many each has. */
     val manualCards: List<Pair<String, Int>>,
     private val state: GameState?,
-    private val view: View?,
+    private val givenView: View?,
     private val ids: CardIds?,
     /** ZON-094: the states of cards in exile the rules keep ("Plotted", "Foretold", "Warped"), by ATW card id; each is public
      * even for a card exiled face down. */
@@ -115,7 +117,28 @@ class ComputedBoard private constructor(
     /** ZON-079 (owner, 2026-11-12): the cards outside the viewer's hand a permission lets them cast or play from where they are,
      * or with an ability or special action they may use there, usable now or not, that they may see ([OffZoneCards.permitted]), by ATW card id, in their hand row's order. */
     val handRow: List<String> = emptyList(),
+    /** Web client step 4c: a board restored on the page from the engine side's values ([restored]), whose view is worked out
+     * on the page when an explanation first needs it. */
+    private val restoredView: Boolean = false,
 ) {
+    /** The view worked out on the page for a restored board ([restoredView]). */
+    private var workedView: View? = null
+
+    /** The board's view: the engine side's own, or on a restored board the page's, worked out when first read. */
+    private val view: View?
+        get() = givenView ?: if (!restoredView || state == null) null else workedView ?: arcanum.engine.Engine.view(state).also { workedView = it }
+
+    /** Web client step 4c: what the page receives of these values ([restored] makes them again on the page's copy of the
+     * state); the explanations are worked out on the page when asked. */
+    @kotlinx.serialization.Serializable
+    class Wire(val cards: Map<String, ComputedCard> = emptyMap(), val unsupported: List<String> = emptyList(),
+        val manualAbilities: Int = 0, val manualCards: List<Pair<String, Int>> = emptyList(),
+        val exileStates: Map<String, List<String>> = emptyMap(), val handRow: List<String> = emptyList(),
+        /** Whether the values were worked out from a state (false: [NONE] or [failed]). */
+        val computed: Boolean = false)
+
+    /** These values as the page receives them ([Wire]). */
+    fun wire(): Wire = Wire(cards, unsupported, manualAbilities, manualCards, exileStates, handRow, state != null)
     /**
      * TBL-136 effects marker (owner, 2026-11-12): the Battlefield cards (by ATW card id) a continuous effect other than counters
      * applies to: exactly those Inspect lists an effect for ([effects]: a copy, gained or lost abilities, a changed P/T, type,
@@ -328,6 +351,13 @@ class ComputedBoard private constructor(
         private val PUBLIC = setOf(Zone.Battlefield, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
         private val PT_LAYERS = setOf<Layer>(Layer.PowerToughnessDefining, Layer.PowerToughnessSet, Layer.PowerToughnessModify,
             Layer.PowerToughnessSwitch)
+
+        /** Web client step 4c: [wire]'s values made again on the page, on its own copy of the board's [state] (the same
+         * state the engine side worked them out from); the view is worked out on the page when an explanation needs it. */
+        fun restored(wire: Wire, state: GameState): ComputedBoard = if (!wire.computed)
+            ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow)
+            else ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, state, null, CardIds(), wire.exileStates,
+                wire.handRow, restoredView = true)
 
         /** Nothing computed (Automatum off, or the board not built yet). */
         val NONE = ComputedBoard(emptyMap(), emptyList(), 0, emptyList(), null, null, null)

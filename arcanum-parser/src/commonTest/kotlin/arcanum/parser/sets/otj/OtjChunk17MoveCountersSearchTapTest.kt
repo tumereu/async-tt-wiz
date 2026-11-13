@@ -100,6 +100,19 @@ class OtjChunk17MoveCountersSearchTapTest {
             counters(Objects.Self), untilEndOfTurn(Objects.Self, Mechanic.CantBeBlocked)),
     )
 
+    // CR 603.10a, 608.2h: after "put a +1/+1 counter on <this>", "that creature" is still the creature that died, as it last existed
+    @Test
+    fun gravemournBishop() = card(
+        name = "Gravemourn Bishop", cost = "{1}{W}{B}", type = "Legendary Creature — Human Cleric", pt = "2/2",
+        text = "Whenever another nontoken creature you control dies, put a +1/+1 counter on Gravemourn Bishop. If that creature was a Cleric, you may draw a card. If you do, you lose 1 life.",
+    ) parsesTo abilities(
+        triggered(Trigger.On(EventPattern.ZoneChange(and(another, ObjectFilter.Not(token), creature, you), from = Zone.Battlefield, to = Zone.Graveyard)),
+            counters(Objects.Self),
+            Step.If(Condition.ObjectMatches(Objects.EventObject(EventRole.Before), sub("Cleric")), then = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.Draw(Players.You, n(1)))), payer = Players.You, bind = "paid"),
+                Step.If(Condition.Did("paid"), then = listOf(Step.Do(Effect.LoseLife(Players.You, n(1)))))))),
+    )
+
     // CR 603.2c (one or more), 700.4 (dies)
     @Test
     fun vengefulTownsman() = card(

@@ -320,7 +320,7 @@ class InrChunk08DamageDiscardExchangeExileTest {
         text = "Whenever a creature you control enters, you may have this artifact become a 3/3 white Angel artifact creature with flying until end of turn.",
     ) parsesTo abilities(
         triggered(enters(and(creature, you)), Step.May(listOf(doing(Effect.ApplyMechanics(listOf(
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Angel"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Angel")))),
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.White))),
             Mechanic.SetPowerToughness(n(3), n(3)),
             has(Keyword.Flying)), Affected.Objects(Objects.Self), Duration.EndOfTurn))), Players.You)),

@@ -496,6 +496,17 @@ internal object Effects {
                 }
                 kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
             }
+            // one: "choose a counter on target permanent. Put an additional counter of that kind on that permanent" (CR 122.1, 122.6)
+            is Effect.OneMoreCounterOfChosenKind -> Actions.recipientsOf(scope.eval(), effect.recipients).forEach { ref ->
+                val kinds = when (ref) {
+                    is TargetRef.Object -> act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield }?.counters?.map { it.kind }.orEmpty()
+                    is TargetRef.Player -> act.state.player(ref.id).counters.map { it.kind }
+                }.distinct()
+                if (kinds.isEmpty()) return@forEach
+                val labels = kinds.map { counterLabel(it) }
+                val chosen = kinds[labels.indexOf(act.chooseOption(scope.actor, scope.self, labels, text = "Choose a kind of counter")).coerceAtLeast(0)]
+                Actions.putCounters(act, cause, ref, chosen, 1)
+            }
             // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
             // Host.decider who makes their decisions
             is Effect.ControlNextTurn -> {
@@ -555,6 +566,14 @@ internal object Effects {
         val won = wins || (act.random(player, scope.self, RandomKind.CoinFlip) as Answer.CoinFlip).won
         act.record(Change.Happened(GameEvent.CoinFlipped(player, won)))
         return won
+    }
+
+    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil"). */
+    private fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
+        is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
+        is arcanum.api.CounterKind.Named -> kind.name
+        is arcanum.api.CounterKind.Keyword -> kind.keyword.id
+        else -> kind::class.simpleName.orEmpty().lowercase()
     }
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
@@ -1487,8 +1506,27 @@ internal object Effects {
             KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
-        performKeywordAction(scope, action, bind)
-        done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+        repeat(times(scope, action, done)) {
+            performKeywordAction(scope, action, bind)
+            done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+        }
+    }
+
+    /**
+     * one: how many times a keyword action one player does with no object is done, after replacements of doing it ("If you would proliferate,
+     * proliferate twice instead", CR 614.1a): each applies once (CR 614.5), so two of them make four. Other actions are done once.
+     */
+    private fun times(scope: Scope, action: KeywordAction, done: List<Pair<PlayerId, List<ObjectId>>>): Int {
+        val player = done.singleOrNull()?.takeIf { it.second.isEmpty() }?.first ?: return 1
+        val act = scope.act
+        if (arcanum.engine.action.Replacements.candidates(act, scope.cause).none { (it.mechanic.event as? arcanum.api.EventPattern.KeywordActionDone)?.action == action.kind }) return 1
+        val linked = mutableListOf<arcanum.engine.decision.WaitingTrigger>()
+        val times = arcanum.engine.action.Replacements.apply(act, scope.cause, 1, player, null,
+            proposed = { n -> if (n <= 0) null else Change.Happened(GameEvent.KeywordActionDone(action.kind, player, emptyList())) },
+            modify = { n, r, _ -> Actions.modifyAmount(act, n, r) },
+            instead = { r, instance -> Actions.runInstead(act, r, instance) }, linked = linked) ?: 0
+        arcanum.engine.action.Replacements.addLinked(act, linked)
+        return times.coerceAtLeast(0)
     }
 
     /** One [GameEvent.KeywordActionDone] each: who does [action], and to or with what. */
@@ -1529,7 +1567,7 @@ internal object Effects {
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
         val cause = scope.cause
         when (action) {
-            // CR 701.27a: choose any number of permanents and/or players with counters; give each another of each kind
+            // CR 701.34a: choose any number of permanents and/or players with counters; give each another of each kind
             KeywordAction.Proliferate -> {
                 val objects = act.state.battlefield.filter { act.state.obj(it)!!.counters.isNotEmpty() }
                 val players = act.state.apnap().filter { act.state.player(it).counters.isNotEmpty() }

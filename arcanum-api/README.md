@@ -215,13 +215,17 @@ The definition model (overview in `Definitions.kt`):
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`
   ("cast it transformed", a Siege's intrinsic trigger, CR 310.12b); `Mechanic.WhenYouCouldMulligan` ("any time you could
   mulligan and this card is in your hand, you may …", CR 103.5b) and `Mechanic.StartingHandSize` (CR 103.5).
+- Innistrad (set `isd`): `ObjectFilter.Attached.toPlayers` (Curses attached to a player, CR 303.4e), `CostPart.ManaCostOf` ("exile a
+  creature card from your graveyard and pay its mana cost", CR 601.2f) and `Objects.Creator` (in a token's ability, the object that
+  created it, CR 201.5a).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card
 definitions; the runtime types they describe (object ids, Stack items and
 sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
 API and are not built yet. `DefinitionChecks.problems` reports definitions the
-types allow but the model forbids.
+types allow but the model forbids; `DefinitionChecks.unusedTargetSlots` lists an ability's
+target slots nothing in it reads (the parser leaves such a reading unread, CR 115.1a).
 Types are sealed hierarchies rather than enums with values (owner preference).
 A field has a default only when the default is empty or absent (`null`, `false`, an empty list, `0` meaning none):
 who, how many and which objects are always written out (D51).

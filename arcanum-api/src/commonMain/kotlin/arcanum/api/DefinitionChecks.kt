@@ -35,7 +35,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * - a chapter trigger on a face that isn't a Saga; a characteristic-defining ability with a condition or other scope;
  * - event-scoped mechanics (replacement, prevention, cost change, extra triggers) given an `affects`, in static
  *   abilities and in effects;
- * - the "affected object/player" reference outside a static ability's or effect's mechanics.
+ * - the "affected object/player" reference outside a static ability's or effect's mechanics;
+ * - a target slot declared in an ability that nothing in it reads ([unusedTargetSlots]).
  *
  * The checks walk the definition's JSON form, so they see every nested part without a visitor per type.
  */
@@ -64,7 +65,7 @@ object DefinitionChecks {
         // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
         "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
-        // otj: the attachment and what it became attached to (CR 701.3a)
+        // otj, one: the attachment and what it became attached to (CR 701.3a)
         "attach" to setOf("object", "to"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
@@ -86,6 +87,24 @@ object DefinitionChecks {
         if (keywordTable) found.removeAll { it.startsWith("keyword-only mechanic") || it.startsWith("a keyword's cost") }
         tree.jsonObject.getValue("faces").jsonArray.forEach { checkFace(it.jsonObject, found) }
         return found
+    }
+
+    /** The target slots declared in [ability] (in its instructions, modes and the instructions nested in them) that nothing in it reads: a slot
+     * a reading declared and then didn't use. A target identifies something the spell or ability will affect (CR 115.1a, c, d); an unused slot would still have to be chosen and could make the spell or ability fail to resolve (CR 608.2b).
+     * Reads are [Objects.Target], [Players.Target], [Recipients.target], [Condition.TargetsLegal] and a keyword action's slot. */
+    fun unusedTargetSlots(ability: Ability): List<String> =
+        unusedSlots(json.encodeToJsonElement(Ability.serializer(), ability))
+
+    private fun unusedSlots(tree: JsonElement): List<String> {
+        val declared = mutableListOf<String>()
+        val used = mutableSetOf<String>()
+        visitAll(tree) { o ->
+            if (o.typeName() == null && "what" in o) o.string("name")?.let { declared += it }
+            o.string("slot")?.let { used += it }
+            if (o.typeName() == null) o.string("target")?.let { used += it } // Recipients(target = …)
+            (o["slots"] as? JsonArray)?.forEach { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.let { p -> used += p.content } }
+        }
+        return declared.filter { it !in used }.distinct()
     }
 
     /** [affected]: the affects of the nearest effect (ApplyMechanics) around [element], when there is one (fra). */
@@ -278,6 +297,8 @@ object DefinitionChecks {
             if (scope.usesDividedShare && scope.dividedSlots.isEmpty()) found += "$name: a divided share is read without a divided target slot"
             if (scope.usesCastX && ability.typeName() == "spell") found += "$name: inside the spell's own instructions X is Announced"
             if (scope.usesAffected && ability.typeName() != "static") found += "$name: \"the affected object/player\" outside a static ability or effect"
+            // one fixes: a declared target nothing reads (CR 115.1a, c, d)
+            unusedSlots(ability).forEach { found += "$name: target slot \"$it\" is declared but nothing in its ability reads it" }
             scope.recipientUses.forEach { (slot, halves, byTarget) ->
                 val either = slot in scope.eitherSlots
                 if (byTarget && !either) found += "$name: Recipients(target = \"$slot\") is for \"any target\" slots; name the objects or players"

@@ -68,7 +68,7 @@ sealed interface ProblemReportState {
 /** One report at a time; a failure is shown and the player may simply send again. */
 class ProblemReportSender(private val scope: CoroutineScope,
     /** I-D43: the latest game's Automatum log and bundle. */
-    private val automatum: () -> String = { AutomatumReports.text() },
+    private val automatum: suspend () -> String = { AutomatumReports.textNow() },
     private val upload: suspend (ProblemReport, String?) -> String = { report, token ->
         // A large log over a slow connection needs longer than ordinary account calls.
         AccountApi(AppBuild.ACCOUNT_ORIGIN, AccountApi.client(requestTimeout = 90_000)).use { it.sendProblemReport(report, token) }
@@ -83,7 +83,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
         scope.launch {
             state = try {
                 val report = withContext(ioDispatcher) {
-                    AutomatumReports.logBoard()
+                    AutomatumReports.logBoardNow()
                     fitProblemReport(problemReport(description, problem, AppLog.text(), ownLogcat(), automatum = automatum()))
                 }
                 val code = upload(report, token)

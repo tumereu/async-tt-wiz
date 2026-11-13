@@ -171,6 +171,11 @@ sealed interface NumericProperty {
     @Serializable @SerialName("power-for") data class PowerFor(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
     ) : NumericProperty
+    // one
+    /** The total of the amounts of its [keyword] abilities ("its total toxic value": the sum of its toxic N, CR 702.164c); 0 without one. */
+    @Serializable @SerialName("keyword-total") data class KeywordTotal(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

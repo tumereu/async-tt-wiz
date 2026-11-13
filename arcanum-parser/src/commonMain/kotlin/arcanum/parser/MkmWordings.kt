@@ -63,4 +63,10 @@ internal object Mkm {
     // hand, and library for any number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from
     // their hand this way."
     val IF_EXILE_FROM_OPPONENTS_GRAVEYARD_SEARCH_NAME = Regex("""(.+?\.) If (.+?), exile a card from an opponent's graveyard\. Then search its owner's graveyard, hand, and library for any number of cards with that name and exile them\. That player shuffles, then draws a card for each card exiled from their hand this way\.""")
+    // mkm chunk 04: "Whenever one or more creatures you control and/or creature cards in your graveyard are put into exile" (once for the batch, CR 603.2c)
+    val PUT_INTO_EXILE_FROM_BATTLEFIELD_AND_OR_GRAVEYARD = Regex("""one or more (.+?) you control and/or (.+?) cards in your graveyard are put into exile""")
+    // mkm chunk 04: "You may choose a creature card from among them. Until end of turn, target token you control becomes a copy of it, except it has flying."
+    val MAY_CHOOSE_FROM_AMONG_THEM_TARGET_BECOMES_COPY = Regex("""You may choose an? (.+?) from among them\. Until end of turn, target (.+?) becomes a copy of it, except it has (\w+)\.""")
+    // mkm chunk 04: "exile a card from a graveyard" (chosen as it resolves, from any player's graveyard; CR 701.13a)
+    val EXILE_A_CARD_FROM_A_GRAVEYARD = Regex("""[Ee]xile a card from a graveyard\.""")
 }

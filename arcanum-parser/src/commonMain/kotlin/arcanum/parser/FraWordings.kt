@@ -116,7 +116,7 @@ internal object Fra {
     val PROLIFERATE_TIMES = Regex("""Proliferate (\w+) times\.""")
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")
-    val PER_OPPONENT = Regex("""(destroy|tap|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")
+    val PER_OPPONENT = Regex("""(destroy|tap|exile|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")
     val BEHOLD = Regex("""[Bb]ehold an? (.+)""")
     val EXILE_FROM_HAND_TARGET_GAINS_UNTIL_CAST = Regex("""(.+?, Exile this card from your hand): Target (.+?) gains "(.+)" until this card is cast from exile\. You may cast this card for as long as it remains exiled\.""")
     val DIES_IF_NOT_TOKEN_COPY = Regex("""When (.+?) dies, if it isn't a token, create a token that's a copy of it\.""")

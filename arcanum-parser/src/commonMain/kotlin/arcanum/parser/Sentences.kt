@@ -10683,7 +10683,9 @@ internal class Sentences(
         val m = Fra.PER_OPPONENT.matchEntire(text) ?: return null
         val noun = m.groupValues[3]
         val filter = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer)))
-        val name = Filters.slotName(noun)
+        // mkm chunk 04: a slot of the same name already there ("Exile target creature you control. For each other player, exile up to one target
+        // creature that player controls.") gets a new name, so the two aren't one slot
+        val name = spmNewSlotName(context, Filters.slotName(noun))
         context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (m.groupValues[2].isNotEmpty()) 0 else 1), max = Value.Fixed(1),
             perPlayer = PlayerFilter.Opponent)
         val it = Objects.Target(name)
@@ -10692,6 +10694,7 @@ internal class Sentences(
         return when {
             verb == "destroy" && rest.isEmpty() -> listOf(Step.Do(Effect.Destroy(it)))
             verb == "tap" && rest.isEmpty() -> listOf(Step.Do(Effect.Tap(it)))
+            verb == "exile" && rest.isEmpty() -> listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile)))) // mkm chunk 04
             verb == "return" && rest == " to its owner's hand" -> listOf(Step.Do(Effect.Move(it, Destination(Zone.Hand))))
             verb.startsWith("put ") -> {
                 val pm = Fra.PUT_N_COUNTERS.matchEntire(verb) ?: return null
@@ -15639,6 +15642,13 @@ internal class Sentences(
 
     /** mkm: trigger events with a condition checked as they would trigger. */
     private fun mkmTrigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // mkm chunk 04: "one or more creatures you control and/or creature cards in your graveyard are put into exile" (CR 603.2c)
+        Mkm.PUT_INTO_EXILE_FROM_BATTLEFIELD_AND_OR_GRAVEYARD.matchEntire(text)?.let { m ->
+            val onBattlefield = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            val inGraveyard = Filters.all(Filters.noun(m.groupValues[2] + " card") ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You))
+            return arcanum.api.Trigger.On(listOf(EventPattern.ZoneChange(onBattlefield, from = Zone.Battlefield, to = Zone.Exile),
+                EventPattern.ZoneChange(inGraveyard, from = Zone.Graveyard, to = Zone.Exile)), oneOrMore = true) to null
+        }
         // mkm chunk 02: "this creature is dealt 3 or more damage" (the damage dealt to it at once, from any sources: one trigger, CR 603.2c)
         Mkm.IS_DEALT_N_OR_MORE_DAMAGE.matchEntire(text)?.let { m ->
             val events = Events.events(m.groupValues[1] + " is dealt damage", self) ?: return null
@@ -15650,6 +15660,17 @@ internal class Sentences(
 
     /** mkm: wordings of several sentences read as one. */
     private fun mkmWhole(text: String, context: Context): List<Step>? {
+        // mkm chunk 04: "You may choose a creature card from among them. Until end of turn, target token you control becomes a copy of it, except it
+        // has flying." after a batch trigger (the target is chosen as the ability goes on the stack, the card as it resolves; CR 707.2, 707.9a)
+        Mkm.MAY_CHOOSE_FROM_AMONG_THEM_TARGET_BECOMES_COPY.matchEntire(text)?.let { m ->
+            val chosen = Filters.noun(m.groupValues[1]) ?: return null
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            val keyword = OracleParser.keyword(m.groupValues[3].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(chosen, Value.Fixed(0), Value.Fixed(1), from = Objects.EventObject(arcanum.api.EventRole.After)),
+                    bind = "chosen", chooser = Players.You),
+                Step.If(arcanum.api.Condition.NonEmpty("chosen"), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.Bound("chosen"),
+                    except = listOf(arcanum.api.CopyException.AddAbilities(listOf(keyword))))), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))))
+        }
         // mkm chunk 03: "… If evidence was collected, exile a card from an opponent's graveyard. Then search its owner's graveyard, hand, and library
         // for any number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from their hand this
         // way." (the card is chosen as it resolves, not targeted; CR 701.23a, 701.59c)
@@ -15694,6 +15715,11 @@ internal class Sentences(
 
     /** mkm: single-sentence effects, tried first. */
     private fun mkmEffect(sentence: String, context: Context): List<Step>? {
+        // mkm chunk 04: "Exile a card from a graveyard." (not targeted: the controller chooses one in any graveyard as it resolves)
+        if (Mkm.EXILE_A_CARD_FROM_A_GRAVEYARD.matches(sentence))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard))),
+                    Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
         // mkm chunk 03: "If this creature is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and
         // toughness 5/5, and it gains "…"" (for good, CR 611.2a; layers 3, 4, 6 and 7b; "becomes a legendary creature" sets its card type,
         // CR 205.1a, and keeps its subtypes)
@@ -18230,8 +18256,11 @@ internal class Sentences(
             context.them = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
         // spm chunk 07: "suspect up to one target creature." (CR 701.60a)
         Spm.SUSPECT.matchEntire(sentence)?.let { m ->
-            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[2]))
-            context.targets += spmSlot(name, Filters.noun(m.groupValues[2]) ?: return null, min = if (m.groupValues[1].isEmpty()) 1 else 0)
+            // mkm chunk 04: "suspect up to one other target creature you control": "other" leaves this object out
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[3]))
+            val noun = Filters.noun(m.groupValues[3]) ?: return null
+            val filter = if (m.groupValues[2].isEmpty()) noun else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun)
+            context.targets += spmSlot(name, filter, min = if (m.groupValues[1].isEmpty()) 1 else 0)
             return listOf(Step.Do(Effect.Mark(Objects.Target(name), arcanum.api.ObjectMark.Suspected)))
         }
         // spm chunk 07: "double the number of each kind of counter on each Spider and legendary creature you control." (CR 701.10e)

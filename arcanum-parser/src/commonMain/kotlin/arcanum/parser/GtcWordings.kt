@@ -57,7 +57,7 @@ internal object Gtc {
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
     val PUT_COUNTER_FOR_EACH = Regex("""Put an? (\S+) counter on (.+?) for each (.+)\.""")
     val TARGET_OPPONENT_CONTROLS = Regex("""(.+) target opponent controls""")
-    val FOR_EACH_OPPONENT = Regex("""For each opponent, (.+)""")
+    val FOR_EACH_OPPONENT = Regex("""For each (?:opponent|other player), (.+)""")
     val PRIMORDIAL_EXILE_GAIN_LIFE = Regex("""exile up to one target (.+?) that player controls and that player gains life equal to its power\.""")
     val PRIMORDIAL_CAST = Regex("""you may cast up to one target (.+?) from that player's graveyard without paying its mana cost\.""")
     val PRIMORDIAL_PUT_ONTO_BATTLEFIELD = Regex("""you may put up to one target (.+?) from that player's graveyard onto the battlefield under your control\.""")

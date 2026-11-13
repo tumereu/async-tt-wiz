@@ -407,6 +407,8 @@ internal object Filters {
             "multicolored" -> return ObjectFilter.Multicolored
             // gtc chunk 06: "blocked creature" (CR 509.1h)
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
+            // mkm chunk 04: "suspected creatures" (CR 701.60a)
+            "suspected" -> return ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Suspected))
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         // chunk 50: "historic": artifacts, legendaries and Sagas (CR 700.6)

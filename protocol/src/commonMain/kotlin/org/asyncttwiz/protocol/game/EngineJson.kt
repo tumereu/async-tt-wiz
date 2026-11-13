@@ -62,6 +62,14 @@ class EngineJson(val definitions: GameDefinitions) {
     fun <T> encode(serializer: KSerializer<T>, value: T): String = compact(json.encodeToJsonElement(serializer, value)).toString()
     fun <T> decode(serializer: KSerializer<T>, text: String): T = json.decodeFromJsonElement(serializer, expand(json.parseToJsonElement(text)))
 
+    /** [encode] as a JSON element, to go inside a larger message (web client step 4c: the engine boundary's boards). */
+    fun <T> encodeElement(serializer: KSerializer<T>, value: T): JsonElement = compact(json.encodeToJsonElement(serializer, value))
+    fun <T> decodeElement(serializer: KSerializer<T>, element: JsonElement): T = json.decodeFromJsonElement(serializer, expand(element))
+
+    /** [encodeModel] and [decodeModel] as JSON elements. */
+    fun encodeModelElement(model: GameModel): JsonElement = encodeElement(StoredModel.serializer(), StoredModel(model.engine, model.table))
+    fun decodeModelElement(element: JsonElement): GameModel = decodeElement(StoredModel.serializer(), element).let { GameModel(it.engine, it.table) }
+
     private fun compact(element: JsonElement): JsonElement = when (element) {
         is JsonObject -> JsonObject(element.mapValues { (key, value) ->
             if (key == DEFINITION && value is JsonObject) definitions.keyOf(value)?.let { JsonPrimitive(REF + it) } ?: compact(value)

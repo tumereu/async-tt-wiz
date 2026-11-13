@@ -352,6 +352,11 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         table += change
     }
 
+    /** Web client step 4c: the event as made so far, not ended (its line's move not added, nothing dropped from the log):
+     * applying its changes straight to the state it was begun on gives the model's state now. */
+    fun provisional(): GameEvent =
+        GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press)
+
     fun build(): GameEvent {
         check(!done) { "The event was built or abandoned" }
         if (line != lineBefore) table(TableChange.LineMoved(lineBefore, line))

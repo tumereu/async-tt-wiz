@@ -324,7 +324,7 @@ class GameSession(private val connection: GameConnection, private val credential
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
             if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
             val game = engineGames.getValue(gameId)
-            if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
+            if (game.shown != null) game.takeNow(Long.MAX_VALUE) { actions -> deliverEngine(gameId, game, actions) }
             engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
             val stream = streams[gameId]
             if (ready && stream?.generation != null && available(gameId))

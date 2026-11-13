@@ -458,6 +458,18 @@ Two batches come first, in this order:
   the device in the worker (its state, `Shown` sent across, the page's own copy of each board's engine state), the
   device's reads still waited for (the timeline's and Undo dialog's boards, `read`, `repro`, the board values' shared
   flow and combat), and the cast, combat and shared-flow steps.
+- Built in 4c part 2 (2026-11-13): published boards across the boundary (`ShownEncoder` on the engine side,
+  `ShownDecoder` on the page; `automatum`'s `ShownWire`): events, card data, a board's cards and lists sent once and
+  referred to after; each board's engine state the page's own copy (`BoardMirror`), moved by the events from the line it
+  was last sent to (an open draft's changes, a motion step's walk applied on a copy), the engine side moving its own copy
+  of it first (`MirrorShadow`) and sending a state whole only where the page's copy can't follow. The device's reads the
+  table waits for have callback forms (the timeline's and Undo dialog's boards, the undo request's board, older history,
+  `read`, `repro`, the board log and outbox for reports and closing); Android answers them in the same frame as before.
+  Measured (`#engine-bench`, headless Chrome, a 120-object board): the page takes a board after a pass in 1.7 ms (3 KB),
+  one after End turn with its 8 motion steps in 18 ms (34 KB), the game's first board whole in 89 ms (once per game).
+  Not yet: the device itself in the worker (its state and every request for its actions and server events: `EngineGame`
+  and what it uses must first leave the Compose module, since the worker builds without it), and the flows step (the
+  board values' shared flow and combat, casts, `onShown`'s staging closure).
 
 ### Step 5: desktop table
 

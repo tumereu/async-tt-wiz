@@ -72,7 +72,7 @@ internal object Mkm {
     // mkm chunk 05: "Suspect it." (an object named otherwise than as a target; CR 701.60a)
     val SUSPECT_OBJECTS = Regex("""[Ss]uspect (?!up to |target |other |another |one of )(.+?)\.""")
     // mkm chunk 05: "All suspected creatures are no longer suspected.", "this creature is no longer suspected." (CR 701.60a)
-    val NO_LONGER = Regex("""(.+?) (?:is|are) no longer (\w+)\.""")
+    val NO_LONGER = Regex("""(.+?)(?: is| are|'s) no longer (\w+)\.""") // mkm chunk 07: "it's no longer suspected"
     // mkm chunk 05: "If it's suspected, exile it." about the object the sentences before named
     val IF_IT_IS_MARKED = Regex("""If (it|that creature)(?:'s| is)(n't| not)? (\w+), (.+)""")
     // mkm chunk 05: "you may suspect one of the other creatures. If you do, this creature is no longer suspected." after a batch trigger
@@ -92,4 +92,31 @@ internal object Mkm {
     val CARDS_IN_YOUR_GRAVEYARD_GAIN_QUOTED = Regex("""(.+?) cards? in your graveyard gains? "(.+)" until end of turn\.""")
     // mkm chunk 06: "create a 2/1 black Skeleton creature token and suspect it"
     val CREATE_TOKEN_AND_IT = Regex("""([Cc]reate an? [^.]+? token) and ([a-z][^.]* it)\.""")
+    // mkm chunk 07: static predicates ("Enchanted creature has base power and toughness 1/1, has deathtouch, and is an Assassin in addition to its
+    // other types.", "… and can't block Detectives.", "… and can't become suspected.")
+    val BASE_PT_PREDICATE = Regex("""has base power and toughness (\d+)/(\d+)""")
+    val CANT_BLOCK_PREDICATE = Regex("""can't block (.+)""")
+    val CANT_BECOME_PREDICATE = Regex("""can't become (\w+)""")
+    val IS_SUBTYPES_IN_ADDITION_PREDICATE = Regex("""is an? ((?:[A-Z]\w+ )*[A-Z]\w+) in addition to its other types""")
+    // mkm chunk 07: "Cloak a card from your hand." (CR 701.58a)
+    val CLOAK_FROM_HAND = Regex("""[Cc]loak an? (.+?) from your hand\.""")
+    // mkm chunk 07: "Look at the top five cards of your library, cloak two of them, and put the rest on the bottom of your library in a random order."
+    val LOOK_CLOAK_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library, cloak (\w+) of them, and put the rest on the bottom of your library in (any|a random) order\.""")
+    // mkm chunk 07: "cloak the top card of your library, then attach this Equipment to it."
+    val THEN_ATTACH_TO_IT = Regex("""(.+?), then attach (.+?) to it\.""")
+    // mkm chunk 07: "Turn target face-down creature face up." (CR 708.8)
+    val TURN_TARGET_FACE_UP = Regex("""Turn target (.+?) face up\.""")
+    // mkm chunk 07: "Turn this creature face up. If you can't, exile it, then you may cast the exiled card without paying its mana cost."
+    val TURN_FACE_UP_IF_YOU_CANT = Regex("""Turn (.+?) face up\. If you can't, (.+)""")
+    // mkm chunk 07: "you may cast the exiled card without paying its mana cost" (cast as this resolves, CR 608.2g)
+    val MAY_CAST_IT_FREE = Regex("""[Yy]ou may cast (the exiled card|that card|it) without paying its mana cost\.""")
+    // mkm chunk 07: "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
+    val EXILE_FACE_DOWN_PILE_CLOAK = Regex("""Exile any number of (.+?) in a face-down pile, shuffle that pile, then cloak them\.""")
+    // mkm chunk 07: "you mill two cards" (CR 701.17a)
+    val YOU_MILL = Regex("""[Yy]ou mill (.+)""")
+    // mkm chunk 07: "Then sacrifice it if it has five or more bloodstain counters on it. When you do, return target creature card …" (CR 603.12)
+    val SACRIFICE_IF_WHEN_YOU_DO = Regex("""(?:Then )?[Ss]acrifice (.+?) if (.+?)\. When you do, (.+)""")
+    // mkm chunk 07: "Enchanted creature gets +2/+2 as long as it's a Detective you control. Otherwise, it has base power and toughness 1/1 and can't
+    // block Detectives." (two statics, one condition and its opposite)
+    val AS_LONG_AS_ITS_OTHERWISE = Regex("""(.+?) ((?:gets?|has|have|can't) .+?) as long as it's an? (.+?)\. Otherwise, it ((?:gets?|has|have|can't) .+)\.""")
 }

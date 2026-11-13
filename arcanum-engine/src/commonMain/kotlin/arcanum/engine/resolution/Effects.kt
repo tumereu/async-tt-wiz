@@ -265,6 +265,8 @@ internal object Effects {
             is Effect.Mark -> {
                 val zones = arcanum.api.MarkRules.of(effect.mark).zones
                 scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
+                    // mkm: "can't become suspected" (CR 701.60a): giving it the mark does nothing; taking it off still works
+                    .filter { effect.remove || act.view()[it]?.has { m -> m == Mechanic.CantBecomeMarked(effect.mark) } != true }
                     .forEach { Actions.setMark(act, it, effect.mark, !effect.remove, listOfNotNull(effect.cost)) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
@@ -1657,7 +1659,8 @@ internal object Effects {
             // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
             // CR 701.58a: cloaked, it also has ward {2}
             is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
-            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
+            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(action.cards?.let { cloak(scope, scope.objects(it)) }
+                ?: manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
             // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
             // remove a time counter
             KeywordAction.TimeTravel -> {
@@ -1752,6 +1755,19 @@ internal object Effects {
             val moved = Actions.move(act, scope.cause, listOf(PlannedMove(top, Zone.Battlefield, controller = scope.actor, faceDown = true)))[top]
                 ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
             Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
+            moved
+        }
+    }
+
+    /** CR 701.58a, e: [cards] onto the battlefield face down under the cloaking player's control, one at a time, from whatever zone
+     * they are in (a hand, any player's library, exile); a card that doesn't arrive isn't cloaked (701.58f). */
+    private fun cloak(scope: Scope, cards: List<ObjectId>): List<ObjectId> {
+        val act = scope.act
+        return cards.distinct().mapNotNull { card ->
+            if (act.state.obj(card)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return@mapNotNull null
+            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Battlefield, controller = scope.actor, faceDown = true)))[card]
+                ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
+            Actions.tapStatus(act, moved, StatusFlag.Marked(ObjectMark.Cloaked), true)
             moved
         }
     }

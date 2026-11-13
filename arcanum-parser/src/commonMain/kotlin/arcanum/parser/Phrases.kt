@@ -120,6 +120,10 @@ internal object Filters {
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
+        // mkm chunk 07: "creature you control other than enchanted creature": any but the one this Aura or Equipment is attached to
+        OTHER_THAN_ATTACHED.matchEntire(phrase)?.let { m ->
+            return all(ObjectFilter.Not(ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))), noun(m.groupValues[1]) ?: return null)
+        }
         // chunk 40: "another creature", "other Elves you control": any but this object
         OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
         // chunks 31, 42: "creature card in your graveyard", "instant or sorcery card in your graveyard"
@@ -180,6 +184,8 @@ internal object Filters {
         // fdn chunk 22: not "an instant card or a card with flash": the alternative after " or a" has its own noun, the " or " split owns it
         WITH_KEYWORD.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
+            // mkm chunk 07: "creatures you control with disguise": a keyword that has a cost, named without it (CR 702.168a)
+            KEYWORDS_NAMED_WITHOUT_COST[m.groupValues[2]]?.let { kind -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(kind)) }
         }
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
@@ -401,6 +407,8 @@ internal object Filters {
             "blocking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocking) // blb chunk 10
             // dsk chunk 06: "a face-down permanent" (CR 708)
             "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
+            // mkm chunk 07: "face-up creatures you control with disguise" (CR 708)
+            "face-up" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.FaceDown))
             "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
             // rtr chunk 05: "monocolored creature", "multicolored spell" (CR 105.2)
             "monocolored" -> return ObjectFilter.Monocolored
@@ -504,6 +512,9 @@ internal object Filters {
     private val EQUIPPED_PLURAL = Regex("""(equipped|enchanted) (creatures.*)""")
     // chunk 40
     private val OTHER = Regex("""(?:an)?other (.+)""")
+    /** Keywords with a cost, as a filter names them ("with disguise"). */
+    private val KEYWORDS_NAMED_WITHOUT_COST: Map<String, arcanum.api.KeywordKind> = mapOf("disguise" to arcanum.api.Keyword.Disguise.Kind)
+    private val OTHER_THAN_ATTACHED = Regex("""(.+) other than (?:enchanted|equipped) creature""")
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     // chunk 36

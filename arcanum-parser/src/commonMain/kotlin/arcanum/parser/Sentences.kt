@@ -825,7 +825,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Destroy(Objects.Target(name))))
         }
         // dft chunk 14: "Untap enchanted permanent."
-        if (Dft.UNTAP_ENCHANTED_PERMANENT.matches(sentence)) return listOf(Step.Do(Effect.Untap(Objects.AttachedTo(Objects.Self))))
+        // mkm chunk 07: "it" afterwards is that permanent ("untap enchanted creature. It gains hexproof until end of turn.")
+        if (Dft.UNTAP_ENCHANTED_PERMANENT.matches(sentence)) {
+            context.it = Objects.AttachedTo(Objects.Self)
+            return listOf(Step.Do(Effect.Untap(Objects.AttachedTo(Objects.Self))))
+        }
         // dft chunk 14: "Return up to one target creature card, up to one target Mount card, up to one target Vehicle card, and up to one target
         // creature card with no abilities from your graveyard to your hand." (a target for each, CR 115.3)
         Dft.RETURN_UP_TO_ONE_EACH_TO_HAND.matchEntire(sentence)?.let { m ->
@@ -1193,7 +1197,12 @@ internal class Sentences(
         // CR 701.40a: "Manifest the top card of your library."
         MechanicWordings.MANIFEST_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Manifest(mechanicCount(m.groupValues[1]) ?: return null)) }
         // CR 701.58a: "Cloak the top card of your library."
-        MechanicWordings.CLOAK_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Cloak(mechanicCount(m.groupValues[1]) ?: return null)) }
+        MechanicWordings.CLOAK_TOP.matchEntire(sentence)?.let { m ->
+            val count = mechanicCount(m.groupValues[1]) ?: return null
+            // mkm chunk 07: "cloak the top card of that player's library": that player's cards, under your control (CR 701.58a)
+            return action(if (m.groupValues[2] == "your") arcanum.api.KeywordAction.Cloak(count)
+                else arcanum.api.KeywordAction.Cloak(count, cards = Objects.LibraryCards(Players.EventPlayer, count, fromTop = true)))
+        }
         // CR 701.15a: "Goad target creature.", "Goad it.", "Goad all creatures your opponents control."
         MechanicWordings.GOAD.matchEntire(sentence)?.let { m ->
             // "goad it" after another effect: the object that effect named (its target), never this permanent by default
@@ -2064,6 +2073,21 @@ internal class Sentences(
         // inr chunk 04: "can't attack, block, or transform" (a comma list, so [PREDICATE_SPLIT] leaves it whole)
         if (predicate == "can't attack, block, or transform")
             return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any), Mechanic.CantTransform)
+        // mkm chunk 07: "has base power and toughness 1/1" (layer 7b), "can't block Detectives", "can't become suspected" (CR 701.60a),
+        // "is an Assassin in addition to its other types" (layer 4)
+        Mkm.BASE_PT_PREDICATE.matchEntire(predicate)?.let { m ->
+            return@flatMap listOf(Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt())))
+        }
+        Mkm.CANT_BLOCK_PREDICATE.matchEntire(predicate)?.let { m ->
+            return@flatMap listOf(Mechanic.CantBlock(attackers = Filters.noun(m.groupValues[1]) ?: return null))
+        }
+        Mkm.CANT_BECOME_PREDICATE.matchEntire(predicate)?.let { m ->
+            return@flatMap listOf(Mechanic.CantBecomeMarked(ActionWordings.mark(m.groupValues[1]) ?: return null))
+        }
+        Mkm.IS_SUBTYPES_IN_ADDITION_PREDICATE.matchEntire(predicate)?.let { m ->
+            val subtypes = m.groupValues[1].split(' ').map { it.takeIf { t -> t in RulesWords.subtypes } ?: return null }
+            return@flatMap listOf(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }))
+        }
         listOf(GETS_PT.matchEntire(predicate)?.let { m ->
             val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Value.Count(Filters.objects(it) ?: return null) }
             fun amount(n: Int): Value = when {
@@ -11552,7 +11576,7 @@ internal class Sentences(
         val AS_LONG_AS_FIRST = Regex("""As long as (.+?), (.+)""")
         val AS_LONG_AS_LAST = Regex("""(.+) as long as (.+)\.""")
         val SUBJECT_PREDICATES = Regex("""(.+?) ((?:gets?|has|have|can't|attacks|loses) .+)\.""")
-        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|attacks|loses) )|, (?=(?:gets?|has|have|can't|attacks|loses) )""")
+        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|attacks|loses|is) )|, (?=(?:gets?|has|have|can't|attacks|loses|is) )""")
         val GETS_PT = Regex("""gets? ([+-]\d+)/([+-]\d+)(?: for each (.+))?""")
         val HAS_KEYWORDS = Regex("""(?:has|have) (.+)""")
         val MAY_PLAY_FROM_TOP = Regex("""[Yy]ou may (play|cast) (.+?) from the top of your library\.""")
@@ -15676,6 +15700,16 @@ internal class Sentences(
 
     /** mkm: wordings of several sentences read as one. */
     private fun mkmWhole(text: String, context: Context): List<Step>? {
+        // mkm chunk 07: "Turn this creature face up. If you can't, exile it, then …": it can't when it's a manifested or cloaked instant or
+        // sorcery card, or when an effect says so (it stays face down, CR 701.58g, 701.40g)
+        Mkm.TURN_FACE_UP_IF_YOU_CANT.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val saved = context.it
+            context.it = Objects.Self
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context)
+            if (then == null) { context.it = saved; return@let }
+            return listOf(Step.Do(Effect.TurnFaceUp(Objects.Self)),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)), then = then))
+        }
         // mkm chunk 05: "you may suspect one of the other creatures. If you do, this creature is no longer suspected." after a batch trigger
         // ("one or more other creatures you control enter"): zero or one of the creatures that entered, chosen as it resolves (CR 701.60a)
         Mkm.MAY_SUSPECT_ONE_OF_THE_OTHER.matchEntire(text)?.let { m ->
@@ -15730,6 +15764,17 @@ internal class Sentences(
 
     /** mkm: lines of several abilities. */
     private fun mkmMulti(line: String): List<Ability>? {
+        // mkm chunk 07: "Enchanted creature gets +2/+2 as long as it's a Detective you control. Otherwise, it has base power and toughness 1/1 and
+        // can't block Detectives.": "it" is the enchanted creature, checked continuously (CR 611.3a)
+        Mkm.AS_LONG_AS_ITS_OTHERWISE.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1]
+            val first = static("$subject ${m.groupValues[2]}.") as? Ability.Static ?: return@let
+            val second = static("$subject ${m.groupValues[4]}.") as? Ability.Static ?: return@let
+            val objects = (first.affects as? Affected.Objects)?.objects?.takeIf { second.affects == first.affects && first.condition == null && second.condition == null }
+                ?: return@let
+            val condition = arcanum.api.Condition.ObjectMatches(objects, Filters.noun(m.groupValues[3]) ?: return@let)
+            return listOf(first.copy(condition = condition), second.copy(condition = arcanum.api.Condition.Not(condition)))
+        }
         // mkm chunk 06: "Solved — [abilities]": a label on each ability a line of several makes (CR 702.169a)
         ABILITY_WORD.matchEntire(line)?.let { m ->
             val label = LABELS[m.groupValues[1].lowercase()] ?: return@let
@@ -15760,6 +15805,61 @@ internal class Sentences(
 
     /** mkm: single-sentence effects, tried first. */
     private fun mkmEffect(sentence: String, context: Context): List<Step>? {
+        // mkm chunk 07: "Cloak a card from your hand." (chosen as it resolves, CR 701.58a)
+        Mkm.CLOAK_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Action(arcanum.api.KeywordAction.Cloak(Value.Fixed(1), cards = Objects.Bound("chosen")))))
+        }
+        // mkm chunk 07: "Look at the top five cards of your library, cloak two of them, and put the rest on the bottom of your library in a random
+        // order." (CR 701.58a, e)
+        Mkm.LOOK_CLOAK_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val looked = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return@let)
+            val cloaked = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return@let)
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, looked, fromTop = true), Players.You, bind = "looked")),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, cloaked, cloaked, from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Action(arcanum.api.KeywordAction.Cloak(cloaked, cards = Objects.Bound("chosen")))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")),
+                    Destination(Zone.Library, libraryPosition = -1, randomOrder = m.groupValues[3] == "a random"))))
+        }
+        // mkm chunk 07: "cloak the top card of your library, then attach this Equipment to it.": "it" is the cloaked permanent (CR 701.58a, 701.3a)
+        Mkm.THEN_ATTACH_TO_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val first = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let
+            val action = ((first.singleOrNull() as? Step.Do)?.effect as? Effect.Action)?.takeIf {
+                it.action is arcanum.api.KeywordAction.Cloak || it.action is arcanum.api.KeywordAction.Manifest } ?: return@let
+            return listOf(Step.Do(action.copy(bind = "cloaked")),
+                Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = Objects.Bound("cloaked")))))
+        }
+        // mkm chunk 07: "Turn target face-down creature face up." (CR 708.8)
+        Mkm.TURN_TARGET_FACE_UP.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.TurnFaceUp(context.target(Filters.slotName(m.groupValues[1]), filter))))
+        }
+        // mkm chunk 07: "you may cast the exiled card without paying its mana cost" after exiling it (cast as this resolves, CR 608.2g)
+        Mkm.MAY_CAST_IT_FREE.matchEntire(sentence)?.let {
+            val card = context.it?.takeIf { it is Objects.Bound } ?: return@let
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(card, PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))
+        }
+        // mkm chunk 07: "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
+        // (chosen as it resolves; exiled face down and shuffled so no one else knows which is which, then each cloaked, CR 701.58a, e)
+        Mkm.EXILE_FACE_DOWN_PILE_CLOAK.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.Action(arcanum.api.KeywordAction.Cloak(Value.Count(Objects.Bound("exiled")), cards = Objects.Bound("exiled")))))
+        }
+        // mkm chunk 07: "you mill two cards" (CR 701.17a)
+        Mkm.YOU_MILL.matchEntire(sentence)?.let { m -> return effect("Mill ${m.groupValues[1]}", context) ?: return@let }
+        // mkm chunk 07: "Then sacrifice it if it has five or more bloodstain counters on it. When you do, return …": the reflexive trigger only when
+        // it was sacrificed (CR 603.12)
+        Mkm.SACRIFICE_IF_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return@let
+            // "sacrifice it if it has five or more bloodstain counters on it": "it" is the object the condition reads (this permanent)
+            val objects = (if (m.groupValues[1] == "it") (condition as? arcanum.api.Condition.ObjectMatches)?.objects
+                else fraObjects(m.groupValues[1], context)) ?: return@let
+            val reflexive = instructions(m.groupValues[3]) ?: return@let
+            return listOf(Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(objects)), Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+        }
         // mkm chunk 06: "Creature cards in your graveyard gain "You may cast this card from your graveyard" until end of turn." (the cards there as it
         // resolves, CR 611.2c; the ability works in the graveyard, CR 113.6f)
         Mkm.CARDS_IN_YOUR_GRAVEYARD_GAIN_QUOTED.matchEntire(sentence)?.let { m ->
@@ -15783,7 +15883,12 @@ internal class Sentences(
         }
         // mkm chunk 05: "Suspect it.", "suspect this creature" (CR 701.60a)
         Mkm.SUSPECT_OBJECTS.matchEntire(sentence)?.let { m ->
-            val objects = (if (m.groupValues[1] == "them") context.them else fraObjects(m.groupValues[1], context)) ?: return@let
+            val objects = (when (m.groupValues[1]) {
+                "them" -> context.them
+                // mkm chunk 07: "suspect enchanted creature"
+                "enchanted creature", "equipped creature" -> Objects.AttachedTo(of = Objects.Self)
+                else -> fraObjects(m.groupValues[1], context)
+            }) ?: return@let
             return listOf(Step.Do(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected)))
         }
         // mkm chunk 05: "All suspected creatures are no longer suspected.", "this creature is no longer suspected." (CR 701.60a)

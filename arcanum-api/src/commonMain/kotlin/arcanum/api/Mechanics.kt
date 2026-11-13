@@ -467,6 +467,10 @@ sealed interface Mechanic {
     // msh
     /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
     @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic
+    // mkm
+    /** The affected permanents can't get [mark] ("can't become suspected", CR 701.60a): an effect that would give it to them does nothing for
+     * them; taking it off still works. */
+    @Serializable @SerialName("cant-become-marked") data class CantBecomeMarked(val mark: ObjectMark) : Mechanic
     /** The affected objects' abilities may be activated as though they had haste ({T} and {Q} in their costs, CR 302.6);
      * attacking still needs haste ("You may activate abilities of creatures you control as though those creatures had
      * haste"). */

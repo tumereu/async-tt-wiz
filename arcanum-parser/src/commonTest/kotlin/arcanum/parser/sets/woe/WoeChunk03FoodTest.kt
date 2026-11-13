@@ -271,7 +271,7 @@ class WoeChunk03FoodTest {
         static(Mechanic.Replacement(event = entering, modify = listOf(Modification.EntersTapped))),
         activated(cost(tap), doing(Effect.AddMana(ManaProduction(ManaKind.Choose(n(1), listOf(ColorRef.Literal(Color.Black), ColorRef.Literal(Color.Green)))), Players.You))),
         activated(cost(mana("{2}{B}{G}")), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Horror"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Horror")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.Black), ColorRef.Literal(Color.Green))),
             Mechanic.SetPowerToughness(n(4), n(4)))),
         triggered(attacksSelf, createFood, move(target("card"), Zone.Exile, postBind = "exiled"),

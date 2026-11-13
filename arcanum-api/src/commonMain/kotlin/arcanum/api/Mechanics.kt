@@ -547,6 +547,10 @@ sealed interface Mechanic {
         /** A triggered ability linked to this replacement, triggering each time it is applied ("When this card is
          * exiled this way", madness, CR 702.35a, 603.11); [Objects.EventObject] in it is the replaced event's object. */
         val whenApplied: Instructions? = null,
+        // woe
+        /** It applies only to an event for which [condition] holds, checked as the event would happen with the event as the trigger event
+         * ([Value.EventAmount] its amount): "If you would pay life while your library has at least that many cards in it" (CR 614.1a). */
+        val condition: Condition? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }

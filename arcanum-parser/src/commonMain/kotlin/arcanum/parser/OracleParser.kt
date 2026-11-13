@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 90
+    const val VERSION: Int = 91
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -379,8 +379,28 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
-        return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> stillA(ability.withText(raws[index]), raws[index]) }
     }
+
+    /** woe fixes: an object that becomes something but "is still a [type]" ("It's still a land.", "that's still a planeswalker") keeps all its
+     * prior card types, supertypes and subtypes (CR 205.1b), so no type-setting in that ability replaces any of them. */
+    private fun stillA(ability: Ability, raw: String): Ability {
+        if (!STILL_A.containsMatchIn(REMINDER.replace(raw, ""))) return ability
+        val json = kotlinx.serialization.json.Json
+        fun keep(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+            is kotlinx.serialization.json.JsonObject -> {
+                val mapped = e.mapValues { (_, v) -> keep(v) }
+                val setsTypes = (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "types" && ("add" in e || "addSubtypes" in e)
+                kotlinx.serialization.json.JsonObject(if (setsTypes) mapped - "replaceTypes" - "replaceSubtypes" else mapped)
+            }
+            is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map(::keep))
+            else -> e
+        }
+        val element = json.encodeToJsonElement(Ability.serializer(), ability)
+        val kept = keep(element)
+        return if (kept == element) ability else json.decodeFromJsonElement(Ability.serializer(), kept)
+    }
+    private val STILL_A = Regex("""\b(?:[Ii]t's|[Tt]hat's|[Hh]e's|[Ss]he's|[Tt]hey're|that are) still (?:an? )?(?:land|artifact|creature|enchantment|planeswalker|battle)s?\b""")
 
     /** dft chunk 14: "This spell costs {1} less to cast if it targets a Mount or Vehicle you control": the spell's first target you control. */
     private fun dftCostTargetYouControl(abilities: List<Ability>): List<Ability> {

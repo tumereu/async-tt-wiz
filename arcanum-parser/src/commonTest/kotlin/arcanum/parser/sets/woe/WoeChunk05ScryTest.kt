@@ -54,7 +54,7 @@ class WoeChunk05ScryTest {
         entersTapped,
         activated(cost(tap), doing(Effect.AddMana(ManaProduction(ManaKind.Choose(n(1), listOf(ColorRef.Literal(Color.Blue), ColorRef.Literal(Color.Red)))), Players.You))),
         activated(cost(mana("{U}{R}")), Step.Do(Effect.ApplyMechanics(listOf(
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.Blue), ColorRef.Literal(Color.Red))),
             Mechanic.SetPowerToughness(n(2), n(1)),
             Mechanic.GainAbilities(listOf(static(has(Keyword.FirstStrike), condition = Condition.YourTurn)))),

@@ -80,7 +80,7 @@ class WoeChunk04BargainTest {
         Keyword.Bargain,
         spell(
             Step.If(bargained, then = listOf(doing(Effect.ApplyMechanics(listOf(
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental"))), replaceSubtypes = true),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
                 Mechanic.SetPowerToughness(n(3), n(3)),
                 Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(target("land")), Duration.Indefinitely)))),
             search(basicLand(), reveal = true),
@@ -262,7 +262,8 @@ class WoeChunk04BargainTest {
         ),
     )
 
-    // CR 702.166b; CR 614.1a: a replacement for the rest of the turn; CR 700.4: only a creature dies
+    // CR 702.166b; CR 614.1a: a replacement for the rest of the turn; CR 700.4: only a creature dies; CR 615.1a: only one the spell did deal
+    // damage to
     @Test
     fun burnTheBelfry() = card(
         name = "Burn the Belfry",
@@ -278,7 +279,7 @@ class WoeChunk04BargainTest {
         spell(
             Step.If(bargained, then = listOf(damage(3, toObjects(target("permanent"))), scry(1)), otherwise = listOf(damage(2, toObjects(target("permanent"))))),
             doing(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
-                EventPattern.ZoneChange(and(ObjectFilter.Is(target("permanent")), creature), from = Zone.Battlefield, to = Zone.Graveyard),
+                EventPattern.ZoneChange(and(ObjectFilter.Is(target("permanent")), creature, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = EventRole.Object)), from = Zone.Battlefield, to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, Duration.EndOfTurn)),
             targets = listOf(creatureOrPlaneswalker),
         ),

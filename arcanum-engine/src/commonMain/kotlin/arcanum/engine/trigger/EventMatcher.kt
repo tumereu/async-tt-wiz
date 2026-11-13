@@ -103,6 +103,7 @@ internal object EventMatcher {
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
         is EventPattern.LoseLife -> life(e, change, pattern.players, Meaning.LifeLost)
+        is EventPattern.PayLife -> life(e, change, pattern.players, Meaning.LifePaid)
         is EventPattern.Draw -> moves(change).filter { Meaning.Drew in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (pattern.exceptFirstIn?.let { step -> !firstDrawIn(e.board.state, step, it.before.owner) } ?: true) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.before.owner)) }

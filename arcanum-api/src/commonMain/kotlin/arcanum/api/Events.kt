@@ -49,6 +49,10 @@ sealed interface EventPattern {
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
+    // woe
+    /** [players] pay life (CR 119.4, 118.3b: a cost or an effect's payment, such as Phyrexian mana or "you may pay 2 life"); its amount
+     * ([Value.EventAmount]) is the life to be paid. A payment is also a loss of life, so [LoseLife] matches it too. */
+    @Serializable @SerialName("pay-life") data class PayLife(val players: PlayerFilter) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]); [exceptFirstIn]: not the first card
      * that player draws in each of their own [exceptFirstIn] steps ("except the first one they draw in each of their draw
      * steps", dgm). */

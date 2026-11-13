@@ -159,7 +159,8 @@ internal object Eoe {
     // eoe chunk 08: blue wordings
     val CHOOSE_UP_TO_ONE_UNBLOCKABLE_BASE_PT = Regex("""[Cc]hoose up to one target (.+?)\. That creature can't be blocked this turn and has base power and toughness (\d+)/(\d+) until end of turn\.""")
     val SURVEIL_X = Regex("""Surveil X\.""")
-    val LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD = Regex("""[Ll]ook at the top two cards of your library\. Put one into your hand and the other into your graveyard\.""")
+    // woe fixes: "… Exile one of them and put the other into your hand." (Ashiok, Wicked Manipulator)
+    val LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD = Regex("""[Ll]ook at the top two cards of your library\. (?:Put one into your hand and the other into your graveyard|(Exile one of them and put the other into your hand))\.""")
     val LOOK_X_ONE_KICKED_TWO = Regex("""Look at the top X cards of your library\. Put one of those cards into your hand\. If this spell was kicked, put two of those cards into your hand instead\. Put the rest on the bottom of your library in a random order\.""")
     val BECOMES_TAPPED_OR_DEALT_DAMAGE = Regex("""(.+?) becomes tapped or is dealt damage""")
     val RETURN_IF_IT_WAS_ATTACKING_CREATE = Regex("""Return target (.+?) to its owner's hand\. If it was attacking, create (.+)""")

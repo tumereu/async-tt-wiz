@@ -2988,7 +2988,8 @@ internal class Sentences(
         }
         if (Gtc.STILL_A.matches(sentence)) {
             val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
-            if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add && !it.replaceTypes }) return steps.toList()
+            // woe fixes: the ability keeps all prior types and subtypes for it ([OracleParser], CR 205.1b)
+            if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add }) return steps.toList()
         }
         // dsk gaps: "It's an enchantment." after returning it to the battlefield: it isn't a creature as it enters (layer 4,
         // CR 611.2e), so its enters triggers and state-based actions see an enchantment
@@ -3914,9 +3915,11 @@ internal class Sentences(
             val target = context.target(Filters.slotName(noun), if (m.groupValues[1] == "Another target") Filters.all(context.another(), filter) else filter)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeBlocked), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
-        // dsk chunk 09: "Draw that many cards.", "Discard that many cards." (the event's amount: damage, life)
+        // dsk chunk 09: "Draw that many cards.", "Discard that many cards." (the event's amount: damage, life); woe fixes: an amount an earlier
+        // part of the ability defines ("remove all +1/+1 counters from …. Draw that many cards.") is the nearer one, [Context.thatMuch]
         THAT_MANY_CARDS.matchEntire(sentence)?.takeIf { context.event != null && context.event !is EventPattern.Discard }?.let { m ->
-            val step = if (m.groupValues[1] == "Draw") Effect.Draw(Players.You, Value.EventAmount) else Effect.Discard(Players.You, Value.EventAmount, filter = ObjectFilter.Any)
+            val amount = context.thatMuch ?: Value.EventAmount
+            val step = if (m.groupValues[1] == "Draw") Effect.Draw(Players.You, amount) else Effect.Discard(Players.You, amount, filter = ObjectFilter.Any)
             return listOf(Step.Do(step))
         }
         if (sentence == "You lose the game.") return listOf(Step.Do(Effect.LoseGame(Players.You)))
@@ -7114,12 +7117,19 @@ internal class Sentences(
         return result
     }
 
+    /** "dealt damage by [this spell] (this way)" (woe fixes): only an object this one dealt damage to this turn; prevented damage is never dealt
+     * (CR 615.1a), so a creature whose damage was prevented isn't exiled when it dies later in the turn (CR 614.1a). */
+    private val dealtDamageBySelfThisTurn get() = ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = EventRole.Object)
+
     /** gtc: "a 1/1 red and white Soldier artifact creature with double strike", "a Human Soldier creature with power and
      * toughness each equal to …": the mechanics of becoming it (layers 4, 5, 6, 7b). */
     private fun gtcBecomes(text: String): List<Mechanic>? {
         val m = Gtc.BECOMES_DESCRIPTION.matchEntire(text) ?: return null
         val subtypes = m.groupValues[4].trim().split(' ').filter { it.isNotEmpty() }.map { if (it in RulesWords.subtypes) it else return null }
-        val types = if (m.groupValues[5] == "artifact creature") listOf(CardType.Artifact, CardType.Creature) else listOf(CardType.Creature)
+        // CR 205.1a: becoming a "creature" sets the card type; CR 205.1b: an "artifact creature" keeps its other card types (an ability saying the
+        // object is "still a [type]" keeps them all, [OracleParser])
+        val artifactCreature = m.groupValues[5] == "artifact creature"
+        val types = if (artifactCreature) listOf(CardType.Artifact, CardType.Creature) else listOf(CardType.Creature)
         val colors = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" and ")?.map { ColorRef.Literal(BECOME_COLORS[it] ?: return null) }
         var keywords: List<Ability>? = null
         var pt: Pair<Value, Value>? = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Value.Fixed(it.toInt()) to Value.Fixed(m.groupValues[2].toInt()) }
@@ -7132,7 +7142,7 @@ internal class Sentences(
         }
         val (power, toughness) = pt ?: return null
         return listOf<Mechanic>(Mechanic.SetTypes(add = types, addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) },
-            replaceSubtypes = subtypes.isNotEmpty())) + listOfNotNull(colors?.let { Mechanic.SetColors(it) }) +
+            replaceTypes = !artifactCreature, replaceSubtypes = subtypes.isNotEmpty())) + listOfNotNull(colors?.let { Mechanic.SetColors(it) }) +
             Mechanic.SetPowerToughness(power, toughness) + listOfNotNull(keywords?.let { Mechanic.GainAbilities(it) })
     }
 
@@ -9640,7 +9650,7 @@ internal class Sentences(
         if (sentence == "If a creature dealt damage this way would die this turn, exile it instead." && last is Effect.DealDamage) {
             val damaged = last.to.target?.let { Objects.Target(it) } ?: last.to.objects ?: return null
             return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
-                EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(damaged), ObjectFilter.Type(CardType.Creature)), from = Zone.Battlefield, to = Zone.Graveyard),
+                EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(damaged), ObjectFilter.Type(CardType.Creature), dealtDamageBySelfThisTurn), from = Zone.Battlefield, to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.EndOfTurn))
         }
         // rtr chunk 05: "That creature is a black Zombie in addition to its other colors and types." after a delayed return to the
@@ -14271,7 +14281,9 @@ internal class Sentences(
             val target = Objects.Target(name)
             val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
             val keywords = tmtKeywords(m.groupValues[5]) ?: return null
-            val becomes = listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+            // CR 205.1b: a "[creature type] artifact creature" keeps its other types but replaces its creature types
+            val becomes = listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))),
+                replaceSubtypes = true),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())), Mechanic.GainAbilities(keywords))
             return listOf(Step.If(arcanum.api.Condition.ObjectMatches(target, Filters.all(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Type(CardType.Creature))),
                 then = listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield)))),
@@ -16246,6 +16258,14 @@ internal class Sentences(
 
     /** woe: static abilities. */
     private fun woeStatic(line: String): Ability? {
+        // woe fixes: "If you would pay life while your library has at least that many cards in it, exile that many cards from the top of your
+        // library instead." (CR 614.1a; whether the life can be paid at all is still CR 119.4's life total check)
+        Woe.IF_YOU_WOULD_PAY_LIFE.matchEntire(line)?.let { m ->
+            val paying = EventPattern.PayLife(PlayerFilter.You)
+            val condition = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null }
+            val instead = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", event = paying) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(paying, instead = instead, condition = condition)), Affected.Objects(Objects.Self))
+        }
         // woe chunk 10: "Each creature that's enchanted by an Aura you control can't attack you or planeswalkers you control." (an attack
         // restriction, CR 508.1c; it may still attack other players and their planeswalkers)
         Woe.CANT_ATTACK_YOU_OR_PLANESWALKERS.matchEntire(line)?.let { m ->
@@ -16380,6 +16400,10 @@ internal class Sentences(
 
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe fixes: "Target player exiles the top X cards of their library." (the same move as "Exile the top X cards of target player's library")
+        Woe.TARGET_PLAYER_EXILES_TOP.matchEntire(sentence)?.let { m ->
+            return effect("Exile the top ${m.groupValues[2]} cards of target ${m.groupValues[1]}'s library.", context)
+        }
         // woe chunk 10: "create two tokens that are copies of it" (of this permanent; as it last existed if it has left, CR 707.2, 608.2h)
         Woe.CREATE_COPIES_OF_IT.matchEntire(sentence)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -16553,7 +16577,7 @@ internal class Sentences(
         Woe.IF_DEALT_DAMAGE_BY_WOULD_DIE_EXILE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             val damaged = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
-                EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(damaged), ObjectFilter.Type(CardType.Creature)), from = Zone.Battlefield, to = Zone.Graveyard),
+                EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(damaged), ObjectFilter.Type(CardType.Creature), dealtDamageBySelfThisTurn), from = Zone.Battlefield, to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.EndOfTurn)))
         }
         // woe chunk 03: "Up to one target creature gets -X/-X until end of turn, where X is …"
@@ -17160,8 +17184,9 @@ internal class Sentences(
             context.targets += mshSlot("target", mshCopyCandidates(m.groupValues[2]) ?: return null, min = 0)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.Target("target"), except = listOf(
                 arcanum.api.CopyException.Name(m.groupValues[3]),
+                // CR 205.1a: "it's a legendary Human Mercenary Villain creature" sets its card types and creature types (no "in addition", CR 205.1b)
                 arcanum.api.CopyException.Types(add = listOf(CardType.Creature), addSubtypes = subtypes, addSupertypes = listOf(Supertype.Legendary),
-                    replaceSubtypes = true)))), Affected.Objects(Objects.Self), arcanum.api.Duration.UntilYourNextTurn)))
+                    replaceSubtypes = true, replaceTypes = true)))), Affected.Objects(Objects.Self), arcanum.api.Duration.UntilYourNextTurn)))
         }
         // msh chunk 09: 'create a 1/1 red Alien creature token with haste and "This token attacks each combat if able."'
         LazyRegexes.CREATE_TOKENS_WITH.matchEntire(sentence)?.takeIf { Tokens.spec(it.groupValues[1]) == null }?.let { m ->
@@ -17238,7 +17263,8 @@ internal class Sentences(
             val quoted = Sentences(setOf("this creature", "This creature")).line(mshSentence(m.groupValues[6])) ?: return null
             val keyword = OracleParser.keyword(mshCap(m.groupValues[5])) ?: return null
             return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature))), then = listOf(
-                mshUntilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes),
+                // CR 205.1b: a "[creature types] artifact creature" keeps its other types but replaces its creature types
+                mshUntilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes, replaceSubtypes = true),
                     Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())), Mechanic.GainAbilities(listOf(keyword, quoted))))))
         }
         return null
@@ -20601,7 +20627,7 @@ internal class Sentences(
         }
         // fin chunk 05: "You draw that many cards." after life lost or damage dealt (the event's amount)
         if (sentence == "You draw that many cards." && (context.event is EventPattern.LoseLife || context.event is EventPattern.Damage))
-            return listOf(Step.Do(Effect.Draw(Players.You, Value.EventAmount)))
+            return listOf(Step.Do(Effect.Draw(Players.You, context.thatMuch ?: Value.EventAmount)))
         // fin chunk 05: "Until end of turn, creatures other than Zerand and the chosen creature get -2/-2."
         Fin.CREATURES_OTHER_THAN_SELF_AND_CHOSEN_GET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val p = m.groupValues[2].toInt()
@@ -21506,11 +21532,16 @@ internal class Sentences(
                 Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
         }
         // eoe chunk 07: "enchanted permanent" (an Aura that enchants an artifact, creature or Spacecraft) is the object the Aura is
-        // attached to, as "enchanted creature" is: read as that when nothing reads it as written
+        // attached to, as "enchanted creature" is: read as that when nothing reads it as written. woe fixes: only when the words
+        // "enchanted creature" add no creature meaning (a rule reading them as a creature filter or a creature check would make the
+        // permanent a creature, CR 303.4): the reading may name the creature type no more often than the line's own words do
         Eoe.ENCHANTED_PERMANENT.matchEntire(line)?.let { m ->
             eoeRewriting = true
             try {
-                return line(line) ?: line(m.groupValues[1] + m.groupValues[2] + "nchanted creature" + m.groupValues[3])
+                line(line)?.let { return it }
+                val reread = line(m.groupValues[1] + m.groupValues[2] + "nchanted creature" + m.groupValues[3]) ?: return null
+                val ownCreatures = Regex("""\bcreatures?\b""", RegexOption.IGNORE_CASE).findAll(line).count()
+                return reread.takeIf { Regex("""\bCreature\b""").findAll(it.toString()).count() <= ownCreatures }
             } finally { eoeRewriting = false }
         }
         return null
@@ -21726,9 +21757,13 @@ internal class Sentences(
         // "Surveil X" with X defined by "where X is …" (CR 701.25a)
         if (Eoe.SURVEIL_X.matches(sentence)) return listOf(Step.Do(Effect.Surveil(Players.You, context.definedX ?: return null)))
         // "look at the top two cards of your library. Put one into your hand and the other into your graveyard."
-        if (Eoe.LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD.matches(sentence)) return eoeLookAndPick(Value.Fixed(2), 1) + listOf(
-            Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
-            Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(Zone.Graveyard))))
+        // woe fixes: "Exile one of them and put the other into your hand." (the chosen one exiled, the other to the hand)
+        Eoe.LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val exile = m.groupValues[1].isNotEmpty()
+            return eoeLookAndPick(Value.Fixed(2), 1) + listOf(
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(if (exile) Zone.Exile else Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(if (exile) Zone.Hand else Zone.Graveyard))))
+        }
         // "Look at the top X cards … Put one of those cards into your hand. If this spell was kicked, put two of those cards into your hand
         // instead. Put the rest on the bottom of your library in a random order." (CR 702.33d)
         if (Eoe.LOOK_X_ONE_KICKED_TWO.matches(sentence)) {
@@ -22270,8 +22305,9 @@ internal class Sentences(
             val subtype = m.groupValues[5].takeIf { it in RulesWords.subtypes } ?: return null
             return listOf(Step.Do(Effect.PutCounters(target, eoeP1P1, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.Type(CardType.Creature))), then = listOf(
+                    // CR 205.1b: a "[creature type] artifact creature" keeps its other types but replaces its creature types
                     Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature),
-                        addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                        addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
                         Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
                         Affected.Objects(target), arcanum.api.Duration.Indefinitely)))))
         }

@@ -177,7 +177,7 @@ class GtcChunk06WhiteTest {
                 cost = costOf(CostPart.Loyalty(n(0))),
                 instructions = steps(
                     untilEndOfTurn(Objects.Self,
-                        Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Human")), SubtypeRef.Literal(Subtype("Soldier"))), replaceSubtypes = true),
+                        Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Human")), SubtypeRef.Literal(Subtype("Soldier")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
                         Mechanic.SetPowerToughness(loyalty, loyalty),
                         Mechanic.GainAbilities(listOf(Keyword.Indestructible)),
                     ),

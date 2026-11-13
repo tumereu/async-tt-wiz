@@ -2,6 +2,11 @@ package arcanum.parser
 
 /** Wordings first met in Wilds of Eldraine (WOE). */
 internal object Woe {
+    // woe fixes: "If you would pay life while your library has at least that many cards in it, exile that many cards from the top of your
+    // library instead." (a replacement of paying life, CR 614.1a, 119.4)
+    // woe fixes: "Target player exiles the top X cards of their library." (read as chunk 56's "Exile the top X cards of target player's library.")
+    val TARGET_PLAYER_EXILES_TOP = Regex("""Target (player|opponent) exiles the top (\w+) cards of their library\.""")
+    val IF_YOU_WOULD_PAY_LIFE = Regex("""If you would pay life(?: while (.+?))?, (.+) instead\.""")
     // woe chunk 01: Role tokens: "create a Monster Role token attached to target creature you control" (CR 111.10j–r, 303.4i)
     val CREATE_ATTACHED_TO = Regex("""[Cc]reate (an? .+? token) attached to (.+)\.""")
     // woe chunk 01: "For each creature your opponents control, create a Cursed Role token attached to that creature."
@@ -182,7 +187,22 @@ internal object WoePhrases {
 
     private val AS_YOU_CAST_THIS_SPELL = Regex("""(.+) as you cast this spell""")
 
+    // woe fixes: "your library has at least that many cards in it" ("that many": the replaced event's amount, CR 614.1a)
+    private val LIBRARY_HAS_AT_LEAST = Regex("""your library has at least (that many|\w+) cards? in it""")
+
+    // woe fixes: "a card was put into exile this turn" (from anywhere, CR 406.1)
+    private val PUT_INTO_EXILE_THIS_TURN = Regex("""an? (\w+) was put into exile this turn""")
+
     fun condition(text: String, self: Set<String>): arcanum.api.Condition? {
+        PUT_INTO_EXILE_THIS_TURN.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Condition.HappenedThisTurn(arcanum.api.EventPattern.ZoneChange(noun, to = arcanum.api.Zone.Exile), 1, arcanum.api.Measure.Events)
+        }
+        LIBRARY_HAS_AT_LEAST.matchEntire(text)?.let { m ->
+            val n = if (m.groupValues[1] == "that many") arcanum.api.Value.EventAmount else arcanum.api.Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val library = arcanum.api.Objects.Each(Filters.all(arcanum.api.ObjectFilter.InZone(arcanum.api.Zone.Library), arcanum.api.ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.You)))
+            return arcanum.api.Condition.Compare(arcanum.api.Value.Count(library), arcanum.api.Comparison.AtLeast, n)
+        }
         // woe chunk 09r: "you controlled a Faerie as you cast this spell" (answered as casting finishes, CR 601.2i)
         AS_YOU_CAST_THIS_SPELL.matchEntire(text)?.let { m ->
             val now = m.groupValues[1].replace(Regex("""^you controlled """), "you control ")

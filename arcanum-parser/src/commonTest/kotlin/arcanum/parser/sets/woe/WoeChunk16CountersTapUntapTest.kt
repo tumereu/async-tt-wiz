@@ -192,7 +192,7 @@ class WoeChunk16CountersTapUntapTest {
         static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.EntersTapped))),
         activated(cost(tap), doing(Effect.AddMana(ManaProduction(ManaKind.Choose(n(1), listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.White)))), Players.You))),
         activated(cost(mana("{1}{R}{W}")), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Ox"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Ox")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.White))), Mechanic.SetPowerToughness(n(2), n(2)))),
         triggered(attacksSelf, counters(target("creature")), targets = listOf(slot("creature", creatureYouControl))),
     )
@@ -213,7 +213,7 @@ class WoeChunk16CountersTapUntapTest {
         static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.EntersTapped))),
         activated(cost(tap), doing(Effect.AddMana(ManaProduction(ManaKind.Choose(n(1), listOf(ColorRef.Literal(Color.White), ColorRef.Literal(Color.Black)))), Players.You))),
         activated(cost(mana("{2}{W}{B}")), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Nightmare"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Nightmare")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.White), ColorRef.Literal(Color.Black))), Mechanic.SetPowerToughness(n(1), n(4)))),
         triggered(attacksSelf,
             loseLife(2, Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object))), gainLife(2)),

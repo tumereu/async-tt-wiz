@@ -82,8 +82,8 @@ internal object Fra {
 
     // effects
     val HE_SHE = Regex("""(?:He|She) ((?:gains|gets|has) .+)""")
-    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (colorless|\w+(?: and \w+)?) ([a-z]+(?: [a-z]+)?) token named ([A-Z][A-Za-z' ]+) with "(.+)"\.""")
-    val CREATE_NAMED_LEGEND_TOKEN = Regex("""Create ([A-Z][a-z]+), a legendary ((?:\d+/\d+) \w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) token\.""")
+    // otj chunk 06: "a tapped …", several quoted abilities ("… with "A" and "B".")
+    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (tapped )?(colorless|\w+(?: and \w+)?) ([a-z]+(?: [a-z]+)?) token named ([A-Z][A-Za-z' ]+) with "(.+)"\.""")
     val THEY_CREATE = Regex("""They create (.+? tokens?)\.""")
     val COUNTER_ON_EACH_OF_TARGETS = Regex("""Put an? (\S+) counter on each of (\w+) or (\w+) target (.+)\.""")
     val PUT_COUNTER_ON_IT_IF = Regex("""Put an? (\S+) counter on it if it's an? (.+)\.""")

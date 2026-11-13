@@ -85,7 +85,9 @@ internal object EventMatcher {
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
             // dft: only abilities with the label ("an exhaust ability", CR 702.177a)
             val labelMatches = pattern.label == null || pattern.label == a.label
-            if (kindMatches && labelMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
+            // otj: "an ability that targets a creature or player": the ability on the Stack, its targets chosen (CR 602.2b)
+            val abilityMatches = pattern.ability?.let { f -> a.item?.let { e.matches(f, it) } == true } ?: true
+            if (kindMatches && labelMatches && abilityMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
                 // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
                 // event); its source is the source (CR 113.7)
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),

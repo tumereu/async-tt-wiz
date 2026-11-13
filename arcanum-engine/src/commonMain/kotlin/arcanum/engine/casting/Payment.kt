@@ -666,11 +666,13 @@ internal object Payment {
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
-            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
+        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2i), so "an ability that
+        // targets a creature or player" reads them
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
+            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)

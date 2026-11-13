@@ -40,6 +40,10 @@ sealed interface EventPattern {
         // dft
         /** Only abilities with this label ("whenever you activate an exhaust ability", CR 702.177a). */
         val label: AbilityLabel? = null,
+        // otj
+        /** Only abilities that, on the Stack, match this ("an ability that targets a creature or player": the ability itself,
+         * with the targets chosen as it was activated, CR 602.2b, 115.1b); a mana ability, never on the Stack, never matches. */
+        val ability: ObjectFilter? = null,
     ) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */

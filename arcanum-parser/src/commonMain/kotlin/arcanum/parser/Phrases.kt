@@ -729,6 +729,14 @@ internal object Events {
         }
         // otj chunk 04: "you commit a crime" (CR 700.13)
         if (text == "you commit a crime") return EventPattern.CommitCrime(PlayerFilter.You)
+        // otj chunk 06: "you activate an ability that targets a creature or player" (the ability on the Stack; a mana ability
+        // doesn't target, CR 605.1a, 115.1b)
+        Otj.ACTIVATE_ABILITY_THAT_TARGETS.matchEntire(text)?.let { m ->
+            val player = m.groupValues[2].isNotEmpty()
+            val objects = Filters.noun(m.groupValues[1]) ?: return null
+            return EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You,
+                ability = ObjectFilter.Targets(objects = Objects.Each(objects), players = if (player) arcanum.api.Players.Each(PlayerFilter.Any) else null))
+        }
         // blb chunk 04: "you expend 4" (CR 700.14)
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)

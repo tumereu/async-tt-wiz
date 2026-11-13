@@ -10302,17 +10302,26 @@ internal class Sentences(
         }
         // fra chunk 09: 'create a colorless artifact token named Lotus with "{T}, Sacrifice this token: Add three mana of any one color."'
         Fra.CREATE_NAMED_NONCREATURE_TOKEN.matchEntire(sentence)?.let { m ->
-            val colors = if (m.groupValues[1] == "colorless") emptyList() else m.groupValues[1].split(" and ").map { Tokens.color(it) ?: return null }
-            val types = m.groupValues[2].split(' ').map { Filters.CARD_TYPES[it] ?: return null }
-            val ability = Sentences(setOf("this token", "This token")).line(m.groupValues[4]) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition(m.groupValues[3], colorIndicator = colors, types = types,
-                abilities = listOf(ability))), Value.Fixed(1), controller = Players.You)))
+            val colors = if (m.groupValues[2] == "colorless") emptyList() else m.groupValues[2].split(" and ").map { Tokens.color(it) ?: return null }
+            val types = m.groupValues[3].split(' ').map { Filters.CARD_TYPES[it] ?: return null }
+            val abilities = m.groupValues[5].split("\" and \"").map { quoted ->
+                Sentences(setOf("this token", "This token")).line(if (quoted.endsWith(".")) quoted else "$quoted.") ?: return null
+            }
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition(m.groupValues[4], colorIndicator = colors, types = types,
+                abilities = abilities)), Value.Fixed(1), controller = Players.You, tapped = m.groupValues[1].isNotEmpty())))
         }
         // fra chunk 09: "Create Mowu, a legendary 3/3 green Dog creature token." (CR 111.4)
-        Fra.CREATE_NAMED_LEGEND_TOKEN.matchEntire(sentence)?.let { m ->
-            val defined = Tokens.defined("a " + m.groupValues[2] + " token") ?: return null
-            return listOf(Step.Do(Effect.CreateToken(defined.copy(face = defined.face.copy(name = m.groupValues[1], supertypes = listOf(arcanum.api.Supertype.Legendary))),
-                Value.Fixed(1), controller = Players.You)))
+        // otj chunk 06: 'Create Beau, a legendary blue Ox creature token with "Beau's power and toughness are …"': the token as
+        // unnamed, then its name and supertype; in its own quoted ability its name means the token itself (CR 201.5)
+        Otj.CREATE_NAMED_LEGENDARY.matchEntire(sentence)?.let { m ->
+            val name = m.groupValues[1]
+            val with = m.groupValues[3].replace("\"$name", "\"This token").replace(" $name", " this token")
+            val create = (effect("Create a " + m.groupValues[2] + with + ".", context) ?: return null).singleOrNull() as? Step.Do ?: return null
+            val made = create.effect as? Effect.CreateToken ?: return null
+            val defined = made.token as? arcanum.api.TokenSpec.Defined ?: return null
+            if (made.count != Value.Fixed(1)) return null
+            return listOf(Step.Do(made.copy(token = defined.copy(face = defined.face.copy(name = name,
+                supertypes = defined.face.supertypes + arcanum.api.Supertype.Legendary)))))
         }
         // fra chunk 06: "You create a 3/3 green Forest Tentacle land creature token."
         if (sentence.startsWith("You create ")) return effect("Create " + sentence.removePrefix("You create "), context)

@@ -52,6 +52,10 @@ internal object Otj {
     // otj chunk 05: Doc Aurlock: "Plotting cards from your hand costs {2} less." (plot's special action, CR 702.170a)
     val PLOTTING_FROM_HAND_COSTS_LESS = Regex("""Plotting cards from your hand costs ((?:\{[^}]+\})+) less\.""")
     val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
+    // otj chunk 06: Ertha Jo, Frontier Mentor
+    val ACTIVATE_ABILITY_THAT_TARGETS = Regex("""you activate an ability that targets an? (.+?)( or player)?""")
+    // otj chunk 06: Bonny Pall: "Create Beau, a legendary blue Ox creature token with "…"." (CR 111.4)
+    val CREATE_NAMED_LEGENDARY = Regex("""Create ([A-Z][a-z]+), a legendary (.+? token)( with .+)?\.""")
 }
 
 /** Phrases first met in Outlaws of Thunder Junction (OTJ). */

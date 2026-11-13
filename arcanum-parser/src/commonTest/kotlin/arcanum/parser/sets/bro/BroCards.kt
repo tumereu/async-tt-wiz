@@ -218,3 +218,12 @@ fun createPowerstone(count: Value = n(1), players: Players = Players.You): Step 
 fun prototype(cost: String, power: Int, toughness: Int): Keyword = Keyword.Prototype(manaCost(cost), power, toughness)
 /** "if you cast it" of an enters trigger (CR 603.4) */
 val ifYouCastIt: Condition = Condition.CastFrom(null, Objects.Self)
+
+// ---- bro chunk 04: Auras, Equipment and meld (CR 303.4, 301.5, 701.42)
+/** "enchanted creature", "equipped creature", "enchanted permanent": what this Aura or Equipment is attached to */
+val attached: Objects = Objects.AttachedTo(Objects.Self)
+fun enchant(filter: ObjectFilter): Keyword = Keyword.Enchant(TargetKind.Objects(filter))
+fun equip(cost: String): Keyword = Keyword.Equip(manaCost(cost))
+fun subtype(name: String): SubtypeRef = SubtypeRef.Literal(Subtype(name))
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)

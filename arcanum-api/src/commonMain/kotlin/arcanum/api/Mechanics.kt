@@ -506,6 +506,10 @@ sealed interface Mechanic {
     /** Loyalty abilities of the affected permanents may be activated on any player's turn any time their controller could
      * cast an instant (CR 606.3 otherwise: only as a sorcery); still only once each turn. */
     @Serializable @SerialName("loyalty-at-instant-speed") data object LoyaltyAtInstantSpeed : Mechanic
+    // bro
+    /** Loyalty abilities of the affected permanents may be activated [count] times each turn rather than only once ("You may
+     * activate the loyalty abilities of Urza twice each turn rather than only once", CR 606.3). */
+    @Serializable @SerialName("loyalty-activations-per-turn") data class LoyaltyActivationsPerTurn(val count: Int) : Mechanic
     // mh2
     /** For the affected players: loyalty abilities they activate cost an additional [[+amount]] ("Planeswalkers' loyalty abilities you activate cost an
      * additional [+1] to activate"): [amount] more loyalty counters are put on the planeswalker, or that many fewer removed, as the cost is paid

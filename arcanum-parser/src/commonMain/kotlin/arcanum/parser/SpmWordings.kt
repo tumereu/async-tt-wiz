@@ -85,7 +85,7 @@ internal object Spm {
     val CREATE_THEN_YOU = Regex("""[Cc]reate (.+?), then you (.+)""")
     val LEGEND_RULE_DOESNT_APPLY_TO = Regex("""The "legend rule" doesn't apply to (.+?) you control\.""")
     val COSTS_LESS_IF_IT_TARGETS_SUBTYPE = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast if it targets an? ([A-Z]\w+)\.""")
-    val ATTACHED_GETS_FOR_EACH_ATTACHED = Regex("""Enchanted creature gets ([+-]\d+)/([+-]\d+) for each Aura and Equipment attached to it\.""")
+    val ATTACHED_GETS_FOR_EACH_ATTACHED = Regex("""(?:Enchanted|Equipped) creature gets ([+-]\d+)/([+-]\d+) for each Aura and Equipment attached to it(?: and has (.+?))?\.""")
     val ALL_DAMAGE_TO_YOU_TO_ENCHANTED = Regex("""All damage that would be dealt to you is dealt to enchanted creature instead\.""")
     val PREVENT_DAMAGE_PUT_THAT_MANY_COUNTERS = Regex("""If damage would be dealt to (.+?), prevent that damage and put that many (\+1/\+1) counters on (?:him|her|it|them)\.""")
     val LOOK_AT_OPPONENTS_HAND_CHOOSE_CARD_TYPE = Regex("""As (.+?) enters, look at an opponent's hand, then choose (?:a card type other than (\w+)|any card name)\.""")

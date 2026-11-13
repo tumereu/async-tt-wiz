@@ -277,9 +277,10 @@ internal object Fin {
     val PLAY_HIDEAWAY_IF_LEGENDS = Regex("""(.+?): You may play the exiled card without paying its mana cost if you control (\w+) or more legendary creatures\.""")
     val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
     /** A meld trigger: "At the beginning of <step>, if you both own and control X and a creature named Y, [you may pay {cost}. If you do, ]exile them, then meld them into Z." */
-    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if you both own and control (.+?) and a creature named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
+    // bro chunk 04: a land or artifact partner, and another condition before it ("if there are four or more land cards in your graveyard and …")
+    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if (?:(.+?) and )?you both own and control (.+?) and an? (creature|land|artifact) named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
     /** A meld activated ability: "<cost>: If you both own and control X and a creature named Y, exile them, then meld them into Z." */
-    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and a creature named (.+?), exile them, then meld them into (.+)\.""")
+    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and an? (creature|land|artifact) named (.+?), exile them, then meld them into (.+?)\.( Activate only as a sorcery\.)?""")
     val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
     val COUNTER_ON_IT_FOR_EACH = Regex("""Put an? (\S+) counter on it for each (.+)\.""")
 }

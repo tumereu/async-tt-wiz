@@ -65,6 +65,7 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        broMulti(line)?.let { return it } // bro
         // isd chunk 03: "Enchanted creature gets +2/+2 as long as it's a Human. Otherwise, it can't attack or block." (two static abilities,
         // one while the subject is of that kind and one while it isn't, CR 611.3a)
         Isd.AS_LONG_AS_ITS_A_OTHERWISE.matchEntire(line)?.let { m ->
@@ -1365,6 +1366,7 @@ internal class Sentences(
         blbGaps2Static(line)?.let { return it } // blb gaps 2
         rtrStatic(line)?.let { return it } // rtr
         isdStatic(line)?.let { return it } // isd
+        broStatic(line)?.let { return it } // bro
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -2919,6 +2921,7 @@ internal class Sentences(
         hobModify(sentence, steps, context)?.let { return it } // hob
         fraModify(sentence, steps, context)?.let { return it } // fra
         isdModify(sentence, steps, context)?.let { return it } // isd
+        broModify(sentence, steps)?.let { return it } // bro
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
         // gtc chunk 11: 'Create a 1/1 white and black Cleric creature token. It has "[ability]."' (CR 111.4: part of the token)
@@ -3633,11 +3636,18 @@ internal class Sentences(
                 arcanum.api.Affected.Objects(objects), arcanum.api.Duration.Indefinitely)))
         }
         IT_BECOMES_CREATURE.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: Objects.Self.takeIf { context.event == null } ?: return null
+            // bro chunk 04: "Put four +1/+1 counters on target land you control. It becomes …" ("it": the target, the ability's only one)
+            val it = context.it ?: context.targets.singleOrNull()?.takeIf { t -> t.what is TargetKind.Objects }?.let { t -> Objects.Target(t.name) }
+                ?: Objects.Self.takeIf { context.event == null } ?: return null
             val subtype = m.groupValues[3].takeIf { s -> s in RulesWords.subtypes } ?: return null
+            // bro chunk 04: "It becomes a 0/0 Elemental creature with haste." without "in addition": its new types replace the old ones
+            // (CR 205.1a) unless "It's still a land." follows (CR 205.1b, [broModify])
+            val replace = m.groupValues[5].isEmpty()
+            val has = m.groupValues[4].takeIf { k -> k.isNotEmpty() }?.let { k -> listOf(Mechanic.GainAbilities(keywords(k) ?: return null)) }.orEmpty()
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
-                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))),
+                    replaceTypes = replace, replaceSubtypes = replace),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))) + has,
                 arcanum.api.Affected.Objects(it), arcanum.api.Duration.Indefinitely)))
         }
         // dsk chunk 14: "Put each creature card exiled with this artifact onto the battlefield under your control with a flying
@@ -4186,6 +4196,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        broEffect(sentence)?.let { return it } // bro
         isdEffect(sentence, context)?.let { return it } // isd
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
@@ -5249,6 +5260,10 @@ internal class Sentences(
             val noun = m.groupValues[2]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = target))))
+        }
+        // bro chunk 04: "you may attach this Equipment to it" ("it": the creature the trigger's event names, CR 701.3a)
+        ATTACH_SELF_TO_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = context.it ?: return@let))))
         }
         // chunk 20: "Attach it to that creature."
         if (sentence == "Attach it to that creature.") {
@@ -10306,8 +10321,9 @@ internal class Sentences(
         if (line == "Enchanted creature loses all abilities and doesn't untap during its controller's untap step.")
             return Ability.Static(listOf(Mechanic.LoseAbilities(), Mechanic.DoesntUntap), affects = attached)
         // fra chunk 10: "Enchanted permanent is a Construct creature with base power and toughness 5/5 in addition to its other types."
+        // bro chunk 04: "Enchanted artifact is a creature with base power and toughness 4/4 in addition to its other types." (no subtype)
         Fra.ENCHANTED_IS_CREATURE_WITH_BASE.matchEntire(line)?.let { m ->
-            val subtypes = m.groupValues[1].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
+            val subtypes = m.groupValues[1].split(' ').filter { it.isNotEmpty() }.map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
             return Ability.Static(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))), affects = attached)
         }
@@ -10315,8 +10331,12 @@ internal class Sentences(
         Fra.EQUIPPED_GETS_AND_HAS_QUOTED.matchEntire(line)?.let { m ->
             val keywords = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { keywords(it) ?: return null }.orEmpty()
             val granted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[4]) ?: return null
+            // bro chunk 04: 'Enchanted creature gets +1/+1 and has flying, haste, and "[ability]." It's a Dragon in addition to its other types.'
+            // (layers 4, 6 and 7c)
+            val subtype = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { s -> if (s in RulesWords.subtypes) Subtype(s) else return null }
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt())),
-                Mechanic.GainAbilities(keywords + granted)), affects = attached)
+                Mechanic.GainAbilities(keywords + granted)) + listOfNotNull(subtype?.let { Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(it))) }),
+                affects = attached)
         }
         // fra chunk 09: 'Planeswalkers you control have "No more than one creature can attack this planeswalker each combat."'
         Fra.HAVE_NO_MORE_THAN_ATTACK.matchEntire(line)?.let { m ->
@@ -11296,7 +11316,7 @@ internal class Sentences(
         val HAVE_IT_GET = Regex("""Have it get ([+-]\d+)/([+-]\d+) until end of turn\.""")
         val PUT_TARGET_ON_BOTTOM = Regex("""Put target (.+) on the bottom of its owner's library\.""")
         val BECOMES_SUBTYPE_CREATURE_WITH_SELF_BASE_PT = Regex("""(.+?) becomes an? ([A-Z][\w-]+(?: [A-Z][\w-]+)*) creature with (.+?) and base power and toughness equal to (.+)'s power and toughness\.""")
-        val IT_BECOMES_CREATURE = Regex("""It becomes an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
+        val IT_BECOMES_CREATURE = Regex("""It becomes an? (\d+)/(\d+) (\w+) creature(?: with ([a-z ,]+?))?( in addition to its other types)?\.""")
         val PUT_EACH_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""Put each (.+) exiled with (.+?) onto the battlefield under your control(?: with an? (\S+) counter on it)?\.""")
         val EACH_OF_THEM_IS_PT_SUBTYPE = Regex("""Each of them is an? (\d+)/(\d+) (\w+) in addition to its other types\.""")
         // dsk chunk 13
@@ -11526,6 +11546,7 @@ internal class Sentences(
         // chunk 20
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
         val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
+        val ATTACH_SELF_TO_IT = Regex("""Attach (.+) to it\.""")
         val SACRIFICE_THAT = Regex("""Sacrifice that (\w+)\.""")
         val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
         val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to the sacrificed \w+'s (power|toughness)\.""")
@@ -15733,6 +15754,67 @@ internal class Sentences(
         return null
     }
 
+    // ---- bro: The Brothers' War wordings (the set's parser tests, sets/bro/BroChunk*Test.kt); regexes in [Bro]
+
+    /** bro: lines that are more than one ability. */
+    private fun broMulti(line: String): List<Ability>? {
+        // bro chunk 04: "As long as you control enchanted creature, it gets +2/+2. Otherwise, it can't block." (two static abilities, one while
+        // the condition holds and one while it doesn't, CR 611.3a)
+        Bro.AS_LONG_AS_IT_OTHERWISE.matchEntire(line)?.let { m ->
+            val attachedTo = Bro.YOU_CONTROL_ATTACHED.matchEntire(m.groupValues[1]) ?: return@let
+            val subject = attachedTo.groupValues[1].replaceFirstChar { it.uppercase() } + " creature"
+            val condition = arcanum.api.Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), ObjectFilter.ControlledBy(PlayerFilter.You))
+            val first = line("$subject ${m.groupValues[2]}.") as? Ability.Static ?: return@let
+            val second = line("$subject ${m.groupValues[3]}.") as? Ability.Static ?: return@let
+            if (first.condition != null || second.condition != null) return@let
+            return listOf(first.copy(condition = condition), second.copy(condition = arcanum.api.Condition.Not(condition)))
+        }
+        return null
+    }
+
+    /** bro: static abilities. */
+    private fun broStatic(line: String): Ability? {
+        // bro chunk 04: "You may activate the loyalty abilities of Urza twice each turn rather than only once." (CR 606.3)
+        Bro.LOYALTY_TWICE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.LoyaltyActivationsPerTurn(2)), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
+    /** bro: single-sentence effects. */
+    private fun broEffect(sentence: String): List<Step>? {
+        // bro chunk 04: "If Mishra, Claimed by Gix and a creature named Phyrexian Dragon Engine are attacking, and you both own and control them,
+        // exile them, then meld them into Mishra, Lost to Phyrexia." (CR 701.42a, 712.4a; checked as the ability resolves)
+        Bro.MELD_IF_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val attacking = ObjectFilter.HasStatus(arcanum.api.Status.Attacking)
+            val you = ObjectFilter.ControlledBy(PlayerFilter.You)
+            val owned = ObjectFilter.OwnedBy(PlayerFilter.You)
+            val partner = Filters.all(attacking, Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.Named(m.groupValues[3]), you, owned)
+            return listOf(Step.If(arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(attacking, you, owned)),
+                arcanum.api.Condition.Exists(partner, atLeast = 1))), then = meldSteps(partner, m.groupValues[4])))
+        }
+        return null
+    }
+
+    /** bro: sentences that change the steps before them. */
+    private fun broModify(sentence: String, steps: List<Step>): List<Step>? {
+        val last = steps.lastOrNull()
+        // bro chunk 04: "It enters tapped and attacking." after a meld: the melded permanent (CR 508.4: its controller chooses what it attacks)
+        if (sentence == "It enters tapped and attacking." && last is Step.If) {
+            val meld = ((last.then.lastOrNull() as? Step.Do)?.effect as? Effect.Action)?.action as? arcanum.api.KeywordAction.Meld ?: return null
+            return steps.dropLast(1) + last.copy(then = last.then.dropLast(1) +
+                Step.Do(Effect.Action(meld.copy(tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
+        }
+        // bro chunk 04: "It becomes a 0/0 Elemental creature with haste. It's still a land.": it keeps its other types (CR 205.1b)
+        if (sentence == "It's still a land." && last is Step.Do) {
+            val apply = last.effect as? Effect.ApplyMechanics ?: return null
+            val types = apply.mechanics.filterIsInstance<Mechanic.SetTypes>().singleOrNull()?.takeIf { it.replaceTypes } ?: return null
+            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = apply.mechanics.map {
+                if (it === types) types.copy(replaceTypes = false, replaceSubtypes = false) else it }))
+        }
+        return null
+    }
+
     // ---- isd
 
     /** isd: single-sentence effects. */
@@ -16508,8 +16590,11 @@ internal class Sentences(
         // msh chunk 03: "you control target opponent during their next turn" (CR 723)
         if (Msh.CONTROL_OPPONENT_NEXT_TURN.matches(sentence)) return listOf(Step.Do(Effect.ControlNextTurn(context.targetOpponent(), Players.You)))
         // msh chunk 10: "Artifact spells you cast this turn cost {1} less to cast." (a rule change for the turn, CR 611.2c)
+        // bro chunk 04: "Artifact, instant, and sorcery spells you cast this turn cost {2} less to cast." (a list of types, as the static wording's)
         Msh.SPELLS_YOU_CAST_THIS_TURN_COST_LESS.matchEntire(sentence)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val lower = m.groupValues[1].replaceFirstChar { it.lowercase() }
+            val spells = Filters.noun(lower) ?: Filters.noun(lower.removeSuffix(" spells you cast").replace(" and ", " or ") + " spell")
+                ?.let { Filters.all(it, ObjectFilter.ControlledBy(PlayerFilter.You)) } ?: return null
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(spells, arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null,
                 Value.Fixed(1)))), null, arcanum.api.Duration.EndOfTurn)))
         }
@@ -17779,7 +17864,9 @@ internal class Sentences(
             val count = Value.Count(Objects.AttachmentsOf(Objects.AttachedTo(Objects.Self), ObjectFilter.Or(listOf(
                 ObjectFilter.Sub(Subtype("Aura")), ObjectFilter.Sub(Subtype("Equipment"))))))
             fun per(n: Int): Value = when (n) { 0 -> Value.Fixed(0); 1 -> count; else -> Value.Times(count, n) }
-            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(per(m.groupValues[1].toInt()), per(m.groupValues[2].toInt()))),
+            // bro chunk 04: "Equipped creature gets +1/+1 for each Aura and Equipment attached to it and has ward {2}."
+            val has = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { listOf(Mechanic.GainAbilities(keywords(it) ?: return null)) }.orEmpty()
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(per(m.groupValues[1].toInt()), per(m.groupValues[2].toInt()))) + has,
                 affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
         }
         // spm chunk 07: "All damage that would be dealt to you is dealt to enchanted creature instead." (CR 614.1a)
@@ -17882,11 +17969,12 @@ internal class Sentences(
                 arcanum.api.Condition.Compare(Value.EventAmount, arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[2].toInt()))
         }
         // spm chunk 08: "this land enters from a graveyard"
-        ENTERS_FROM_A.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // bro chunk 04: "a creature enters from your graveyard" (any object of that kind)
+        ENTERS_FROM_A.matchEntire(text)?.let { m ->
             val zone = when (m.groupValues[3]) { "graveyard" -> Zone.Graveyard; "exile" -> Zone.Exile; else -> return null }
-            // bro chunk 02: "enters from your graveyard": it was in its controller's own graveyard, so the controller owns it (CR 108.3)
-            val what = if (m.groupValues[2] == "your") ObjectFilter.And(listOf(ObjectFilter.Is(Objects.Self), ObjectFilter.OwnedBy(PlayerFilter.You)))
-                else ObjectFilter.Is(Objects.Self)
+            val subject = if (isSelf(m.groupValues[1])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[1].removeArticle()) ?: return@let
+            // bro chunk 02: "enters from your graveyard": it was in its owner's graveyard (CR 108.3, 404.1)
+            val what = if (m.groupValues[2] == "your") ObjectFilter.And(listOf(subject, ObjectFilter.OwnedBy(PlayerFilter.You))) else subject
             return arcanum.api.Trigger.On(EventPattern.ZoneChange(what, from = zone, to = Zone.Battlefield)) to null
         }
         // spm chunk 06: "a creature an opponent controls with the greatest power among creatures that player controls dies" (its power as it
@@ -20940,23 +21028,29 @@ internal class Sentences(
         // If you do, exile them, then meld them into Ragnarok, Divine Deliverance." Also "At the beginning of your end step, if you both own and control
         // Gisela and a creature named Bruna, exile them, then meld them into Brisela." (CR 701.42a, 712.4). "You both own and control" holds for this
         // permanent too: an opponent who gained control of it stops the meld (CR 603.4 checks it again on resolution).
-        Fin.MELD_AT_STEP.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+        // bro chunk 04: "At the beginning of your upkeep, if there are four or more land cards in your graveyard and you both own and control Titania
+        // and a land named Argoth, …" (both conditions are the intervening if)
+        Fin.MELD_AT_STEP.matchEntire(line)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val partner = Filters.all(Filters.noun(m.groupValues[4]) ?: return null, ObjectFilter.Named(m.groupValues[5]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
             val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
             if (onlyIf != null) return null
-            val pay = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { cost(it) ?: return null }
-            val meld = meldSteps(partner, m.groupValues[5])
+            val also = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { listOf(Conditions.condition(it, self) ?: return null) }.orEmpty()
+            val pay = m.groupValues[6].takeIf { it.isNotEmpty() }?.let { cost(it) ?: return null }
+            val meld = meldSteps(partner, m.groupValues[7])
             return Ability.Triggered(trigger, Instructions(steps = if (pay == null) meld else listOf(
                 Step.Pay(pay, payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = meld))),
-                interveningIf = arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
+                interveningIf = arcanum.api.Condition.And(also + listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
                     arcanum.api.Condition.Exists(partner, atLeast = 1))))
         }
         // "{3}{R}{R}, {T}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township."
+        // bro chunk 04: "{7}: If you both own and control Urza, Lord Protector and an artifact named The Mightstone and Weakstone, … Activate only as
+        // a sorcery." (CR 602.5d)
         Fin.MELD_ACTIVATED.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[3]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+            val partner = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.Named(m.groupValues[4]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+            val rules = if (m.groupValues[6].isEmpty()) rules() else rules().copy(timing = arcanum.api.Timing.Sorcery)
             return Ability.Activated(cost(m.groupValues[1]) ?: return null, Instructions(steps = listOf(Step.If(
                 arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, Filters.all(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
-                    arcanum.api.Condition.Exists(partner, atLeast = 1))), then = meldSteps(partner, m.groupValues[4])))), rules())
+                    arcanum.api.Condition.Exists(partner, atLeast = 1))), then = meldSteps(partner, m.groupValues[5])))), rules)
         }
         // "When Ragnarok dies, destroy target permanent and return target nonlegendary permanent card from your graveyard to the battlefield."
         Fin.DIES_DESTROY_AND_RETURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->

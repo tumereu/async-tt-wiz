@@ -680,7 +680,7 @@ internal object Effects {
         val controller = dest.controller?.let { e.players(it).firstOrNull() } ?: scope.actor
         val attachTo = dest.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
-        val attacking = dest.attacking?.let { attackTarget(scope, it) }
+        val attacking = dest.attacking?.let { attackTarget(scope, it, controller) }
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
             ordered = act.randomObjects(scope.actor, scope.self, ids, ids.size)
@@ -734,8 +734,14 @@ internal object Effects {
     private const val UNTIL_SOURCE = "\$until-source"
     private const val UNTIL_RETURNED = "\$until-returned"
 
-    private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget): TargetRef? = when (target) {
-        arcanum.api.AttackTarget.Chosen -> scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
+    /** What a creature [controller] puts onto the battlefield attacking attacks (CR 508.4). */
+    private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget, controller: PlayerId = scope.actor): TargetRef? = when (target) {
+        // CR 508.4: its controller chooses which defending player, planeswalker or battle it's attacking
+        arcanum.api.AttackTarget.Chosen -> {
+            val act = scope.act
+            val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state, viewOf = { act.view() }), controller)
+            if (options.size <= 1) options.firstOrNull() else act.chooseTargets(controller, scope.self, "attacking", options, 1, 1).single()
+        }
         is arcanum.api.AttackTarget.SameAs -> {
             arcanum.engine.combat.Combat.lastTarget(scope.act.state, scope.objects(target.objects))
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
@@ -924,11 +930,10 @@ internal object Effects {
             Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }
         effect.attacking?.let { target ->
-            val to = attackTarget(scope, target)
-            val combat = act.state.combat
-            if (to != null && combat != null) {
-                act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, to) })))
-            }
+            val combat = act.state.combat ?: return@let
+            // CR 508.4: each token's controller chooses what it attacks
+            val attackers = created.mapNotNull { id -> attackTarget(scope, target, act.controllerOf(id) ?: scope.actor)?.let { arcanum.engine.state.Attacker(id, it) } }
+            if (attackers.isNotEmpty()) act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + attackers)))
         }
         scope.bind(effect.bind, NamedValue.Objects(created))
     }
@@ -959,7 +964,10 @@ internal object Effects {
         val other = cards.first { it.id != top.id }
         val partner = (top.definition.layout as Layout.Meld).partner
         if (other.definition.layout !is Layout.Meld || other.definition.faces.firstOrNull()?.name != partner) return
-        val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true)))[top.id]
+        // bro: "It enters tapped and attacking." (CR 508.4)
+        val attacking = action.attacking?.let { attackTarget(scope, it, top.owner) }
+        val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true,
+            tapped = action.tapped, attacking = attacking)))[top.id]
         val now = entered?.let { act.state.obj(it) }?.takeIf { it.zone == Zone.Battlefield } ?: return
         val lone = act.state.objOrThrow(other.id)
         act.record(Change.Removed(listOf(Placed(lone, act.state.zone(Zone.Exile, lone.owner).indexOf(lone.id))), listOf(Meaning.Merged)))

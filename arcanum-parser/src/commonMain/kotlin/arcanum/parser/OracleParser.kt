@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 91
+    const val VERSION: Int = 92
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -671,6 +671,11 @@ object OracleParser {
         PROTOTYPE.matchEntire(part)?.let { m ->
             return Keyword.Prototype(Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), m.groupValues[2].toInt(), m.groupValues[3].toInt())
         }
+        // bro chunk 04: "Equip {2} or {B}": one equip ability, its cost either one (CR 702.6a, 601.2f)
+        EQUIP_EITHER.matchEntire(part)?.let { m ->
+            val options = listOf(m.groupValues[1], m.groupValues[2]).map { Cost.mana(ManaCost.parse(it) ?: return null) }
+            return Keyword.Equip(Cost(listOf(arcanum.api.CostPart.OneOf(options))))
+        }
         EQUIP_SUBTYPE.matchEntire(part)?.let { m ->
             if (m.groupValues[1] !in RulesWords.subtypes) return null
             return Keyword.Equip(Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null), onto = arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])))
@@ -746,6 +751,7 @@ object OracleParser {
     // hob chunk 06
     private val PROTOTYPE = Regex("""Prototype ((?:\{[^}]+\})+) — (\d+)/(\d+)""")
     private val EQUIP_SUBTYPE = Regex("""Equip ([A-Z][a-z]+) (\{.+\})""")
+    private val EQUIP_EITHER = Regex("""Equip ((?:\{[^}]+\})+) or ((?:\{[^}]+\})+)""")
     // chunk 40
     private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
     // chunk 45

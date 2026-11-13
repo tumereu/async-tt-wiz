@@ -39,7 +39,7 @@ internal object Tmt {
     val MAY_ATTACH_TO_IT = Regex("""[Yy]ou may attach (.+) to it\.""")
     val CANT_ATTACK_UNLESS_CONTROL = Regex("""(.+) can't attack unless you control (.+)\.""")
     val SPELL_THAT_TARGETS = Regex("""spell that targets (?:an? )?(.+)""")
-    val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent) mills half their library, rounded (up|down)\.""")
+    val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent|[Dd]efending player) mills half their library, rounded (up|down)\.""")
     val DRAW_EQUAL_TO_DIFFERENCE = Regex("""[Dd]raw cards equal to the difference\.""")
     val FEWER_THAN_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
     val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+)\.""")

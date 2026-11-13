@@ -192,14 +192,16 @@ internal object Filters {
         // chunk 31: "card from a graveyard"
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
-        WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.let { m ->
+        // bro chunk 05: not "a Plains card or a creature card with mana value 3 or less": an alternative after " or a" has its own noun and
+        // its own "with", the " or " split owns it
+        WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val n = Value.Fixed(m.groupValues[3].toInt())
             // blb chunk 01: "… or greater"
             val comparison = if (m.groupValues[4] == "greater") Comparison.AtLeast else Comparison.AtMost
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
-        WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
+        WITH_MANA_VALUE.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // blb gaps 2: "… or greater"
             val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
@@ -281,8 +283,10 @@ internal object Filters {
                     noun(last.drop(1).joinToString(" ")) ?: return null)
         }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
+        // bro chunk 05: "3 or less" inside an alternative isn't one
         if (phrase.contains(" or ")) {
-            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
+            val list = phrase.split(OR_LIST_NOT_COMPARISON).filter { it.isNotEmpty() }
+            if (list.size < 2) return null
             return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
         }
         // blb chunk 08: "Rabbits, Bats, Birds, and Mice": a list of creature types is any of them (CR 205.3m)
@@ -508,6 +512,7 @@ internal object Filters {
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     // chunk 36
     private val OR_AN_ALTERNATIVE = Regex(" or an? ")
+    private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
@@ -574,6 +579,12 @@ internal object Events {
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
+        // bro chunk 05: "you choose to put one or more cards on the bottom of your library while scrying" (CR 701.22a)
+        Bro.SCRIED_TO_BOTTOM.matchEntire(text)?.let { m -> return EventPattern.ScriedToBottom(when (m.groupValues[1]) {
+            "you" -> PlayerFilter.You
+            "an opponent" -> PlayerFilter.Opponent
+            else -> PlayerFilter.Any
+        }) }
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
         // (CR 508.1a)
         AND_AT_LEAST_OTHERS_ATTACK.matchEntire(text)?.let { m ->

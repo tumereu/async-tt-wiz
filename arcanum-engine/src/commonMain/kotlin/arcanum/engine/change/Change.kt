@@ -529,6 +529,10 @@ sealed interface GameEvent {
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: arcanum.api.KeywordActionKind, val player: PlayerId, val objects: List<ObjectId> = emptyList(), val amount: Int? = null,
     ) : GameEvent
+    // bro
+    /** [player] scried and put [count] (one or more) of the cards on the bottom of their library (CR 701.22a): what
+     * [arcanum.api.EventPattern.ScriedToBottom] reads. */
+    @Serializable @SerialName("scried-to-bottom") data class ScriedToBottom(val player: PlayerId, val count: Int) : GameEvent
 }
 
 /**

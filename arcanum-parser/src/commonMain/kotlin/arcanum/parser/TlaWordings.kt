@@ -171,7 +171,7 @@ internal object Tla {
     val EACH_A_AND_B_HAS_QUOTED = Regex("""Each (\w+) and (\w+) you control has "(.+)"""")
     val SEARCH_UP_TO_X_PUT_THOSE = Regex("""search your library for up to X (.+?) cards\. Put those cards onto the battlefield tapped, then shuffle\.""")
     val EARTHBEND_THAT_LAND_BECOMES = Regex("""Earthbend (\d+|X)\. That land becomes an? ([A-Z]\w+) in addition to its other types\.""")
-    val MILL_MAY_PUT_IF_YOU_DONT = Regex("""mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you don't, (.+)""")
+    val MILL_MAY_PUT_IF_YOU_DONT = Regex("""mill (\w+) cards\. You may put an? (.+?) from among (?:them|the cards milled this way) into your hand\. If you don't, (.+)""")
     val MILL_PUT_LAND_GAIN_IF = Regex("""Mill a card\. You may put an? (.+?) milled this way into your hand\. You gain (\d+) life if an? (.+?) is milled this way\.""")
     val BASE_POWER_AND_GAINS = Regex("""Until end of turn, (.+?) has base power (\d+) and gains (.+)\.""")
     val MAY_SEARCH_IF_SEARCHED_BOTTOM = Regex("""you may search your library for (an? .+?) and put it onto the battlefield tapped\. If you search your library this way, put (.+?) on the bottom of its owner's library, then shuffle\.""")

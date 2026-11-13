@@ -237,6 +237,15 @@ internal class Sentences(
      * keeping [quoted] as its printed text (an emblem has only its abilities, CR 114.3: the text is all a player can read
      * of it); null when the ability can't be read. */
     private fun emblem(quoted: String): List<Step>? {
+        // bro chunk 05: 'with "[first]" and "[second]"': an emblem of several abilities (CR 114.3)
+        val parts = quoted.split("\" and \"")
+        if (parts.size > 1) {
+            val abilities = parts.map { part ->
+                val ability = Sentences(setOf("this emblem")).let { it.line(part) ?: it.line("$part.") } ?: return null
+                with(OracleParser) { ability.withText(part) }
+            }
+            return listOf(Step.Do(Effect.CreateEmblem(abilities, players = Players.You)))
+        }
         // inr chunk 01: an ability quoted inside the quoted one is in single quotes; read it as a quoted ability (CR 113.1a)
         val inner = Regex(""" '(.+)'$""").find(quoted)?.takeIf { '"' !in quoted }
         val read = inner?.let { quoted.substring(0, it.range.first) + " \"" + it.groupValues[1] + "\"" } ?: quoted
@@ -4196,7 +4205,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
-        broEffect(sentence)?.let { return it } // bro
+        broEffect(sentence, context)?.let { return it } // bro
         isdEffect(sentence, context)?.let { return it } // isd
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
@@ -14535,7 +14544,9 @@ internal class Sentences(
             val players = when (m.groupValues[1]) {
                 "Target opponent" -> { context.targets += TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1)); Players.Target("opponent") }
                 "Target player" -> { context.targets += TargetSlot("player", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1)); Players.Target("player") }
-                else -> Players.Each(PlayerFilter.Opponent)
+                "Each opponent" -> Players.Each(PlayerFilter.Opponent)
+                // bro chunk 05: in an attack trigger, the player this creature attacks (CR 506.2)
+                else -> Players.DefendingPlayerOf(Objects.Self)
             }
             val library = if (players is Players.Each) Players.Affected else players
             val size = Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.Is(library)))))
@@ -15782,7 +15793,15 @@ internal class Sentences(
     }
 
     /** bro: single-sentence effects. */
-    private fun broEffect(sentence: String): List<Step>? {
+    private fun broEffect(sentence: String, context: Context): List<Step>? {
+        // bro chunk 05: "exile that many cards from the bottom of your library." ("that many": the event's amount; kept as the cards "exiled
+        // with" this object when the card refers to them, CR 607.2a)
+        Bro.EXILE_FROM_BOTTOM.matchEntire(sentence)?.let { m ->
+            val count = if (m.groupValues[1] == "that many") Value.EventAmount.takeIf { context.event != null } ?: return null
+                else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val exile = Step.Do(Effect.Move(Objects.LibraryCards(Players.You, count, fromTop = false), Destination(Zone.Exile), postBind = "exiled"))
+            return listOf(exile) + remembered(Objects.Bound("exiled"))
+        }
         // bro chunk 04: "If Mishra, Claimed by Gix and a creature named Phyrexian Dragon Engine are attacking, and you both own and control them,
         // exile them, then meld them into Mishra, Lost to Phyrexia." (CR 701.42a, 712.4a; checked as the ability resolves)
         Bro.MELD_IF_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->

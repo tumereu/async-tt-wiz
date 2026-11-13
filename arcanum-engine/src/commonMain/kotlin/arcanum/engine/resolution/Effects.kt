@@ -795,6 +795,8 @@ internal object Effects {
         val after = kept + rest + bottom
         if (after != act.state.player(player).library) act.record(Change.Reorder(Zone.Library, player, act.state.player(player).library, after))
         act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Scry, player, amount = top.size)))
+        // bro chunk 05: "whenever you choose to put one or more cards on the bottom of your library while scrying" (CR 701.22a, d)
+        if (bottom.isNotEmpty()) act.record(Change.Happened(GameEvent.ScriedToBottom(player, bottom.size)))
         scope.bind(bind, NamedValue.Objects(bottom))
     }
 

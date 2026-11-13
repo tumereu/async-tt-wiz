@@ -186,7 +186,7 @@ internal object Gtc {
     val BLOCKING_OR_BLOCKED_BY_HAVE = Regex("""Creatures blocking or blocked by (.+) have (.+)\.""")
     val TARGETABLE_DESPITE_HEXPROOF = Regex("""(.+) with hexproof can be the targets of spells and abilities you control as though they didn't have hexproof\.""")
     val MAY_LOOK_AT_EXILED_WITH = Regex("""You may look at cards exiled with (.+)\.""")
-    val MAY_PLAY_EXILED_WITH = Regex("""You may play lands and cast spells from among cards exiled with (.+)\.""")
+    val MAY_PLAY_EXILED_WITH = Regex("""You may (?:play lands and cast spells from among|play) cards exiled with (.+)\.""")
     val ENTERS_WITH_X_COUNTERS = Regex("""(.+) enters with X (\S+) counters on it, where X is (.+)\.""")
     val OTHERS_ENTER_WITH_COUNTERS_EQUAL_AND_AS = Regex("""(Each other .+) enters with a number of additional (\S+) counters on it equal to (.+?) and as an? (\w+) in addition to its other types\.""")
 }

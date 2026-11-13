@@ -175,9 +175,11 @@ internal object HobPhrases {
         // hob chunk 06: "the number of Treasures you control", "the number of artifacts your opponents control" (generic counting
         // already reads most; this is for the total power of creatures)
         // hob chunk 09: "the total power of creatures you control with flying"
-        if (text.startsWith("the total power of ")) {
-            val noun = text.removePrefix("the total power of ")
-            return Value.Of(NumericProperty.Power, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
+        // mkm chunk 08: "the total toughness of creatures you control"
+        for ((word, property) in listOf("power" to NumericProperty.Power, "toughness" to NumericProperty.Toughness)) {
+            if (!text.startsWith("the total $word of ")) continue
+            val noun = text.removePrefix("the total $word of ")
+            return Value.Of(property, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
         }
         return null
     }

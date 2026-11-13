@@ -365,6 +365,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
+            // CR 708.2a: a face-down permanent has no name
+            ObjectFilter.HasName -> names(c).any { it.isNotEmpty() }
             // CR 709.4a: a split card has each of its halves' names
             is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> hasChosenName(c, ctx.names[filter.name])
@@ -497,7 +499,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // CR 509.1h, 508.4d: unblocked once blockers are declared
         Status.Unblocked -> state.combat?.let { c -> c.blocksDecided && c.attackers.any { it.id == id && !it.blocked } } == true
         Status.Goaded -> o?.goadedBy?.isNotEmpty() == true
-        is Status.Marked -> o?.marks?.contains(status.mark) == true
+        // mkm: one that left is read as it last existed ("if the sacrificed creature was suspected", CR 608.2h)
+        is Status.Marked -> (o?.marks ?: lki(id)?.marks)?.contains(status.mark) == true
     }
 
     /** CR 302.6: [controller] hasn't controlled [o] continuously since their most recent turn began. */

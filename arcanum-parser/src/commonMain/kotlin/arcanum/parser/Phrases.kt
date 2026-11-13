@@ -95,6 +95,8 @@ internal object Filters {
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
+        // mkm chunk 08: "creatures that don't have a name" (a face-down permanent has none, CR 708.2a)
+        WITHOUT_A_NAME.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasName)) }
         // dsk chunk 08: "an instant or sorcery spell that targets only a single creature you control" (CR 115.7)
         TARGETS_ONLY_A_SINGLE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.SingleTarget(noun(m.groupValues[2]) ?: return null))
@@ -442,9 +444,10 @@ internal object Filters {
     // dsk chunk 07
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
+    private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
-    private val SPELLS_YOU_CAST = Regex("""(\w+(?:(?:,| or|, or) \w+)*) spells you cast""")
+    private val SPELLS_YOU_CAST = Regex("""([\w-]+(?:(?:,| or|, or) [\w-]+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
@@ -1021,10 +1024,13 @@ internal object Conditions {
         }
         Mkm.N_PUT_INTO_GRAVEYARDS_THIS_TURN.matchEntire(text)?.let { m ->
             // "creature cards": a token put into a graveyard isn't a card (CR 108.2, 111.7)
-            val cards = Filters.noun(m.groupValues[2]) ?: return null
-            return Condition.HappenedThisTurn(EventPattern.ZoneChange(if (m.groupValues[2].endsWith("cards")) Filters.all(cards, ObjectFilter.Category(
-                arcanum.api.ObjectCategory.Card)) else cards, to = Zone.Graveyard),
-                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Objects)
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val cards = if (m.groupValues[2].endsWith("cards") || m.groupValues[2].endsWith("card")) Filters.all(noun, ObjectFilter.Category(
+                arcanum.api.ObjectCategory.Card)) else noun
+            // "your graveyard": a card goes to its owner's graveyard (CR 404.2)
+            val moved = if (m.groupValues[3] == "your graveyard") Filters.all(cards, ObjectFilter.OwnedBy(PlayerFilter.You)) else cards
+            val atLeast = if (m.groupValues[1].isEmpty()) 1 else Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(moved, to = Zone.Graveyard), atLeast = atLeast, measure = Measure.Objects)
         }
         return null
     }

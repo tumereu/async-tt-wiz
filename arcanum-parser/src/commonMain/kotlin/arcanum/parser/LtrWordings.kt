@@ -114,7 +114,7 @@ internal object Ltr {
     val YOU_CAST_A_SPELL_THAT_TARGETS = Regex("""you cast a spell that targets (.+)""")
     val GETS_PER_CARD_LOOKED_AT_SCRYING = Regex("""(.+?) gets \+1/\+1 until end of turn for each card looked at while scrying this way\.""")
     val THAT_CREATURE_LOSES_UNTIL_EOT = Regex("""That creature loses (\w+) until end of turn\.""")
-    val MUST_BE_BLOCKED_THIS_TURN = Regex("""(.+?) must be blocked this turn if able\.""")
+    val MUST_BE_BLOCKED_THIS_TURN = Regex("""(.+?) must be blocked (?:each combat )?this turn if able\.""")
     val CANT_BE_BLOCKED_BY_MORE_THAN_ONE_THIS_TURN = Regex("""(.+?) can't be blocked by more than one creature each combat this turn\.""")
     val DEALS_DAMAGE_EQUAL_TO_ITS_POWER_TO = Regex("""(.+?) deals damage equal to its power to (up to one target .+|target .+)\.""")
     val CREATE_NAMED_TOKEN_WITH_QUOTED = Regex("""Create ([A-Z][\w']+), an? (legendary )?(\d+)/(\d+) (\w+) ([A-Z]\w+) creature token with (.+?), and "(.+)"\.?""")

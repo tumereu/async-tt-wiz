@@ -82,7 +82,8 @@ internal object Mkm {
     // mkm chunk 06: "three or more creatures attacked this turn" (any player's, each creature once, CR 508.1)
     val N_ATTACKED_THIS_TURN = Regex("""(\w+) or more (.+?) attacked this turn""")
     // mkm chunk 06: "three or more creature cards were put into graveyards from anywhere this turn"
-    val N_PUT_INTO_GRAVEYARDS_THIS_TURN = Regex("""(\w+) or more (.+?) were put into graveyards from anywhere this turn""")
+    // mkm chunk 08: "a creature card was put into your graveyard from anywhere this turn"
+    val N_PUT_INTO_GRAVEYARDS_THIS_TURN = Regex("""(?:(\w+) or more|an?) (.+?) (?:were|was) put into (graveyards|your graveyard) from anywhere this turn""")
     // mkm chunk 06: "This Case is a 4/4 Gorgon creature with deathtouch and lifelink in addition to its other types."
     val IS_PT_CREATURE_WITH_IN_ADDITION = Regex("""(.+?) is an? (\d+)/(\d+) ((?:[A-Z]\w+ )*)creature(?: with ([a-z ,]+?))? in addition to its other types\.""")
     // mkm chunk 06: "You may look at the top card of your library any time, and you may play lands and cast … from the top of your library." (two
@@ -106,6 +107,25 @@ internal object Mkm {
     val THEN_ATTACH_TO_IT = Regex("""(.+?), then attach (.+?) to it\.""")
     // mkm chunk 07: "Turn target face-down creature face up." (CR 708.8)
     val TURN_TARGET_FACE_UP = Regex("""Turn target (.+?) face up\.""")
+    // mkm chunk 08: "Destroy up to one target artifact, up to one target creature, up to one target enchantment, and up to one target planeswalker."
+    val UP_TO_ONE_TARGET_EACH = Regex("""(Destroy|Exile) ((?:up to one target [a-z]+, )+and up to one target [a-z]+)\.""")
+    val UP_TO_ONE_TARGET = Regex("""(?:and )?up to one target ([a-z]+)""")
+    // mkm chunk 08: "collect evidence X, where X is the total mana value of the permanents this spell targets" (CR 601.2c: targets come first)
+    val COLLECT_EVIDENCE_TARGETS_MANA_VALUE = Regex("""[Cc]ollect evidence X, where X is the total mana value of the (.+?) this spell targets""")
+    // mkm chunk 08: "If the card's mana value is 1 or less, create …" (the card the instructions last named)
+    val IF_ITS_MANA_VALUE = Regex("""If (?:the card|that card|it)'s mana value is (\d+) or (less|greater), (.+)""")
+    // mkm chunk 08: "You may have it become no longer suspected." (CR 701.60a)
+    val MAY_HAVE_BECOME_NO_LONGER = Regex("""You may have (.+?) become no longer (\w+)\.""")
+    // mkm chunk 08: "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if it's a land card.
+    // Otherwise, put it into your hand. Then shuffle."
+    val SEARCH_REVEAL_PUT_IF_TYPE_OTHERWISE_HAND = Regex("""Search your library for an? (.+?) and reveal it\. Put it onto the battlefield( tapped)? if it's an? (.+?)\. Otherwise, put it into your hand\. Then shuffle\.""")
+    // mkm chunk 08: "sacrifice any number of other creatures, then exile the top X cards of your library, where X is their total power. You may cast
+    // any number of instant and/or sorcery spells from among the exiled cards without paying their mana costs."
+    val SACRIFICE_ANY_EXILE_TOTAL_POWER_CAST = Regex("""[Ss]acrifice any number of (.+?), then exile the top X cards of your library, where X is their total power\. You may cast any number of (.+?) spells from among the exiled cards without paying their mana costs\.""")
+    // mkm chunk 08: "That spell gains deathtouch and lifelink." in a cast trigger
+    val THAT_SPELL_GAINS = Regex("""That spell gains ([a-z ,]+)\.""")
+    // mkm chunk 08: "You may turn a creature you control face up." (chosen as it resolves, CR 708.8)
+    val MAY_TURN_A_FACE_UP = Regex("""You may turn an? (.+?) face up\.""")
     // mkm chunk 07: "Turn this creature face up. If you can't, exile it, then you may cast the exiled card without paying its mana cost."
     val TURN_FACE_UP_IF_YOU_CANT = Regex("""Turn (.+?) face up\. If you can't, (.+)""")
     // mkm chunk 07: "you may cast the exiled card without paying its mana cost" (cast as this resolves, CR 608.2g)

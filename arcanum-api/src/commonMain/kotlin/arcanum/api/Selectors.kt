@@ -130,6 +130,8 @@ sealed interface ObjectFilter {
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
     @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects) : ObjectFilter
+    /** mkm: has a name ("creatures that don't have a name" = [Not] of this): a face-down permanent has none (CR 708.2a). */
+    @Serializable @SerialName("has-name") data object HasName : ObjectFilter
     /** Has the card name chosen by the [Step.Choose] named [name] in this resolution. */
     @Serializable @SerialName("chosen-name") data class ChosenName(val name: String) : ObjectFilter
     /** Has the card name kept as card memory under [key] ("the chosen name" of a permanent). */

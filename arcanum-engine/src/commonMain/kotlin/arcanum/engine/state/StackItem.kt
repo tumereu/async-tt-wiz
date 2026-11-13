@@ -123,6 +123,9 @@ data class ObjectSnapshot(
     // fra
     /** It was an attacking creature ("if it wasn't attacking", CR 608.2h). */
     val attacking: Boolean = false,
+    // mkm
+    /** Its marks ([GameObject.marks]): "if the sacrificed creature was suspected" (CR 608.2h). */
+    val marks: List<arcanum.api.ObjectMark> = emptyList(),
 )
 
 /** The statuses of [o] an [ObjectSnapshot] keeps: all but those of copying and merging, which its characteristics show. */

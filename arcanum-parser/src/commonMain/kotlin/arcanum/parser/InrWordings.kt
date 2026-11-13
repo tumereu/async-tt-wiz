@@ -137,7 +137,8 @@ internal object InrPhrases {
                 measure = Measure.Amount)
         }
         // inr chunk 07: Laboratory Maniac "while your library has no cards in it"
-        if (text == "your library has no cards in it")
+        // mkm chunk 08: Living Conundrum "there are no cards in your library"
+        if (text == "your library has no cards in it" || text == "there are no cards in your library")
             return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
         // inr chunk 07: Lupine Prototype "a player has no cards in hand" (any player, CR 402)
         if (text == "a player has no cards in hand")

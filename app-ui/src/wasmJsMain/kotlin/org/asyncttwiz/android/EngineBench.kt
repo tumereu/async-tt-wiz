@@ -70,8 +70,9 @@ import org.asyncttwiz.protocol.game.TableState
  * same board, then the next board sent as its event (Alice plays a land), while the page's frames are timed. Then the
  * device's own work as the page still does it (web client step 4c: until the device moves into the worker): a pass and
  * End turn worked out on the page's thread, with the worst frame meanwhile. Then the device itself in the worker (web client
- * step 4c part 3, [DeviceHost]): the game opened there, a pass and End turn asked of it, each timed to its result and to its
- * last board taken on the page, with the worst frame meanwhile. The results go on the page, to the console and, when done,
+ * step 4c part 3, [DeviceHost]): the game played on a few turns, opened there, a pass and the table's flows asked of it (step 4d:
+ * a land, a cast, an attack, combat damage, End turn, Undo), each timed to its result and to its last board taken on the page,
+ * with the worst frame meanwhile. The results go on the page, to the console and, when done,
  * into the title ("engine-bench: done").
  */
 fun runEngineBench(base: String) {
@@ -125,7 +126,7 @@ fun runEngineBench(base: String) {
                         val before = bench.line.size
                         onPage(frames, ::line, "End turn", bench::endTurn) {
                             boundary?.let { line(it.board("The board after End turn, with its motion steps", bench.line.drop(before))) }
-                            val device = boundary?.let { b -> try { DeviceBench(workers.devices, bench, b.base, frames, ::line) } catch (problem: Exception) {
+                            val device = boundary?.let { b -> try { bench.develop(6); DeviceBench(workers.devices, bench, b.base, frames, ::line) } catch (problem: Exception) {
                                 line("The device bench couldn't start: ${problem.stackTraceToString()}"); null } }
                             val finish = { frames.stop(); jsBenchTitle("engine-bench: done") }
                             if (device == null) finish() else device.run(finish)
@@ -311,9 +312,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         waitFor({ boards > 0 || game.loadFailed }) {
             if (game.loadFailed) { line("Device in the worker: the game failed to load there"); then(); return@waitFor }
             line("Device in the worker: opened, first board on the page after ${(lastShownAt - openedAt).f()} ms; worst frame ${frames.worst.f()} ms")
-            timed("A pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }) {
-                timed("End turn", { done -> game.endTurn { done("") } }) { flows(then) }
-            }
+            flows(then)
         }
     }
 
@@ -339,6 +338,10 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         val s = shown.engine
         val me = PlayerId(game.me)
         val next = { flows(then) }
+        // Undo once the attack's turn has ended (the device may be waiting for the other player by then)
+        if (endedAfterAttack && s.turn.active != me) {
+            return timed("Undo", { done -> game.undo(null) { done(it::class.simpleName.orEmpty()) } }) { summary(then) }
+        }
         when (val status = shown.status) {
             is GameDevice.Status.Waiting -> if (status.offer != null)
                 return timed(if (status.offer == GameDevice.Offer.AssumeBlockers) "Assume no blockers (then the combat damage)" else "Assume resolves",
@@ -348,10 +351,13 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             GameDevice.Status.YourMove -> Unit
             else -> return jsLater(200, next)
         }
-        if (endedAfterAttack) {
-            return timed("Undo", { done -> game.undo(null) { done(it::class.simpleName.orEmpty()) } }) { summary(then) }
-        }
         val options = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s))
+        // A choice of the player's (the cleanup's discard): its first answer
+        s.pending?.decision?.takeIf { it.player == me }?.let { d ->
+            options.filterIsInstance<Input.Answer>().firstOrNull { it.decision == d.id }?.let { answer ->
+                return timed("Answer ${d::class.simpleName}", { done -> game.act(answer) { done(it::class.simpleName.orEmpty()) } }, next)
+            }
+        }
         val main = s.turn.active == me && s.stack.isEmpty() && s.turn.step in setOf(arcanum.api.TurnStep.PrecombatMain, arcanum.api.TurnStep.PostcombatMain)
         options.filterIsInstance<Input.PlayLand>().firstOrNull()?.takeIf { main && landTurn != s.turn.number }?.let { land ->
             landTurn = s.turn.number
@@ -392,6 +398,11 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             }
         }
         if (s.turn.active == me && attacked && s.turn.step == arcanum.api.TurnStep.PostcombatMain) endedAfterAttack = true
+        // Before combat with a creature that can attack: on to combat (a pass), not End turn
+        val canAttack = s.battlefield.any { id -> s.obj(id)?.controller == me && s.obj(id)?.tapped == false &&
+            Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true }
+        if (s.turn.active == me && s.turn.step == arcanum.api.TurnStep.PrecombatMain && canAttack && attackedTurn != s.turn.number && s.priority.holder == me)
+            return timed("Pass to combat", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
         if (s.turn.active == me || s.priority.holder != me) return timed("End turn", { done -> game.endTurn { done("") } }, next)
         timed("Pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
     }
@@ -449,6 +460,53 @@ private class BenchGame {
 
     /** One pass: the events made. */
     fun pass(): Int = if (passOnce()) 1 else 0
+
+    /**
+     * Web client step 4d: plays [turns] more turns as both players would (a land each turn, a creature cast with the engine's
+     * payment when it can be paid, no attacks or blocks, the first answer to any choice), then on to the next main phase of
+     * the player whose turn it is, so the device bench finds lands, a creature to cast and creatures that can attack.
+     */
+    /** Whether [cast] can be made with the engine's payment on [s] (tried on a copy). */
+    private fun paid(s: GameState, cast: Input.Cast): Boolean = try {
+        val copy = s.deepCopy()
+        val prefs = org.asyncttwiz.protocol.game.EnginePreferences.of(copy)
+        Engine.perform(copy, cast, prefs).changes.forEach(copy::apply)
+        (copy.pending?.decision as? arcanum.engine.decision.Decision.ManaPayment)?.let { pay ->
+            Engine.perform(copy, Input.Answer(pay.id, Answer.ManaPayment(pay.suggestion)), prefs).changes.forEach(copy::apply)
+        }
+        copy.pending?.decision !is arcanum.engine.decision.Decision.ManaPayment
+    } catch (problem: Exception) { false }
+
+    fun develop(turns: Int) {
+        val end = model.engine.turn.number + turns
+        var guard = 0
+        while (guard++ < 2_000) {
+            val s = model.engine
+            val main = s.stack.isEmpty() && s.turn.step in setOf(arcanum.api.TurnStep.PrecombatMain, arcanum.api.TurnStep.PostcombatMain)
+            // Stops at the start of a precombat main phase, before its land
+            if (s.turn.number >= end && main && s.turn.step == arcanum.api.TurnStep.PrecombatMain && s.priority.holder == s.turn.active &&
+                (s.turn.landsPlayed[s.turn.active] ?: 0) == 0) return
+            // At a declaration nobody holds priority: the player the engine offers it to
+            val actor = s.pending?.decision?.player ?: s.priority.holder
+                ?: listOf(alice, bob).map(::PlayerId).firstOrNull { Engine.options(s, it).isNotEmpty() } ?: return
+            val options = Engine.options(s, actor)
+            val active = s.turn.active == actor
+            val input = s.pending?.decision?.let { d -> options.filterIsInstance<Input.Answer>().firstOrNull { it.decision == d.id } }
+                ?: options.firstOrNull { it is Input.DeclareAttackers }?.let { Input.DeclareAttackers(actor, emptyList()) }
+                ?: options.firstOrNull { it is Input.DeclareBlockers }?.let { Input.DeclareBlockers(actor, emptyList()) }
+                ?: options.filterIsInstance<Input.PlayLand>().firstOrNull()?.takeIf { active && main }
+                ?: options.filterIsInstance<Input.Cast>().firstOrNull { active && main && paid(s, it) }
+                ?: Input.PassPriority(actor)
+            line += EventBuilder(model, "develop-${made++}", line.lastOrNull()?.id ?: "root", actor.value).run {
+                perform(input)
+                // A cast's payment: the engine's suggestion
+                (model.engine.pending?.decision as? arcanum.engine.decision.Decision.ManaPayment)?.let { pay ->
+                    perform(Input.Answer(pay.id, Answer.ManaPayment(pay.suggestion)))
+                }
+                answerRandoms(); build()
+            }
+        }
+    }
 
     /** Passes until the turn ends (End turn, both players' passes as the devices make them): the events made. */
     fun endTurn(): Int {

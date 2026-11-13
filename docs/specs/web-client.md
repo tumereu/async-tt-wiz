@@ -491,9 +491,14 @@ Two batches come first, in this order:
   combat staging work in the worker); a board published before its plays were worked out gets them from the worker's
   device by the board's number (`DeviceRequest.Plays`: the device holds the board, so nothing else is sent; asked when the
   table first reads them); the two production paths that used result-returning reads (playback's step, the ending tools)
-  use the callback forms; the worker's device is the web's default (`?device=page` keeps it on the page), and a lost worker
+  use the callback forms; the page sends the worker its build values first (a device there read them at a choice and
+  failed without them); the worker's device is the web's default (`?device=page` keeps it on the page), and a lost worker
   leaves later games' devices on the page. `#engine-bench` plays the table's flows through the worker's device (land, a
-  cast with its payment, turns, an attacker staged and declared, blockers assumed, combat damage, End turn, Undo). Not yet:
+  cast with its payment, turns, an attacker staged and declared, blockers assumed, combat damage, End turn, Undo). Measured
+  there (headless Chrome, a 120-object game played on to turn 8, a machine loaded by other builds): results back after a land
+  52 ms, a cast 58 ms (its payment worked out on the page in 23–59 ms, the one flow step still there), a pass 29 ms, staging
+  24 ms, declaring attackers 33 ms, assuming no blockers with the combat damage 178 ms, End turn 119 ms, Undo 4 ms; the
+  worst page frame over all of them 27 ms (18–32 ms across runs). Not yet:
   flow sessions in the worker for the cast, shared-flow and combat panels (their steps and values still run on the page's
   copy of the state: the controllers read the live `CastFlow` and `SharedFlow` for drawing, so moving them needs the
   panels' data as wire values first).

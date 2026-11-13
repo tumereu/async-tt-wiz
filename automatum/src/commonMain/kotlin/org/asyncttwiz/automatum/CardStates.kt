@@ -37,7 +37,7 @@ internal object CardStates {
                 is ObjectStatus.FixedCopies, ObjectStatus.DealtCombatDamage, ObjectStatus.DealtDamage, ObjectStatus.HeldPhasedOut,
                 is ObjectStatus.MarksGained, ObjectStatus.TurnedFaceUp, is ObjectStatus.PairedWith, ObjectStatus.RevealedCompanion,
                 // ZON-079: shown by the card's place in its player's hand row
-                is ObjectStatus.Playable -> Unit
+                is ObjectStatus.Playable, is ObjectStatus.CreatedBy -> Unit
             }
         }
     }

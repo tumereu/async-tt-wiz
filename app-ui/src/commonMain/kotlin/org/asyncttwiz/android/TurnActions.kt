@@ -62,20 +62,6 @@ fun turnStepName(turn: TurnState): String {
     return if (position.label == phase) phase else "$phase · ${position.label}"
 }
 
-/** The one short, one-line step vocabulary shared by the step button (TRN-007), the phase dialog's step squares
- *  (TRN-008) and the step arrow (TRN-017); the phase label or dialog title gives the rest. */
-fun stepLabel(position: TurnPosition): String = when (position) {
-    TurnPosition.PRECOMBAT_MAIN -> "Main 1"
-    TurnPosition.BEGIN_COMBAT -> "Begin"
-    TurnPosition.DECLARE_ATTACKERS -> "Attackers"
-    TurnPosition.DECLARE_BLOCKERS -> "Blockers"
-    TurnPosition.FIRST_STRIKE_DAMAGE -> "1st strike"
-    TurnPosition.COMBAT_DAMAGE -> "Damage"
-    TurnPosition.END_COMBAT, TurnPosition.END_STEP -> "End"
-    TurnPosition.POSTCOMBAT_MAIN -> "Main 2"
-    else -> position.label
-}
-
 /** The phase dialog's steps (TRN-008): the twelve, and the first-strike damage step while the turn is in it or its
  * combat had one (TRN-056). */
 fun pickerSteps(board: BoardState): List<TurnPosition> =

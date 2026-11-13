@@ -1,0 +1,1 @@
+fix: The timeline and Undo now reach the game's first move also while the other player is catching up.

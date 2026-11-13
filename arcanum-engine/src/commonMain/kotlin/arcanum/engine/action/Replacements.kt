@@ -251,4 +251,7 @@ internal class ProposedBoard(private val base: Board, private val extra: Map<Obj
     } ?: base.snapshot(id)
 
     override fun proposedZone(id: ObjectId): arcanum.api.Zone? = extra[id]?.zone ?: base.proposedZone(id)
+
+    override fun createdBy(id: ObjectId): ObjectId? = extra[id]?.statuses?.filterIsInstance<arcanum.engine.state.ObjectStatus.CreatedBy>()?.firstOrNull()?.source
+        ?: base.createdBy(id)
 }

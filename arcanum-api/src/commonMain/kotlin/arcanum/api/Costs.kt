@@ -53,6 +53,11 @@ sealed interface CostPart {
     @Serializable @SerialName("mana") data class Mana(val cost: ManaCost, val times: Value? = null, val x: Value? = null) : CostPart
     /** "Pay its mana cost" / a cost "equal to its mana cost" (the object's own mana cost). */
     @Serializable @SerialName("its-mana-cost") data object ItsManaCost : CostPart
+    // isd
+    /** "Pay its mana cost" where "it" is [objects], an object another part of the same cost chooses ("Exile a creature card from
+     * your graveyard and pay its mana cost"): the mana cost of each of them, known once those choices are made (CR 601.2b, 601.2f);
+     * an {X} in it is 0 (CR 107.3h). */
+    @Serializable @SerialName("mana-cost-of") data class ManaCostOf(val objects: Objects) : CostPart
     /** "Its mana cost reduced by [less]" (the object's own mana cost, [less] taken off as a cost reduction, CR 118.7; a foretell cost an
      * effect gives, CR 702.143d: "Its foretell cost is its mana cost reduced by {2}"). */
     @Serializable @SerialName("its-mana-cost-less") data class ItsManaCostLess(val less: ManaCost) : CostPart

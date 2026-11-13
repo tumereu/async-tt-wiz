@@ -20,7 +20,8 @@ internal object Dft {
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|one|two|three) (\S+) counters? on it\.""")
     val FOR_EACH_PLAYER_DESTROY_UP_TO_ONE = Regex("""For each player, destroy up to one target (.+?) that player controls\. If an? (.+?) you controlled was destroyed this way, (.+)""")
     val GAIN_CONTROL_AS_LONG_AS_CANT_ATTACK_OR_BLOCK = Regex("""Gain control of target (.+?) for as long as you control (.+?)\. That creature can't attack or block for as long as you control (.+?)\.""")
-    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card from your graveyard to your hand\.""")
+    // isd chunk 05: also "a creature card at random" (Woodland Sleuth)
+    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card( at random)? from your graveyard to your hand\.""")
     val RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD = Regex("""Return up to one (other )?target (.+?) card from your graveyard to the battlefield\.""")
     val CREATE_THAT_MANY = Regex("""[Cc]reate that many (tapped )?(.+)\.""")
     // dft chunk 02

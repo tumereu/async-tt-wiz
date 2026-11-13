@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 88
+    const val VERSION: Int = 89
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -51,10 +51,9 @@ object OracleParser {
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
-            // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
-            // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
+            // sos chunk 08, tla chunk 01, isd chunk 10: "As an additional cost to cast this spell, pay X life | waterbend {X} | exile X cards from your
+            // graveyard." (X announced as it is cast, CR 601.2b, 107.3a); not "collect evidence X, where X is …" (defined by the text, CR 107.3c)
+            (isSpell && ADDITIONAL_COST_X.containsMatchIn(card.text))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -122,6 +121,7 @@ object OracleParser {
     private fun meldPartner(text: String): String? =
         (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
 
+    private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, (?![^.\n]*\bwhere X is\b)[^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
     private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
@@ -397,19 +397,25 @@ object OracleParser {
         }
     }
 
-    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h). */
+    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h); isd chunk 07:
+     * one that reads "the exiled card" (bound as "exiled") names the card its additional cost exiles (CR 601.2h, 400.7). */
     private fun dftSacrificedCost(abilities: List<Ability>): List<Ability> {
         val json = kotlinx.serialization.json.Json
-        val reads = abilities.filterIsInstance<Ability.Spell>().any {
-            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$SACRIFICED\"}")
+        fun reads(name: String) = abilities.filterIsInstance<Ability.Spell>().any {
+            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$name\"}")
         }
-        if (!reads) return abilities
+        val sacrificed = reads(SACRIFICED)
+        val exiled = reads("exiled")
+        if (!sacrificed && !exiled) return abilities
         return abilities.map { ability ->
             val static = ability as? Ability.Static ?: return@map ability
             val additional = static.mechanics.singleOrNull() as? arcanum.api.Mechanic.AdditionalCost ?: return@map ability
-            val sacrifice = additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice ?: return@map ability
-            if (sacrifice.preBind != null) return@map ability
-            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(sacrifice.copy(preBind = SACRIFICED))))))
+            val named = when (val part = additional.cost.parts.singleOrNull()) {
+                is arcanum.api.CostPart.Sacrifice -> part.takeIf { sacrificed && it.preBind == null }?.copy(preBind = SACRIFICED)
+                is arcanum.api.CostPart.Exile -> part.takeIf { exiled && it.preBind == null && it.postBind == null && it.remember == null }?.copy(postBind = "exiled")
+                else -> null
+            } ?: return@map ability
+            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(named)))))
         }
     }
 
@@ -546,6 +552,11 @@ object OracleParser {
         // dgm: "protection from white and from black" is two protection abilities (CR 702.16g); mh2 chunk 02: also first on its line
         val split = parts.flatMap { p ->
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
+        }.fold(mutableListOf<String>()) { out, p ->
+            // isd chunk 06: "Protection from Vampires, from Werewolves, and from Zombies": one protection ability each (CR 702.16g)
+            val more = PROTECTION_LIST_ITEM.matchEntire(p)?.takeIf { out.lastOrNull()?.let { PROTECTION.matchEntire(it) } != null }
+            out += more?.let { "protection from " + it.groupValues[1] } ?: p
+            out
         }
         val first = keyword(split.first()) ?: return null
         return listOf(first) + split.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
@@ -739,7 +750,10 @@ object OracleParser {
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
-    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
+    // isd chunk 06: also a creature type, "protection from Zombies" (CR 702.16a)
+    // isd chunk 07: "protection from non-Human creatures"
+    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+|non-[A-Z][a-z]+ [a-z]+)""")
+    private val PROTECTION_LIST_ITEM = Regex("""(?:and )?from ([A-Za-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06

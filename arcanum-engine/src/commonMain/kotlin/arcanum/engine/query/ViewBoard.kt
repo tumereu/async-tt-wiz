@@ -21,6 +21,7 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
         state.stackItems[id]?.let { return it.controller }
         return snapshot(id)?.let { it.controller ?: it.owner }
     }
+    override fun createdBy(id: ObjectId): ObjectId? = view[id]?.copiable?.createdBy ?: super.createdBy(id)
     override fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = view[id]?.has(mechanic) == true
     override fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = view[id]?.mechanics.orEmpty().map { it.mechanic }
 }

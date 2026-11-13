@@ -27,9 +27,9 @@ class EngineCastAnimationTest {
     /** Inline, but an own action is released at its performed point as on the engine thread (SYS-025). */
     private object EarlyDirect : EngineWorker {
         override fun run(work: () -> Unit) = work()
-        override fun <T> call(work: () -> T): T = work()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(work())
         override fun main(work: () -> Unit) = work()
-        override fun early(work: (release: (() -> Unit)?) -> Unit) = work {}
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) { work {}; released() }
     }
 
     /** What the player follows on a drawn board: where the Herald is, the Stack, the tokens and the tapped lands. */

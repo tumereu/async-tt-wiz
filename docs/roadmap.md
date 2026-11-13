@@ -32,6 +32,11 @@ Design and trial.
 
 A mobile web app for devices without Android, or an iOS client.
 
+## Later, not a priority
+
+A playback or recording system for finished games (owner 2026-11-13). Today finished games keep no history:
+it isn't needed in normal use.
+
 ## What this means for today's code
 
 - Game rules, history and texts belong in the shared modules (`protocol/`,

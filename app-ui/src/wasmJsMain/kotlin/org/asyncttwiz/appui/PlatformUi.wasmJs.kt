@@ -87,6 +87,18 @@ object WebBack {
 
 @Composable actual fun ScreenBackHandler(enabled: Boolean, onBack: () -> Unit) = WebBackEntry(screen = true, enabled, onBack)
 
+/** WEB-004: Compose's own Back (Esc, Android Chrome's system Back through the shell's close watcher) leaves the table or
+ * the draft when nothing above it takes it; not a layer (the stale-tab reload doesn't wait for it). */
+@Composable actual fun LeaveScreenBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    androidx.compose.ui.backhandler.BackHandler(enabled) {
+        org.asyncttwiz.android.AppLog.info("web-back", "Esc or the system Back leaves the screen")
+        onBack()
+    }
+}
+
+/** WEB-002: Back leaves a game's table at once in the browser. */
+actual val secondBackLeavesTable: Boolean = false
+
 @Composable actual fun screenWidthDp(): Int =
     (LocalWindowInfo.current.containerSize.width / LocalDensity.current.density).toInt()
 
@@ -132,11 +144,15 @@ actual fun edgeToEdgeDialogProperties(): DialogProperties = DialogProperties(use
 // Text at exact pixel positions: laid out by Compose's own text measurer (the fonts the rest of the page uses), since the
 // browser's Skia has no system fonts of its own.
 
-private val fontResolver by lazy { createFontFamilyResolver() }
+/**
+ * The page's one font resolver: the screens' (the web shell provides it as their LocalFontFamilyResolver) and the table's
+ * text here share it, so the fallback fonts preloaded into it at start draw in both.
+ */
+internal val webFontResolver by lazy { createFontFamilyResolver() }
 private var measurer: Pair<Float, TextMeasurer>? = null
 
 private fun measurer(density: Float): TextMeasurer = measurer?.takeIf { it.first == density }?.second
-    ?: TextMeasurer(fontResolver, Density(density), LayoutDirection.Ltr).also { measurer = density to it }
+    ?: TextMeasurer(webFontResolver, Density(density), LayoutDirection.Ltr).also { measurer = density to it }
 
 private class BrowserTextPaint : NativeTextPaint {
     override var textSize: Float = 12f

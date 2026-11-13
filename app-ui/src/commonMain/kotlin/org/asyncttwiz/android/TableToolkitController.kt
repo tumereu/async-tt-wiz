@@ -33,7 +33,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
         automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send },
-        revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
+        revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        // Web client step 4e: the cast's flow session runs beside the game's device (the browser's engine worker), else here
+        port = TableCastPort(LocalCastPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
@@ -69,6 +71,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun handPlays(play: TableBoard): org.asyncttwiz.automatum.HandPlays? {
         handPlaysReady
         AutomatumBoards.cachedHandPlays(play, viewer)?.let { return it }
+        if (awaitingWorker(play, hand = true)) return null
         if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.handPlays(play, viewer)
         if (handPlaysPending !== play.board) {
             handPlaysPending = play.board
@@ -83,6 +86,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun cardPlays(play: TableBoard): org.asyncttwiz.automatum.CardPlays? {
         handPlaysReady
         AutomatumBoards.cachedCardPlays(play, viewer)?.let { return it }
+        if (awaitingWorker(play, hand = false)) return null
         if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.cardPlays(play, viewer)
         if (cardPlaysPending !== play.board) {
             cardPlaysPending = play.board
@@ -91,6 +95,14 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         return null
     }
     private var cardPlaysPending: Any? = null
+    private val workerAnswered: () -> Unit = { handPlaysReady++ }
+
+    /** The browser: whether the engine's Web Worker still works out [play]'s hand plays ([hand]) or card plays (they
+     * arrive on their own: the menus recompose then), so the page doesn't work them out too. Always false on Android. */
+    private fun awaitingWorker(play: TableBoard, hand: Boolean): Boolean {
+        val values = play.values?.takeIf { it.viewer == viewer } ?: return false
+        return values.awaitingPlays(hand, workerAnswered)
+    }
 
     /**
      * I-D46 (a): the cards the viewer may do something with through Automatum now (cast or play it, activate one of its

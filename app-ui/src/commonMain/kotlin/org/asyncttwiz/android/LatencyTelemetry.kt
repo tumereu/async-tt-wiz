@@ -44,20 +44,20 @@ class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long 
     private val frames = linkedMapOf<String, Trace>()
     private val results = linkedMapOf<String, Trace>()
 
-    inner class Trace constructor(gameId: String, action: String, nodes: Int) {
+    inner class Trace constructor(gameId: String, action: String, nodes: Int) : LatencyTrace {
         private val start = now()
         private val workStart = DebugJank.beginWork("apply")
         private val id = randomUuid()
         private var finished = false
         private var sample = ActionLatency(timestamp(), gameId, action, nodes, predicted = false, submitted = false)
-        fun submitted(requestId: String?, predicted: Boolean) {
+        override fun submitted(requestId: String?, predicted: Boolean) {
             sample = sample.copy(predicted = predicted, submitted = true)
             if (!predicted && requestId != null) {
                 results[requestId] = this
                 while (results.size > 200) results.remove(results.keys.first())
             }
         }
-        fun finish() {
+        override fun finish() {
             if (finished) return
             finished = true
             DebugJank.endWork("apply", workStart)
@@ -71,7 +71,7 @@ class LatencyRecorder(private val enabled: Boolean, private val now: () -> Long 
         private fun elapsed() = ((now() - start).coerceAtLeast(0)) / 1_000_000.0
         fun drawn() { sample = sample.copy(firstFrameMs = elapsed()); emit() }
         /** An own action's parts (SYS-030, [OwnActionTiming]), in milliseconds by their labels, once they are in. */
-        fun parts(parts: Map<String, Double>) { sample = sample.copy(parts = parts); emit() }
+        override fun parts(parts: Map<String, Double>) { sample = sample.copy(parts = parts); emit() }
         fun result() { sample = sample.copy(serverResultMs = elapsed()); emit() }
         private fun emit() { log(sample); record(id, sample) }
     }

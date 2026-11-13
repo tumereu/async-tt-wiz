@@ -212,3 +212,9 @@ val isSelf: ObjectFilter = ObjectFilter.Is(Objects.Self)
 val powerstone: TokenSpec = TokenSpec.Predefined("Powerstone")
 /** "create [count] tapped Powerstone tokens" (all of them tapped, CR 111.10h) */
 fun createPowerstone(count: Value = n(1), players: Players = Players.You): Step = Step.Do(Effect.CreateToken(powerstone, count, players, tapped = true))
+
+// ---- bro chunk 03: prototype (CR 702.160a)
+/** "Prototype {1}{U}{U} — 2/1" */
+fun prototype(cost: String, power: Int, toughness: Int): Keyword = Keyword.Prototype(manaCost(cost), power, toughness)
+/** "if you cast it" of an enters trigger (CR 603.4) */
+val ifYouCastIt: Condition = Condition.CastFrom(null, Objects.Self)

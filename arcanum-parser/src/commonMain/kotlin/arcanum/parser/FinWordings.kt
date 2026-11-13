@@ -228,7 +228,8 @@ internal object Fin {
     val DEALS_DAMAGE_EQUAL_TO_DEFENDING = Regex("""(.+?) deals damage equal to (the number of .+?) to defending player\.""")
     val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and (X|\d+) damage to (?:that creature's|its) controller\.""") // inr chunk 08: N, its
     val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
-    val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
+    // bro chunk 03: "Pay life equal to this creature's power"
+    val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?|this [a-z]+)'s power""")
     val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
     // fin chunk 13
     val DOUBLE_SELF_POWER_EOT = Regex("""(Whenever .+?), double (.+?)'s power until end of turn\.""")

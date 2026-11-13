@@ -74,7 +74,7 @@ internal object Dft {
     val COSTS_LESS_IF_TARGETS_MV = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (\w+) with mana value (\d+)\.""")
     // dft chunk 10
     val EXCHANGE_CONTROL_OF_TARGETS = Regex("""Exchange control of target (.+?) and target (.+)\.""")
-    val MAY_ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of an? (.+)\.""")
+    val MAY_ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of an? (.+?)(?:, except (.+))?\.""")
     val ALL_LOSE_THEN_DESTROY_ALL = Regex("""All (.+?) lose (\w+) until end of turn, then destroy all (.+)\.""")
     val CREATE_X_TOKENS_WITH_QUOTED = Regex("""[Cc]reate X (\d+/\d+ .+? creature) tokens with "(.+)"\.?""")
     val WITH_MANA_VALUE_X = Regex("""(.+) with mana value X""")

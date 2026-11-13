@@ -414,7 +414,7 @@ internal object Steps {
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")
-                    .firstOrNull()?.let { m.copy(copyOf = it to modification.except) } ?: m
+                    .firstOrNull()?.let { m.copy(copyOf = it to arcanum.engine.view.Copiable.ownPowerToughness(modification.except, e.characteristics(m.id))) } ?: m
             }
             is Modification.ChangeDestination -> m.copy(to = modification.to.zone)
             Modification.Skip -> null

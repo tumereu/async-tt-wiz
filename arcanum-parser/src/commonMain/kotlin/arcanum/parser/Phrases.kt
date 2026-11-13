@@ -41,6 +41,7 @@ internal object Numbers {
 
 /** Noun phrases naming objects and players ("nonbasic land", "a Mountain or Plains card", "creature you control"). */
 private val HALF_ROUNDED = Regex("""half (.+), rounded (up|down)""")
+private val TIMES = Regex("""(\w+) times (.+)""")
 
 internal object Filters {
     /**
@@ -1498,6 +1499,8 @@ internal object Values {
         IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
+        // bro chunk 03: "three times this creature's power"
+        TIMES.matchEntire(text)?.let { m -> value(m.groupValues[2], exiled)?.let { return Value.Times(it, Numbers.count(m.groupValues[1]) ?: return null) } }
         // isd chunk 06: "half the number of Zombies you control, rounded down" (CR 107.1a)
         HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

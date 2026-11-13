@@ -385,10 +385,13 @@ internal class Sentences(
                 affects = Affected.Objects(Objects.Self))
         }
         // dft chunk 10: "You may have this creature enter as a copy of an artifact or creature you control." (CR 707.9, 614.1c)
+        // bro chunk 03: "…, except it's an artifact creature in addition to its other types, and its power and toughness are equal to this
+        // creature's power and toughness" (CR 707.9b)
         Dft.MAY_ENTER_AS_COPY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val of = Filters.noun(m.groupValues[2]) ?: return null
+            val except = if (m.groupValues[3].isEmpty()) emptyList() else copyExceptions(m.groupValues[3]) ?: return@let
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersAsCopy(of = of, optional = true)))), affects = Affected.Objects(Objects.Self))
+                modify = listOf(Modification.EntersAsCopy(of = of, except = except, optional = true)))), affects = Affected.Objects(Objects.Self))
         }
         // dft chunk 08: "During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as
         // though they haven't been activated." (only before beginning to activate one this turn, CR 702.177b)
@@ -2116,6 +2119,27 @@ internal class Sentences(
     }
 
     /** chunk 46: "Arwen's toughness": a number of the object itself. */
+    /** bro chunk 03: a "where X is" of this object's own number: "this creature's power", "three times this creature's power", and "its power"
+     * in a trigger of this object entering (CR 107.3c). */
+    private fun ownNumber(text: String, event: EventPattern?): Value? {
+        selfNumber(text)?.let { return it }
+        Regex("""(\w+) times (.+)""").matchEntire(text)?.let { m ->
+            return Value.Times(ownNumber(m.groupValues[2], event) ?: return null, Numbers.count(m.groupValues[1])?.takeIf { it > 1 } ?: return null)
+        }
+        val selfEnters = (event as? EventPattern.ZoneChange)?.let { it.objects == ObjectFilter.Is(Objects.Self) && it.to == Zone.Battlefield } == true
+        if (selfEnters && (text == "its power" || text == "its toughness")) return Value.Of(
+            if (text == "its power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness, Objects.Self, arcanum.api.Combine.Single)
+        return null
+    }
+
+    // bro chunk 03
+    /** "instant or sorcery card with mana value less than or equal to this creature's power" (its power as the ability resolves, or as it last
+     * existed, CR 608.2h). */
+    private fun manaValueAtMostOwn(phrase: String): ObjectFilter? {
+        val m = Regex("""(.+) with mana value less than or equal to (.+'s (?:power|toughness))""").matchEntire(phrase) ?: return null
+        return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, selfNumber(m.groupValues[2]) ?: return null))
+    }
+
     private fun selfNumber(text: String): Value? {
         val m = SELF_PROPERTY.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) } ?: return null
         val property = if (m.groupValues[2] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
@@ -2780,7 +2804,7 @@ internal class Sentences(
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
-        if (defined == null) whereX(text)?.let { selfNumber(it.groupValues[1]) }?.let { own ->
+        if (defined == null) whereX(text)?.let { ownNumber(it.groupValues[1], event) }?.let { own ->
             return read(text, null, seedTargets, event, them, that, itZone) ?: read(text, own, seedTargets, event, them, that, itZone)
         }
         return read(text, defined, seedTargets, event, them, that, itZone)?.let { ltrBindAmassedArmy(text, it) } // ltr
@@ -3597,6 +3621,17 @@ internal class Sentences(
         }
         // dsk chunk 14: "It becomes a 0/0 Spirit creature in addition to its other types." (in an activated ability: this object;
         // for good, layers 4 and 7b)
+        // bro chunk 03: "It becomes a Treefolk creature with haste and base power and toughness equal to this creature's power and toughness." (for
+        // good, CR 611.2a; layers 4, 6 and 7b; the numbers are fixed as the effect begins, CR 608.2h)
+        BECOMES_SUBTYPE_CREATURE_WITH_SELF_BASE_PT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return@let
+            val subtypes = m.groupValues[2].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return@let }
+            val keywords = m.groupValues[3].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
+                Mechanic.GainAbilities(keywords), Mechanic.SetPowerToughness(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single),
+                    Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Self, arcanum.api.Combine.Single))),
+                arcanum.api.Affected.Objects(objects), arcanum.api.Duration.Indefinitely)))
+        }
         IT_BECOMES_CREATURE.matchEntire(sentence)?.let { m ->
             val it = context.it ?: Objects.Self.takeIf { context.event == null } ?: return null
             val subtype = m.groupValues[3].takeIf { s -> s in RulesWords.subtypes } ?: return null
@@ -4658,7 +4693,8 @@ internal class Sentences(
                 then = listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), filter = ObjectFilter.Any)))))
         }
         SCRY_OR_SURVEIL.matchEntire(sentence)?.let { m ->
-            val n = Value.Fixed(m.groupValues[2].toInt())
+            // bro chunk 03: "Scry X" (X defined by the ability's "where X is", CR 107.3c)
+            val n = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             return listOf(Step.Do(if (m.groupValues[1] == "Scry") Effect.Scry(Players.You, n) else Effect.Surveil(Players.You, n)))
         }
         SEARCH_TO_TOP.matchEntire(sentence)?.let { m ->
@@ -7265,9 +7301,16 @@ internal class Sentences(
         val parts = text.split(Regex(""", and |, | and (?=it)"""))
         return parts.map { part ->
             Regex("""it's (\d+)/(\d+)""").matchEntire(part)?.let { arcanum.api.CopyException.PowerToughness(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }
+                // bro chunk 03: "it's an artifact creature in addition to its other types" (card types)
+                ?: Regex("""it's an? ([a-z ]+) in addition to its other types""").matchEntire(part)?.let { t ->
+                    arcanum.api.CopyException.Types(add = t.groupValues[1].split(' ').map { Filters.CARD_TYPES[it] ?: return null })
+                }
                 ?: Regex("""it's an? (\w+) in addition to its other types""").matchEntire(part)?.let { t ->
                     arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(t.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null))))
                 }
+                // bro chunk 03: "its power and toughness are equal to this creature's power and toughness" (CR 707.9b)
+                ?: Regex("""its power and toughness are equal to (.+)'s power and toughness""").matchEntire(part)
+                    ?.takeIf { isSelf(it.groupValues[1]) }?.let { arcanum.api.CopyException.OwnPowerToughness }
                 ?: Regex("""it has (.+)""").matchEntire(part)?.let { k ->
                     arcanum.api.CopyException.AddAbilities(k.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
                 }
@@ -8024,8 +8067,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(it, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
         }
         // blb chunk 11: "Create a token that's a copy of this creature." (CR 707.2)
-        Blb.CREATE_COPY_OF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Self), count = Value.Fixed(1), controller = Players.You)))
+        // bro chunk 03: "create two tokens that are copies of it" ("it": the object that entered, as it last existed, CR 608.2h)
+        Blb.CREATE_COPY_OF.matchEntire(sentence)?.let { m ->
+            val of = if (isSelf(m.groupValues[2])) Objects.Self else if (m.groupValues[2] == "it") context.it ?: return@let else return@let
+            val count = if (m.groupValues[1] == "a token that's a copy") 1 else Numbers.count(m.groupValues[1].substringBefore(' ')) ?: return@let
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(of), count = Value.Fixed(count), controller = Players.You)))
         }
         // blb chunk 11: "Return this creature to its owner's hand."
         Blb.RETURN_TO_OWNERS_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -11008,7 +11054,7 @@ internal class Sentences(
         val UNTIL_EOT_TARGET_GAINS_AND_GETS_X = Regex("""Until end of turn, target (.+?) gains ([a-z ,]+) and gets ([+-]\w+)/([+-]\w+)\.""")
         val COUNTERS_ON_THAT_CREATURE = Regex("""Put (a|an|one|two|three) (\S+) counters? on that creature\.""")
         val PUT_IT_ONTO_BATTLEFIELD = Regex("""Put it onto the battlefield( tapped)?\.""")
-        val CREATE_COPY_OF = Regex("""Create a token that's a copy of (.+)\.""")
+        val CREATE_COPY_OF = Regex("""[Cc]reate (a token that's a copy|\w+ tokens that are copies) of (.+)\.""")
         val RETURN_TO_OWNERS_HAND = Regex("""Return (.+) to its owner's hand\.""")
         val RETURN_UP_TO_ONE_LESSER = Regex("""Return up to one target (.+) with lesser mana value to its owner's hand\.""")
         val YOU_PUT_COUNTERS_ON = Regex("""you put one or more (\S+) counters on (.+)""")
@@ -11221,7 +11267,7 @@ internal class Sentences(
         val PLAYERS_DRAW = Regex("""(Each player|You) draws? (\w+) cards?(?:, then discards? (\w+) cards?( at random)?)?(?: and loses? (\d+) life)?\.""")
         val EACH_PLAYER_DISCARDS_HAND_DRAWS = Regex("""Each player discards their hand, then draws (\w+) cards\.""")
         val DISCARD_UNLESS_ATTACKED = Regex("""Discard (a|one|two) cards? unless you attacked this turn\.""")
-        val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+)\.""")
+        val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+|X)\.""")
         val TARGET_PLAYER_MILLS = Regex("""Target player mills (\w+) cards?\.""")
         val PLAYERS_MILL = Regex("""([A-Za-z ]+?) mills? (that many|\w+) cards?\.""")
         val LOOK_PUT_BACK = Regex("""Look at the top (\w+) cards of your library, then put them back in any order\.""")
@@ -11249,6 +11295,7 @@ internal class Sentences(
         val SACRIFICE_OTHER_THAN_THAT_OR_SELF = Regex("""Sacrifice an? (.+) other than that creature or (.+)""")
         val HAVE_IT_GET = Regex("""Have it get ([+-]\d+)/([+-]\d+) until end of turn\.""")
         val PUT_TARGET_ON_BOTTOM = Regex("""Put target (.+) on the bottom of its owner's library\.""")
+        val BECOMES_SUBTYPE_CREATURE_WITH_SELF_BASE_PT = Regex("""(.+?) becomes an? ([A-Z][\w-]+(?: [A-Z][\w-]+)*) creature with (.+?) and base power and toughness equal to (.+)'s power and toughness\.""")
         val IT_BECOMES_CREATURE = Regex("""It becomes an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
         val PUT_EACH_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""Put each (.+) exiled with (.+?) onto the battlefield under your control(?: with an? (\S+) counter on it)?\.""")
         val EACH_OF_THEM_IS_PT_SUBTYPE = Regex("""Each of them is an? (\d+)/(\d+) (\w+) in addition to its other types\.""")
@@ -22127,7 +22174,7 @@ internal class Sentences(
         // its mana cost." (CR 707.12)
         Tdm.EXILE_COPY_CAST_FREE.matchEntire(text)?.let { m ->
             val name = Filters.slotName(m.groupValues[1])
-            context.targets += tdmSlot(name, tdmInGraveyard(Filters.noun(m.groupValues[1]) ?: return null))
+            context.targets += tdmSlot(name, tdmInGraveyard(Filters.noun(m.groupValues[1]) ?: manaValueAtMostOwn(m.groupValues[1]) ?: return null))
             return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled")),
                 Step.Do(Effect.CopyCard(Objects.Bound("exiled"), Players.You, bind = "copy")),
                 Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))

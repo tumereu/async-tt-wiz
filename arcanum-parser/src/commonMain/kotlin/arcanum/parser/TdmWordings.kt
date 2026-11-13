@@ -147,8 +147,8 @@ internal object Tdm {
     // tdm chunk 10: "remove all counters from up to one target creature"
     val REMOVE_ALL_COUNTERS_FROM_UP_TO_ONE = Regex("""[Rr]emove all counters from up to one target (.+)\.""")
     // tdm chunk 11: "exile target nonland card with mana value 3 or less from your graveyard. Copy it, then you may cast the copy without paying its
-    // mana cost."
-    val EXILE_COPY_CAST_FREE = Regex("""[Ee]xile target (.+?) from your graveyard\. Copy it, then you may cast the copy without paying its mana cost\.""")
+    // mana cost."; bro chunk 03: "... Copy that card. You may cast the copy without paying its mana cost."
+    val EXILE_COPY_CAST_FREE = Regex("""[Ee]xile target (.+?) from your graveyard\. Copy (?:it, then you may|that card\. You may) cast the copy without paying its mana cost\.""")
     // tdm chunk 11: "target instant or sorcery card in your graveyard gains harmonize until end of turn. Its harmonize cost is equal to its mana cost."
     val GAINS_HARMONIZE_EQUAL_MANA_COST = Regex("""[Tt]arget (.+?) gains harmonize until end of turn\. Its harmonize cost is equal to its mana cost\.""")
     // tdm chunk 11: "it deals 2 damage to any target and you gain 2 life. If a player is dealt damage this way, they discard a card."

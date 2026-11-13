@@ -572,6 +572,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
+            SharedQuality.ColorPair -> colorPair(ca) != null && colorPair(ca) == colorPair(cb) // mkm
         }
     }
 
@@ -592,6 +593,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
+                SharedQuality.ColorPair -> listOfNotNull(colorPair(c)) // mkm
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -857,6 +859,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
+            SharedQuality.ColorPair -> cs.map { listOfNotNull(colorPair(it)) } // mkm
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -873,8 +876,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
+            SharedQuality.ColorPair -> cs.mapNotNull { colorPair(it) }.distinct().size // mkm
         }
     }
+
+    /** mkm: the pair of colours of an object that is exactly two colours (CR 105.2), else null. */
+    private fun colorPair(c: arcanum.engine.view.Characteristics): Set<arcanum.api.Color>? = c.colors.toSet().takeIf { it.size == 2 }
 
     // ---- Conditions
 

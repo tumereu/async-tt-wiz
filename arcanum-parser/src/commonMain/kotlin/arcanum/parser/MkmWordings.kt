@@ -139,4 +139,30 @@ internal object Mkm {
     // mkm chunk 07: "Enchanted creature gets +2/+2 as long as it's a Detective you control. Otherwise, it has base power and toughness 1/1 and can't
     // block Detectives." (two statics, one condition and its opposite)
     val AS_LONG_AS_ITS_OTHERWISE = Regex("""(.+?) ((?:gets?|has|have|can't) .+?) as long as it's an? (.+?)\. Otherwise, it ((?:gets?|has|have|can't) .+)\.""")
+    // mkm chunk 09: "Each nonland permanent you control is all colors." (layer 5, CR 105.2c)
+    val IS_ALL_COLORS = Regex("""(.+?) (?:is|are) all colors\.""")
+    // mkm chunk 09: "Lands you control are every basic land type in addition to their other types." (layer 4, CR 305.7)
+    val ARE_EVERY_BASIC_LAND_TYPE_IN_ADDITION = Regex("""(.+?) (?:is|are) every basic land type in addition to (?:its|their) other types\.""")
+    // mkm chunk 09: "Permanents your opponents control can't be turned face up during your turn." (CR 702.168d, 708.8)
+    val CANT_BE_TURNED_FACE_UP = Regex("""(.+?) can't be turned face up( during your turn)?\.""")
+    // mkm chunk 09: "If you've drawn two or more cards this turn, Galvanize deals 5 damage to that creature instead." (the damage before, another amount)
+    val IF_DEALS_DAMAGE_INSTEAD = Regex("""If (.+?), (.+?) deals (\d+) damage to that (?:creature|permanent|player) instead\.""")
+    // mkm chunk 09: "its controller may exile that many cards from the top of their library. They may play those cards until the end of their next
+    // turn." in a "creature is dealt damage" trigger
+    val CONTROLLER_MAY_EXILE_THAT_MANY_PLAY_UNTIL_NEXT_TURN = Regex("""Its controller may exile that many cards from the top of their library\. They may play those cards until the end of their next turn\.""")
+    // mkm chunk 09: "Target opponent exiles the top X cards of their library face down. You may look at and play those cards for as long as they remain
+    // exiled. If you cast a spell this way, you may spend mana as though it were mana of any type to cast it."
+    val OPPONENT_EXILES_FACE_DOWN_YOU_MAY_LOOK_AND_PLAY = Regex("""Target opponent exiles the top (\w+) cards? of their library face down\. You may look at and play those cards for as long as they remain exiled\. If you cast a spell this way, you may spend mana as though it were mana of any type to cast it\.""")
+    // mkm chunk 09: "For each player, destroy up to one nonbasic land that player controls. For each land destroyed this way, its controller may search
+    // their library for a basic land card, put it onto the battlefield tapped, then shuffle."
+    val FOR_EACH_PLAYER_DESTROY_UP_TO_ONE_CONTROLLER_SEARCHES = Regex("""For each player, destroy up to one (.+?) that player controls\. For each (\w+) destroyed this way, its controller may search their library for an? (.+?), put it onto the battlefield( tapped)?, then shuffle\.""")
+    // mkm chunk 09: "For each of X target permanents, create X tokens that are copies of that permanent." (CR 707.2)
+    val FOR_EACH_OF_X_TARGETS_CREATE_X_COPIES = Regex("""For each of X target (.+?), create X tokens that are copies of that (\w+)\.""")
+    // mkm chunk 09: "Destroy all artifacts you don't control, then exile the top X cards of your library, where X is …. You may put a creature card
+    // exiled this way onto the battlefield. It gains haste. Return it to your hand at the beginning of the next end step."
+    val THEN_EXILE_TOP_X_MAY_PUT_ONTO_BATTLEFIELD = Regex("""(.+?), then exile the top X cards of your library(?:, where X is (.+?))?\. You may put an? (.+?) exiled this way onto the battlefield\. It gains (\w+)\. (Return it to your hand at the beginning of the next end step\.)""")
+    // mkm chunk 09: "the number of artifacts that were put into graveyards from the battlefield this turn" (each object once, CR 700.4)
+    val NUMBER_PUT_INTO_GRAVEYARDS_FROM_THIS_TURN = Regex("""the number of (.+?) that were put into (graveyards|your graveyard) from (the battlefield|anywhere) this turn""")
+    // mkm chunk 09: "the number of different color pairs among permanents you control that are exactly two colors" (CR 105.2)
+    val NUMBER_OF_COLOR_PAIRS_AMONG = Regex("""the number of different color pairs among (.+?) that are exactly two colors""")
 }

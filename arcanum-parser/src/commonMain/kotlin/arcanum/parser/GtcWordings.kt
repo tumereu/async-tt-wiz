@@ -7,6 +7,7 @@ internal object Gtc {
     val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?) )""")
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
+    val LOSE_KEYWORD = Regex("""loses? ([a-z]+(?: [a-z]+)?)""") // mkm chunk 09
     val GET_PT = Regex("""gets? ([+-](?:\d+|X))/([+-](?:\d+|X))""")
     val CANT_BE_BLOCKED_BY = Regex("""can't be blocked by (.+)""")
 

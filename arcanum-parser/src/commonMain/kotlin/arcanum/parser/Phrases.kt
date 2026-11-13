@@ -372,7 +372,7 @@ internal object Filters {
         val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ")
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
-            .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
+            .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" in a graveyard") // chunk 31, mkm chunk 09
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
@@ -478,7 +478,7 @@ internal object Filters {
         "Werewolves" to "Werewolf")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
-    private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
+    private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
@@ -1541,6 +1541,17 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        // mkm chunk 09: "the number of different color pairs among permanents you control that are exactly two colors" (CR 105.2)
+        Mkm.NUMBER_OF_COLOR_PAIRS_AMONG.matchEntire(text)?.let { m ->
+            return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, arcanum.api.SharedQuality.ColorPair)
+        }
+        // mkm chunk 09: "the number of artifacts that were put into graveyards from the battlefield this turn" (each object once; tokens too, CR 111.7)
+        Mkm.NUMBER_PUT_INTO_GRAVEYARDS_FROM_THIS_TURN.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val graveyard = if (m.groupValues[2] == "your graveyard") Filters.all(filter, ObjectFilter.OwnedBy(PlayerFilter.You)) else filter
+            return Value.EventsThisTurn(EventPattern.ZoneChange(graveyard, from = Zone.Battlefield.takeIf { m.groupValues[3] == "the battlefield" }, to = Zone.Graveyard),
+                arcanum.api.Measure.Objects)
+        }
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

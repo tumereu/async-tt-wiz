@@ -327,6 +327,10 @@ sealed interface SharedQuality {
     // tdm
     /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
     @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
+    // mkm
+    /** Its pair of colours, only for an object that is exactly two colours (CR 105.2: "the number of different color pairs among permanents
+     * you control that are exactly two colors"); an object of any other number of colours has none. */
+    @Serializable @SerialName("color-pair") data object ColorPair : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

@@ -203,7 +203,7 @@ internal object Eoe {
     val DEALS_IF_EXCESS_CREATE = Regex("""(.+?) deals (\d+) damage to target (.+?)\. If excess damage was dealt this way, create (.+)\.""")
     val ENCHANTED_DEALS_POWER_TO_ANY_OTHER = Regex("""[Ee]nchanted creature deals damage equal to its power to any other target\.""")
     val EXILE_TOP_PLAY_IF_CONTROL = Regex("""[Ee]xile the top card of your library\. For as long as that card remains exiled, you may play it if (.+)\.""")
-    val EXILE_COPY_CAST_FREE = Regex("""[Ee]xile (up to one target .+?)\. Copy it\. You may cast the copy without paying its mana cost\.""")
+    val EXILE_COPY_CAST_FREE = Regex("""[Ee]xile ((?:up to one )?target .+?)\. Copy it\. You may cast the copy without paying its mana cost\.""")
     val GAIN_CONTROL_SPACECRAFT_CHARGE = Regex("""Gain control of target (.+?) until end of turn\. Untap that permanent\. It gains haste until end of turn\. If it's an? (\w+), put (\w+) (\w+) counters on it\. If you do, remove (\w+) (\w+) counters from it at the beginning of the next end step\.""")
     val IN_YOUR_HAND_HAVE_WARP = Regex("""(.+?) in your hand have warp ((?:\{[^}]+\})+)\.""")
     val MAY_PUT_FROM_HAND_GAINS_QUOTED = Regex("""You may put an? (.+?) from your hand onto the battlefield\. That permanent gains haste, "(.+?)," and "(.+?\.)"""")

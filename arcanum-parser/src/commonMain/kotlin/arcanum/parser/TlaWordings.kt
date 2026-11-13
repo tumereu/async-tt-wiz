@@ -101,7 +101,7 @@ internal object Tla {
     val YOU_CONTROL_NEXT_COMBAT = Regex("""You control target opponent during their next combat phase\. If this spell's additional cost was paid, you control that player during their next turn instead\.""")
     val CAST_AS_THOUGH_FLASH_IF = Regex("""If (.+), you may cast this spell as though it had flash\.""")
     val DRAW_IF_PAID_INSTEAD_REVIVAL = Regex("""Draw two cards\. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game\.""")
-    val LOOT_WHEN_DISCARD_NONLAND = Regex("""[Dd]raw a card, then discard a card\. When you discard a nonland card this way, (.+)""")
+    val LOOT_WHEN_DISCARD_NONLAND = Regex("""[Dd]raw a card, then discard a card\. When you discard a (nonland )?card this way, (.+)""")
     val TAP_DOESNT_UNTAP_AS_LONG_AS = Regex("""[Tt]ap up to one target (.+?)\. It doesn't untap during its controller's untap step for as long as you control (.+)\.""")
     val X_COUNTERS_DRAW_HALF_X = Regex("""[Pp]ut X \+1/\+1 counters on (\w+)\. Then draw half X cards, rounded (down|up)\.""")
     val PUT_COUNTER_ON_SELF_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on (.+) and draw a card\.""")

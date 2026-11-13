@@ -559,6 +559,7 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Attack(subject))
         }
+        WoePhrases.events(text) { subject(it, self) }?.let { return it } // woe
         // chunk 35: "this creature dies or another artifact you control is put into a graveyard from the battlefield"
         DIES_OR_PUT_INTO_GRAVEYARD.matchEntire(text)?.let { m ->
             return listOf(m.groupValues[1], m.groupValues[2]).map {
@@ -910,7 +911,7 @@ internal object Events {
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
-    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
+    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? ((?:.+ )?spell that(?: |'s ).+)""") // woe chunk 10: "spell that's white, blue, black, or red"
     // blb gaps 2
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07

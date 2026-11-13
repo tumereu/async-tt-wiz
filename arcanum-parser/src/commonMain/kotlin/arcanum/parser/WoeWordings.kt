@@ -36,7 +36,8 @@ internal object Woe {
     // without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way."
     val SEARCH_EXILE_FACE_DOWN_MAY_CAST_FREE_OR_HAND = Regex("""Search your library for (an? .+?), exile it face down, then shuffle\. If (.+?), you may cast the exiled card without paying its mana cost if that spell's mana value is (\d+) or less\. Put the exiled card into your hand if it wasn't cast this way\.""")
     // woe chunk 05: "Whenever you tap an untapped creature an opponent controls" (the trigger event; only an untapped permanent can be tapped)
-    val YOU_TAP_AN_UNTAPPED = Regex("""you tap an untapped (.+)""")
+    // woe chunk 10: "you tap one or more untapped creatures your opponents control" (once for the batch)
+    val YOU_TAP_AN_UNTAPPED = Regex("""you tap (an|one or more) untapped (.+)""")
     // woe chunk 05: "Whenever …, you may pay {1}. When you do, choose one —" (a mana cost paid on resolution, CR 118.12; the reflexive trigger's modes, CR 603.12)
     val MAY_PAY_WHEN_YOU_DO_CHOOSE = Regex("""(Whenever .+?), you may pay (\{[^}]+\})\. When you do, (.+)""")
     // woe chunk 05: 'Until end of turn, this land becomes a 2/1 blue and red Elemental creature with "…"' (It's still a land. is a separate sentence)
@@ -86,6 +87,24 @@ internal object Woe {
     val MAY_BECOME_NAMED_GAINS_LOSES_OTHERS = Regex("""[Yy]ou may have (.+?) become an? (legendary )?([A-Z][a-z]+(?: [A-Z][a-z]+)*) (artifact|enchantment|creature|land) named (.+?)\. If you do, it gains ([a-z]+(?: \{[^}]+\})*) and "(.+?)" and loses all other abilities\.""")
     // woe chunk 09r: "You may exile a creature card from among them."
     val MAY_EXILE_FROM_AMONG = Regex("""You may exile an? (.+?) from among them\.""")
+    // woe chunk 10: "When this creature enters, if it isn't a token, create two tokens that are copies of it." (CR 707.2)
+    val CREATE_COPIES_OF_IT = Regex("""[Cc]reate (\w+) tokens that are copies of it\.""")
+    // woe chunk 10: "Sacrifice any number of artifacts, enchantments, and/or tokens", "…, then draw that many cards." (CR 701.21a)
+    val SACRIFICE_ANY_NUMBER = Regex("""[Ss]acrifice any number of (.+?)(?:, then (.+))?\.""")
+    // woe chunk 10: "Return that many creature cards from your graveyard to the battlefield." (chosen as it resolves, no target)
+    val RETURN_THAT_MANY_FROM_GRAVEYARD = Regex("""[Rr]eturn that many (.+?) from your graveyard to (the battlefield|your hand)\.""")
+    // woe chunk 10: "For each opponent who controlled a creature returned this way, you create two 1/1 blue Faerie creature tokens …"
+    val FOR_EACH_OPPONENT_WHO_CONTROLLED_RETURNED = Regex("""For each opponent who controlled an? (.+?) returned this way, (.+)""")
+    // woe chunk 10: "Until your next end step, you may play those cards." (the duration first)
+    val UNTIL_YOU_MAY_PLAY = Regex("""Until (your next end step|end of turn|the end of your next turn), you may (play|cast) (.+)\.""")
+    // woe chunk 10: "Each creature that's enchanted by an Aura you control can't attack you or planeswalkers you control." (CR 508.1c)
+    val CANT_ATTACK_YOU_OR_PLANESWALKERS = Regex("""(.+?) can't attack you or planeswalkers you control\.""")
+    // woe chunk 10: "Whenever an instant or sorcery spell you control that targets only a single creature deals damage to that creature, …"
+    val SPELL_TARGETING_SINGLE_DEALS_DAMAGE_TO_IT = Regex("""Whenever (an? .+? spell you control) that targets only a single (.+?) deals damage to that (?:creature|permanent), (.+)""")
+    // woe chunk 10: "you cast your first instant or sorcery spell each turn" (CR 603.2)
+    val FIRST_SPELL_EACH_TURN = Regex("""you cast your first (.+?) spell each turn""")
+    // woe chunk 10: the rest of a list of single words cut at its first comma ("blue, black, or red, put …")
+    val LIST_GOES_ON = Regex("""^(?:[a-z]+(?:, [a-z]+)*,? )?(?:or|and) [a-z]+, """)
     // woe chunk 09: "Sacrifice all Reflections you control."
     val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+?) you control\.""")
 }
@@ -97,7 +116,9 @@ internal object WoePhrases {
     private val WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN = Regex("""(.+?) with mana value, power, or toughness equal to the chosen number""")
     private val OWN_IN_EXILE = Regex("""(cards?) you (own|don't own) in exile""")
     private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
-    private val THAT_ARE_ENCHANTED_BY = Regex("""(.+?) that (?:are|is) enchanted by (.+)""")
+    private val THAT_ARE_ENCHANTED_BY = Regex("""(.+?) that(?: are| is|'s) enchanted by (?:an? )?(.+)""")
+    private val THATS_COLORS = Regex("""(.+?) that's ((?:white|blue|black|red|green)(?:,? (?:or )?(?:white|blue|black|red|green))*)""")
+    private val BLOCKS_OR_BECOMES_BLOCKED_BY = Regex("""(.+?) blocks or becomes blocked by an? (.+)""")
 
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
         // woe chunk 08: "card you own in exile", "card you don't own in exile" (cards in exile are owned, CR 108.3)
@@ -128,9 +149,27 @@ internal object WoePhrases {
             val auras = Filters.noun(m.groupValues[2])?.takeIf { m.groupValues[2].startsWith("Aura") } ?: return null
             return Filters.all(base, arcanum.api.ObjectFilter.Attached(attachments = auras))
         }
+        // woe chunk 10: "a spell that's white, blue, black, or red" (any of those colours, CR 105.2)
+        THATS_COLORS.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val colors = m.groupValues[2].split(Regex(""",? (?:or )?""")).map { arcanum.api.ObjectFilter.OfColor(Tokens.color(it) ?: return null) }
+            return Filters.all(base, if (colors.size == 1) colors.single() else arcanum.api.ObjectFilter.Or(colors))
+        }
         THAT_HAS_AN_ADVENTURE.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             return Filters.all(base, arcanum.api.ObjectFilter.HasAdventure)
+        }
+        return null
+    }
+
+    /** Trigger events: [subject] reads the noun naming who acts. */
+    fun events(text: String, subject: (String) -> arcanum.api.ObjectFilter?): List<arcanum.api.EventPattern>? {
+        // woe chunk 10: "this creature blocks or becomes blocked by a creature" (once for each creature it blocks or that blocks it, CR 509.3a,
+        // 509.3d)
+        BLOCKS_OR_BECOMES_BLOCKED_BY.matchEntire(text)?.let { m ->
+            val who = subject(m.groupValues[1]) ?: return null
+            val other = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(arcanum.api.EventPattern.Block(who, other, perAttacker = true), arcanum.api.EventPattern.BecomesBlocked(who, other, perBlocker = true))
         }
         return null
     }

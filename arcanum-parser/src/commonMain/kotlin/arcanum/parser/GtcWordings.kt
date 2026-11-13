@@ -12,7 +12,7 @@ internal object Gtc {
 
     // one-shot effects
     val REGENERATE = Regex("""Regenerate (.+)\.""")
-    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+) this turn\.""")
+    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+?) this turn(?: by (.+))?\.""")
     val PREVENT_ALL_COMBAT_DAMAGE_BY = Regex("""Prevent all combat damage that would be dealt this turn by (.+)\.""")
     val RETURN_ALL_TO_HAND = Regex("""Return all (.+) to their owners?'s? hands?\.""")
     val EXILE_ALL = Regex("""Exile all (.+)\.""")

@@ -5,8 +5,12 @@ finished because Automatum shrank the set of player actions. Decisions marked **
 **(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
 the shared route works on desktop. Phone browsers aren't measured: the web client is built for desktop, phones have the
 native app, and phone-web speed is optimised later only if people use it (owner). Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
-owner): D1–D19 and D3b desktop, P1–P4 phone web (redrawn 2026-11-11, multiplayer-ready). The wireframes show layout and
-positioning only; every element looks as it does in the Android app (owner).
+owner): D1–D19 and D3b desktop, P1–P4 and P1b phone web (redrawn 2026-11-11, multiplayer-ready; reviewed and agreed by
+the owner 2026-11-13). The wireframes show layout and positioning only; every element looks as it does in the Android
+app (owner). What they show of today's app (the 2026-11-12 updates) is the catalog's: the hand row's cards from other
+zones (ZON-079), the effects sparkle (TBL-136), the quiet waiting status (TRN-004), the three quick-action cells
+(TRN-059), ability chips (ZON-080, TBL-124), plays shown (HIS-112) and the combat damage band and hold (CMB-050,
+HIS-113).
 Building a part moves its behaviour into the catalog (new `WEB` area, changed entries listed per part) and deletes the
 matching part of this file.
 
@@ -46,20 +50,20 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 11. The site is installable as an app (home screen / desktop window).
 12. An open tab left on an old version reloads itself at a safe moment, with a short note.
 13. Once the web client is live, every feature works in both clients before it is released.
-14. Desktop mouse: **left click acts like a tap** (for now); **right-click toggles Inspect**, shown the desktop way: **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
-    the card with its changes beside it and a close button (desktop has the room), open until right-clicked again,
-    closed or Esc. Desktop has no press-and-hold.
+14. Desktop mouse: **left click acts like a tap** (for now). Inspect is shown the desktop way: the card with its changes
+    beside it and a close button (desktop has the room). Revised 2026-11-13: Inspect is **holding Alt** over a card
+    (section 5); right-click never inspects. Desktop has no press-and-hold.
 15. Desktop table: phase track in the top row instead of the step button and dialog; a right dock with the full Stack
     list and the chat, replacing the floating Stack; card sizes kept per layout, desktop starting larger.
 16. Clients and server always work from the same card records: a new catalog version must be installed before
     anything else, and the server refuses clients on an older one.
 17. Draft data (set booster recipes) is part of the server-built catalog, so drafts can be set up on the web too.
 18. Browser Back leaves a table without a second-Back guard.
-19. The proposed hotkeys, two-pane deck editor, draft picks strip and tab title count are built as proposed and refined
-    by testing.
+19. The proposed hotkeys, two-pane deck editor and tab title count are built as proposed and refined by testing. The
+    draft picks strip is dropped (owner, 2026-11-11): the Build tab shows the picks (decision 29).
 20. No phone-browser benchmark before building (round 3): the web client is for desktop; phone web is secondary and gets
     optimised only if people end up playing on it.
-21. Right-click Inspect dims the table behind it, so it reads as a layer on top that scrolls on its own. How a large pile **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
+21. Desktop Inspect dims the table behind it, so it reads as a layer on top that scrolls on its own. How a large pile
     (a creature with many Equipment) looks is tuned by real testing.
 22. Hovering a usable card already shows its chips, faded, and the sources Autotap would tap (ZON-079's amber outlines).
 23. Keyboard shortcuts are rebindable and kept on the player's account.
@@ -68,6 +72,22 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
     shows a zone at its left and right edge, tinted in the destination section's colour on hover; a click there moves it.
 26. Desktop Build has no one-by-one review (DRF-107–110). If it is wanted later, it is used by keyboard (Space keeps,
     other keys move).
+
+Wireframe reviews (owner, 2026-11-11 and 2026-11-13):
+
+27. The desktop table is multiplayer-ready: each player's seat header sits on their own battlefield; the top row holds
+    only global things (section 7.2).
+28. Prompts are placed as in MTG Arena: a decision that needs the board is a strip bottom-centre above the hand, one
+    that doesn't is a centred overlay over the dimmed table; the go-on is always the main button bottom-right
+    (section 7.2).
+29. Draft pick: keep and burn trays at the bottom, as in the app, and no picks strip (section 7.6). Tab / Shift+Tab
+    move between the pod tabs.
+30. Deck editor: the Cards tab's filters as in the app, and the search pane can be hidden so the deck takes the full
+    width (section 7.5).
+31. Keys: Space is the main button's tap, Shift+Space its hold. **Holding Alt is the desktop finger down**: over a
+    card it inspects and pauses, elsewhere it pauses playback, plays shown and combat holds. The left mouse button held
+    still on the table pauses them too (sections 5, 6).
+32. The phone-web table while waiting (P1b) is accepted as drawn.
 
 ## 1. Architecture
 
@@ -198,7 +218,8 @@ server and both phones all read one pinned file.
    desktop when the window is at least 1024 × 600 CSS px and the main pointer is a mouse or trackpad (it can hover);
    otherwise phone. Settings → Table → "Layout": Automatic (default), Phone, Desktop; kept per browser, applied at once.
 2. **Input is judged per pointer, not per layout** (proposal, also to confirm in review): a finger on a touchscreen laptop works as on the phone
-   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover gives a quick look, right-click toggles Inspect). **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
+   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover gives a quick look, holding Alt over
+   a card inspects).
 3. The Android app keeps the phone layout; a desktop layout for Android tablets or Chromebooks is out of scope.
 
 ## 5. Desktop: mouse
@@ -207,10 +228,12 @@ server and both phones all read one pinned file.
 | --- | --- |
 | Tap (acts at once, TBL-041) | Left click, also at once |
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
-| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]** |
+| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Hold Alt** with the pointer over a card (owner, D4): Inspect while Alt is held; a tap of Alt pins it, closed by Alt again, ✕, Esc or a click outside. The table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button when pinned. The same on the table, the draft and every card screen. Shift is the fallback if a browser's Alt menu gets in the way (D4). Right-click never inspects; no press-and-hold on desktop |
+| A finger held still on the table pauses playback, a play shown and a combat hold (HIS-021, HIS-112, HIS-113); on a card it also inspects | **Holding Alt is the finger down** (owner): over a card it inspects and pauses, elsewhere it pauses; the left mouse button held still on the table pauses too |
+| Double tap a play shown or the table during a combat hold ends it (HIS-112, HIS-113) | Double click on it (the play, or the battlefields, combat band and their cards during a hold); a single click does nothing (D1, D11). Where the play overlaps board cards: open, §12 item 11 |
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
 | A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
-| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
+| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (the main button's hold, Undo = the Undo dialog; a games-list row its hold menu, D7); Shift+Space = the main button's hold; tooltips show on hover after 0.5 s |
 | Drag a card (ZON-077, CMB-028) | Drag with the left button; the same meanings and highlights |
 | One-finger drag on empty battlefield pans (TBL-011) | Left-drag on empty battlefield, or middle-drag anywhere |
 | Pinch zooms (TBL-010) | Mouse wheel zooms around the pointer (0.65–2×); trackpad pinch zooms; Shift+wheel pans sideways |
@@ -234,9 +257,11 @@ action without a key and says so on its row; Esc, Enter and the mouse can't be r
 
 | Key | Where | Does |
 | --- | --- | --- |
-| Space | Table | The main button's tap (Next, Resolve, Attack (N), Assume …, Keep) |
-| Shift+Space | Table | End turn (the main button's hold) |
+| Space | Table | The main button's tap (Next, Resolve, Attack (N), Cast, Done, OK, Pay, Assume …, Keep) (owner) |
+| Shift+Space | Table | The main button's hold (End turn; on Resolve or an Assume, the whole Stack) (owner) |
+| Alt (held) | Table, draft, card screens | The finger down (owner, section 5): over a card Inspect while held, a tap pins it; elsewhere pauses playback, plays shown and combat holds |
 | Enter | Open panel or dialog | Its main button (Cast, OK, Done, Confirm, Send) |
+| Tab / Shift+Tab | Pod screens | Next / previous tab (Draft, Build, Stats, Games) (owner) |
 | Ctrl+Z (⌘Z) | Table, Build, editors | Undo |
 | Ctrl+S (⌘S) | Deck and cube editor | Save |
 | Esc | Anywhere | What the phone's Back does (SYS-050): closes the top popup, Inspect, dialog or panel view; drops an unsent cast (STK-025); never leaves the table |
@@ -256,28 +281,44 @@ action without a key and says so on its row; Esc, Enter and the mouse can't be r
 
 1. **Shell.** The landscape app's permanent side menu (LOB-018) on the left; content to the right with a readable
    maximum width for lists and forms; dialogs centred.
-2. **Game table** (wireframes D1–D4). The landscape table (TBL-009) made for a large screen:
-   - Top row: the turn line and move pill (TRN-005, TRN-006), the opponent's life square, piles, emblems and hand
-     backs, the chat and Table actions buttons.
+2. **Game table** (wireframes D1–D3b, D11–D14, D19). The landscape table (TBL-009) made for a large screen, ready for
+   more than two players (owner):
+   - Top row, global things only (owner): the side menu button, the turn line and move pill (TRN-005, TRN-006), the
+     phase track, the dock and Table actions buttons.
    - **Phase track** (owner): the phase dialog's step squares (TRN-008) shown in the top row, current outlined, so
      the step button and dialog aren't needed on desktop.
+   - **Seat headers** (owner): each player's header on their own battlefield (the opponents' above theirs, yours
+     between your battlefield and your hand): avatar, name, life square, Hand / Library / Graveyard / Exile, state
+     chips and emblems (TRN-072, TRN-053); Commander adds the command zone and commander damage taken from each
+     opponent. With several opponents their battlefields sit side by side above yours, each header wrapping onto two
+     rows (D19). The wait band (TRN-066) sits under the waiting player's header (D12).
    - The battlefields and combat band fill the middle (TBL-001), as wide as the window.
-   - Bottom row: your life square and piles, your hand at a larger default card size, the quick actions, Undo and the
-     main button at the right end.
+   - Your hand centred at the bottom at a larger default card size.
+   - **Action area** fixed at the bottom right, under the dock (owner): the quick actions (TRN-059), Undo and the main
+     button (TRN-063; the quiet waiting status in its place, TRN-004).
    - **Right dock** (owner; collapsible, about 320 px): the Stack as its full list, always open (top first, as the
      Stack list STK-018 shows it, replacing the floating Stack HUD STK-007 on desktop), and the game chat under it with
-     its input always visible (LOB-066's panel, docked).
-   - Panels (cast, choices, target bar, STK-044) sit above your hand at the left as in landscape; the damage division
-     stays attached to the combat band (CMB-033).
+     its input always visible (LOB-066's panel, docked; Game / Pod tabs in a pod game).
+   - **Prompts as in MTG Arena** (owner): a decision that needs the board (targets, paying with permanents, picking on
+     the battlefield, attackers) is a prompt strip bottom-centre, just above your hand, the sources or picks marked on
+     the table (D3, D13); a decision that doesn't (ways, extras, X, modes, a list such as a library search or scry,
+     ordering, naming a card, a reveal) is a centred overlay with the table dimmed (D3b, D14). Either way its go-on is
+     the main button. The damage division stays attached to the combat band (CMB-033).
    - Card sizes (TBL-034) are kept per layout (owner), desktop starting larger (proposal: battlefield 1.5×, hand 2×).
-3. **Timeline mode** (D5; the hotkey sheet is D6): the timeline panel along the bottom as in landscape; ← / → and hover on events.
+3. **Timeline mode** (D5; the hotkey sheet is D6): bars and seat headers grey, the board dimmed (HIS-008); the
+   timeline strip along the bottom with the hand above it, Previous / Auto / Next (HIS-010) in the action area; ← / →,
+   P and hover on events.
 4. **Lobby screens** (D7): the same screens with the side menu; game rows wider.
 5. **Deck and cube editor** (D8): the list on the left and search on the right (owner), instead of a full-screen
    search page (LOB-106): a click on a result adds a copy to the section chosen at the top of the search pane, a drag
-   drops it into any section, right-click inspects. List cards move by their edge zones (section 5). **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
-6. **Draft** (D9): the pick view with the keep/burn trays in a column at the right, and under the pack a
-   compact strip of your picks so far (the Build columns at small size, Arena-style); click keeps, right-click burns
-   (section 5). Build with edge zones and no one-by-one review; Stats and Games tabs unchanged; more columns by default.
+   drops it into any section; Inspect by holding Alt (section 5). List cards move by their edge zones (section 5). The
+   Cards tab filters the deck's own cards as in the app (owner; LOB-142). **Hide search** (owner) at the top of the
+   search pane folds it into a slim Search rail at the right edge, and the deck list takes the full width; a click on
+   the rail opens the search again as it was left (query, chips, Add to). The editor opens with the search shown.
+6. **Draft** (D9): the pick view with the keep and burn trays and a full-width Confirm at the bottom, as in the app
+   (owner; DRF-056); no picks strip, the Build tab shows the picks (owner). Click keeps, right-click burns (section 5);
+   Tab / Shift+Tab move between the tabs; Draft history from the header icon (DRF-165). Build with edge zones and no
+   one-by-one review; Stats and Games tabs unchanged; more columns by default.
 7. **Settings** (D10): adds Layout (section 4.1), Browser notifications (9.2), Install app (9.1) and Keyboard shortcuts
    (section 6); hides app update rows; Card records shows the server catalog's version.
 
@@ -334,7 +375,7 @@ AGENTS.md (catalog entries in the same commit, release notes for visible changes
 what may run side by side:
 
 ```
-playtest batch ─► library upgrades ─► 3 web shell ─► 4 web table ─┬─► 5 desktop table (after the wireframe review)
+playtest batch ─► library upgrades ─► 3 web shell ─► 4 web table ─┬─► 5 desktop table (wireframes reviewed)
                                                                   ├─► 6 desktop screens
                                        3 ─► 7 notifications, install (any time after 3)
                                                                   └─► 8 web e2e + prod
@@ -420,22 +461,27 @@ Two batches come first, in this order:
 
 ### Step 5: desktop table
 
-- Layout choice and the Layout setting (section 4); the desktop table: top row with phase track, right dock (Stack list,
-  chat), larger hand, panels as in landscape; mouse (section 5: click = tap, right-click toggles Inspect with changes **[IN DOUBT: the Inspect input is open, §12 item 10; build no desktop Inspect input until it is decided.]**
-  over a dimmed table, right-click on controls = hold action, hover quick look, hover chips with Autotap outlines, wheel
-  zoom, drags); hotkeys, the "?" sheet and rebinding in Settings, kept on the account (server: a key-bindings field in
-  the account settings LOB-113 uses; section 6); card sizes per layout.
-- Catalog: `web.md` entries for layout choice, mouse, hover chips, hotkeys and rebinding, dock, phase track.
+- The wireframe review is done (owner, 2026-11-13); one question is left for this step (section 12, item 11).
+- Layout choice and the Layout setting (section 4); the desktop table (section 7.2): global top row with phase track,
+  seat headers on each battlefield, right dock (Stack list, chat), larger centred hand, action area bottom-right,
+  prompt strip bottom-centre and centred overlay; mouse (section 5: click = tap, holding Alt = the finger down (Inspect
+  with changes over a dimmed table, pauses), the left button held still pauses, right-click on controls = hold action,
+  hover quick look, hover chips with Autotap outlines, double click ending plays and holds, wheel zoom, drags);
+  hotkeys, the "?" sheet and rebinding in Settings, kept on the account (server: a key-bindings field in the account
+  settings LOB-113 uses; section 6); card sizes per layout.
+- Catalog: `web.md` entries for layout choice, mouse, Alt, hover chips, hotkeys and rebinding, seat headers, dock,
+  action area, prompt placement, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
 
 ### Step 6: desktop lobby, decks, drafts
 
-- Permanent side menu shell, wider lists, two-pane deck and cube editor (list left, search right, D8), draft pick with
-  click keep / right-click burn, trays at the right and the picks strip (D9), edge zones in Build, Prepare and the
-  Cards tab, no Build review on desktop, Stats with more columns, settings rows (D10). Hotkeys K/B/U, ←/→/↓, Ctrl+S.
-- Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor; draft a pick with clicks and
-  keys; move a Build card by its edge zone.
+- Permanent side menu shell, wider lists, two-pane deck and cube editor (list left, search right, the Cards tab
+  filter, Hide search, D8), draft pick with click keep / right-click burn, trays and Confirm at the bottom, no picks
+  strip (D9), edge zones in Build, Prepare and the Cards tab, no Build review on desktop, Stats with more columns,
+  settings rows (D10). Hotkeys K/B/U, ←/→/↓, Tab / Shift+Tab, Ctrl+S.
+- Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor, hiding and reopening the
+  search; draft a pick with clicks and keys; move a Build card by its edge zone.
 
 ### Step 7: notifications, install, tab title
 
@@ -468,7 +514,7 @@ Two batches come first, in this order:
 
 ## 12. Open questions for the owner
 
-All design questions are answered (2026-11-07, round 3 the same day). Claude's choices to confirm in review:
+All design questions are answered (2026-11-07, round 3 the same day; wireframes 2026-11-13) but item 11. Claude's choices to confirm in review:
 
 1. Catalog file format: gzip-compressed JSON lines (1a).
 2. Steps 1a + 1b may go to prod before any web work (1b).
@@ -484,8 +530,6 @@ All design questions are answered (2026-11-07, round 3 the same day). Claude's c
 9. Rebinding: taking a used key leaves the other action without a key, with a note; Esc, Enter and mouse buttons
    fixed; one key per action (section 6).
 
-10. **Open (owner, 2026-11-11): right-click Inspect may be misspecified.** Inspect must work the same way on the table and
-    the draft screens, and the draft uses right-click to burn (decision 25), so decision 14 is in doubt. Proposal: hold Alt
-    over a card inspects while held, a tap of Alt pins it (Arena uses Alt; check the browsers' Alt-key menus), Shift as
-    the fallback; right-click stays burn in the draft and the hold action on controls. Decide at the wireframe review,
-    before step 5; build nothing of desktop Inspect until then.
+10. Decided (owner, 2026-11-13): no right-click Inspect anywhere. Holding Alt is the desktop finger down (decision 31,
+    section 5); right-click stays the burn in the draft and the hold action on controls.
+11. **Open, for step 5:** where does the desktop "double click ends a play" go when the play overlaps board cards?

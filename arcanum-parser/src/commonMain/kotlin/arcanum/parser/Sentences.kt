@@ -315,7 +315,8 @@ internal class Sentences(
         // dft chunk 01: "During turns other than yours, this Vehicle is an artifact creature." (a static ability with a condition)
         Dft.DURING_OTHER_TURNS.matchEntire(line)?.let { m ->
             val rest = m.groupValues[1].replaceFirstChar { it.uppercase() }
-            val inner = dftLine(rest) ?: static(rest) ?: return null
+            // otj chunk 09: "During turns other than yours, spells you cast cost {1} less to cast." (any static line)
+            val inner = dftLine(rest) ?: static(rest) ?: line(rest) ?: return null
             if (inner !is Ability.Static || inner.condition != null) return null
             return inner.copy(condition = arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn))
         }
@@ -2728,6 +2729,8 @@ internal class Sentences(
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
             else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: fdnValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
+                // otj chunk 09: "where X is its toughness" in an ability with no event object: this object's
+                ?: Objects.Self.takeIf { w.groupValues[1] == "its toughness" && event == null }?.let { Value.Of(arcanum.api.NumericProperty.Toughness, it, arcanum.api.Combine.Single) }
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
         if (defined == null) whereX(text)?.let { selfNumber(it.groupValues[1]) }?.let { own ->
@@ -15743,11 +15746,11 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")))
         }
         // otj chunk 04: "If a creature card was exiled this way, …" after a chosen exile: what it moved, if anything (CR 608.2c)
-        Otj.IF_A_WAS_EXILED_THIS_WAY.matchEntire(sentence)?.let { m ->
-            val exiled = context.it?.takeIf { it == Objects.Bound("exiled") } ?: return null
-            val kind = Filters.noun(m.groupValues[1]) ?: return null
-            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
-            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(exiled, kind), then = then))
+        Otj.IF_A_WAS_EXILED_THIS_WAY.matchEntire(sentence)?.takeIf { it.groupValues[3] == "exiled" }?.let { m ->
+            val moved = context.it?.takeIf { it == Objects.Bound("exiled") } ?: return null
+            val kind = Filters.noun(if (m.groupValues[1] == "another") "another " + m.groupValues[2] else m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(moved, kind), then = then))
         }
         // otj chunk 04: "you may have Lazav become a copy of that card until end of turn." (layer 1, CR 613.1a, 707.2)
         Otj.MAY_HAVE_BECOME_COPY_OF_THAT_CARD_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -15892,6 +15895,15 @@ internal class Sentences(
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, caster = Players.You))), payer = Players.You, bind = "cast"),
                 Step.If(arcanum.api.Condition.Did("cast"), then = then)))
         }
+        // otj chunk 09: "If another Desert was returned this way, …" after returning a chosen object: that object as it last existed, so
+        // "another" fails when the source returned itself (CR 608.2h)
+        Otj.IF_A_WAS_EXILED_THIS_WAY.matchEntire(sentence)?.takeIf { it.groupValues[3] == "returned" }?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            val moved = move.objects.takeIf { it is Objects.Bound && move.to.zone == Zone.Hand } ?: return null
+            val kind = Filters.noun(if (m.groupValues[1] == "another") "another " + m.groupValues[2] else m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(moved, kind), then = then)
+        }
         // otj chunk 08: "If you can't, create a Treasure token." after a mandatory choice: nothing was chosen (CR 609.3)
         Otj.IF_YOU_CANT.matchEntire(sentence)?.let { m ->
             val choose = steps.lastOrNull { it is Step.Choose } as? Step.Choose ?: return null
@@ -15951,6 +15963,20 @@ internal class Sentences(
 
     /** otj: whole multi-sentence effects. */
     private fun otjWhole(text: String, context: Context): List<Step>? {
+        // otj chunk 09: "[You may sacrifice an artifact. If you do, ]flip a coin. When you win the flip, …. When you lose the flip, …." Each
+        // branch is a reflexive trigger of its own, its targets chosen as it's put on the Stack (CR 603.12, 705.2); the outer trigger's event
+        // ("that spell") carries over
+        Otj.FLIP_WHEN_WIN_WHEN_LOSE.matchEntire(text)?.let { m ->
+            fun reflexive(body: String) = instructions(body.replaceFirstChar { it.uppercase() }, event = context.event, that = context.that)
+                ?.takeIf { it.steps.isNotEmpty() }?.let { Step.Do(Effect.ReflexiveTrigger(it)) }
+            val win = reflexive(m.groupValues[2]) ?: return null
+            val lose = reflexive(m.groupValues[3]) ?: return null
+            val flip = listOf(Step.Do(Effect.FlipCoin(Players.You, bind = "flip")),
+                Step.If(arcanum.api.Condition.WonFlip("flip"), then = listOf(win), otherwise = listOf(lose)))
+            if (m.groupValues[1].isEmpty()) return flip
+            val pay = effect(m.groupValues[1] + ". If you do, draw a card.", context)?.takeIf { it.size == 2 && it[0] is Step.Pay } ?: return null
+            return listOf(pay[0], (pay[1] as? Step.If ?: return null).copy(then = flip))
+        }
         // otj chunk 01: "Look at the top three cards of your library. You may exile a nonland card from among them. If you do, it becomes
         // plotted. Put the rest into your hand." ("it" is the card in exile, CR 400.7; "the rest" are the others looked at)
         Otj.LOOK_TOP_MAY_EXILE_ONE_IF_YOU_DO_REST_INTO_HAND.matchEntire(text)?.let { m ->
@@ -20232,11 +20258,14 @@ internal class Sentences(
                 Step.Do(Effect.Shuffle(Players.You)))
         }
         // fin chunk 13: "This enchantment becomes a 7/7 Beast creature in addition to its other types." (for good, CR 611.2a)
-        Fin.SELF_BECOMES_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // otj chunk 09: "… if … and this enchantment isn't a creature, it becomes a 3/3 Spirit creature with flying …" ("it" = this object)
+        Fin.SELF_BECOMES_CREATURE.matchEntire(sentence)?.takeIf { m -> isSelf(m.groupValues[1]) || m.groupValues[1].lowercase() == "it" && context.it == Objects.Self }?.let { m ->
             val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Creature),
                 addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))), Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()),
-                Value.Fixed(m.groupValues[3].toInt()))), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
+                Value.Fixed(m.groupValues[3].toInt()))) + listOfNotNull(keywords?.let { Mechanic.GainAbilities(it) }),
+                arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
         }
         // fin chunk 13: 'Until end of turn, target creature gets +1/+0 and gains "When this creature dies, …"' (layers 6, 7c)
         Fin.UNTIL_EOT_GETS_AND_GAINS_QUOTE.matchEntire(sentence)?.let { m ->

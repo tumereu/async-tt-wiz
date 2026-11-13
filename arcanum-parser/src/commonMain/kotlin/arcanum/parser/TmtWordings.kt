@@ -98,7 +98,8 @@ internal object Tmt {
     val FIRST_COMBAT_PHASE = Regex("""it's the first combat phase of the turn""")
     val UNTAP_ONE_OR_TWO_ADDITIONAL_COMBAT = Regex("""[Uu]ntap one or two target (.+?)\. After this phase, there is an additional combat phase\.""")
     val REVEAL_UNTIL_TAPPED_ATTACKING = Regex("""[Rr]eveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order\.""")
-    val IF_ITS_MANA_VALUE_WAS = Regex("""If its mana value was (\d+) or (less|greater), (.+)""")
+    // otj chunk 09: "If it had mana value 3 or less, surveil 2."
+    val IF_ITS_MANA_VALUE_WAS = Regex("""If (?:its mana value was|it had mana value) (\d+) or (less|greater), (.+)""")
     val MANA_SPENT_LESS_THAN_MANA_VALUE = Regex("""the amount of mana spent to cast it was less than its mana value""")
     val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create a token that's a copy of (.+?)\. That token gains haste\. Sacrifice it at the beginning of the next end step\.""")
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")

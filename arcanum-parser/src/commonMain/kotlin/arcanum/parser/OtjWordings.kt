@@ -40,7 +40,8 @@ internal object Otj {
     // otj chunk 04: "Then you may exile a card from a graveyard. If a creature card was exiled this way, you may have Lazav become a copy of that
     // card until end of turn."
     val MAY_EXILE_A_FROM_GRAVEYARD = Regex("""You may exile an? (.+? from (?:a|your) graveyard)\.""")
-    val IF_A_WAS_EXILED_THIS_WAY = Regex("""If an? (.+?) was exiled this way, (.+)""")
+    // otj chunk 09: Arid Archway: "If another Desert was returned this way, surveil 1." after "return a land you control to its owner's hand"
+    val IF_A_WAS_EXILED_THIS_WAY = Regex("""If (an?|another) (.+?) was (exiled|returned) this way, (.+)""")
     val MAY_HAVE_BECOME_COPY_OF_THAT_CARD_UNTIL_EOT = Regex("""You may have (.+?) become a copy of that card until end of turn\.""")
     // otj chunk 05: Tinybones, the Pickpocket
     val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""[Yy]ou may cast target (.+?) from (that player's|your|a) graveyard, and mana of any type can be spent to cast that spell\.""")
@@ -64,16 +65,21 @@ internal object Otj {
     val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
     // otj chunk 06: Ertha Jo, Frontier Mentor
     val ACTIVATE_ABILITY_THAT_TARGETS = Regex("""you activate an ability that targets an? (.+?)( or player)?""")
+    // otj chunk 09: Breeches, the Blastmaker: "you may sacrifice an artifact. If you do, flip a coin. When you win the flip, copy that spell. You may
+    // choose new targets for the copy. When you lose the flip, Breeches deals damage equal to that spell's mana value to any target."
+    val FLIP_WHEN_WIN_WHEN_LOSE = Regex("""(?:(You may .+?)\. If you do, f|F)lip a coin\. When you win the flip, (.+?) When you lose the flip, (.+)""")
     // otj chunk 06: Bonny Pall: "Create Beau, a legendary blue Ox creature token with "…"." (CR 111.4)
     val CREATE_NAMED_LEGENDARY = Regex("""Create ([A-Z][a-z]+), a legendary (.+? token)( with .+)?\.""")
 }
 
 /** Phrases first met in Outlaws of Thunder Junction (OTJ). */
 internal object OtjPhrases {
+    private val HAVENT_CAST_A_SPELL = Regex("""you haven't cast a spell( from your hand)? this turn""")
     fun condition(text: String): arcanum.api.Condition? {
-        // otj chunk 05: "you haven't cast a spell from your hand this turn" (CR 601.2a: where it was cast from)
-        if (text == "you haven't cast a spell from your hand this turn") return arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(
-            arcanum.api.EventPattern.Cast(arcanum.api.ObjectFilter.Any, arcanum.api.PlayerFilter.You, from = arcanum.api.Zone.Hand), atLeast = 1, measure = arcanum.api.Measure.Events))
+        // otj chunk 05: "you haven't cast a spell from your hand this turn" (CR 601.2a: where it was cast from); otj chunk 09: from anywhere
+        HAVENT_CAST_A_SPELL.matchEntire(text)?.let { m -> return arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(
+            arcanum.api.EventPattern.Cast(arcanum.api.ObjectFilter.Any, arcanum.api.PlayerFilter.You, from = arcanum.api.Zone.Hand.takeIf { m.groupValues[1].isNotEmpty() }),
+            atLeast = 1, measure = arcanum.api.Measure.Events)) }
         // otj chunk 05: "you've committed a crime this turn" (CR 700.13)
         if (text == "you've committed a crime this turn") return arcanum.api.Condition.HappenedThisTurn(
             arcanum.api.EventPattern.CommitCrime(arcanum.api.PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events)

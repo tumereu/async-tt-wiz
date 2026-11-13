@@ -350,4 +350,88 @@ class Mh3FixesScenariosTest {
             alice.life shouldBe 19
         }
     }
+
+    private val tavrik = Cards.invent("Tavrik, Bellowing Seer", "{2}{R}{G}", "Legendary Creature — Giant Shaman", """
+        When this creature enters, mill six cards. You may put a card with {X} in its mana cost from among them into your hand.
+        {T}: Reveal any number of cards with {X} in their mana cost in your hand. Add {C}{C} for each card revealed this way. Spend this mana only on costs that contain {X}.
+    """, "4/4")
+    private val surge = Cards.invent("Cinder Surge", "{X}{R}", "Sorcery", "Cinder Surge deals X damage to any target.")
+    private val hydra = Cards.invent("Mossback Hydra", "{X}{G}{G}", "Creature — Hydra", "This creature enters with X +1/+1 counters on it.", "0/0")
+    private val briarCub = Cards.invent("Briarling Cub", "{1}{G}", "Creature — Bear", "", "2/2")
+    private val lens = Cards.invent("Siphon Lens", "{1}", "Artifact", "{X}, {T}: You gain X life.")
+    private val quell = Cards.invent("Quellfang Denial", "{X}{U}", "Instant", "Counter target spell unless its controller pays {X}.")
+
+    // CR 605.3b, 106.1: the mana ability's amount is counted from the cards revealed as it resolves; the payment finds it (one {X} card left in
+    // hand: {C}{C}), CR 106.6: spent on a spell whose cost contains {X}
+    @Test
+    fun revealedXCardsAddColorlessManaForAnXSpell() = scenario {
+        alice.battlefield(tavrik, "Mountain", "Mountain", "Mountain")
+        alice.hand(surge, hydra, briarCub)
+        alice.casts(surge, target = "bob", x = 4)
+        resolveAll()
+        expect {
+            bob.life shouldBe 16
+            card(tavrik).tapped shouldBe true
+        }
+    }
+
+    // CR 605.3b, 701.20a: activated with priority, the player chooses the {X} cards to reveal; each adds {C}{C}
+    @Test
+    fun revealingChosenXCardsAddsTwoEach() = scenario {
+        alice.battlefield(tavrik)
+        alice.hand(surge, hydra, briarCub)
+        alice.activates(tavrik)
+        assertEquals(2, decision<Decision.ChooseObjects>().options.size)
+        alice.chooses(surge, hydra)
+        assertEquals(listOf(null, null, null, null), alice.pool.map { it.color })
+    }
+
+    private val automaton = Cards.invent("Rustwing Automaton", "{2}", "Artifact Creature — Construct", "", "2/2")
+
+    // CR 106.6: the mana can't pay a cost without {X}
+    @Test
+    fun xOnlyManaCantPayACostWithoutX() = scenario {
+        alice.battlefield(tavrik)
+        alice.hand(hydra, automaton)
+        alice.activates(tavrik)
+        alice.chooses(hydra)
+        alice.casts(automaton)
+        assertEquals(emptyList(), decision<Decision.ManaPayment>().suggestion)
+    }
+
+    // CR 106.6, 107.3a: an activated ability whose cost contains {X} may be paid with it
+    @Test
+    fun xOnlyManaPaysAnActivationCostWithX() = scenario {
+        alice.battlefield(tavrik, lens)
+        alice.hand(hydra)
+        alice.activates(tavrik)
+        alice.chooses(hydra)
+        alice.activates(lens, x = 2)
+        resolveAll()
+        expect {
+            alice.life shouldBe 22
+            card(lens).tapped shouldBe true
+        }
+        assertEquals(emptyList(), alice.pool)
+    }
+
+    // CR 106.6, 118.12: a cost paid as a spell resolves that contains {X} ("unless its controller pays {X}") may be paid with it too
+    @Test
+    fun xOnlyManaPaysAnUnlessPaysXCost() = scenario {
+        alice.battlefield(tavrik, "Mountain")
+        alice.hand(surge, hydra, briarCub)
+        bob.battlefield("Island", "Island", "Island")
+        bob.hand(quell)
+        alice.activates(tavrik)
+        alice.chooses(surge, hydra)
+        alice.casts(surge, target = "bob", x = 2)
+        alice.passes()
+        bob.casts(quell, target = surge, x = 2)
+        resolveAll()
+        assertEquals(alice.id, decision<Decision.May>().player)
+        answer(Answer.YesNo(true))
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        resolveAll()
+        expect { bob.life shouldBe 18 }
+    }
 }

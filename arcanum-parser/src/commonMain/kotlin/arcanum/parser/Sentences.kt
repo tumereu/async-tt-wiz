@@ -11917,6 +11917,8 @@ internal class Sentences(
         val CAST_SPELLS = Regex("""cast (?:an? )?(.+?) spells?( of the chosen type)?""")
         // chunk 12
         const val DISCARDED = "discarded"
+        /** mh3 fixes: the cards "revealed this way". */
+        const val REVEALED = "revealed"
         const val RETURNED = "returned"
         val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your (library and/or graveyard|graveyard, hand, and/or library) for (.+?) and put it onto the battlefield\.""")
         val IF_X_AT_LEAST = Regex("""If X is (\d+) or more, (.+)""")
@@ -17613,6 +17615,26 @@ internal class Sentences(
 
     /** mh3: one-sentence effects, tried first. */
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
+        // mh3 fixes: "Add …. Spend this mana only on costs that contain {X}." (CR 106.6: the mana's restriction; CR 107.3, 601.2f: the total cost)
+        Mh3.SPEND_ONLY_ON_X_COSTS.matchEntire(sentence)?.let { m ->
+            val steps = effect(m.groupValues[1], context) ?: return@let
+            if (steps.none { (it as? Step.Do)?.effect is Effect.AddMana }) return@let
+            return steps.map { step ->
+                val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@map step
+                Step.Do(add.copy(mana = add.mana.copy(onlyCostsWithX = true)))
+            }
+        }
+        // mh3 fixes: "Reveal any number of cards with {X} in their mana cost in your hand." (chosen, then revealed, CR 701.20a)
+        Mh3.REVEAL_ANY_NUMBER_IN_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = null), bind = REVEALED, chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound(REVEALED))))
+        }
+        // mh3 fixes: "Add {C}{C} for each card revealed this way." (CR 106.1)
+        Mh3.ADD_FOR_EACH_REVEALED.matchEntire(sentence)?.let { m ->
+            val symbols = ManaCost.parse(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(symbols, times = Value.Count(Objects.Bound(REVEALED)))), players = Players.You)))
+        }
         // mh3 chunk 12: "Put a +1/+1 counter on target creature you control, then each modified creature you control deals damage equal to its power to
         // target creature you don't control." (the counter first, so that creature is modified, CR 700.9)
         Mh3.COUNTER_THEN_EACH_DEALS_POWER.matchEntire(sentence)?.let { m ->

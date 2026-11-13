@@ -271,7 +271,7 @@ internal object Mana {
         return List(yield.amount) {
             ManaUnit(c, source = source, snow = yield.snow, restriction = yield.production.restriction,
                 spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent,
-                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil)
+                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil, onlyCostsWithX = yield.production.onlyCostsWithX)
         }
     }
 
@@ -369,11 +369,24 @@ internal object Mana {
                 // CR 120: to the player who activates it, whichever way the definition says "you"
                 is Effect.DealDamage -> if (effect.to.players == arcanum.api.Players.You && effect.to.objects == null && effect.to.target == null) damage += eval.value(effect.amount) else unknown = true
                 is Effect.LoseLife -> if (effect.players == arcanum.api.Players.You) damage += eval.value(effect.amount)
+                // mh3 fixes: revealing what a choice chose changes nothing a payment reads
+                is Effect.Reveal -> if (effect.objects !is arcanum.api.Objects.Bound) unknown = true
                 else -> if (step !is Step.Choose) unknown = true
             }
         }
         if (damage > 0) tier = maxOf(tier, 1)
-        return combos.mapNotNull { combo ->
+        // mh3 fixes: the objects its choice steps may choose, the mana counted from them: each number of them, the first ones (a card
+        // stands for any other there: only how many counts), up to MAX_ANNOUNCED
+        var picked: List<List<Pair<String, List<ObjectId>>>> = listOf(emptyList())
+        arcanum.engine.casting.Plan.manaChoices(ability).forEach { (_, step) ->
+            val choice = step.choice as arcanum.api.Choice.Objects
+            val options = eval.inZonesOf(choice.filter).filter { snap.state.obj(it) != null && eval.matches(choice.filter, it) }
+            val min = eval.value(choice.min)
+            val max = minOf(choice.max?.let { eval.value(it) } ?: options.size, options.size, MAX_ANNOUNCED)
+            if (min > max) return emptyList()
+            picked = picked.flatMap { p -> (min..max).map { n -> p + (step.bind to options.take(n)) } }
+        }
+        return combos.flatMap { combo -> picked.map { combo to it } }.mapNotNull { (combo, choices) ->
             // An amount it announces: its colours are read with one mana (the search leaves it out: [Source.unknown])
             var names = ability.instructions.announced.fold(Bindings.EMPTY) { b, name -> b.with(name, NamedValue.Number(1)) }
             val taps = mutableSetOf<ObjectId>()
@@ -390,6 +403,7 @@ internal object Mana {
                     else -> Unit
                 }
             }
+            choices.forEach { (name, ids) -> names = names.with(name, NamedValue.Objects(ids)) }
             val ys = ability.instructions.steps.flatMap { step ->
                 yields(snap, player, id, ability.copy(instructions = ability.instructions.copy(steps = listOf(withChosenColors(ability, step)))), names)
             }
@@ -397,7 +411,7 @@ internal object Mana {
             val cantRead = unknown || ability.instructions.steps.none { (it as? Step.Do)?.effect is Effect.AddMana }
             if (ys.isEmpty() && !cantRead) return@mapNotNull null
             Source(id, inst.origin, ability, ys, 0, exclusive, ownCost = own, life = life, damage = damage, tier = tier, taps = taps, leaves = away,
-                answers = combo.map { (_, ids) -> Answer.Objects(ids) }, limit = if (exclusive) 1 else limit,
+                answers = combo.map { (_, ids) -> Answer.Objects(ids) } + choices.map { (_, ids) -> Answer.Objects(ids) }, limit = if (exclusive) 1 else limit,
                 bonus = if (tapsSelf) triggeredMana(snap, id, ys, triggers) else emptyList(), unknown = cantRead, partial = partial)
         }
     }
@@ -561,12 +575,13 @@ internal object Mana {
     }
 
     /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6); [anyColor]: spent as though it were
-     * mana of any colour for it anyway (ecl: a permission that says so, CR 609.4b). */
-    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: AsAnyColor = AsAnyColor.None): List<Payer> {
+     * mana of any colour for it anyway (ecl: a permission that says so, CR 609.4b); [xCost]: the cost being paid contains {X}. */
+    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: AsAnyColor = AsAnyColor.None,
+                   xCost: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
         val anyColor = if (spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
         val anyType = spendsAsAnyType(snap, player, paysFor)
-        return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor) }
+        return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor, xCost) }
             .map { (i, u) -> Payer(colorsOf(u, anyColor, anyType), u.snow, ManaUse.Pool(i), u) }
     }
 
@@ -584,8 +599,10 @@ internal object Mana {
             m.onlyFor == null || (paysFor != null && snap.evaluator(applied.controller, self = applied.source).matches(m.onlyFor!!, paysFor))
         }
 
-    /** Whether [unit] may be spent on [paysFor]: its restriction ("spend this mana only to cast artifact spells"). */
-    fun allowed(snap: Snapshot, player: PlayerId, unit: ManaUnit, paysFor: ObjectId?): Boolean {
+    /** Whether [unit] may be spent on [paysFor]: its restriction ("spend this mana only to cast artifact spells"); mh3 fixes: "only on
+     * costs that contain {X}" when the cost being paid had an {X} ([xCost], CR 106.6, 107.3). */
+    fun allowed(snap: Snapshot, player: PlayerId, unit: ManaUnit, paysFor: ObjectId?, xCost: Boolean = false): Boolean {
+        if (unit.onlyCostsWithX && !xCost) return false
         val restriction = unit.restriction ?: return true
         if (paysFor == null) return false
         return snap.evaluator(player, self = unit.source).matches(restriction, paysFor)
@@ -637,10 +654,10 @@ internal object Mana {
      * each set of objects its cost could use, life for Phyrexian symbols, and the spell's other ways. */
     fun options(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?, ways: List<ManaPaymentWay> = emptyList(), anyColor: AsAnyColor = AsAnyColor.None,
-        reserved: Reserved = Reserved.NONE,
+        reserved: Reserved = Reserved.NONE, xCost: Boolean = false,
     ): List<ManaUse> =
         buildList {
-            poolPayers(snap, player, paysFor, anyColor = anyColor).forEach { add(it.use) }
+            poolPayers(snap, player, paysFor, anyColor = anyColor, xCost = xCost).forEach { add(it.use) }
             sources(snap, player, reserved).forEach { s ->
                 if (s.ability.instructions.announced.isNotEmpty()) {
                     // An amount it announces: the amounts a payment can use (what its cost then asks is checked as it is paid)
@@ -666,11 +683,11 @@ internal object Mana {
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None,
         reserved: Reserved = Reserved.NONE, pinned: List<ManaUse> = emptyList(), removed: List<ManaUse> = emptyList(),
-        exact: List<ManaUse> = emptyList(),
+        exact: List<ManaUse> = emptyList(), xCost: Boolean = false,
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
         val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned + exact, removed,
-            exact.filterIsInstance<ManaUse.Ability>().toSet())
+            exact.filterIsInstance<ManaUse.Ability>().toSet(), xCost)
         if (payment.impossible()) return emptyList()
         // Without other ways, then with them; each from the fewest side effects up, never a lethal source; then lethal ones
         val wayRounds = if (!canSpendMana) listOf(true) else if (ways.isEmpty()) listOf(false) else listOf(false, true)
@@ -688,9 +705,10 @@ internal object Mana {
     fun verdict(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None, reserved: Reserved = Reserved.NONE,
+        xCost: Boolean = false,
     ): Verdict {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return Verdict.Found(emptyList())
-        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, emptyList(), emptyList())
+        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, emptyList(), emptyList(), xCost = xCost)
         if (payment.impossible()) return if (payment.cantTell) Verdict.Maybe else Verdict.None
         payment.search(2, withWays = ways.isNotEmpty() || !canSpendMana, keepAlive = false)?.let { return Verdict.Found(it) }
         return if (payment.cantTell) Verdict.Maybe else Verdict.None
@@ -700,7 +718,8 @@ internal object Mana {
     fun mayPay(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None, reserved: Reserved = Reserved.NONE,
-    ): Boolean = verdict(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved) != Verdict.None
+        xCost: Boolean = false,
+    ): Boolean = verdict(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, xCost) != Verdict.None
 
     /** One activation of a source as a search tries it, with the colours it makes. */
     private class Pick(val source: Source, val color: Color?, val combination: List<Color> = emptyList(), val triggered: List<Color> = emptyList())
@@ -752,12 +771,14 @@ internal object Mana {
         anyColor: AsAnyColor, val reserved: Reserved, val pinned: List<ManaUse>, removed: List<ManaUse>,
         /** Pinned mana abilities held exactly as given (their colour and answers), not only by their source. */
         val exact: Set<ManaUse.Ability> = emptySet(),
+        /** mh3 fixes: the cost contains {X} (CR 106.6, 107.3). */
+        val xCost: Boolean = false,
     ) {
         val life = snap.state.player(player).life
         val any = if (spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
         val anyType = spendsAsAnyType(snap, player, paysFor)
         private val removedPool = removed.filterIsInstance<ManaUse.Pool>().map { it.index }.toSet()
-        val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any).filter { (it.use as ManaUse.Pool).index !in removedPool }
+        val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any, xCost = xCost).filter { (it.use as ManaUse.Pool).index !in removedPool }
         val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()
         private val removedSources = removed.filterIsInstance<ManaUse.Ability>()
         private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).filter { s -> removedSources.none { sameSource(it, s) } }
@@ -798,7 +819,7 @@ internal object Mana {
             val colors = made + (if (made.any { any.covers(it) } || anyType) Color.all else emptyList()) +
                 (if (anyType) listOf<Color?>(null) else emptyList())
             val snow = s.yields.any { it.snow }
-            val n = (s.yields + s.bonus).sumOf { y -> units(y, y.colors.firstOrNull(), s.id).count { allowed(snap, player, it, paysFor) } }.toLong() * minOf(s.limit.toLong(), 8L)
+            val n = (s.yields + s.bonus).sumOf { y -> units(y, y.colors.firstOrNull(), s.id).count { allowed(snap, player, it, paysFor, xCost) } }.toLong() * minOf(s.limit.toLong(), 8L)
             return List(minOf(n, MAX_UNITS.toLong()).toInt()) { Payer(colors, snow, ManaUse.Life(-1)) }
         }
 
@@ -934,7 +955,7 @@ internal object Mana {
             return if (fund(from + free, funded, spent)) spent.distinct() + chosen.map { use(it) } else null
         }
 
-        private fun usable(payers: List<Payer>) = payers.filter { a -> a.unit == null || allowed(p.snap, p.player, a.unit, p.paysFor) }
+        private fun usable(payers: List<Payer>) = payers.filter { a -> a.unit == null || allowed(p.snap, p.player, a.unit, p.paysFor, p.xCost) }
 
         /** Whether [rest] can each be paid in some order from [payers] and what they add, the needs then covered. */
         private fun fund(payers: List<Payer>, rest: List<Pick>, spent: MutableList<ManaUse>): Boolean {
@@ -996,8 +1017,9 @@ internal object Mana {
      * the rest coverable, [needs] and what [later] abilities ask, from the mana left and what they add. Refused when nothing
      * covers it; with nothing known of later abilities, the first way.
      */
-    fun spendFor(snap: Snapshot, player: PlayerId, own: ManaCost, paysFor: ObjectId?, funds: List<Int>, later: List<ManaUse.Ability>, needs: List<Need>): List<Int> {
-        val payers = poolPayers(snap, player, paysFor, funds)
+    fun spendFor(snap: Snapshot, player: PlayerId, own: ManaCost, paysFor: ObjectId?, funds: List<Int>, later: List<ManaUse.Ability>, needs: List<Need>,
+                 xCost: Boolean = false): List<Int> {
+        val payers = poolPayers(snap, player, paysFor, funds, xCost = xCost)
         val ways = assignments(needs(own), payers)
         require(ways.isNotEmpty()) { "Nothing pays $own" }
         val all = sources(snap, player)

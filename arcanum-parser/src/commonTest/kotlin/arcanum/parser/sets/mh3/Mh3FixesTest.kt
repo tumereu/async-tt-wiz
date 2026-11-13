@@ -105,4 +105,22 @@ class Mh3FixesTest {
             Instructions(steps = listOf(Step.Do(Effect.GainLife(Players.You, Value.Fixed(1))))),
             interveningIf = Condition.ObjectMatches(Objects.EventObject(EventRole.Before), ObjectFilter.Sub(Subtype("Cleric")))),
     )
+
+    // CR 605.1a, 605.3b: a mana ability whose amount is counted from the cards chosen and revealed as it resolves; CR 106.6, 107.3: its mana
+    // may be spent only on costs that contain {X}
+    @Test
+    fun rosheenLike() = card(
+        name = "Tavrik, Bellowing Seer",
+        cost = "{2}{R}{G}",
+        type = "Legendary Creature — Giant Shaman",
+        pt = "4/4",
+        text = "{T}: Reveal any number of cards with {X} in their mana cost in your hand. Add {C}{C} for each card revealed this way. Spend this mana only on costs that contain {X}.",
+    ) parsesTo abilities(
+        activated(cost(tap),
+            Step.Choose(Choice.Objects(and(cardFilter, ObjectFilter.XInManaCost, inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), n(0), null),
+                bind = "revealed", chooser = Players.You),
+            doing(Effect.Reveal(Objects.Bound("revealed"))),
+            doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}{C}")!!, times = Value.Count(Objects.Bound("revealed"))),
+                onlyCostsWithX = true), Players.You))),
+    )
 }

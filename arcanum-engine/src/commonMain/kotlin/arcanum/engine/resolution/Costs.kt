@@ -82,7 +82,7 @@ internal object Costs {
         return when (part) {
             // CR 118.3, 608.2g: mana abilities may be activated while paying; a cost is payable when a payment is found
             // An X nothing defines may be chosen as 0 (CR 107.3f)
-            is CostPart.Mana -> mayPay(scope, payer, manaCost(scope, part, unknownX(part.cost, part.x).associateWith { 0 })!!)
+            is CostPart.Mana -> mayPay(scope, payer, manaCost(scope, part, unknownX(part.cost, part.x).associateWith { 0 })!!, hasX(part.cost))
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { mayPay(scope, payer, it) } ?: false
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { mayPay(scope, payer, arcanum.engine.casting.Costs.reduce(it, part.less)) } ?: false
             is CostPart.Manual -> false
@@ -128,8 +128,11 @@ internal object Costs {
         }
     }
 
-    private fun mayPay(scope: Scope, payer: PlayerId, cost: ManaCost): Boolean =
-        Mana.needs(cost).isEmpty() || Mana.mayPay(scope.act.recorder.snapshot(), payer, cost, null)
+    private fun mayPay(scope: Scope, payer: PlayerId, cost: ManaCost, xCost: Boolean = false): Boolean =
+        Mana.needs(cost).isEmpty() || Mana.mayPay(scope.act.recorder.snapshot(), payer, cost, null, xCost = xCost)
+
+    /** mh3 fixes: [cost] contains {X}, so mana spent "only on costs that contain {X}" may pay it (CR 106.6, 107.3). */
+    private fun hasX(cost: ManaCost): Boolean = cost.symbols.any { it is ManaSymbol.Variable && it.name == 'X' }
 
     /** The letters of [cost]'s variables ({X}, {Y}) nothing defines: [x] defines X when the text does ("where X is …"). */
     private fun unknownX(cost: ManaCost, x: arcanum.api.Value?): List<Char> =
@@ -203,7 +206,7 @@ internal object Costs {
         when (part) {
             is CostPart.Mana -> {
                 val chosen = chooseX(scope, payer, unknownX(part.cost, part.x), cost = { manaCost(scope, part, it)!! })
-                act.payMana(payer, scope.self, manaCost(scope, part, chosen)!!)
+                act.payMana(payer, scope.self, manaCost(scope, part, chosen)!!, xCost = hasX(part.cost))
             }
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, it) }
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
@@ -294,7 +297,7 @@ internal object Costs {
                 val least = leastTaps(scope, payer, cost) ?: 0
                 val tapped = act.chooseObjects(payer, scope.self, tappers, least, minOf(generic, tappers.size), "Tap artifacts and creatures to pay the waterbend cost")
                 if (tapped.isNotEmpty()) Actions.tap(act, tapped, true, listOf(Meaning.Paid))
-                act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))))
+                act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))), xCost = hasX(part.cost))
                 act.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, payer)))
             }
         }

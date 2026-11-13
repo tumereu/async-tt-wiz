@@ -722,6 +722,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval) ?: return@forEach
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
+        if (isManaAbility) manaChoiceQuestion()?.let { return it }
         if (isManaAbility) colorQuestion()?.let { return it }
         // CR 702.132a: before mana abilities are activated, another player may be chosen to pay part of the generic mana
         if (assistable > 0) {
@@ -847,6 +848,23 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return Question.Target(slot, forPlayer, options, min, max, chooser)
     }
 
+    /**
+     * mh3 fixes: a mana ability's choice of objects its mana is counted from ("Reveal any number of cards with {X} in their mana cost in
+     * your hand. Add {C}{C} for each card revealed this way"): asked with the activation, the choice its key under [OBJECTS], as the ability
+     * resolves at once (CR 605.3b) and its mana is added from it ([Payment] binds it before adding the mana).
+     */
+    private fun manaChoiceQuestion(): Question.Objects? {
+        val a = ability as? Ability.Activated ?: return null
+        manaChoices(a).forEach { (i, step) ->
+            val key = "$MANA_CHOICE$i"
+            if (choices.names[OBJECTS + key] != null) return@forEach
+            val choice = step.choice as arcanum.api.Choice.Objects
+            val options = eval.inZonesOf(choice.filter).filter { snap.state.obj(it) != null && eval.matches(choice.filter, it) }
+            return Question.Objects(key, Costs.ObjectChoice(options, eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose", null))
+        }
+        return null
+    }
+
     private fun colorQuestion(): Question.ManaColor? {
         val a = ability as? Ability.Activated ?: return null
         a.instructions.steps.forEachIndexed { i, step ->
@@ -914,19 +932,19 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
         is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
         // CR 702.132a, 106.6: the assisting player spends mana to cast this spell: mana restricted to such spells may pay
-        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList()),
-            Mana.suggest(snap, q.player, q.cost, itemId, emptyList()))
+        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX),
+            Mana.suggest(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose",
                 cost = total.parts.firstOrNull { it.key == q.key }?.at)
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved))
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX))
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */
@@ -949,6 +967,20 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         /** rvr: under [PLAYER] + this + a slot's key, the player who chooses that slot's targets ([arcanum.api.TargetSlot.chosenBy]). */
         const val CHOOSER = "\$chooser:"
         const val COLOR = "\$color:"
+        /** mh3 fixes: under [OBJECTS] + this + a step's index, the objects a mana ability's choice step chose ([manaChoices]). */
+        const val MANA_CHOICE = "\$mana-choice:"
+
+        /** mh3 fixes: the steps of mana ability [a] that choose objects its mana is counted from, by index: chosen by its controller
+         * from the zones its filter names (not from other objects) before a step adding mana that reads the choice (CR 605.3b). */
+        fun manaChoices(a: Ability.Activated): List<Pair<Int, Step.Choose>> = a.instructions.steps.withIndex().mapNotNull { (i, step) ->
+            val choose = step as? Step.Choose ?: return@mapNotNull null
+            val choice = choose.choice as? arcanum.api.Choice.Objects ?: return@mapNotNull null
+            if (choice.from != null || choice.distinct != null || choice.onePer != null || choice.totalAtMost != null) return@mapNotNull null
+            if (choose.chooser != arcanum.api.Players.You) return@mapNotNull null
+            val bound = "Bound(name=${choose.bind})"
+            val read = a.instructions.steps.drop(i + 1).any { ((it as? Step.Do)?.effect as? Effect.AddMana)?.toString()?.contains(bound) == true }
+            if (read) i to choose else null
+        }
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 

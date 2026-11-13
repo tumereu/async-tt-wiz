@@ -248,4 +248,12 @@ internal object Mh3 {
     val PAY_LIFE_RATHER_THAN_MANA = Regex("""For each \{([WUBRG])\} in a cost, you may pay 2 life rather than pay that mana\.""")
     val REVEAL_FROM_OPENING_HAND_FIRST_UPKEEP = Regex("""You may reveal (.+?) from your opening hand\. If you do, at the beginning of your first upkeep, (.+)""")
     val EXILE_ANY_NUMBER_WITH_TYPES_AMONG_COST = Regex("""Exile any number of other (cards?) from your graveyard with (\w+) or more card types among them""")
+
+    // mh3 fixes
+    /** "Reveal any number of cards with {X} in their mana cost in your hand.": the cards chosen from your hand, then revealed (CR 701.20a). */
+    val REVEAL_ANY_NUMBER_IN_HAND = Regex("""Reveal any number of (.+?) in your hand\.""")
+    /** "Add {C}{C} for each card revealed this way." after [REVEAL_ANY_NUMBER_IN_HAND] (CR 106.1). */
+    val ADD_FOR_EACH_REVEALED = Regex("""Add ((?:\{[WUBRGC]\})+) for each card revealed this way\.""")
+    /** "… Spend this mana only on costs that contain {X}." (CR 106.6, 107.3) */
+    val SPEND_ONLY_ON_X_COSTS = Regex("""(.+\.) Spend this mana only on costs that contain \{X\}\.""")
 }

@@ -60,6 +60,8 @@ data class ManaUnit(
     val whenSpent: Instructions? = null,
     val spellGetsIf: ObjectFilter? = null,
     val spellGetsUntil: Duration? = null,
+    /** mh3 fixes: spent only on a cost that contains {X} ([arcanum.api.ManaProduction.onlyCostsWithX], CR 106.6). */
+    val onlyCostsWithX: Boolean = false,
 )
 
 /**

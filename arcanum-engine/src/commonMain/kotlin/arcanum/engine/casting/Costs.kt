@@ -31,6 +31,8 @@ internal data class TotalCost(
     val waterbends: Boolean = false,
     /** isd: whether a part is based on the mana cost of an object with no mana cost: an unpayable cost (CR 118.6). */
     val unpayable: Boolean = false,
+    /** mh3 fixes: a part had an {X} before X got its value: "costs that contain {X}" (CR 106.6, 107.3a). */
+    val hasX: Boolean = false,
 ) {
     val manaValue: Int get() = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 1 }
     val hasMana: Boolean get() = mana.symbols.any { !(it is ManaSymbol.Generic && it.amount == 0) }
@@ -65,6 +67,11 @@ internal object Costs {
         var waterbend = 0
         var waterbends = false
         var at: arcanum.engine.decision.CostPartAt? = null
+        var hasX = false
+        fun withX(cost: ManaCost, x: Map<Char, Int>): ManaCost {
+            if (cost.symbols.any { it is ManaSymbol.Variable && it.name == 'X' }) hasX = true
+            return Costs.withX(cost, x)
+        }
         fun add(key: String, part: CostPart) {
             when (part) {
                 // tla: CR 701.67a: its mana is part of the total; its generic mana may be paid by tapping (701.67b)
@@ -110,7 +117,7 @@ internal object Costs {
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable)
+        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable, hasX = hasX)
     }
 
     /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from

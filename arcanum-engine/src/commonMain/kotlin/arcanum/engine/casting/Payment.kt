@@ -146,7 +146,7 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor) + specialPayers
+        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX) + specialPayers
         if (Mana.leastMana(cost, lifeFor) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
@@ -183,9 +183,9 @@ internal object Payment {
      * Pays mana [cost] for [player] while a spell or ability resolves (CR 118.12, 608.2g): the mana abilities and pool
      * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
      * mana pays for no spell, so restricted mana can't be spent; [spell]: the cast it is spent on instead (assist, CR 702.132a),
-     * restrictions read against that spell, provisionally on the Stack (CR 106.6).
+     * restrictions read against that spell, provisionally on the Stack (CR 106.6). [xCost]: the cost contains {X} (CR 107.3).
      */
-    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>, spell: Plan? = null) {
+    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>, spell: Plan? = null, xCost: Boolean = spell?.total?.hasX == true) {
         val recorder = act.recorder
         if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
         val poolBefore = recorder.state.player(player).manaPool
@@ -199,7 +199,7 @@ internal object Payment {
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
         val poolNow = recorder.state.player(player).manaPool
         val board = spell?.let { Plan(recorder.state, it.c).snap } ?: recorder.snapshot()
-        val payers = Mana.poolPayers(board, player, spell?.itemId, funds)
+        val payers = Mana.poolPayers(board, player, spell?.itemId, funds, xCost = xCost)
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
@@ -266,7 +266,7 @@ internal object Payment {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Readied(c, null)
             plan.blocker(q)?.let { refuse(it) }
-            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor)) != null) Readied(c, q.cost) else null
+            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX)) != null) Readied(c, q.cost) else null
             val answer = next(queue, q) ?: Answers.automatic(plan, q) ?: (q as? Question.ManaColor)?.let { _ -> use.color?.let { Answer.ColorChoice(it) } }
                 ?: refuse("Say what ${use.source}'s mana ability asks: ${q.kind}")
             c = c.copy(choices = Answers.apply(plan, q, answer))
@@ -296,7 +296,7 @@ internal object Payment {
         val c = ready.continuation
         if (c != null) {
             val plan = Plan(recorder.state, c)
-            val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs) } ?: emptyList()
+            val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs, xCost = plan.total.hasX) } ?: emptyList()
             pay(act, c, spent.map { ManaUse.Pool(it) }, nested = true, triggered = use.triggered)
             val kept = funds.filter { it !in spent }.map { i -> i - spent.count { it < i } }
             return kept + ((before - spent.size) until recorder.state.player(player).manaPool.size)
@@ -695,10 +695,16 @@ internal object Payment {
      * if something holds) happens right after its mana is added, as resolution steps would (CR 608.2c); what that asks stops the
      * activation, which is redone with the answers so far (D29).
      */
-    private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
+    private fun finishManaAbility(outer: Act, plan: Plan, costBound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
         val recorder = outer.recorder
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
+        // mh3 fixes: the objects its choice steps chose with the activation, bound before the mana is counted from them (CR 605.3b)
+        val choiceSteps = Plan.manaChoices(ability)
+        val bound = choiceSteps.fold(costBound) { b, (i, step) ->
+            val chosen = plan.choices.names[Plan.OBJECTS + Plan.MANA_CHOICE + i] as? NamedValue.Objects ?: return@fold b
+            b.with(step.bind, chosen)
+        }
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
@@ -731,8 +737,10 @@ internal object Payment {
                 answered += ref.name
             }
         }
+        val chosenSteps = choiceSteps.map { it.second }.toSet()
         val rest = ability.instructions.steps.filterNot {
-            (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered)
+            (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered) ||
+                (it is Step.Choose && it in chosenSteps)
         }
         if (rest.isEmpty()) return Progress.Done
         // What it asks is asked of its player (inside a payment, the payment's), the activation (or the payment) redone with the answer (D29)

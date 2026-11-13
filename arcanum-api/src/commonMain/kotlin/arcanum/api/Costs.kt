@@ -158,6 +158,11 @@ data class ManaProduction(
     val spellGetsIf: ObjectFilter? = null,
     /** How long [spellGets] lasts ("until end of turn"); null: as long as the spell and the permanent it becomes. */
     val spellGetsUntil: Duration? = null,
+    // mh3 fixes
+    /** "Spend this mana only on costs that contain {X}" (CR 106.6): only on a total cost that had an {X} before X was given its value
+     * (CR 107.3, 601.2f), a spell's or an ability's, also one paid as a spell or ability resolves; not on a spell with {X} in its mana
+     * cost cast for an alternative cost without {X} (CR 118.9). With [restriction], both must hold. */
+    val onlyCostsWithX: Boolean = false,
 )
 
 /** [property] of the chosen objects added up, at least [atLeast]. */

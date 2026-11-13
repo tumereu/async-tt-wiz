@@ -16146,6 +16146,12 @@ internal class Sentences(
     /** inr: single-sentence effects. */
     /** mom: static lines of March of the Machine, tried in [static]. */
     private fun momStatic(line: String): Ability? {
+        // mom fixes: Awaken the Maelstrom "Awaken the Maelstrom is all colors." (a characteristic-defining ability, CR 604.3, 105.2: it works in
+        // every zone)
+        Mom.SELF_IS_ALL_COLORS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.SetColors(Color.all.map { ColorRef.Literal(it) })), affects = Affected.Objects(Objects.Self),
+                characteristicDefining = true)
+        }
         // mom chunk 06: "This creature assigns combat damage equal to its toughness rather than its power." (CR 510.1c)
         Mom.SELF_ASSIGNS_BY_TOUGHNESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.AssignsDamageByToughness), affects = Affected.Objects(Objects.Self))
@@ -16180,6 +16186,23 @@ internal class Sentences(
 
     /** mom: single sentences of March of the Machine, tried in [effect]. */
     private fun momEffect(sentence: String, context: Context): List<Step>? {
+        // mom fixes: Awaken the Maelstrom "Create a token that's a copy of a permanent you control.": chosen as it resolves, not targeted
+        // (CR 608.2c, 707.2)
+        Mom.CREATE_COPY_OF_A.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.InZone(Zone.Battlefield))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "copied", chooser = Players.You),
+                Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("copied")), Value.Fixed(1), Players.You, bind = "token")))
+        }
+        // mom fixes: Awaken the Maelstrom "Distribute three +1/+1 counters among one, two, or three creatures you control.": the creatures are
+        // chosen and the counters divided as it resolves, at least one each (CR 608.2c-d)
+        Mom.DISTRIBUTE_COUNTERS_AMONG_CHOSEN.matchEntire(sentence)?.takeUnless { it.groupValues[4].startsWith("target ") }?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val kind = Counters.kind(m.groupValues[2]) ?: return@let
+            val most = if (m.groupValues[3] == "one or two") 2 else 3
+            val filter = Filters.all(Filters.noun(m.groupValues[4]) ?: return@let, ObjectFilter.InZone(Zone.Battlefield))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(minOf(most, n))), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.PutCounters(Objects.Bound("chosen"), kind, Value.Fixed(n), distributed = true)))
+        }
         // mom chunk 13: Scrappy Bruiser "Return that creature to its owner's hand at end of combat." (a delayed trigger, CR 603.7; the object the
         // earlier sentence named, fixed now, CR 603.7c; a new object once it left, CR 400.7)
         Mom.RETURN_TO_HAND_AT_END_OF_COMBAT.matchEntire(sentence)?.let { m ->
@@ -16377,6 +16400,22 @@ internal class Sentences(
 
     /** mom: wordings of several sentences read as one, tried in [instructions]. */
     private fun momWhole(text: String, context: Context): List<Step>? {
+        // mom fixes: Invasion of Alara: the two cards found may be cast while it resolves (CR 608.2g); "one of them" goes to your hand from those
+        // still in exile (one cast is on the Stack, a new object, CR 400.7); every other card exiled this way goes to the bottom (CR 401.4)
+        Mom.EXILE_UNTIL_N_CAST_ONE_HAND_ONE_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: return null
+            if (Numbers.count(m.groupValues[3]) != count) return null
+            val kind = Filters.noun(m.groupValues[2]) ?: return null
+            val found = Objects.Bound("found")
+            val stillExiled = ObjectFilter.InZone(Zone.Exile)
+            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(count), reveal = true, into = Zone.Exile, foundBind = "found", restBind = "rest")),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), Value.Fixed(1), from = found), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(stillExiled, Value.Fixed(1), Value.Fixed(1), from = found), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Where(Objects.Union(listOf(found, Objects.Bound("rest"))), stillExiled),
+                    Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
         // mom chunk 13: Baral and Kari Zev: "it" is the spell that triggered it, as it last existed (CR 608.2h); a card in your hand cast while the
         // ability resolves (CR 608.2g); "If you don't": no spell was cast this way (CR 608.2c); "It" is the token
         Mom.MAY_CAST_LESSER_SHARING_TYPE_IF_YOU_DONT.matchEntire(text)?.takeIf { context.event is EventPattern.Cast }?.let { m ->

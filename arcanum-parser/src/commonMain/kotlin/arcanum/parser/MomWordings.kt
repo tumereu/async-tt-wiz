@@ -10,6 +10,16 @@ import arcanum.api.Zone
 
 /** Wordings first met in March of the Machine (MOM). */
 internal object Mom {
+    // mom fixes: Invasion of Alara "exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may
+    // cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the
+    // bottom of your library in a random order."
+    val EXILE_UNTIL_N_CAST_ONE_HAND_ONE_REST_BOTTOM = Regex("""[Ee]xile cards from the top of your library until you exile (\w+) (.+?)\. You may cast one of those (\w+) cards without paying its mana cost\. Put one of them into your hand\. Then put the other cards exiled this way on the bottom of your library in a random order\.""")
+    // mom fixes: Awaken the Maelstrom "Awaken the Maelstrom is all colors." (a characteristic-defining ability, CR 604.3, 105.2)
+    val SELF_IS_ALL_COLORS = Regex("""(.+) is all colors\.""")
+    // mom fixes: Awaken the Maelstrom "Create a token that's a copy of a permanent you control." (chosen as it resolves, not targeted)
+    val CREATE_COPY_OF_A = Regex("""[Cc]reate a token that's a copy of an? (.+)\.""")
+    // mom fixes: Awaken the Maelstrom "Distribute three +1/+1 counters among one, two, or three creatures you control." (not targeted)
+    val DISTRIBUTE_COUNTERS_AMONG_CHOSEN = Regex("""[Dd]istribute (\w+) (\S+) counters among (one or two|one, two, or three) (.+)\.""")
     // mom chunk 06: Doomskar Warrior "look at that many cards from the top of your library. You may reveal a creature or land card from among them…"
     val LOOK_THAT_MANY_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM = Regex("""[Ll]ook at that many cards from the top of your library\. You may reveal an? (.+?) card from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
     // mom chunk 06: Streetwise Negotiator "This creature assigns combat damage equal to its toughness rather than its power."

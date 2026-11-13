@@ -228,3 +228,5 @@ fun createRole(kind: String, to: Objects): Step = Step.Do(Effect.CreateToken(rol
 val food: TokenSpec = TokenSpec.Predefined("Food")
 val createFood: Step = create(food)
 val yourUpkeep: Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.You)
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { arcanum.api.ColorRef.Literal(it) })), Players.You)))

@@ -24,7 +24,7 @@ internal object EoePhrases {
         Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.WasPaid(Keyword.Warp.Kind, times = 1), by = PlayerFilter.Any), atLeast = 1, measure = Measure.Objects)))
 
     // eoe chunk 07: "you've cast two or more spells this turn", "you've cast another spell this turn" (not the spell being cast)
-    // mkm chunk 06: "you've cast four or more instant and sorcery spells this turn"
+    // rvr chunk 04: also of a kind, "you've cast three or more instant and sorcery spells this turn" (each spell either one)
     private val CAST_N_OR_MORE = Regex("""you've cast (\w+) or more (?:(.+?) )?spells this turn""")
     // eoe chunk 07: "you've gained 3 or more life this turn"
     private val GAINED_N_OR_MORE = Regex("""you've gained (\d+) or more life this turn""")
@@ -34,7 +34,7 @@ internal object EoePhrases {
     fun condition(text: String, self: Set<String>): Condition? {
         if (text == VOID) return void
         CAST_N_OR_MORE.matchEntire(text)?.let { m ->
-            val spells = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.replace(" and ", " or ")) ?: return null } ?: ObjectFilter.Any
+            val spells = if (m.groupValues[2].isEmpty()) ObjectFilter.Any else Filters.noun(m.groupValues[2].replace(" and ", " or ") + " spell") ?: return null
             return Condition.HappenedThisTurn(EventPattern.Cast(spells, PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null,
                 measure = Measure.Events)
         }
@@ -171,7 +171,7 @@ internal object Eoe {
     val AS_LONG_AS_DRAW_PLUS_ONE = Regex("""As long as (.+?), if you would draw one or more cards, you draw that many cards plus one instead\.""")
     val COUNTER_ON_TARGET_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on target (.+?) and draw a card\.""")
     val DEFENDING_PLAYER_MILLS = Regex("""[Dd]efending player mills (\w+) cards\.""")
-    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_GAINS = Regex("""([Uu]p to one (?:other )?target .+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains ([a-z ]+) until end of turn\.""")
     val COUNTER_IF_SPENT_LESS_DRAW = Regex("""Counter target spell\. If the amount of mana spent to cast that spell was less than its mana value, you draw a card\.""")
     val NTH_SPELL_EACH_TURN_COSTS_LESS = Regex("""The (\w+) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast\.""")
@@ -254,7 +254,7 @@ internal object Eoe {
     val LIFE_BECOMES_HALF_STARTING = Regex("""[Yy]our life total becomes half your starting life total, rounded (up|down)\.""")
     val ADD_X_ANY_ONE_COLOR_COUNTERS = Regex("""Add X mana of any one color, where X is the number of (\S+) counters on (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_GAINS = Regex("""Target player draws (\w+) cards and gains (\d+) life\.""")
-    val THAT_PLAYER_GETS_POISON = Regex("""([Tt]hat player|[Tt]arget opponent|[Tt]arget player) gets (\w+) poison counters\.""") // mkm chunk 02: target
+    val THAT_PLAYER_GETS_POISON = Regex("""(That player|that player|Its controller|its controller|Target opponent|target opponent|Target player|target player|Each opponent|each opponent|Each player|each player|You|you) gets? (an additional|\w+) (poison) counters?\.""")
     val CREATE_COPY_EXCEPT_LEGENDARY = Regex("""Create a token that's a copy of target (.+?), except it's legendary\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets ([+-]\d+)/([+-]\d+) and has "(.+?\.)"""")
     val TAP_X_UNTAPPED = Regex("""Tap X untapped (.+)""")

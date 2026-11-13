@@ -485,4 +485,138 @@ class DeviceInWorkerTest {
         assertTrue(!cast.open)
         assertTrue("closed: undone at 4e" in AppLog.text().takeLast(20_000), "the worker's session closed")
     }
+
+    /** The shared flows' controller on [game]'s table: its sessions beside the game's device (web client step 4e: in the worker
+     * for a game whose device is there, answers delivered by [pump]; here at once otherwise); [sent]: a step's own inputs. */
+    private fun flows(game: EngineGame, sent: (List<arcanum.engine.input.Input>) -> Unit) =
+        SharedFlowController(game.me, { game.play() }, { }, engineSend = { inputs -> sent(inputs); null },
+            port = TableSharedPort(LocalSharedPort(game.me) { work, done -> done(work()) }) { game })
+
+    /** What the shared panels draw, compared across a session here and one in the worker (the board numbers aside), with the
+     * text ([codecOf]'s codec) of the flow's state. */
+    private fun flowShape(c: SharedFlowController, codecOf: EngineGame) = listOf(c.view?.value?.copy(version = 0, board = 0),
+        c.view?.version, c.mana, c.paid, c.payment, c.answering?.id, c.paying, c.paySources(), c.payableSources(), c.listedAnswers(),
+        c.pick?.options, c.busy, c.view?.state?.let { codecOf.codec.encodeModel(org.asyncttwiz.protocol.game.GameModel(it, org.asyncttwiz.protocol.game.TableState())) })
+
+    // Web client step 4e, STK-049 (CR 118.12): Alice's Ember Tollkeeper enters and asks "you may pay {1}": the shared flow's
+    // panel through a session in the worker beside her device gives the same panel as one here (the question, Autotap's
+    // Mountain, Paid), the Mountain tapped out and back on the table the same payment, and Pay the same inputs; a step for a
+    // session the worker doesn't hold, or on a board it no longer holds, is refused as stale
+    @Test fun aSharedPaymentThroughTheWorkersSessionGivesTheSamePanels() {
+        // Played to the Tollkeeper's question on Alice's table (Bob's device beside it), then her game opened twice there
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.TOLLKEEPER, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        val keeper = kit.atw(kit.hand(EngineGameFixture.Choices.TOLLKEEPER).first())
+        assertTrue(kit.toolkit.cast.start(keeper), "the Tollkeeper is cast: ${kit.toolkit.error}")
+        kit.playOn("the Tollkeeper's question", rounds = 40) {
+            val s = kit.state()
+            if (s.stack.isNotEmpty() && s.priority.holder == kit.me && s.pending == null)
+                (kit.alice.device.status as? GameDevice.Status.Stopped)?.let { kit.alice.act(it.assumed) } ?: kit.alice.pass()
+            kit.state().pending?.decision is arcanum.engine.decision.Decision.May
+        }
+        kit.settle()
+        val f = kit.scenario.f
+        val snapshot = kit.scenario.sim.snapshot(f.a)
+        val local = EngineGame(f.game.id, f.a, f.base, snapshot, ids = counter(), worker = HostWorker)
+        val remote = EngineGame(f.game.id, f.a, f.base, snapshot, device = channel)
+        pump()
+        assertIs<arcanum.engine.decision.Decision.May>(local.shown?.engine?.pending?.decision, "the Tollkeeper asks")
+        assertEquals(shape(local.shown), shape(remote.shown), "both at the question")
+        var localSent: List<arcanum.engine.input.Input>? = null
+        var remoteSent: List<arcanum.engine.input.Input>? = null
+        val here = flows(local) { localSent = it }
+        val there = flows(remote) { remoteSent = it }
+        here.load(local.play())
+        there.load(remote.play())
+        assertNull(there.view, "the page doesn't wait for the worker")
+        pump()
+        val mountain = local.shown!!.engine.battlefield.first { local.shown!!.engine.obj(it)?.definition?.faces?.first()?.name == "Mountain" }
+            .let { (it as arcanum.engine.state.ObjectId.Card).card.value }
+        assertTrue(here.paying && here.paid, "the slim bar with Autotap's Mountain")
+        assertEquals(setOf(mountain), here.paySources())
+        assertEquals(flowShape(here, local), flowShape(there, local), "the same panel from the worker's values")
+        // The Mountain tapped out, then back: the payment worked out where each session runs
+        for (n in 1..2) {
+            assertTrue(here.tapSource(mountain)); assertTrue(there.tapSource(mountain))
+            pump()
+            assertEquals(flowShape(here, local), flowShape(there, local), "after tap $n")
+        }
+        assertTrue(here.paid)
+        assertTrue(here.payMana()); assertTrue(there.payMana())
+        pump()
+        assertEquals(assertNotNull(localSent, "Pay sent its inputs"), remoteSent)
+        val log = AppLog.text().takeLast(20_000)
+        assertTrue("[worker] Flow session" in log && "opened: shared" in log, "the worker's session log reached the page's log")
+        // Stale steps
+        val answers = mutableListOf<org.asyncttwiz.automatum.boundary.SharedAnswer>()
+        remote.sharedStep(org.asyncttwiz.automatum.boundary.SharedRequest(424242, 2, remote.play().values?.number,
+            org.asyncttwiz.automatum.boundary.SharedOp.Pays(emptyList()))) { answers += it }
+        remote.sharedStep(org.asyncttwiz.automatum.boundary.SharedRequest(424243, null, 987654321,
+            org.asyncttwiz.automatum.boundary.SharedOp.Pass(f.a))) { answers += it }
+        pump()
+        assertEquals<List<org.asyncttwiz.automatum.boundary.SharedAnswer>>(List(2) { org.asyncttwiz.automatum.boundary.SharedAnswer.Refuse(SharedSessions.TABLE_CHANGED) }, answers)
+        assertTrue("refused as stale" in AppLog.text().takeLast(20_000))
+    }
+
+    // Web client step 4e, CMB-044, CMB-037 (CR 508.1h): Bob's Ember Bulwark and Chime make Alice's attack cost {2}; her Cub staged
+    // on both copies of her game, what the table shows of combat (the cost's {2} on the drafted attacker) comes from the worker's
+    // device as from the one here, and the step arrow's declaration, worked out in the worker's shared-flow session with its
+    // cost paid by Autotap, sends the same inputs and gives the same boards
+    @Test fun aDeclarationWithACostThroughTheWorkersSessionIsTheSame() {
+        val (bulwark, chime) = EngineGameFixture.Choices.BULWARK to EngineGameFixture.Choices.CHIME
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(creatures = true, bobCards = listOf(bulwark, chime))))
+        kit.bobMain = { s ->
+            val held = listOf(bulwark, chime).filter { kit.scenario.cards(s, kit.other, s.battlefield, it).isEmpty() }
+                .firstNotNullOfOrNull { kit.scenario.cards(s, kit.other, s.player(kit.other).hand, it).firstOrNull() }
+            if (held == null) false else { kit.bob.send(kit.scenario.cast(s, kit.other, arcanum.engine.input.Input.Cast(kit.other, held))); true }
+        }
+        val attacker = kit.toReadyCub()
+        kit.bobMain = null
+        kit.playLand()
+        kit.toAttacks()
+        // The Cub staged on her table (a tap, CMB-028), then her game opened twice there
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
+        kit.tap(kit.item(attacker))
+        kit.settle()
+        val f = kit.scenario.f
+        val snapshot = kit.scenario.sim.snapshot(f.a)
+        val local = EngineGame(f.game.id, f.a, f.base, snapshot, ids = counter(), worker = HostWorker)
+        val remote = EngineGame(f.game.id, f.a, f.base, snapshot, device = channel)
+        pump()
+        assertEquals(listOf(attacker), local.play().board.combat?.pairs?.flatMap { p -> p.attackers.map { it.sourceId } }, "staged")
+        assertEquals(shape(local.shown), shape(remote.shown), "both at Alice's attack, the Cub staged")
+        // What the table shows of combat: here worked out in-process, there asked of the worker's device
+        val expected = AutomatumBoards.combat(local.play())
+        assertEquals(listOf("{2}"), expected.costs[attacker].orEmpty().map { it.label }, "the cost to attack on the Cub")
+        var got: org.asyncttwiz.automatum.CombatShown? = null
+        AutomatumBoards.askCombat(remote.play()) { got = it }
+        assertNull(got, "asked of the worker")
+        assertTrue(toWorker.any { "\"combat\"" in it })
+        pump()
+        assertEquals(expected, got, "the same combat from the worker's device")
+        // The step arrow: who declares, then the declaration with its cost paid by Autotap, worked out in each session
+        var localSent: List<arcanum.engine.input.Input>? = null
+        var remoteSent: List<arcanum.engine.input.Input>? = null
+        val here = flows(local) { localSent = it }
+        val there = flows(remote) { remoteSent = it }
+        var declaring: String? = "nobody asked"
+        there.declaring(remote.play()) { declaring = it }
+        pump()
+        assertEquals(f.a, declaring)
+        here.declaring(local.play()) { assertEquals(f.a, it) }
+        assertTrue(here.step()); assertTrue(there.step())
+        pump()
+        val inputs = assertNotNull(localSent, "declared")
+        assertEquals(inputs, remoteSent, "the same declaration from the worker's session")
+        assertTrue(inputs.first() is arcanum.engine.input.Input.DeclareAttackers)
+        assertTrue(inputs.any { it is arcanum.engine.input.Input.Answer && it.answer is arcanum.engine.decision.Answer.ManaPayment },
+            "its {2} paid with it: $inputs")
+        assertTrue(local.send(inputs) !is GameDevice.Acted.Refused)
+        var declared: GameDevice.Acted? = null
+        remote.send(inputs) { declared = it }
+        pump()
+        assertTrue(declared != null && declared !is GameDevice.Acted.Refused, "declared in the worker: $declared")
+        assertEquals(shape(local.shown), shape(remote.shown), "declared and paid")
+    }
 }

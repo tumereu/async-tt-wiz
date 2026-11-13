@@ -243,7 +243,7 @@ class SpmChunk03ModifiedAndCountersTest {
                 has(
                     Keyword.Indestructible,
                     triggered(
-                        on(EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter(ObjectFilter.Is(Objects.Self)))),
+                        on(EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter(ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
                         doing(Effect.PutCounters(objects = Objects.EventObject(EventRole.Object), kind = p1p1, amount = Value.EventAmount)),
                     ),
                 ),

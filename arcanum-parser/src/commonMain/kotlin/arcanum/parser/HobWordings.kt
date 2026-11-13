@@ -30,8 +30,8 @@ internal object Hob {
     val CONTROLLER_AMASSES_X_POWER = Regex("""Its controller amasses (\w+) X, where X is that creature's power\.""")
     val AMASS_X_POWER = Regex("""[Aa]mass (\w+) X, where X is (.+?)'s power\.""")
     val AMASS_INSTEAD_IF_GRAVEYARD = Regex("""[Aa]mass (\w+) (\d+)\. If this spell was cast from a graveyard, amass (\w+) (\d+) instead\.""")
-    // mkm chunk 01: also "If you controlled it, …" after exiling a target
-    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled (?:that creature|that permanent|it), (.+)""") // mkm chunk 02: that permanent
+    // mkm chunk 01: also "If you controlled it, …" after exiling a target; one chunk 07: "that artifact" (any permanent type noun)
+    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled (?:that (?:creature|artifact|enchantment|land|planeswalker|battle|permanent)|it), (.+)""")
     val PUT_COUNTERS_ON_ONE_OR_MORE = Regex("""Whenever you put one or more counters on (.+ you control), (.+?) deals (\d+) damage to target opponent\.""")
     val PER_OPPONENT_EXILE_UNTIL_LEAVES = Regex("""For each opponent, exile up to one target (.+?) that player controls until (.+?) leaves the battlefield\.""")
     val IT_GETS_FOR_EACH = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
@@ -133,7 +133,7 @@ internal object Hob {
     val DRAW_EXCEPT_FIRST_DRAW_TWO = Regex("""If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.""")
     val DIES_IF_CREATURE_RETURN_ARTIFACT = Regex("""When (.+?) die, if they were a creature, return them to the battlefield\. They're an artifact\.""")
     val MAY_CAST_AS_FLASH_IF_CONTROL = Regex("""You may cast this spell as though it had flash if you control an? (.+)\.""")
-    val HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD = Regex("""(.+?) has all activated abilities of all (.+?) cards in your graveyard\.""")
+    val HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD = Regex("""(.+?) has all activated abilities of all (.+?) cards in (your graveyard|all graveyards)\.""")
 
     // hob chunk 11: green and multicoloured
     val TRAMPLE_COUNTER_BECOMES_THEN_DRAW = Regex("""[Pp]ut an? (\S+) counter on up to one target (.+?)\. It becomes an? ([A-Z][a-z]+) in addition to its other types\. Then if you control (\w+) or more (.+?), draw (\w+) cards\.""")

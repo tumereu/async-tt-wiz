@@ -157,7 +157,7 @@ class MkmChunk09EffectsTest {
         text = "Whenever a creature is dealt damage, its controller may exile that many cards from the top of their library. They may play those cards until the end of their next turn.",
     ) parsesTo Players.ControllerOf(Objects.Bound("creature")).let { controller ->
         abilities(
-            triggered(on(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = creature))),
+            triggered(on(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = creature), per = arcanum.api.DamageOccurrence.Recipient)),
                 Step.Bind(Objects.EventObject(EventRole.Object), "creature"),
                 Step.May(listOf(
                     doing(Effect.Move(Objects.LibraryCards(controller, Value.EventAmount, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),

@@ -80,6 +80,6 @@ class MkmSweepTest {
         triggered(entersSelf,
             Step.Pay(cost(mana("{1}")), payer = Players.You, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(create(zombie, bind = "token"),
-                delayed(stepBegins(TurnStep.End, PlayerFilter.Any), move(Objects.Bound("token"), Zone.Exile, postBind = "exiled"))))),
+                delayed(stepBegins(TurnStep.End, PlayerFilter.Any), move(Objects.Bound("token"), Zone.Exile))))),
     )
 }

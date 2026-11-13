@@ -65,6 +65,10 @@ data class FaceDefinition(
     val abilities: List<Ability> = emptyList(),
     /** A dungeon's rooms, the topmost first (CR 309.4): [DungeonRoom]. */
     val rooms: List<DungeonRoom> = emptyList(),
+    // one chunk 07
+    /** Colours set by a copy effect's exception ("except it's a 1/1 white Spirit", CR 707.9b): the face is exactly these colours,
+     * whatever its mana cost and [colorIndicator] say; null: colour from those (CR 202.2). Never printed on a card. */
+    val colors: List<Color>? = null,
 )
 
 /**
@@ -374,6 +378,11 @@ data class TargetSlot(
      * ability with its chosen targets named in its text. Null when not known (a definition written by hand, a slot the
      * engine makes, a wording whose phrases the parser couldn't place). It has no rules meaning. */
     val span: TextSpan? = null,
+    // rvr
+    /** The target is chosen by a player matching this, not by the spell's or ability's controller ("target creature card of an
+     * opponent's choice"); with several such players the controller picks which one chooses (CR 601.2c; CR 801.5a's example).
+     * Null: the controller chooses it. */
+    val chosenBy: PlayerFilter? = null,
 )
 
 /** A piece of a printed text: the characters from [start] (inclusive) to [end] (exclusive), counted in UTF-16 code

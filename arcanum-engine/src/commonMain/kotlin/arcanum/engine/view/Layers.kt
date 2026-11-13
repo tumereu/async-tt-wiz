@@ -639,6 +639,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                     .filter { !mechanic.exceptLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().none { p -> p is CostPart.Loyalty } }
                     // ltr chunk 13: "except mana abilities" (CR 605.1a)
                     .filter { !mechanic.exceptMana || !it.ability.isManaAbility() }
+                    // rvr: "all loyalty abilities of" (CR 606.2)
+                    .filter { !mechanic.onlyLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { p -> p is CostPart.Loyalty } }
                     .map { AbilityInstance(it.ability, AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
             })
             is Mechanic.LoseAbilities -> Op.Lose(mechanic.keyword)

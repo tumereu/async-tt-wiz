@@ -181,7 +181,7 @@ class MkmChunk02InvestigateTest {
             Whenever this creature is dealt 3 or more damage, investigate. (Create a Clue token. It's an artifact with "{2}, Sacrifice this token: Draw a card.")
         """,
     ) parsesTo abilities(
-        triggered(Trigger.On(listOf(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))), oneOrMore = true),
+        triggered(Trigger.On(listOf(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = arcanum.api.DamageOccurrence.Recipient)), oneOrMore = true),
             investigate(), triggersOnlyIf = Condition.Compare(Value.EventAmount, Comparison.AtLeast, n(3))),
     )
 

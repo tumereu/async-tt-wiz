@@ -20,8 +20,8 @@ internal object Dft {
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|one|two|three) (\S+) counters? on it\.""")
     val FOR_EACH_PLAYER_DESTROY_UP_TO_ONE = Regex("""For each player, destroy up to one target (.+?) that player controls\. If an? (.+?) you controlled was destroyed this way, (.+)""")
     val GAIN_CONTROL_AS_LONG_AS_CANT_ATTACK_OR_BLOCK = Regex("""Gain control of target (.+?) for as long as you control (.+?)\. That creature can't attack or block for as long as you control (.+?)\.""")
-    // isd chunk 05: also "a creature card at random" (Woodland Sleuth)
-    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card( at random)? from your graveyard to your hand\.""")
+    // isd chunk 05: also "a creature card at random" (Woodland Sleuth); rvr: also "to the battlefield"
+    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card( at random)? from your graveyard to (your hand|the battlefield)\.""")
     val RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD = Regex("""Return up to one (other )?target (.+?) card from your graveyard to the battlefield\.""")
     val CREATE_THAT_MANY = Regex("""[Cc]reate that many (tapped )?(.+)\.""")
     // dft chunk 02
@@ -54,7 +54,7 @@ internal object Dft {
     // dft chunk 07
     val MAY_PAY_IF_YOU_DO_COPY_IT = Regex("""You may pay (\{[^}]+\})\. If you do, copy it\.""")
     val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
-    val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token attacks this combat if able\.""")
+    val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token (?:gains ([a-z ,]+) until end of turn and )?attacks this combat if able\.""")
     val DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED = Regex("""(.+?) deals (\d+) damage to each player who doesn't have max speed\.""")
     val GET_X_WHERE = Regex("""(.+) get \+X/\+(\d+), where X is (.+)\.""")
     val COST_X_LESS_WHERE = Regex("""(.+) cost \{X\} less to cast, where X is (.+)\.""")
@@ -90,16 +90,17 @@ internal object Dft {
     val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
     // dft chunk 13
     val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
-    val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
+    // rvr chunk 03: also "there is an additional combat phase followed by an additional main phase"
+    val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there (?:are (\w+) additional combat phases|is an additional combat phase followed by an additional main phase)\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")
     // dft chunk 14
     val UNTAP_ENCHANTED_PERMANENT = Regex("""Untap enchanted (permanent|creature)\.""")
     val MAY_SEARCH_LIBRARY_AND_OR_GRAVEYARD_REVEAL_HAND = Regex("""You may search your library and/or graveyard for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
     val EACH_ATTACKING_AN_OPPONENT_HAS = Regex("""Each (\w+) that's attacking one of your opponents has ([a-z ,]+)\.""")
     val MAY_PUT_FROM_HAND_IF_ARTIFACT_COUNTERS = Regex("""You may put an? (.+?) card from your hand onto the battlefield\. If you put an artifact onto the battlefield this way, put (\w+) (\S+) counters on it\.""")
-    val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control\.""")
+    val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control( with .+)?\.""")
     val RETURN_UP_TO_ONE_EACH_TO_HAND = Regex("""Return (up to one target .+) from your graveyard to your hand\.""")
-    val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other types\.""")
+    val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other (?:creature )?types\.""")
     // dft chunk 15
     val PUT_FROM_GRAVEYARD_FINALITY_GAINS_EXILE_NEXT_END = Regex("""Put target (.+?) from a graveyard onto the battlefield under your control with a finality counter on it\. That creature gains ([a-z ,]+)\. At the beginning of your next end step, exile that creature\.""")
     val AS_ENTERS_EXILE_UP_TO_X_COUNTERS_FOR_EACH = Regex("""As (.+?) enters, exile up to X (.+?) cards from your graveyard\. It enters with (\w+) (\S+) counters on it for each \2 card exiled this way\.""")

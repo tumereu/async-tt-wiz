@@ -80,6 +80,10 @@ object Functioning {
                 event is EventPattern.Discard && event.cards.isSelf() -> setOf(Zone.Hand)
                 // CR 702.29c: "when you cycle this card" triggers from the zone the card winds up in
                 event is EventPattern.Cycle && event.cards.isSelf() -> EVERYWHERE
+                // rvr: "when this card is put into your graveyard from your library" doesn't look back (CR 603.10, 603.10a): it is checked on
+                // the card where it went, the graveyard (CR 113.6k)
+                event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == Zone.Library && event.to != null &&
+                    event.to != Zone.Battlefield -> setOf(event.to!!)
                 // "enters from your hand" is an enters ability: it works on the battlefield (CR 603.6a)
                 event is EventPattern.ZoneChange && event.objects.isSelf() && event.from != null &&
                     event.from != Zone.Battlefield && event.to != Zone.Battlefield -> setOf(event.from!!)

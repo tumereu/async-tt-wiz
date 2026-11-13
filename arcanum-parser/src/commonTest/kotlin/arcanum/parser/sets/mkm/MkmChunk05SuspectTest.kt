@@ -84,7 +84,7 @@ class MkmChunk05SuspectTest {
         triggered(entersSelf, suspect(Objects.Self)),
         triggered(combatDamageToAPlayer, draw(1), loseLife(1)),
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = arcanum.api.DamageOccurrence.Recipient)),
             Instructions(targets = listOf(targetOpponent), steps = listOf(Step.Do(Effect.LoseLife(Players.Target("opponent"), Value.EventAmount)))),
         ),
     )

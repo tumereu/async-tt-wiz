@@ -356,6 +356,9 @@ sealed interface Mechanic {
         // ltr chunk 13
         /** Not their mana abilities ("all activated abilities of lands your opponents control except mana abilities", CR 605.1a). */
         val exceptMana: Boolean = false,
+        // rvr chunk 05
+        /** Only their loyalty abilities ("has all loyalty abilities of all other planeswalkers on the battlefield", CR 606.2). */
+        val onlyLoyalty: Boolean = false,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -372,7 +375,8 @@ sealed interface Mechanic {
     @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
      * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the mana, every symbol counted, a reduction can't take the
-     * cost below (0: no minimum; 1: "This effect can't reduce the mana in that cost to less than one mana", CR 118.7). */
+     * cost below (0: no minimum; 1: "This effect can't reduce the mana in that cost to less than one mana", CR 118.7). The change's
+     * count may name the spell or ability being paid for as [Objects.Tested] ("{1} less for each of the chosen colors it is"). */
     @Serializable @SerialName("cost-change") data class CostChange(
         val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {
@@ -398,6 +402,15 @@ sealed interface Mechanic {
     /** The affected players can't cast spells matching [spells] ("Your opponents can't cast noncreature spells", "can't
      * cast more than one spell each turn" with a condition on [Players.Affected]); [Objects.Tested] is the spell. */
     @Serializable @SerialName("cant-cast") data class CantCast(val spells: ObjectFilter) : Mechanic
+    // rvr chunk 04
+    /** The affected players can cast spells matching [spells] only any time they could cast a sorcery ("Each opponent can cast spells only
+     * any time they could cast a sorcery"): with priority, in their main phase, with an empty Stack, flash or not, and so never while
+     * another spell or ability resolves (CR 307.5); [Objects.Tested] is the spell. */
+    @Serializable @SerialName("cast-only-as-sorcery") data class CastOnlyAsSorcery(val spells: ObjectFilter) : Mechanic
+    // rvr chunk 05
+    /** The affected players can't play lands matching [lands] ("Your opponents can't play land cards from graveyards", CR 305.1, 101.2);
+     * casting is [CantCast]. */
+    @Serializable @SerialName("cant-play-lands") data class CantPlayLands(val lands: ObjectFilter) : Mechanic
     /** The affected permanents can't be sacrificed. */
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
     // inr chunk 09
@@ -430,6 +443,10 @@ sealed interface Mechanic {
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
+    // one chunk 07
+    /** The affected players can't get counters of [kind] ("you can't get additional poison counters this turn", CR 122.1, 101.2): putting
+     * them on such a player does nothing. */
+    @Serializable @SerialName("cant-get-counters") data class CantGetCounters(val kind: CounterKind) : Mechanic
     /** The affected player can't win the game by an effect (CR 104.2b); being the last player left still wins (CR 104.2a). */
     @Serializable @SerialName("cant-win-game") data object CantWinGame : Mechanic
     @Serializable @SerialName("no-maximum-hand-size") data object NoMaximumHandSize : Mechanic
@@ -514,6 +531,13 @@ sealed interface Mechanic {
     /** Loyalty abilities of the affected permanents may be activated on any player's turn any time their controller could
      * cast an instant (CR 606.3 otherwise: only as a sorcery); still only once each turn. */
     @Serializable @SerialName("loyalty-at-instant-speed") data object LoyaltyAtInstantSpeed : Mechanic
+    // one chunk 10
+    /** Loyalty abilities of the affected permanents may be activated [count] times each turn rather than only once ("you may
+     * activate loyalty abilities of Kaito twice this turn rather than only once", CR 606.3). */
+    @Serializable @SerialName("loyalty-activations") data class LoyaltyActivationsPerTurn(val count: Int) : Mechanic
+    /** The affected cards can't enter the battlefield ("Permanent cards in graveyards can't enter the battlefield"): an effect that would
+     * put one there leaves it where it is (CR 101.2); the affected objects name the zones it applies in. */
+    @Serializable @SerialName("cant-enter-battlefield") data object CantEnterBattlefield : Mechanic
     // mh2
     /** For the affected players: loyalty abilities they activate cost an additional [[+amount]] ("Planeswalkers' loyalty abilities you activate cost an
      * additional [+1] to activate"): [amount] more loyalty counters are put on the planeswalker, or that many fewer removed, as the cost is paid
@@ -521,8 +545,13 @@ sealed interface Mechanic {
     @Serializable @SerialName("additional-loyalty-cost") data class AdditionalLoyaltyCost(val amount: Int) : Mechanic
     /** "[Event] doesn't cause abilities to trigger" ("Artifacts and creatures entering the battlefield don't cause abilities to
      * trigger", CR 603.2): triggered abilities don't trigger on events matching [event]. Scoped by its event, like
-     * [TriggersAdditionalTime]. */
-    @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(val event: EventPattern) : Mechanic
+     * [TriggersAdditionalTime]. [sources] when given: only triggered abilities of objects matching it are muted ("Permanents entering don't
+     * cause abilities of permanents your opponents control to trigger", one), relative to this ability's controller. */
+    @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(
+        val event: EventPattern,
+        // one chunk 08
+        val sources: ObjectFilter? = null,
+    ) : Mechanic
     // hob
     /** The affected players get [designation] for the rest of the game any time the ability's condition holds and they don't
      * have it (storied, CR 702.195a): a static ability, not a trigger, so it happens at once, and continuous effects are
@@ -567,6 +596,9 @@ sealed interface Mechanic {
         val event: EventPattern, val each: Value? = null,
         // dsk gaps
         val additional: Instructions? = null,
+        // rvr
+        /** On a shield with an amount ([Effect.PreventDamage.redirectTo]): the damage is dealt to these instead of prevented (CR 614.9). */
+        val redirectTo: Recipients? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -644,13 +676,24 @@ sealed interface TextWord {
 sealed interface Modification {
     @Serializable @SerialName("destination") data class ChangeDestination(val to: Destination) : Modification
     @Serializable @SerialName("enters-tapped") data object EntersTapped : Modification
-    @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(val kind: CounterKind, val amount: Value) : Modification
+    @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(
+        val kind: CounterKind, val amount: Value,
+        // rvr chunk 04
+        /** Only if the permanent as it will enter matches ("if it's a creature"): its characteristics after the copy effect it enters with, if
+         * any (CR 614.12). */
+        val ifEntersAs: ObjectFilter? = null,
+    ) : Modification
     @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(
         val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean,
         // spm
         /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
         val bind: String? = null,
+        // rvr chunk 04
+        /** Counters it enters with only when it enters as a copy ("except it enters with an additional +1/+1 counter on it if it's a
+         * creature"): not copiable values, but part of the same replacement (CR 614.1c, 707.9b). */
+        val withCounters: List<EntersWithCounters> = emptyList(),
     ) : Modification
+    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times it is done. */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If

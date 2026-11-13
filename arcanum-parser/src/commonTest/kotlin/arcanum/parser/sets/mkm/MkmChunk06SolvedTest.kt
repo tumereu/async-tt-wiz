@@ -188,7 +188,7 @@ class MkmChunk06SolvedTest {
         """,
     ) parsesTo abilities(
         static(Mechanic.CostChange(and(or(instant, sorcery), spellFilter, you), CostChange.Less(ManaCost.parse("{1}")!!, n(1)))),
-        toSolve(Condition.HappenedThisTurn(EventPattern.Cast(or(instant, sorcery), PlayerFilter.You), atLeast = 4, measure = Measure.Events)),
+        toSolve(Condition.HappenedThisTurn(EventPattern.Cast(and(or(instant, sorcery), spellFilter), PlayerFilter.You), atLeast = 4, measure = Measure.Events)),
         solved(triggered(youCast(or(instant, sorcery)), draw(1))),
     )
 

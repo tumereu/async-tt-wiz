@@ -230,7 +230,7 @@ class MkmChunk03CollectEvidenceTest {
         static(Mechanic.MayChooseNotToUntap),
         activated(cost(mana("{3}{G}"), tap, collectEvidence(4)),
             doing(Effect.ApplyMechanics(listOf(
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype("Plant")), arcanum.api.SubtypeRef.Literal(Subtype("Boar"))), replaceSubtypes = true),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype("Plant")), arcanum.api.SubtypeRef.Literal(Subtype("Boar")))),
                 Mechanic.SetColors(listOf(arcanum.api.ColorRef.Literal(Color.Green))),
                 Mechanic.SetPowerToughness(n(5), n(5)),
                 Mechanic.GainAbilities(listOf(Keyword.Haste))),

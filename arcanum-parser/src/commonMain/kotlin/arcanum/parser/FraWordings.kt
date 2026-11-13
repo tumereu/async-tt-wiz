@@ -60,7 +60,7 @@ internal object Fra {
     val ASSIGNS_BY_TOUGHNESS = Regex("""Each (.+?) assigns combat damage equal to its toughness rather than its power\.""")
     val POWER_NEGATIVE_ASSIGNS = Regex("""If (.+?)'s power is negative, (?:he|she|it) assigns combat damage as though (?:his|her|its) power were positive\.""")
     val NO_GRAVEYARD_FOR_ZERO_LOYALTY = Regex("""(.+?) aren't put into their owners' graveyards for having 0 loyalty\.""")
-    val ENTERING_DOESNT_TRIGGER = Regex("""(.+?) entering(?: the battlefield)? don't cause abilities to trigger\.""")
+    val ENTERING_DOESNT_TRIGGER = Regex("""(.+?) entering(?: the battlefield)? don't cause abilities(?: of (.+?))? to trigger\.""")
     val SPELLS_HAVE_KEYWORD = Regex("""(.+? spells you control) have ([a-z ]+)\.""")
     val SPELLS_OPPONENTS_CAST_COST_MORE = Regex("""(.+? spells) your opponents cast cost (\{\d+\}) more to cast\.""")
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
@@ -71,7 +71,8 @@ internal object Fra {
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted permanent is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?) and )?"(.+)"""")
     val HAVE_NO_MORE_THAN_ATTACK = Regex("""(.+?) you control have "No more than (\w+) creatures? can attack this planeswalker each combat\."""")
-    val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: .+)"""")
+    // one chunk 01: Ichormoon Gauntlet, two quoted loyalty abilities ("[0]: Proliferate" and "[−12]: Take an extra turn after this one.")
+    val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: [^"]+)"(?: and "(\[[^\]]+\]: [^"]+)")?""")
     val AS_LONG_AS_MAY_CAST_EXILED = Regex("""As long as (.+?), you may cast the exiled card, and mana of any type can be spent to cast that spell\.""")
     val SPELLS_WITH_MV_AT_MOST = Regex("""spells with mana value less than or equal to (.+)""")
     val MAY_CAST_FROM_HAND_WITHOUT_PAYING = Regex("""You may cast (spells(?: with .+?)?) from your hand without paying their mana costs\.""")
@@ -104,14 +105,14 @@ internal object Fra {
     val IF_YOU_DONT = Regex("""If you don't, (.+)\.""")
     val COUNTER_FOR_EACH_DISCARDED_THIS_TURN = Regex("""Put an? (\S+) counter on that creature for each card you've discarded this turn\.""")
     val IF_THAT_LAND_IS_ADD = Regex("""If that land is an? (.+?), (add .+)\.""")
-    val DEALS_DAMAGE_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+?) deals (\d+) damage to that creature's controller\.""")
+    val DEALS_DAMAGE_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+?) deals (\d+) damage to that (creature|permanent)'s controller\.""") // rvr chunk 04: permanent
     val DEALS_DAMAGE_TO_UP_TO_ONE_AND_PLAYER = Regex("""(.+?) deals (\d+) damage to up to one target (.+?) and (\d+) damage to target player\.""")
     val SEARCH_UP_TO_X_DIFFERENT_NAMES = Regex("""Search your library for up to X (.+?) with different names, reveal them, put them into your hand, then shuffle\.""")
     val UNTAP_UP_TO = Regex("""Untap up to (\w+) target (.+)\.""")
     val UNTAP_ALL = Regex("""Untap all (.+)\.""")
     val UNTIL_NEXT_TURN_WHENEVER_ATTACK_OPPONENT = Regex("""Until your next turn, whenever one or more creatures attack one of your opponents, those creatures get \+(\d+)/\+(\d+) and gain (\w+) until end of turn\.""")
     val DRAW_FOR_EACH_COLOR_AMONG = Regex("""Draw a card for each (color|different mana value) among (.+)\.""")
-    val PROLIFERATE_TIMES = Regex("""Proliferate (\w+) times\.""")
+    val PROLIFERATE_TIMES = Regex("""[Pp]roliferate (?:(\w+) times|(twice))\.""") // one chunk 01: Ezuri, "proliferate twice"
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")
     val PER_OPPONENT = Regex("""(destroy|tap|exile|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")
@@ -196,7 +197,8 @@ internal object FraPhrases {
             return EventPattern.Discard(ObjectFilter.Is(Objects.Self), PlayerFilter.You)
         }
         // fra chunk 05: "an opponent is dealt noncombat damage" (CR 120)
-        if (text == "an opponent is dealt noncombat damage") return EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false)
+        if (text == "an opponent is dealt noncombat damage")
+            return EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false, per = arcanum.api.DamageOccurrence.Recipient)
         // fra chunk 05: "a creature you control attacks a player alone" (CR 506.5)
         ATTACKS_A_PLAYER_ALONE.matchEntire(text)?.let { m ->
             return EventPattern.Attack(Filters.noun(m.groupValues[1].removePrefix("a ")) ?: return null, alone = true, target = RecipientFilter(players = PlayerFilter.Any))
@@ -237,7 +239,8 @@ internal object FraPhrases {
             return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = atLeast, measure = Measure.Events)
         }
         // fra chunk 08: "you didn't cast a spell this turn"
-        if (text == "you didn't cast a spell this turn")
+        // one chunk 07: "you haven't cast a spell this turn"
+        if (text == "you didn't cast a spell this turn" || text == "you haven't cast a spell this turn")
             return Condition.Not(Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = 1, measure = Measure.Events))
         // fra chunk 08: "you've cast a noncreature spell this turn"
         if (text == "you've cast a noncreature spell this turn")

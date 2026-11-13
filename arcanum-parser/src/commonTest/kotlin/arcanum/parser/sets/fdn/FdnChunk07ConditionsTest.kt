@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fdn
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardType
@@ -268,7 +269,7 @@ class FdnChunk07ConditionsTest {
         static(pt(1, 1), affects = Objects.Each(and(another, sub("Goblin"), you))),
         activated(manaCost("{R}"),
             untilEndOfTurn(target("Goblin"), Mechanic.GainAbilities(listOf(Keyword.Flying,
-                triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true)), sacrificeIt)))),
+                triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true, per = DamageOccurrence.Source)), sacrificeIt)))),
             targets = listOf(slot("Goblin", and(another, sub("Goblin"), you)))),
     )
 

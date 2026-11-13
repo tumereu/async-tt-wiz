@@ -41,7 +41,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
         { if (it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send },
-        takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
+        takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        // Web client step 4e: the flows' sessions run beside the game's device (the browser's engine worker), else here
+        port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     private val automatumWork = automatumWork
     /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
     val mainSlot = MainSlot()
@@ -62,7 +64,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play, engine?.control() == true)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
-        { error }, { error = it }, board = { current() })
+        { error }, { error = it }, board = { current() }, game = { (engine as? EngineTableRoutes)?.engine })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
 
@@ -309,7 +311,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
         panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
-        shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
+        shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } },
+        game = { (engine as? EngineTableRoutes)?.engine })
     val table = TableActionController(::current, ::enabled, this, atTable = { atTable() && current() != null })
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
@@ -479,13 +482,21 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         engine?.let { e ->
             error = null
             return when (intent) {
-                is TableActionIntent.Next -> when {
-                    declares(play) -> flows.step()
-                    // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
-                    // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
-                    // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
-                    arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
-                    else -> e.pass()
+                is TableActionIntent.Next -> {
+                    // Web client step 4e: in-process answered at once (the result is the step's); across the boundary the
+                    // worker says who declares, then the step goes on
+                    var taken = true
+                    flows.declaring(play) { who ->
+                        taken = when {
+                            who == viewer -> flows.step()
+                            // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
+                            // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
+                            // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
+                            arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
+                            else -> e.pass()
+                        }
+                    }
+                    taken
                 }
                 is TableActionIntent.End -> e.endTurn()
                 else -> false
@@ -493,12 +504,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         }
         return false
     }
-
-    /** Whether the viewer declares attackers or blockers on [play] now (the step arrow then declares what the lanes hold),
-     * from the board's own flow. Problem report XGN86Q: no panel shows at a declaration, so the panel's flow ([flows]'
-     * view) isn't there to ask. */
-    private fun declares(play: TableBoard): Boolean =
-        (flows.view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play))?.declaring == viewer
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */

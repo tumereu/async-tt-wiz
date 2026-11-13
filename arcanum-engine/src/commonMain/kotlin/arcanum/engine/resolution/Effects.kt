@@ -181,7 +181,10 @@ internal object Effects {
             is Effect.Untap -> Actions.tap(act, onBattlefield(scope, effect.objects), false)
             is Effect.Attach -> {
                 val to = recipients(scope, effect.to).firstOrNull() ?: return
-                onBattlefield(scope, effect.objects).forEach { if (TargetRef.Object(it) != to) Actions.attach(act, it, to) }
+                // CR 701.3b: what can't legally be attached to it doesn't move
+                onBattlefield(scope, effect.objects).forEach {
+                    if (TargetRef.Object(it) != to && arcanum.engine.sba.StateBasedActions.canBeAttached(act, it, to)) Actions.attach(act, it, to)
+                }
             }
             is Effect.Unattach -> onBattlefield(scope, effect.objects).forEach { Actions.attach(act, it, null) }
             // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g). What
@@ -496,6 +499,17 @@ internal object Effects {
                 }
                 kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
             }
+            // one: "choose a counter on target permanent. Put an additional counter of that kind on that permanent" (CR 122.1, 122.6)
+            is Effect.OneMoreCounterOfChosenKind -> Actions.recipientsOf(scope.eval(), effect.recipients).forEach { ref ->
+                val kinds = when (ref) {
+                    is TargetRef.Object -> act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield }?.counters?.map { it.kind }.orEmpty()
+                    is TargetRef.Player -> act.state.player(ref.id).counters.map { it.kind }
+                }.distinct()
+                if (kinds.isEmpty()) return@forEach
+                val labels = kinds.map { counterLabel(it) }
+                val chosen = kinds[labels.indexOf(act.chooseOption(scope.actor, scope.self, labels, text = "Choose a kind of counter")).coerceAtLeast(0)]
+                Actions.putCounters(act, cause, ref, chosen, 1)
+            }
             // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
             // Host.decider who makes their decisions
             is Effect.ControlNextTurn -> {
@@ -557,6 +571,14 @@ internal object Effects {
         return won
     }
 
+    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil"). */
+    private fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
+        is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
+        is arcanum.api.CounterKind.Named -> kind.name
+        is arcanum.api.CounterKind.Keyword -> kind.keyword.id
+        else -> kind::class.simpleName.orEmpty().lowercase()
+    }
+
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
         val player = scope.players(chooser).firstOrNull() ?: scope.actor
         val names = scope.act.view()[id]?.copiable?.faces.orEmpty()
@@ -612,18 +634,31 @@ internal object Effects {
 
     private fun dealDamage(scope: Scope, effect: Effect.DealDamage) {
         val act = scope.act
-        val source = scope.objects(effect.source).firstOrNull() ?: return
-        val targets = recipients(scope, effect.to)
-        val divided = scope.cause.item?.divided.orEmpty()
-        val parts = targets.map { r ->
-            val share = divided.firstOrNull { it.target == r }?.amount
-            DamageDealt(source, r, scope.eval(dividedShare = share).value(effect.amount))
-        }
+        val parts = damageParts(scope, effect)
+        if (parts.isEmpty() && scope.objects(effect.source).isEmpty()) return
         val result = Actions.damage(act, scope.cause, parts, effect.cantBePrevented)
         effect.bind?.let { bind ->
             scope.bind(bind, NamedValue.Number(result.total))
             scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excess))
         }
+    }
+
+    /** The damage [effect] would deal in [scope]: its source to each recipient (a divided share each, CR 601.2d). */
+    private fun damageParts(scope: Scope, effect: Effect.DealDamage): List<DamageDealt> {
+        val source = scope.objects(effect.source).firstOrNull() ?: return emptyList()
+        val divided = scope.cause.item?.divided.orEmpty()
+        return recipients(scope, effect.to).map { r ->
+            val share = divided.firstOrNull { it.target == r }?.amount
+            DamageDealt(source, r, scope.eval(dividedShare = share).value(effect.amount))
+        }
+    }
+
+    /** rvr fixes, CR 608.2f: one action on several objects, "each deals damage …", is processed simultaneously: the damage of every
+     * one of [scopes] (a loop over the objects) is dealt as one event, so a "whenever … is dealt damage" ability triggers once. */
+    fun dealDamageTogether(scopes: List<Scope>, effect: Effect.DealDamage) {
+        val first = scopes.firstOrNull() ?: return
+        val parts = scopes.flatMap { damageParts(it, effect) }
+        if (parts.isNotEmpty()) Actions.damage(first.act, first.cause, parts, effect.cantBePrevented)
     }
 
     // dsk gaps
@@ -685,6 +720,7 @@ internal object Effects {
         val attachTo = dest.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
         val attacking = dest.attacking?.let { attackTarget(scope, it) }
+        val blocking = dest.blocking?.let { e.objects(it).firstOrNull() }
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
             ordered = act.randomObjects(scope.actor, scope.self, ids, ids.size)
@@ -704,7 +740,7 @@ internal object Effects {
                 id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
                     ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
-                attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
+                attachTo = attachTo, transformed = dest.transformed, attacking = attacking, blocking = blocking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
             )
@@ -836,6 +872,10 @@ internal object Effects {
             if (effect.differentNames) {
                 val names = chosen.map { e.characteristics(it)?.name }
                 require(names.distinct().size == names.size) { "The cards must have different names" }
+            }
+            // rvr: "with total mana value 6 or less" (D32: a rule-breaking answer is refused)
+            effect.totalAtMost?.let { limit ->
+                require(chosen.sumOf { e.property(limit.property, it) } <= scope.value(limit.atMost)) { "The found cards' total is more than allowed" }
             }
             options = chosen
             found += options
@@ -1248,12 +1288,21 @@ internal object Effects {
         scope.names = scope.names.with(SHIELDED, NamedValue.Objects(objects)).with(SHIELDED_PLAYERS, NamedValue.Players(players))
         val pattern = EventPattern.Damage(effect.from, RecipientFilter(
             objects = ObjectFilter.Is(Objects.Bound(SHIELDED)), players = PlayerFilter.Is(Players.Bound(SHIELDED_PLAYERS))))
-        applyMechanics(scope, listOf(Mechanic.Prevention(pattern)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
+        // rvr fixes, CR 614.9: a redirection shield's new recipients are fixed as it resolves
+        val redirect = effect.redirectTo?.let { to ->
+            val refs = recipients(scope, to)
+            scope.names = scope.names.with(REDIRECT_TO, NamedValue.Objects(refs.filterIsInstance<TargetRef.Object>().map { it.id }))
+                .with(REDIRECT_TO_PLAYERS, NamedValue.Players(refs.filterIsInstance<TargetRef.Player>().map { it.id }))
+            arcanum.api.Recipients(objects = Objects.Bound(REDIRECT_TO), players = Players.Bound(REDIRECT_TO_PLAYERS))
+        }
+        applyMechanics(scope, listOf(Mechanic.Prevention(pattern, redirectTo = redirect)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
         scope.names = saved
     }
 
     private const val SHIELDED = "\$shielded"
     private const val SHIELDED_PLAYERS = "\$shielded-players"
+    private const val REDIRECT_TO = "\$redirect-to"
+    private const val REDIRECT_TO_PLAYERS = "\$redirect-to-players"
 
     /** CR 701.19a: "The next time it would be destroyed this turn, instead remove all damage marked on it and its
      * controller taps it. If it's an attacking or blocking creature, remove it from combat." (D26) */
@@ -1492,8 +1541,27 @@ internal object Effects {
             KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
-        performKeywordAction(scope, action, bind)
-        done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+        repeat(times(scope, action, done)) {
+            performKeywordAction(scope, action, bind)
+            done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+        }
+    }
+
+    /**
+     * one: how many times a keyword action one player does with no object is done, after replacements of doing it ("If you would proliferate,
+     * proliferate twice instead", CR 614.1a): each applies once (CR 614.5), so two of them make four. Other actions are done once.
+     */
+    private fun times(scope: Scope, action: KeywordAction, done: List<Pair<PlayerId, List<ObjectId>>>): Int {
+        val player = done.singleOrNull()?.takeIf { it.second.isEmpty() }?.first ?: return 1
+        val act = scope.act
+        if (arcanum.engine.action.Replacements.candidates(act, scope.cause).none { (it.mechanic.event as? arcanum.api.EventPattern.KeywordActionDone)?.action == action.kind }) return 1
+        val linked = mutableListOf<arcanum.engine.decision.WaitingTrigger>()
+        val times = arcanum.engine.action.Replacements.apply(act, scope.cause, 1, player, null,
+            proposed = { n -> if (n <= 0) null else Change.Happened(GameEvent.KeywordActionDone(action.kind, player, emptyList())) },
+            modify = { n, r, _ -> Actions.modifyAmount(act, n, r) },
+            instead = { r, instance -> Actions.runInstead(act, r, instance) }, linked = linked) ?: 0
+        arcanum.engine.action.Replacements.addLinked(act, linked)
+        return times.coerceAtLeast(0)
     }
 
     /** One [GameEvent.KeywordActionDone] each: who does [action], and to or with what. */
@@ -1542,7 +1610,7 @@ internal object Effects {
         }
         val cause = scope.cause
         when (action) {
-            // CR 701.27a: choose any number of permanents and/or players with counters; give each another of each kind
+            // CR 701.34a: choose any number of permanents and/or players with counters; give each another of each kind
             KeywordAction.Proliferate -> {
                 val objects = act.state.battlefield.filter { act.state.obj(it)!!.counters.isNotEmpty() }
                 val players = act.state.apnap().filter { act.state.player(it).counters.isNotEmpty() }

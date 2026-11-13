@@ -63,6 +63,8 @@ class HandController(
     private val shake: (String) -> Unit,
     /** Whether [cardId] is known to have no cast or play Automatum allows now (null: not worked out yet). */
     private val unplayable: (TableBoard, String) -> Boolean?,
+    /** Web client step 4e: the game played, whose device in the browser's engine worker works the chips out there. */
+    private val game: () -> EngineGame? = { null },
 ) {
     /** The raised card, null when none. */
     val raised: String? get() = layout.value.raised
@@ -175,30 +177,22 @@ class HandController(
         val card = raised ?: return
         val run = ++generation
         board = play.board
-        work.run({
-            try {
-                val definitions = AutomatumBoards.definitions(play)
-                val offered = AutomatumBoards.handPlays(play, viewer).of(card)
-                val seeds = org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() }
-                // R4a: the chips are worked out on the game's own engine state
-                val engine = requireNotNull(play.engine) { "No board to cast on" }
-                HandCasts.chips(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
-                    definitions, viewer, card, offered, seeds)
-            } catch (problem: Exception) {
-                AppLog.warn("automatum", "Couldn't work the cost chips out: ${simpleClassName(problem)}")
-                null
-            }
-        }) { result ->
-            if (run != generation || raised != card) return@run
+        val done: (HandCastChips?) -> Unit = done@{ result ->
+            if (run != generation || raised != card) return@done
             // A card raised before Automatum knew it can't be cast or paid for now goes back down with a shake
             val tapped = answering
             answering = false
             current()?.let { offZone(it, card) }?.let { zone -> AppLog.info("automatum", "Hand row chips of $card from $zone: " +
                 (result?.let { r -> r.chips.joinToString { "${it.name} ${it.cost ?: ""}${if (it.affordable) "" else " (greyed)"}" }
                     .ifEmpty { "${r.count} ways, one Cast… chip" } } ?: "none")) }
-            if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@run }
+            if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@done }
             chips = result
         }
+        // R4a: the chips are worked out on the game's own engine state, where the engine is (web client step 4e: the browser's
+        // engine worker when the game's device is there)
+        val remote = game()?.takeIf { it.inWorker && play.values?.workerBoard == true }
+        if (remote != null) remote.handChips(play, card, done)
+        else work.run({ HandChips.of(play, viewer, card) }, done)
     }
 
     companion object {

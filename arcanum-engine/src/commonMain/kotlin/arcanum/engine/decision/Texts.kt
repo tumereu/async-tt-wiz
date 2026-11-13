@@ -145,6 +145,7 @@ internal object Texts {
         is CostPart.Mana -> "Mana"
         CostPart.ItsManaCost -> "ItsManaCost"
         is CostPart.ItsManaCostLess -> "ItsManaCostLess"
+        is CostPart.ManaCostOf -> "ManaCostOf"
         CostPart.TapSelf -> "TapSelf"
         CostPart.UntapSelf -> "UntapSelf"
         is CostPart.TapObjects -> "TapObjects"

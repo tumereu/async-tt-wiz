@@ -105,6 +105,25 @@ class EngineHistoryShownTest {
         assertFalse(again.device.session.behind)
     }
 
+    // HIS-006 (e2e full run 2026-11-13: a head overtook the revisions on their way): the open game loading again while its
+    // table is live stays live: the other player's events past the local head play on, with no catch-up pause; loaded again
+    // while the app is away, it pauses as before (HIS-035)
+    @Test fun theOpenGameLoadedAgainWhileLiveStaysLive() {
+        val live = EngineAppSim(f)
+        val (alice, _) = bothKeepThenBobAway(live)
+        playLand(live, alice)
+        val bob = live.load(f.b, live = true)
+        assertTrue(bob.device.session.behind, "Alice's land still to show")
+        assertNotEquals(GameDevice.Status.CatchUp, bob.device.status, "no catch-up pause on a live table")
+        assertNotNull(bob.step(), "her events play on")
+
+        val away = EngineAppSim(f)
+        val (aliceAgain, bobAway) = bothKeepThenBobAway(away)
+        bobAway.away()
+        playLand(away, aliceAgain)
+        assertEquals(GameDevice.Status.CatchUp, away.load(f.b, live = true).device.status, "away, the catch-up pause stays")
+    }
+
     // HIS-006: on a live table the other player's actions show without timeline mode, which starts only when entered;
     // the player's own actions show live at once
     @Test fun onALiveTableTheOtherPlayersActionsKeepItLive() {

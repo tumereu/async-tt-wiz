@@ -121,13 +121,14 @@ class EngineOwnActionProbeTest {
         private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "test-engine").also { thread = it } }
         private val main = java.util.concurrent.LinkedBlockingQueue<() -> Unit>()
         override fun run(work: () -> Unit) { executor.execute(work) }
-        override fun <T> call(work: () -> T): T = if (Thread.currentThread() === thread) work() else executor.submit<T> { work() }.get()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(if (Thread.currentThread() === thread) work() else executor.submit<T> { work() }.get())
         override fun main(work: () -> Unit) { main.add(work) }
-        override fun early(work: (release: (() -> Unit)?) -> Unit) {
-            if (!early || Thread.currentThread() === thread) return super.early(work)
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) {
+            if (!early || Thread.currentThread() === thread) return super.early(work, released)
             val gate = java.util.concurrent.CountDownLatch(1)
             executor.execute { try { work { gate.countDown() } } finally { gate.countDown() } }
             gate.await()
+            released()
         }
         fun drainMain() { while (true) (main.poll() ?: break).invoke() }
         fun drain() {

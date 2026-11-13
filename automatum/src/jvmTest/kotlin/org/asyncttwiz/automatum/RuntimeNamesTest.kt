@@ -25,6 +25,8 @@ class RuntimeNamesTest {
         "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/game/GameDevice.kt" to "the device's debug memory",
         "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/game/GameCards.kt" to "a parse problem's text",
         "automatum/src/commonMain/kotlin/org/asyncttwiz/automatum/CombatFlow.kt" to "cost chip texts, drop outer names",
+        "automatum/src/commonMain/kotlin/org/asyncttwiz/automatum/boundary/EnginePlanner.kt" to "an exception's class in a failed answer, for the log",
+        "automatum/src/commonMain/kotlin/org/asyncttwiz/automatum/boundary/EngineChannel.kt" to "an exception's class in the boundary's log",
     )
 
     // Problem report N7FU6Y: no new runtime class names in shared code outside logs and texts

@@ -863,7 +863,9 @@ internal object Actions {
                     zone = Zone.Battlefield, definition = f.definition, face = f.up, token = true, tapped = tapped,
                     timestamp = first + i, controlSince = ControlSince(controller, act.state.turn.number), attachedTo = attachTo,
                     cast = arcanum.engine.state.castFacts(fromSpellCopy),
-                    statuses = if (f.gained.isEmpty()) emptyList() else listOf(arcanum.engine.state.ObjectStatus.GainedInCopying(f.gained)),
+                    statuses = listOfNotNull(arcanum.engine.state.ObjectStatus.GainedInCopying(f.gained).takeIf { f.gained.isNotEmpty() },
+                        // isd: what its abilities' "Gutter Grime" means: the object that created it, or the original's creator for a copy (CR 201.5a)
+                        (f.createdBy ?: cause.source)?.let { arcanum.engine.state.ObjectStatus.CreatedBy(it) }),
                 )
             }
         }

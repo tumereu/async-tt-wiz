@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.await
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.Host
@@ -55,8 +56,8 @@ class StaleTapTest : E2e() {
         @Volatile var holdingFollowUps = false
         private val followUps = ConcurrentLinkedQueue<() -> Unit>()
         override fun run(work: () -> Unit) { if (holdingFollowUps) followUps.add(work) else EngineWorker.Background.run(work) }
-        override fun <T> call(work: () -> T): T = EngineWorker.Background.call(work)
-        override fun early(work: (release: (() -> Unit)?) -> Unit) = EngineWorker.Background.early(work)
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = EngineWorker.Background.call(work, done)
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) = EngineWorker.Background.early(work, released)
         override fun main(work: () -> Unit) = EngineWorker.Background.main { if (holding) held.add(work) else { work(); observe() } }
         override fun frame(work: () -> Unit) = EngineWorker.Background.frame { main(work) }
 
@@ -67,7 +68,7 @@ class StaleTapTest : E2e() {
                 val work = held.poll()
                 if (work == null) {
                     check(idle++ < 100) { "nothing more held" }
-                    EngineWorker.Background.call { }
+                    EngineWorker.Background.await { }
                     org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
                     continue
                 }

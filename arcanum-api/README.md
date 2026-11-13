@@ -215,6 +215,9 @@ The definition model (overview in `Definitions.kt`):
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`
   ("cast it transformed", a Siege's intrinsic trigger, CR 310.12b); `Mechanic.WhenYouCouldMulligan` ("any time you could
   mulligan and this card is in your hand, you may …", CR 103.5b) and `Mechanic.StartingHandSize` (CR 103.5).
+- Innistrad (set `isd`): `ObjectFilter.Attached.toPlayers` (Curses attached to a player, CR 303.4e), `CostPart.ManaCostOf` ("exile a
+  creature card from your graveyard and pay its mana cost", CR 601.2f) and `Objects.Creator` (in a token's ability, the object that
+  created it, CR 201.5a).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

@@ -310,34 +310,34 @@ class GameDevice(
     }
 
     /** Why the device waits for the other player (the waiting bar, §14). */
-    sealed interface Wait {
+    @kotlinx.serialization.Serializable sealed interface Wait {
         /** They may respond to [to], on top of the Stack (yours, or their own while they hold priority over it). */
-        data class Respond(val to: ObjectId) : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("respond") data class Respond(val to: ObjectId) : Wait
         /** They may act at their priority in [step] with nothing of yours on top of the Stack (a pause, such as after their
          * blocks, or any point where your Assume setting and their mode don't assume their pass, HIS-096). */
-        data class MayAct(val step: TurnStep) : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("may-act") data class MayAct(val step: TurnStep) : Wait
         /** They are declaring blockers. */
-        data object Blockers : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("blockers") data object Blockers : Wait
         /** They are deciding on a mulligan. */
-        data object Keep : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("keep") data object Keep : Wait
         /** They are choosing ([source]: the card it comes from, null when this player can't see it). */
-        data class Choosing(val source: ObjectId?) : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("choosing") data class Choosing(val source: ObjectId?) : Wait
         /** Their own main phase, or their declaration of attackers: their turn to act. */
-        data object TheirTurn : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("their-turn") data object TheirTurn : Wait
         /** Going on would show you hidden cards, or a random result (the information rule, §5). */
-        data object HiddenCards : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("hidden-cards") data object HiddenCards : Wait
         /** Your own events wait for the server. */
-        data object Sending : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("sending") data object Sending : Wait
         /** An undo request is open. */
-        data object Request : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("request") data object Request : Wait
         /** A result suggestion waits for an answer (TRN-049). */
-        data object Suggestion : Wait
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("suggestion") data object Suggestion : Wait
     }
 
     /** The waiting bar's Assume buttons (§4). */
-    sealed interface Offer {
-        data object AssumeResolves : Offer
-        data object AssumeBlockers : Offer
+    @kotlinx.serialization.Serializable sealed interface Offer {
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("resolves") data object AssumeResolves : Offer
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("blockers") data object AssumeBlockers : Offer
     }
 
     /** Something to tell the player once. */
@@ -585,7 +585,7 @@ class GameDevice(
 
     /** The assumer's indicator (§14): [assumed] unconfirmed assumptions, [since] events since the first; null when
      * there are none. */
-    data class Indicator(val assumed: Int, val since: Int)
+    @kotlinx.serialization.Serializable data class Indicator(val assumed: Int, val since: Int)
 
     fun indicator(): Indicator? {
         val after = (heads[opponent]?.let(session::after) ?: session.events) + session.pending
@@ -595,7 +595,7 @@ class GameDevice(
     }
 
     /** Where the other player is ([OpponentAt.turn], [OpponentAt.step], whose turn it is) when they are behind this player. */
-    data class OpponentAt(val turn: Int, val step: arcanum.api.TurnStep, val active: PlayerId)
+    @kotlinx.serialization.Serializable data class OpponentAt(val turn: Int, val step: arcanum.api.TurnStep, val active: PlayerId)
 
     private var opponentAtKey: Pair<String, String>? = null
     private var opponentAtCached: OpponentAt? = null
@@ -770,7 +770,7 @@ class GameDevice(
      * they already see isn't one for them ([ownRevealNews]). Personal: nothing is sent, the other player's phone never
      * waits, and the device still makes its own steps at the head.
      */
-    data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
+    @kotlinx.serialization.Serializable data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
         val source: arcanum.engine.state.CardId?, val sourceName: String?,
         /** HIS-114: not a reveal but [cards] leaving a public pile for a hidden zone, moved by [by]; null for a reveal. */
         val left: LeftPile? = null)
@@ -780,7 +780,7 @@ class GameDevice(
      * [to], a hidden zone (a hand, a library), shown to the other player as a reveal is ([Reveal.left]): only the cards
      * that left the pile, nothing else of the zone they went to.
      */
-    data class LeftPile(val from: arcanum.api.Zone, val to: arcanum.api.Zone, val owner: PlayerId)
+    @kotlinx.serialization.Serializable data class LeftPile(val from: arcanum.api.Zone, val to: arcanum.api.Zone, val owner: PlayerId)
 
     /** HIS-110: the reveal panel open now (the oldest not dismissed), or null. */
     val reveal: Reveal? get() { syncReveals(); return revealsOpen.firstOrNull() }
@@ -941,11 +941,11 @@ class GameDevice(
      * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
      * sent, and the game never waits for it on the other player's phone.
      */
-    data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
+    @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("play") data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
         val card: arcanum.engine.state.CardId?, val from: arcanum.api.Zone? = null) : ViewMoment
 
     /** A moment of the shown event [event] that holds this player's view until it is done (HIS-112, HIS-113). */
-    sealed interface ViewMoment { val event: String }
+    @kotlinx.serialization.Serializable sealed interface ViewMoment { val event: String }
 
     /**
      * HIS-113 (owner, 2026-11-08): a combat holds this player's view as a play shown does, for the same time ([showPlays]),
@@ -953,19 +953,19 @@ class GameDevice(
      * combat damage step that deals any). The table ends it ([dismissCombatHold]) when its time is up or the player taps the
      * table. Declaring no attackers holds nothing. Personal: nothing is sent, and the game never waits for it.
      */
-    data class CombatHold(override val event: String, val kind: CombatMoment) : ViewMoment
+    @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("combat") data class CombatHold(override val event: String, val kind: CombatMoment) : ViewMoment
 
     /** What a combat holds the view on (HIS-113). */
-    sealed interface CombatMoment {
-        data object Attackers : CombatMoment
-        data object Damage : CombatMoment
+    @kotlinx.serialization.Serializable sealed interface CombatMoment {
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("attackers") data object Attackers : CombatMoment
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("damage") data object Damage : CombatMoment
     }
 
     /** How a shown play got onto the Stack (HIS-112). */
-    sealed interface PlayKind {
-        data object Cast : PlayKind
-        data object Activated : PlayKind
-        data object Triggered : PlayKind
+    @kotlinx.serialization.Serializable sealed interface PlayKind {
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("cast") data object Cast : PlayKind
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("activated") data object Activated : PlayKind
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("triggered") data object Triggered : PlayKind
     }
 
     /** "Create a copy of the card with the chosen name" (CR 707.12): the player's device answers the engine's
@@ -1875,16 +1875,16 @@ class GameDevice(
     // ---- Undo and rewinds (§10)
 
     /** What an undo would do. */
-    sealed interface Undo {
+    @kotlinx.serialization.Serializable sealed interface Undo {
         /** Sent: the server takes the line back to [target]. */
-        data class Free(val target: String) : Undo
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("free") data class Free(val target: String) : Undo
         /** Needs the other player's approval ([reason]): the caller opens the request dialog with [target] chosen. */
-        data class Request(val target: String, val reason: String) : Undo
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("request") data class Request(val target: String, val reason: String) : Undo
         /** Nothing to undo now ([reason]). */
-        data class Unavailable(val reason: String) : Undo
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("unavailable") data class Unavailable(val reason: String) : Undo
         /** Waits for the player's own action [event] (and whatever else of theirs is on its way) to reach the server,
          * then takes it back ([undoTap]). */
-        data class Queued(val event: String) : Undo
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("queued") data class Queued(val event: String) : Undo
     }
 
     /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
@@ -2507,7 +2507,14 @@ class GameDevice(
         val from = session.lineStart
         val moved = session.events.take(cut + 1)
         session.trim(session.events[cut].id)
-        older?.trimmed(from, moved)
+        older?.let { o ->
+            val held = o.events.size
+            o.trimmed(from, moved)
+            // HIS-111: what the trim did to the older history loaded (a first page on its way joins the line through these)
+            if (held > 0 || o.waitingTrimmed > 0) remember("trimmed ${moved.size} events, line start ${from.take(8)} → " +
+                "${session.lineStart.take(8)}: older history " +
+                if (held > 0) "$held → ${o.events.size} events" else "waits for its first page with ${o.waitingTrimmed} trimmed")
+        }
     }
 
     // ---- Older history (HIS-111, HIS-099: the timeline and Undo reach the game's first event)
@@ -2529,12 +2536,20 @@ class GameDevice(
     val olderComplete: Boolean get() = older?.complete == true || session.lineStart == rootId
 
     /** The event the next older page of the main line ends at, or null when there is nothing older (or no [older]). */
-    fun olderThrough(): String? = older?.through(session.lineStart, rootId)
+    fun olderThrough(): String? = older?.asking(session.lineStart, rootId)
 
     /** Takes in the server's [page] of older history ([OlderHistory.add]); false when it doesn't fit. */
     fun addPage(page: org.asyncttwiz.protocol.EngineHistoryPage): Boolean {
+        val before = older?.events?.size ?: 0
         val ok = older?.add(page, session.lineStart, rootId) == true
-        remember("older page to ${page.through}: ${if (ok) "taken" else "refused"}")
+        val now = older?.events?.size ?: 0
+        // HIS-111: whether it joined the line (the timeline and the Undo dialog show it) or is kept for states only
+        remember("older page to ${page.through}: " + when {
+            !ok -> "refused"
+            now > before -> "taken, older history $before → $now events" +
+                (older?.joined?.takeIf { it > 0 && before == 0 }?.let { ", joined through $it trimmed meanwhile" } ?: "")
+            else -> "taken, kept for states only (line start ${session.lineStart.take(8)})"
+        })
         return ok
     }
 

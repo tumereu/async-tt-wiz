@@ -312,6 +312,9 @@ class HandPlays private constructor(
     companion object {
         val NONE = HandPlays(emptyMap())
 
+        /** These plays as the engine boundary carried them ([org.asyncttwiz.automatum.boundary.HandPlaysSerializer]). */
+        internal fun restored(byCard: Map<String, List<Input>>, offZone: List<String>): HandPlays = HandPlays(byCard, offZone)
+
         /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
          * information, not changed here; the card ids are the game's) and [view] its view when the caller already has it

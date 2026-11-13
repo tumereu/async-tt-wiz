@@ -219,3 +219,8 @@ fun hasPoison(player: Players, n: Int = 3): Condition = Condition.Compare(Value.
 val corrupted: Condition = Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(hasPoison(Players.Tested)))), atLeast = 1)
 /** "each opponent who has three or more poison counters" */
 val eachCorruptedOpponent: Players = Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(hasPoison(Players.Tested)))))
+
+/** "equipped creature": the creature this Equipment is attached to (CR 301.5). */
+val equipped: Objects = Objects.AttachedTo(Objects.Self)
+/** "Equip [cost]" (CR 702.6) */
+fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))

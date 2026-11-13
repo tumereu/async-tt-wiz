@@ -2414,6 +2414,7 @@ internal class Sentences(
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = EventRole.Object)),
                 from = Zone.Battlefield, to = Zone.Graveyard)) to null
         }
+        oneTrigger(text)?.let { return it } // one
         ltrTrigger(text)?.let { return it } // ltr
         mh2Trigger(text)?.let { return it } // mh2
         dftTrigger(text)?.let { return it } // dft
@@ -15555,6 +15556,15 @@ internal class Sentences(
         return null
     }
 
+    /** one: triggers. */
+    private fun oneTrigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // one chunk 04: "Whenever this Equipment becomes attached to a creature" (CR 301.5c; the attachment is the event's object)
+        One.BECOMES_ATTACHED_TO.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Attach(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null)) to null
+        }
+        return null
+    }
+
     /** one: wordings of several sentences read as one. */
     private fun oneWhole(text: String, context: Context): List<Step>? {
         // one chunk 01: Ichormoon Gauntlet, "choose a counter on target permanent. Put an additional counter of that kind on that permanent."
@@ -15601,6 +15611,17 @@ internal class Sentences(
             context.it = Objects.Bound("chosen")
             val then = effect(tmtSentence(m.groupValues[2]), context) ?: run { context.it = it; return null }
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You)) + then
+        }
+        // one chunk 04: Blade of Shared Souls, "for as long as this Equipment remains attached to it, you may have that creature become a copy of
+        // another target creature you control." ("another": other than the creature it is attached to; that creature is fixed as the ability resolves; the copy effect, layer 1,
+        // ends once this Equipment is no longer attached to that creature, CR 611.2a, 707.9)
+        One.WHILE_ATTACHED_MAY_BECOME_COPY.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[2]
+            val target = context.target(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.AttachedTo(Objects.Self))), Filters.noun(noun) ?: return null))
+            val equipped = Objects.Bound("equipped")
+            return listOf(Step.Bind(Objects.AttachedTo(Objects.Self), "equipped"), Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)),
+                arcanum.api.Affected.Objects(equipped), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = equipped)))))),
+                player = Players.You))
         }
         // one chunk 03: "draw cards equal to its total toxic value" (the sum of its toxic N, CR 702.164c; "it" named before, or this object)
         One.DRAW_EQUAL_TO_ITS_TOTAL.matchEntire(sentence)?.let { m ->
@@ -23364,8 +23385,10 @@ internal class Sentences(
         }
         // ltr chunk 01: "Equip abilities you activate cost {1} less to activate." (CR 601.2f, 602.2b)
         Ltr.EQUIP_ABILITIES_COST_LESS.matchEntire(line)?.let { m ->
-            return ltrSelfStatic(Mechanic.CostChange(Filters.all(ltrEquipAbilities, ObjectFilter.ControlledBy(PlayerFilter.You)),
-                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return@let, Value.Fixed(1))))
+            // one chunk 04: "of other Equipment": the ability's source is not this Equipment
+            val abilities = if (m.groupValues[1].isEmpty()) ltrEquipAbilities else ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind, source = ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            return ltrSelfStatic(Mechanic.CostChange(Filters.all(abilities, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return@let, Value.Fixed(1))))
         }
         // ltr chunk 01: "During your turn, you may activate equip abilities any time you could cast an instant." (CR 602.5d)
         Ltr.DURING_YOUR_TURN_ACTIVATE_AT_INSTANT_SPEED.matchEntire(line)?.takeIf { it.groupValues[1] == "equip" }?.let {

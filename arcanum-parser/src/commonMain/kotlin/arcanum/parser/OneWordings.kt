@@ -24,6 +24,9 @@ internal object One {
     // one chunk 02: Skrelv, Defector Mite
     val CHOOSE_COLOR_GAINS_HEXPROOF_FROM_UNBLOCKABLE_BY = Regex(
         """Choose a color\. (Another target|Target) (.+?) gains (?:(.+?) and )?hexproof from that color until end of turn\. (?:It|That creature) can't be blocked by (\w+) of that color this turn\.""")
+    // one chunk 04: Blade of Shared Souls
+    val BECOMES_ATTACHED_TO = Regex("""(?:[Ww]henever )?(.+?) becomes attached to an? (\w+)""")
+    val WHILE_ATTACHED_MAY_BECOME_COPY = Regex("""[Ff]or as long as (.+?) remains attached to (?:it|that creature), you may have that creature become a copy of another target (\w+ you control)\.""")
     // one chunk 03: Goliath Hatchery, "choose a creature you control, then draw cards equal to its total toxic value."
     val CHOOSE_THEN = Regex("""Choose an? ([^,]+), then (.+)\.""")
     // one chunk 03: Anoint with Affliction, Bring the Ending

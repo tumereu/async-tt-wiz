@@ -182,9 +182,21 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
      * whose `affects` include it ([staticCopies]), as effect objects of the ability's timestamp. */
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =
-        (state.effects.values.filter { it.locked?.contains(id) == true }
+        // CR 611.2b: a copy effect lasting "for as long as" a condition holds stops applying as soon as it doesn't (the view doesn't wait for
+        // the flow that notices to end the effect object)
+        (state.effects.values.filter { it.locked?.contains(id) == true && stillLasts(it) }
             .flatMap { e -> e.mechanics.filterIsInstance<Mechanic.CopyOf>().map { e to it } } + staticCopiesOn(id))
             .sortedBy { it.first.timestamp }
+
+    private var judgingDuration = false
+
+    /** Whether a copy effect's "for as long as" condition holds. The condition is judged on the board as printed; while it is, the copy
+     * effects it reads about are taken as lasting, which ends the loop of a condition about a permanent that is itself copied. */
+    private fun stillLasts(effect: EffectObject): Boolean {
+        if (effect.duration !is arcanum.api.Duration.AsLongAs || judgingDuration) return true
+        judgingDuration = true
+        try { return Layers.active(state, PrintedBoard(state, this), effect) } finally { judgingDuration = false }
+    }
 
     /** A static ability with a copy effect (CR 613.2a, 707.2: "… is a copy of …") printed on [source], a permanent. */
     private class StaticCopy(val source: GameObject, val index: Int, val ability: Ability.Static, val copy: Mechanic.CopyOf)

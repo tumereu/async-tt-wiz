@@ -118,7 +118,6 @@ internal object WoePhrases {
     private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
     private val THAT_ARE_ENCHANTED_BY = Regex("""(.+?) that(?: are| is|'s) enchanted by (?:an? )?(.+)""")
     private val THATS_COLORS = Regex("""(.+?) that's ((?:white|blue|black|red|green)(?:,? (?:or )?(?:white|blue|black|red|green))*)""")
-    private val BLOCKS_OR_BECOMES_BLOCKED_BY = Regex("""(.+?) blocks or becomes blocked by an? (.+)""")
 
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
         // woe chunk 08: "card you own in exile", "card you don't own in exile" (cards in exile are owned, CR 108.3)
@@ -158,18 +157,6 @@ internal object WoePhrases {
         THAT_HAS_AN_ADVENTURE.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             return Filters.all(base, arcanum.api.ObjectFilter.HasAdventure)
-        }
-        return null
-    }
-
-    /** Trigger events: [subject] reads the noun naming who acts. */
-    fun events(text: String, subject: (String) -> arcanum.api.ObjectFilter?): List<arcanum.api.EventPattern>? {
-        // woe chunk 10: "this creature blocks or becomes blocked by a creature" (once for each creature it blocks or that blocks it, CR 509.3a,
-        // 509.3d)
-        BLOCKS_OR_BECOMES_BLOCKED_BY.matchEntire(text)?.let { m ->
-            val who = subject(m.groupValues[1]) ?: return null
-            val other = Filters.noun(m.groupValues[2]) ?: return null
-            return listOf(arcanum.api.EventPattern.Block(who, other, perAttacker = true), arcanum.api.EventPattern.BecomesBlocked(who, other, perBlocker = true))
         }
         return null
     }

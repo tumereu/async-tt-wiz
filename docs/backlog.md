@@ -46,17 +46,19 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 
 Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
 
-- Bug, a cost choice's phrase isn't highlighted right (STK-047; owner: Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): the pick bar must highlight exactly the cost phrase being picked, as for targets. Check the parser's cost spans for keyword costs (Equip—Sacrifice …) and the bar's use of them; screenshot + e2e.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
+- Cost phrase highlight (STK-047; owner 2026-11-12, Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): didn't reproduce on 2026-11-12 (the parser's spans and the pick bar light "a creature" as STK-047 says). Owner 2026-11-13: wait until it happens again; it may have been a misreading of the UI or a UX problem that further playtesting shows.
 - Intermittent (2 full runs, passes alone 3/3): e2e `PodReopenTest.aDraftingPodOpensAfterConnectionFailures` timed out "waiting for the pick unconfirmed" with Alice on the pod showing "Can't reach the server · retrying" and "All your picks are done" while Bob still had 3 packs. Investigate when it recurs: whether the unconfirmed pick is shown before the retry finishes, or the test's network hold releases too early.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started
+
+- Booster randomness check (owner 2026-11-13; lowest priority, after all other queued work, for peace of mind): a sealed DFT pod in prod ("Vroom vroooomm!", 9 packs) gave one pool Lifecraft Engine ×3, Demonic Junker ×2, Full Throttle ×2. The recipe and sheet weights were checked (MTGJSON play booster, rares weight 8, mythics 4, seed from SecureRandom through RandomV1's SHA-256 stream), and the pattern is about 1 in 230 for a pool of 12 rares, so nothing points at a bug. Check the real generator statistically anyway: generate about 100,000 DFT sealed pools (9 packs) with `SetBoosters.generate` from the pinned catalog's DFT recipe, test each sheet's card frequencies against its weights (chi-squared per sheet, rare-or-mythic split, wildcard and foil slot rarities), test independence between packs and slots (no correlation between consecutive draws), and report where the observed pool falls in the distribution of repeats. A JVM tool or test reading the local pinned MTGJSON file (no real card data committed); report the numbers to the owner in plain words. No code change unless the check finds a fault.
 
 ## Needs discussion
 

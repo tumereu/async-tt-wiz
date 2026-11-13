@@ -28,6 +28,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private val engineLoad: (String) -> Boolean = { true },
     /** CR 707.12: the cards engine games name for the engine ([EngineGame]'s): the phone's card records. */
     private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) : AutoCloseable {
+    // The engine games' own-action probe reports to the app's slow-action recorder (it is app-engine's, without it)
+    init { installEngineDiagnostics() }
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
     private var backgrounded = false
@@ -159,7 +161,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun clearContext(gameId: String) {
         ownPodDeckNames.remove(gameId); presences.remove(gameId); endHeld.remove(gameId)
-        preparations.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        preparations.remove(gameId); engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
         acceptedRevisions.remove(gameId)
         chats.remove(gameId)
@@ -195,7 +197,7 @@ class GameSession(private val connection: GameConnection, private val credential
     fun releaseEnd(gameId: String, why: String) {
         if (!endHeld.remove(gameId)) return
         AppLog.info("game", "End of game: table let go, to the lobby: $why")
-        engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         summaries[gameId]?.let { changed(summary(it)) }
         statusChanged()
     }
@@ -247,12 +249,15 @@ class GameSession(private val connection: GameConnection, private val credential
             engineHeads.remove(head.gameId); unopenable.remove(head.gameId)
             if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
                 onShown = { engineShown(head.gameId) },
-                pages = { through, done -> connection.historyPage(head.gameId, through, done) }, namedCards = namedCards)
+                pages = { through, done -> connection.historyPage(head.gameId, through, done) }, namedCards = namedCards,
+                device = EngineBoundary.devices)
             else {
                 // Why an open game loads again (e2e CombatHoldTest, 2026-11-10: a load in the middle of play said nothing of it)
                 AppLog.info("engine", "Game ${head.gameId.take(8)} loads again from head ${head.engine?.headId?.take(8)} at revision " +
                     "${head.revision}: ${if (existing.needsReload) "the device can't follow" else "the head is past revision ${existing.revision}"}")
-                existing.load(snapshot, play)
+                // HIS-006: the open game loading again doesn't make a live table pause (unless the app is away or the
+                // table already paused: [EngineGame.load] decides and logs)
+                existing.load(snapshot, play, live = true)
             }
             reloadAsked.remove(head.gameId)
         } else following = true
@@ -322,8 +327,8 @@ class GameSession(private val connection: GameConnection, private val credential
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
             if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
             val game = engineGames.getValue(gameId)
-            if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
-            engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+            if (game.shown != null) game.takeNow(Long.MAX_VALUE) { actions -> deliverEngine(gameId, game, actions) }
+            engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
             val stream = streams[gameId]
             if (ready && stream?.generation != null && available(gameId))
                 send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = false))
@@ -342,7 +347,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun engineRevision(game: EngineGame, message: GameRevision) {
         if (message.summary.lifecycle != GameLifecycle.ACTIVE || message.summary.playId != game.base.id) {
             if (holdEnd(game, message)) return
-            engineGames.remove(message.gameId)
+            engineGames.remove(message.gameId)?.close()
             if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
             else install(message.summary, message.resultRevision, message.preparation)
             return
@@ -359,7 +364,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * device that can't follow asks to load the game again (once per revision). */
     private fun engineShown(gameId: String) {
         val game = engineGames[gameId] ?: return
-        if (game.loadFailed) { engineGames.remove(gameId); cannotOpen(gameId, "engineLoadFailed"); return }
+        if (game.loadFailed) { engineGames.remove(gameId)?.close(); cannotOpen(gameId, "engineLoadFailed"); return }
         if (game.needsReload && gameId in streams && reloadAsked[gameId] != acceptedRevisions[gameId]) {
             reloadAsked[gameId] = acceptedRevisions[gameId]
             send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))

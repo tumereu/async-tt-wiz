@@ -37,9 +37,9 @@ class EngineBoardOnceTest {
      * performed point, as on the app's engine thread. */
     private class Inline(private val early: Boolean) : EngineWorker {
         override fun run(work: () -> Unit) = work()
-        override fun <T> call(work: () -> T): T = work()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(work())
         override fun main(work: () -> Unit) = work()
-        override fun early(work: (release: (() -> Unit)?) -> Unit) { if (early) work {} else super.early(work) }
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) { if (early) { work {}; released() } else super.early(work, released) }
     }
 
     /** Alice at her first main phase after her keep (Bob's keep assumed), every board published kept in [shown]. */

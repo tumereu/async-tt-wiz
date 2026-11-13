@@ -22,7 +22,12 @@ import kotlinx.serialization.Serializable
  * can do: whether it can transform (CR 712.9) or meld (CR 701.42c), read from [GameObject.definition].
  */
 @Serializable
-data class CopiableValues(val layout: Layout, val faces: List<FaceDefinition>, val up: Int = 0, val gained: List<Ability> = emptyList()) {
+data class CopiableValues(
+    val layout: Layout, val faces: List<FaceDefinition>, val up: Int = 0, val gained: List<Ability> = emptyList(),
+    /** isd: for a token, the object whose ability created it, what its abilities' [arcanum.api.Objects.Creator] means; part of the
+     * token's text, so a copy of the token refers to the same object (CR 111.3, 201.5a). */
+    val createdBy: ObjectId? = null,
+) {
     /** These values as a definition, what a token holds (and [ObjectStatus.GainedInCopying]). */
     val definition: CardDefinition get() = CardDefinition(layout, faces)
 

@@ -86,6 +86,8 @@ internal object Costs {
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { mayPay(scope, payer, it) } ?: false
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { mayPay(scope, payer, arcanum.engine.casting.Costs.reduce(it, part.less)) } ?: false
             is CostPart.Manual -> false
+            // isd: only an activation or casting cost names it (Plan works it out from the cost's choices); not met in a resolving cost
+            is CostPart.ManaCostOf -> false
             CostPart.TapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && !it.tapped } ?: false
             CostPart.UntapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && it.tapped } ?: false
             is CostPart.TapObjects -> candidates(scope, payer, part.what, Zone.Battlefield) { !(state.obj(it)?.tapped ?: true) }.size >= count(scope, part.what)
@@ -206,7 +208,7 @@ internal object Costs {
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, it) }
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
             // Can't be paid (canPay), so never chosen
-            is CostPart.Manual -> Unit
+            is CostPart.Manual, is CostPart.ManaCostOf -> Unit
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid), cause) }
             CostPart.UntapSelf -> scope.self?.let { Actions.tap(act, listOf(it), false, listOf(Meaning.Paid)) }
             is CostPart.TapObjects -> {

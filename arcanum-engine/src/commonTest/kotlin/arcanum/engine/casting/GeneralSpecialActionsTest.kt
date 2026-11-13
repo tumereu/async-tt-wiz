@@ -68,7 +68,8 @@ class GeneralSpecialActionsTest {
     /** "Suspect target creature." */
     private val suspecter = aimed("Noon Word", Effect.Mark(Objects.Target("creature"), ObjectMark.Suspected))
 
-    private fun aimed(name: String, effect: Effect) = Cards.define(name, CardDefinition(Layout.Normal, listOf(FaceDefinition(name, types = listOf(CardType.Instant),
+    // A {0} mana cost: a card with none can't be cast for it (CR 118.6)
+    private fun aimed(name: String, effect: Effect) = Cards.define(name, CardDefinition(Layout.Normal, listOf(FaceDefinition(name, ManaCost.parse("{0}"), types = listOf(CardType.Instant),
         abilities = listOf(Ability.Spell(Instructions(steps = listOf(Step.Do(effect)), targets = listOf(TargetSlot("creature",
             TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))))))))))
 

@@ -114,7 +114,7 @@ class SwitchReviewTest {
         private var onEngine = false
         private fun <T> onEngine(work: () -> T): T { val was = onEngine; onEngine = true; try { return work() } finally { onEngine = was } }
         override fun run(work: () -> Unit) { engine.add(work) }
-        override fun <T> call(work: () -> T): T { if (onEngine) return work(); drainEngine(); return onEngine(work) }
+        override fun <T> call(work: () -> T, done: (T) -> Unit) { if (onEngine) return done(work()); drainEngine(); done(onEngine(work)) }
         override fun main(work: () -> Unit) { main.add(work) }
         fun drainEngine() { while (engine.isNotEmpty()) { val w = engine.removeFirst(); onEngine(w) } }
         fun drainMain() { while (main.isNotEmpty()) main.removeFirst()() }

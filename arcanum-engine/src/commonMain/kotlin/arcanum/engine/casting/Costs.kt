@@ -29,6 +29,8 @@ internal data class TotalCost(
     val waterbend: Int = 0,
     /** Whether it has a waterbend cost: paying it is waterbending (CR 701.67c). */
     val waterbends: Boolean = false,
+    /** isd: whether a part is based on the mana cost of an object with no mana cost: an unpayable cost (CR 118.6). */
+    val unpayable: Boolean = false,
 ) {
     val manaValue: Int get() = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 1 }
     val hasMana: Boolean get() = mana.symbols.any { !(it is ManaSymbol.Generic && it.amount == 0) }
@@ -55,7 +57,9 @@ internal object Costs {
     fun total(
         contributions: List<Contribution>, eval: Evaluator, x: Map<Char, Int>, itsManaCost: ManaCost?,
         oneOf: (String) -> Int?, increases: List<ManaCost> = emptyList(), reductions: List<Pair<ManaCost, Int>> = emptyList(),
+        manaCostOf: (arcanum.api.Objects) -> List<ManaCost?>? = { null },
     ): TotalCost {
+        var unpayable = false
         val symbols = mutableListOf<ManaSymbol>()
         val parts = mutableListOf<KeyedPart>()
         var waterbend = 0
@@ -76,9 +80,13 @@ internal object Costs {
                     val partX = part.x?.let { mapOf('X' to eval.value(it)) } ?: x
                     repeat(times.coerceAtLeast(0)) { symbols += withX(part.cost, partX).symbols }
                 }
-                CostPart.ItsManaCost -> itsManaCost?.let { symbols += withX(it, x).symbols }
+                // isd: an object with no mana cost makes a cost based on it unpayable (CR 118.6)
+                CostPart.ItsManaCost -> if (itsManaCost == null) unpayable = true else symbols += withX(itsManaCost, x).symbols
+                // isd: the mana cost of the objects another part of this cost chose (CR 601.2f), unknown until they are chosen; its {X}
+                // is 0 (CR 107.3h)
+                is CostPart.ManaCostOf -> manaCostOf(part.objects)?.forEach { if (it == null) unpayable = true else symbols += withX(it, emptyMap()).symbols }
                 // CR 702.143d, 118.7: "its mana cost reduced by {2}"
-                is CostPart.ItsManaCostLess -> itsManaCost?.let { symbols += reduce(withX(it, x), part.less).symbols }
+                is CostPart.ItsManaCostLess -> if (itsManaCost == null) unpayable = true else symbols += reduce(withX(itsManaCost, x), part.less).symbols
                 is CostPart.OneOf -> {
                     val chosen = oneOf(key)
                     if (chosen == null) parts += KeyedPart(key, part, at = at)
@@ -102,7 +110,7 @@ internal object Costs {
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends)
+        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable)
     }
 
     /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from

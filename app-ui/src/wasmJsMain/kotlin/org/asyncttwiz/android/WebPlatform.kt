@@ -30,8 +30,42 @@ import org.asyncttwiz.protocol.ActivityHint
 import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.storage.CardCatalog
 
+/**
+ * The fonts the page falls back to for characters its default font (Roboto, the only one Compose brings to the browser)
+ * has no glyph for, where Android draws them from its system fonts: the cards' type glyphs (♧ ♙ ϟ ◇ ⚙ ☆), the covered
+ * library's ✧, the hourglass, arrows, the timeline's and table actions' symbols, mathematical signs and the pick mark's 🔥.
+ * Noto (webApp's resources/fonts, SIL OFL 1.1 beside them), each cut down to the Unicode blocks the shared UI draws from:
+ * Symbols, Symbols 2 and Math to arrows, technical and geometric shapes, enclosed numbers, box drawing, miscellaneous
+ * symbols, dingbats and mathematical operators; Noto Sans to Greek; Noto Color Emoji to 🔥.
+ */
+internal val WEB_FALLBACK_FONTS = listOf("fonts/NotoColorEmoji-Atw.ttf", "fonts/NotoSansSymbols-Atw.ttf",
+    "fonts/NotoSansSymbols2-Atw.ttf", "fonts/NotoSansMath-Atw.ttf", "fonts/NotoSansGreek-Atw.ttf")
+
 /** The app's bundled files the web shell fetches before the app starts (the shared UI reads them synchronously). */
-internal val WEB_ASSETS = listOf("release-notes.json", "fonts/keyrune.ttf", "fonts/keyrune-codes.txt")
+internal val WEB_ASSETS = listOf("release-notes.json", "fonts/keyrune.ttf", "fonts/keyrune-codes.txt") + WEB_FALLBACK_FONTS
+
+/**
+ * Preloads [WEB_FALLBACK_FONTS] into the page's font resolver ([org.asyncttwiz.appui.webFontResolver]) before anything
+ * draws: the text it lays out (the screens' and the table's, [org.asyncttwiz.appui.drawNativeText]) falls back to the fonts
+ * preloaded there for a character its own font lacks.
+ */
+internal suspend fun preloadFallbackFonts(platform: AppPlatform) {
+    val resolver = org.asyncttwiz.appui.webFontResolver
+    val registered = WEB_FALLBACK_FONTS.filter { path ->
+        try {
+            val family = androidx.compose.ui.text.font.FontFamily(platform.assetFont(path))
+            resolver.preload(family)
+            // Preloading loads only fonts fetched later: resolving it registers this in-memory font with the resolver's
+            // font cache, where text falls back to it. Text laid out by another resolver would not see it.
+            resolver.resolve(family)
+            true
+        } catch (failure: Throwable) {
+            AppLog.warn("web-page", "Fallback font $path not registered: its symbols may show as boxes", failure)
+            false
+        }
+    }
+    AppLog.info("web-page", "Fallback fonts registered: ${registered.joinToString { it.substringAfterLast('/') }}")
+}
 
 /**
  * The shared UI's platform in the browser ([AppPlatform]): small settings in the page's local storage, the bundled files

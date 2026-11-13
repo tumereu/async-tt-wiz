@@ -25,6 +25,8 @@ internal object Targeting {
         event: arcanum.engine.state.TriggerEvent? = item?.event,
         // fra: the player a per-player slot's target is for ("for each opponent, … that player controls", CR 601.2c)
         slotPlayer: PlayerId? = null,
+        // mh3: the kind of an ability not yet on the Stack whose targets are chosen (a trigger being put there, CR 603.3d)
+        pendingKind: arcanum.api.AbilityKind? = null,
     ): List<TargetRef> {
         val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item, event = event, slotPlayer = slotPlayer))
         val taken = slot.distinctFrom.flatMap { chosen[it].orEmpty() }.toSet()
@@ -34,7 +36,7 @@ internal object Targeting {
             .map { TargetRef.Object(it) }
         val players = playerFilter(slot.what)?.let { f -> act.state.apnap().filter { e.matches(f, it) } }.orEmpty()
             .map { TargetRef.Player(it) }
-        return (objects + players).filter { it !in taken && targetable(act, it, controller, source) }
+        return (objects + players).filter { it !in taken && targetable(act, it, controller, source, item?.id ?: self, pendingKind) }
     }
 
     /** CR 608.2b: [ref] is still a legal target of [slot]. */
@@ -53,7 +55,7 @@ internal object Targeting {
             }
             is TargetRef.Player -> !act.state.player(ref.id).lost && playerFilter(slot.what)?.let { e.matches(it, ref.id) } == true
         }
-        return matches && targetable(act, ref, controller, source)
+        return matches && targetable(act, ref, controller, source, item?.id)
     }
 
     /** The zone a filter looks in (the battlefield unless it names one, the Stack for spells, CR 115.4). */
@@ -76,7 +78,7 @@ internal object Targeting {
     }
 
     /** Hexproof, shroud, "can't be the target" and protection (CR 702.11, 702.16, 702.18). */
-    fun targetable(act: Act, ref: TargetRef, controller: PlayerId, source: ObjectId?): Boolean {
+    fun targetable(act: Act, ref: TargetRef, controller: PlayerId, source: ObjectId?, item: ObjectId? = null, pendingKind: arcanum.api.AbilityKind? = null): Boolean {
         val view = act.view()
         val mechanics = when (ref) {
             is TargetRef.Object -> view[ref.id]?.mechanics.orEmpty()
@@ -85,30 +87,41 @@ internal object Targeting {
         // CR 702.11b: "as though they didn't have hexproof"
         val ignoringHexproof = mechanics.any { applied ->
             val m = applied.mechanic as? Mechanic.TargetableDespiteHexproof ?: return@any false
-            m.by == null || spellMatches(act.evaluator(Context(you = applied.controller, self = applied.source, names = applied.names)), m.by!!, controller, source)
+            m.by == null || spellMatches(act.evaluator(Context(you = applied.controller, self = applied.source, names = applied.names)), m.by!!, controller, source, item, pendingKind)
         }
         return mechanics.none { applied ->
-            !(ignoringHexproof && arcanum.engine.casting.Targets.fromHexproof(view, applied)) && forbids(act, applied, controller, source)
+            !(ignoringHexproof && arcanum.engine.casting.Targets.fromHexproof(view, applied)) && forbids(act, applied, controller, source, item, pendingKind)
         }
     }
 
-    private fun forbids(act: Act, applied: AppliedMechanic, controller: PlayerId, source: ObjectId?): Boolean {
+    private fun forbids(act: Act, applied: AppliedMechanic, controller: PlayerId, source: ObjectId?, item: ObjectId?, pendingKind: arcanum.api.AbilityKind?): Boolean {
         val e = act.evaluator(Context(you = applied.controller, self = applied.source, names = applied.names))
         return when (val m = applied.mechanic) {
-            is Mechanic.CantBeTargeted -> spellMatches(e, m.by, controller, source) &&
+            is Mechanic.CantBeTargeted -> spellMatches(e, m.by, controller, source, item, pendingKind) &&
                 (m.fromSource == null || (source != null && e.matches(m.fromSource!!, source)))
             is Mechanic.Protection -> source != null && e.matches(m.from, source)
             else -> false
         }
     }
 
-    /** Whether the targeting spell or ability (controlled by [controller], from [source]) matches [filter]. */
-    private fun spellMatches(e: Evaluator, filter: ObjectFilter, controller: PlayerId, source: ObjectId?): Boolean = when (filter) {
+    /** Whether the targeting spell or ability (controlled by [controller], from [source]; [item] on the Stack, or not there yet and of
+     * [pendingKind]) matches [filter]. */
+    private fun spellMatches(e: Evaluator, filter: ObjectFilter, controller: PlayerId, source: ObjectId?, item: ObjectId?, pendingKind: arcanum.api.AbilityKind?): Boolean = when (filter) {
         ObjectFilter.Any -> true
         is ObjectFilter.ControlledBy -> e.matches(filter.players, controller)
-        is ObjectFilter.And -> filter.all.all { spellMatches(e, it, controller, source) }
-        is ObjectFilter.Or -> filter.any.any { spellMatches(e, it, controller, source) }
-        is ObjectFilter.Not -> !spellMatches(e, filter.filter, controller, source)
+        is ObjectFilter.And -> filter.all.all { spellMatches(e, it, controller, source, item, pendingKind) }
+        is ObjectFilter.Or -> filter.any.any { spellMatches(e, it, controller, source, item, pendingKind) }
+        is ObjectFilter.Not -> !spellMatches(e, filter.filter, controller, source, item, pendingKind)
+        // mh3: a quality of the ability itself ("hexproof from activated and triggered abilities", CR 702.11d)
+        is ObjectFilter.AbilityOf -> abilityMatches(e, filter, source, item, pendingKind)
+        ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility) -> abilityMatches(e, filter, source, item, pendingKind)
         else -> source != null && e.matches(filter, source)
+    }
+
+    private fun abilityMatches(e: Evaluator, filter: ObjectFilter, source: ObjectId?, item: ObjectId?, pendingKind: arcanum.api.AbilityKind?): Boolean = when {
+        item != null && item in e.board.state.stackItems -> e.matches(filter, item)
+        pendingKind == null -> false
+        filter is ObjectFilter.AbilityOf -> (filter.kind == null || filter.kind == pendingKind) && (filter.source == null || (source != null && e.matches(filter.source!!, source)))
+        else -> true
     }
 }

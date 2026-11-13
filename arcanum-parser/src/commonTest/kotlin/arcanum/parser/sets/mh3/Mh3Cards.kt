@@ -263,3 +263,17 @@ val enchanted: Objects = Objects.AttachedTo(Objects.Self)
 val enchantCreature: Ability = Keyword.Enchant(arcanum.api.TargetKind.Objects(creature))
 /** "{T}: Add {B}." */
 fun addOne(symbol: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse(symbol)!!)), Players.You)))
+
+// mh3 chunk 08: Equipment, Sagas, planeswalkers
+/** "Equip {N}" (CR 702.6a) */
+fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))
+/** "Equipped creature gets …" (CR 301.5) */
+val equipped: Objects = Objects.AttachedTo(Objects.Self)
+/** A Saga's chapter ability (CR 714.2b). */
+fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
+/** A loyalty ability (CR 606.4) */
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+/** "investigate N times" (CR 701.16a) */
+fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction.Investigate(count)))

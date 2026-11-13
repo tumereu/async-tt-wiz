@@ -1134,6 +1134,10 @@ internal object Conditions {
         WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
             return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
         }
+        // mh3 chunk 08: "it escaped", "Phlage escaped": cast with its escape cost (CR 702.138c)
+        ESCAPED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
+            return Condition.Paid(arcanum.api.Keyword.Escape.Kind, times = 1, of = Objects.Self)
+        }
         // chunk 32: "it's attacking" (about this permanent)
         if (text == "it's attacking") return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         CARD_TYPES_IN_GRAVEYARD.matchEntire(text)?.let { m ->
@@ -1360,6 +1364,7 @@ internal object Conditions {
     private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRGC]\})+) (was|wasn't) spent to cast it""")
     // chunk 33
     private val WAS_KICKED = Regex("""(.+) was kicked""")
+    private val ESCAPED = Regex("""(.+) escaped""")
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more card types among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")

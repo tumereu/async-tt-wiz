@@ -23,7 +23,7 @@ internal object Mh3 {
 
     // mh3 chunk 02: energy (CR 107.14, 122.1)
     /** "Pay {E}{E}", "Pay X {E}": paying energy counters (CR 107.14). */
-    val PAY_ENERGY = Regex("""Pay ((?:\{E\})+|X \{E\})""")
+    val PAY_ENERGY = Regex("""Pay ((?:\{E\})+|X \{E\}|\w+ \{E\})""") // mh3 chunk 08: "Pay six {E}"
     /** "you get {E}{E}", "you get X {E}", "you get an amount of {E} equal to …": energy counters for you (CR 122.1). */
     val GET_ENERGY = Regex("""(?:[Yy]ou )?[Gg]et ((?:\{E\})+|X \{E\}|an amount of \{E\} equal to (.+?))\.""")
     /** "you may pay any amount of {E}": any number from 0 up to the energy you have (CR 107.1b, 107.14). */
@@ -101,4 +101,17 @@ internal object Mh3 {
     val DOUBLE_EACH_KIND_ON_IT = Regex("""[Dd]ouble the number of each kind of counter on (?:it|that creature)\.""")
     /** "Then for each nontoken permanent attached to it, create a token that's a copy of that permanent attached to that creature." */
     val FOR_EACH_ATTACHED_CREATE_COPY_ATTACHED = Regex("""(?:Then )?[Ff]or each (.+?) attached to (?:it|that creature), create a token that's a copy of that permanent attached to (?:it|that creature)\.""")
+
+    // mh3 chunk 08
+    /** "Discard any number of cards, then investigate twice for each card discarded this way." (CR 701.16a) */
+    val DISCARD_ANY_NUMBER_INVESTIGATE_FOR_EACH = Regex("""[Dd]iscard any number of cards, then investigate (once|twice|\w+ times)? ?for each card discarded this way\.""")
+    /** "Choose target creature with mana value 3 or less. If this spell was kicked, instead choose target creature. Exile the chosen creature, …" */
+    val CHOOSE_TARGET_KICKED_INSTEAD = Regex("""Choose target (.+?)\. If this spell was kicked, instead choose target (.+?)\. (.+)""")
+    val THE_CHOSEN = Regex("""\bthe chosen (?:creature|card|permanent)\b""")
+    /** "it was kicked with its {G} kicker" (CR 702.33f) */
+    val KICKED_WITH_ITS = Regex("""(.+) was kicked with its ((?:\{[^}]+\})+) kicker""")
+    /** "… exchange control of this creature and target creature an opponent controls. If you do, …" (CR 701.12b) */
+    val EXCHANGE_IF_YOU_DO = Regex("""(.*[Ee]xchange control of [^.]+\.) If you do, (.+)""")
+    /** "Sacrifice that creature unless you pay an amount of {E} equal to its mana value." */
+    val SACRIFICE_UNLESS_PAY_ENERGY_EQUAL = Regex("""[Ss]acrifice (?:that creature|it) unless you pay an amount of \{E\} equal to its (mana value|power)\.""")
 }

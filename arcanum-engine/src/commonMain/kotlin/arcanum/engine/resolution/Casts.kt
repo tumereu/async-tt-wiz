@@ -71,6 +71,8 @@ internal object Casts {
         act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings, self: ObjectId?, required: Boolean,
         event: arcanum.engine.state.TriggerEvent? = null,
         watch: ((List<Int>, Map<String, List<TargetRef>>) -> Unit)? = null,
+        // mh3: the kind of the ability being put on the Stack (a trigger, CR 603.3d)
+        pendingKind: arcanum.api.AbilityKind? = null,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
             // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
@@ -84,7 +86,7 @@ internal object Casts {
             // CR 700.2b: a mode that couldn't choose its targets can't be chosen; with too few left, the ability is removed from the Stack
             val illegal = if (!required) emptySet() else m.options.indices.filterTo(mutableSetOf()) { i ->
                 m.options[i].instructions.targets.any { slot ->
-                    slot.perPlayer == null && Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event).size < ev.value(slot.min)
+                    slot.perPlayer == null && Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event, pendingKind = pendingKind).size < ev.value(slot.min)
                 }
             }
             if (m.options.size - (used + illegal).size < m.min) return null
@@ -121,7 +123,7 @@ internal object Casts {
             slot.perPlayer?.let { f ->
                 val chosenAll = mutableListOf<TargetRef>()
                 for (p in act.state.playersFrom(controller).filter { e.matches(f, it) }) {
-                    val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, slotPlayer = p)
+                    val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, slotPlayer = p, pendingKind = pendingKind)
                     val pe = e.with(e.ctx.copy(slotPlayer = p))
                     val min = pe.value(slot.min)
                     val max = slot.max?.let { pe.value(it) }
@@ -131,7 +133,7 @@ internal object Casts {
                 if (chosenAll.isNotEmpty()) targets[slot.name] = chosenAll
                 continue
             }
-            val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event)
+            val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, pendingKind = pendingKind)
             val min = e.value(slot.min)
             val max = slot.max?.let { e.value(it) }
             if (options.size < min && required) return null

@@ -79,7 +79,7 @@ internal object Spm {
     // spm chunk 07: heroes and their tricks
     val UP_TO_ONE_TARGET_GAINS = Regex("""[Uu]p to one target (.+?) gains (.+) until end of turn\.""")
     val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each get ([+-]\d+)/([+-]\d+) and gain (.+) until end of turn\.""")
-    val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."
+    val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+|white|blue|black|red|green)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."; mh3 chunk 08: "If it's a green card, …"
     val SUSPECT = Regex("""[Ss]uspect (up to one )?target (.+?)\.""")
     val WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY = Regex("""When excess damage is dealt to the (.+?) this way, destroy up to one target (.+)\.""")
     val CREATE_THEN_YOU = Regex("""[Cc]reate (.+?), then you (.+)""")

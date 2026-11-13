@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 84
+    const val VERSION: Int = 85
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -158,6 +158,8 @@ object OracleParser {
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
         sentences.finChosenCreatureLinked = text.contains("When the chosen creature leaves the battlefield")
+        // mh3 chunk 08: "kicked with its {1}{U} kicker" names one of the costs of "Kicker {G} and/or {1}{U}" (CR 702.33f)
+        sentences.kickerCosts = text.lines().firstNotNullOfOrNull { KICKER_AND_OR.matchEntire(it.trim()) }?.let { listOf(it.groupValues[1], it.groupValues[2]) }.orEmpty()
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -592,6 +594,14 @@ object OracleParser {
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
                 // mh3 chunk 06: "hexproof from each color": from every object that has a colour (CR 702.11d, 105.2)
                 "each color" -> arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Colorless)
+                // mh3 chunk 08: "hexproof from activated and triggered abilities": a quality of the abilities themselves (CR 702.11d, 702.11f)
+                "activated abilities", "triggered abilities", "activated and triggered abilities" -> {
+                    fun ability(kind: arcanum.api.AbilityKind) = arcanum.api.ObjectFilter.And(listOf(arcanum.api.ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility),
+                        arcanum.api.ObjectFilter.AbilityOf(kind = kind)))
+                    val kinds = listOfNotNull(arcanum.api.AbilityKind.Activated.takeIf { m.groupValues[1].startsWith("activated") },
+                        arcanum.api.AbilityKind.Triggered.takeIf { m.groupValues[1].contains("triggered") }).map(::ability)
+                    kinds.singleOrNull() ?: arcanum.api.ObjectFilter.Or(kinds)
+                }
                 // fdn chunk 05: "hexproof from black", "hexproof from instants" (a colour or a card type)
                 else -> Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             })
@@ -647,6 +657,10 @@ object OracleParser {
                 "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
+        }
+        // mh3 chunk 08: "Kicker {G} and/or {1}{U}": two kicker costs, either, both or neither paid (CR 702.33b)
+        KICKER_AND_OR.matchEntire(part)?.let { m ->
+            return Keyword.Kicker(listOf(m.groupValues[1], m.groupValues[2]).map { Cost.mana(ManaCost.parse(it) ?: return null) })
         }
         // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
         AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }
@@ -721,6 +735,7 @@ object OracleParser {
     }
 
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
+    private val KICKER_AND_OR = Regex("""Kicker ((?:\{[^}]+\})+) and/or ((?:\{[^}]+\})+)""")
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL (\d+)(?:-(\d+)|\+)""")
     /** A spree or tiered mode (CR 702.172a, 702.183a): "+ {1} — Counter target spell." */

@@ -2,12 +2,14 @@ package arcanum.parser
 
 import arcanum.api.Comparison
 import arcanum.api.Condition
+import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
 import arcanum.api.Value
+import arcanum.api.Zone
 
 /** Wordings first met in Phyrexia: All Will Be One (ONE). */
 internal object One {
@@ -34,6 +36,17 @@ internal object One {
     val DRAW_EQUAL_TO_ITS_TOTAL = Regex("""Draw cards equal to its total (\w+) value\.""")
     // one chunk 05: Black Sun's Twilight, "return a creature card with mana value X or less from your graveyard to the battlefield tapped."
     val RETURN_A_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn an? (.+?) from your graveyard to the battlefield( tapped)?\.""")
+    // one chunk 06: Jace, the Perfected Mind and Nahiri, the Unforgiving, "Until your next turn, up to one target creature gets -3/-0."
+    val UNTIL_YOUR_NEXT_TURN_PREFIX = Regex("""Until your next turn, (.+)\.""")
+    // one chunk 06: Nahiri, "up to one target creature attacks a player each combat if able" (as "Until your next turn, …" is reread)
+    val ATTACKS_EACH_COMBAT_UNTIL_YOUR_NEXT_TURN = Regex("""(.+?) attacks( a player)? each combat if able until your next turn\.""")
+    // one chunk 06: Nahiri, the Unforgiving
+    val EXILE_FROM_GRAVEYARD_COPY_HASTE_EXILE_AT_END = Regex(
+        """Exile target (.+?) from your graveyard\. Create a token that's a copy of it\. That token gains (\w+)\. Exile it at the beginning of the next end step\.""")
+    val WITH_MANA_VALUE_LESS_THAN_SELFS = Regex("""(.+) with mana value less than (.+?'s (?:loyalty|power|toughness))""")
+    // one chunk 06: Vraska, Betrayal's Sting
+    val BECOMES_WITH_LOSES_OTHER_TYPES_AND_ABILITIES = Regex("""(Target .+?) becomes an? ([A-Z][A-Za-z ]+?) with "(.+?)" and loses all other card types and abilities\.""")
+    val IF_FEWER_COUNTERS_GET_DIFFERENCE = Regex("""If (target player|target opponent|that player) has fewer than (\w+) (\w+) counters, they get a number of (\w+) counters equal to the difference\.""")
 }
 
 /** Phrases first met in ONE. */
@@ -51,7 +64,26 @@ internal object OnePhrases {
         return Condition.Compare(Value.PlayerCounters(player, kind), Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
     }
 
+    // one chunk 06: "a graveyard has twenty or more cards in it" (any player's, CR 404.1)
+    private val A_GRAVEYARD_HAS = Regex("""a graveyard has (\w+) or more cards in it""")
+    // one chunk 06: "enchanted creature has toxic" (any toxic value, CR 702.164)
+    private val ATTACHED_HAS_KEYWORD = Regex("""(?:enchanted|equipped) creature has (\w+)""")
+    // one chunk 06: "… as you activate this ability": the value then, already how a where-X value of an activated ability is read (CR 602.2b, 601.2b)
+    private val AS_YOU_ACTIVATE = Regex("""(.+) as you activate this ability""")
+
+    fun value(text: String, exiled: Objects?): Value? = AS_YOU_ACTIVATE.matchEntire(text)?.let { Values.value(it.groupValues[1], exiled) }
+
     fun condition(text: String): Condition? {
+        A_GRAVEYARD_HAS.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.PlayerExists(PlayerFilter.Where(Condition.Exists(
+                ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Tested)))), atLeast = n)), atLeast = 1)
+        }
+        ATTACHED_HAS_KEYWORD.matchEntire(text)?.let { m ->
+            val kind = OracleParser.keyword(m.groupValues[1].replaceFirstChar { it.uppercase() })?.kind
+                ?: Filters.AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(m.groupValues[1], ignoreCase = true) } ?: return null
+            return Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), ObjectFilter.HasKeyword(kind))
+        }
         SOMEONE_HAS_COUNTERS.matchEntire(text)?.let { m ->
             val has = "has " + m.groupValues[2]
             return when (m.groupValues[1]) {

@@ -224,3 +224,14 @@ val eachCorruptedOpponent: Players = Players.Each(PlayerFilter.And(listOf(Player
 val equipped: Objects = Objects.AttachedTo(Objects.Self)
 /** "Equip [cost]" (CR 702.6) */
 fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))
+
+// ---- chunk 06: Affinity, Compleated, Enchant
+
+/** "enchanted creature": the permanent this Aura is attached to (CR 303.4a). */
+val enchanted: Objects = Objects.AttachedTo(Objects.Self)
+/** "Enchant [filter]" (CR 702.5) */
+fun enchant(filter: ObjectFilter): Keyword = Keyword.Enchant(TargetKind.Objects(filter))
+val planeswalker: ObjectFilter = ObjectFilter.Type(CardType.Planeswalker)
+/** "[+1]: Until your next turn, …": a loyalty ability's effect lasting until its controller's next turn (CR 611.2b). */
+fun untilYourNextTurn(objects: Objects, vararg mechanics: Mechanic): Step =
+    Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), Duration.UntilYourNextTurn))

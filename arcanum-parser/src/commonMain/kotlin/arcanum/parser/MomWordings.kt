@@ -35,6 +35,10 @@ internal object Mom {
     val ATTACKING_COPY_COUNTERS_SACRIFICE_AT_END = Regex("""[Cc]reate a tapped and attacking token that's a copy of (.+?)\. Put a \+1/\+1 counter on that token for each \+1/\+1 counter on (.+?)\. Sacrifice that token at the beginning of the next end step\.""")
     // mom chunk 02: The Great Work
     val UNTIL_EOT_CAST_FROM_ANY_GRAVEYARD = Regex("""Until end of turn, you may cast (.+?) spells from any graveyard\.""")
+    // mom chunk 04: Sunder the Gateway "transform an Incubator token you control" (the object of "Transform", not a target)
+    val TRANSFORM_A = Regex("""an? (?!target )(.+)""")
+    // mom chunk 04: Sunfall "Incubate X, where X is the number of creatures exiled this way." (fra chunk 03: Empower Jace)
+    val ACTION_X_EXILED_THIS_WAY = Regex("""(Empower Jace|Incubate) X, where X is the number of creatures exiled this way\.""")
     val LOOK_AT_HAND_EXILE_OWNER_MAY_PLAY = Regex("""Look at target opponent's hand\. You may exile an? (.+? card) from it\. For as long as that card remains exiled, its owner may play it\. A spell cast this way costs ((?:\{[^}]+\})+) more to cast\.""")
 }
 

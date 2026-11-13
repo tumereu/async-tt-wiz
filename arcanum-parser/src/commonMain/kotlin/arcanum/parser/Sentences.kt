@@ -1190,8 +1190,10 @@ internal class Sentences(
             val incubate = action(arcanum.api.KeywordAction.Incubate(mechanicCount(m.groupValues[1]) ?: return null))
             val times = m.groupValues[2]
             if (times.isEmpty()) return incubate
-            val n = if (times == "twice") 2 else Numbers.count(times.removeSuffix(" times")) ?: return null
-            return listOf(Step.Repeat(Value.Fixed(n), incubate))
+            // mom chunk 04: "X times": the X announced for this spell or ability, or the X this permanent was cast with (CR 107.3m)
+            val n = if (times == "twice") Value.Fixed(2) else if (times == "X times") (if (isSpell || announcedX) Value.Announced(name = "X") else Value.CastX(of = Objects.Self))
+                else Value.Fixed(Numbers.count(times.removeSuffix(" times")) ?: return null)
+            return listOf(Step.Repeat(n, incubate))
         }
         // CR 701.40a: "Manifest the top card of your library."
         MechanicWordings.MANIFEST_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Manifest(mechanicCount(m.groupValues[1]) ?: return null)) }
@@ -2832,7 +2834,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
-        momModify(sentence, steps)?.let { return it } // mom
+        momModify(sentence, steps, context)?.let { return it } // mom
         ltrModify(sentence, steps, context)?.let { return it } // ltr
         mh2Modify(sentence, steps, context)?.let { return it } // mh2
         dftModify(sentence, steps, context)?.let { return it } // dft
@@ -5328,6 +5330,12 @@ internal class Sentences(
         TRANSFORM.matchEntire(sentence)?.let { m ->
             // mom chunk 03: "transform all Incubator tokens you control"
             val all = m.groupValues[1].removePrefix("all ").takeIf { it != m.groupValues[1] }?.let { Filters.noun(it) }
+            // mom chunk 04: "transform an Incubator token you control": one chosen as it resolves, not targeted (CR 701.27a, 608.2c)
+            Mom.TRANSFORM_A.matchEntire(m.groupValues[1])?.let { a -> Filters.noun(a.groupValues[1]) }?.let { filter ->
+                context.it = Objects.Bound("chosen")
+                return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                    Step.Do(Effect.Transform(Objects.Bound("chosen"))))
+            }
             val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null
                 else if (all != null) Objects.Each(all) else return@let
             context.it = objects // "Transform this land, then untap it." (inr chunk 02)
@@ -10015,11 +10023,12 @@ internal class Sentences(
             val draw = ((last as? Step.Do)?.effect as? Effect.Draw) ?: return null
             return steps.dropLast(1) + Step.Do(draw.copy(postBind = "drawn")) + Step.Do(Effect.LoseLife(Players.You, Value.Count(Objects.Bound("drawn"))))
         }
-        // fra chunk 03: "Empower Jace X, where X is the number of creatures exiled this way." (after exiling them)
-        if (sentence == "Empower Jace X, where X is the number of creatures exiled this way.") {
+        // fra chunk 03: "Empower Jace X, where X is the number of creatures exiled this way." (after exiling them); mom chunk 04: also "Incubate X, …"
+        Mom.ACTION_X_EXILED_THIS_WAY.matchEntire(sentence)?.let { m ->
             val exile = ((last as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile } ?: return null
-            return steps.dropLast(1) + Step.Do(exile.copy(postBind = "exiled")) +
-                Step.Do(Effect.Action(arcanum.api.KeywordAction.EmpowerJace(Value.Count(Objects.Bound("exiled")))))
+            val x = Value.Count(Objects.Bound("exiled"))
+            val action = if (m.groupValues[1] == "Incubate") arcanum.api.KeywordAction.Incubate(x) else arcanum.api.KeywordAction.EmpowerJace(x)
+            return steps.dropLast(1) + Step.Do(exile.copy(postBind = "exiled")) + Step.Do(Effect.Action(action))
         }
         // fra chunk 09: "If you sacrificed a creature this way, create a 4/4 green Beast creature token with trample." (after each
         // player sacrificed: a creature you controlled among them, as it last existed)
@@ -15641,7 +15650,16 @@ internal class Sentences(
     }
 
     /** mom: sentences that change the steps before them, tried first in [modify]. */
-    private fun momModify(sentence: String, steps: List<Step>): List<Step>? {
+    private fun momModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // mom chunk 04: "You may choose a creature or battle card from it. If you do, …. If you don't, incubate 3.": the otherwise of that "If you
+        // do" (declined or nothing done, CR 608.2c)
+        Fra.IF_YOU_DONT.matchEntire(sentence)?.let { m ->
+            val pay = steps.getOrNull(steps.size - 2) as? Step.Pay ?: return@let
+            val bind = pay.bind ?: return@let
+            val ifDid = (steps.last() as? Step.If)?.takeIf { it.condition == arcanum.api.Condition.Did(bind) && it.otherwise.isEmpty() } ?: return@let
+            val otherwise = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return steps.dropLast(1) + ifDid.copy(otherwise = otherwise)
+        }
         // mom chunk 02: "If a spell cast this way would be put into a graveyard, exile it instead." after a permission to cast cards: where a spell
         // cast with that permission goes instead (CR 614.1a)
         if (sentence == "If a spell cast this way would be put into a graveyard, exile it instead.") {
@@ -22976,8 +22994,9 @@ internal class Sentences(
         }
         // mh2 chunk 01: "If it's an artifact creature, it gets +2/+2 until end of turn." after an effect on a target: whether the target is one
         // as the spell resolves (CR 608.2h)
+        // mom chunk 04: also after "any target" ("If it's a creature, it can't block this turn.": a player target isn't one)
         Mh2.IF_ITS_A_THEN.matchEntire(sentence)?.let { m ->
-            val slot = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects } ?: return@let
+            val slot = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects || it.what is TargetKind.Either } ?: return@let
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
             val target = Objects.Target(slot.name)
             val outerIt = context.it

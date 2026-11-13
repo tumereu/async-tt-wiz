@@ -792,6 +792,10 @@ internal object Events {
         }
         // chunk 56: "this creature transforms into [its back face's name]": it transforms and then has that name (CR 701.27e)
         TRANSFORMS_INTO.matchEntire(text)?.let { m ->
+            // mom chunk 04: "a permanent you control transforms into a Phyrexian": it is one after transforming (CR 701.27a; not a look-back
+            // trigger, CR 603.10)
+            val into = m.groupValues[2].takeIf { it.startsWith("a ") || it.startsWith("an ") }?.let { Filters.noun(it.substringAfter(' ')) }
+            if (into != null) return EventPattern.Transform(Filters.all(subject(m.groupValues[1], self) ?: return null, into))
             if (m.groupValues[2] !in self) return null
             return EventPattern.Transform(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Named(m.groupValues[2])))
         }

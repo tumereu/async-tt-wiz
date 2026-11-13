@@ -3020,8 +3020,10 @@ internal class Sentences(
         }
         // chunk 26: "Untap those creatures." after an effect on them; blb chunk 08: "Untap them."
         if (sentence == "Untap those creatures." || sentence == "Untap them.") {
-            val apply = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics) ?: return null
-            val objects = (apply.affects as? arcanum.api.Affected.Objects)?.objects ?: return null
+            val last = (steps.lastOrNull() as? Step.Do)?.effect
+            // woe chunk 16: "Put a +1/+1 counter on each creature you control. Untap those creatures."
+            val objects = (last as? Effect.PutCounters)?.objects
+                ?: ((last as? Effect.ApplyMechanics)?.affects as? arcanum.api.Affected.Objects)?.objects ?: return null
             return steps + Step.Do(Effect.Untap(objects))
         }
         // chunk 26: "They gain haste." / "Sacrifice them at the beginning of the next end step." after creating tokens

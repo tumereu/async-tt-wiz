@@ -178,4 +178,24 @@ internal object Mh3 {
     /** "As this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, except it has haste."
      * (CR 614.12, 707.9) */
     val AS_ENTERS_MAY_BECOME_COPY_UNTIL_EOT = Regex("""As (.+?) enters, you may have it become a copy of any (.+?) on the battlefield until end of turn(?:, except (.+))?\.""")
+
+    // mh3 chunk 11
+    /** "You gain 1 life for each of its colors." (each colour counted once, CR 105.2; a destroyed target by last known information, 608.2h) */
+    val GAIN_LIFE_FOR_EACH_OF_ITS_COLORS = Regex("""You gain (\d+) life for each of its colors\.""")
+    /** "Nonbasic lands are Islands." (layer 4: they lose their other land types and their rules-text abilities, CR 305.7) */
+    val ARE_BASIC_LAND_TYPE = Regex("""(.+?) are (Plains|Islands|Swamps|Mountains|Forests)\.""")
+    /** "Create a Spellgorger Weird token." (a token named only here, defined by the card's reminder text) */
+    val CREATE_NAMED_TOKEN = Regex("""Create an? ([A-Z][\w',-]*(?: [A-Z][\w',-]*)*) token\.""")
+    /** The reminder that defines it: "Create a Spellgorger Weird token. (It's a {2}{R} 2/2 Weird creature with "…")" */
+    val REMINDER_TOKEN_IN_TEXT = Regex("""Create an? ([A-Z][\w',-]*(?: [A-Z][\w',-]*)*) token\. \(It's an? ([^)]+?)\.?\)""")
+    /** The reminder's description: "{2}{R} 2/2 Weird creature with "…"" (mana cost, P/T, colours, types, abilities) */
+    val REMINDER_TOKEN = Regex("""(?:((?:\{[^}]+\})+) )?(\d+/\d+) (?:((?:white|blue|black|red|green|colorless)(?: and (?:white|blue|black|red|green))?) )?((?:[A-Z]\w+ )*(?:artifact )?creature)(?: with (.+))?""")
+    /** "Whenever …, choose one that hasn't been chosen this turn. Create a creature token with those characteristics." */
+    val CHOOSE_CREATE_WITH_THOSE_CHARACTERISTICS = Regex("""(.+?\.) Create an? (?:creature )?token with those characteristics\.""")
+    /** Its modes: "• 2/2 white Fox with vigilance." */
+    val CHARACTERISTICS_MODE = Regex("""(?:• )?(\d+/\d+ (?:white|blue|black|red|green|colorless)(?: and (?:white|blue|black|red|green))? [A-Z]\w*(?: [A-Z]\w*)*)( with [^.]+)?\.""")
+    /** "Pay six {C}": that many colorless mana symbols (CR 107.4c), in a cost written after an em dash ("Madness—Pay six {C}.") */
+    val PAY_N_COLORLESS = Regex("""Pay (\w+) \{C\}""")
+    /** "sacrifice all creatures you control." (CR 701.21a) */
+    val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+? you control)\.""")
 }

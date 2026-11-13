@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 87
+    const val VERSION: Int = 88
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -154,6 +154,8 @@ object OracleParser {
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
         sentences.discardedCard = text.contains("the discarded card")
+        // mh3 chunk 11: tokens defined only by reminder text
+        sentences.reminderTokens = Mh3.REMINDER_TOKEN_IN_TEXT.findAll(text).associate { it.groupValues[1] to it.groupValues[2] }
         // tla chunk 02: an Aura's spell targets through its enchant slot (CR 303.4a)
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
@@ -334,7 +336,7 @@ object OracleParser {
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
             // tmt chunk 02: "…, choose one that hasn't been chosen this turn." with a period before the modes
-            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */ ||
+            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */ || Mh3.CHOOSE_CREATE_WITH_THOSE_CHARACTERISTICS.matches(line) /* mh3 chunk 11 */ ||
                     Ltr.CHOOSE_ONE_AND_GETS.matches(line) /* ltr chunk 09 */) &&
                 i < lines.size && lines[i].startsWith("• ")) {
                 val modeLines = mutableListOf<String>()
@@ -687,6 +689,8 @@ object OracleParser {
                 "Ward", "ward" -> Keyword.Ward(cost)
                 // eoe chunk 09: "Warp—{B}, Pay 2 life." (CR 702.185a)
                 "Warp" -> Keyword.Warp(cost)
+                // mh3 chunk 11: "Madness—Pay six {C}." (CR 702.35a)
+                "Madness" -> Keyword.Madness(cost)
                 else -> Keyword.Escape(cost)
             }
         }
@@ -715,7 +719,13 @@ object OracleParser {
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
                 "monocolored" -> arcanum.api.ObjectFilter.Monocolored
                 "everything" -> arcanum.api.ObjectFilter.Any
-                else -> Filters.noun(quality) ?: return null
+                // mh3 chunk 11: "protection from spells and from permanents that were cast this turn" (either quality, CR 702.16a; a
+                // permanent was cast this turn when it entered this turn as a cast spell, CR 400.7d)
+                else -> quality.split(" and from ").map { q ->
+                    CAST_THIS_TURN.matchEntire(q)?.let { c -> Filters.all(Filters.noun(c.groupValues[1]) ?: return null, arcanum.api.ObjectFilter.WasCast(),
+                        arcanum.api.ObjectFilter.ThisTurn(arcanum.api.EventPattern.ZoneChange(arcanum.api.ObjectFilter.Any, to = arcanum.api.Zone.Battlefield)))
+                    } ?: Filters.noun(q) ?: return null
+                }.let { if (it.size == 1) it.single() else arcanum.api.ObjectFilter.Or(it) }
             })
         }
         val lower = part.lowercase()
@@ -761,7 +771,8 @@ object OracleParser {
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
-    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp)—(.+?)\.?""")
+    private val CAST_THIS_TURN = Regex("""(permanents|creatures) that were cast this turn""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp|Madness)—(.+?)\.?""")
     // dsk chunk 06
     private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
     // hob chunk 06
@@ -775,7 +786,7 @@ object OracleParser {
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
-    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
+    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+(?: and from [a-z ]+)?)""") // mh3 chunk 11: "and from …"
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06

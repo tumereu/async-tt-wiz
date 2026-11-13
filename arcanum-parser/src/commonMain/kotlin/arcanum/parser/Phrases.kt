@@ -735,12 +735,14 @@ internal object Events {
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
+            // mh3 chunk 11: "this creature becomes the target of a spell or ability" (anyone's)
             val by = when (m.groupValues[2]) {
-                "you control" -> PlayerFilter.You
-                "an opponent controls" -> PlayerFilter.Opponent
+                "you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
+                "an opponent controls" -> ObjectFilter.ControlledBy(PlayerFilter.Opponent)
+                "" -> ObjectFilter.Any
                 else -> return null
             }
-            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = ObjectFilter.ControlledBy(by))
+            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = by)
         }
         // chunk 33: leaves-the-battlefield (CR 603.6c)
         LEAVES_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
@@ -992,7 +994,7 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     private val TRANSFORMS = Regex("""(.+) transforms""")
     // blb chunk 01
-    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
+    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability(?: (you control|an opponent controls))?""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
     private val BEGINNING_OF_ENCHANTED_PLAYERS = Regex("""the beginning of (?:each of )?enchanted player's (upkeep|draw step|end step|postcombat main phases)""")

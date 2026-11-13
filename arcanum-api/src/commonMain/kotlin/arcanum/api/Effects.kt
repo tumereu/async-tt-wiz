@@ -218,6 +218,10 @@ sealed interface Effect {
         val chosen: Boolean = false,
         /** Names the number of counters moved ("If you do": at least one, CR 608.2c). */
         val bind: String? = null,
+        // mh3 chunk 11
+        /** With [kind] null: [amount] counters in all rather than [amount] of each kind, each of a kind on [from] the effect's controller
+         * chooses ("Move a counter from target permanent you control onto a second target permanent", CR 122.1, 608.2d). */
+        val inAll: Boolean = false,
     ) : Effect
     /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
     @Serializable @SerialName("change-targets") data class ChangeTargets(

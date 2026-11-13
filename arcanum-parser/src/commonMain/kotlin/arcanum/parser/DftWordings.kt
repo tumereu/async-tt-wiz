@@ -87,7 +87,7 @@ internal object Dft {
     val CHOOSE_TARGET_MILL_DESTROY_IF_MV = Regex("""Choose target (.+?)\. Mill (\w+) cards, then destroy the chosen permanent if its mana value is less than or equal to the number of cards in your graveyard\.""")
     val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
     // dft chunk 13
-    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
+    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose (target|two target) (.+?)\. (You may sacrifice|Sacrifice) an? (.+?)\. If you do, return the chosen cards? to the battlefield( tapped)?\.""") // mh3 chunk 11: two targets, a mandatory sacrifice, tapped
     val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")
     // dft chunk 14

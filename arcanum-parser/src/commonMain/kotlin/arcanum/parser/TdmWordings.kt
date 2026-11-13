@@ -129,7 +129,7 @@ internal object Tdm {
     val EXILE_TOP_X_OF_THEIR_CAST_ANY = Regex("""[Ee]xile the top X cards of their library, where X is the amount of damage dealt\. You may cast any number of spells with mana value X or less from among them without paying their mana costs\.""")
     // tdm chunk 10: "Return target creature card from your graveyard to your hand. Lie in Wait deals damage equal to that card's power to target
     // creature."
-    val RETURN_THEN_DEALS_ITS_POWER = Regex("""Return target (.+?) from your graveyard to your hand\. (.+?) deals damage equal to that card's power to target (.+)\.""")
+    val RETURN_THEN_DEALS_ITS_POWER = Regex("""Return target (.+?) from your graveyard to your hand\. (.+?) deals damage equal to that card's (power|mana value) to (up to one )?target (.+)\.""") // mh3 chunk 11: mana value, up to one
     // tdm chunk 10: "search your library for a black card, a green card, and a blue card. Put those cards into your graveyard, then shuffle."
     val SEARCH_COLORS_INTO_GRAVEYARD = Regex("""[Ss]earch your library for an? (\w+) card, an? (\w+) card, and an? (\w+) card\. Put those cards into your graveyard, then shuffle\.""")
     // tdm chunk 10: "When this creature enters, exile up to one other target creature you control until this creature leaves the battlefield."

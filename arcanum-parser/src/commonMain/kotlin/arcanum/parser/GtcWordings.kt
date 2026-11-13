@@ -20,7 +20,7 @@ internal object Gtc {
     val TAP_X_TARGETS = Regex("""Tap X target (.+)\.""")
     val DOESNT_UNTAP_NEXT = Regex("""(That creature|It|Those creatures|They) (?:doesn't|don't) untap during (?:its|their) controller's next untap step\.""")
     val CONTROLLER_CREATES = Regex("""(?:That creature's|Its) controller creates (.+)\.""")
-    val MOVE_COUNTER = Regex("""Move (a|an|one|two) (\S+) counters? from (.+) onto (.+)\.""")
+    val MOVE_COUNTER = Regex("""Move (a|an|one|two) (?:(\S+) )?counters? from (.+) onto (.+)\.""") // mh3 chunk 11: "a counter" (any kind)
     val PUT_ON_TOP = Regex("""Put (target .+) on top of its owner's library\.""")
     val REVEAL_UNTIL_INTO_GRAVEYARD = Regex("""(Target player|target player|Each opponent|each opponent|That player|that player) reveals cards from the top of their library until they reveal (a|an|X|two|three|four|five) (.+?) cards?, then puts (?:those cards|all cards revealed this way) into their graveyard\.""")
     val ITS_CONTROLLER_LOSES = Regex("""Its controller loses (\d+) life\.""")
@@ -147,7 +147,7 @@ internal object Gtc {
     val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name( you cast)? cost (\{\d+\}) (less|more) to cast\.""")
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
-    val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")
+    val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of (?:any|an?) (.+?), except it has "(.+)"\.?""")
     val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness|emerge)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness; mh3: emerge
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")

@@ -167,7 +167,19 @@ internal object Effects {
                 var removed = 0
                 scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
                     val n = scope.value(effect.amount)
-                    val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
+                    val present = act.state.objOrThrow(id).counters.filter { it.count > 0 }
+                    // mh3 chunk 11: "Remove a counter from target permanent": of a kind the effect's controller chooses when it has several
+                    // kinds and not all of them go (CR 608.2d)
+                    if (effect.kind == null && present.size > 1 && n < present.sumOf { it.count }) {
+                        repeat(n) {
+                            val have = act.state.objOrThrow(id).counters.filter { it.count > 0 }.map { it.kind }
+                            val labels = have.map { counterLabel(it) }
+                            val chosen = act.chooseOption(cause?.controller ?: act.state.turn.active, id, labels, text = "Choose the kind of counter to remove")
+                            removed += Actions.removeCounters(act, TargetRef.Object(id), have[labels.indexOf(chosen).coerceAtLeast(0)], 1)
+                        }
+                        return@forEach
+                    }
+                    val kinds = effect.kind?.let { listOf(it) } ?: present.map { it.kind }
                     var left = n
                     kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
                 }
@@ -331,6 +343,18 @@ internal object Effects {
                                 Actions.putCounters(act, cause, TargetRef.Object(to), k, removed)
                                 moved += removed
                             }
+                        }
+                    } else if (effect.kind == null && effect.inAll) {
+                        // mh3 chunk 11: "Move a counter from …": that many in all, each of a kind its controller chooses (CR 608.2d)
+                        repeat(scope.value(effect.amount)) {
+                            val have = act.state.objOrThrow(from).counters.filter { it.count > 0 && it.kind !in except }.map { it.kind }
+                            if (have.isEmpty()) return@repeat
+                            val labels = have.map { counterLabel(it) }
+                            val chosen = act.chooseOption(cause?.controller ?: act.state.turn.active, from, labels, text = "Choose the kind of counter to move")
+                            val k = have[labels.indexOf(chosen).coerceAtLeast(0)]
+                            val removed = Actions.removeCounters(act, TargetRef.Object(from), k, 1)
+                            Actions.putCounters(act, cause, TargetRef.Object(to), k, removed)
+                            moved += removed
                         }
                     } else kinds.forEach { k ->
                         val n = Actions.removeCounters(act, TargetRef.Object(from), k, scope.value(effect.amount))
@@ -564,6 +588,13 @@ internal object Effects {
     }
 
     // ---- Helpers
+
+    /** mh3 chunk 11: a counter kind as an option to choose ("+1/+1", "oil", "flying"). */
+    private fun counterLabel(kind: CounterKind): String = when (kind) {
+        is CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
+        is CounterKind.Named -> kind.name
+        else -> kind.toString()
+    }
 
     /** CR 701.40g, 701.58g: [o] is a manifested or cloaked permanent represented by an instant or sorcery card (a split card by either half). */
     private fun spellCardFaceDown(o: arcanum.engine.state.GameObject): Boolean {

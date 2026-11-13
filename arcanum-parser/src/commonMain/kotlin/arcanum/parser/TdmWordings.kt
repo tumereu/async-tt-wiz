@@ -160,7 +160,7 @@ internal object Tdm {
     // mom chunk 01: also without "During your turn" ("Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.")
     val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?(.+?) cost (\{[^}]+\}) less to cast for each (.+)\.""")
     // tdm chunk 11: "Spells you cast have delve."
-    val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast have (\w+)\.""")
+    val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast(?: from (exile|your hand))? have (\w+)\.""")
     // tdm chunk 11: "Whenever you cast a spell, you lose life equal to its mana value."
     val LOSE_LIFE_EQUAL_ITS_MV = Regex("""[Yy]ou lose life equal to its mana value\.""")
     // tdm chunk 11: "it deals X damage divided as you choose among any number of target creatures and/or planeswalkers your opponents control, where X

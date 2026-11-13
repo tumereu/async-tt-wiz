@@ -142,7 +142,7 @@ internal object Eoe {
     val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate if (.+?)\.""")
     // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
     val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
-    val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with an? (\S+) counter on it for each (.+)\.""")
+    val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with (an?|two|three) (\S+) (counters?) on it for each (.+)\.""")
     val ENTERS_WITH_NUMBER_EQUAL_TO = Regex("""(.+) enters with a number of (\S+) counters on it equal to (.+)\.""")
 
     // eoe chunk 08: blue wordings

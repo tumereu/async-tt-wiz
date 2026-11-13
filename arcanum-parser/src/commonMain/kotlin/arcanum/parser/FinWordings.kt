@@ -146,9 +146,9 @@ internal object Fin {
     val TRIPLE_TARGET_PT = Regex("""Triple target (.+?)'s power and toughness until end of turn\.""")
     val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile) up to (\w+) target (.+?) from a single graveyard\.""")
     val GAINS_QUOTE_AND_BASE_PT = Regex("""Until end of turn, target (.+?) gains "(.+?)" and has base power and toughness (\d+)/(\d+)\.""")
-    val COUNTER_ON_ONE_OF_THEM = Regex("""Put an? (\S+) counter on one of them\.""")
+    val COUNTER_ON_ONE_OF_THEM = Regex("""(?:Then p|P)ut an? (\S+) counter on (?:one|either) of them\.""")
     // fin chunk 03
-    val COPY_IT_TIMES = Regex("""Copy it (twice|three times)\.""")
+    val COPY_IT_TIMES = Regex("""Copy (?:it|that spell) (twice|three times)\.""")
     val SACRIFICES_AND_LOSES = Regex("""(Each opponent|Each player|Target player|Target opponent) sacrifices (.+?) and loses (\w+) life\.""")
     val SELF_GAINS_QUOTE = Regex("""(.+?) gains "(.+)"\.?""")
     val UNTIL_EOT_GAINS_AND_GETS = Regex("""Until end of turn, (.+?) gains (.+?) and gets (.+)\.""")

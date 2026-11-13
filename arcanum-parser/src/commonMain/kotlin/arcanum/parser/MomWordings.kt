@@ -40,6 +40,10 @@ internal object Mom {
     // mom chunk 04: Sunfall "Incubate X, where X is the number of creatures exiled this way." (fra chunk 03: Empower Jace)
     val ACTION_X_EXILED_THIS_WAY = Regex("""(Empower Jace|Incubate) X, where X is the number of creatures exiled this way\.""")
     val LOOK_AT_HAND_EXILE_OWNER_MAY_PLAY = Regex("""Look at target opponent's hand\. You may exile an? (.+? card) from it\. For as long as that card remains exiled, its owner may play it\. A spell cast this way costs ((?:\{[^}]+\})+) more to cast\.""")
+    // mom chunk 05: Knight-Errant of Eos (its "where X is" is read first, as the ability's X)
+    val LOOK_REVEAL_UP_TO_MV_X_HAND_SHUFFLE = Regex("""Look at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) with mana value X or less from among them\. Put the revealed cards into your hand, then shuffle\.""")
+    // mom chunk 05: Hoarding Broodlord
+    val SEARCH_EXILE_FACE_DOWN_MAY_PLAY = Regex("""[Ss]earch your library for an? (.+?), exile it face down, then shuffle\. For as long as that card remains exiled, you may play it\.""")
 }
 
 /** mom: nouns and conditions of March of the Machine wordings, tried by [Filters] and [Conditions]. */
@@ -50,7 +54,23 @@ internal object MomPhrases {
     // mom chunk 03: The Argent Etchings "other permanents except for artifacts, lands, and Phyrexians"
     private val EXCEPT_FOR = Regex("""(.+?) except for (.+)""")
 
+    // mom chunk 05: Cut Short "planeswalker that was activated this turn" (one of its loyalty abilities was, CR 606.3)
+    private val WAS_ACTIVATED_THIS_TURN = Regex("""(.+?) that was activated this turn""")
+
+    // mom chunk 05: "each creature that convoked it", "creatures that convoked this creature" (CR 702.51c)
+    private val THAT_CONVOKED = Regex("""(?:each )?creatures? that convoked (?:it|this creature|this spell)""")
+
+    /** mom chunk 05: objects that aren't a filter: the creatures tapped to pay for this object's convoke (CR 702.51c). */
+    fun objects(phrase: String): arcanum.api.Objects? {
+        if (THAT_CONVOKED.matches(phrase)) return arcanum.api.Objects.PaidWith(arcanum.api.ManaPaymentWay.TapCreatures, arcanum.api.Objects.Self)
+        return null
+    }
+
     fun noun(phrase: String): ObjectFilter? {
+        WAS_ACTIVATED_THIS_TURN.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(
+                EventPattern.Activate(ObjectFilter.Any, PlayerFilter.Any, kind = arcanum.api.AbilityKind.Loyalty), role = arcanum.api.EventRole.Source))
+        }
         EXCEPT_FOR.matchEntire(phrase)?.let { m ->
             // "artifacts, lands, and Phyrexians": an object of any of them is excepted
             val excepted = m.groupValues[2].split(Regex(""",? and |, """)).map { Filters.noun(it) ?: return null }

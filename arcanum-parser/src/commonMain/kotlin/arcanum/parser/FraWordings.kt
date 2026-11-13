@@ -124,7 +124,7 @@ internal object Fra {
     val PUT_N_COUNTERS_ON_EACH = Regex("""Put (X|two|three|four) (\S+) counters on each (.+)\.""")
     val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of target (.+?) until end of turn\.""")
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|X|two|three) (\S+) counters? on (?:it|that creature)\.""")
-    val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
+    val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures( you don't control| you control)?\.""")
     val IT_FIGHTS_TARGET = Regex("""It fights target (.+)\.""")
     val LOYALTY_AT_INSTANT_SPEED = Regex("""Until end of turn, you may activate loyalty abilities of (.+?) on any player's turn any time you could cast an instant\.""")
     val IF_SACRIFICE_DEALS_GAIN = Regex("""If (.+?), sacrifice (.+?), it deals (\d+) damage to each opponent, and you gain (\d+) life\.""")
@@ -215,7 +215,7 @@ internal object FraPhrases {
     }
 
     private val OPPONENT_DEALT_NONCOMBAT = Regex("""an opponent (?:was|has been) dealt noncombat damage (this|last) turn""")
-    private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn""")
+    private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn|you've drawn more than (\w+) cards? this turn""")
     private val LOYALTY_AMONG = Regex("""there are (\S+) or more loyalty counters among (.+)""")
     private val NUMBER_WORDS = mapOf("twenty-five" to 25)
 
@@ -232,7 +232,9 @@ internal object FraPhrases {
         }
         // fra chunk 08: "you've drawn three or more cards this turn"
         DRAWN_N_THIS_TURN.matchEntire(text)?.let { m ->
-            return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Events)
+            // mkm chunk 10: "you've drawn more than one card this turn" (two or more)
+            val atLeast = if (m.groupValues[1].isNotEmpty()) Numbers.count(m.groupValues[1]) ?: return null else (Numbers.count(m.groupValues[2]) ?: return null) + 1
+            return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = atLeast, measure = Measure.Events)
         }
         // fra chunk 08: "you didn't cast a spell this turn"
         if (text == "you didn't cast a spell this turn")

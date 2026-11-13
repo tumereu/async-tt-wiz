@@ -70,7 +70,7 @@ internal object Tmt {
     val MAY_PUT_AND_OR_FROM_HAND = Regex("""[Yy]ou may put an? (\w+) card and/or an? (\w+) card from your hand onto the battlefield\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+\. .+)""")
     val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
-    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of the next end step\.""")
+    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of (the|your) next end step\.""") // mkm chunk 10: your
     val EXILE_TARGET_YOU_OWN = Regex("""Exile target (.+?) you own\.""")
     val ADD_THAT_MUCH = Regex("""[Aa]dd that much (\{[WUBRGC]\})\.""")
     val ENTERS_OR_DEALS_COMBAT_DAMAGE = Regex("""(.+) enters or deals combat damage to a player""")

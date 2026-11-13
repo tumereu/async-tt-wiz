@@ -108,8 +108,8 @@ internal object Mkm {
     // mkm chunk 07: "Turn target face-down creature face up." (CR 708.8)
     val TURN_TARGET_FACE_UP = Regex("""Turn target (.+?) face up\.""")
     // mkm chunk 08: "Destroy up to one target artifact, up to one target creature, up to one target enchantment, and up to one target planeswalker."
-    val UP_TO_ONE_TARGET_EACH = Regex("""(Destroy|Exile) ((?:up to one target [a-z]+, )+and up to one target [a-z]+)\.""")
-    val UP_TO_ONE_TARGET = Regex("""(?:and )?up to one target ([a-z]+)""")
+    val UP_TO_ONE_TARGET_EACH = Regex("""(Destroy|Exile|Return) ((?:up to one target [a-zA-Z-]+(?: [a-z]+){0,2}, )+and up to one target [a-zA-Z-]+(?: [a-z]+){0,2})( from your graveyard to the battlefield)?\.""")
+    val UP_TO_ONE_TARGET = Regex("""(?:and )?up to one target ([a-zA-Z-]+(?: [a-z]+){0,2})""")
     // mkm chunk 08: "collect evidence X, where X is the total mana value of the permanents this spell targets" (CR 601.2c: targets come first)
     val COLLECT_EVIDENCE_TARGETS_MANA_VALUE = Regex("""[Cc]ollect evidence X, where X is the total mana value of the (.+?) this spell targets""")
     // mkm chunk 08: "If the card's mana value is 1 or less, create …" (the card the instructions last named)
@@ -165,4 +165,33 @@ internal object Mkm {
     val NUMBER_PUT_INTO_GRAVEYARDS_FROM_THIS_TURN = Regex("""the number of (.+?) that were put into (graveyards|your graveyard) from (the battlefield|anywhere) this turn""")
     // mkm chunk 09: "the number of different color pairs among permanents you control that are exactly two colors" (CR 105.2)
     val NUMBER_OF_COLOR_PAIRS_AMONG = Regex("""the number of different color pairs among (.+?) that are exactly two colors""")
+    // mkm chunk 10: "its toughness was less than 1", "it had power 3 or greater" (a trigger's object as it last existed, CR 603.10a)
+    val ITS_PT_WAS = Regex("""(?:its (power|toughness) was (less than|greater than) (\d+)|it had (power|toughness) (\d+) or (greater|less))""")
+    // mkm chunk 10: "the number of cards you've drawn this turn minus one", "two plus the total number of …"
+    val VALUE_MINUS = Regex("""(.+) minus (one|two|three|\d+)""")
+    val NUMBER_PLUS_VALUE = Regex("""(one|two|three|four|five|\d+) plus (.+)""")
+    // mkm chunk 10: "the total number of cards you own in exile and in your graveyard that are Oozes or are named Slime Against Humanity"
+    val CARDS_YOU_OWN_IN_EXILE_AND_GRAVEYARD_THAT_ARE = Regex("""the total number of cards you own in exile and in your graveyard that are (.+)""")
+    // mkm chunk 10: "target opponent may sacrifice two nonland, nontoken permanents of their choice." (CR 118.12)
+    val TARGET_OPPONENT_MAY_SACRIFICE = Regex("""[Tt]arget opponent may sacrifice (.+?) of their choice\.""")
+    // mkm chunk 10: "Tolsimir attacked this combat"
+    val ATTACKED_THIS_COMBAT = Regex("""(.+) attacked this combat""")
+    // mkm chunk 10: "They are 5/5 Elemental creatures in addition to their other types." (the cards returned before)
+    val THEY_ARE_PT_CREATURES_IN_ADDITION = Regex("""They are (\d+)/(\d+) ((?:[A-Z]\w+ ?)+) creatures in addition to their other types\.""")
+    // mkm chunk 10: "return it to the battlefield face down under its owner's control if it's a permanent card, then turn it face up"
+    val RETURN_IT_FACE_DOWN_THEN_TURN_UP = Regex("""[Rr]eturn it to the battlefield face down under (its owner's|your) control(?: if it's an? (.+?))?(, then turn it face up)?\.""")
+    // mkm chunk 10: "Look at the top six cards of your library. You may reveal a creature card from among them. If that card has mana value 2 or less,
+    // you may put it onto the battlefield and it gains haste until end of turn. If you didn't put the revealed card onto the battlefield this way, put
+    // it into your hand. Put the rest on the bottom of your library in a random order."
+    val LOOK_REVEAL_IF_MANA_VALUE_MAY_PUT_ELSE_HAND = Regex("""Look at the top (\w+) cards of your library\. You may reveal an? (.+?) from among them\. If that card has mana value (\d+) or less, you may put it onto the battlefield and it gains (\w+) until end of turn\. If you didn't put the revealed card onto the battlefield this way, put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    // mkm chunk 10: "Reveal the top five cards of your library and separate them into two piles. An opponent chooses one of those piles. Put that pile
+    // into your hand and the other into your graveyard. Create a 0/0 colorless Thopter artifact creature token with flying, then put a +1/+1 counter on
+    // it for each card put into your graveyard this way."
+    val REVEAL_TWO_PILES_OPPONENT_CHOOSES_CREATE_COUNTERS = Regex("""Reveal the top (\w+) cards of your library and separate them into two piles\. An opponent chooses one of those piles\. Put that pile into your hand and the other into your graveyard\. Create (an? .+? token(?: with [^,]+)?), then put an? (\S+) counter on it for each card put into your graveyard this way\.""")
+    // mkm chunk 10: "you may search your graveyard, hand and/or library for a card named Magnifying Glass and/or a card named Thinking Cap and put them onto
+    // the battlefield. If you search your library this way, shuffle."
+    val MAY_SEARCH_ZONES_FOR_NAMED_PUT_ONTO_BATTLEFIELD = Regex("""[Yy]ou may search your ((?:\w+, )*\w+ and/or \w+) for (a card named .+?) and put (?:them|it) onto the battlefield\. If you search your library this way, shuffle\.""")
+    // mkm chunk 10: "Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, that
+    // opponent loses 3 life and you draw a card."
+    val OPPONENT_ATTACKS_WITH_N_ATTACKING_YOU = Regex("""Whenever an opponent attacks with creatures, if (\w+) or more of those creatures are attacking you and/or planeswalkers you control, that opponent loses (\d+) life and (.+)\.""")
 }

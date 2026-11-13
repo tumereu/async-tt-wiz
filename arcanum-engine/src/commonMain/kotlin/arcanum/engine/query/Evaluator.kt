@@ -349,6 +349,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.HasDealtCombatDamage -> o?.dealtCombatDamage == true
             ObjectFilter.HasDealtDamage -> o?.dealtDamage == true // tdm
             // msh: the only creature declared as an attacker in this combat (CR 506.5)
+            // mkm: declared as an attacker this combat, still attacking or not (CR 506.4)
+            ObjectFilter.AttackedThisCombat -> state.combat != null && state.turn.step != arcanum.api.TurnStep.BeginningOfCombat && declaredThisCombat(id)
             ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
             // msh: a target of one of these spells or abilities (CR 115.1)
             is ObjectFilter.TargetedBy -> objects(filter.objects).any { item ->
@@ -802,6 +804,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** msh: whether [id] was the only creature declared as an attacker in the latest declaration of attackers this turn
      * (CR 506.5: a creature put onto the battlefield attacking doesn't change that). */
+    private fun declaredThisCombat(id: ObjectId): Boolean {
+        val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
+            c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings
+        } as? arcanum.engine.change.Change.Combat ?: return false
+        return declared.after?.attackers.orEmpty().any { it.id == id }
+    }
+
     private fun attackedAlone(id: ObjectId): Boolean {
         val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
             c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings

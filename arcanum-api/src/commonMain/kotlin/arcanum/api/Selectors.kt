@@ -220,6 +220,10 @@ sealed interface ObjectFilter {
     /** An attacking creature that attacked alone: the only creature declared as an attacker in its combat (CR 506.5, "a
      * creature you control that's attacking alone"). */
     @Serializable @SerialName("attacking-alone") data object AttackingAlone : ObjectFilter
+    // mkm
+    /** Declared as an attacker in the current combat, even if since removed from combat ("if Tolsimir attacked this combat",
+     * CR 506.4, 508.1). Nothing matches outside the combat phase. */
+    @Serializable @SerialName("attacked-this-combat") data object AttackedThisCombat : ObjectFilter
     /** Targeted by one of [objects], spells or abilities ("Whenever you cast a spell that targets one or more creatures, those
      * creatures gain flying": the creatures that spell targets, CR 115.1). */
     @Serializable @SerialName("targeted-by") data class TargetedBy(val objects: Objects) : ObjectFilter

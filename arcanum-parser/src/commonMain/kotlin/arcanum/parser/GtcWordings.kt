@@ -36,7 +36,7 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
-    val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks) this turn if able\.""")
+    val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
     val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on enchanted creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")

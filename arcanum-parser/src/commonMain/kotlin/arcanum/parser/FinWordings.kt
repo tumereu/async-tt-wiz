@@ -144,7 +144,7 @@ internal object Fin {
     val TARGETS_OWNER_SHUFFLES = Regex("""Target (.+?)'s owner shuffles it into their library\.""")
     val REMOVE_COUNTER_FROM_TARGET = Regex("""Remove (a|an|one|two|three) (\S+) counters? from target (.+)\.""")
     val TRIPLE_TARGET_PT = Regex("""Triple target (.+?)'s power and toughness until end of turn\.""")
-    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile) up to (\w+) target (.+?) from a single graveyard\.""")
+    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile|Put) up to (\w+) target (.+?) from a single graveyard( onto the battlefield under your control)?\.""")
     val GAINS_QUOTE_AND_BASE_PT = Regex("""Until end of turn, target (.+?) gains "(.+?)" and has base power and toughness (\d+)/(\d+)\.""")
     val COUNTER_ON_ONE_OF_THEM = Regex("""Put an? (\S+) counter on one of them\.""")
     // fin chunk 03

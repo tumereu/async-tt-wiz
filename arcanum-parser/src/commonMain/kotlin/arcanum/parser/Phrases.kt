@@ -432,7 +432,8 @@ internal object Filters {
     }
 
     fun players(phrase: String): Players? = when (phrase) {
-        "Each opponent", "each opponent" -> Players.Each(PlayerFilter.Opponent)
+        // mkm chunk 10: "each of your opponents"
+        "Each opponent", "each opponent", "each of your opponents" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
         "Each player", "each player" -> Players.Each(PlayerFilter.Any)
         else -> null
@@ -682,7 +683,11 @@ internal object Events {
         // chunks 45, 46: "at the beginning of combat on your turn"
         if (text == "the beginning of combat on your turn") return EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.You)
         // chunk 47: "a player sacrifices a permanent"
-        PLAYER_SACRIFICES.matchEntire(text)?.let { m -> return EventPattern.Sacrifice(Filters.noun(m.groupValues[1]) ?: return null) }
+        // mkm chunk 10: "an opponent sacrifices an artifact" (only a permanent's controller sacrifices it, CR 701.21a)
+        PLAYER_SACRIFICES.matchEntire(text)?.let { m ->
+            val kind = Filters.noun(m.groupValues[2]) ?: return null
+            return EventPattern.Sacrifice(if (m.groupValues[1] == "a player") kind else Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))
+        }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -985,7 +990,7 @@ internal object Events {
     private val ATTACKS = Regex("""(.+) attacks""")
     // chunk 46
     // chunk 47
-    private val PLAYER_SACRIFICES = Regex("""a player sacrifices an? (.+)""")
+    private val PLAYER_SACRIFICES = Regex("""(a player|an opponent) sacrifices an? (.+)""")
     // chunk 50
     private val YOU_CAST_NOT_FROM_HAND = Regex("""you cast an? (?:(.+) )?spell from anywhere other than your hand""")
     private val BEGINNING_OF_EACH = Regex("""the beginning of each (upkeep|end step)""")
@@ -1183,6 +1188,10 @@ internal object Conditions {
             val n = Value.Fixed(m.groupValues[3].toInt())
             val filter = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return Condition.ObjectMatches(Objects.Bound(SACRIFICED), filter)
+        }
+        // mkm chunk 10: "Tolsimir attacked this combat" (declared as an attacker, even if removed from combat since, CR 506.4)
+        Mkm.ATTACKED_THIS_COMBAT.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.AttackedThisCombat)
         }
         SELF_IS_TAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))

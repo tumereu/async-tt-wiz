@@ -49,6 +49,9 @@ internal class Sentences(
     /** chunk 40: parsing an activated ability with X in its cost: X is the announced value (CR 107.3a). */
     private var announcedX = false
 
+    /** isd fixes: parsing an activated ability whose cost names the object it chose ("… and pay its mana cost"): what "that card" means. */
+    private var costIt: Objects? = null
+
     /** The card's name or "this land" / "This land" (a sentence may start with it). */
     private fun isSelf(text: String) = text in self || text.replaceFirstChar { it.lowercase() } in self
 
@@ -215,6 +218,9 @@ internal class Sentences(
 
     /** tla chunk 04: in an ability another object gives, that object's name ([Objects.Granter]). */
     var granterName: String? = null
+
+    /** isd fixes: in a token's quoted ability, the names of the object whose ability creates the token ([Objects.Creator], CR 201.5a). */
+    var creatorNames: Set<String> = emptySet()
 
     /** chunk 33: what "the exiled card" means on this card (linked abilities, CR 607.2a); null when nothing links. */
     var exiledCard: Objects? = null
@@ -1924,7 +1930,12 @@ internal class Sentences(
         // chunk 46: "Master of Etherium's power and toughness are each equal to the number of artifacts you control." (CR 604.3)
         PT_EACH_EQUAL_TO_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             // isd chunk 07: "the number of cards in your hand"
-            val count = Filters.objects(m.groupValues[2])?.let { Value.Count(it) } ?: Values.value("the number of " + m.groupValues[2]) ?: return null
+            val count = Filters.objects(m.groupValues[2])?.let { Value.Count(it) } ?: Values.value("the number of " + m.groupValues[2])
+                // isd fixes: "the number of slime counters on Gutter Grime" (this object, or in a token's ability the object that created it, CR 201.5a)
+                ?: Isd.COUNTERS_ON.matchEntire(m.groupValues[2])?.let { c ->
+                    val on = if (isSelf(c.groupValues[2])) Objects.Self else if (c.groupValues[2] in creatorNames) Objects.Creator else return null
+                    Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(c.groupValues[1]) ?: return null), on, arcanum.api.Combine.Single)
+                } ?: return null
             return Ability.Static(listOf(Mechanic.SetPowerToughness(count, count)), characteristicDefining = true, affects = Affected.Objects(Objects.Self))
         }
         // chunk 46: "Nonartifact spells cost {1} more to cast."
@@ -2213,7 +2224,8 @@ internal class Sentences(
         val xInCost = X_IN_COST.containsMatchIn(line.substring(0, colon)) || line.substring(0, colon).contains(" one or more ") || // gtc chunk 04
             line.substring(0, colon).contains("Remove any number of ") // msh chunk 08
         announcedX = xInCost
-        val parsed = try { instructions(text) } finally { announcedX = false }
+        costIt = cost.parts.firstNotNullOfOrNull { (it as? CostPart.ManaCostOf)?.objects }
+        val parsed = try { instructions(text) } finally { announcedX = false; costIt = null }
         val instructions = parsed?.let { i ->
             if (xInCost || cost.parts.any { (it as? CostPart.Mana)?.cost?.symbols?.any { s -> s is arcanum.api.ManaSymbol.Variable } == true })
                 i.copy(announced = listOf("X")) else i
@@ -2783,6 +2795,8 @@ internal class Sentences(
         // dft chunk 04: also "this creature attacks while saddled" (this creature, saddled)
         if (event is EventPattern.Attack && (event.attacker as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
+        // isd fixes: in an activated ability, "that card" is the object its cost chose and paid the mana cost of (CR 601.2b, 601.2h)
+        if (context.it == null) costIt?.let { context.it = it }
         context.definedX = x // tla
         if (stateTriggerSelf) context.it = Objects.Self // fdn
         // chunk 20
@@ -6678,7 +6692,8 @@ internal class Sentences(
         Gtc.CREATE_STAR_TOKEN_WITH_QUOTED.matchEntire(sentence)?.let { m ->
             val colors = m.groupValues[1].split(" and ").map { BECOME_COLORS[it] ?: return null }
             val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
-            val granted = Sentences(setOf("this token", "This token")).line(m.groupValues[4]) ?: return null
+            // isd fixes: the card's own name in the token's ability is the object creating the token (CR 201.5a)
+            val granted = Sentences(setOf("this token", "This token")).also { it.creatorNames = self }.line(m.groupValues[4]) ?: return null
             // inr chunk 03: "… token with trample and "…"": the keywords come first
             val keywords = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null } ?: emptyList()
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition("$subtype Token", colorIndicator = colors,
@@ -15806,6 +15821,19 @@ internal class Sentences(
             val onSelf = first.all { (it is CostPart.RemoveCounters && it.from == CostObjects.Self) || (it is CostPart.PutCounters && it.on == CostObjects.Self) ||
                 it == CostPart.TapSelf || it == CostPart.UntapSelf }
             return if (onSelf) first + CostPart.Sacrifice(CostObjects.Self) else null
+        }
+        // isd fixes: "Exile a creature card from your graveyard and pay its mana cost": the mana cost of the one object the first part
+        // chooses, known once it is chosen (CR 601.2b, 601.2f); the effect's "that card" reads the same object
+        Isd.COST_AND_PAY_ITS_MANA_COST.matchEntire(text)?.let { m ->
+            val first = costPart(m.groupValues[1])?.singleOrNull() ?: return null
+            val one = { what: CostObjects -> (what as? CostObjects.Choose)?.count == Value.Fixed(1) }
+            val (part, name) = when (first) {
+                is CostPart.Exile -> if (!one(first.what)) return null else (first.postBind ?: "exiled").let { n -> first.copy(postBind = n) to n }
+                is CostPart.Sacrifice -> if (!one(first.what)) return null else (first.postBind ?: "sacrificed").let { n -> first.copy(postBind = n) to n }
+                is CostPart.Discard -> if (!one(first.what)) return null else (first.postBind ?: "discarded").let { n -> first.copy(postBind = n) to n }
+                else -> return null
+            }
+            return listOf(part, CostPart.ManaCostOf(Objects.Bound(name)))
         }
         return null
     }

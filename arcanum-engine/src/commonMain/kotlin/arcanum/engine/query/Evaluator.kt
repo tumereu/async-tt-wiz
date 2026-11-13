@@ -78,6 +78,9 @@ internal interface Board {
 
     /** dft: the rules that apply to [id] in the finished view (none part-way through the layers). */
     fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = emptyList()
+
+    /** isd: the object whose ability created the token [id], from its copiable values (a copy of a token has the original's, CR 201.5a). */
+    fun createdBy(id: ObjectId): ObjectId? = state.obj(id)?.let { o -> o.statuses.filterIsInstance<arcanum.engine.state.ObjectStatus.CreatedBy>().firstOrNull()?.source }
 }
 
 /**
@@ -142,6 +145,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // tla: in an ability another object's static ability gives, that object (CR 113.10)
         Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.self)
+        // isd: in a token's ability, the object that created it while it is still that object (CR 201.5a, 400.7)
+        Objects.Creator -> listOfNotNull(ctx.self?.let { board.createdBy(it) }?.takeIf { state.obj(it) != null })
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
         Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { board.readingLog(); Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)

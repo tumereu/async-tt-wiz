@@ -60,6 +60,12 @@ sealed interface Objects {
     /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
      * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
     @Serializable @SerialName("granter") data object Granter : Objects
+    // isd
+    /** In a token's ability, the object whose ability created the token, as long as it is still that object ('create a green Ooze
+     * creature token with "This token's power and toughness are each equal to the number of slime counters on Gutter Grime."',
+     * CR 201.5a); a copy of the token refers to the object that created the original. Nothing once that object has left its zone
+     * (CR 400.7) or for an object no ability created. */
+    @Serializable @SerialName("creator") data object Creator : Objects
 }
 
 /**

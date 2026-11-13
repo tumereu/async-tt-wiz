@@ -16,6 +16,10 @@ internal object Isd {
     val WITH_SAME_NAME_AS_SELF = Regex("""(.+) with the same name as this (?:creature|permanent)""")
     // isd chunk 06: Grimoire of the Dead
     val COST_AND_SACRIFICE_IT = Regex("""(.+) and sacrifice it""")
+    // isd fixes: Back from the Brink
+    val COST_AND_PAY_ITS_MANA_COST = Regex("""(.+) and pay its mana cost""")
+    // isd fixes: Gutter Grime ("slime counters on Gutter Grime")
+    val COUNTERS_ON = Regex("""(\S+) counters on (.+)""")
     // isd chunk 06: Essence of the Wild
     val ENTER_AS_COPY_OF_SELF = Regex("""([A-Z][^.]+? you control) enter as a copy of (.+)\.""")
     // isd chunk 06: Unbreathing Horde

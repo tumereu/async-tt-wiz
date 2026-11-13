@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.appui.BackHandler
+import org.asyncttwiz.appui.LeaveScreenBackHandler
+import org.asyncttwiz.appui.secondBackLeavesTable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -71,8 +73,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     // I-D43: problem and crash reports carry this game's device bundle while it is the latest open
     DisposableEffect(controller, game.id) {
-        AutomatumReports.engine = { controller.engineGame()?.repro() }
-        AutomatumReports.board = { controller.engineGame()?.logBoard() }
+        AutomatumReports.engine = { done -> controller.engineGame()?.repro(done) ?: done(null) }
+        AutomatumReports.board = { done -> controller.engineGame()?.logBoard(done) ?: done() }
         onDispose { }
     }
     // SYS-072: the engine's tokens show the best matching token picture
@@ -100,14 +102,21 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val applied = remember(game.id, playId) { AppliedMarks() }
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
-    val reviewNow = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
+    // Web client step 4c: the board arrives through a callback (on Android at once, in the same composition)
+    val reviewAnswer = remember(reviewId, engine.version) {
+        AnsweredValue<TableBoard?>().also { answer -> if (reviewId == null) answer.set(null) else engine.reviewPlay(reviewId, answer::set) }
+    }
+    val reviewNow = reviewAnswer.value
     // HIS-005 (owner 2026-11-07: the timeline reaches the game's first event): a point whose board needs older history
-    // keeps the board shown before until its page is in; one that can't be shown leaves timeline mode
+    // keeps the board shown before until its page is in; one that can't be shown leaves timeline mode. In the browser the
+    // board shown before stays too until the engine side's answer arrives
     val reviewKept = remember(game.id) { ReviewKept() }
-    val reviewPlay = reviewNow ?: reviewKept.board.takeIf { reviewId != null && engine.historyLoading }
+    val reviewPlay = reviewNow ?: reviewKept.board.takeIf { reviewId != null && (engine.historyLoading || !reviewAnswer.arrived) }
     reviewKept.board = if (reviewId == null) null else reviewNow ?: reviewKept.board
-    LaunchedEffect(reviewId, reviewNow == null, engine.historyLoading) {
-        if (reviewId != null && reviewNow == null && !engine.historyLoading && !engine.loadFor(reviewId)) routes.leaveReview()
+    LaunchedEffect(reviewId, reviewAnswer.arrived, reviewNow == null, engine.historyLoading) {
+        if (reviewId != null && reviewAnswer.arrived && reviewNow == null && !engine.historyLoading) engine.loadFor(reviewId) { started ->
+            if (!started) routes.leaveReview()
+        }
     }
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }
@@ -221,7 +230,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val podUnread = podView?.unread(accountId) ?: 0
     val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true
     val overlay = toolkit.hasBackOverlay || state.chatOpen
-    BackHandler {
+    if (secondBackLeavesTable) BackHandler {
         // HIS-097: a branch's take-back can't be skipped or left
         if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
@@ -231,6 +240,15 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.EXIT_REVIEW -> {}
         }
+    } else {
+        // WEB-002, WEB-004: in the browser Back and Esc close what is open (the chat, a panel, timeline mode) and then
+        // leave the table at once
+        BackHandler(enabled = takingBack || overlay || routes.review != null) {
+            if (takingBack) return@BackHandler
+            if (!overlay && routes.review != null) routes.leaveReview()
+            else if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
+        }
+        LeaveScreenBackHandler { controller.back() }
     }
     // HIS-008: timeline mode's look, also while a branch's take-back goes back (HIS-106)
     val reviewing = reviewPlay != null || rewindingBranch
@@ -254,8 +272,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         resultControls = TableResultControls(interactive,
-                            reject = { engine.answerSuggestion(false); controller.engineSent() },
-                            accept = { engine.answerSuggestion(true); controller.engineSent() }),
+                            reject = { engine.answerSuggestion(false) { controller.engineSent() } },
+                            accept = { engine.answerSuggestion(true) { controller.engineSent() } }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
                         onSceneSettled = if (reviewPlay != null) null else ({ _ ->

@@ -3,6 +3,7 @@ package arcanum.engine.view
 import arcanum.engine.state.castOrNone
 import arcanum.engine.state.fixedCopies
 import arcanum.engine.state.gainedInCopying
+import arcanum.engine.state.createdBy
 import arcanum.engine.state.mergedAbove
 import arcanum.engine.state.mergedBelow
 import arcanum.engine.state.turnedFaceUp
@@ -116,7 +117,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is
         if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
         val definition = o.definition
-        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying).let { Worked(it, inEffect(it, o)) }
+        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying, o.createdBy).let { Worked(it, inEffect(it, o)) }
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             worked = worked.map(::prototyped)

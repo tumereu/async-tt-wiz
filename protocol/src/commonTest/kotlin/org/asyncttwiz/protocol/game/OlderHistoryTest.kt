@@ -115,6 +115,34 @@ class OlderHistoryTest {
         assertEquals(sim.server.line().map { it.id }, (d.olderEvents + d.session.events).map { it.id })
     }
 
+    // HIS-111, HIS-099 (e2e full run 2026-11-13, TimelineWholeGameTest: the Undo dialog stuck at the device's own line): the
+    // first page is asked for, and before it arrives the device trims its line (the other player catching up): the page
+    // still joins the line through the events trimmed meanwhile, and the rest loads on to the game's first event
+    @Test
+    fun aFirstPageAskedBeforeATrimStillJoinsTheLine() {
+        val sim = longGame(events = 120)
+        val d = sim.device(sim.alice)
+        val through = assertNotNull(d.olderThrough())
+        val page = assertNotNull(sim.server.history.page(sim.server.head, through))
+        val start = d.session.lineStart
+        while (d.session.lineStart == start) {
+            val p = sim.server.state().engine.turn.active
+            sim.catchUp(p)
+            sim.device(p).endTurn(sim.now)
+            sim.settle()
+            sim.catchUp(sim.alice); sim.catchUp(sim.bob)
+        }
+        assertEquals(through, d.olderThrough(), "the same page is still the one asked for")
+        assertTrue(d.addPage(page))
+        assertTrue(d.olderEvents.isNotEmpty(), "the page joined the line")
+        val line = sim.server.line().map { it.id }
+        val held = (d.olderEvents + d.session.events).map { it.id }
+        assertEquals(line.takeLast(held.size), held, "one line, ending at the device's head")
+        sim.loadAll(d)
+        assertTrue(d.olderComplete)
+        assertEquals(line, (d.olderEvents + d.session.events).map { it.id }, "the whole main line")
+    }
+
     // HIS-111, HIS-099, HIS-100 (owner 2026-11-07: no limit on how far back): Alice's Undo to an event before her device's line is
     // worked out from older history (a request: Bob's events come after it, not "unknown"); Bob's preview loads what it
     // needs and shows the board there as seen; his Accept takes the game back to it, and both devices load it again there

@@ -84,6 +84,8 @@ abstract class E2e {
     internal lateinit var alice: E2ePlayer
     internal lateinit var bob: E2ePlayer
     lateinit var game: GameSummary
+    /** Alice's account (also when she has no phone, [startGame]'s alicePhone). */
+    internal lateinit var aliceAccount: TestAccount
     /** The game's deal: each player's opening hand and library. */
     lateinit var deal: Deal
     private lateinit var prepared: ServerSetup.Prepared
@@ -112,6 +114,8 @@ abstract class E2e {
         aliceChoseNothing: Boolean = false,
         /** Alice's phone installs the server's card catalog on start ([E2ePlayer.catalog]), held until let through. */
         aliceCatalog: Boolean = false, holdAliceCatalog: Boolean = false,
+        /** Alice plays on a phone of her own; false: only Bob has one (Alice plays in a browser, [E2eBrowser]). */
+        alicePhone: Boolean = true,
         deal: Deal.(TestAccount, TestAccount) -> Boolean = { _, _ -> true }) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
@@ -120,9 +124,11 @@ abstract class E2e {
         prepared = ServerSetup.prepare(a, b, aliceDeck, bobDeck, starter = if (bobStarts) b else a,
             name = "${javaClass.simpleName} ${java.util.UUID.randomUUID().toString().take(6)}", deal = { it.deal(a, b) })
         game = prepared.invitation
-        alice = E2ePlayer(a, compose, aliceWorker, withCatalog = aliceCatalog, holdCatalog = holdAliceCatalog).also(players::add)
+        aliceAccount = a
+        if (alicePhone) alice = E2ePlayer(a, compose, aliceWorker, withCatalog = aliceCatalog, holdCatalog = holdAliceCatalog).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
-        alice.launch(); bob.launch()
+        if (alicePhone) alice.launch()
+        bob.launch()
         if (ready) ready()
     }
 
@@ -133,6 +139,7 @@ abstract class E2e {
     internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
+        aliceAccount = a
         alice = E2ePlayer(a, compose, setRepository = aliceSets, withCatalog = aliceCatalog).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         alice.launch(); bob.launch()
@@ -259,7 +266,7 @@ abstract class E2e {
     internal fun serverGame(): org.asyncttwiz.protocol.EngineSnapshot? {
         val now = System.nanoTime()
         if (now - serverReadAt > 300_000_000L || serverRead == null) {
-            serverRead = ServerSetup.head(alice.account, game.id).engine
+            serverRead = ServerSetup.head(aliceAccount, game.id).engine
             serverReadAt = now
         }
         return serverRead

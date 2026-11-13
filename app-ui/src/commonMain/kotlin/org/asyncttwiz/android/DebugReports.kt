@@ -30,6 +30,10 @@ expect object DebugJank {
     fun discard()
 }
 
+/** The engine games' own-action probe ([EngineDiagnostics], app-engine's) reports to [DebugLatency]: installed by the
+ * app's diagnostics and its game sessions, so every game the app opens has it. */
+fun installEngineDiagnostics() { EngineDiagnostics.latency = DebugLatency::begin }
+
 /** Slow-action, reconnect and tap reports (Android: LatencyTelemetry.kt's DebugLatency). */
 expect object DebugLatency {
     fun begin(gameId: String, action: String, nodes: Int): LatencyRecorder.Trace?

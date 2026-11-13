@@ -32,12 +32,16 @@ internal object Numbers {
         "twenty" to 20,
         // hob chunk 10
         "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14, "fifteen" to 15)
+    /** isd chunk 01: every counted number word above, for a regex alternation ("thirteen tapped 2/2 … tokens"). */
+    val WORD_PATTERN: String = WORDS.keys.sortedByDescending { it.length }.joinToString("|")
     private val ORDINALS = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4, "fifth" to 5,
         // msh
         "sixth" to 6, "seventh" to 7, "eighth" to 8, "ninth" to 9, "tenth" to 10)
 }
 
 /** Noun phrases naming objects and players ("nonbasic land", "a Mountain or Plains card", "creature you control"). */
+private val HALF_ROUNDED = Regex("""half (.+), rounded (up|down)""")
+
 internal object Filters {
     /**
      * "land", "nonbasic land", "Mountain or Plains", "basic land", "artifact, enchantment, or nonbasic land an opponent
@@ -60,6 +64,7 @@ internal object Filters {
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
+        IsdPhrases.noun(phrase)?.let { return it } // isd
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -222,6 +227,8 @@ internal object Filters {
                 "that player controls" -> PlayerFilter.Is(Players.EventPlayer) // dsk chunk 07: in a trigger, the event's player
                 // dsk chunk 09: in an attack trigger of this creature (CR 506.2)
                 "defending player controls" -> PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))
+                // isd chunk 03: the player a Curse enchants (CR 303.4e)
+                "enchanted player controls" -> PlayerFilter.Is(Players.AttachedTo(Objects.Self))
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -443,7 +450,7 @@ internal object Filters {
     // blb chunk 10
     private val STATUS_ALTERNATIVES = Regex("""((?:attacking|blocking|tapped|untapped)(?:(?:, |,? or )(?:attacking|blocking|tapped|untapped))+) (.+)""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls|enchanted player controls)""")
     // dsk chunk 09
     private val OWNED = Regex("""(.+) you own""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
@@ -597,9 +604,11 @@ internal object Events {
         // rvr chunk 05: "this card is put into your graveyard from your library" (Narcomoeba)
         PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
+            val owner = if (m.groupValues[2] == "your") PlayerFilter.You else PlayerFilter.Opponent
             // rvr chunk 05: this card goes only to its owner's graveyard, yours (CR 400.3, 108.3)
-            if (subject == ObjectFilter.Is(Objects.Self)) return EventPattern.ZoneChange(subject, from = Zone.Library, to = Zone.Graveyard)
-            return EventPattern.ZoneChange(Filters.all(subject, ObjectFilter.OwnedBy(PlayerFilter.You)),
+            if (subject == ObjectFilter.Is(Objects.Self) && owner == PlayerFilter.You)
+                return EventPattern.ZoneChange(subject, from = Zone.Library, to = Zone.Graveyard)
+            return EventPattern.ZoneChange(Filters.all(subject, ObjectFilter.OwnedBy(owner)),
                 from = Zone.Library, to = Zone.Graveyard)
         }
         // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
@@ -698,8 +707,10 @@ internal object Events {
                 from = Zone.Graveyard)
         }
         // chunk 26: "a creature you control deals combat damage to a player"
+        // isd chunk 03: "a creature deals combat damage to enchanted player" (a Curse's player, CR 303.4e)
         DEALS_COMBAT_DAMAGE_TO_A_PLAYER.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)
+            val to = if (m.groupValues[2] == "enchanted player") PlayerFilter.Is(Players.AttachedTo(Objects.Self)) else PlayerFilter.Any
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = to), combat = true)
         }
         // chunk 25: "you play a land" (CR 305.1)
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)
@@ -842,6 +853,9 @@ internal object Events {
             // gtc chunk 11: the upkeep of the player who controls the enchanted creature
             "the beginning of the upkeep of enchanted creature's controller" ->
                 return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(Objects.Self))))
+            // isd chunk 03: a Curse's enchanted player's upkeep (CR 303.4e: an Aura that enchants a player)
+            "the beginning of enchanted player's upkeep" ->
+                return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Is(Players.AttachedTo(Objects.Self)))
         }
         // gtc chunk 11: "a creature card is put into an opponent's graveyard from anywhere": a card goes to its owner's graveyard
         GTC_PUT_INTO_OPPONENTS_GRAVEYARD.matchEntire(text)?.let { m ->
@@ -912,7 +926,8 @@ internal object Events {
     private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
     // dsk chunk 12
     private val BECOMES_TARGET_OF_OPPONENTS = Regex("""(.+) becomes the target of a spell or ability an opponent controls""")
-    private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(.+) (?:is|are) put into your graveyard from your library""")
+    // isd chunk 05: also "a creature card is put into an opponent's graveyard from their library" (each card, its owner's graveyard and library)
+    private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(.+) (?:is|are) put into (your|an opponent's) graveyard from (?:your|their) library""")
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
@@ -944,7 +959,7 @@ internal object Events {
     private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
     // chunk 26
     private val LEAVE_YOUR_GRAVEYARD = Regex("""(.+) leaves? your graveyard""")
-    private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to a player""")
+    private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to (a player|enchanted player)""")
     // chunk 14
     private val PLAYER_CASTS = Regex("""a player casts an? (?:(.+) )?spell""")
     private val PLAYER_TAPS_FOR_MANA = Regex("""a player taps (.+) for mana""")
@@ -1018,6 +1033,7 @@ internal object Conditions {
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
         RvrPhrases.condition(text, self)?.let { return it } // rvr
+        IsdPhrases.condition(text, self)?.let { return it } // isd
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1452,7 +1468,7 @@ internal object Tokens {
     }
 
     private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
-    private val COUNTED = Regex("""(a|an|one|two|three|four|five) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
+    private val COUNTED = Regex("""(${Numbers.WORD_PATTERN}) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
     // chunk 26
     private val QUOTED = Regex(""""(.+)"""")
     private val TOKEN = Regex("""an? (\d+/\d+|X/X) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
@@ -1505,8 +1521,11 @@ internal object Values {
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
         RvrPhrases.value(text)?.let { return it } // rvr
+        IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
+        // isd chunk 06: "half the number of Zombies you control, rounded down" (CR 107.1a)
+        HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)

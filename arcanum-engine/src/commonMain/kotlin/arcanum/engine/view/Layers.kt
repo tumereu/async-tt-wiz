@@ -172,7 +172,13 @@ internal data class Partial(
 )
 
 /** The board part-way through the layers: the evaluator reads characteristics as far as they are worked out. */
-internal class WorkBoard(override val state: GameState, val work: MutableMap<ObjectId, Partial>, val reads: ViewReads = ViewReads()) : Board {
+internal class WorkBoard(
+    override val state: GameState, val work: MutableMap<ObjectId, Partial>, val reads: ViewReads = ViewReads(),
+    /** isd: a token's creator from its copiable values (layer 1 done first, CR 613.2a, 201.5a). */
+    private val creators: (ObjectId) -> ObjectId? = { null },
+) : Board {
+    override fun createdBy(id: ObjectId): ObjectId? = creators(id) ?: super.createdBy(id)
+
     // blb gaps: an object that has left its zone reads as it last existed (CR 608.2h), as in the finished view: "if you
     // cast an instant or sorcery spell this turn" tests the spell after it resolved
     override fun characteristics(id: ObjectId): Characteristics? = work[id]?.chars
@@ -195,7 +201,7 @@ internal class WorkBoard(override val state: GameState, val work: MutableMap<Obj
         reads.log = true
     }
 
-    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work), reads)
+    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work), reads, creators)
 }
 
 /** A continuous effect (CR 611) while the layers are worked out. */
@@ -281,7 +287,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
 
     fun run(): View {
         arcanum.engine.EngineProbes.layersWorkedOut?.invoke()
-        val board = WorkBoard(state, initialWork(), reads)
+        val board = WorkBoard(state, initialWork(), reads) { copiable.values(it)?.createdBy }
         initial = board.work.mapValues { it.value.chars }
         if (traced.isNotEmpty()) base = traced.mapNotNull { id -> board.work[id]?.chars?.let { id to it } }.toMap()
         Layers.ORDER.forEach { layer ->

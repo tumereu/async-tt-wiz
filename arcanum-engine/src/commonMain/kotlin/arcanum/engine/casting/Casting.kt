@@ -148,6 +148,8 @@ internal object Casting {
         var c = start
         while (true) {
             val plan = Plan(recorder.state, c)
+            // CR 118.6: attempting to pay an unpayable cost is illegal: the input (or the answer that made it so) is refused
+            plan.unpayable?.let { throw IllegalArgumentException(it) }
             val q = plan.next() ?: return Payment.finish(recorder, c, emptyList(), from)
             // CR 601.2c, 601.2h: without enough legal targets or objects to pay with, it can't be cast or activated:
             // the input (or answer) is refused; an open cast can still be cancelled. Everything known so far is checked,
@@ -220,6 +222,8 @@ internal object Casting {
             val q = plan.next()
             // Blocked from the start, it can't be cast; blocked by an answer, that answer is refused (CR 601.2, 727)
             plan.blocker(q)?.let { why -> if (asked) throw IllegalArgumentException(why) else return cannot() }
+            // isd: an unpayable cost (CR 118.6) can't be paid: the spell isn't cast, or the answer that made it so is refused
+            plan.unpayable?.let { why -> if (asked) throw IllegalArgumentException(why) else return cannot() }
             if (q == null) break
             if (q is Question.Pay) {
                 // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast

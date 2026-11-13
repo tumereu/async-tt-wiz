@@ -424,6 +424,7 @@ class EoeChunk13GreenTest {
         ),
     )
 
+    // CR 509.3b: "blocks a creature with flying" triggers once for each such attacker it blocks
     @Test
     fun cloudbarb() = card(
         name = "Cloudbarb",
@@ -437,7 +438,6 @@ class EoeChunk13GreenTest {
     ) parsesTo abilities(
         Keyword.Reach,
         triggered(
-            // CR 509.3b: once for each creature with flying it blocks
             on(EventPattern.Block(blocker = isSelf, attacker = and(creature, ObjectFilter.HasKeyword(keyword = Keyword.Flying)), perAttacker = true)),
             untilEndOfTurn(Objects.Self, pt(5, 0)),
         ),

@@ -345,6 +345,11 @@ object DefinitionChecks {
                         (objectSlot ?: playerSlot)?.let { recipientUses += Triple(it, (objectSlot != null) to (playerSlot != null), false) }
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
+                    // An X nothing defines in a cost paid on resolution ("you may pay {X}. If you do, you gain X life") is chosen as it is
+                    // paid, and the rest of the resolution reads it as X (CR 107.3f, 118.12)
+                    if (element.typeName() == "pay") visitAll(element["cost"] ?: JsonArray(emptyList())) { part ->
+                        if (part.typeName() == "mana" && "x" !in part && part.string("cost")?.contains("{X}") == true) announced += "X"
+                    }
                     when (element.typeName()) {
                         "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen", "chosen-name", "searched" ->
                             element.string("name")?.let { usedNames += it }

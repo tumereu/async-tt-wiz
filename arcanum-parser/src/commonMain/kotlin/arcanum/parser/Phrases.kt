@@ -519,6 +519,11 @@ internal object Events {
         EoePhrases.events(text, self)?.let { return it } // eoe
         EclPhrases.events(text, self)?.let { return it } // ecl
         FraPhrases.events(text, self)?.let { return it } // fra
+        // mh3 chunk 03: "you cast or cycle Drownyard Lurker": one ability, two events: the cast (it triggers from the stack, CR 603.6) and the
+        // cycling (from wherever the card ends up, CR 702.29c)
+        YOU_CAST_OR_CYCLE.matchEntire(text)?.takeIf { subject(it.groupValues[1], self) == ObjectFilter.Is(Objects.Self) }?.let {
+            return listOf(EventPattern.Cast(ObjectFilter.Is(Objects.Self), PlayerFilter.You), EventPattern.Cycle(ObjectFilter.Is(Objects.Self), PlayerFilter.You))
+        }
         // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)
         ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -983,6 +988,8 @@ internal object Events {
     private val ENTERS_AND_WHENEVER = Regex("""(.+) enters and whenever (.+)""")
     // blb chunk 03
     private val ENTERS_AND_WHEN_YOU_SACRIFICE_IT = Regex("""(.+) enters and when you sacrifice it""")
+    // mh3 chunk 03
+    private val YOU_CAST_OR_CYCLE = Regex("""you cast or cycle (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

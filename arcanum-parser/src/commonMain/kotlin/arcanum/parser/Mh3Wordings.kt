@@ -53,5 +53,10 @@ internal object Mh3 {
     /** "Galvanic Discharge deals that much damage to that permanent." after "Choose target creature or planeswalker." */
     val DEALS_THAT_MUCH_TO_THAT = Regex("""(.+?) deals that much damage to that (permanent|creature|planeswalker)\.""")
     /** "Then if you cast it from your hand, exile cards …. You may cast that card …": the condition holds for both sentences (CR 608.2c). */
+    // mh3 chunk 03
+    /** "Then you may pay an amount of {E} equal to that card's mana value. If you do, …" (CR 107.14, 118.12) */
+    val MAY_PAY_ENERGY_EQUAL_TO_IF_YOU_DO = Regex("""(?:Then )?[Yy]ou may pay an amount of \{E\} equal to (.+?)\. If you do, (.+)""")
+    /** "Return it from your graveyard to the battlefield.", "… to your hand." about the card "it" names (a target chosen before). */
+    val RETURN_IT_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn (?:it|that card) from your graveyard to (the battlefield|your hand)\.""")
     val THEN_IF_THEN_MAY_CAST_THAT_CARD = Regex("""(.+?\. )?Then if (.+?), ([^.]+\.) (You may cast that card [^.]+\.)""")
 }

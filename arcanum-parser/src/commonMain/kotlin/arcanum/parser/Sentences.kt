@@ -2338,7 +2338,9 @@ internal class Sentences(
         if (trigger.events == listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)) && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.CastX(of = Objects.Self))
         // dft chunk 10: X in "when you cycle this card" is the X paid for that cycling (CR 107.3a, 702.29c)
-        if (trigger.events.singleOrNull() is EventPattern.Cycle && !rest.contains("where X is")) instructions = instructions?.withX(Value.EventX)
+        // mh3 chunk 03: not in "you may pay {X}", whose X nothing defines: it is chosen as it is paid on resolution (CR 107.3f, 118.12)
+        if (trigger.events.singleOrNull() is EventPattern.Cycle && !rest.contains("where X is") && !rest.contains("pay {X}"))
+            instructions = instructions?.withX(Value.EventX)
         // X in "when this creature becomes monstrous" is the X as it became monstrous (CR 701.37c)
         if ((trigger.events.singleOrNull() as? EventPattern.GotMark)?.mark == arcanum.api.ObjectMark.Monstrous && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.EventX)
@@ -15782,6 +15784,23 @@ internal class Sentences(
             return listOf(
                 Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.PlayerCounters(Players.You, arcanum.api.CounterKind.Energy)), bind = "energy", chooser = Players.You),
                 Step.Pay(Cost(listOf(CostPart.PayEnergy(Value.Bound("energy")))), payer = Players.You, mandatory = true, bind = "energy paid"))
+        }
+        // mh3 chunk 03: "Then you may pay an amount of {E} equal to that card's mana value. If you do, return it …" (CR 107.14, 118.12): the
+        // card "it" names, a target chosen before
+        Mh3.MAY_PAY_ENERGY_EQUAL_TO_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val amount = when (m.groupValues[1]) {
+                "that card's mana value", "its mana value" -> Value.Of(arcanum.api.NumericProperty.ManaValue, context.it ?: return@let, arcanum.api.Combine.Single)
+                else -> Values.value(m.groupValues[1]) ?: return@let
+            }
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.Pay(Cost(listOf(CostPart.PayEnergy(amount))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        // mh3 chunk 03: "return it from your graveyard to the battlefield" about a card a target named ("Choose up to one target … card in your
+        // graveyard.")
+        Mh3.RETURN_IT_FROM_YOUR_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val it = context.it?.takeIf { it is Objects.Target } ?: return@let
+            return listOf(Step.Do(Effect.Move(it, Destination(if (m.groupValues[1] == "your hand") Zone.Hand else Zone.Battlefield))))
         }
         // mh3 chunk 02: "Galvanic Discharge deals that much damage to that permanent." (the permanent "Choose target …" chose, CR 115.1)
         Mh3.DEALS_THAT_MUCH_TO_THAT.matchEntire(sentence)?.let { m ->

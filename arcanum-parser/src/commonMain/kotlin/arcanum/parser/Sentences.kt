@@ -2726,8 +2726,13 @@ internal class Sentences(
         // gtc chunk 06: "When enchanted creature dies, …, where X is its power": the creature that died, as it last existed (CR 603.10a)
         val diedOther = (event as? EventPattern.ZoneChange)?.takeIf { it.to == Zone.Graveyard && it.from == Zone.Battlefield &&
             it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
+        val enteredOther = (event as? EventPattern.ZoneChange)?.takeIf { it.to == Zone.Battlefield && it.objects != ObjectFilter.Is(Objects.Self) }
         val defined = whereX(text)?.let { w ->
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
+            // otj chunk 13: "Whenever another creature you control enters, …, where X is its power": the entering creature, not this object
+            else if (enteredOther != null && (w.groupValues[1] == "its power" || w.groupValues[1] == "its toughness"))
+                Value.Of(if (w.groupValues[1] == "its power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness,
+                    Objects.EventObject(EventRole.After), arcanum.api.Combine.Single)
             else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: fdnValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
                 // otj chunk 09: "where X is its toughness" in an ability with no event object: this object's

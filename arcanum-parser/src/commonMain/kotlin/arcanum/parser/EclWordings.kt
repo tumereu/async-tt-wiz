@@ -110,7 +110,7 @@ internal object Ecl {
     val ONCE_EACH_TURN_CAST_EXILED_WITH = Regex("""Once each turn, you may cast a spell with mana value less than or equal to the number of (.+?) you control from among cards exiled with (.+?) this turn without paying its mana cost\.""")
     val EXILE_UP_TO_ONE_UNTIL_LEAVES = Regex("""[Ee]xile up to one target (.+?) until (.+?) leaves the battlefield\.""")
     val DEALS_TO_ANY_AND_ANY_OTHER = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to (?:any other target|each of up to (\w+) other targets)\.""")
-    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals X damage to each opponent and each creature they control\.""")
+    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to each opponent and each creature they control\.""")
     val IT_DEALS_POWER_TO_UP_TO_ONE = Regex("""It deals damage equal to its power to up to one target (.+?)\.""")
     val GAIN_LIFE_EQUAL_TO = Regex("""[Yy]ou gain life equal to (.+)\.""")
     val ENCHANTED_FIGHTS_UP_TO_ONE = Regex("""[Ee]nchanted creature fights up to one target (.+?)\.""")

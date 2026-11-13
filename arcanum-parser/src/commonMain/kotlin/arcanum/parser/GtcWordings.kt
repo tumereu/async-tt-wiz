@@ -8,7 +8,8 @@ internal object Gtc {
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
     val LOSE_KEYWORD = Regex("""loses? ([a-z]+(?: [a-z]+)?)""") // mkm chunk 09
-    val GET_PT = Regex("""gets? ([+-](?:\d+|X))/([+-](?:\d+|X))""")
+    // lci chunk 04: also "gets an additional +2/+2" (one more modification of its own, CR 613.4c)
+    val GET_PT = Regex("""gets? (?:an additional )?([+-](?:\d+|X))/([+-](?:\d+|X))""")
     val CANT_BE_BLOCKED_BY = Regex("""can't be blocked by (.+)""")
 
     // one-shot effects
@@ -38,7 +39,7 @@ internal object Gtc {
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
     val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
-    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on enchanted creature\.""")
+    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on (?:enchanted|equipped) creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
     val GAIN_LIFE_POWER_PLUS_TOUGHNESS = Regex("""You gain life equal to that creature's power plus its toughness\.""")
 
@@ -49,7 +50,7 @@ internal object Gtc {
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 
-    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
+    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:[A-Z]\w+ )?(?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
     // rvr chunk 03: also "Until your next turn, "
@@ -170,7 +171,8 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
-    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""[Cc]reate an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
+    // lci chunk 05: also several subtypes and "artifact creature" ("a white Gnome Soldier artifact creature token")
+    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""[Cc]reate an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+(?: [A-Z]\w+)*) ((?:artifact )?creature) token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
     val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")

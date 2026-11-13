@@ -254,11 +254,13 @@ internal object MechanicWordings {
     val IS_A_COPY_OF = Regex("""(.+?) (?:is a copy|are copies) of (.+)\.""")
 
     /** Keyword actions (CR 701). */
-    val EXPLORES = Regex("""(.+?) explores\.""")
+    // lci chunk 03: "it explores X times", "That creature explores, then it explores again." (each a separate explore, CR 701.44b)
+    val EXPLORES = Regex("""(.+?) explores(?:, then it explores (again)| (X|\w+) times)?\.""")
     val MONSTROSITY = Regex("""Monstrosity (\d+|X)\.""")
     val ADAPT = Regex("""Adapt (\d+|X)\.""")
     val SUPPORT = Regex("""Support (\d+|X)\.""")
-    val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
+    // lci chunk 01: "Then that player discovers X." (another player discovers, CR 701.57a)
+    val DISCOVER = Regex("""(?:You |(?:Then )?([Tt]hat player|[Tt]arget player) )?[Dd]iscovers? (\d+|X)\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
     val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */

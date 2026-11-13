@@ -530,6 +530,8 @@ sealed interface GameEvent {
      * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: arcanum.api.KeywordActionKind, val player: PlayerId, val objects: List<ObjectId> = emptyList(), val amount: Int? = null,
+        /** The card the action revealed, where it went (explore, CR 701.44a). */
+        val revealed: ObjectId? = null,
     ) : GameEvent
 }
 

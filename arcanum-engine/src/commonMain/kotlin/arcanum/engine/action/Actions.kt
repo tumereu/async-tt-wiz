@@ -259,7 +259,8 @@ internal object Actions {
                 is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage -> move
+                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
+                is Modification.RaiseAmountTo -> move
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
                 // fin: transforming and coin flips aren't zone changes
@@ -443,9 +444,10 @@ internal object Actions {
             ?: o.definition.faces.getOrNull(if (m.transformed && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld)) 1 else o.face)
     }
 
-    /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy (CR 614.1c, 707.9b). */
+    /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy and tapped if it enters tapped as a copy (CR 614.1c, 707.9b). */
     fun asCopy(act: Act, m: PlannedMove, of: ObjectId, mod: Modification.EntersAsCopy, e: Evaluator, controller: PlayerId): PlannedMove {
-        val copy = m.copy(copyOf = of to mod.except)
+        // lci: "enter tapped as a copy of": tapped only as a copy
+        val copy = m.copy(copyOf = of to mod.except, tapped = m.tapped || mod.tapped)
         val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) }
         return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)
     }
@@ -547,7 +549,8 @@ internal object Actions {
                 linked = linked,
                 // CR 615.12: damage that can't be prevented isn't, but a prevention effect's additional effect still
                 // applies to it, once (615.12a)
-                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) },
+                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) ||
+                    notLess(act, d, r) },
                 extra = preventions(act),
             )
         }
@@ -600,14 +603,21 @@ internal object Actions {
         dealt.forEach { d ->
             val source = board.characteristics(d.source)
             val keywords = source?.keywords.orEmpty().map { it.kind }.toSet()
+            // lci sweep: CR 120.3b, d, g: the source's controller gives or puts the counters its damage causes, through the replacements of
+            // counters being put ("If you would put one or more counters on a permanent or player, … twice that many", CR 614.1a, 122.6)
+            val giver = board.controller(d.source)?.let { ctl ->
+                if (cause != null && cause.controller == ctl) cause else Cause(ctl, d.source, key = "${cause?.key ?: "damage"}:${d.source}")
+            } ?: cause
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
                     // CR 120.3b, 702.164c, 614.1a: the poison counters are given through putCounters, so "if you would get poison counters"
-                    // replacements and "can't get poison counters" apply to damage as to effects (one sweep)
-                    if (Keyword.Infect in keywords) putCounters(act, cause, r, CounterKind.Poison, d.amount)
-                    else act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
+                    // replacements and "can't get poison counters" apply to damage as to effects
+                    if (Keyword.Infect in keywords) putCounters(act, giver, r, CounterKind.Poison, d.amount)
+                    // CR 120.3a: damage dealt to a player causes that player to lose that much life, so life-loss replacements apply
+                    // (lci chunk 09: "If an opponent would lose life …, they lose twice that much life instead")
+                    else loseLife(act, cause, r.id, d.amount)
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
-                    if (d.combat && toxic > 0) putCounters(act, cause, r, CounterKind.Poison, toxic)
+                    if (d.combat && toxic > 0) putCounters(act, giver, r, CounterKind.Poison, toxic)
                 }
                 is TargetRef.Object -> {
                     val o = act.obj(r.id) ?: return@forEach
@@ -619,7 +629,7 @@ internal object Actions {
                         excessTo[r] = (excessTo[r] ?: 0) + over
                         if (Keyword.Wither in keywords || Keyword.Infect in keywords) {
                             // CR 122.6, 614.1: the counters are put on it, so effects that change counters being put apply
-                            putCounters(act, cause, r, CounterKind.PowerToughness(-1, -1), d.amount)
+                            putCounters(act, giver, r, CounterKind.PowerToughness(-1, -1), d.amount)
                             if (Keyword.Deathtouch in keywords) {
                                 val now = act.obj(r.id)!!
                                 act.record(Change.DamageMarked(r.id, now.damage, now.damage, now.deathtouchDamage, true))
@@ -662,6 +672,12 @@ internal object Actions {
         }
     }
 
+    /** lci: a replacement raising damage to an amount applies only while the damage is less (CR 614.1a, 616.1f). */
+    private fun notLess(act: Act, d: DamageDealt, r: Replacement): Boolean {
+        val raise = r.mechanic.modify.filterIsInstance<Modification.RaiseAmountTo>().firstOrNull() ?: return false
+        return d.amount >= Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).value(raise.amount)
+    }
+
     private fun modifyDamage(act: Act, d: DamageDealt, r: Replacement): DamageDealt? {
         var damage = d
         val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
@@ -670,6 +686,8 @@ internal object Actions {
                 Modification.Skip -> return null
                 is Modification.MultiplyAmount -> damage.copy(amount = damage.amount * mod.factor)
                 is Modification.AddAmount -> damage.copy(amount = damage.amount + e.value(mod.amount))
+                // lci: "an amount … less than Ojer's power … deals damage equal to Ojer's power instead" (CR 614.1a)
+                is Modification.RaiseAmountTo -> damage.copy(amount = maxOf(damage.amount, e.value(mod.amount)))
                 is Modification.ChangeRecipient -> recipientsOf(e, mod.to).firstOrNull()
                     ?.takeIf { redirectable(act, damage.recipient) && redirectable(act, it) }
                     ?.let { damage.copy(recipient = it) } ?: damage
@@ -936,20 +954,23 @@ internal object Actions {
                 // "That many" (CR 614.1a): the tokens this event would create so far
                 val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names,
                     event = arcanum.engine.state.TriggerEvent(amount = s.sumOf { it.second })))
+                // Whether tokens of these values match the replacement's event ("creature tokens")
+                fun matches(f: arcanum.engine.state.CopiableValues): Boolean {
+                    val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken ?: return true
+                    val probe = planned(listOf(f to 1)).single()
+                    return Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
+                        Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
+                }
                 r.mechanic.modify.forEach { mod ->
                     result = when (mod) {
                         Modification.Skip -> null
-                        is Modification.MultiplyAmount -> result?.map { (f, k) -> f to k * mod.factor }
+                        // lci: "three times that many of those tokens" multiplies only the tokens the event names ("creature tokens",
+                        // CR 614.1a)
+                        is Modification.MultiplyAmount -> result?.map { (f, k) -> if (matches(f)) f to k * mod.factor else f to k }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
                         is Modification.AlsoCreate -> result?.plus(tokenValues(act, e, mod.token) to e.value(mod.count))
                         // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
-                        is Modification.CreateInstead -> result?.map { (f, k) ->
-                            val probe = planned(listOf(f to 1)).single()
-                            val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken
-                            val matches = pattern == null || Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
-                                Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
-                            if (matches) tokenValues(act, e, mod.token) to k else f to k
-                        }
+                        is Modification.CreateInstead -> result?.map { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token) to k else f to k }
                         is Modification.EntersTapped -> result
                         else -> result
                     }

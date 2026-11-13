@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 97
+    const val VERSION: Int = 98
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -142,6 +142,15 @@ object OracleParser {
             names + names.filter { it.contains('.') }.map { it.replace(".", "") } }
 
     /** msh: [line] with each of [self]'s names that has a full stop written as its dotless alias (also a name of [self]). */
+    private val THOUSANDS_SEPARATOR = Regex("""(?<=\b\d{1,3}),(?=\d{3}\b)""")
+
+    /** lci chunk 06: a number with thousands separators ("1,000") is read as its digits; an ability word before " — " keeps its printed
+     * form ("10,000 Needles"). */
+    private fun plainNumbers(line: String): String {
+        val body = line.indexOf(" — ").let { if (it < 0) 0 else it }
+        return line.substring(0, body) + line.substring(body).replace(THOUSANDS_SEPARATOR, "")
+    }
+
     private fun dotless(line: String, self: Set<String>): String =
         self.filter { it.contains('.') }.sortedByDescending { it.length }.fold(line) { l, name -> l.replace(name, name.replace(".", "")) }
 
@@ -174,7 +183,7 @@ object OracleParser {
         while (i < lines.size) {
             val raw = lines[i++]
             // msh: a name with full stops ("M.O.D.O.K.", "Ms. Marvel") is read as its dotless alias, so sentences split right
-            val line = dotless(REMINDER.replace(raw, "").trim(), self)
+            val line = plainNumbers(dotless(REMINDER.replace(raw, "").trim(), self))
             // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
             // A section with an unread line stays printed text as a whole.
             val classLevel = CLASS_LEVEL.matchEntire(line)
@@ -397,7 +406,8 @@ object OracleParser {
         return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> stillA(ability.withText(raws[index]), raws[index]) }
     }
 
-    /** woe fixes, rvr fixes: an object that becomes something but "is still a [type]" ("It's still a land.", "that's still a planeswalker")
+    /** woe fixes, rvr fixes: an object that becomes something but "is still a [type]" ("It's still a land.", "that's still a planeswalker";
+     * lci: "It's still a Cave land.", a subtype too)
      * keeps all its prior card types, supertypes and subtypes (CR 205.1b), creature types included, so no type-setting in that ability
      * replaces any of them; except that the rule's more specific case, becoming a "[creature type] artifact creature", still replaces
      * creature types. Through the ability's JSON form, so every wording that sets types is handled alike. */
@@ -420,7 +430,7 @@ object OracleParser {
         val kept = keep(element)
         return if (kept == element) ability else json.decodeFromJsonElement(Ability.serializer(), kept)
     }
-    private val STILL_A = Regex("""\b(?:[Ii]t's|[Tt]hat's|[Hh]e's|[Ss]he's|[Tt]hey're|that are) still (?:an? )?(?:land|artifact|creature|enchantment|planeswalker|battle)s?\b""")
+    private val STILL_A = Regex("""\b(?:[Ii]t's|[Tt]hat's|[Hh]e's|[Ss]he's|[Tt]hey're|that are) still (?:an? )?(?:[A-Z][a-z]+ )*(?:land|artifact|creature|enchantment|planeswalker|battle)s?\b""")
 
     /** dft chunk 14: "This spell costs {1} less to cast if it targets a Mount or Vehicle you control": the spell's first target you control. */
     private fun dftCostTargetYouControl(abilities: List<Ability>): List<Ability> {
@@ -581,6 +591,8 @@ object OracleParser {
         PARTNER_WITH.matchEntire(line)?.let { return listOf(Keyword.PartnerWith(it.groupValues[1])) }
         // fdn chunk 02: "Enchant creature, land, or planeswalker": one list of what it can enchant, not several keywords (CR 702.5a)
         if (line.startsWith("Enchant ")) keyword(line)?.let { return listOf(it) }
+        // lci chunk 02: "Craft with a Dinosaur, a Merfolk, a Pirate, and a Vampire {4}": one keyword, its commas the materials' (CR 702.167a)
+        if (line.startsWith("Craft with ")) keyword(line)?.let { return listOf(it) }
         // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
         val parts = when {
             line.contains("; ") -> line.split("; ")
@@ -685,6 +697,10 @@ object OracleParser {
                 "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
+        }
+        // lci chunk 02: "Craft with artifact {5}{W}{W}" (CR 702.167a)
+        Lci.CRAFT.matchEntire(part)?.let { m ->
+            return Keyword.Craft(LciPhrases.craftMaterials(m.groupValues[1]) ?: return null, Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null), m.groupValues[1])
         }
         // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
         AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }

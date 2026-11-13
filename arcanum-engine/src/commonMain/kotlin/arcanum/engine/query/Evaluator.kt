@@ -79,6 +79,9 @@ internal interface Board {
     /** dft: the rules that apply to [id] in the finished view (none part-way through the layers). */
     fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = emptyList()
 
+    /** lci: its base power (CR 208.4b), its power after layer 7b; null when not worked out (then its power is read). */
+    fun basePower(id: ObjectId): Int? = null
+
     /** isd: the object whose ability created the token [id], from its copiable values (a copy of a token has the original's, CR 201.5a). */
     fun createdBy(id: ObjectId): ObjectId? = state.obj(id)?.let { o -> o.statuses.filterIsInstance<arcanum.engine.state.ObjectStatus.CreatedBy>().firstOrNull()?.source }
 }
@@ -159,6 +162,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun with(ctx: Context) = Evaluator(board, ctx)
 
+    /** [value] with [Objects.Tested] as [id]; a value that doesn't name it is read as it is. */
+    private fun valueTesting(id: ObjectId, value: arcanum.api.Value): Int =
+        if (ctx.tested == id || !namesTested(value)) value(value) else with(ctx.copy(tested = id)).value(value)
+    private fun namesTested(value: arcanum.api.Value): Boolean = value is arcanum.api.Value.Of && value.objects == arcanum.api.Objects.Tested
+
     // ---- Objects
 
     fun objects(objects: Objects): List<ObjectId> = when (objects) {
@@ -211,6 +219,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Union -> objects.parts.flatMap { objects(it) }.distinct()
         Objects.Affected -> listOfNotNull(ctx.affected)
         // CR 702.95b
+        // lci: the source of an ability on the Stack (CR 113.7)
+        is Objects.SourceOf -> objects(objects.of).mapNotNull { id -> state.stackItems[id]?.takeIf {
+            it.kind == StackItemKind.Activated || it.kind == StackItemKind.Triggered }?.source }.distinct()
         is Objects.PairedWith -> objects(objects.of).mapNotNull { arcanum.engine.soulbond.Soulbond.partner(state, it) }.distinct()
         is Objects.LinkedTo -> boundObjects(selfMemory(objects.keyword.id))
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->
@@ -448,15 +459,17 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
             } ?: false
+            // lci: a number about "its" own characteristics ("with power greater than its base power", "toughness greater than its power")
+            // reads [Objects.Tested] as the object this filter tests, wherever the filter is matched (a trigger's event, a cost)
             is ObjectFilter.Power -> {
                 board.readingPowerToughness()
-                c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.power?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
             is ObjectFilter.Toughness -> {
                 board.readingPowerToughness()
-                c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.toughness?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
-            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
+            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, valueTesting(id, filter.value))
             is ObjectFilter.Targets -> {
                 val item = state.stackItems[id]
                 val targets = item?.targets?.values?.flatten().orEmpty()
@@ -621,9 +634,6 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun GameObject.printedTypes(): List<CardType> = definition.faces.getOrNull(face)?.types.orEmpty()
 
-    /** rvr: the permanent types (CR 110.4a). */
-    private val PERMANENT_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
-
     /** [a] and [b] share [quality] ("share a color", "with the same power"). */
     fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
         val ca = characteristics(a) ?: return false
@@ -641,7 +651,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
             SharedQuality.ColorPair -> colorPair(ca) != null && colorPair(ca) == colorPair(cb) // mkm
-            SharedQuality.PermanentType -> ca.types.any { it in PERMANENT_TYPES && it in cb.types } // rvr
+            SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // rvr, lci
         }
     }
 
@@ -663,7 +673,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
                 SharedQuality.ColorPair -> listOfNotNull(colorPair(c)) // mkm
-                SharedQuality.PermanentType -> c.types.filter { it in PERMANENT_TYPES } // rvr
+                SharedQuality.PermanentType -> permanentTypes(c) // rvr, lci
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -839,6 +849,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 (if (property == NumericProperty.Power) c?.power else c?.toughness) ?: 0
             }
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
+            // lci: CR 208.4b, its power before effects and counters that modify it
+            NumericProperty.BasePower -> {
+                board.readingPowerToughness()
+                board.basePower(id) ?: c?.power ?: 0
+            }
             NumericProperty.Loyalty -> c?.loyalty ?: 0
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
@@ -941,7 +956,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
             SharedQuality.ColorPair -> cs.map { listOfNotNull(colorPair(it)) } // mkm
-            SharedQuality.PermanentType -> cs.map { c -> c.types.filter { it in PERMANENT_TYPES } } // rvr
+            SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // rvr, lci
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -959,9 +974,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
             SharedQuality.ColorPair -> cs.mapNotNull { colorPair(it) }.distinct().size // mkm
-            SharedQuality.PermanentType -> cs.flatMap { c -> c.types.filter { it in PERMANENT_TYPES } }.distinct().size // rvr
+            SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // rvr, lci
         }
     }
+
+    /** rvr, lci: its permanent types (CR 110.4a), its card types without instant, sorcery, kindred and the others. */
+    private fun permanentTypes(c: Characteristics): List<CardType> = c.types.filter { it in PERMANENT_TYPES }
+    private val PERMANENT_TYPES = setOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land,
+        CardType.Planeswalker)
 
     /** mkm: the pair of colours of an object that is exactly two colours (CR 105.2), else null. */
     private fun colorPair(c: arcanum.engine.view.Characteristics): Set<arcanum.api.Color>? = c.colors.toSet().takeIf { it.size == 2 }

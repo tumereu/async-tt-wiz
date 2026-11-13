@@ -60,6 +60,10 @@ sealed interface Objects {
     /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
      * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
     @Serializable @SerialName("granter") data object Granter : Objects
+    // lci
+    /** The source of each activated or triggered ability on the Stack among [of] (CR 113.7, 113.8): "that permanent" after "if an ability
+     * of a creature is countered this way". Bind it before the ability leaves the Stack. */
+    @Serializable @SerialName("source-of") data class SourceOf(val of: Objects) : Objects
     // isd
     /** In a token's ability, the object whose ability created the token, as long as it is still that object ('create a green Ooze
      * creature token with "This token's power and toughness are each equal to the number of slime counters on Gutter Grime."',
@@ -359,8 +363,9 @@ sealed interface SharedQuality {
     /** Its pair of colours, only for an object that is exactly two colours (CR 105.2: "the number of different color pairs among permanents
      * you control that are exactly two colors"); an object of any other number of colours has none. */
     @Serializable @SerialName("color-pair") data object ColorPair : SharedQuality
-    // rvr
-    /** Permanent types: artifact, battle, creature, enchantment, land, planeswalker (CR 110.4a: "shares a permanent type with it"). */
+    // rvr, lci
+    /** Permanent types: the card types artifact, battle, creature, enchantment, land and planeswalker only (CR 110.4a: "shares a permanent
+     * type with it", "four or more permanent types among cards in your graveyard"; a kindred card's kindred type isn't one). */
     @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality
 }
 

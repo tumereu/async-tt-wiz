@@ -203,7 +203,12 @@ internal class WorkBoard(
         reads.log = true
     }
 
-    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work), reads, creators)
+    /** lci: each creature's base power, once layer 7b is done (CR 208.4b). */
+    var basePowers: Map<ObjectId, Int> = emptyMap()
+
+    override fun basePower(id: ObjectId): Int? = basePowers[id]
+
+    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work), reads, creators).also { it.basePowers = basePowers }
 }
 
 /** A continuous effect (CR 611) while the layers are worked out. */
@@ -295,6 +300,9 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         Layers.ORDER.forEach { layer ->
             runLayer(board, layer)
             if (layer == Layer.Type) afterTypes(board)
+            // lci: base power is the power after layer 7b (CR 208.4b, 613.4b); effects in 7c and later read it from here
+            if (layer == Layer.PowerToughnessSet) board.basePowers = board.work.mapNotNull { (id, p) ->
+                p.chars.takeIf { CardType.Creature in it.types }?.let { id to (it.power ?: 0) } }.toMap()
         }
         finishPowerToughness(board)
         return collect(board)
@@ -641,7 +649,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                     .filter { !mechanic.exceptMana || !it.ability.isManaAbility() }
                     // rvr: "all loyalty abilities of" (CR 606.2)
                     .filter { !mechanic.onlyLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { p -> p is CostPart.Loyalty } }
-                    .map { AbilityInstance(it.ability, AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
+                    // lci: "You may activate each of those abilities only once each turn" (CR 602.5b)
+                    .map { AbilityInstance(limited(it.ability, mechanic.perTurn), AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
             })
             is Mechanic.LoseAbilities -> Op.Lose(mechanic.keyword)
             is Mechanic.CantHaveAbility -> Op.CantHave(mechanic.keyword)
@@ -835,7 +844,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                 id = o.id, owner = o.owner, controller = controller, zone = o.zone,
                 characteristics = board.work[o.id]?.chars, mechanics = objectMechanics[o.id].orEmpty(),
                 summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id], copiable = copiable.values(o.id),
-                statuses = viewStatuses(o),
+                basePower = board.basePowers[o.id], statuses = viewStatuses(o),
             )
         }
         state.stackItems.values.filter { it.kind is StackItemKind.SpellCopy }.forEach { item ->
@@ -951,3 +960,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
 private inline fun <K, V> MutableMap<K, V>.replaceEach(f: (K, V) -> V) {
     for (entry in entries) entry.setValue(f(entry.key, entry.value))
 }
+
+/** lci: [ability] activated at most [perTurn] times each turn (its own limit too, if lower; CR 602.5b). */
+private fun limited(ability: arcanum.api.Ability, perTurn: Int?): arcanum.api.Ability =
+    if (perTurn == null || ability !is arcanum.api.Ability.Activated) ability
+    else ability.copy(rules = ability.rules.copy(perTurn = minOf(ability.rules.perTurn ?: perTurn, perTurn)))

@@ -22,6 +22,10 @@ sealed interface EventPattern {
         val resolving: Boolean = false,
         /** Only a move to any zone but this one ("leaves the battlefield without dying": not to a graveyard, CR 700.4). */
         val notTo: Zone? = null,
+        // lci
+        /** Only a move made to pay the cost of an ability of this keyword ("is exiled from the battlefield while you're activating a craft
+         * ability": exiled as one of its materials, CR 702.167a, 602.2b). */
+        @Serializable(with = KeywordKindSerializer::class) val forCost: KeywordKind? = null,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */
@@ -230,6 +234,10 @@ sealed interface EventPattern {
     /** A permanent matching [objects] would connive or connives (CR 701.50): what a replacement replaces ("If a creature you
      * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
+    // lci
+    /** A permanent matching [objects] would explore (CR 701.44): what a replacement replaces ("If a creature you control would explore,
+     * instead …", CR 614.1a). Role object (the exploring permanent); [Players.EventPlayer] is its controller. */
+    @Serializable @SerialName("explore") data class Explore(val objects: ObjectFilter) : EventPattern
     // tla
     /** A triggered ability of an object matching [source] triggers on an event matching [cause] ("Whenever a creature you control
      * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
@@ -244,11 +252,13 @@ sealed interface EventPattern {
      * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
      * most, once its whole process is done even if some of it was impossible (CR 701.22d, 701.25d, 701.44b, 701.50f, 701.57b). Role
      * object (the objects the action names, as they last existed if they have left, CR 701.44c, 701.50b); [Players.EventPlayer] is
-     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way").
+     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way"); for discover, it is N ("discover again for the same value", CR 701.57a).
      * As a [Mechanic.Replacement]'s event, an action a player is about to do with no object: [Modification.MultiplyAmount] has it done that many
      * times ("If you would proliferate, proliferate twice instead", CR 614.1a). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: KeywordActionKind, val players: PlayerFilter? = null, val objects: ObjectFilter? = null,
+        /** lci: the card the action revealed matches this (null: any or none): "Whenever a creature you control explores a land card" (CR 701.44a). */
+        val revealed: ObjectFilter? = null,
     ) : EventPattern
     /** An object matching [objects] gains the designation [mark], which it didn't have: "Whenever a creature you control becomes monstrous"
      * (CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 722.3a). One pattern for

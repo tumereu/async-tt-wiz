@@ -42,10 +42,10 @@ internal object Tmt {
     val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent) mills half their library, rounded (up|down)\.""")
     val DRAW_EQUAL_TO_DIFFERENCE = Regex("""[Dd]raw cards equal to the difference\.""")
     val FEWER_THAN_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
-    val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+)\.""")
+    val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an? ((?:[A-Z]\w+ )*)artifact creature with base power and toughness (\d+)/(\d+)( in addition to its other types)?\.""") // lci: subtypes
     val BECOMES_COLOR_OF_CHOICE_HEXPROOF = Regex("""Until end of turn, (.+) becomes the color of your choice and gains hexproof from that color\.""")
     val ENCHANTED_IS_SUBTYPE_BASE_PT = Regex("""Enchanted creature is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\. It can't attack and loses all abilities\.""")
-    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another
+    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) (?:gets ([+-]\d+)/([+-]\d+) and )?gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another; lci: gets
     val RETURN_TARGET_AND_SAME_NAME = Regex("""Return target (.+?) and all other cards with the same name as that card from your graveyard to the battlefield( tapped)?\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on (.+)""")
     val PUT_FROM_THAT_PLAYERS_GRAVEYARD = Regex("""[Pp]ut up to one target (.+?) from that player's graveyard onto the battlefield under your control\. It enters tapped and attacking that player\.""")
@@ -101,7 +101,7 @@ internal object Tmt {
     val UNTAP_ONE_OR_TWO_ADDITIONAL_COMBAT = Regex("""[Uu]ntap one or two target (.+?)\. After this phase, there is an additional combat phase\.""")
     val REVEAL_UNTIL_TAPPED_ATTACKING = Regex("""[Rr]eveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order\.""")
     val MANA_SPENT_LESS_THAN_MANA_VALUE = Regex("""the amount of mana spent to cast it was less than its mana value""")
-    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create a token that's a copy of (.+?)\. That token gains haste\. Sacrifice it at the beginning of the next end step\.""")
+    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create a token that's a copy of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste\. Sacrifice it at the beginning of the next end step\.""")
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")

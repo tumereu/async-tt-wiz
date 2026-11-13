@@ -47,6 +47,12 @@ internal object Texts {
      * The prompt of the "you may" [step] of [ability] (CR 608.2d): its sentence of the ability's text when the text has
      * one "may" sentence for each optional step, else the whole text; plain words for what it does when there is no text.
      */
+    /** Whether [step] is one of [ability]'s own optional steps, not one a keyword action expands into (discover's cast, CR 701.57a). */
+    fun printedMay(ability: Ability?, step: Step): Boolean {
+        val optional = instructionsOf(ability)?.let { optionalSteps(it) }.orEmpty()
+        return optional.any { it === step } || step in optional
+    }
+
     fun may(ability: Ability?, step: Step): String {
         val text = of(ability) ?: return "You may: ${describe(maySteps(step))}"
         val mays = sentences(text).filter { MAY.containsMatchIn(it) }

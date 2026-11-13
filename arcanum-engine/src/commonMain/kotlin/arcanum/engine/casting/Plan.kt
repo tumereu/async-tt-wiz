@@ -748,7 +748,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 if (choices.names[PLAYER + kp.key] == null) return Question.Player(kp.key, snap.state.playersFrom(player).filter { eval.matches(part.filter, it) })
                 return@forEach
             }
-            val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval) ?: return@forEach
+            val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { notUsedByOthers(kp, it) } ?: return@forEach
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
         if (isManaAbility) colorQuestion()?.let { return it }
@@ -814,19 +814,61 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val unannounced = instructions.announced.any { it !in choices.announced } &&
                 kotlinx.serialization.json.Json.encodeToString(CostPart.serializer(), part).contains("\"announced\"")
             if (choices.names[OBJECTS + kp.key] == null && !unannounced) {
-                Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { choice ->
+                Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { notUsedByOthers(kp, it) }?.let { choice ->
                     if (choice.options.size < choice.min) {
                         return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
                     }
                     choice.total?.let { t ->
                         val most = choice.options.sumOf { eval.property(t.property, it).coerceAtLeast(0) }
                         if (most < eval.value(t.atLeast)) return "Their total ${t.property} can't reach ${eval.value(t.atLeast)}"
+                        // lci chunk 09: "with total mana value X": some of them must add up to exactly X
+                        if (t.exactly && Costs.exactSubset(choice.options, choice.min, eval.value(t.atLeast)) { eval.property(t.property, it) } == null)
+                            return "No choice adds up to a total ${t.property} of exactly ${eval.value(t.atLeast)}"
                     }
                 }
             }
             if (!unannounced && !Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
         }
+        if (!distinctObjectsSuffice()) return "No object can pay two parts of the cost (CR 601.2h)"
         return null
+    }
+
+    /**
+     * lci: CR 601.2h: each object pays one part of the cost: one sacrificed, exiled, discarded or returned for a part is gone for
+     * the others, and one tapped for a part can't be tapped for another ("Craft with a Dinosaur, a Merfolk, …": a Dinosaur
+     * Merfolk is one of them). The group of [part] whose objects must differ, or null.
+     */
+    private fun distinctGroup(part: CostPart): Int? = when (part) {
+        is CostPart.Sacrifice, is CostPart.Exile, is CostPart.Discard, is CostPart.ReturnToHand -> 0
+        is CostPart.TapObjects -> 1
+        else -> null
+    }
+
+    /** [choice] for [kp] without the objects already chosen for another part of its [distinctGroup]. */
+    private fun notUsedByOthers(kp: KeyedPart, choice: Costs.ObjectChoice): Costs.ObjectChoice {
+        val group = distinctGroup(kp.part) ?: return choice
+        val used = total.parts.filter { it.key != kp.key && distinctGroup(it.part) == group }
+            .flatMap { (choices.names[OBJECTS + it.key] as? NamedValue.Objects)?.ids.orEmpty() }.toSet()
+        return if (used.isEmpty()) choice else choice.copy(options = choice.options.filter { it !in used })
+    }
+
+    /** CR 601.2h: whether the parts still to choose objects for can each have their least number of different objects (a
+     * matching of their places to objects, each object used once within its [distinctGroup]). */
+    private fun distinctObjectsSuffice(): Boolean {
+        val open = total.parts.filter { kp -> distinctGroup(kp.part) != null && choices.names[OBJECTS + kp.key] == null }
+        return open.groupBy { distinctGroup(it.part) }.values.all { parts ->
+            if (parts.size < 2) return@all true
+            val places = parts.flatMap { kp ->
+                val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, kp.part, eval)?.let { notUsedByOthers(kp, it) }
+                    ?: return@flatMap emptyList()
+                List(choice.min) { choice.options }
+            }
+            val holder = mutableMapOf<ObjectId, Int>()
+            fun place(i: Int, seen: MutableSet<ObjectId>): Boolean = places[i].any { o ->
+                seen.add(o) && (holder[o]?.let { place(it, seen) } ?: true).also { if (it) holder[o] = i }
+            }
+            places.indices.all { place(it, mutableSetOf()) }
+        }
     }
 
     /**
@@ -932,7 +974,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
-            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) },
+            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast)), it.exactly) },
             cost = total.parts.firstOrNull { it.key == q.key }?.at)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)

@@ -321,8 +321,9 @@ internal object Mana {
                 is CostPart.RemoveCounters -> if (part.from == CostObjects.Self) {
                     val n = eval.value(part.amount)
                     val o = snap.state.obj(id)
-                    val kind = part.kind ?: o?.counters?.firstOrNull()?.kind
-                    if (n > 0) limit = minOf(limit, if (kind == null) 0 else (o?.counters(kind) ?: 0) / n)
+                    // of no named kind, counters of any kinds add up (CR 122.1)
+                    val has = part.kind?.let { o?.counters(it) } ?: o?.counters?.sumOf { it.count } ?: 0
+                    if (n > 0) limit = minOf(limit, has / n)
                     tier = 2
                 } else unknown = true
                 is CostPart.Sacrifice, is CostPart.Exile, is CostPart.Discard, is CostPart.ReturnToHand, is CostPart.TapObjects -> {

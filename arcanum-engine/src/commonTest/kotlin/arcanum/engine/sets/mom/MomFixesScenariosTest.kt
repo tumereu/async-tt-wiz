@@ -26,6 +26,8 @@ class MomFixesScenariosTest {
     private val drudge = Cards.invent("Momentide Drudge", "{2}{G}", "Creature — Zombie", "", "1/1")
     private val exhumer = Cards.invent("Momentide Exhumer", "{3}{B}", "Creature — Zombie",
         "When this creature enters, put up to two creature cards from your graveyard on top of your library.", "3/3")
+    private val abacus = Cards.invent("Momentide Abacus", "{2}", "Artifact", "{T}, Remove two counters from this artifact: Draw a card.")
+    private val charge = CounterKind.Named("charge")
     private val bear = Cards.invent("Momentide Grave Bear", "{1}{G}", "Creature — Bear", "", "2/2")
 
     private val prism = Cards.inventFaces("Transform",
@@ -178,5 +180,37 @@ class MomFixesScenariosTest {
             charger.counters(CounterKind.PowerToughness(1, 1)) shouldBe 2
         }
         assertEquals(1, state.objOrThrow(token).counters(CounterKind.PowerToughness(1, 1)))
+    }
+
+    // CR 602.2b, 601.2h: a cost removing counters of no named kind lets its payer choose which (here the shield counter and one charge
+    // counter), not the first kind put on it
+    @Test
+    fun aCostRemovingCountersOfAnyKindAsksWhichCounters() = scenario {
+        alice.battlefield(abacus, counters = listOf(charge to 2, CounterKind.Shield to 1))
+        alice.library("Island")
+        alice.activates(abacus)
+        val choice = pending as Decision.ChooseOption
+        assertEquals(setOf("charge", "shield"), choice.options.toSet())
+        answer(Answer.Option("shield"))
+        resolveAll()
+        expect {
+            abacus.counters(charge) shouldBe 1
+            abacus.counters(CounterKind.Shield) shouldBe 0
+            alice.hand.size shouldBe 1
+        }
+    }
+
+    // CR 122.1: counters of different kinds add up to pay "two counters": one of each pays it, with nothing to choose
+    @Test
+    fun aCostRemovingCountersOfAnyKindTakesOneOfEach() = scenario {
+        alice.battlefield(abacus, counters = listOf(charge to 1, CounterKind.Shield to 1))
+        alice.library("Island")
+        alice.activates(abacus)
+        resolveAll()
+        expect {
+            abacus.counters(charge) shouldBe 0
+            abacus.counters(CounterKind.Shield) shouldBe 0
+            alice.hand.size shouldBe 1
+        }
     }
 }

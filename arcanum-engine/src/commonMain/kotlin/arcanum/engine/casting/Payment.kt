@@ -440,19 +440,18 @@ internal object Payment {
                     var left = n
                     objects(part.from).forEach { id ->
                         val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
-                        val taken = minOf(left, o.counters(kind))
-                        if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
-                        left -= taken
+                        val has = part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }
+                        // CR 601.2h, 608.2d: of no named kind, the payer chooses which counters
+                        if (has > 0 && left > 0) left -= Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, minOf(left, has), listOf(Meaning.Paid))
                     }
                     if (left > 0) refuse("Not enough counters among them")
                     return
                 }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                    val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")
-                    if (o.counters(kind) < n) refuse("Not enough counters on $id")
-                    recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
+                    // CR 601.2h, 608.2d: of no named kind, any counters count and the payer chooses which
+                    if ((part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }) < n) refuse("Not enough counters on $id")
+                    Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, n, listOf(Meaning.Paid))
                 }
             }
             // msh: "Get five poison counters" (ward, CR 122.1)

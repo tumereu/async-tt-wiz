@@ -803,13 +803,13 @@ internal object Actions {
     }
 
     /** Removes up to [amount] counters of [kind] from [holder]; returns how many were removed. */
-    fun removeCounters(act: Act, holder: TargetRef, kind: CounterKind, amount: Int): Int {
+    fun removeCounters(act: Act, holder: TargetRef, kind: CounterKind, amount: Int, meanings: List<Meaning> = emptyList()): Int {
         val has = when (holder) {
             is TargetRef.Object -> act.obj(holder.id)?.counters(kind) ?: 0
             is TargetRef.Player -> act.state.player(holder.id).counters(kind)
         }
         val n = minOf(has, amount)
-        if (n > 0) act.record(Changes.counters(act.state, holder, kind, -n))
+        if (n > 0) act.record(Changes.counters(act.state, holder, kind, -n, meanings))
         return n
     }
 
@@ -818,8 +818,9 @@ internal object Actions {
      * creature"), counters of any kinds [chooser] chooses one at a time as the effect applies (CR 608.2d, 609.3: no choice when
      * one kind is there or every counter goes). Returns the number removed.
      */
-    fun removeChosenCounters(act: Act, chooser: PlayerId, source: ObjectId?, id: ObjectId, kind: CounterKind?, amount: Int): Int {
-        if (kind != null) return removeCounters(act, TargetRef.Object(id), kind, amount)
+    fun removeChosenCounters(act: Act, chooser: PlayerId, source: ObjectId?, id: ObjectId, kind: CounterKind?, amount: Int,
+                             meanings: List<Meaning> = emptyList()): Int {
+        if (kind != null) return removeCounters(act, TargetRef.Object(id), kind, amount, meanings)
         val there = act.obj(id)?.counters?.filter { it.count > 0 }?.associate { it.kind to it.count }.orEmpty()
         val total = there.values.sum()
         val taken: Map<CounterKind, Int> = if (there.size <= 1 || amount >= total) there.mapValues { (_, c) -> minOf(c, amount) }
@@ -834,7 +835,7 @@ internal object Actions {
             }
             chosen
         }
-        return taken.entries.sumOf { (k, n) -> removeCounters(act, TargetRef.Object(id), k, n) }
+        return taken.entries.sumOf { (k, n) -> removeCounters(act, TargetRef.Object(id), k, n, meanings) }
     }
 
     /** A counter kind in a few words for a choice: "+1/+1", "stun", "flying". */

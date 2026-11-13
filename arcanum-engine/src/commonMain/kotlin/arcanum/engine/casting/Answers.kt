@@ -213,8 +213,8 @@ internal object Answers {
         val n = plan.eval.value(part.amount)
         return ids.all { id ->
             val o = plan.snap.state.obj(id) ?: return@all false
-            val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@all n <= 0
-            o.counters(kind) >= n
+            // of no named kind, counters of any kinds add up (CR 122.1)
+            (part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }) >= n
         }
     }
 }

@@ -73,7 +73,7 @@ object DefinitionChecks {
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
-    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind") // inr chunk 08: payerBind
+    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind", "onTop") // inr chunk 08: payerBind; lci chunk 04: onTop (surveil)
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
      * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */

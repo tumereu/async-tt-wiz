@@ -2728,7 +2728,7 @@ internal class Sentences(
 
     /** The effect sentences of a spell or ability, in order. */
     fun instructions(printed: String, seedTargets: List<TargetSlot> = emptyList(), event: EventPattern? = null, them: Objects? = null,
-                     that: Objects? = null, itZone: Zone? = null): Instructions? {
+                     that: Objects? = null, itZone: Zone? = null, it: Objects? = null): Instructions? {
         // chunk 30: "…, where X is [a number]" defines X for the whole ability (CR 107.3c)
         // An X this reader can't define stays in the text for the sentence rules that read it themselves.
         // blb gaps 2: a comma kept inside a quoted ability before "where X is" ('… you control," where X is …')
@@ -2743,12 +2743,12 @@ internal class Sentences(
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
         if (defined == null) whereX(text)?.let { selfNumber(it.groupValues[1]) }?.let { own ->
-            return read(text, null, seedTargets, event, them, that, itZone) ?: read(text, own, seedTargets, event, them, that, itZone)
+            return read(text, null, seedTargets, event, them, that, itZone, seedIt = it) ?: read(text, own, seedTargets, event, them, that, itZone, seedIt = it)
         }
-        return read(text, defined, seedTargets, event, them, that, itZone)?.let { ltrBindAmassedArmy(text, it) } // ltr
+        return read(text, defined, seedTargets, event, them, that, itZone, seedIt = it)?.let { ltrBindAmassedArmy(text, it) } // ltr
             // lci chunk 01: "Discover X, where X is that spell's mana value." (the object "it" names where X is used, CR 608.2h)
             ?: if (defined == null) whereX(text)?.let { IT_NUMBER.matchEntire(it.groupValues[1]) }?.let { m ->
-                read(text, null, seedTargets, event, them, that, itZone, itNumber = m.groupValues[1].ifEmpty { "its" } to when (m.groupValues[2]) {
+                read(text, null, seedTargets, event, them, that, itZone, seedIt = it, itNumber = m.groupValues[1].ifEmpty { "its" } to when (m.groupValues[2]) {
                     "mana value" -> arcanum.api.NumericProperty.ManaValue; "power" -> arcanum.api.NumericProperty.Power; else -> arcanum.api.NumericProperty.Toughness })
             } else null
     }
@@ -2785,7 +2785,7 @@ internal class Sentences(
 
     /** [instructions] with [x] defined by the text's "where X is" (null: not defined here). */
     private fun read(text: String, x: Value?, seedTargets: List<TargetSlot>, event: EventPattern?, them: Objects?, that: Objects?, itZone: Zone?,
-                     itNumber: Pair<String, arcanum.api.NumericProperty>? = null): Instructions? {
+                     seedIt: Objects? = null, itNumber: Pair<String, arcanum.api.NumericProperty>? = null): Instructions? {
         val whereX = whereX(text)?.takeIf { x != null || itNumber != null }
         // lci chunk 01: X is [itNumber] of what "it" names in the sentence using X
         var itX: Value? = null
@@ -2815,6 +2815,8 @@ internal class Sentences(
         if (stateTriggerSelf) context.it = Objects.Self // fdn
         // chunk 20
         context.that = that
+        // lci chunk 04: what "it" names, given by the caller (the card a reflexive trigger's "this way" discarded)
+        if (seedIt != null) context.it = seedIt
         // blb gaps: the zone "it" is in, when the caller knows it ("you may exile it" about a permanent)
         context.itZone = itZone
         val steps = mutableListOf<Step>()
@@ -5204,9 +5206,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty()), postBind = "returned")))
         }
         // chunk 20: "Target player mills cards equal to the sacrificed creature's power."
+        // lci chunk 04: also "… equal to its mana value" (the object "it" names, bound by an earlier step)
         TARGET_PLAYER_MILLS_SACRIFICED.matchEntire(sentence)?.let { m ->
-            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
-            return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Of(property, Objects.Bound(SACRIFICED), arcanum.api.Combine.Single))))
+            val property = when (m.groupValues[2]) {
+                "power" -> arcanum.api.NumericProperty.Power; "toughness" -> arcanum.api.NumericProperty.Toughness; else -> arcanum.api.NumericProperty.ManaValue }
+            val of = if (m.groupValues[1].isEmpty()) context.it as? Objects.Bound ?: return null else Objects.Bound(SACRIFICED)
+            return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Of(property, of, arcanum.api.Combine.Single))))
         }
         // chunk 20: "Put up to one target card from your graveyard on the bottom of your library."
         PUT_UP_TO_TARGET_ON_BOTTOM.matchEntire(sentence)?.let { m ->
@@ -11094,8 +11099,8 @@ internal class Sentences(
         // sos chunk 12
         val SOS_CHOOSE_UP_TO_TRIGGER = Regex("""When(?:ever)? (.+?), choose up to (\w+) —""")
         // sos chunk 05
-        val SOS_IF_INSTEAD_LINE = Regex("""(?:([A-Z][A-Za-z ]+) — )?If (.+?), (.+) instead\.""")
-        val INSTEAD_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?(.+) instead if (.+)\.""")
+        val SOS_IF_INSTEAD_LINE = Regex("""(?:([A-Z][A-Za-z0-9 ]+) — )?If (.+?), (.+) instead\.""")
+        val INSTEAD_IF = Regex("""(?:([A-Z][A-Za-z0-9 ]+) — )?(.+) instead if (.+)\.""")
         val DOESNT_UNTAP = Regex("""(.+) doesn't untap during your untap step\.""")
         val EQUIPPED_HAS_QUOTED = Regex("""Equipped creature has "(.+)"""")
         val WOULD_ENTER_DISCARD_INSTEAD = Regex("""If (.+) would enter, you may discard an? (.+) instead\. If you do, put .+ onto the battlefield\. If you don't, put it into its owner's graveyard\.""")
@@ -11270,9 +11275,9 @@ internal class Sentences(
         val CHOOSE_TWO_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
         val THE_TARGET_DEALS_DAMAGE_EQUAL_TO_ITS_POWER = Regex("""The (.+?) deals damage equal to its power to the (.+)\.""")
         val DEALS_X_TO_EACH_OF_UP_TO_X = Regex("""(.+?) deals X damage to each of up to X target (.+)\.""")
-        val IF_INSTEAD_ALL = Regex("""(?:([A-Z][A-Za-z ]+) — )?If (.+?), instead (.+)""")
+        val IF_INSTEAD_ALL = Regex("""(?:([A-Z][A-Za-z0-9 ]+) — )?If (.+?), instead (.+)""")
         // ltr chunk 11: also "If you control a Wizard as you cast this spell, you may choose two instead."
-        val CHOOSE_MAX_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?Choose (one|two)\. If (.+), (you may )?choose (one or more|both|\w+) instead\.""")
+        val CHOOSE_MAX_IF = Regex("""(?:([A-Z][A-Za-z0-9 ]+) — )?Choose (one|two)\. If (.+), (you may )?choose (one or more|both|\w+) instead\.""")
         // dsk chunk 06
         val MAY_LOOK_AT_ANY_TIME = Regex("""You may look at (.+) any time\.""")
         val MANIFEST_DREAD_TIMES = Regex("""Manifest dread (X|\w+) times, then put (X|\w+) (\S+) counters on each of those creatures\.""")
@@ -11408,7 +11413,7 @@ internal class Sentences(
         val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
         val SACRIFICE_THAT = Regex("""Sacrifice that (\w+)\.""")
         val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
-        val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to the sacrificed \w+'s (power|toughness)\.""")
+        val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to (?:(the sacrificed \w+)'s|its) (mana value|power|toughness)\.""")
         val PUT_UP_TO_TARGET_ON_BOTTOM = Regex("""Put up to (\w+) target (.+) from your graveyard on the bottom of your library\.""")
         val LOOK_TOP_OF_TARGET_LIBRARY = Regex("""Look at the top (card|(\w+) cards) of target player's library\.""")
         val AT_NEXT_UPKEEP = Regex("""(.+) at the beginning of the next turn's upkeep\.""")
@@ -13158,12 +13163,15 @@ internal class Sentences(
         }
         // "draw a card, then discard a card. When you discard a nonland card this way, put a +1/+1 counter on target creature you control."
         // (a reflexive trigger, CR 603.12)
+        // lci chunk 04: "When you discard a card this way, target player mills cards equal to its mana value." ("it" is the discarded card)
         Tla.LOOT_WHEN_DISCARD_NONLAND.matchEntire(sentence)?.let { m ->
-            val reflexive = instructions(m.groupValues[1]) ?: return null
+            val discarded = Objects.Bound("discarded")
+            val reflexive = instructions(m.groupValues[2], it = discarded) ?: return null
+            val condition = if (m.groupValues[1].isEmpty()) arcanum.api.Condition.NonEmpty("discarded")
+                else arcanum.api.Condition.ObjectMatches(discarded, ObjectFilter.Not(ObjectFilter.Type(CardType.Land)))
             return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))),
                 Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, preBind = "discarded")),
-                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound("discarded"), ObjectFilter.Not(ObjectFilter.Type(CardType.Land))),
-                    then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+                Step.If(condition, then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
         }
         // "tap up to one target creature. It doesn't untap during its controller's untap step for as long as you control Ty Lee."
         Tla.TAP_DOESNT_UNTAP_AS_LONG_AS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -15628,6 +15636,14 @@ internal class Sentences(
 
     /** lci: sentences that change the steps before them, tried first by [modify]. */
     private fun lciModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // lci chunk 04: "Surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life." (the cards the
+        // surveil kept on top, counted once, CR 701.25a)
+        Lci.FOR_EACH_PUT_ON_TOP.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val surveil = (last.effect as? Effect.Surveil)?.takeIf { it.onTop == null && it.players == Players.You } ?: return null
+            val each = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".")?.takeIf { it.targets.isEmpty() && it.modes == null } ?: return null
+            return steps.dropLast(1) + Step.Do(surveil.copy(onTop = "put on top")) + Step.Repeat(Value.Count(Objects.Bound("put on top")), each.steps)
+        }
         // lci chunk 01: "Discover 10. If the discovered card's mana value is less than 10, create a number of tapped Treasure tokens equal to the
         // difference." (the discover step names the discovered card; with none, nothing, CR 701.57c)
         Lci.IF_DISCOVERED_LESS_CREATE_DIFFERENCE.matchEntire(sentence)?.let { m ->
@@ -15645,6 +15661,13 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 04: "up to one other target permanent you control becomes a copy of that spell until end of turn." (the cast spell of a cast
+        // trigger; its copiable values fixed as the effect begins, CR 707.2, 707.2b; layer 1)
+        Lci.TARGET_BECOMES_COPY_OF_THAT_SPELL.matchEntire(sentence)?.takeIf { (context.event as? EventPattern.Cast) != null }?.let { m ->
+            val target = tlaTarget(m.groupValues[1].replaceFirstChar { it.lowercase() }, context) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.EventObject(EventRole.Object))), Affected.Objects(target),
+                arcanum.api.Duration.EndOfTurn)))
+        }
         // lci chunk 03: "Then you may have it become a copy of another creature you control until end of turn." (a permanent's own ability: choosing
         // none is declining; layer 1, CR 707.2)
         Lci.MAY_HAVE_IT_BECOME_COPY_OF_ANOTHER.matchEntire(sentence)?.takeIf { !isSpell && (context.it == null || context.it == Objects.Self) }?.let { m ->

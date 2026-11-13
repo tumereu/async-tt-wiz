@@ -57,7 +57,8 @@ sealed interface Effect {
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
     /** [bind] names the cards put on the bottom (scry) or into the graveyard (surveil). */
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value, val bind: String? = null) : Effect
-    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null) : Effect
+    /** [onTop] names the cards put back on top of the library ("for each card you put on top of your library", CR 701.25a). */
+    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null, val onTop: String? = null) : Effect
     /** [searcher] searches [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching
      * [filter], with [differentNames] if they must all have different names; the found cards are named [bind] and moved by
      * a following step. [reveal] shows them (CR 701.23). Any player may be told to search any player's library: "search

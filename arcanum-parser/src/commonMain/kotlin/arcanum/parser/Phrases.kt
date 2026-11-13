@@ -357,7 +357,7 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */.let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()

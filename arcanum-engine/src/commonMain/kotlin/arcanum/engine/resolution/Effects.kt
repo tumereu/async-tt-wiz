@@ -130,7 +130,7 @@ internal object Effects {
                 scope.bind(effect.postBind, NamedValue.Objects(milled.map { it.value }))
             }
             is Effect.Scry -> scope.players(effect.players).forEach { p -> scry(scope, p, scope.value(effect.count), effect.bind) }
-            is Effect.Surveil -> scope.players(effect.players).forEach { p -> surveil(scope, p, scope.value(effect.count), effect.bind) }
+            is Effect.Surveil -> scope.players(effect.players).forEach { p -> surveil(scope, p, scope.value(effect.count), effect.bind, effect.onTop) }
             is Effect.Search -> search(scope, effect)
             is Effect.Shuffle -> {
                 val kept = effect.except?.let { scope.objects(it) }.orEmpty()
@@ -796,12 +796,13 @@ internal object Effects {
     }
 
     /** CR 701.25: look at the top N, put any number into the graveyard and the rest on top in any order. */
-    private fun surveil(scope: Scope, player: PlayerId, n: Int, bind: String?) {
+    private fun surveil(scope: Scope, player: PlayerId, n: Int, bind: String?, onTop: String? = null) {
         val act = scope.act
         val top = act.state.player(player).library.take(n)
         // CR 701.25c, d: surveilling 0 is no event; surveilling with no library is, the actions being impossible
         if (top.isEmpty()) {
             if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = 0)))
+            scope.bind(onTop, NamedValue.Objects(emptyList()))
             return
         }
         act.show(player, top)
@@ -815,6 +816,7 @@ internal object Effects {
         }
         act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = top.size)))
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
+        scope.bind(onTop, NamedValue.Objects(ordered))
     }
 
     /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b). */

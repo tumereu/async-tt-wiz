@@ -1,6 +1,7 @@
 package arcanum.parser
 
 import arcanum.api.CardType
+import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.CostObjects
 import arcanum.api.EventPattern
@@ -8,6 +9,8 @@ import arcanum.api.Measure
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
+import arcanum.api.Players
+import arcanum.api.RecipientFilter
 import arcanum.api.Value
 import arcanum.api.Zone
 
@@ -34,6 +37,12 @@ internal object Lci {
     val FOR_EACH_PUT_ON_TOP = Regex("""(?:Then )?[Ff]or each card you put on top of your library, (.+)\.""")
     // lci chunk 04: "up to one other target permanent you control becomes a copy of that spell until end of turn" (layer 1, CR 707.2)
     val TARGET_BECOMES_COPY_OF_THAT_SPELL = Regex("""((?:[Uu]p to one )?(?:other )?target .+?) becomes a copy of that spell until end of turn\.""")
+    // lci chunk 05
+    val WOULD_DEAL_LESS_THAN_POWER = Regex("""If an? (.+?) source you control would deal an amount of (noncombat |combat )?damage less than (.+?)'s power to (an opponent), that source deals damage equal to (.+?)'s power instead\.""")
+    val A_PLAYER_HAS_N_OR_FEWER_IN_HAND = Regex("""a player has (\w+) or fewer cards in hand""")
+    val SOURCES_YOU_CONTROLLED_DEALT_NONCOMBAT = Regex("""(\w+) sources you controlled dealt (\d+) or more (noncombat )?damage this turn""")
+    val IT_GAINS_KEYWORD = Regex("""(?:[Ii]t|[Tt]hat spell) gains ([a-z][a-z ]+)\.""")
+    val IT_HAS_NO_COUNTERS = Regex("""it has no (\S+) counters on it""")
     val CRAFT = Regex("""Craft with (.+?) ((?:\{[^}]+\})+)""")
     val CRAFT_EACH_OF = Regex("""(?:an? [A-Z]\w+, )+and an? [A-Z]\w+""")
     val CRAFT_COUNT = Regex("""(\w+)( or more)?(?: (.+))?""")
@@ -97,6 +106,21 @@ internal object LciPhrases {
         Lci.THIS_OR_ANOTHER_ENTERED.matchEntire(text)?.let { m ->
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
+        }
+        // lci chunk 05: "a player has one or fewer cards in hand" (any one player, CR 402)
+        Lci.A_PLAYER_HAS_N_OR_FEWER_IN_HAND.matchEntire(text)?.let { m ->
+            return Condition.PlayerExists(PlayerFilter.Where(Condition.Compare(Value.HandSize(Players.Tested), Comparison.AtMost,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))), atLeast = 1)
+        }
+        // lci chunk 05: "red sources you controlled dealt 4 or more noncombat damage this turn" (all of it added up, to any recipients, CR 120.1)
+        Lci.SOURCES_YOU_CONTROLLED_DEALT_NONCOMBAT.matchEntire(text)?.let { m ->
+            val source = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return Condition.HappenedThisTurn(EventPattern.Damage(source, RecipientFilter(), combat = if (m.groupValues[3].isEmpty()) null else false),
+                atLeast = m.groupValues[2].toInt(), measure = Measure.Amount)
+        }
+        // lci chunk 05: "it has no time counters on it" (this object)
+        Lci.IT_HAS_NO_COUNTERS.matchEntire(text)?.let { m ->
+            return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[1]) ?: return null, atLeast = 1)))
         }
         return null
     }

@@ -164,7 +164,8 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
-    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""Create an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
+    // lci chunk 05: also several subtypes and "artifact creature" ("a white Gnome Soldier artifact creature token")
+    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""Create an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+(?: [A-Z]\w+)*) ((?:artifact )?creature) token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
     val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")

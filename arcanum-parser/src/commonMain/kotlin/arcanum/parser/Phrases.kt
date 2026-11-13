@@ -650,9 +650,10 @@ internal object Events {
             return EventPattern.Unattach(subject(m.groupValues[1], self) ?: return null, from = from)
         }
         // chunk 21
+        // lci chunk 05: also "an opponent discards a land card"
         YOU_DISCARD.matchEntire(text)?.let { m ->
-            val cards = if (m.groupValues[1] == "card") ObjectFilter.Any else Filters.noun(m.groupValues[1]) ?: return null
-            return EventPattern.Discard(cards, players = PlayerFilter.You)
+            val cards = if (m.groupValues[2] == "card") ObjectFilter.Any else Filters.noun(m.groupValues[2]) ?: return null
+            return EventPattern.Discard(cards, players = if (m.groupValues[1] == "you discard") PlayerFilter.You else PlayerFilter.Opponent)
         }
         BEGINNING_OF_YOUR.matchEntire(text)?.let { m ->
             val step = STEPS[m.groupValues[1]] ?: return null
@@ -945,7 +946,7 @@ internal object Events {
     // chunk 21
     private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
     private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")
-    private val YOU_DISCARD = Regex("""you discard an? (.+)""")
+    private val YOU_DISCARD = Regex("""(you discard|an opponent discards) an? (.+)""")
     // chunk 30
     private val ANOTHER = Regex("""another (.+)""")
     // chunk 31

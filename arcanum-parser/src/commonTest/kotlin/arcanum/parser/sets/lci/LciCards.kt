@@ -20,6 +20,8 @@ import arcanum.api.Duration
 import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.FaceDefinition
+import arcanum.api.CountersToPut
+import arcanum.api.EventRole
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.KeywordAction
@@ -227,3 +229,15 @@ val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
 /** "Discover N." */
 fun discover(count: Int): Step = discover(n(count))
 fun discover(count: Value): Step = Step.Do(Effect.Action(KeywordAction.Discover(count)))
+
+// ---- lci chunk 05: transforming double-faced cards (CR 712)
+
+fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
+/** "When [this] dies, return it to the battlefield tapped and transformed under its owner's control [with counters]." (CR 712.14) */
+fun diesReturnTransformed(counters: List<CountersToPut> = emptyList()): Ability = triggered(diesSelf, Step.Do(Effect.Move(
+    Objects.EventObject(EventRole.After), Destination(Zone.Battlefield, tapped = true, transformed = true,
+        controller = Players.OwnerOf(Objects.EventObject(EventRole.After)), counters = counters))))
+/** "{N}{C}, {T}: Transform this land. Activate only if … and only as a sorcery." (CR 602.5b, 701.27a) */
+fun templeTransform(manaText: String, condition: Condition): Ability =
+    activated(cost(mana(manaText), tap), transformSelf, rules = ActivationRules(Timing.Sorcery, PlayerFilter.You, condition = condition))

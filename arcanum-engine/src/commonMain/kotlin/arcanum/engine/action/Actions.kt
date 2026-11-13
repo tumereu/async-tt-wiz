@@ -255,7 +255,8 @@ internal object Actions {
                 is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage -> move
+                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
+                is Modification.RaiseAmountTo -> move
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
                 // fin: transforming and coin flips aren't zone changes
@@ -509,7 +510,8 @@ internal object Actions {
                 linked = linked,
                 // CR 615.12: damage that can't be prevented isn't, but a prevention effect's additional effect still
                 // applies to it, once (615.12a)
-                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) },
+                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) ||
+                    notLess(act, d, r) },
                 extra = preventions(act),
             )
         }.filter { recipientExists(act, it.recipient) && it.amount > 0 }
@@ -615,6 +617,12 @@ internal object Actions {
         }
     }
 
+    /** lci: a replacement raising damage to an amount applies only while the damage is less (CR 614.1a, 616.1f). */
+    private fun notLess(act: Act, d: DamageDealt, r: Replacement): Boolean {
+        val raise = r.mechanic.modify.filterIsInstance<Modification.RaiseAmountTo>().firstOrNull() ?: return false
+        return d.amount >= Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).value(raise.amount)
+    }
+
     private fun modifyDamage(act: Act, d: DamageDealt, r: Replacement): DamageDealt? {
         var damage = d
         val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
@@ -623,6 +631,8 @@ internal object Actions {
                 Modification.Skip -> return null
                 is Modification.MultiplyAmount -> damage.copy(amount = damage.amount * mod.factor)
                 is Modification.AddAmount -> damage.copy(amount = damage.amount + e.value(mod.amount))
+                // lci: "an amount … less than Ojer's power … deals damage equal to Ojer's power instead" (CR 614.1a)
+                is Modification.RaiseAmountTo -> damage.copy(amount = maxOf(damage.amount, e.value(mod.amount)))
                 is Modification.ChangeRecipient -> recipientsOf(e, mod.to).firstOrNull()
                     ?.takeIf { redirectable(act, damage.recipient) && redirectable(act, it) }
                     ?.let { damage.copy(recipient = it) } ?: damage
@@ -869,20 +879,23 @@ internal object Actions {
                 // "That many" (CR 614.1a): the tokens this event would create so far
                 val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names,
                     event = arcanum.engine.state.TriggerEvent(amount = s.sumOf { it.second })))
+                // Whether tokens of these values match the replacement's event ("creature tokens")
+                fun matches(f: arcanum.engine.state.CopiableValues): Boolean {
+                    val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken ?: return true
+                    val probe = planned(listOf(f to 1)).single()
+                    return Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
+                        Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
+                }
                 r.mechanic.modify.forEach { mod ->
                     result = when (mod) {
                         Modification.Skip -> null
-                        is Modification.MultiplyAmount -> result?.map { (f, k) -> f to k * mod.factor }
+                        // lci: "three times that many of those tokens" multiplies only the tokens the event names ("creature tokens",
+                        // CR 614.1a)
+                        is Modification.MultiplyAmount -> result?.map { (f, k) -> if (matches(f)) f to k * mod.factor else f to k }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
                         is Modification.AlsoCreate -> result?.plus(tokenValues(act, e, mod.token) to e.value(mod.count))
                         // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
-                        is Modification.CreateInstead -> result?.map { (f, k) ->
-                            val probe = planned(listOf(f to 1)).single()
-                            val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken
-                            val matches = pattern == null || Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
-                                Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
-                            if (matches) tokenValues(act, e, mod.token) to k else f to k
-                        }
+                        is Modification.CreateInstead -> result?.map { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token) to k else f to k }
                         is Modification.EntersTapped -> result
                         else -> result
                     }

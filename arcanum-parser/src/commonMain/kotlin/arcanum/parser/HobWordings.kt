@@ -49,7 +49,10 @@ internal object Hob {
     val PREVENT_ALL_DAMAGE_DEALT_BY = Regex("""Prevent all damage that would be dealt by (up to one )?target (.+)""")
     val EXILE_UP_TO_ONE_RETURN_NEXT_END = Regex("""Exile up to one target (.+?)\. If you do, return it to the battlefield under its owner's control at the beginning of the next end step\.""")
     val CREATE_THEN_IF_SACRIFICE_SELF = Regex("""Create (.+?)\. Then if you control (\w+) or more (.+?), sacrifice (.+?)\. If you do, create (.+)\.""")
-    val SAGA_GAINS_QUOTED = Regex("""(.+?) gains "(.+)"\.""")
+    // lci chunk 05: also with the period inside the quotes ('gains "Creatures you control have \'{T}: Add {R}, {G}, or {W}.\'"')
+    val SAGA_GAINS_QUOTED = Regex("""(.+?) gains "(.+)"\.?""")
+    /** A quoted ability's own quoted ability, in single quotes ("… have '{T}: Add {R}.'"). */
+    val INNER_SINGLE_QUOTED = Regex("""(^| )'(.+)'$""")
 
     // hob chunk 05: adventures
     val MILL_THEN_PUT_FROM_AMONG = Regex("""Mill (\w+) cards, then put (an|all|up to (?:one|two|three)) (.+?) cards? from among them into your hand\.""")
@@ -127,7 +130,8 @@ internal object Hob {
     val CREATE_NAMED_ARTIFACT_CREATURE_TOKEN = Regex("""[Cc]reate an? (\d+)/(\d+) colorless ([A-Z][a-z]+) artifact creature token with ([a-z]+) named ([A-Z][A-Za-z ]+)\.""")
     val CREATE_X_TAPPED_TREASURES_WHERE = Regex("""[Cc]reate X tapped (\w+) tokens, where X is (.+)\.""")
     val IF_MANA_FROM_SPENT = Regex("""if mana from an? (.+?) was spent to cast it""")
-    val TOKENS_TWICE_THAT_MANY = Regex("""If (?:one or more tokens would be created under your control, twice that many of those tokens are created|an effect would create one or more tokens under your control, it creates twice that many of those tokens) instead\.""") // fdn: the second
+    // fdn: the second; lci chunk 05: "one or more creature tokens", "three times that many"
+    val TOKENS_TWICE_THAT_MANY = Regex("""If (?:one or more (creature )?tokens would be created under your control, (twice|three times) that many of those tokens are created|an effect would create one or more tokens under your control, it creates twice that many of those tokens) instead\.""")
     val DRAW_EXCEPT_FIRST_DRAW_TWO = Regex("""If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.""")
     val DIES_IF_CREATURE_RETURN_ARTIFACT = Regex("""When (.+?) die, if they were a creature, return them to the battlefield\. They're an artifact\.""")
     val MAY_CAST_AS_FLASH_IF_CONTROL = Regex("""You may cast this spell as though it had flash if you control an? (.+)\.""")

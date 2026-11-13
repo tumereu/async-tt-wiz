@@ -689,4 +689,9 @@ sealed interface Modification {
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
      * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */
     @Serializable @SerialName("heals-other-damage") data object HealsOtherDamage : Modification
+    // lci
+    /** An amount less than [amount] is [amount] instead ("would deal an amount of noncombat damage less than Ojer's power …, that source
+     * deals damage equal to Ojer's power instead", CR 614.1a): the replacement applies only to an event whose amount is less, checked again
+     * after each other replacement (616.1f). */
+    @Serializable @SerialName("raise-amount-to") data class RaiseAmountTo(val amount: Value) : Modification
 }

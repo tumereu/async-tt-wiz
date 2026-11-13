@@ -189,6 +189,6 @@ internal object SpmPhrases {
     private val WAS_CAST_USING = Regex("""(.+?) (?:was|were) cast using ([a-z-]+)""")
     private val WAS_CAST_FROM = Regex("""(.+?) was cast from your (graveyard|hand)""")
     private val IS_A_TYPE = Regex("""(.+?) is an? (creature|land|artifact)""")
-    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (creatures) entered the battlefield under your control this turn""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (\w+) entered the battlefield under your control this turn""")
     private val CAST_SPELL_THIS_TURN = Regex("""you've cast an? (spell with mana value \d+ or greater) this turn""")
 }

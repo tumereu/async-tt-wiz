@@ -78,7 +78,7 @@ class RtrChunk12ArtifactsAndLandsTest {
     /** "[This] becomes a P/T [colours] [type] artifact creature [with keywords] until end of turn" (CR 205.1b). */
     private fun becomes(power: Int, toughness: Int, colors: List<Color>, subtype: String, vararg keywords: Ability) = Step.Do(Effect.ApplyMechanics(
         listOfNotNull(
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype)))),
             Mechanic.SetColors(colors.map { ColorRef.Literal(it) }),
             Mechanic.SetPowerToughness(n(power), n(toughness)),
             keywords.takeIf { it.isNotEmpty() }?.let { Mechanic.GainAbilities(it.toList()) },

@@ -55,7 +55,21 @@ internal object StateBasedActions {
         }
     }
 
+    /**
+     * one sweep: a "for as long as" effect ends once its condition no longer holds, and stays ended (CR 611.2b). The view judges the condition
+     * before applying the layers, so a condition another effect falsifies ("for as long as you control this creature" after an opponent gains
+     * control of it, CR 613.1b) is judged here with every continuous effect applied.
+     */
+    private fun endLapsedDurations(act: Act) {
+        val state = act.state
+        val lasting = state.effects.values.filter { it.duration is arcanum.api.Duration.AsLongAs }
+        if (lasting.isEmpty()) return
+        val board = arcanum.engine.query.ViewBoard(state, act.view())
+        lasting.filter { !arcanum.engine.view.Layers.active(state, board, it) }.forEach { act.record(arcanum.engine.change.Change.EffectRemoved(it)) }
+    }
+
     private fun once(act: Act) {
+        endLapsedDurations(act)
         // fin: control changes made by continuous effects (CR 613.1b)
         ControlChanges.notice(act.recorder)
         val state = act.state

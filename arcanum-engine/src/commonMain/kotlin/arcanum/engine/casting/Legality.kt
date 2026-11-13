@@ -406,7 +406,9 @@ internal object Legality {
         // CR 606.3: loyalty abilities as a sorcery, once each turn per permanent
         // fra: "you may activate loyalty abilities of … any time you could cast an instant" (still once each turn)
         val instantLoyalty = snap.view[source]?.has { it == arcanum.api.Mechanic.LoyaltyAtInstantSpeed } == true
-        if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) > 0)) {
+        // one: "you may activate loyalty abilities of Kaito twice this turn rather than only once"
+        val loyaltyUses = snap.view[source]?.mechanics.orEmpty().maxOfOrNull { (it.mechanic as? arcanum.api.Mechanic.LoyaltyActivationsPerTurn)?.count ?: 1 } ?: 1
+        if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) >= loyaltyUses)) {
             return "a loyalty ability: once each turn, as a sorcery (CR 606.3)"
         }
         // CR 606.6: a negative loyalty cost needs that many loyalty counters

@@ -93,6 +93,10 @@ sealed interface EventRole {
     @Serializable @SerialName("from") data object From : EventRole
     /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
     @Serializable @SerialName("rest") data object Rest : EventRole
+    // one
+    /** In an attach event: the object or player it became attached to ("for as long as this Equipment remains attached to it",
+     * CR 701.3a, 608.2h). */
+    @Serializable @SerialName("to") data object To : EventRole
 }
 
 /**

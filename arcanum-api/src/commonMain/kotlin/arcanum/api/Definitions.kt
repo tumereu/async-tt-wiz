@@ -65,6 +65,10 @@ data class FaceDefinition(
     val abilities: List<Ability> = emptyList(),
     /** A dungeon's rooms, the topmost first (CR 309.4): [DungeonRoom]. */
     val rooms: List<DungeonRoom> = emptyList(),
+    // one chunk 07
+    /** Colours set by a copy effect's exception ("except it's a 1/1 white Spirit", CR 707.9b): the face is exactly these colours,
+     * whatever its mana cost and [colorIndicator] say; null: colour from those (CR 202.2). Never printed on a card. */
+    val colors: List<Color>? = null,
 )
 
 /**

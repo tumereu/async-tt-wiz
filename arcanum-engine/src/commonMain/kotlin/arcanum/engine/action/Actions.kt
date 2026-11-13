@@ -125,7 +125,9 @@ internal object Actions {
             )
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
-        val final = replaced.mapNotNull { auraEntering(act, it) }
+        // one: "Permanent cards in graveyards can't enter the battlefield": such a card stays where it is (CR 101.2)
+        val final = replaced.filterNot { it.to == Zone.Battlefield && act.view()[it.id]?.has { m -> m == Mechanic.CantEnterBattlefield } == true }
+            .mapNotNull { auraEntering(act, it) }
         val result = commitMoves(act, cause, final, linked)
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
@@ -600,10 +602,12 @@ internal object Actions {
             val keywords = source?.keywords.orEmpty().map { it.kind }.toSet()
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
-                    if (Keyword.Infect in keywords) act.record(Changes.counters(act.state, r, CounterKind.Poison, d.amount))
+                    // CR 120.3b, 702.164c, 614.1a: the poison counters are given through putCounters, so "if you would get poison counters"
+                    // replacements and "can't get poison counters" apply to damage as to effects (one sweep)
+                    if (Keyword.Infect in keywords) putCounters(act, cause, r, CounterKind.Poison, d.amount)
                     else act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
-                    if (d.combat && toxic > 0) act.record(Changes.counters(act.state, r, CounterKind.Poison, toxic))
+                    if (d.combat && toxic > 0) putCounters(act, cause, r, CounterKind.Poison, toxic)
                 }
                 is TargetRef.Object -> {
                     val o = act.obj(r.id) ?: return@forEach
@@ -818,7 +822,8 @@ internal object Actions {
     fun payLife(act: Act, cause: Cause?, player: PlayerId, amount: Int): Int =
         loseLife(act, cause, player, amount, listOf(Meaning.LifePaid, Meaning.LifeLost))
 
-    private fun modifyAmount(act: Act, n: Int, r: Replacement): Int? {
+    /** One replacement's change to an amount (doubling, "plus one", skipping: null). */
+    fun modifyAmount(act: Act, n: Int, r: Replacement): Int? {
         var amount = n
         val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
         r.mechanic.modify.forEach { mod ->
@@ -839,6 +844,8 @@ internal object Actions {
     fun putCounters(act: Act, cause: Cause?, holder: TargetRef, kind: CounterKind, amount: Int, meanings: List<Meaning> = emptyList()): Int {
         if (amount <= 0) return 0
         if (holder is TargetRef.Object && act.obj(holder.id) == null) return 0
+        // one: "you can't get additional poison counters this turn" (CR 101.2: a "can't" wins)
+        if (holder is TargetRef.Player && act.view().players[holder.id]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantGetCounters(kind) }) return 0
         val affected = when (holder) {
             is TargetRef.Player -> holder.id
             is TargetRef.Object -> act.controllerOf(holder.id) ?: act.state.turn.active
@@ -996,6 +1003,36 @@ internal object Actions {
         return tokens.map { it.id }
     }
 
+    /** The values a token that's a copy of [id] gets (CR 707.2): as it is, or as it last existed if it has left its zone or the
+     * instructions being run moved it from the battlefield ("destroy it … create a token that's a copy of it", CR 608.2h). */
+    private fun copiedForToken(act: Act, id: ObjectId): arcanum.engine.state.CopiableValues? {
+        val copiable = arcanum.engine.view.Copiable(act.state)
+        if (act.state.obj(id) == null && id !in act.state.stackItems) return copiable.lastKnownForToken(id) ?: copiable.forToken(id)
+        val item = act.recorder.by?.item
+        if (item == null || act.state.obj(id)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return copiable.forToken(id)
+        val log = act.state.log
+        // one sweep: the card a permanent became by the zone change that triggered this ability ("Whenever another creature you control dies,
+        // create a token that's a copy of it"): "it" is the permanent that left, as it last existed (CR 608.2h, 603.10a)
+        val event = act.state.stackItems[item]?.event?.objects.orEmpty()
+        if (event.any { it.role == arcanum.api.EventRole.After && id in it.ids }) {
+            val move = log.asReversed().firstNotNullOfOrNull { entry -> (entry.change as? Change.ZoneChange)?.moves?.firstOrNull { it.after.id == id } }
+            if (move != null && move.from == Zone.Battlefield && event.any { it.role == arcanum.api.EventRole.Before && move.before.id in it.ids })
+                return copiable.lastKnownForToken(move.before.id) ?: copiable.forToken(id)
+        }
+        // the move that made it, looked for only since the instructions' Stack item was put on the Stack
+        for (i in log.indices.reversed()) {
+            when (val change = log[i].change) {
+                is Change.StackItemAdded -> if (change.item.id == item) break
+                is Change.ZoneChange -> change.moves.firstOrNull { it.after.id == id }?.let { move ->
+                    return if (move.from == Zone.Battlefield && change.by?.item == item) copiable.lastKnownForToken(move.before.id) ?: copiable.forToken(id)
+                        else copiable.forToken(id)
+                }
+                else -> Unit
+            }
+        }
+        return copiable.forToken(id)
+    }
+
     /** The copiable values of a token spec (CR 111.4, 111.10, 707.2): a copy's are its layout and all its faces (CR 707.8a, 709.5b). */
     fun tokenValues(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): arcanum.engine.state.CopiableValues = when (spec) {
         is arcanum.api.TokenSpec.Defined -> arcanum.engine.state.CopiableValues.of(spec.face.copy(
@@ -1006,7 +1043,7 @@ internal object Actions {
             ?: FaceDefinition("${spec.name} Token"))
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
-            val values = of?.let { arcanum.engine.view.Copiable(act.state).forToken(it)?.takeIf { v -> v.faces.isNotEmpty() } }
+            val values = of?.let { copiedForToken(act, it)?.takeIf { v -> v.faces.isNotEmpty() } }
                 ?: arcanum.engine.state.CopiableValues.of(of?.let { e.characteristics(it) }?.let { c -> FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors, c.supertypes, c.types,
                     c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) }) }
                     ?: FaceDefinition("Copy"))

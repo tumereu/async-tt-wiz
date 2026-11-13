@@ -5272,7 +5272,8 @@ internal class Sentences(
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             val on = m.groupValues[3]
             val objects = when {
-                isSelf(on) -> Objects.Self
+                // otj chunk 17: "Put a +1/+1 counter on this creature. It can't be blocked this turn.": "it" is now this object, not the event's
+                isSelf(on) -> Objects.Self.also { context.it = it }
                 // chunk 36: "on it"
                 on == "it" -> context.it
                 on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), nounIn(it, context) ?: return null) }

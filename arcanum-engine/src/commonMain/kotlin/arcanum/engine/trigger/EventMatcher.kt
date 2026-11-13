@@ -61,7 +61,10 @@ internal object EventMatcher {
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
                     (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
-                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
+                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)) ||
+                    // rvr: a card leaving the library is a new object where it went, and a move out of a hidden zone doesn't look back
+                    // ("when this card is put into your graveyard from your library": the card in the graveyard, CR 400.7, 603.10)
+                    (pattern.objects is ObjectFilter.Is && !proposed && m.from == Zone.Library && back.matches(pattern.objects, m.after.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
         }
         is EventPattern.Cast -> if (isCast(change)) {

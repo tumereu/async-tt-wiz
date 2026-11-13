@@ -834,6 +834,10 @@ internal object Effects {
                 val names = chosen.map { e.characteristics(it)?.name }
                 require(names.distinct().size == names.size) { "The cards must have different names" }
             }
+            // rvr: "with total mana value 6 or less" (D32: a rule-breaking answer is refused)
+            effect.totalAtMost?.let { limit ->
+                require(chosen.sumOf { e.property(limit.property, it) } <= scope.value(limit.atMost)) { "The found cards' total is more than allowed" }
+            }
             options = chosen
             found += options
         }

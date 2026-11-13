@@ -141,6 +141,10 @@ sealed interface ObjectFilter {
     ) : ObjectFilter
     /** Has at least one ability of [kind] ("creatures with activated abilities"). */
     @Serializable @SerialName("has-ability-kind") data class HasAbilityKind(val kind: AbilityKind) : ObjectFilter
+    // rvr
+    /** Has an activated ability with the tap symbol in its cost (CR 107.5: "a creature that has an activated ability with {T} in its
+     * cost"); mana abilities count (CR 605.1a). */
+    @Serializable @SerialName("has-tap-ability") data object HasTapAbility : ObjectFilter
     /** An ability (on the Stack, or being activated) of [kind] (any when null), whose source matches [source], labelled
      * [label] ("activated or triggered ability you control from an artifact source", "an exhaust ability"). Its
      * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */
@@ -325,6 +329,9 @@ sealed interface SharedQuality {
     // tdm
     /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
     @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
+    // rvr
+    /** Permanent types: artifact, battle, creature, enchantment, land, planeswalker (CR 110.4a: "shares a permanent type with it"). */
+    @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

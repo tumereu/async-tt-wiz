@@ -50,6 +50,8 @@ internal object Legality {
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"
         }
+        // rvr: "Your opponents can't play land cards from graveyards" (CR 101.2)
+        if (cantPlayLandBy(snap, player, card)) return "an effect says this player can't play that land (CR 101.2)"
         if (!sorceryTiming(snap, player)) return "lands are played in your main phase with an empty Stack (CR 305.1)"
         if (snap.state.turn.landsPlayed[player] ?: 0 >= landPlays(snap, player)) return "no land plays left this turn (CR 305.2)"
         return null
@@ -275,6 +277,15 @@ internal object Legality {
         }
         return null
     }
+
+    /** rvr: [Mechanic.CantPlayLands] on [player] for this land (CR 101.2). */
+    private fun cantPlayLandBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.CantPlayLands ?: return@any false
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(m.lands, card)
+            }
+        }
 
     /** [Mechanic.CantCast] on [player] for this spell (CR 101.2). */
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =

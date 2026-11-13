@@ -4821,10 +4821,11 @@ internal class Sentences(
             val noun = m.groupValues[1]
             return listOf(Step.Do(Effect.Move(context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null), Destination(Zone.Hand))))
         }
-        ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER.matchEntire(sentence)?.let {
+        // rvr chunk 05: "... its toughness" (Condemn)
+        ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER.matchEntire(sentence)?.let { m ->
             val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
-            return listOf(Step.Do(Effect.GainLife(Players.ControllerOf(target),
-                Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single))))
+            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
+            return listOf(Step.Do(Effect.GainLife(Players.ControllerOf(target), Value.Of(property, target, arcanum.api.Combine.Single))))
         }
         (UNTAP_UP_TO.matchEntire(sentence) ?: YOU_UNTAP_UP_TO.matchEntire(sentence))?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -5657,6 +5658,8 @@ internal class Sentences(
         }
         YOU_MAY.matchEntire(sentence)?.let { m ->
             effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context)?.let { return listOf(Step.May(it, player = Players.You)) }
+            // rvr chunk 05: "you may gain 2 life" (Savra): the clause read with its subject
+            if (m.groupValues[1].startsWith("gain ")) effect("You " + m.groupValues[1] + ".", context)?.let { return listOf(Step.May(it, player = Players.You)) }
         }
         // chunk 36
         if (sentence == "Discard your hand.") return listOf(Step.Do(Effect.Discard(Players.You, objects = Objects.Each(yourHand), count = Value.Fixed(1), filter = ObjectFilter.Any)))
@@ -6656,11 +6659,12 @@ internal class Sentences(
         }
         // dgm: "you may pay {3}. If you do, return this card to your hand." (CR 118.12)
         Gtc.MAY_PAY_MANA_IF_YOU_DO.matchEntire(sentence)?.let { m ->
-            val cost = ManaCost.parse(m.groupValues[1]) ?: return null
+            val cost = if (m.groupValues[1].endsWith(" life")) Cost(costPart("Pay " + m.groupValues[1]) ?: return null)
+                else Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null)
             val targets = context.targets.size
             val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context)
             if (then == null || context.targets.size != targets) { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
-            return listOf(Step.Pay(Cost.mana(cost), payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = then))
+            return listOf(Step.Pay(cost, payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
         // dgm: "return this card to your hand" (from the graveyard its trigger works in)
         Gtc.RETURN_SELF_TO_YOUR_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand)))) }
@@ -7416,8 +7420,9 @@ internal class Sentences(
 
         // chunk 33
         EACH_SACRIFICES.matchEntire(sentence)?.let { m ->
-            val player = m.groupValues[1]
-            val who = if (player == "player") PlayerFilter.Any else PlayerFilter.Opponent
+            // rvr chunk 05: "Each other player sacrifices a creature of their choice." (Savra, Queen of the Golgari)
+            val player = m.groupValues[1].removePrefix("other ")
+            val who = when (m.groupValues[1]) { "player" -> PlayerFilter.Any; "other player" -> PlayerFilter.Not(PlayerFilter.You); else -> PlayerFilter.Opponent }
             val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound(player))))
             // dsk chunk 10: "sacrifices X creatures of their choice"
             val n = when (val c = m.groupValues[2]) { "a", "an" -> Value.Fixed(1); "X" -> Value.Announced(name = "X"); else -> Value.Fixed(Numbers.count(c) ?: return null) }
@@ -11114,7 +11119,7 @@ internal class Sentences(
         val DESTROY_EACH = Regex("""Destroy each (.+)\.""")
         val EXILE_TARGET = Regex("""Exile target (.+?)( if its mana value is less than or equal to the number of colors of mana spent to cast this spell)?\.""")
         val RETURN_TARGET_TO_HAND = Regex("""Return target (.+) to its owner's hand\.""")
-        val ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER = Regex("""(?:Its|That creature's) controller gains life equal to its power\.""")
+        val ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER = Regex("""(?:Its|That creature's) controller gains life equal to its (power|toughness)\.""")
         val UNTAP_UP_TO = Regex("""Untap up to (\w+) (.+)\.""")
         val RETURN_TO_HAND_COST = Regex("""Return (.+) to (?:its|their) owners?'s? hands?""")
         val EXILE_FROM_HAND_COST = Regex("""Exile an? (.+) from your hand""")
@@ -11501,7 +11506,7 @@ internal class Sentences(
         val GAIN_AND_GET = Regex("""(.+?) gains? (.+?) and gets? ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
         val CREATE_COPY_OF_TARGET = Regex("""Create a token that's a copy of (another )?target (.+?)(?:, except (.+))?\.""")
         // chunk 33
-        val EACH_SACRIFICES = Regex("""Each (player|opponent) sacrifices (an?|X|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty) (.+?)(?: of their choice)?\.""")
+        val EACH_SACRIFICES = Regex("""Each (player|opponent|other player) sacrifices (an?|X|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty) (.+?)(?: of their choice)?\.""")
         val TARGET_REVEALS_HAND_YOU_CHOOSE = Regex("""Target opponent reveals their hand and you choose an? (.+) from it\.""")
         val MAY_EXILE_FROM_IT_UNTIL_LEAVES = Regex("""You may exile an? (.+) from it until (.+) leaves the battlefield\.""")
         val EXILED_TO_HAND = Regex("""(?:Return|Put) the exiled card (?:to|into) its owner's hand\.""")
@@ -15649,14 +15654,44 @@ internal class Sentences(
             is arcanum.api.Condition.Or -> condition.copy(any = condition.any.map(::rvrItEntered))
             is arcanum.api.Condition.And -> condition.copy(all = condition.all.map(::rvrItEntered))
             is arcanum.api.Condition.CastFrom -> if (condition.of == Objects.Self) condition.copy(of = entered) else condition
-            is arcanum.api.Condition.ObjectMatches -> if (condition.objects == Objects.Self) condition.copy(objects = entered) else condition
+            // rvr chunk 05: and "another …" inside it is other than the object that entered
+            is arcanum.api.Condition.ObjectMatches -> if (condition.objects == Objects.Self) condition.copy(objects = entered, filter = rvrSelfToEntered(condition.filter)) else condition
             else -> condition
         }
+    }
+
+    /** rvr chunk 05: [filter] with "this object" made the object that entered (in names compared, CR 201.2). */
+    private fun rvrSelfToEntered(filter: ObjectFilter): ObjectFilter = when (filter) {
+        ObjectFilter.Is(Objects.Self) -> ObjectFilter.Is(Objects.EventObject(EventRole.After))
+        is ObjectFilter.Not -> ObjectFilter.Not(rvrSelfToEntered(filter.filter))
+        is ObjectFilter.And -> ObjectFilter.And(filter.all.map(::rvrSelfToEntered))
+        is ObjectFilter.Or -> ObjectFilter.Or(filter.any.map(::rvrSelfToEntered))
+        is ObjectFilter.SameNameAs -> (filter.objects as? Objects.Each)?.let { ObjectFilter.SameNameAs(Objects.Each(rvrSelfToEntered(it.filter))) } ?: filter
+        else -> filter
     }
 
     /** rvr: wordings of several sentences read as one. */
     @Suppress("UNUSED_PARAMETER")
     private fun rvrWhole(text: String, context: Context): List<Step>? {
+        // rvr chunk 05: Mindleech Mass: "you may look at that player's hand. If you do, you may cast a spell from among those cards without paying
+        // its mana cost." (the player dealt damage; cast while the ability resolves, CR 601.2, 608.2g; a land isn't cast, CR 305.9)
+        if (Rvr.MAY_LOOK_AT_HAND_IF_YOU_DO_CAST_FREE.matches(text) && context.event is EventPattern.Damage) {
+            val hand = Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.EventPlayer)))
+            // looking is done whenever chosen (it can't fail), so "if you do" is the same "you may"
+            return listOf(Step.May(listOf(Step.Do(Effect.LookAt(Objects.Each(hand), Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), hand), Value.Fixed(0), Value.Fixed(1)),
+                    bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))
+        }
+        // rvr chunk 05: Ghostway: "Exile each creature you control. Return those cards to the battlefield under their owner's control at the
+        // beginning of the next end step." (the cards exiled, new objects, CR 400.7, 603.7)
+        Rvr.EXILE_EACH_RETURN_AT_NEXT_END.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: Filters.noun(m.groupValues[2].replaceFirst(Regex("""^(\w+?)s\b"""), "$1")) ?: return@let
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Each(noun), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)), Instructions(steps = listOf(
+                    Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = Players.OwnerOf(exiled)))))))))
+        }
         // rvr chunk 04: Niv-Mizzet Reborn: "Reveal the top ten cards of your library. For each color pair, choose a card that's exactly those
         // colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order." (ten
         // pairs of the five colours, CR 105.1; a card is exactly two colours when it is both and none of the other three, CR 105.2)
@@ -15681,6 +15716,32 @@ internal class Sentences(
 
     /** rvr: static abilities of one line. */
     private fun rvrStatic(line: String): Ability? {
+        // rvr chunk 05: Nicol Bolas, Dragon-God: "Nicol Bolas has all loyalty abilities of all other planeswalkers on the battlefield." (layer 6,
+        // CR 613.1f, 606.2)
+        Rvr.HAS_ALL_LOYALTY_ABILITIES_OF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = Filters.noun(m.groupValues[3].removeSuffix(" on the battlefield").removeSuffix("s")) ?: return@let
+            val of = if (m.groupValues[2].isEmpty()) noun else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun)
+            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Each(of), onlyLoyalty = true)), affects = Affected.Objects(Objects.Self))
+        }
+        // rvr chunk 05: Tomik, Distinguished Advokist: "Lands on the battlefield and land cards in graveyards can't be the targets of spells or
+        // abilities your opponents control." (the opponents of this ability's controller, whoever controls the land, CR 115.1, 109.5)
+        Rvr.CANT_BE_TARGETS_OF_OPPONENTS.matchEntire(line)?.let { m ->
+            val parts = m.groupValues[1].split(" and ").map { part ->
+                val z = Rvr.ON_BATTLEFIELD_OR_IN_GRAVEYARDS.matchEntire(part) ?: return@let
+                val noun = z.groupValues[1].removeSuffix("s").replaceFirstChar { it.lowercase() }
+                val zone = if (z.groupValues[2] == "on the battlefield") Zone.Battlefield else Zone.Graveyard
+                Filters.all(Filters.noun(noun) ?: return@let, ObjectFilter.InZone(zone))
+            }
+            val affected = if (parts.size == 1) parts.single() else ObjectFilter.Or(parts)
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))), affects = Affected.Objects(Objects.Each(affected)))
+        }
+        // rvr chunk 05: Tomik: "Your opponents can't play land cards from graveyards." (CR 305.1, 101.2)
+        Rvr.OPPONENTS_CANT_PLAY_LANDS_FROM.matchEntire(line)?.let { m ->
+            val players = if (m.groupValues[1] == "Each player") Players.Each(PlayerFilter.Any) else Players.Each(PlayerFilter.Opponent)
+            val zone = if (m.groupValues[3] == "exile") Zone.Exile else Zone.Graveyard
+            val lands = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return@let
+            return Ability.Static(listOf(Mechanic.CantPlayLands(Filters.all(lands, ObjectFilter.InZone(zone)))), affects = Affected.Players(players))
+        }
         // rvr chunk 04: Lavinia, Azorius Renegade: "Each opponent can't cast noncreature spells with mana value greater than the number of lands
         // that player controls." (each opponent counts their own lands, CR 101.2)
         Rvr.CANT_CAST_MV_GREATER_THAN_THEIR.matchEntire(line)?.let { m ->
@@ -15725,6 +15786,26 @@ internal class Sentences(
 
     /** rvr: sentences that change the steps before them. */
     private fun rvrModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // rvr chunk 05: Ilharg, the Raze-Boar: "you may put a creature card from your hand onto the battlefield tapped and attacking. Return that
+        // creature to your hand at the beginning of the next end step." (the permanent it became, CR 400.7; a delayed trigger, CR 603.7)
+        Rvr.RETURN_PUT_TO_HAND_AT_NEXT_END_STEP.matchEntire(sentence)?.let {
+            val put = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (put.to.zone != Zone.Battlefield || put.objects !is Objects.Bound) return@let
+            val bind = put.postBind ?: "put"
+            return steps.dropLast(1) + Step.Do(put.copy(postBind = bind)) + Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound(bind), Destination(Zone.Hand)))))))
+        }
+        // rvr chunk 05: Rakdos Guildmage: "Create a 2/1 red Goblin creature token with haste. Exile it at the beginning of the next end step."
+        // (the tokens just created, named now: the delayed trigger has its own event, CR 603.7, c)
+        Rvr.TOKEN_AT_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
+            val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            val bind = create.bind ?: "tokens"
+            val token = Objects.Bound(bind)
+            val action = if (m.groupValues[1] == "Exile") Effect.Move(token, Destination(Zone.Exile)) else Effect.Sacrifice(token)
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)), Instructions(steps = listOf(Step.Do(action)))))
+        }
         // rvr chunk 03: Woebringer Demon: "that player sacrifices a creature of their choice. If the player can't, sacrifice this creature."
         // (they can't when they have nothing to choose, CR 701.21a)
         Rvr.IF_CANT.matchEntire(sentence)?.let { m ->
@@ -15750,6 +15831,72 @@ internal class Sentences(
     }
 
     private fun rvrEffect(sentence: String, context: Context): List<Step>? {
+        // rvr chunk 05: Nicol Bolas, Dragon-God: "Each opponent exiles a card from their hand or a permanent they control." (each chooses one of
+        // their own, in turn order, CR 101.4) and "Each opponent who doesn't control a legendary creature or planeswalker loses the game." (CR 104.3e)
+        Rvr.EACH_OPPONENT_EXILES_FROM_HAND_OR_PERMANENT.matchEntire(sentence)?.let { m ->
+            val player = Players.Bound("opponent")
+            val theirs = ObjectFilter.Or(listOf(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(player))),
+                Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(theirs, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = player),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))))
+        }
+        Rvr.EACH_OPPONENT_WHO_DOESNT_CONTROL_LOSES.matchEntire(sentence)?.let { m ->
+            val player = Players.Bound("opponent")
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Exists(filter, atLeast = 1)), then = listOf(Step.Do(Effect.LoseGame(player)))))))
+        }
+        // rvr chunk 05: Protean Hulk: "search your library for any number of creature cards with total mana value 6 or less, put them onto the
+        // battlefield, then shuffle." (CR 701.23a, 202.3)
+        Rvr.SEARCH_ANY_TOTAL_MV_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1] + " cards") ?: return@let
+            val inLibrary = Filters.all(filter, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val to = if (m.groupValues[3] == "onto the battlefield") Zone.Battlefield else Zone.Hand
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Count(Objects.Each(inLibrary)), zones = listOf(Zone.Library), bind = "found",
+                searcher = Players.You, totalAtMost = arcanum.api.Choice.TotalLimit(arcanum.api.NumericProperty.ManaValue, Value.Fixed(m.groupValues[2].toInt())))),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(to))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // rvr chunk 05: Cloudstone Curio: "you may return another permanent you control that shares a permanent type with it to its owner's
+        // hand." ("another": other than it, the permanent that entered; chosen as it resolves, CR 110.4a, 608.2d)
+        Rvr.MAY_RETURN_ANOTHER_SHARING_TYPE.matchEntire(sentence)?.let { m ->
+            val entered = context.it as? Objects.EventObject ?: return@let
+            val quality = if (m.groupValues[2] == "permanent") arcanum.api.SharedQuality.PermanentType else arcanum.api.SharedQuality.CardType
+            val filter = Filters.all(ObjectFilter.Not(ObjectFilter.Is(entered)), Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.Shares(quality, entered))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // rvr chunk 05: Bottled Cloister: "exile all cards from your hand face down." (kept as cards exiled with it when the card refers to
+        // them, CR 607.2a; face down, CR 406.3) and "return all cards you own exiled with this artifact to your hand"
+        Rvr.EXILE_ALL_CARDS_FROM_YOUR_HAND.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))), Destination(Zone.Exile, faceDown = m.groupValues[1].isNotEmpty()), postBind = "exiled"))) +
+                remembered(Objects.Bound("exiled"))
+        }
+        Rvr.RETURN_ALL_YOU_OWN_EXILED_WITH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && linkedExile }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.OwnedBy(PlayerFilter.You)), Destination(Zone.Hand))))
+        }
+        // rvr chunk 05: Loaming Shaman: "target player shuffles any number of target cards from their graveyard into their library." (the cards
+        // in that player's graveyard, CR 115.1, 701.24)
+        Rvr.TARGET_PLAYER_SHUFFLES_TARGET_CARDS.matchEntire(sentence)?.let { m ->
+            val max = if (m.groupValues[2].isEmpty()) null else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return@let)
+            val player = context.targetPlayer()
+            context.targets += TargetSlot("cards", TargetKind.Objects(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.Is(player)))), min = Value.Fixed(0), max = max)
+            return listOf(Step.Do(Effect.Move(Objects.Target("cards"), Destination(Zone.Library))), Step.Do(Effect.Shuffle(player)))
+        }
+        // rvr chunk 05: Massacre Girl: "each creature other than Massacre Girl gets -1/-1 until end of turn" reads as "each other creature …"
+        Rvr.EACH_OTHER_THAN.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val v = m.groupValues
+            return effect("${v[1]}${v[2]} other ${v[3]} ${v[5]}${v[6]}", context)
+        }
+        // rvr chunk 05: Revenge: "Double your life total." (the player gains or loses life to reach twice the total, CR 701.10d, 119.5)
+        if (Rvr.DOUBLE_YOUR_LIFE.matches(sentence)) return listOf(Step.Do(Effect.SetLife(Players.You, Value.Times(Value.LifeOf(Players.You), 2))))
+        // rvr chunk 05: Revenge: "Target opponent loses half their life, rounded up." (CR 107.1a)
+        Rvr.TARGET_LOSES_HALF.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "opponent") context.targetOpponent() else context.targetPlayer()
+            return listOf(Step.Do(Effect.LoseLife(player, Value.Half(Value.LifeOf(player), roundUp = m.groupValues[2] == "up"))))
+        }
         // rvr chunk 04: Compulsive Research: "Then that player discards two cards unless they discard a land card." (CR 118.12a)
         Rvr.THAT_PLAYER_DISCARDS_UNLESS.matchEntire(sentence)?.let { m ->
             val player = context.lastPlayer ?: return@let

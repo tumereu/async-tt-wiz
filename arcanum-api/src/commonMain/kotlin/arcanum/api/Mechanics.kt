@@ -356,6 +356,9 @@ sealed interface Mechanic {
         // ltr chunk 13
         /** Not their mana abilities ("all activated abilities of lands your opponents control except mana abilities", CR 605.1a). */
         val exceptMana: Boolean = false,
+        // rvr chunk 05
+        /** Only their loyalty abilities ("has all loyalty abilities of all other planeswalkers on the battlefield", CR 606.2). */
+        val onlyLoyalty: Boolean = false,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -404,6 +407,10 @@ sealed interface Mechanic {
      * any time they could cast a sorcery"): with priority, in their main phase, with an empty Stack, flash or not, and so never while
      * another spell or ability resolves (CR 307.5); [Objects.Tested] is the spell. */
     @Serializable @SerialName("cast-only-as-sorcery") data class CastOnlyAsSorcery(val spells: ObjectFilter) : Mechanic
+    // rvr chunk 05
+    /** The affected players can't play lands matching [lands] ("Your opponents can't play land cards from graveyards", CR 305.1, 101.2);
+     * casting is [CantCast]. */
+    @Serializable @SerialName("cant-play-lands") data class CantPlayLands(val lands: ObjectFilter) : Mechanic
     /** The affected permanents can't be sacrificed. */
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
     // inr chunk 09

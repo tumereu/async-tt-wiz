@@ -161,7 +161,8 @@ internal object Gtc {
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
     val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal up to (\w+) (.+?) cards from among them and put the revealed cards into your hand\.""")
-    val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (.+)""")
+    // rvr chunk 05: also "You may pay 2 life." (Savra, Queen of the Golgari)
+    val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+|\d+ life)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")

@@ -193,7 +193,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
      * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
-        val zones = zonesIn(filter).ifEmpty { defaultZones(filter) } + prospectiveZones(filter)
+        // rvr: "a card from their hand or a permanent they control": each alternative looks where it names, or where it would alone
+        val mixed = filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() }
+        val own = if (mixed) (filter as ObjectFilter.Or).any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
+            else zonesIn(filter).ifEmpty { defaultZones(filter) }
+        val zones = own + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
@@ -371,6 +375,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
+            ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
@@ -550,6 +555,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun GameObject.printedTypes(): List<CardType> = definition.faces.getOrNull(face)?.types.orEmpty()
 
+    /** rvr: the permanent types (CR 110.4a). */
+    private val PERMANENT_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+
     /** [a] and [b] share [quality] ("share a color", "with the same power"). */
     fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
         val ca = characteristics(a) ?: return false
@@ -566,6 +574,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
+            SharedQuality.PermanentType -> ca.types.any { it in PERMANENT_TYPES && it in cb.types } // rvr
         }
     }
 
@@ -586,6 +595,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
+                SharedQuality.PermanentType -> c.types.filter { it in PERMANENT_TYPES } // rvr
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -851,6 +861,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
+            SharedQuality.PermanentType -> cs.map { c -> c.types.filter { it in PERMANENT_TYPES } } // rvr
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -867,6 +878,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
+            SharedQuality.PermanentType -> cs.flatMap { c -> c.types.filter { it in PERMANENT_TYPES } }.distinct().size // rvr
         }
     }
 

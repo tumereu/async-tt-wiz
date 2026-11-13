@@ -67,6 +67,10 @@ sealed interface Effect {
         val library: Players, val filter: ObjectFilter, val max: Value, val reveal: Boolean = false,
         val zones: List<Zone>, val differentNames: Boolean = false, val bind: String? = null,
         val searcher: Players,
+        // rvr
+        /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
+         * total mana value 6 or less", CR 701.23a). */
+        val totalAtMost: Choice.TotalLimit? = null,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */

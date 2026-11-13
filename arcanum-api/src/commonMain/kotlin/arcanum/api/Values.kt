@@ -27,6 +27,10 @@ sealed interface Value {
     ) : Value
     /** How many modes were chosen for the spell or ability (escalate counts those beyond the first, CR 702.120a). */
     @Serializable @SerialName("modes-chosen") data object ModesChosen : Value
+    // otj
+    /** How many times a mode was chosen for the spell [of] ("the number of times you chose a mode for that spell" in a cast trigger;
+     * a mode chosen more than once counts each time, CR 700.2); 0 when it isn't a spell on the Stack. */
+    @Serializable @SerialName("modes-chosen-for") data class ModesChosenFor(val of: Objects) : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch
      * trigger, the batch's total. */
     @Serializable @SerialName("event-amount") data object EventAmount : Value

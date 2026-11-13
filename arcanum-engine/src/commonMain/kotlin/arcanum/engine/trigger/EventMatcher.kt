@@ -224,12 +224,17 @@ internal object EventMatcher {
             ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
             ?.takeIf { c -> c.item.targets.values.flatten().any { crimeAgainst(e, it, c.item.controller) } && e.matches(pattern.players, c.item.controller) }
             ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
-        is EventPattern.Attach -> (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c ->
-            val to = (c.after as? TargetRef.Object)?.id
-            if (e.matches(pattern.objects, c.id) && (to == null || e.matches(pattern.to, to)))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) +
-                    listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) }))) else null
-        }.orEmpty()
+        is EventPattern.Attach -> {
+            fun attached(id: ObjectId, onto: TargetRef): TriggerEvent? {
+                val to = (onto as? TargetRef.Object)?.id
+                return if (e.matches(pattern.objects, id) && (to == null || e.matches(pattern.to, to)))
+                    TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(id))) + listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) })) else null
+            }
+            (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c -> listOfNotNull(attached(c.id, c.after!!)) }
+                // otj chunk 12r: an Aura or Equipment that enters attached to something becomes attached to it as it enters (CR 303.4a, 303.4f,
+                // 603.2e)
+                ?: moves(change).filter { it.to == Zone.Battlefield && it.after.attachedTo != null }.mapNotNull { attached(it.after.id, it.after.attachedTo!!) }
+        }
         is EventPattern.Unattach -> unattached(e, change, pattern)
         is EventPattern.RollDie -> ((change as? Change.Happened)?.event as? GameEvent.DieRolled)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.results.sum())) }.orEmpty()

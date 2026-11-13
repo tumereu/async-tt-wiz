@@ -371,6 +371,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
+            // otj: a spell ability with modes (CR 700.2)
+            ObjectFilter.Modal -> c?.abilities.orEmpty().any { (it.ability as? arcanum.api.Ability.Spell)?.instructions?.modes != null }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
@@ -679,6 +681,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         } ?: 0
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of), value.spells, value.caster)
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
+        // otj: that spell's modes, each time chosen (CR 700.2)
+        is Value.ModesChosenFor -> objects(value.of).firstNotNullOfOrNull { id -> (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.modes?.size } ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
         // sos: "2ˣ" (2⁰ = 1), held to an Int (a game never needs more)

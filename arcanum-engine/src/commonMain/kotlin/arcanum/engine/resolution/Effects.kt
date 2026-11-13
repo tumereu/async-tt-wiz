@@ -1202,7 +1202,11 @@ internal object Effects {
         // sos: "that creature enters with X additional +1/+1 counters, where X is the number of colors of mana spent to cast it": X fixed as
         // the effect is created (CR 608.2h)
         is Mechanic.Replacement -> mechanic.copy(modify = mechanic.modify.map { m ->
-            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount)) else m
+            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount))
+            // otj: "it deals that much damage plus X instead" made by an ability: X as it resolved (CR 608.2h); the replaced event's
+            // own amount is read as it happens
+            else if (m is arcanum.api.Modification.AddAmount && !mentionsEvent(m.amount)) m.copy(amount = fixValue(e, m.amount))
+            else m
         })
         // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
         is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
@@ -1226,6 +1230,9 @@ internal object Effects {
         if (value is Value.Fixed || mentionsAffected(value)) value else Value.Fixed(e.value(value))
 
     private fun mentionsAffected(value: Value): Boolean = value.toString().contains("Affected")
+
+    /** The value reads the replaced or triggering event ("that much damage"): worked out as that event happens, not fixed now. */
+    private fun mentionsEvent(value: Value): Boolean = value.toString().contains("Event")
 
     /** "Prevent the next N damage" (CR 615.7, D26): a shield effect object whose amount goes down as it prevents. */
     private fun preventDamage(scope: Scope, effect: Effect.PreventDamage) {

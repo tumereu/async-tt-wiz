@@ -91,6 +91,13 @@ internal object Otj {
     val COUNTER_FOR_EACH_OTHER_ENTERED = Regex("""[Pp]ut an? (\S+) counter on it for each other (.+?) that entered the battlefield under your control this turn\.""")
     val EXILE_ANY_NUMBER_RETURN_REPEAT = Regex(
         """Exile any number of (.+?), then return them to the battlefield under their owner's control\. Then repeat this process (X|\w+) more times?\.""")
+    // otj chunk 12r: Taii Wakeen, Perfect Shot; Eriette, the Beguiler; Satoru, the Infiltrator
+    val DAMAGE_EQUAL_TO_THAT_TOUGHNESS = Regex("""(.+ deals (?:noncombat |combat )?damage to an? (\w+)) equal to that (\w+)'s toughness""")
+    val ATTACHED_WITH_MANA_VALUE_AT_MOST_THAT = Regex("""(.+ becomes attached to an? .+?) with mana value less than or equal to that \w+'s mana value""")
+    val SELF_AND_OR_ONE_OR_MORE_OTHER_ENTER = Regex("""(.+?) and/or one or more other (.+?) enter""")
+    val GAIN_CONTROL_AS_LONG_AS_THAT_ATTACHED = Regex(
+        """[Gg]ain control of (?:that permanent|that creature|it) for as long as that \w+ is attached to (?:it|that permanent|that creature)\.""")
+    val IF_THIS_TURN_INSTEAD = Regex("""If (.+?) this turn, (.+ instead\.)""")
     val FOR_EACH_WHO_DIDNT_DISCARD = Regex("""For each of those (opponents|players) who didn't discard (an? .+?), (.+)""")
 }
 
@@ -110,10 +117,21 @@ internal object OtjPhrases {
         AS_YOU_CAST_THIS_SPELL.matchEntire(text)?.let { m ->
             return arcanum.api.Condition.AsCast(Conditions.condition(m.groupValues[1].replace("you controlled ", "you control ")) ?: return null)
         }
+        // otj chunk 12r: "none of them were cast or no mana was spent to cast them" (the objects that entered: no mana spent to cast any of them;
+        // one that wasn't cast had none spent, CR 601.2h, 400.7d)
+        if (text == "none of them were cast or no mana was spent to cast them") return arcanum.api.Condition.Compare(
+            arcanum.api.Value.ManaSpent(of = arcanum.api.Objects.EventObject(arcanum.api.EventRole.After)), arcanum.api.Comparison.Equal, arcanum.api.Value.Fixed(0))
         // otj chunk 02: "it's your combat phase" (any step of your combat phase, CR 506.1)
         if (text == "it's your combat phase") return arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
             arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers, arcanum.api.TurnStep.DeclareBlockers,
                 arcanum.api.TurnStep.CombatDamage, arcanum.api.TurnStep.EndOfCombat).map { arcanum.api.Condition.StepIs(it) })))
+        return null
+    }
+
+    fun value(text: String): arcanum.api.Value? {
+        // otj chunk 12r: "the number of times you chose a mode for that spell" (in a cast trigger: the spell cast, CR 700.2)
+        if (text == "the number of times you chose a mode for that spell")
+            return arcanum.api.Value.ModesChosenFor(arcanum.api.Objects.EventObject(arcanum.api.EventRole.Object))
         return null
     }
 

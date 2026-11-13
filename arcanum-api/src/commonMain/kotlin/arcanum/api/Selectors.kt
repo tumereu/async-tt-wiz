@@ -241,6 +241,9 @@ sealed interface ObjectFilter {
     /** It saddled one of [mounts] this turn: it was tapped to pay the cost of that Mount's saddle ability (CR 702.171c; "target
      * creature that saddled it this turn"). */
     @Serializable @SerialName("saddled-this-turn") data class SaddledThisTurn(val mounts: Objects) : ObjectFilter
+    /** A modal spell or card (CR 700.2): its spell ability has modes ("Choose one —", spree's "+ {1} —" modes; a permanent spell
+     * with a modal triggered ability isn't one). A card of several faces is judged by the face it has now (cast, CR 709.3). */
+    @Serializable @SerialName("modal") data object Modal : ObjectFilter
     // spm
     /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
      * controls ("a modified creature you control"). */

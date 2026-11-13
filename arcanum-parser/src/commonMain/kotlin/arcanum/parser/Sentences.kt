@@ -2425,6 +2425,7 @@ internal class Sentences(
         dftTrigger(text)?.let { return it } // dft
         spmTrigger(text)?.let { return it } // spm
         eclTrigger(text)?.let { return it } // ecl
+        otjTrigger(text)?.let { return it } // otj
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
@@ -7915,10 +7916,12 @@ internal class Sentences(
                 else -> Filters.noun(s) ?: return null
             }
             val combat = when (m.groupValues[2]) { "noncombat " -> false; "combat " -> true; else -> null }
-            return Ability.Static(listOf(Mechanic.Replacement(
-                EventPattern.Damage(source, RecipientFilter(objects = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
-                    ObjectFilter.ControlledBy(PlayerFilter.Opponent)), players = PlayerFilter.Opponent), combat = combat),
-                modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[3].toInt()))))), affects = Affected.Objects(Objects.Self))
+            // otj chunk 12r: "to a permanent or player" is any damage (CR 120.1); "plus X" is the X of the ability that makes this effect
+            val to = if (m.groupValues[3] == "a permanent or player") RecipientFilter() else RecipientFilter(objects = Filters.all(
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.Opponent)), players = PlayerFilter.Opponent)
+            val amount = if (m.groupValues[4] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[4].toInt())
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(source, to, combat = combat),
+                modify = listOf(Modification.AddAmount(amount)))), affects = Affected.Objects(Objects.Self))
         }
         // blb chunk 05: "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds
         // of counters on that permanent or player instead." (CR 614.1a: counters you put, by your effects and costs)
@@ -8595,7 +8598,8 @@ internal class Sentences(
         // blb chunk 04: "Exile the top two cards of your library. Until the end of your next turn, you may play those cards."
         // (chunk 56's rule exiles the top N as "them"); "that card" is one chosen from them
         Blb.MAY_PLAY_THOSE.matchEntire(sentence)?.let { m ->
-            val cards = (if (m.groupValues[2] == "that card") context.it ?: context.them else context.them ?: context.it) ?: return null
+            // otj chunk 12r: "it" as "that card"
+            val cards = (if (m.groupValues[2] == "that card" || m.groupValues[2] == "it") context.it ?: context.them else context.them ?: context.it) ?: return null
             val duration = when (m.groupValues[1]) {
                 "Until end of turn" -> arcanum.api.Duration.EndOfTurn
                 "Until the end of your next turn" -> arcanum.api.Duration.UntilEndOfYourNextTurn
@@ -11110,7 +11114,7 @@ internal class Sentences(
         // blb chunk 05
         val SPELLS_YOU_CAST_COST = Regex("""(.+) spells you cast cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
         val HAVE_KEYWORDS_WITH_VALUES = Regex("""(.+) have ([a-z ,]+\{[^}]+\}[a-z ,{}0-9]*)\.""")
-        val DAMAGE_PLUS = Regex("""If (.+?) would deal (noncombat |combat |)damage to an opponent or a permanent an opponent controls, it deals that much damage plus (\d+) instead\.""")
+        val DAMAGE_PLUS = Regex("""If (.+?) would deal (noncombat |combat |)damage to (an opponent or a permanent an opponent controls|a permanent or player), it deals that much damage plus (\d+|X) instead\.""")
         val RETURN_A_FROM_GRAVEYARD_WITH_COUNTER = Regex("""Return an? (.+) from your graveyard to the battlefield with (a|an|one|two) (\S+) counters? on it\.""")
         val TARGET_DEALS_POWER_TO_TARGET = Regex("""Target (.+?) deals damage equal to (twice )?its power to target (.+)\.""")
         val COPY_OF_TARGET = Regex("""[Cc]reate a token that's a copy of target (.+)\.""")
@@ -11125,7 +11129,7 @@ internal class Sentences(
         val IT_GETS = Regex("""(It|This [a-z]+|Equipped creature|Enchanted creature) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
         val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
         val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
-        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them)\.""")
+        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them|it)\.""")
         val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
         // blb chunk 03
         val YOU_SACRIFICE_ONE_OR_MORE = Regex("""you sacrifice one or more (.+)""")
@@ -11190,7 +11194,7 @@ internal class Sentences(
         val NEXT_MAIN_PHASE_ADD_MANA_VALUE = Regex("""At the beginning of your next main phase, add an amount of \{C\} equal to that spell's mana value\.""")
         val yourHand = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
         // sos chunk 12
-        val SOS_CHOOSE_UP_TO_TRIGGER = Regex("""When(?:ever)? (.+?), choose up to (\w+) —""")
+        val SOS_CHOOSE_UP_TO_TRIGGER = Regex("""When(?:ever)? (.+?), choose up to (\w+)(?:, where X is (.+?))? —""")
         // sos chunk 05
         val SOS_IF_INSTEAD_LINE = Regex("""(?:([A-Z][A-Za-z ]+) — )?If (.+?), (.+) instead\.""")
         val INSTEAD_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?(.+) instead if (.+)\.""")
@@ -15796,6 +15800,13 @@ internal class Sentences(
                     arcanum.api.Affected.Objects(creature), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self,
                         ObjectFilter.Attached(to = creature))))))))
         }
+        // otj chunk 12r: "gain control of that permanent for as long as that Aura is attached to it" in a becomes-attached trigger (layer 2; it
+        // ends once the Aura is no longer attached to that permanent or has left, CR 611.2b, 613.1b)
+        if (Otj.GAIN_CONTROL_AS_LONG_AS_THAT_ATTACHED.matches(sentence) && context.event is EventPattern.Attach) {
+            val permanent = Objects.EventObject(EventRole.To)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(permanent),
+                arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Attached(to = permanent))))))
+        }
         // otj chunk 08: "look at that many cards from the top of your library" (the event's amount: the damage dealt, CR 120.3)
         Otj.LOOK_AT_THAT_MANY_FROM_TOP.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
             context.seen = "seen"
@@ -15818,8 +15829,11 @@ internal class Sentences(
         }
         // otj chunk 05: "Until end of turn, if you would put … instead." (a replacement effect the resolving ability makes, lasting until end of
         // turn: a rule of the game, not of an object, CR 614.1a, 611.2a)
-        if (sentence.startsWith("Until end of turn, if ")) {
-            val static = line(sentence.removePrefix("Until end of turn, ").replaceFirstChar { it.uppercase() }) as? Ability.Static
+        // otj chunk 12r: "If a source you control would deal noncombat damage to a permanent or player this turn, it deals … instead." (the same)
+        val thisTurn = Otj.IF_THIS_TURN_INSTEAD.matchEntire(sentence)
+        if (sentence.startsWith("Until end of turn, if ") || thisTurn != null) {
+            val rule = thisTurn?.let { "If ${it.groupValues[1]}, ${it.groupValues[2]}" } ?: sentence.removePrefix("Until end of turn, ").replaceFirstChar { it.uppercase() }
+            val static = line(rule) as? Ability.Static
             if (static != null && static.condition == null && static.mechanics.isNotEmpty() && static.mechanics.all { it is Mechanic.Replacement })
                 return listOf(Step.Do(Effect.ApplyMechanics(static.mechanics, null, arcanum.api.Duration.EndOfTurn)))
         }
@@ -16102,6 +16116,33 @@ internal class Sentences(
     }
 
     /** otj: abilities of a whole line. */
+    /** otj: trigger events. */
+    private fun otjTrigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // otj chunk 12r: "a source you control deals noncombat damage to a creature equal to that creature's toughness" (the amount dealt to
+        // it, compared as it is dealt, CR 120.3, 603.2)
+        Otj.DAMAGE_EQUAL_TO_THAT_TOUGHNESS.matchEntire(text)?.takeIf { it.groupValues[2] == it.groupValues[3] }?.let { m ->
+            val (inner, innerIf) = trigger(m.groupValues[1]) ?: return null
+            if (innerIf != null) return null
+            return inner to arcanum.api.Condition.Compare(Value.EventAmount, arcanum.api.Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single))
+        }
+        // otj chunk 12r: "an Aura you control becomes attached to a nonland permanent an opponent controls with mana value less than or equal to
+        // that Aura's mana value" (the attached object against the Aura, as it becomes attached, CR 701.3a, 202.3)
+        Otj.ATTACHED_WITH_MANA_VALUE_AT_MOST_THAT.matchEntire(text)?.let { m ->
+            val (inner, innerIf) = trigger(m.groupValues[1]) ?: return null
+            if (innerIf != null || inner.events.singleOrNull() !is EventPattern.Attach) return null
+            return inner to arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.To), ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost,
+                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single)))
+        }
+        // otj chunk 12r: "Satoru and/or one or more other nontoken creatures you control enter" (one trigger for the batch, CR 603.2c by wording)
+        Otj.SELF_AND_OR_ONE_OR_MORE_OTHER_ENTER.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val others = Filters.noun(m.groupValues[2]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self), others)), to = Zone.Battlefield),
+                oneOrMore = true) to null
+        }
+        return null
+    }
+
     private fun otjLine(line: String): Ability? {
         // otj chunk 05: "If you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters on it
         // instead." (counters you put, CR 614.1a)
@@ -17214,10 +17255,13 @@ internal class Sentences(
     private fun sosModalTrigger(header: String, modeLines: List<String>): Ability? {
         val m = SOS_CHOOSE_UP_TO_TRIGGER.matchEntire(header) ?: return null
         val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
-        val n = Numbers.count(m.groupValues[2]) ?: return null
+        // otj chunk 12r: "choose up to X, where X is the number of times you chose a mode for that spell —" (at most X, CR 700.2)
+        val x = if (m.groupValues[2] == "X") Values.value(m.groupValues[3]) ?: return null else null
+        if (x == null && m.groupValues[3].isNotEmpty()) return null
+        val n = if (x != null) modeLines.size else Numbers.count(m.groupValues[2]) ?: return null
         val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) }
         if (options.isEmpty()) return null
-        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 0, max = n, chooser = Players.You)), triggersOnlyIf = onlyIf)
+        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 0, max = n, chooser = Players.You, maxCount = x)), triggersOnlyIf = onlyIf)
     }
 
     /** sos: wordings of several sentences, read as a whole first. */

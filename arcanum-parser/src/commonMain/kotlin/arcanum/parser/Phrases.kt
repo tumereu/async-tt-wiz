@@ -414,6 +414,8 @@ internal object Filters {
             // rtr chunk 05: "monocolored creature", "multicolored spell" (CR 105.2)
             "monocolored" -> return ObjectFilter.Monocolored
             "multicolored" -> return ObjectFilter.Multicolored
+            // otj chunk 12r: "a modal spell" (CR 700.2)
+            "modal" -> return ObjectFilter.Modal
             // gtc chunk 06: "blocked creature" (CR 509.1h)
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
         }
@@ -630,13 +632,14 @@ internal object Events {
         if (text == "you lose life") return EventPattern.LoseLife(PlayerFilter.You)
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
         SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m ->
-            val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return null
+            val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return@let
             val combat = when (m.groupValues[2]) { "noncombat " -> false; "combat " -> true; else -> null }
             val to = when (m.groupValues[3]) {
                 "an opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
                 "a player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
                 "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
-                else -> return null
+                // otj chunk 12r: "a source you control deals noncombat damage to a creature" (a permanent dealt damage, CR 120.3)
+                else -> arcanum.api.RecipientFilter(objects = Filters.noun(m.groupValues[3].removePrefix("a ").removePrefix("an ")) ?: return@let)
             }
             return EventPattern.Damage(source, to, combat = combat)
         }
@@ -941,7 +944,7 @@ internal object Events {
     // blb gaps 2
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
-    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
+    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you|an? [a-z ]+)""")
     // dsk chunk 06
     private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")
     private val YOU_TURN_FACE_UP = Regex("""you turn an? (.+) face up""")
@@ -1525,6 +1528,7 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        OtjPhrases.value(text)?.let { return it } // otj
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

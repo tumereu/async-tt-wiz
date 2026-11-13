@@ -13,6 +13,7 @@ GTC Gatecrash
 HOB The Hobbit
 INR Innistrad Remastered
 ISD Innistrad
+LCI The Lost Caverns of Ixalan
 LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
 MSH Marvel Super Heroes

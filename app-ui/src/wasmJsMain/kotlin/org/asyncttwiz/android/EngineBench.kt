@@ -52,6 +52,7 @@ import org.asyncttwiz.protocol.StarterChoice
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.EngineView
 import org.asyncttwiz.protocol.game.GameEvent
+import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.automatum.boundary.EngineAnswer
 import org.asyncttwiz.automatum.boundary.EngineRequest
 import org.asyncttwiz.automatum.boundary.MessageEngineChannel
@@ -311,9 +312,93 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             if (game.loadFailed) { line("Device in the worker: the game failed to load there"); then(); return@waitFor }
             line("Device in the worker: opened, first board on the page after ${(lastShownAt - openedAt).f()} ms; worst frame ${frames.worst.f()} ms")
             timed("A pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }) {
-                timed("End turn", { done -> game.endTurn { done("") } }, then)
+                timed("End turn", { done -> game.endTurn { done("") } }) { flows(then) }
             }
         }
+    }
+
+    // ---- Web client step 4d: the table's flows with the device in the worker
+
+    private var flowSteps = 0
+    private var landTurn = -1
+    private var attackedTurn = -1
+    private var attacked = false
+    private var endedAfterAttack = false
+    private val worst = ArrayList<Double>()
+
+    /**
+     * Web client step 4d: the table's flows as the player makes them, each asked of the device in the worker and timed: a land,
+     * a creature cast with its payment (worked out on the page's copy of the board, as the cast panel does, its time on the
+     * page told), turns ended until it can attack, its attacker staged (the table's own staging, worked out where the device
+     * is) and declared, the other player's blockers assumed (none: they have no device here), the combat damage, End turn,
+     * then Undo. The other player's passes are assumed (HIS-096).
+     */
+    private fun flows(then: () -> Unit) {
+        val shown = game.shown
+        if (shown == null || ++flowSteps > 80) { line("Flows: stopped after $flowSteps steps at ${shown?.engine?.turn}"); summary(then); return }
+        val s = shown.engine
+        val me = PlayerId(game.me)
+        val next = { flows(then) }
+        when (val status = shown.status) {
+            is GameDevice.Status.Waiting -> if (status.offer != null)
+                return timed(if (status.offer == GameDevice.Offer.AssumeBlockers) "Assume no blockers (then the combat damage)" else "Assume resolves",
+                    { done -> game.assume(emptyList()) { done(it::class.simpleName.orEmpty()) } }, next)
+                else return jsLater(200, next)
+            is GameDevice.Status.Stopped -> return timed("Decision stop", { done -> game.act(status.assumed) { done(it::class.simpleName.orEmpty()) } }, next)
+            GameDevice.Status.YourMove -> Unit
+            else -> return jsLater(200, next)
+        }
+        if (endedAfterAttack) {
+            return timed("Undo", { done -> game.undo(null) { done(it::class.simpleName.orEmpty()) } }) { summary(then) }
+        }
+        val options = Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s))
+        val main = s.turn.active == me && s.stack.isEmpty() && s.turn.step in setOf(arcanum.api.TurnStep.PrecombatMain, arcanum.api.TurnStep.PostcombatMain)
+        options.filterIsInstance<Input.PlayLand>().firstOrNull()?.takeIf { main && landTurn != s.turn.number }?.let { land ->
+            landTurn = s.turn.number
+            return timed("Land", { done -> game.act(land) { done(it::class.simpleName.orEmpty()) } }, next)
+        }
+        if (main) options.filterIsInstance<Input.Cast>().firstOrNull()?.let { cast ->
+            val at = jsNow()
+            val play = game.play()
+            val inputs = try {
+                val flow = org.asyncttwiz.automatum.CastFlow.start(org.asyncttwiz.automatum.CastFlow.Source.engine(s, play.board, play.gameId),
+                    game.me, cast, org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() })
+                val payment = flow.pending as? arcanum.engine.decision.Decision.ManaPayment
+                flow.sending(payment?.suggestion).cast.inputs.toList()
+            } catch (problem: Exception) { null }
+            val onPage = jsNow() - at
+            if (inputs != null) return timed("Cast with its payment (worked out on the page in ${onPage.f()} ms)",
+                { done -> game.send(inputs) { done(it::class.simpleName.orEmpty()) } }, next)
+        }
+        options.filterIsInstance<Input.DeclareAttackers>().firstOrNull()?.let {
+            val ready = s.battlefield.filter { id -> s.obj(id)?.controller == me && Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true &&
+                s.obj(id)?.tapped == false }
+            if (ready.isEmpty() || attackedTurn == s.turn.number)
+                return timed("No attackers", { done -> game.send(listOf(Input.DeclareAttackers(me, emptyList()))) { done(it::class.simpleName.orEmpty()) } }, next)
+            attackedTurn = s.turn.number
+            val card = (ready.first() as ObjectId.Card).card.value
+            val draft = EngineDraft(game.play(), game.me)
+            draft.add(org.asyncttwiz.protocol.PlayAction.Combat(org.asyncttwiz.protocol.CombatAction.Open))
+            val area = draft.state.board.combat
+            if (area != null) draft.add(org.asyncttwiz.protocol.PlayAction.Combat(org.asyncttwiz.protocol.CombatAction.Place(card,
+                org.asyncttwiz.protocol.CombatDestination(area.id, org.asyncttwiz.protocol.CombatRole.ATTACKER,
+                    pairGap = org.asyncttwiz.protocol.IdentityGap(area.pairs.lastOrNull()?.id)))))
+            val target = arcanum.engine.state.TargetRef.Player(PlayerId(if (game.me == "alice") "bob" else "alice"))
+            return timed("Stage an attacker", { done -> game.stageOwn(game.play(), draft.actions, draft.requestId) { done(it.toString()) } }) {
+                attacked = true
+                timed("Declare attackers", { done ->
+                    game.send(listOf(Input.DeclareAttackers(me, listOf(arcanum.engine.input.Attack(ready.first(), target))))) { done(it::class.simpleName.orEmpty()) }
+                }, next)
+            }
+        }
+        if (s.turn.active == me && attacked && s.turn.step == arcanum.api.TurnStep.PostcombatMain) endedAfterAttack = true
+        if (s.turn.active == me || s.priority.holder != me) return timed("End turn", { done -> game.endTurn { done("") } }, next)
+        timed("Pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
+    }
+
+    private fun summary(then: () -> Unit) {
+        line("Flows: worst page frame over all of them ${worst.maxOrNull()?.f() ?: "-"} ms")
+        then()
     }
 
     /** [ask] timed: its result's round trip, its last board on the page (the worker's boards after the result too), the
@@ -327,6 +412,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
                 val answered = jsNow() - at
                 // The worker's boards after the result (the device's own steps) come within a moment
                 jsLater(400) {
+                    worst += frames.worst
                     line("Device in the worker: $kind: result ${result.ifEmpty { "back" }} after ${answered.f()} ms; last board on the page " +
                         "after ${(lastShownAt - at).f()} ms (${boards - before} boards); worst frame meanwhile ${frames.worst.f()} ms")
                     then()

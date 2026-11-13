@@ -282,42 +282,19 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     override fun mulligan(): Boolean { val g = game() ?: return done(null); return own(true, "mulligan", { g.mulligan(it) }, ::done) }
     override fun keep(): Boolean { val g = game() ?: return done(null); return own(true, "keep", { g.keep(it) }, ::done) }
     override fun bottom(cards: List<String>): Boolean { val g = game() ?: return done(null); return own(true, "bottom", { g.bottom(cards, it) }, ::done) }
+    /** TRN-046, TRN-064: an ending tool's action [what] ([ask]: its callback form), then what it sends goes out; true when it
+     * sent an event (a page whose engine side answers later: asked). */
+    fun ending(what: String, ask: (result: (GameDevice.Acted) -> Unit) -> Unit): Boolean =
+        own(true, "ending $what", ask) { acted -> sent(); acted is GameDevice.Acted.Sent }
     override fun takeBacks(): Long = game()?.takeBacks ?: 0L
     override fun lastTakeBack(): String = game()?.lastTakeBack.orEmpty()
 
     override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false
         val play = shown() ?: return false
-        // The device is read on the engine thread (I-D56 step D2); what goes out is sent from here after. Not on a board the
-        // device has moved on from (switchreview #6)
-        return own(true, "onShown", { g.onShown(false, it) { device -> local(g, device, play, actions, requestId) } }) { done -> sent(); done }
-    }
-
-    private fun local(g: EngineGame, device: GameDevice, play: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
-        var staged: BoardState? = null
-        for ((index, action) in actions.withIndex()) {
-            when {
-                action is PlayAction.Combat || (action is PlayAction.Mtg && action.action is MtgAction.SetRecord) -> {
-                    val on = staged ?: play.board
-                    // Each as the member of the batch the table worked it out as (its request id): a Place names the
-                    // combat area its Open made (problem report XGN86Q: staging the first attacker was refused). Worked out on
-                    // the board shown (engine-responsiveness R4a)
-                    val id = requestId?.let { org.asyncttwiz.protocol.CommandIds.uuidV5(it, "member/$index") } ?: DeviceRandom.uuid()
-                    staged = try { EngineStaging.apply(on, play.definitions, viewer, action, id) } catch (_: IllegalArgumentException) { return false }
-                }
-                else -> return false
-            }
-        }
-        staged?.let { board ->
-            // I-D54 §8: the staging and the attack choices are shared as table changes at the head; at a decision stop
-            // behind it (playing back assumed blocks) they stay on the device and go out only as the declaration (§12)
-            val drafts = EngineDrafts.changes(device.model, board, viewer)
-            val acted = if (drafts.isEmpty()) null else g.table(drafts)
-            if (device.session.behind || acted == GameDevice.Acted.Kept) g.stage(board)
-            else if (acted is GameDevice.Acted.Refused) return false
-            else g.unstage()
-        }
-        return true
+        // Worked out on the engine side on the board shown (I-D56 step D2; web client step 4d: in the browser's worker); what goes
+        // out is sent from here after. Not on a board the device has moved on from (switchreview #6)
+        return own(true, "onShown", { g.stageOwn(play, actions, requestId, it) }) { done -> sent(); done }
     }
 
     fun status(): GameDevice.Status? = game()?.shown?.status
@@ -977,7 +954,8 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         val wait = if (last != null && last.id == shown.showDone) 0L
             else playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
         if (pause != null) pause.wait(wait) else if (wait > 0) delay(wait)
-        if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
+        // Web client step 4d: the callback form (the device may be in the browser's worker; Android answers at once)
+        if (game.shown?.status is GameDevice.Status.Playing) game.step { routes.pump() }
     }
 }
 

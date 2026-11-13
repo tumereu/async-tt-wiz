@@ -486,6 +486,17 @@ Two batches come first, in this order:
   state), a board's plays when published before they were worked out (asked of the planner with a snapshot: the page keeps
   no `BoardLines` for the worker's boards), and the reads that return at once (`read`, `requestPreview`, `preview`,
   `undoNeedsRequest`, `take`, `playToStop`: tests only, they fail loudly when the device is in the worker).
+- Built in 4d (2026-11-13): the table's own staging with the device across the boundary (`EngineGame.stageOwn`, a
+  `DeviceRequest.Staging` checked against the board the page showed, answered after its boards; the battlefield places and
+  combat staging work in the worker); a board published before its plays were worked out gets them from the worker's
+  device by the board's number (`DeviceRequest.Plays`: the device holds the board, so nothing else is sent; asked when the
+  table first reads them); the two production paths that used result-returning reads (playback's step, the ending tools)
+  use the callback forms; the worker's device is the web's default (`?device=page` keeps it on the page), and a lost worker
+  leaves later games' devices on the page. `#engine-bench` plays the table's flows through the worker's device (land, a
+  cast with its payment, turns, an attacker staged and declared, blockers assumed, combat damage, End turn, Undo). Not yet:
+  flow sessions in the worker for the cast, shared-flow and combat panels (their steps and values still run on the page's
+  copy of the state: the controllers read the live `CastFlow` and `SharedFlow` for drawing, so moving them needs the
+  panels' data as wire values first).
 
 ### Step 5: desktop table
 

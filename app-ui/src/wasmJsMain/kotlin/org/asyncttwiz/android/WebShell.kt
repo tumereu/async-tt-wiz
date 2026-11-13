@@ -74,8 +74,9 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         // The table's plays are worked out in the engine's Web Worker; requests wait until it has loaded
         val worker = startEngineWorkers(assetBase)
         EngineBoundary.useRemote(worker.planning)
-        // Web client step 4c part 3: the games' devices in the worker too, when the page asks for it
+        // Web client step 4d: the games' devices in the worker too (`?device=page` keeps them on the page, for debugging)
         if (jsDevicesInWorker()) EngineBoundary.useDevices(worker.devices)
+        else EngineBoundary.log.log(false, "Engine boundary: the games' devices stay on the page (?device=page)")
         jsGuardTablePage()
         unlockSound()
         val auth = AuthViewModel(AppServices.current)

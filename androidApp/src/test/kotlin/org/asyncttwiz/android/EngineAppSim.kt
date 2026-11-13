@@ -72,17 +72,25 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
     /** [p]'s game opened (or opened again) from the server's snapshot: at their local head, the rest buffered. [live]: loaded
      * again as the open game's stream does (HIS-006: a live table stays live). */
     fun load(p: String, live: Boolean = false): EngineGame {
-        val baseId = heads.values.minByOrNull { history.depthOf(it) } ?: head
-        val after = MainLine.after(history, head, baseId)!!
-        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
-            settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
-            if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
+        val snapshot = snapshot(p)
         val game = games[p]?.also { it.load(snapshot, live = live) } ?: EngineGame(f.game.id, p, f.base, snapshot, { java.util.UUID.nameUUIDFromBytes("$p-${++ids}".encodeToByteArray()).toString() }, worker(p))
         games[p] = game
         inbox.getValue(p).clear()
         watch(game)
         return game
     }
+
+    /** The server's snapshot of the game for [p] now ([load] opens a game on it). */
+    fun snapshot(p: String): EngineSnapshot {
+        val baseId = heads.values.minByOrNull { history.depthOf(it) } ?: head
+        val after = MainLine.after(history, head, baseId)!!
+        return EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
+            settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
+            if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
+    }
+
+    /** Tests: each message delivered to a player ([deliver]), also given to this (a second copy of their game). */
+    var tee: ((p: String, delivery: Delivery) -> Unit)? = null
 
     private fun watch(game: EngineGame) {
         game.device.session.beforeShow = { before, event -> check(game, before, event) }
@@ -117,8 +125,8 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
         val queue = inbox.getValue(p)
         var n = 0
         while (queue.isNotEmpty() && (count == null || n++ < count)) when (val d = queue.removeFirst()) {
-            is Delivery.Revision -> game(p).revision(d.message)
-            is Delivery.Refused -> game(p).refused(d.action, d.reason)
+            is Delivery.Revision -> { game(p).revision(d.message); tee?.invoke(p, d) }
+            is Delivery.Refused -> { game(p).refused(d.action, d.reason); tee?.invoke(p, d) }
         }
     }
 

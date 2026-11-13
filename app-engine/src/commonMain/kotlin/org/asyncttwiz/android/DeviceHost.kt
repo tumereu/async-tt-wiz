@@ -178,6 +178,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.RequestUndo -> game.requestUndo(r.target, r.message)
                 is DeviceRequest.AnswerRequest -> game.answerRequest(r.accept)
                 is DeviceRequest.CancelRequest -> game.cancelRequest()
+                is DeviceRequest.Staging -> own(r) { game.stageOwn(null, r.actions, r.requestId) { done(r.id, DeviceResult.Flag(it)) } }
                 is DeviceRequest.Stage -> game.stage(r.board)
                 is DeviceRequest.Unstage -> game.unstage()
                 is DeviceRequest.StartPlayback -> game.startPlayback()
@@ -198,6 +199,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                     done(r.id, DeviceResult.Preview(p.board?.let(::loose), p.needsRequest, p.loading)) }
                 is DeviceRequest.RequestView -> done(r.id, game.requestViewOn(r.viewer, r.localHead, r.target)?.let { v ->
                     DeviceResult.View(v.message, v.unseen, v.turn, v.board?.let(::loose)) } ?: DeviceResult.NoView)
+                is DeviceRequest.Plays -> done(r.id, plays(r.board))
                 is DeviceRequest.Repro -> game.repro { done(r.id, DeviceResult.Repro(it)) }
                 is DeviceRequest.LogBoard -> game.logBoard { done(r.id, DeviceResult.None) }
                 is DeviceRequest.TokenArtFound -> {
@@ -212,6 +214,14 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                     if (r.definition != null) game.tick(host.now())
                 }
             }
+        }
+
+        /** Web client step 4d: the plays of the published board numbered [number], worked out here where it is (the page
+         * got it before they were); none when it isn't kept any more. */
+        private fun plays(number: Long): DeviceResult {
+            val values = recent.values.lastOrNull { it.board.values?.number == number }?.board?.values
+                ?: return DeviceResult.Plays().also { AppLog.info("engine", "Device boundary: plays of board $number, no longer kept here") }
+            return DeviceResult.Plays(values.workedHandPlays(), values.cardPlays())
         }
 
         private fun loose(board: TableBoard) = checkNotNull(encoder) { "No board published yet" }.loose(board)

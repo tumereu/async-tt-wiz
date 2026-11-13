@@ -55,6 +55,6 @@ private const val READY = "ready"
 
 private fun jsWorkerNow(): Double = js("performance.now()")
 
-/** Web client step 4c part 3: whether the page keeps the games' devices in the engine's Web Worker (`?device=worker`);
- * until the flows step moves too (the combat staging works with the device), the table keeps them on the page. */
-fun jsDevicesInWorker(): Boolean = js("new URLSearchParams(location.search).get('device') === 'worker'")
+/** Web client step 4d: whether the page keeps the games' devices in the engine's Web Worker: yes unless the address says
+ * `?device=page` (debugging: the devices on the page's own thread, as before the worker). */
+fun jsDevicesInWorker(): Boolean = js("new URLSearchParams(location.search).get('device') !== 'page'")

@@ -422,13 +422,16 @@ object EngineTableProbe {
 private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.Ending): Boolean {
     val game = routes.engine ?: return false
     val me = PlayerId(routes.viewer)
-    val acted = when (intent.tool) {
-        EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me), intent.note)
-        EndingTool.SUGGEST_LOSS -> game.suggest(GameResult.Won(game.shown?.opponent ?: return false), intent.note)
-        EndingTool.SUGGEST_DRAW -> game.suggest(GameResult.Draw, intent.note)
-        EndingTool.ACCEPT -> game.answerSuggestion(true)
-        EndingTool.CONCEDE -> game.concede()
+    val loss = game.shown?.opponent?.let { GameResult.Won(it) }
+    if (intent.tool == EndingTool.SUGGEST_LOSS && loss == null) return false
+    // Web client step 4d: the callback forms (the device may be in the browser's worker; Android answers at once)
+    return routes.ending(intent.tool.name) { done ->
+        when (intent.tool) {
+            EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me), intent.note, done)
+            EndingTool.SUGGEST_LOSS -> game.suggest(loss ?: GameResult.Draw, intent.note, done)
+            EndingTool.SUGGEST_DRAW -> game.suggest(GameResult.Draw, intent.note, done)
+            EndingTool.ACCEPT -> game.answerSuggestion(true, done)
+            EndingTool.CONCEDE -> game.concede(done)
+        }
     }
-    routes.pump()
-    return acted is GameDevice.Acted.Sent
 }

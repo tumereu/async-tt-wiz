@@ -1848,14 +1848,59 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** Engine thread: an action is being worked out ([acting]). */
     private var inAction = false
 
-    /** [work] with the device for the table's own actions worked out from the board shown now ([acting]: [stale] when
-     * the device has moved on from it), e.g. a card's place and the combat staging. */
-    fun <T> onShown(stale: T, work: (GameDevice) -> T): T = answered { onShown(stale, it, work) }
-    fun <T> onShown(stale: T, result: (T) -> Unit, work: (GameDevice) -> T) = remote?.let {
-        // Web client step 4c: the table's own work with the device (the combat staging) isn't across the boundary yet
-        AppLog.warn("engine", "Own work with the device asked of the device in the worker: not across the boundary yet, refused")
-        result(stale)
-    } ?: acting(stale, after = false, result = result) { work(device) }
+    /**
+     * The table's own changes the player's controls make ([EngineRoutes.local]): a card moved on its own battlefield (its
+     * place, TBL-012), the combat staging, attack choices and early answers (CMB-028, CMB-034, I-D33), worked out on the
+     * board the player acted on ([play]: the table's; null on the engine side in the browser's worker, which takes the board
+     * the page showed, [hostSeen]) and shared as table changes at the head (I-D54 §8); at a decision stop behind it they stay
+     * on the device and go out only as the declaration (I-D56 §12). Not on a board the device has moved on from
+     * (switchreview #6, [acting]'s rule). [result]: whether it was taken. Web client step 4d: with the device in the worker
+     * it goes there as a request ([org.asyncttwiz.automatum.boundary.DeviceRequest.Staging]), answered after the boards it
+     * publishes.
+     */
+    fun stageOwn(play: TableBoard?, actions: List<org.asyncttwiz.protocol.PlayAction>, requestId: String?, result: (Boolean) -> Unit) {
+        remote?.let { r ->
+            r.request("staging", { org.asyncttwiz.automatum.boundary.DeviceRequest.Staging(it, seen(), actions, requestId) },
+                { org.asyncttwiz.automatum.boundary.DeviceResult.Flag(false) }) { result((it as? org.asyncttwiz.automatum.boundary.DeviceResult.Flag)?.flag == true) }
+            return
+        }
+        val on = play ?: (hostSeen ?: shown)?.board ?: run {
+            AppLog.warn("engine", "Own staging with no board shown: refused"); result(false); return
+        }
+        acting(false, after = false, result = result) { staged(on, actions, requestId) }
+    }
+
+    /** Engine thread: [stageOwn]'s work on [play]. */
+    private fun staged(play: TableBoard, actions: List<org.asyncttwiz.protocol.PlayAction>, requestId: String?): Boolean {
+        var staged: BoardState? = null
+        for ((index, action) in actions.withIndex()) {
+            when {
+                action is org.asyncttwiz.protocol.PlayAction.Combat ||
+                    (action is org.asyncttwiz.protocol.PlayAction.Mtg && action.action is org.asyncttwiz.protocol.MtgAction.SetRecord) -> {
+                    val on = staged ?: play.board
+                    // Each as the member of the batch the table worked it out as (its request id): a Place names the
+                    // combat area its Open made (problem report XGN86Q: staging the first attacker was refused). Worked out on
+                    // the board shown (engine-responsiveness R4a)
+                    val id = requestId?.let { org.asyncttwiz.protocol.CommandIds.uuidV5(it, "member/$index") } ?: DeviceRandom.uuid()
+                    staged = try { EngineStaging.apply(on, play.definitions, me, action, id) } catch (_: IllegalArgumentException) {
+                        AppLog.info("engine", "Own staging refused: ${action::class.simpleName} on board v${(hostSeen ?: shown)?.version}")
+                        return false
+                    }
+                }
+                else -> return false
+            }
+        }
+        staged?.let { board ->
+            // I-D54 §8: the staging and the attack choices are shared as table changes at the head; at a decision stop
+            // behind it (playing back assumed blocks) they stay on the device and go out only as the declaration (§12)
+            val drafts = org.asyncttwiz.automatum.EngineDrafts.changes(device.model, board, me)
+            val acted = if (drafts.isEmpty()) null else table(drafts)
+            if (device.session.behind || acted == GameDevice.Acted.Kept) stage(board)
+            else if (acted is GameDevice.Acted.Refused) return false
+            else unstage()
+        }
+        return true
+    }
 
     /** An own action's result returned, for callers that read it at once (tests, simulations, nested actions on the
      * engine thread): only where the engine side answers before the call returns ([EngineWorker.await]). */

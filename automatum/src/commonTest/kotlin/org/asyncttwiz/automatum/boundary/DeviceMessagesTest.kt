@@ -52,6 +52,24 @@ class DeviceMessagesTest {
         for (a in answers) assertEquals(a, DeviceMessage.decode(DeviceMessage.answer("game-1", a)).answer)
     }
 
+    // Web client step 4d: the table's own staging and a board's plays asked of the device come back the same from their text
+    @Test fun stagingAndPlaysComeBackTheSameFromTheirText() {
+        val staging = DeviceRequest.Staging(10, 4, listOf(
+            org.asyncttwiz.protocol.PlayAction.Combat(org.asyncttwiz.protocol.CombatAction.Open),
+            org.asyncttwiz.protocol.PlayAction.Combat(org.asyncttwiz.protocol.CombatAction.Place("c1",
+                org.asyncttwiz.protocol.CombatDestination("area", org.asyncttwiz.protocol.CombatRole.ATTACKER)))), "batch-1")
+        val back = DeviceMessage.decode(DeviceMessage.request("game-1", staging))
+        assertEquals(staging, back.request)
+        assertTrue(back.request is DeviceRequest.Own, "checked against the board the page showed")
+        assertEquals(DeviceRequest.Plays(11, 42), DeviceMessage.decode(DeviceMessage.request("game-1", DeviceRequest.Plays(11, 42))).request)
+        val none = DeviceAnswer.Done(11, DeviceResult.Plays())
+        assertEquals(none, DeviceMessage.decode(DeviceMessage.answer("game-1", none)).answer)
+        val plays = DeviceResult.Plays(org.asyncttwiz.automatum.HandPlays.NONE, org.asyncttwiz.automatum.CardPlays.NONE)
+        val decoded = (DeviceMessage.decode(DeviceMessage.answer("game-1", DeviceAnswer.Done(12, plays))).answer as DeviceAnswer.Done).result
+        assertEquals(emptyMap(), (decoded as DeviceResult.Plays).hand?.byCard)
+        assertEquals(emptyMap(), decoded.card?.byCard)
+    }
+
     // The planning requests share the worker's channel: neither side takes one for the other's
     @Test fun deviceMessagesAreToldApartFromPlanningOnes() {
         val planning = EngineMessages.encode(EngineRequest.HandPlaysOf(1, "game-1", 1, "alice"))

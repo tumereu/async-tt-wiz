@@ -18,7 +18,7 @@ import kotlin.math.roundToLong
  * Times are nanoseconds of the game's clock. The engine thread writes the parts up to [AFTER]; the main thread the rest
  * and reads them all once the action is [complete] (or a newer action's board comes first).
  */
-class OwnActionTiming(val what: String, private val clock: () -> Long, val trace: LatencyRecorder.Trace?) {
+class OwnActionTiming(val what: String, private val clock: () -> Long, val trace: LatencyTrace?) {
     val asked: Long = clock()
 
     // ---- Engine thread

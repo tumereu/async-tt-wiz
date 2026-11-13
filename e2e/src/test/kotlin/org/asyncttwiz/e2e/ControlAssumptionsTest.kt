@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.timeline
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.input.Input

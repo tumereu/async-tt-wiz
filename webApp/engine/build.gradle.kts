@@ -20,6 +20,8 @@ kotlin {
     sourceSets {
         wasmJsMain.dependencies {
             implementation(project(":automatum"))
+            // The device itself (web client step 4c part 3): EngineGame without the UI.
+            implementation(project(":app-engine"))
         }
     }
 }

@@ -1,8 +1,6 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.Faults
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.setup.GameResult
@@ -109,21 +107,6 @@ class Answer<T> {
         check(given) { "The engine side didn't answer before returning: this caller can't wait for it (use the callback form)" }
         return value as T
     }
-}
-
-/**
- * Web client step 4c: a value the engine side gives a composable through a callback, as snapshot state ([value] once
- * [arrived]): on Android it arrives before the call that asks returns, so the composition that asked reads it at once and
- * nothing flickers; in the browser it arrives when the engine side answers, and what reads it recomposes then.
- */
-class AnsweredValue<T> {
-    var arrived by androidx.compose.runtime.mutableStateOf(false)
-        private set
-    var value by androidx.compose.runtime.mutableStateOf<T?>(null)
-        private set
-
-    /** The callback: the answer arrived. */
-    fun set(answer: T) { value = answer; arrived = true }
 }
 
 /** The app's one engine thread (made on first use), results posted to the main thread (Android: a JVM thread). */
@@ -239,10 +222,21 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** The last published snapshot (main thread); null until the game first loaded. */
     @Volatile var shown: Shown? = null
         private set
-    /** [Shown.version] of the last board published, as snapshot state (main thread): a dialog reading it follows every
-     * board published (HIS-111: older history coming in) without its parent recomposing. */
-    var shownVersion by androidx.compose.runtime.mutableLongStateOf(0L)
-        private set
+    /** What the UI observes of this game (main thread): told each board's [Shown.version] as it is published, and
+     * whether older history is on its way ([historyLoadingNow]). The UI keeps them as its own state (app-ui's
+     * shownVersion, historyLoading); null until it first asks. */
+    var observer: Observer? = null
+
+    /** The UI's own state of this game, kept with it (app-ui's; main thread). */
+    var ui: Any? = null
+
+    /** What the UI follows of an engine game as it changes (main thread). */
+    interface Observer {
+        /** A board was published: [version] its [Shown.version]. */
+        fun shown(version: Long)
+        /** Whether a page of older history is on its way changed. */
+        fun historyLoading(loading: Boolean)
+    }
     /** Bumped whenever anything shown changes (the table and the async panels recompose on it). */
     val version: Long get() = shown?.version ?: 0L
     val needsReload: Boolean get() = shown?.needsReload == true
@@ -458,7 +452,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
             this.notes.addAll(notes)
-            this.shown = shown; shownVersion = shown.version
+            this.shown = shown; observer?.shown(shown.version)
             EngineShownProbe.listener?.invoke(me, shown)
             EngineShownProbe.all?.invoke(me, shown, notes)
             loadFailed = false
@@ -570,7 +564,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main {
-            this.shown = shown; shownVersion = shown.version
+            this.shown = shown; observer?.shown(shown.version)
             EngineShownProbe.all?.invoke(me, shown, emptyList())
             measure(shown, timing); onShown()
         }
@@ -776,9 +770,6 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         }
     }
 
-    /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */
-    val timeline = EngineTimeline()
-
     /** The event [id] among those shown to the player (the timeline's, older history included), or null. */
     fun event(id: String): GameEvent? = shown?.let { s -> s.line.firstOrNull { it.id == id } ?: s.older.firstOrNull { it.id == id } }
 
@@ -814,9 +805,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** The pages of older history asked for and not answered yet, by the event each ends at (main thread). */
     private val asked = mutableSetOf<String>()
 
-    /** Whether a page of older history is on its way (main thread; the strip's edge shows it). */
-    var historyLoading by androidx.compose.runtime.mutableStateOf(false)
-        private set
+    /** Whether a page of older history is on its way (main thread; the strip's edge shows it, through [observer]). */
+    var historyLoadingNow = false
+        private set(value) { if (field != value) { field = value; observer?.historyLoading(value) } }
 
     /** The pages that couldn't be read: not asked again until timeline mode or the Undo dialog opens again
      * ([historyRetry]), so a failing read never loops (main thread). */
@@ -832,7 +823,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         if (through in asked) return true
         val fetch = pages ?: return false
         asked += through
-        historyLoading = true
+        historyLoadingNow = true
         // Done once the board with the page is published (its main-thread work queued first), so nothing in between
         // finds the point neither shown nor loading
         AppLog.info("history", "Older history: the page to ${through.take(8)} asked (${shown?.older?.size ?: 0} older events shown)")
@@ -848,10 +839,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                         "complete ${device.olderComplete}, line start ${device.session.lineStart.take(8)}"
                 })
                 if (taken) publish()
-                worker.main { asked -= through; if (!taken) failedPages += through; historyLoading = asked.isNotEmpty() }
+                worker.main { asked -= through; if (!taken) failedPages += through; historyLoadingNow = asked.isNotEmpty() }
             }
         }
-        if (!started) { asked -= through; historyLoading = asked.isNotEmpty() }
+        if (!started) { asked -= through; historyLoadingNow = asked.isNotEmpty() }
         return started
     }
 
@@ -1815,7 +1806,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** A new own action [what]'s probe, asked for now. */
     private fun timing(what: String) = OwnActionTiming(what, clock,
-        DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
+        EngineDiagnostics.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
 
     /** Engine thread: [timing]'s work after its board is done; the main thread checks whether every part is in. */
     private fun afterDone(timing: OwnActionTiming) {
@@ -1864,7 +1855,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // only the slow ones; every line reads alike (smoke 2026-11-05: a search for "Own action" missed the slow ones,
         // then logged as "Slow own action"), its totalMs telling a slow one
         val slow = (parts[OwnActionTiming.TOTAL] ?: 0.0) > SLOW_MS
-        if (slow || Diagnostics.alwaysOn) AppLog.info("engine", "$OWN_ACTION$line")
+        if (slow || EngineDiagnostics.alwaysOn) AppLog.info("engine", "$OWN_ACTION$line")
         timing.trace?.parts(parts)
         measured?.invoke(timing)
     }

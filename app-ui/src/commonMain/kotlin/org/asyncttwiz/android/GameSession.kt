@@ -28,6 +28,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private val engineLoad: (String) -> Boolean = { true },
     /** CR 707.12: the cards engine games name for the engine ([EngineGame]'s): the phone's card records. */
     private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) : AutoCloseable {
+    // The engine games' own-action probe reports to the app's slow-action recorder (it is app-engine's, without it)
+    init { installEngineDiagnostics() }
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
     private var backgrounded = false

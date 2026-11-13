@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The close step's merge: under the machine-wide merge lock (~/projects/atw-cache/locks/master-merge.lock), brings master
-# into set/<code> once more if it moved since the close checks (then reruns them: set-tests --full --long, setSupport and the
-# tools tests), and merges set/<code> into master in the main checkout. Sets closing in parallel take turns.
+# into set/<code> once more if it moved since the close checks (then reruns the parser and engine suites with the long
+# classes, setSupport and the tools tests; not parserDiff), and merges set/<code> into master in the main checkout. Sets
+# closing in parallel take turns.
 # Run from the set's worktree root. Exit 0 merged; 3 main checkout not ready; 4 conflict with master (resolve it by
 # merging master yourself, rerun the close checks, then run this again); 5 checks failed after bringing master in.
 #   merge-to-master.sh <code>
@@ -20,8 +21,9 @@ for i in $(seq 1 30); do
   if ! git merge-base --is-ancestor master HEAD; then
     echo "master moved since the close checks: merging it in"
     if ! git merge --no-edit master; then git merge --abort; echo "Conflict with master" >&2; exit 4; fi
-    "$T/set-tests.sh" "$code" --full --long || exit 5
-    "$T/gradle-slot.sh" :arcanum-tools:setSupport :arcanum-tools:test || exit 5
+    # The tests only: parserDiff's outside changes were judged in the close step, and against the set's base snapshot they
+    # would now also list what other sets merged meanwhile, so a set with an accepted cross-set rules fix could never merge.
+    "$T/gradle-slot.sh" :arcanum-parser:jvmTest :arcanum-engine:jvmTest :arcanum-tools:setSupport :arcanum-tools:test --continue || exit 5
   fi
   if [ "$(git -C "$main" rev-parse --abbrev-ref HEAD)" = master ] && [ ! -e "$(git -C "$main" rev-parse --git-path MERGE_HEAD)" ] &&
      git merge-base --is-ancestor master HEAD; then

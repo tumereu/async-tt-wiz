@@ -20,7 +20,6 @@ import arcanum.api.Zone
 import arcanum.parser.cube.abilities
 import arcanum.parser.cube.card
 import arcanum.parser.cube.parsesTo
-import kotlin.test.Ignore
 import kotlin.test.Test
 
 /** LCI sweep: siblings of the parser bugs LCI set work fixed. Invented names, real oracle wordings. */
@@ -106,11 +105,7 @@ class LciSweepTest {
 
     // ---- "its" in a trigger whose event object isn't this object (lci chunk 03: Tribute to the World Tree read its own power)
 
-    // CR 603.10a, 608.2h: "its power" is the creature that died, as it last existed. Out of the suite: Values.value("its power") is always
-    // Objects.Self (dsk "where X is its power"), and the generic "You gain life equal to …" / "draw cards equal to …" rules call it without
-    // the ability's context; it needs the event object (EventObject(Before) when it left the battlefield, After when it entered) whenever
-    // the trigger's object isn't this one and nothing earlier in the ability renamed "it".
-    @Ignore
+    // CR 603.10a, 608.2h: "its power" is the creature that died, as it last existed, not this enchantment
     @Test
     fun sweepCarrionTithe() = card(
         name = "Sweep Carrion Tithe", cost = "{1}{B}", type = "Enchantment",
@@ -121,7 +116,6 @@ class LciSweepTest {
     )
 
     // CR 603.2: "its power" is the creature that entered
-    @Ignore
     @Test
     fun sweepWelcomingGrove() = card(
         name = "Sweep Welcoming Grove", cost = "{1}{G}", type = "Enchantment",
@@ -129,5 +123,38 @@ class LciSweepTest {
     ) parsesTo abilities(
         triggered(Trigger.On(EventPattern.ZoneChange(and(another, creatureYouControl), to = Zone.Battlefield)),
             Step.Do(Effect.GainLife(Players.You, Value.Of(NumericProperty.Power, Objects.EventObject(EventRole.After), Combine.Single)))),
+    )
+
+    // CR 603.10a, 608.2h: "When enchanted creature dies": "its" is the creature that died, not this Aura
+    @Test
+    fun sweepMourningBond() = card(
+        name = "Sweep Mourning Bond", cost = "{1}{B}", type = "Enchantment — Aura",
+        text = "Enchant creature\nWhen enchanted creature dies, you gain life equal to its power.",
+    ) parsesTo abilities(
+        arcanum.api.Keyword.Enchant(arcanum.api.TargetKind.Objects(creature)),
+        triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.AttachedTo(Objects.Self)), from = Zone.Battlefield, to = Zone.Graveyard)),
+            Step.Do(Effect.GainLife(Players.You, Value.Of(NumericProperty.Power, Objects.EventObject(EventRole.Before), Combine.Single)))),
+    )
+
+    // CR 603.10a, 608.2h: an X "where X is its power" defines is the creature that died too
+    @Test
+    fun sweepGraveTally() = card(
+        name = "Sweep Grave Tally", cost = "{2}{B}", type = "Enchantment",
+        text = "Whenever another creature you control dies, draw X cards, where X is its power.",
+    ) parsesTo abilities(
+        triggered(Trigger.On(EventPattern.ZoneChange(and(another, creatureYouControl), from = Zone.Battlefield, to = Zone.Graveyard)),
+            Step.Do(Effect.Draw(Players.You, Value.Of(NumericProperty.Power, Objects.EventObject(EventRole.Before), Combine.Single)))),
+    )
+
+    // ---- A number of an object the same effect moved from the battlefield (CR 608.2h: as it last existed there, not the exiled card)
+
+    @Test
+    fun sweepDawnBanishing() = card(
+        name = "Sweep Dawn Banishing", cost = "{W}", type = "Instant",
+        text = "Exile target creature you control. You gain life equal to its toughness.",
+    ) parsesTo abilities(
+        spell(move(target("creature"), Zone.Exile, postBind = "exiled"),
+            Step.Do(Effect.GainLife(Players.You, Value.Of(NumericProperty.Toughness, target("creature"), Combine.Single))),
+            targets = listOf(slot("creature", creatureYouControl))),
     )
 }

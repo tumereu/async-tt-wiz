@@ -6,7 +6,6 @@ import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.rtr.resolveAll
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -90,10 +89,6 @@ class LciSweepScenariosTest {
     private val ember = Cards.invent("Sweep Ember Hound", "{2}{R}", "Creature — Dog", "When this creature dies, it deals damage equal to its power to any target.", "2/2")
 
     // CR 608.2h: the creature left the battlefield, so its toughness is read as it last existed there (1 + 2 counters), not the exiled card's.
-    // Out of the suite: the parser reads "its" after "Exile target creature" as the exiled card (Bound("exiled"), right for "If it's a …" and
-    // "return it"), so a number of it reads the card in exile; a number of an object an effect moved from the battlefield needs the target
-    // as it last existed (Objects.Target(slot)), as "Its controller gains life equal to its power" already has.
-    @Ignore
     @Test
     fun banishingReadsTheExiledCreatureAsItLastExisted() = scenario {
         alice.battlefield("Plains")
@@ -105,6 +100,47 @@ class LciSweepScenariosTest {
             alice.exile has squire
             alice.life shouldBe 23
         }
+    }
+
+    private val condemnation = Cards.invent("Sweep Stern Condemnation", "{W}", "Instant", "Destroy target creature. You gain life equal to its toughness.")
+
+    // CR 608.2h: also after destroying it: the creature as it last existed on the battlefield (1 + 2 counters), not the card in the graveyard
+    @Test
+    fun condemnationReadsTheDestroyedCreatureAsItLastExisted() = scenario(players = 3) {
+        alice.battlefield("Plains")
+        alice.hand(condemnation)
+        carol.battlefield(squire, counters = listOf(p1p1 to 2))
+        alice.casts(condemnation, target = squire)
+        resolveAll()
+        expect {
+            carol.graveyard has squire
+            alice.life shouldBe 23
+            carol.life shouldBe 20
+        }
+    }
+
+    private val tithe = Cards.invent("Sweep Carrion Tithe", "{1}{B}", "Enchantment", "Whenever a creature you control dies, you gain life equal to its power.")
+    private val grove = Cards.invent("Sweep Welcoming Grove", "{1}{G}", "Enchantment", "Whenever another creature you control enters, you gain life equal to its power.")
+
+    // CR 603.10a, 608.2h: "its power" is the creature that died, as it last existed (1 + 2 counters), not the enchantment's
+    @Test
+    fun titheGainsTheDeadCreaturesLastPower() = scenario(players = 3) {
+        alice.battlefield(tithe, "Swamp")
+        alice.battlefield(squire, counters = listOf(p1p1 to 2))
+        alice.hand(edict)
+        alice.casts(edict, target = squire)
+        resolveAll()
+        expect { alice.life shouldBe 23 }
+    }
+
+    // CR 603.2, 603.10a: "its power" is the creature that entered
+    @Test
+    fun groveGainsTheEnteringCreaturesPower() = scenario {
+        alice.battlefield(grove, "Forest", "Forest", "Forest", "Forest")
+        alice.hand(hauler)
+        alice.casts(hauler)
+        resolveAll()
+        expect { alice.life shouldBe 24 }
     }
 
     // CR 608.2h: the destroyed creature's power and controller as it last existed (2 + 1 counter), in a three-player game

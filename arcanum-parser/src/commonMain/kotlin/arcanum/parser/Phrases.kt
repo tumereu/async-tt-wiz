@@ -1530,8 +1530,9 @@ internal object Counters {
 internal const val EXILED_WITH = "exiled"
 /** chunk 30: numbers the text defines ("where X is the number of creatures you control", CR 107.3c). */
 internal object Values {
-    /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
-    fun value(text: String, exiled: Objects? = null): Value? {
+    /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a); [its]: what "its" names in a number ("its
+     * power"): this object unless the ability names another (the object a trigger's event moved, CR 603.10a). */
+    fun value(text: String, exiled: Objects? = null, its: Objects = Objects.Self): Value? {
         Mh2Phrases.value(text, exiled)?.let { return it } // mh2
         DftPhrases.value(text)?.let { return it } // dft
         TdmPhrases.value(text)?.let { return it } // tdm
@@ -1545,9 +1546,9 @@ internal object Values {
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
-        if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
+        if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled, its)?.let { return Value.Times(it, 2) }
         // isd chunk 06: "half the number of Zombies you control, rounded down" (CR 107.1a)
-        HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
+        HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled, its)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
@@ -1559,8 +1560,8 @@ internal object Values {
         // dsk chunk 07: "the number of card types among cards in your graveyard"
         if (text == "the number of card types among cards in your graveyard")
             return Value.CountDistinct(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))), SharedQuality.CardType)
-        // dsk chunk 04: "where X is its power" (this object's)
-        if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, Combine.Single)
+        // dsk chunk 04: "where X is its power" (this object's; lci fixes: or what [its] names)
+        if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, its, Combine.Single)
         // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)
         if (text == "the number of counters on this creature") return Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)

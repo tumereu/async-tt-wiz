@@ -76,7 +76,7 @@ class LciChunk07FathomlessMillScryScenariosTest {
     private val rite = Cards.invent("Kindred Lurker Rite", "{1}{G}", "Kindred Instant — Elf", "Draw a card.")
     private val delve = Cards.invent("Sudden Delve", "{U}", "Sorcery", "Draw a card.")
     private val shrew = Cards.invent("Tomb Shrew", "{B}", "Creature — Shrew", "", "1/1")
-    private val grazer = Cards.invent("Mossback Grazer", "{4}{G}{G}", "Creature — Beast", "", "6/6")
+    private val grazer = Cards.invent("Gulfback Grazer", "{4}{G}{G}", "Creature — Beast", "", "6/6")
     private val spit = Cards.invent("Cinder Spit", "{R}", "Sorcery", "Cinder Spit deals 2 damage to each creature.")
 
     // CR 110.4a, 602.5b: an artifact creature, a land, a kindred instant and a sorcery are six card types but three permanent types; an

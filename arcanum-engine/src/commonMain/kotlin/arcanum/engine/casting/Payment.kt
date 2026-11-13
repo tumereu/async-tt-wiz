@@ -707,7 +707,8 @@ internal object Payment {
             val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(Mana.withChosenColors(ability, step))))
             // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
             val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
-                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
+                // one chunk 09: with the objects the cost bound ("an amount of {R} equal to the sacrificed artifact's mana value", CR 608.2h)
+                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names.with(bound))
             val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
             // In any combination of colours: one mana of each colour chosen
             val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }

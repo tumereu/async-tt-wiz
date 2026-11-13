@@ -155,8 +155,6 @@ internal object LciPhrases {
         }
     }
 
-    /** lci chunk 10: abilities on the Stack: "activated or triggered ability", "activated ability", "triggered ability" (CR 113.7; mana
-     * abilities never are on the Stack, CR 605.3a). */
     /** "the player with the most life or tied for most life" (CR 702.105a). */
     private val mostLife: PlayerFilter get() = PlayerFilter.Life(Comparison.AtLeast, Value.GreatestFor(Players.Each(PlayerFilter.Any), Value.LifeOf(Players.Tested)))
 
@@ -172,14 +170,7 @@ internal object LciPhrases {
             fun kind(plural: String) = Filters.noun(plural) ?: Filters.noun(plural.removeSuffix("s"))
             return Filters.all(base, ObjectFilter.Or(listOf(kind(m.groupValues[2]) ?: return null, kind(m.groupValues[3]) ?: return null)))
         }
-        fun ability(kind: arcanum.api.AbilityKind) = ObjectFilter.AbilityOf(kind = kind)
-        val kinds = when (phrase) {
-            "activated or triggered ability" -> listOf(ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered))))
-            "activated ability" -> listOf(ability(arcanum.api.AbilityKind.Activated))
-            "triggered ability" -> listOf(ability(arcanum.api.AbilityKind.Triggered))
-            else -> return null
-        }
-        return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), *kinds.toTypedArray())
+        return null
     }
 
     /** Trigger events. */

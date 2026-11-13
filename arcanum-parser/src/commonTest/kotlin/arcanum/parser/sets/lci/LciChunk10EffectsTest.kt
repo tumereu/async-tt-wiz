@@ -89,8 +89,8 @@ class LciChunk10EffectsTest {
             ifThen(Condition.Not(Condition.ObjectMatches(target("ability"), inZone(Zone.Stack))),
                 doing(Effect.ApplyMechanics(listOf(Mechanic.LoseAbilities()), Affected.Objects(Objects.Where(Objects.Bound("countered source"),
                     and(or(artifact, creature, planeswalker), inZone(Zone.Battlefield)))), Duration.UntilLeaves(Objects.Self)))),
-            targets = listOf(slot("ability", and(ObjectFilter.Category(ObjectCategory.StackAbility),
-                or(ObjectFilter.AbilityOf(kind = AbilityKind.Activated), ObjectFilter.AbilityOf(kind = AbilityKind.Triggered))), min = 0))),
+            targets = listOf(slot("ability", or(and(ObjectFilter.Category(ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = AbilityKind.Activated)),
+                and(ObjectFilter.Category(ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = AbilityKind.Triggered))), min = 0))),
     )
 
     // CR 508.1m: an attack trigger; CR 508.4: tokens put onto the battlefield attacking; X counts the counters after the first step
@@ -161,7 +161,7 @@ class LciChunk10EffectsTest {
         entersTapped,
         addEither("W", "U"),
         activated(cost(mana("{1}{W}{U}")), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Bird"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Bird")))),
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.White), ColorRef.Literal(Color.Blue))),
             Mechanic.SetPowerToughness(n(2), n(3)),
             Mechanic.GainAbilities(listOf(Keyword.Flying)))),

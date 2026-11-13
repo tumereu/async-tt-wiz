@@ -126,6 +126,36 @@ internal data class Context(
 internal class Evaluator(val board: Board, val ctx: Context) {
     private val state: GameState get() = board.state
 
+    /** rvr fixes: whether [attachment] could legally be attached to the permanent [host] as both are (CR 701.3b): an Aura as its enchant
+     * abilities allow (CR 303.4d), an Equipment to a creature or as its abilities allow (CR 301.5c), a Fortification to a land (CR 301.6),
+     * not to itself or to a permanent with protection from it (CR 702.16c, d). Anything else may be attached wherever an effect puts it. */
+    private fun attachable(attachment: ObjectId, host: ObjectId): Boolean {
+        if (attachment == host || state.obj(host)?.zone != Zone.Battlefield) return false
+        val a = board.characteristics(attachment) ?: return false
+        val h = board.characteristics(host) ?: return false
+        val owner = board.controller(attachment) ?: return false
+        val e = Evaluator(board, Context(owner, attachment))
+        val mechanics = board.mechanicsOf(attachment)
+        val legal = when {
+            a.isType(CardType.Creature) -> true
+            a.hasSubtype(Subtype("Aura")) -> mechanics.filterIsInstance<arcanum.api.Mechanic.CanEnchant>().all { m ->
+                when (val what = m.what) {
+                    is arcanum.api.TargetKind.Objects -> e.matches(what.filter, host)
+                    is arcanum.api.TargetKind.Either -> e.matches(what.objects, host)
+                    is arcanum.api.TargetKind.Players -> false
+                }
+            }
+            a.hasSubtype(Subtype("Equipment")) -> h.isType(CardType.Creature) ||
+                mechanics.filterIsInstance<arcanum.api.Mechanic.CanAttachTo>().any { e.matches(it.what, host) }
+            a.hasSubtype(Subtype("Fortification")) -> h.isType(CardType.Land)
+            else -> true
+        }
+        val hostController = board.controller(host) ?: return legal
+        return legal && board.mechanicsOf(host).filterIsInstance<arcanum.api.Mechanic.Protection>().none {
+            Evaluator(board, Context(hostController, host)).matches(it.from, attachment)
+        }
+    }
+
     fun with(ctx: Context) = Evaluator(board, ctx)
 
     /** [value] with [Objects.Tested] as [id]; a value that doesn't name it is read as it is. */
@@ -209,7 +239,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
      * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
-        val zones = zonesIn(filter).ifEmpty { defaultZones(filter) } + prospectiveZones(filter)
+        // rvr: "a card from their hand or a permanent they control": each alternative looks where it names, or where it would alone
+        val mixed = filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() }
+        val own = if (mixed) (filter as ObjectFilter.Or).any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
+            else zonesIn(filter).ifEmpty { defaultZones(filter) }
+        val zones = own + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
@@ -387,6 +421,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
+            ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
+            is ObjectFilter.AttachableBy -> objects(filter.attachment).any { attachable(it, id) } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
@@ -589,7 +625,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
-            SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // lci
+            SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // rvr, lci
         }
     }
 
@@ -610,7 +646,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
-                SharedQuality.PermanentType -> permanentTypes(c) // lci
+                SharedQuality.PermanentType -> permanentTypes(c) // rvr, lci
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -803,6 +839,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 property(if (toughness) NumericProperty.Toughness else NumericProperty.Power, id) +
                     rules.filterIsInstance<arcanum.api.Mechanic.PowerGreaterFor>().filter { it.keyword == property.keyword }.sumOf { it.amount }
             }
+            // one: "its total toxic value", the sum of its toxic abilities' N (CR 702.164c)
+            is NumericProperty.KeywordTotal -> c?.keywords.orEmpty().filter { it.kind == property.keyword }.sumOf { (it as? arcanum.api.HasAmount)?.amount ?: 0 }
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c
@@ -881,7 +919,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
-            SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // lci
+            SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // rvr, lci
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -898,11 +936,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
-            SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // lci
+            SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // rvr, lci
         }
     }
 
-    /** lci: its permanent types (CR 110.4a), its card types without instant, sorcery, kindred and the others. */
+    /** rvr, lci: its permanent types (CR 110.4a), its card types without instant, sorcery, kindred and the others. */
     private fun permanentTypes(c: Characteristics): List<CardType> = c.types.filter { it in PERMANENT_TYPES }
     private val PERMANENT_TYPES = setOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land,
         CardType.Planeswalker)
@@ -932,6 +970,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
+        // rvr: addendum (CR 207.2c, 505.1)
+        is Condition.CastDuringMainPhase -> objects(condition.of).any { id -> facts(id)?.duringOwnMainPhase == true }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()

@@ -60,7 +60,7 @@ class LciChunk13CyclingEnchantManaScenariosTest {
         {T}: Add one mana of any color.
         {2}: This creature gains deathtouch until end of turn.
     """, "1/1")
-    private val bolt = Cards.invent("Scorch Bolt", "{R}", "Instant", "Scorch Bolt deals 5 damage to target creature.")
+    private val bolt = Cards.invent("Cinder Lance", "{R}", "Instant", "Cinder Lance deals 5 damage to target creature.")
     private val bear = Cards.invent("Lowland Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val bruiser = Cards.invent("Hollow Bruiser", "{2}{G}", "Creature — Beast", "", "3/3")
     private val whelp = Cards.invent("Verdant Whelp", "{R}", "Creature — Dinosaur", "", "1/1")

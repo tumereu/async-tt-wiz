@@ -173,7 +173,7 @@ class LciChunk07FathomlessMillScryTest {
         entersTapped,
         addEither("U", "B"),
         activated(cost(mana("{2}{U}{B}")), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Shark"))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Shark")))),
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.Blue), ColorRef.Literal(Color.Black))),
             Mechanic.SetPowerToughness(n(4), n(4)),
             Mechanic.GainAbilities(listOf(Keyword.Deathtouch)))),

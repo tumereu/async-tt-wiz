@@ -333,7 +333,7 @@ class LciChunk16CountersSacrificeSearchTest {
 
     /** "This land becomes a P/T <colors> <Sub> creature until end of turn. It's still a land." (CR 205.1b, 613.1d) */
     private fun becomesCreature(sub: String, colors: List<Color>, power: Int, toughness: Int, has: Keyword? = null): Step =
-        untilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(sub))), replaceSubtypes = true),
+        untilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(sub)))),
             Mechanic.SetColors(colors.map { arcanum.api.ColorRef.Literal(it) }), Mechanic.SetPowerToughness(n(power), n(toughness)),
             *listOfNotNull(has?.let { has(it) }).toTypedArray())
 }

@@ -93,7 +93,8 @@ internal object Tla {
     val TAP_UP_TO_X_DISTRIBUTE_STUN = Regex("""Tap up to X target (.+?), then distribute (\w+) stun counters among any number of (.+)\.""")
     val COPY_EXCEPT_NOT_LEGENDARY_PT_TYPE = Regex("""Create a token that's a copy of target (.+?), except it's not legendary and it's an? (\d+)/(\d+) ([A-Z]\w+) in addition to its other types\.""")
     val AS_LONG_AS_THERES = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) as long as (there(?:'s| is| are) .+)\.""")
-    val HAS_BASE_PT_UNTIL_EOT = Regex("""(.+) has base power and toughness (\d+)/(\d+) until end of turn\.""")
+    // rvr chunk 03: also X/X and with no duration (Gigantoplasm's "{X}: This creature has base power and toughness X/X.")
+    val HAS_BASE_PT_UNTIL_EOT = Regex("""(.+) has base power and toughness (\d+|X)/(\d+|X)( until end of turn)?\.""")
     val ENCHANTED_LOSES_ALL_IS_NAMED = Regex("""Enchanted creature loses all abilities and is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+) and "(.+)" named (.+)\.""")
     val BECOMES_ARTIFACT_CREATURE = Regex("""(.+) becomes an artifact creature\.""")
     val CANT_BLOCK_OR_BE_BLOCKED_BY = Regex("""(.+) can't block or be blocked by (.+)\.""")
@@ -157,7 +158,7 @@ internal object Tla {
     val EXILE_UNTIL_NONLAND_CAST_IF = Regex("""Exile cards from the top of your library until you exile a (\w+) card\. You may cast that card without paying its mana cost if the spell's mana value is less than (.+?)\. If you don't cast that card this way, put it into your hand\.""")
     val EACH_GAINS_UNTIL_EOT = Regex("""Each (.+?) gains (.+) until end of turn\.""")
     val AS_LONG_AS_COUNTER_ARE_TYPE = Regex("""As long as (.+?) has an? (\S+) counter on (?:him|her|it|them), (.+) are ([A-Z]\w+)s\.""")
-    val EACH_DEAL_DAMAGE_POWER = Regex("""Up to two target (.+?) each deal damage equal to their power to target (.+)\.""")
+    val EACH_DEAL_DAMAGE_POWER = Regex("""Up to two target (.+?) each deal damage equal to their power to (another )?target (.+)\.""") // rvr chunk 04: another
     val ENCHANTED_GETS_FOR_EACH_AND_IS = Regex("""Enchanted creature gets \+1/\+1 for each (.+?) and is an? ([A-Z]\w+) in addition to its other types\.""")
     val MILL_POWER_RETURN_SELF_AND_ONE = Regex("""mill cards equal to its power\. Return this card to its owner's hand and up to one (.+?) milled this way to the battlefield under your control\.""")
     val CHOOSE_UP_TO_X_WHERE = Regex("""When (.+) enters, choose up to X, where X is (.+?)(?: —)?""")

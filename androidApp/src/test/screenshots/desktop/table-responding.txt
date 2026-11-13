@@ -1,0 +1,1 @@
+Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the dock's Stack list shows the Spark with its target named in its text, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.

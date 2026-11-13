@@ -49,7 +49,7 @@ class LciChunk11EffectsAndTriggersTest {
     private val dinosaur = sub("Dinosaur")
     private val bottomRandom = Destination(Zone.Library, libraryPosition = -1, randomOrder = true)
     private fun elemental(vararg names: String) = Mechanic.SetTypes(add = listOf(CardType.Creature),
-        addSubtypes = names.map { SubtypeRef.Literal(Subtype(it)) }, replaceSubtypes = true)
+        addSubtypes = names.map { SubtypeRef.Literal(Subtype(it)) })
 
     // CR 700.11, 603.4: checked as the step begins and as it resolves; CR 101.4: each opponent chooses in turn order, then all at once;
     // CR 120.3: the damage to each opponent who did neither

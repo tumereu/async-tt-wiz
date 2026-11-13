@@ -13,7 +13,7 @@ internal object Fdn {
     val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")
     val SELF_BECOMES_CREATURE_WITH_ALL_TYPES = Regex("""(This \w+) becomes an? (\d+)/(\d+) creature with (\w+) and all creature types\. It's still an? \w+\.""")
     val PLAYER_SUBJECT = Regex("""^(?:Each opponent|Each player|Target opponent|Target player|Each other player)""")
-    val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles) .+""")
+    val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) .+""") // one chunk 05: "gets a poison counter"
     val CANT_LOSE_AND_OPPONENTS_CANT_WIN = Regex("""You can't lose the game and your opponents can't win the game\.""")
     val PREVENT_COMBAT_TO_AND_BY_SELF = Regex("""Prevent all combat damage that would be dealt to and dealt by (this \w+|enchanted creature|equipped creature)\.""")
     val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You lose life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
@@ -51,7 +51,8 @@ internal object Fdn {
     val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn (another )?target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
     // chunk 07
     val TARGET_PLAYER_HAS_EXACTLY_LIFE = Regex("""target player has exactly (\d+) life""")
-    val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)""")
+    // rvr chunk 03: also "… You gain 2 life if at least one creature card was exiled this way."
+    val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) (?:If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)|([^.]+?) if (?:at least one|an?) (.+?) (?:was|is) exiled this way\.)""")
     val IT_WAS_ATTACKING = Regex("""(?:it|that creature) was (attacking|blocking)""")
     val EFFECT_WOULD_PUT_COUNTERS_TWICE = Regex("""If an effect would put one or more counters on an? (.+?), it puts twice that many of those counters on that \S+ instead\.""")
     val PLAY_LAND_AND_EACH_PERMANENT_TYPE_FROM_GRAVEYARD = Regex("""During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard\.""")

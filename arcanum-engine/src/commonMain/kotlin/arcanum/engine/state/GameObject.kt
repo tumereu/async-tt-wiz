@@ -144,6 +144,8 @@ data class CastFacts(
     val manaSources: List<ObjectId> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
+    /** Cast at a time a sorcery couldn't have been cast (CR 307.1), or while something resolved. */
+    val outsideSorceryTiming: Boolean = false,
 ) {
     companion object {
         /** No facts: what an object that wasn't cast has. */

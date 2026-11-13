@@ -808,9 +808,10 @@ internal object Events {
         // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
         Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
-        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent)
+        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent); dmr chunk 02: "enchanted creature deals damage"
+        // (combat or not, CR 120.1)
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true)
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true.takeIf { m.groupValues[2].isNotEmpty() })
         }
         // dgm: "a creature deals combat damage to you"
         GTC_DEALS_COMBAT_DAMAGE_TO_YOU.matchEntire(text)?.let { m ->
@@ -865,7 +866,7 @@ internal object Events {
     private val GTC_YOU_TAP_FOR_MANA = Regex("""you tap (.+) for mana""")
     private val GTC_BECOMES_TAPPED = Regex("""(.+) becomes tapped""")
     private val GTC_IS_TAPPED_FOR_MANA = Regex("""(.+) is tapped for mana""")
-    private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals combat damage""")
+    private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals (combat )?damage""")
     private val GTC_DEALS_COMBAT_DAMAGE_TO_YOU = Regex("""(.+) deals combat damage to you""")
     private val GTC_PUT_INTO_OPPONENTS_GRAVEYARD = Regex("""(.+) is put into an opponent's graveyard from anywhere""")
     private val GTC_SPELL_DEALS_DAMAGE = Regex("""an? (.+ spell you control) deals damage""")

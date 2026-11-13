@@ -905,6 +905,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
+        // dmr: "If you cast it any time a sorcery couldn't have been cast" (CR 307.1)
+        is Condition.CastOutsideSorceryTiming -> objects(condition.of).any { id -> facts(id)?.outsideSorceryTiming == true }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()

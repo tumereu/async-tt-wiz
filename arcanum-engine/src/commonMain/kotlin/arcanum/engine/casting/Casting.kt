@@ -73,6 +73,8 @@ internal object Casting {
     fun cast(recorder: Recorder, input: Input.Cast, from: Int = recorder.changes.size): Progress {
         val snap = recorder.snapshot()
         refusal(snap, input)?.let { throw IllegalArgumentException(it) }
+        // dmr: whether a sorcery could have been cast as the casting begins (CR 307.1), before the card is on the Stack
+        val atSorceryTiming = Legality.sorceryTiming(snap, input.player)
         val o = recorder.state.objOrThrow(input.card)
         val fromHand = o.zone == Zone.Hand && o.owner == input.player
         val permitted = if (fromHand && input.way.permission == null) null
@@ -92,7 +94,9 @@ internal object Casting {
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
         // is known as its costs are determined (CR 601.2b, f)
         recorder.state.objOrThrow(onStack).let { moved ->
-            arcanum.engine.change.Changes.cast(recorder.state, onStack, moved.castOrNone.copy(castFrom = o.zone, fused = way.fused))?.let(recorder::record)
+            arcanum.engine.change.Changes.cast(recorder.state, onStack, moved.castOrNone.copy(castFrom = o.zone, fused = way.fused,
+                // dmr: "If you cast it any time a sorcery couldn't have been cast" (CR 307.1)
+                outsideSorceryTiming = !atSorceryTiming))?.let(recorder::record)
         }
         var names = Bindings.EMPTY
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
@@ -209,7 +213,9 @@ internal object Casting {
         if (face != now.face) act.record(Change.Face(onStack, now.face, face))
         // As for a cast with priority: from here on it is a spell cast from where its card was (CR 601.2a), so an
         // alternative cost for "a spell you cast from exile" still applies as its costs are determined (CR 601.2b, f)
-        arcanum.engine.change.Changes.cast(act.state, onStack, now.castOrNone.copy(castFrom = o.zone))?.let(act::record)
+        arcanum.engine.change.Changes.cast(act.state, onStack, now.castOrNone.copy(castFrom = o.zone,
+            // dmr: no player has priority while something resolves, so no sorcery could have been cast (CR 307.1, 608.2)
+            outsideSorceryTiming = true))?.let(act::record)
         // fin: "mana of any type can be spent to cast that spell" (CR 609.4b)
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
             holder = arcanum.api.PlayerFilter.You, manaAsAnyColor = manaAsAnyType)

@@ -233,3 +233,7 @@ fun addMana(symbols: String): Ability = activated(cost(tap), Step.Do(Effect.AddM
 /** "The player with the most life" (CR 119.1): each player whose life total is the greatest. */
 val playersWithMostLife: Players = Players.Each(PlayerFilter.Where(Condition.Compare(Value.LifeOf(Players.Tested), Comparison.Equal,
     Value.GreatestFor(Players.Each(PlayerFilter.Any), Value.LifeOf(Players.Tested)))))
+
+// ---- dmr chunk 02: Auras (CR 303.4)
+/** "Threshold — … as long as there are seven or more cards in your graveyard" (CR 207.2c). */
+val threshold: Condition = Condition.Exists(ObjectFilter.And(yourGraveyard), atLeast = 7)

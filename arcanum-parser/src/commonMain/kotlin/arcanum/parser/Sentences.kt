@@ -65,6 +65,7 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        dmrMulti(line)?.let { return it } // dmr
         // isd chunk 03: "Enchanted creature gets +2/+2 as long as it's a Human. Otherwise, it can't attack or block." (two static abilities,
         // one while the subject is of that kind and one while it isn't, CR 611.3a)
         Isd.AS_LONG_AS_ITS_A_OTHERWISE.matchEntire(line)?.let { m ->
@@ -2111,6 +2112,8 @@ internal class Sentences(
             "can't block" -> Mechanic.CantBlock(attackers = ObjectFilter.Any)
             "can't be blocked" -> Mechanic.CantBeBlocked
             "can't transform" -> Mechanic.CantTransform // inr chunk 04
+            // dmr chunk 02: "gets +3/+3 and doesn't untap during its controller's untap step" (CR 502.3)
+            "doesn't untap during its controller's untap step" -> Mechanic.DoesntUntap
             "loses all abilities" -> Mechanic.LoseAbilities() // dsk chunk 09
             else -> return null
         })
@@ -4629,9 +4632,11 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1))))
         }
         // In a mana trigger on tapping a permanent: its controller tapped it (CR 605.1b).
+        // dmr chunk 02: "its controller adds an additional {G}" (the tapped permanent's controller, as the gtc "one mana of any color" wording)
         THAT_PLAYER_ADDS_ADDITIONAL.matchEntire(sentence)?.let { m ->
-            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana)), players = Players.ControllerOf(Objects.EventObject(role = EventRole.Object)))))
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val tapped = if (m.groupValues[1] == "That player") Objects.EventObject(role = EventRole.Object) else context.it ?: return null
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana)), players = Players.ControllerOf(tapped))))
         }
         if (sentence == "Take an extra turn after this one.") return listOf(Step.Do(Effect.ExtraTurn(Players.You)))
         PUT_FROM_HAND_ON_TOP.matchEntire(sentence)?.let { m ->
@@ -7243,7 +7248,7 @@ internal class Sentences(
 
     /** dsk chunk 05: "Enchanted creature", "Equipped creature": the object this Aura or Equipment is attached to. */
     private fun attachedSubject(text: String): Objects? =
-        if (text == "Enchanted creature" || text == "Equipped creature" || text == "enchanted creature") Objects.AttachedTo(Objects.Self) else null
+        if (text == "Enchanted creature" || text == "Equipped creature" || text == "enchanted creature" || text == "equipped creature") Objects.AttachedTo(Objects.Self) else null
 
     /** dsk chunk 01: "it's a Reflection in addition to its other creature types" (CR 707.9b). */
     private fun copyExceptions(text: String): List<arcanum.api.CopyException>? {
@@ -8029,9 +8034,10 @@ internal class Sentences(
         Blb.CREATE_COPY_OF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Self), count = Value.Fixed(1), controller = Players.You)))
         }
-        // blb chunk 11: "Return this creature to its owner's hand."
-        Blb.RETURN_TO_OWNERS_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand))))
+        // blb chunk 11: "Return this creature to its owner's hand."; dmr chunk 02: "Return enchanted creature to its owner's hand."
+        Blb.RETURN_TO_OWNERS_HAND.matchEntire(sentence)?.let { m ->
+            val what = if (isSelf(m.groupValues[1])) Objects.Self else attachedSubject(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.Move(what, Destination(Zone.Hand))))
         }
         // blb chunk 11: "Return up to one target creature you control with lesser mana value to its owner's hand." (lesser
         // than the creature that entered)
@@ -8977,8 +8983,10 @@ internal class Sentences(
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1)))
         }
         // rtr chunk 06: "All creatures able to block this creature do so." (a blocking requirement, CR 509.1c)
-        Rtr.ALL_ABLE_TO_BLOCK_DO_SO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return Ability.Static(listOf(Mechanic.MustBlock(ObjectFilter.Is(Objects.Self))), affects = Affected.Objects(Objects.Each(ObjectFilter.Type(CardType.Creature))))
+        // dmr chunk 02: also "All creatures able to block enchanted creature do so."
+        Rtr.ALL_ABLE_TO_BLOCK_DO_SO.matchEntire(line)?.let { m ->
+            val lure = if (isSelf(m.groupValues[1])) Objects.Self else attachedSubject(m.groupValues[1]) ?: return@let
+            return Ability.Static(listOf(Mechanic.MustBlock(ObjectFilter.Is(lure))), affects = Affected.Objects(Objects.Each(ObjectFilter.Type(CardType.Creature))))
         }
         // rtr chunk 06: "During turns other than yours, tapped creatures you control have hexproof."
         Rtr.DURING_OTHER_TURNS_HAVE.matchEntire(line)?.let { m ->
@@ -11477,7 +11485,7 @@ internal class Sentences(
         val RETURN_ALL_PUT_THERE_THIS_TURN = Regex("""(Each player returns|Return) to the battlefield all (.+?) in (their|your) graveyard that were put there from the battlefield this turn\.""")
         val PUT_THERE_FROM_BATTLEFIELD_THIS_TURN = ObjectFilter.ThisTurn(EventPattern.ZoneChange(from = Zone.Battlefield, to = Zone.Graveyard, objects = ObjectFilter.Any))
         val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in any order\.""")
-        val THAT_PLAYER_ADDS_ADDITIONAL = Regex("""That player adds an additional (\{.\})\.""")
+        val THAT_PLAYER_ADDS_ADDITIONAL = Regex("""(That player|Its controller) adds an additional (\{.\})\.""")
         // chunk 20
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
         val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
@@ -11621,8 +11629,8 @@ internal class Sentences(
         // chunk 45
         val AS_LONG_AS_FIRST = Regex("""As long as (.+?), (.+)""")
         val AS_LONG_AS_LAST = Regex("""(.+) as long as (.+)\.""")
-        val SUBJECT_PREDICATES = Regex("""(.+?) ((?:gets?|has|have|can't|attacks|loses) .+)\.""")
-        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|attacks|loses) )|, (?=(?:gets?|has|have|can't|attacks|loses) )""")
+        val SUBJECT_PREDICATES = Regex("""(.+?) ((?:gets?|has|have|can't|doesn't|attacks|loses) .+)\.""")
+        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|doesn't|attacks|loses) )|, (?=(?:gets?|has|have|can't|doesn't|attacks|loses) )""")
         val GETS_PT = Regex("""gets? ([+-]\d+)/([+-]\d+)(?: for each (.+))?""")
         val HAS_KEYWORDS = Regex("""(?:has|have) (.+)""")
         val MAY_PLAY_FROM_TOP = Regex("""[Yy]ou may (play|cast) (.+?) from the top of your library\.""")
@@ -15688,6 +15696,20 @@ internal class Sentences(
                 objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(without))),
                 players = Players.Each(without)))), affects = Affected.Objects(Objects.Self))
         }
+        return null
+    }
+
+    /** dmr: lines that are more than one ability. */
+    private fun dmrMulti(line: String): List<Ability>? {
+        // dmr chunk 02: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the
+        // controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step." (CR 702.8a, 307.1, 514.3a): the
+        // permission, and the permanent's own once-only trigger at the next cleanup step, while it is the permanent that spell became
+        // (CR 400.7d); its controller then sacrifices it
+        if (line == Dmr.FLASH_SACRIFICE_AT_NEXT_CLEANUP) return listOf(
+            Ability.Static(listOf(Mechanic.InstantSpeed), affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Cleanup, PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))),
+                interveningIf = arcanum.api.Condition.CastOutsideSorceryTiming(Objects.Self), once = true))
         return null
     }
 

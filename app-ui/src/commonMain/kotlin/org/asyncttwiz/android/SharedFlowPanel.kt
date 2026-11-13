@@ -99,7 +99,9 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     }
     // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
     // the cast panel, the eye always at the same spot
-    AboveHand(handRow(scene, viewer)) {
+    // WEB-019: on the desktop table picking on the board and paying there are a strip, the other choices a centred overlay
+    val place = if (decision != null && flows.answering != null && !flows.targeting && !flows.paying) PromptPlace.Choice else PromptPlace.Board
+    AboveHand(handRow(scene, viewer), place) {
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {

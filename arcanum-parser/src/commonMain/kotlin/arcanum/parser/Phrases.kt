@@ -960,7 +960,8 @@ internal object Events {
     private val STEPS = mapOf<String, arcanum.api.TurnStep>("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
         // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
         "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
-    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
+    // mom chunk 10: "one or more artifacts and/or creatures you control are put into a graveyard from the battlefield" (a batch)
+    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
     // chunk 12
@@ -1044,7 +1045,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
-        MomPhrases.condition(text)?.let { return it } // mom
+        MomPhrases.condition(text, self)?.let { return it } // mom
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

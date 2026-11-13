@@ -354,6 +354,9 @@ sealed interface Players {
      * the battle they attack (CR 506.2, 802.2a). In an attack trigger, "defending player" is
      * `DefendingPlayerOf(EventObject())`; [EventPlayer] is only for "the player it's attacking". */
     @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
+    // mom chunk 10
+    /** The protector of each battle in [battles] ("If an opponent protects it", CR 310.8, 310.9). */
+    @Serializable @SerialName("protector-of") data class ProtectorOf(val battles: Objects) : Players
     /** In a permission ([Mechanic.MayPlay]): the player using it ("Any player may cast creature spells … from their
      * hand": cards owned by the holder). */
     @Serializable @SerialName("holder") data object Holder : Players

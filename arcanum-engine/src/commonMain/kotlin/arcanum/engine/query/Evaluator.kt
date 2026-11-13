@@ -283,6 +283,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 }
             }.distinct()
         }
+        // mom: the player protecting each battle (CR 310.8)
+        is Players.ProtectorOf -> objects(players.battles).mapNotNull { state.obj(it)?.protector }.distinct()
         Players.Holder -> listOfNotNull(ctx.holder)
         Players.Tested -> listOfNotNull(ctx.testedPlayer)
         Players.SlotPlayer -> listOfNotNull(ctx.slotPlayer)

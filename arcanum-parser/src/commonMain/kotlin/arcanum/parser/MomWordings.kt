@@ -49,7 +49,7 @@ internal object Mom {
     // mom chunk 05: Hoarding Broodlord
     // mom chunk 07: Halo-Charged Skaab "you may put an instant, sorcery, or battle card from your graveyard on top of your library", Unseal the
     // Necropolis "you return up to two creature cards from your graveyard to your hand" (no target: chosen as it resolves)
-    val CHOOSE_FROM_YOUR_GRAVEYARD_MOVE = Regex("""(?:You (may )?)?(?:[Rr]eturn|[Pp]ut) (an?|up to \w+) (.+?) from your graveyard (to your hand|on top of your library)\.""")
+    val CHOOSE_FROM_YOUR_GRAVEYARD_MOVE = Regex("""(?:You (may )?)?(?:[Rr]eturn|[Pp]ut) (an?|up to \w+) (.+?) from your graveyard (to your hand|on top of your library|to the battlefield(?: tapped)?)\.""")
     // mom chunk 07: Nezumi Freewheeler's back "put target permanent card with mana value 2 or less from a graveyard onto the battlefield under your control"
     val PUT_TARGET_FROM_A_GRAVEYARD_UNDER_YOUR_CONTROL = Regex("""[Pp]ut target (.+?) from a graveyard onto the battlefield( tapped)? under your control\.""")
     // mom chunk 07: Realmbreaker "Target opponent mills three cards. Put a land card from their graveyard onto the battlefield tapped under your control."
@@ -71,6 +71,13 @@ internal object Mom {
     // mom chunk 09: Kogla and Yidaro "Shuffle this card into your library from your graveyard" (after discarding it as a cost)
     val SHUFFLE_THIS_CARD_FROM_YOUR_GRAVEYARD = Regex("""[Ss]huffle this card into your library from your graveyard\.""")
     val SEARCH_EXILE_FACE_DOWN_MAY_PLAY = Regex("""[Ss]earch your library for an? (.+?), exile it face down, then shuffle\. For as long as that card remains exiled, you may play it\.""")
+    // mom chunk 10: Rampaging Geoderm "it's attacking a battle", Portent Tracker "an opponent protects it" (conditions about it)
+    val ITS_ATTACKING_A = Regex("""it's attacking an? (.+)""")
+    val PROTECTS_IT = Regex("""(an opponent|you) protects? it""")
+    // mom chunk 10: Furnace Reins 'Until end of turn, it gains haste and "Whenever this creature deals combat damage …"'
+    val UNTIL_EOT_IT_GAINS_AND_QUOTED = Regex("""Until end of turn, (it|that creature) gains ([a-z ,]+?) and "(.+)"\.?""")
+    // mom chunk 10: Rankle and Torbran "If a source would deal damage to a player or battle this turn, it deals that much damage plus 2 instead."
+    val SOURCE_DAMAGE_PLUS_THIS_TURN = Regex("""If a source would deal damage to (a player or battle|a player|an opponent) this turn, it deals that much damage plus (\d+) instead\.""")
 }
 
 /** mom: nouns and conditions of March of the Machine wordings, tried by [Filters] and [Conditions]. */
@@ -115,6 +122,8 @@ internal object MomPhrases {
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN = Regex("""an? (.+?) was put into a graveyard from the battlefield this turn""")
 
     private val OPPONENT_HAS_CARDS_IN_GRAVEYARD = Regex("""an opponent has (\w+) or more cards in their graveyard""")
+    // mom chunk 10: War Historian "it attacked a battle this turn"
+    private val SELF_ATTACKED_A_THIS_TURN = Regex("""(.+?) attacked an? (battle|planeswalker) this turn""")
 
     /** mom chunk 01: Heliod, the Warped Eclipse "card your opponents have drawn this turn" (one draw is one card, CR 121.2) */
     fun value(text: String): arcanum.api.Value? {
@@ -125,7 +134,13 @@ internal object MomPhrases {
         return null
     }
 
-    fun condition(text: String): Condition? {
+    fun condition(text: String, self: Set<String>): Condition? {
+        // mom chunk 10: War Historian "it attacked a battle this turn" (in a static ability, "it" is this object; what it attacked, CR 506.3)
+        SELF_ATTACKED_A_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let { m ->
+            val defender = Filters.noun(m.groupValues[2]) ?: return null
+            val selfIs = ObjectFilter.Is(arcanum.api.Objects.Self)
+            return Condition.ObjectMatches(arcanum.api.Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(selfIs, target = RecipientFilter(objects = defender))))
+        }
         // mom chunk 01: Marchesa "you haven't been dealt combat damage since your last turn" (CR 510.2)
         if (text == "you haven't been dealt combat damage since your last turn")
             return Condition.Not(Condition.HappenedSinceYourLastTurn(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.You), combat = true),

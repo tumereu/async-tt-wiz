@@ -68,7 +68,7 @@ internal object Fra {
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
     val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
-    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on it instead\.""")
+    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
     val TOKENS_CREATED_INSTEAD = Regex("""If one or more (.+?) tokens would be created under your control, that many (.+? creature) tokens(?: with (.+))? are created instead\.""")
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted permanent is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?) and )?"(.+)"""")

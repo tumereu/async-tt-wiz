@@ -45,7 +45,7 @@ internal object Msh {
 
     // msh chunk 04: Heroes and Villains
     val ATTACKED_WITH_THIS_TURN = Regex("""you attacked with an? (.+) this turn""")
-    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
+    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(an?|another) (.+) entered the battlefield under your control this turn""") // mom: another
     val HAS_COUNTER_ON = Regex("""(.+) has an? (\S+) counter on (?:it|him|her|them)""")
     val OPPONENT_HAS_CAST_THIS_TURN = Regex("""an opponent has cast a spell this turn""")
     val POWER_AT_MOST = Regex("""(?:its|his|her|(.+)'s) power is (\d+) or (less|greater)""")
@@ -218,8 +218,10 @@ internal object MshPhrases {
             return Condition.HappenedThisTurn(EventPattern.Attack(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         }
         // msh chunk 04: "a Hero entered the battlefield under your control this turn"
+        // mom chunk 10: "another Knight entered the battlefield under your control this turn" (not this object)
         Msh.ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val filter = if (m.groupValues[1] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(arcanum.api.Objects.Self)), noun) else noun
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield),
                 atLeast = 1, measure = Measure.Events)
         }

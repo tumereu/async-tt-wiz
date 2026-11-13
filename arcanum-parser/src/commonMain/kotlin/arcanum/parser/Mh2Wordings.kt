@@ -16,7 +16,7 @@ internal object Mh2 {
     // mh2 chunk 01
     val REMOVE_X_COUNTERS_FROM_SELF = Regex("""Remove X (\S+) counters from (.+)""")
     val THEN_ATTACH_SELF_TO_IT = Regex("""(.+), then attach (.+?) to it\.""")
-    val IF_ITS_A_THEN = Regex("""If it's an? (.+?), (it .+)""")
+    val IF_ITS_A_THEN = Regex("""If it's an? (.+?), (.+)""") // mom chunk 10: any effect on it
     val YOU_GAIN_HEXPROOF_UNTIL_YOUR_NEXT_TURN = Regex("""You gain hexproof until your next turn\.""")
     val PUT_TARGET_CARD_FROM_OPPONENTS_GRAVEYARD_ON_BOTTOM = Regex("""[Pp]ut target card from an opponent's graveyard on the bottom of their library\.""")
     // mh2 chunk 02

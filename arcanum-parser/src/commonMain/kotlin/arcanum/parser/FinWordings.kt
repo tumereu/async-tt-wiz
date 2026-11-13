@@ -142,7 +142,7 @@ internal object Fin {
     val IF_THAT_CARD_ENTERS_TAPPED_ATTACKING = Regex("""If that card is an? (.+?), it enters tapped and attacking\.""")
     // fin chunk 02
     val TARGETS_OWNER_SHUFFLES = Regex("""Target (.+?)'s owner shuffles it into their library\.""")
-    val REMOVE_COUNTER_FROM_TARGET = Regex("""Remove (a|an|one|two|three) (\S+) counters? from target (.+)\.""")
+    val REMOVE_COUNTER_FROM_TARGET = Regex("""Remove (a|an|one|two|three) (\S+) counters? from (?:target (.+)|(it))\.""") // mom: from it
     val TRIPLE_TARGET_PT = Regex("""Triple target (.+?)'s power and toughness until end of turn\.""")
     val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile) up to (\w+) target (.+?) from a single graveyard\.""")
     val GAINS_QUOTE_AND_BASE_PT = Regex("""Until end of turn, target (.+?) gains "(.+?)" and has base power and toughness (\d+)/(\d+)\.""")

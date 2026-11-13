@@ -86,7 +86,8 @@ internal object Dft {
     val THAT_PLAYER_CREATES = Regex("""That player creates (.+)\.""")
     val LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY = Regex("""Its controller looks at the top card of that opponent's library and exiles it face down\. They may play that card for as long as it remains exiled\. Mana of any type can be spent to cast a spell this way\.""")
     val CHOOSE_TARGET_MILL_DESTROY_IF_MV = Regex("""Choose target (.+?)\. Mill (\w+) cards, then destroy the chosen permanent if its mana value is less than or equal to the number of cards in your graveyard\.""")
-    val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
+    // otj chunk 07: also "an outlaw was sacrificed this way" (the cost's sacrificed object)
+    val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)|an? (\w+) was sacrificed this way""")
     // dft chunk 13
     val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
     val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
@@ -157,7 +158,7 @@ internal object DftPhrases {
                 atLeast = Numbers.count(m.groupValues[1]) ?: return null)
         }
         // dft chunk 12: "the sacrificed permanent was a Vehicle" (the cost's permanent as it last existed, CR 608.2h)
-        Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1]) ?: return null) }
+        Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return null) }
         // dft chunk 08: "it's not their turn" (the player of the event isn't the active player)
         if (text == "it's not their turn") return Condition.PlayerMatches(Players.EventPlayer, arcanum.api.PlayerFilter.Not(arcanum.api.PlayerFilter.Is(Players.Active)))
         // dft chunk 03: "a Pirate and a Vehicle attacked this combat" (attacking creatures of each)

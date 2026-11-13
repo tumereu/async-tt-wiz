@@ -2099,7 +2099,8 @@ internal class Sentences(
         var cost = cost(line.substring(0, colon)) ?: return null
         var text = line.substring(colon + 2)
         // chunk 25: "the sacrificed land" reads the sacrificed object as it last existed (CR 608.2h)
-        if (text.contains("the sacrificed ")) cost = Cost(cost.parts.map { if (it is CostPart.Sacrifice) it.copy(preBind = SACRIFICED) else it })
+        // otj chunk 07: so does "If an outlaw was sacrificed this way"
+        if (text.contains("the sacrificed ") || text.contains(" was sacrificed this way")) cost = Cost(cost.parts.map { if (it is CostPart.Sacrifice) it.copy(preBind = SACRIFICED) else it })
         var costChange: arcanum.api.CostChange? = null
         var condition: arcanum.api.Condition? = null
         var timing: arcanum.api.Timing = arcanum.api.Timing.Any
@@ -2207,7 +2208,7 @@ internal class Sentences(
                 Value.Count(Objects.Where(Objects.Target(slot.name), filter)))
         }
         // chunk 20: "the sacrificed creature's power" reads the sacrificed object as it last was (CR 608.2h)
-        val named = if (!text.contains("the sacrificed ")) cost else cost.copy(parts = cost.parts.map {
+        val named = if (!text.contains("the sacrificed ") && !text.contains(" was sacrificed this way")) cost else cost.copy(parts = cost.parts.map {
             if (it is CostPart.Sacrifice && it.what is CostObjects.Choose) it.copy(preBind = SACRIFICED) else it
         })
         // chunk 45: "Activate only if this card is suspended" states the zone it works in (CR 113.6b)
@@ -3937,9 +3938,14 @@ internal class Sentences(
         if (sentence == "After this phase, there is an additional combat phase.") return listOf(Step.Do(Effect.ExtraCombat()))
         // dsk chunk 07: "Create a number of 1/1 … tokens with flying equal to the number of card types among cards in your
         // graveyard."
+        // otj chunk 07: "When this creature dies, create a number of tapped Treasure tokens equal to its power." (in a dies trigger: its last
+        // power, CR 608.2h)
         CREATE_A_NUMBER_EQUAL_TO.matchEntire(sentence)?.let { m ->
-            val (_, token) = Tokens.spec("a " + m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(token, count = Values.value(m.groupValues[2], exiledCard) ?: return null, controller = Players.You)))
+            val (_, token) = Tokens.spec("a " + m.groupValues[2]) ?: return null
+            val dies = (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects == ObjectFilter.Is(Objects.Self) && it.from == Zone.Battlefield && it.to == Zone.Graveyard }
+            val count = if (m.groupValues[3] != "its power") Values.value(m.groupValues[3], exiledCard) ?: return null
+                else Value.Of(arcanum.api.NumericProperty.Power, if (dies != null) Objects.EventObject(EventRole.Before) else Objects.Self, arcanum.api.Combine.Single)
+            return listOf(Step.Do(Effect.CreateToken(token, count = count, tapped = m.groupValues[1].isNotEmpty(), controller = Players.You)))
         }
         // dsk chunk 07: "This creature deals that amount of damage to target creature that player controls."
         DEALS_THAT_AMOUNT_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -9496,6 +9502,8 @@ internal class Sentences(
                 }
             }
             subject == "it" || subject == "It" -> context.it ?: return null
+            // otj chunk 07: "Until end of turn, up to one target creature gets +2/+2 for each Treasure you control." (CR 115.1)
+            subject.startsWith("up to one target ") || subject.startsWith("Up to one target ") -> eoeTarget(subject, context) ?: return null
             // rtr chunk 03: "Each creature you control gets …" (an overloaded spell, CR 702.96b)
             subject.startsWith("Each ") -> Objects.Each(Filters.noun(subject.removePrefix("Each ")) ?: return null)
             else -> return null
@@ -11277,7 +11285,7 @@ internal class Sentences(
         val MAXIMUM_HAND_SIZE_MINUS_CARD_TYPES = Regex("""Each opponent's maximum hand size is equal to (\w+) minus the number of those card types\.""")
         val WOULD_DEAL_DOUBLE = Regex("""If a source you control would deal (noncombat |combat )?damage to (a permanent or player|an opponent or a permanent an opponent controls)(?: while (.+?))?, it deals double that damage instead\.""")
         val ACTIVATE_ONLY_IF_AND_AS_SORCERY = Regex("""Activate only if (.+?) and only as a sorcery\.""")
-        val CREATE_A_NUMBER_EQUAL_TO = Regex("""Create a number of (.+? tokens?(?: with .+?)?) equal to (the number of .+)\.""")
+        val CREATE_A_NUMBER_EQUAL_TO = Regex("""[Cc]reate a number of (tapped )?(.+? tokens?(?: with .+?)?) equal to (the number of .+|its power)\.""")
         val DEALS_THAT_AMOUNT_TO_TARGET = Regex("""(.+?) deals that (?:amount of|much) damage to target (.+)\.""")
         val IF_ITS_A_YOU_MAY_PUT_ONTO_BATTLEFIELD = Regex("""If it's an? (.+?), you may put it onto the battlefield\.""")
         val DISTRIBUTE_COUNTERS_AMONG = Regex("""Distribute (\w+) (\S+) counters among (\w+) or (\w+) target (.+)\.""")
@@ -15580,8 +15588,10 @@ internal class Sentences(
             val damage = effect(m.groupValues[1], context) ?: return@let
             val deal = (damage.singleOrNull() as? Step.Do)?.effect as? Effect.DealDamage ?: return@let
             if (deal.bind != null) return@let
-            val (_, token) = Tokens.spec("a " + m.groupValues[2]) ?: return@let
-            return listOf(Step.Do(deal.copy(bind = "damage")), Step.Do(Effect.CreateToken(token, count = Value.Excess("damage"), controller = Players.You)))
+            // otj chunk 07: "Create a number of tapped Treasure tokens equal to …"
+            val tapped = m.groupValues[2].startsWith("tapped ")
+            val (_, token) = Tokens.spec("a " + m.groupValues[2].removePrefix("tapped ")) ?: return@let
+            return listOf(Step.Do(deal.copy(bind = "damage")), Step.Do(Effect.CreateToken(token, count = Value.Excess("damage"), tapped = tapped, controller = Players.You)))
         }
         // fdn chunk 08: "Whenever you cast an instant or sorcery spell, copy it for each other instant and sorcery spell you've cast before it
         // this turn. You may choose new targets for the copies." (as storm counts, CR 702.40a, 707.10)

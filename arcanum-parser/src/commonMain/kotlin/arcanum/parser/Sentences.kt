@@ -9358,7 +9358,11 @@ internal class Sentences(
         // existed, CR 608.2h)
         Rtr.IT_DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.let { m ->
             val to = rtrTarget(m.groupValues[1], context) ?: return null
-            return listOf(Step.Do(Effect.DealDamage(to, Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), Objects.Self)))
+            // rvr chunk 13: "Whenever another creature you control dies, it deals damage equal to its power to …": "it" is the creature
+            // of the event, as it last existed (CR 603.10a, 608.2h), and it is the damage's source (CR 120.3)
+            val source = (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects != ObjectFilter.Is(Objects.Self) }
+                ?.let { Objects.EventObject(if (it.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before) } ?: Objects.Self
+            return listOf(Step.Do(Effect.DealDamage(to, Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source)))
         }
         // rtr chunk 08: "This creature deals 1 damage to target creature and each other creature with the same name as that creature."
         Rtr.DEALS_TO_TARGET_AND_SAME_NAME.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->

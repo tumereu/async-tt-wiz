@@ -515,6 +515,36 @@ internal object Payment {
 
     // ---- Finishing
 
+    /** otj: the [Condition.AsCast] conditions in a spell's own instructions. */
+    private fun asCastConditions(ability: arcanum.api.Ability?): List<Condition.AsCast> {
+        val found = mutableListOf<Condition.AsCast>()
+        fun condition(c: Condition) {
+            when (c) {
+                is Condition.AsCast -> found += c
+                is Condition.And -> c.all.forEach(::condition)
+                is Condition.Or -> c.any.forEach(::condition)
+                is Condition.Not -> condition(c.condition)
+                else -> Unit
+            }
+        }
+        fun steps(list: List<arcanum.api.Step>): Unit = list.forEach { step ->
+            when (step) {
+                is arcanum.api.Step.If -> { condition(step.condition); steps(step.then); steps(step.otherwise) }
+                is arcanum.api.Step.RepeatWhile -> { steps(step.steps); condition(step.condition) }
+                is arcanum.api.Step.Simultaneously -> steps(step.steps)
+                is arcanum.api.Step.Pay -> steps(step.steps)
+                is arcanum.api.Step.May -> steps(step.steps)
+                is arcanum.api.Step.ForEach -> steps(step.steps)
+                is arcanum.api.Step.Repeat -> steps(step.steps)
+                else -> Unit
+            }
+        }
+        val instructions = (ability as? arcanum.api.Ability.Spell)?.instructions ?: return found
+        steps(instructions.steps)
+        instructions.modes?.options?.forEach { steps(it.instructions.steps) }
+        return found
+    }
+
     private fun finishSpell(
         recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>,
         paidWith: Map<ManaPaymentWay, List<ObjectId>>,
@@ -537,6 +567,11 @@ internal object Payment {
             chosenPlayer = plan.total.parts.firstNotNullOfOrNull { kp ->
                 (plan.choices.names[Plan.PLAYER + kp.key] as? NamedValue.Players)?.ids?.firstOrNull()?.takeIf { kp.part is CostPart.ChoosePlayer }
             },
+            // otj: "if you controlled a Mount as you cast this spell", checked as it becomes cast (CR 601.2i)
+            heldAsCast = asCastConditions(plan.item.ability).takeIf { it.isNotEmpty() }?.let { conditions ->
+                val evaluator = Snapshot(s).evaluator(plan.player, self = id, names = names, stackItem = plan.item)
+                conditions.filter { evaluator.holds(it.condition) }
+            }.orEmpty(),
         )
         arcanum.engine.change.Changes.cast(s, id, facts)?.let(recorder::record)
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,

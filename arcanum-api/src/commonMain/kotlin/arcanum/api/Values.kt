@@ -220,6 +220,10 @@ sealed interface Condition {
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
+    // otj
+    /** [condition] held as this spell became cast (CR 601.2i): "if you controlled a Mount as you cast this spell". Checked then and kept
+     * with the spell; false for a spell that wasn't cast (a copy, CR 707.10). */
+    @Serializable @SerialName("as-cast") data class AsCast(val condition: Condition) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(

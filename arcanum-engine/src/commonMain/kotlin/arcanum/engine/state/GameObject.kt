@@ -144,6 +144,8 @@ data class CastFacts(
     val manaSources: List<ObjectId> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
+    /** otj: the "as you cast this spell" conditions of its own text that held as it became cast (CR 601.2i). */
+    val heldAsCast: List<arcanum.api.Condition> = emptyList(),
 ) {
     companion object {
         /** No facts: what an object that wasn't cast has. */

@@ -96,7 +96,7 @@ internal object Ecl {
     val AS_ENTERS_CHOOSE_TYPE_AMONG = Regex("""As (.+?) enters, choose ((?:[A-Z]\w+, )+or [A-Z]\w+)\.""")
     val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a creature type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
-    val IT_DEALS_INSTEAD_IF =Regex("""It deals (\d+) damage to that creature instead if (.+)\.""")
+    val IT_DEALS_INSTEAD_IF =Regex("""(It|.+?) deals (\d+) damage to that creature instead if (.+)\.""") // otj chunk 11: its name
     val GET_X_X_WHERE = Regex("""(.+?) get \+X/\+X, where X is (.+)\.""")
     val GETS_FOR_EACH_AND_EACH = Regex("""(.+?) gets \+1/\+1 for each (.+?) and each (.+)\.""")
     val SPELLS_OF_CHOSEN_TYPE_COST_LESS = Regex("""Spells you cast of the chosen type cost (\{\d+\}) less to cast\.""")
@@ -122,7 +122,7 @@ internal object Ecl {
     val MILLS_THEN_PUTS_EACH_INTO_HAND = Regex("""Target player mills (\w+) cards, then puts each (.+?) milled this way into their hand\.""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) from your graveyard to your hand\.""")
     val CREATE_FOR_EACH = Regex("""[Cc]reate (an? .+? token(?: with [a-z ]+)?) for each (.+)\.""")
-    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""")
+    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""") // otj chunk 11: X
     val BECOMES_ALL_COLORS = Regex("""Target (.+?) becomes all colors until end of turn\.""")
     val BECOMES_THE_CHOSEN_COLOR = Regex("""(.+?) becomes the chosen color\.""")
     val ADD_X_OR_X = Regex("""Add X \{([WUBRG])\} or X \{([WUBRG])\}\.""")

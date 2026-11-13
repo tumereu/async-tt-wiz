@@ -245,6 +245,7 @@ internal object Tdm {
 internal object TdmPhrases {
     private val BASIC_TYPES_LIST = Regex("""basic ((?:[A-Z]\w+, )+)or ([A-Z]\w+)(?: cards?)?""")
     private val NAMED_OR_NAMED = Regex("""cards? named (.+?) or (.+)""")
+    private val SPELLS_CAST_THIS_TURN = Regex("""the number of (other )?(\w+ )?spells (you've|they've) cast this turn""")
     private val OR_A_SPELL_YOU_CONTROL = Regex("""(.+? you control) or an? (\w+) spell you control""")
     // tdm chunk 13: "permanent that's one or more colors" (not colorless, CR 105.2c)
     private val ONE_OR_MORE_COLORS = Regex("""(.+?) that's one or more colors""")
@@ -317,7 +318,15 @@ internal object TdmPhrases {
         // tdm chunk 08: "the number of counters on this creature" (every kind)
         if (text == "the number of counters on this creature") return Value.Of(NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // tdm chunk 10: "the number of spells you've cast this turn" (CR 601.2i)
-        if (text == "the number of spells you've cast this turn") return Value.EventsThisTurn(EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.You), Measure.Events)
+        // otj chunk 11: "the number of other spells you've cast this turn" (not this spell), "… noncreature spells they've cast this turn" (they: the
+        // event's player)
+        SPELLS_CAST_THIS_TURN.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim()) ?: return null }
+            val spells = listOfNotNull(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)).takeIf { m.groupValues[1].isNotEmpty() }, kind)
+            val by = if (m.groupValues[3] == "you've") PlayerFilter.You else PlayerFilter.Is(arcanum.api.Players.EventPlayer)
+            return Value.EventsThisTurn(EventPattern.Cast(spells.singleOrNull() ?: if (spells.isEmpty()) ObjectFilter.Any else Filters.all(*spells.toTypedArray()), by = by),
+                Measure.Events)
+        }
         return null
     }
 }

@@ -74,7 +74,7 @@ internal object Sos {
     val DISCARD_HAND_DRAW_EQUAL_DISCARDED = Regex("""(Discard your hand|Target player discards all the cards in their hand), then (?:draw cards equal to the number of cards discarded this way|draws that many cards)\.""")
     val DISCARD_ANY_NUMBER_DRAW_THAT_MANY = Regex("""(Target player discards|[Dd]iscard) any number of cards, then (?:draws?) that many cards( plus one)?\.""")
     val DISCARDS_PUT_LAND_ONTO_BATTLEFIELD = Regex("""Target player discards (\w+) cards\. Put up to one land card discarded this way onto the battlefield tapped under your control\.""")
-    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_DISCARD = Regex("""Any number of target players each discard a card\.""")
+    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_DISCARD = Regex("""[Aa]ny number of target (players|opponents) each discard a card\.""") // otj chunk 11: opponents
     val EACH_PLAYER_LOSES_HALF = Regex("""Each player loses half their life, then discards half the cards in their hand, then sacrifices half the permanents they control of their choice\. Round down each time\.""")
     val TARGET_OPPONENT_EXILES_GREATEST = Regex("""Target opponent exiles an? (.+?) they control with the greatest mana value among (.+?) they control\.""")
 

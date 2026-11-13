@@ -211,6 +211,10 @@ internal object Filters {
             val statuses = m.groupValues[1].split(LazyRegexes.OR_LIST).map { word(it) ?: return null }
             return all(ObjectFilter.Or(statuses), noun(m.groupValues[2]) ?: return null)
         }
+        // otj chunk 11: "creatures you control but don't own" (CR 108.3, 108.4)
+        CONTROLLED_NOT_OWNED.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.OwnedBy(PlayerFilter.You)))
+        }
         // dsk chunk 09: "creatures and/or enchantments you own"
         OWNED.matchEntire(phrase)?.let { m -> noun(m.groupValues[1].replace(" and/or ", " or "))?.let { return and(it, ObjectFilter.OwnedBy(PlayerFilter.You)) } }
         CONTROLLED.matchEntire(phrase)?.let { m ->
@@ -380,10 +384,12 @@ internal object Filters {
     fun all(vararg filters: ObjectFilter): ObjectFilter =
         ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) })
 
-    private fun singular(word: String): String = when {
+    internal fun singular(word: String): String = when {
         word.endsWith("s") && word.dropLast(1).lowercase() in SINGULAR_NOUNS -> word.dropLast(1)
         word.first().isUpperCase() && word !in RulesWords.subtypes ->
-            IRREGULAR_PLURALS[word] ?: word.removeSuffix("s").takeIf { word.endsWith("s") && it in RulesWords.subtypes } ?: word
+            IRREGULAR_PLURALS[word] ?: word.removeSuffix("s").takeIf { word.endsWith("s") && it in RulesWords.subtypes }
+                // otj chunk 11: "Mercenaries"
+                ?: (word.removeSuffix("ies") + "y").takeIf { word.endsWith("ies") && it in RulesWords.subtypes } ?: word
         else -> word
     }
 
@@ -453,6 +459,7 @@ internal object Filters {
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls)""")
     // dsk chunk 09
     private val OWNED = Regex("""(.+) you own""")
+    private val CONTROLLED_NOT_OWNED = Regex("""(.+) you control but don't own""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")

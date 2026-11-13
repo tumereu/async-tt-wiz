@@ -70,11 +70,23 @@ internal object Otj {
     val FLIP_WHEN_WIN_WHEN_LOSE = Regex("""(?:(You may .+?)\. If you do, f|F)lip a coin\. When you win the flip, (.+?) When you lose the flip, (.+)""")
     // otj chunk 06: Bonny Pall: "Create Beau, a legendary blue Ox creature token with "…"." (CR 111.4)
     val CREATE_NAMED_LEGENDARY = Regex("""Create ([A-Z][a-z]+), a legendary (.+? token)( with .+)?\.""")
+    // otj chunk 11: Laughing Jasper Flint, after exiling the top X cards of target opponent's library
+    const val CAST_FROM_AMONG_THOSE_UNTIL_EOT_ANY_MANA =
+        "Until end of turn, you may cast spells from among those cards, and mana of any type can be spent to cast those spells."
+    // otj chunk 11: Binding Negotiation: "Otherwise, you may put a face-up exiled card they own into their graveyard."
+    val MAY_PUT_FACE_UP_EXILED_INTO_GRAVEYARD = Regex("""You may put an? face-up exiled (card|.+? card) they own into their graveyard\.""")
+    // otj chunk 11: Boom Box
+    val DESTROY_UP_TO_ONE_EACH = Regex("""Destroy ((?:up to one target [^,]+, )+and up to one target [^,]+)\.""")
+    // otj chunk 11: Magebane Lizard
+    val DEALS_DAMAGE_TO_THAT_PLAYER_EQUAL_TO = Regex("""(.+?) deals damage to that player equal to (.+)\.""")
+    // otj chunk 11: Hollow Marauder, after "any number of target opponents each discard a card"
+    val FOR_EACH_WHO_DIDNT_DISCARD = Regex("""For each of those (opponents|players) who didn't discard (an? .+?), (.+)""")
 }
 
 /** Phrases first met in Outlaws of Thunder Junction (OTJ). */
 internal object OtjPhrases {
     private val HAVENT_CAST_A_SPELL = Regex("""you haven't cast a spell( from your hand)? this turn""")
+    private val AS_YOU_CAST_THIS_SPELL = Regex("""(you controlled .+) as you cast this spell""")
     fun condition(text: String): arcanum.api.Condition? {
         // otj chunk 05: "you haven't cast a spell from your hand this turn" (CR 601.2a: where it was cast from); otj chunk 09: from anywhere
         HAVENT_CAST_A_SPELL.matchEntire(text)?.let { m -> return arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(
@@ -83,6 +95,10 @@ internal object OtjPhrases {
         // otj chunk 05: "you've committed a crime this turn" (CR 700.13)
         if (text == "you've committed a crime this turn") return arcanum.api.Condition.HappenedThisTurn(
             arcanum.api.EventPattern.CommitCrime(arcanum.api.PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events)
+        // otj chunk 11: "you controlled a Mount as you cast this spell" (CR 601.2i)
+        AS_YOU_CAST_THIS_SPELL.matchEntire(text)?.let { m ->
+            return arcanum.api.Condition.AsCast(Conditions.condition(m.groupValues[1].replace("you controlled ", "you control ")) ?: return null)
+        }
         // otj chunk 02: "it's your combat phase" (any step of your combat phase, CR 506.1)
         if (text == "it's your combat phase") return arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
             arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers, arcanum.api.TurnStep.DeclareBlockers,

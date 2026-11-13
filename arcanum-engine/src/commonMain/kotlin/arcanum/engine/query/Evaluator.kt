@@ -897,6 +897,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
+        // otj: kept as the spell became cast (CR 601.2i); a copy wasn't cast (CR 707.10)
+        is Condition.AsCast -> ctx.self?.let { facts(it)?.heldAsCast?.contains(condition) } == true
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }

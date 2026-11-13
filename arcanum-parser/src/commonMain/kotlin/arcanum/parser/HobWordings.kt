@@ -94,7 +94,7 @@ internal object Hob {
 
     // hob chunk 09: white and blue
     val EAGLES_ARE_COMING = Regex("""Choose target (.+?) you own\. If this spell was kicked, instead choose any number of target (.+?) you own\. Return each chosen creature to your hand\. At the beginning of the next upkeep, create (.+?) for each creature returned to your hand this way\.""")
-    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards, reveal them, put one onto the battlefield tapped and the other into your hand, then shuffle\.""")
+    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards, reveal (?:them|those cards), put one onto the battlefield tapped and the other into your hand, then shuffle\.""")
     val EXILE_ALL_ATTACKING_TARGET_PLAYER = Regex("""Exile all attacking creatures target player controls\. That player may search their library for that many (.+?) cards, put those cards onto the battlefield tapped, then shuffle\.""")
     val BECOMES_TYPE_AND_GAINS = Regex("""Until end of turn, target (.+?) becomes an? (artifact|enchantment) in addition to its other types and gains (.+)\.""")
     val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast spells this turn\.""")

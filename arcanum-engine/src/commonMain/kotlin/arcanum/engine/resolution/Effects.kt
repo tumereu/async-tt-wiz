@@ -183,6 +183,20 @@ internal object Effects {
                     var left = n
                     kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
                 }
+                // mh3 chunk 12: a player's counters ("… from another target permanent or opponent"), of a kind the effect's controller chooses
+                // when they have several (CR 122.1, 608.2d)
+                effect.players?.let { scope.players(it) }.orEmpty().distinct().forEach { p ->
+                    repeat(scope.value(effect.amount)) {
+                        val have = act.state.player(p).counters.filter { it.count > 0 && (effect.kind == null || it.kind == effect.kind) }.map { it.kind }
+                        if (have.isEmpty()) return@forEach
+                        val kind = if (have.size == 1) have.single() else {
+                            val labels = have.map { counterLabel(it) }
+                            have[labels.indexOf(act.chooseOption(cause?.controller ?: act.state.turn.active, null, labels,
+                                text = "Choose the kind of counter to remove")).coerceAtLeast(0)]
+                        }
+                        removed += Actions.removeCounters(act, TargetRef.Player(p), kind, 1)
+                    }
+                }
                 // gtc: "Draw that many cards": the number actually removed
                 effect.bind?.let { scope.bind(it, NamedValue.Number(removed)) }
             }
@@ -220,9 +234,15 @@ internal object Effects {
                     else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             // CR 116.2b, j: every way a permanent or a conspiracy in the command zone is turned face up, special actions included (CR 702.37e, 702.106c)
-            is Effect.TurnFaceUp -> scope.objects(effect.objects).distinct().filter { act.state.obj(it)?.zone.let { z -> z == Zone.Battlefield || z == Zone.Command } }.forEach { id ->
+            is Effect.TurnFaceUp -> scope.objects(effect.objects).distinct().filter { act.state.obj(it)?.zone.let { z -> z == Zone.Battlefield || z == Zone.Command || z == Zone.Exile } }.forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (!o.faceDown) return@forEach
+                // mh3 chunk 12: "Turn the exiled card face up." a card exiled face down: everyone sees it (CR 406.3, 708.8)
+                if (o.zone == Zone.Exile) {
+                    act.show(o.owner, listOf(id), public = true)
+                    act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
+                    return@forEach
+                }
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
                 // CR 708.8: turned face up, everyone sees it
                 act.show(o.controller ?: o.owner, listOf(id), public = true)

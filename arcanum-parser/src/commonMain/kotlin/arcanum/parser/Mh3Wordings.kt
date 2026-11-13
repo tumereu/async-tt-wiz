@@ -198,4 +198,45 @@ internal object Mh3 {
     val PAY_N_COLORLESS = Regex("""Pay (\w+) \{C\}""")
     /** "sacrifice all creatures you control." (CR 701.21a) */
     val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+? you control)\.""")
+
+    // mh3 chunk 12
+    /** "Look at the top four cards of your library. You may put a land card from among them onto the battlefield tapped. If you don't, put a card
+     * from among them into your hand. Put the rest on the bottom of your library in a random order." */
+    val LOOK_MAY_PUT_ONTO_BATTLEFIELD_IF_YOU_DONT_HAND = Regex("""Look at the top (\w+) cards of your library\. You may put an? (.+?) from among them onto the battlefield( tapped)?\. If you don't, put an? (.+?) from among them into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    /** "two or more creatures attack" (anyone's, once for the declaration, CR 508.1) */
+    val N_OR_MORE_ATTACK = Regex("""(two|three|four|five) or more (.+?) attack""")
+    /** "one or more cards are put into exile from your library and/or your graveyard" (one batch, CR 603.2c) */
+    val PUT_INTO_EXILE_FROM_YOUR = Regex("""one or more (.+?) are put into exile from your (library|graveyard)(?: and/or your (library|graveyard))?""")
+    /** "you cast or copy an instant or sorcery spell" (magecraft, CR 207.2c, 707.10) */
+    val YOU_CAST_OR_COPY = Regex("""you cast or copy an? (.+? spell)""")
+    /** "When this enchantment enters and whenever you draw your third card each turn, …": two trigger conditions of one effect (CR 603.1) */
+    val ENTERS_AND_WHENEVER = Regex("""When (.+?) enters and whenever (.+?), (.+)""")
+    /** "Exile the top three cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of those cards
+     * remain exiled, put them into your graveyard, then create a 0/1 colorless Eldrazi Spawn creature token for each card put into your graveyard this
+     * way. Those tokens have "Sacrifice this token: Add {C}."" */
+    val EXILE_TOP_PLAY_THIS_TURN_END_STEP_GRAVEYARD_TOKENS = Regex("""Exile the top (\w+) cards of your library\. You may play those cards this turn\. At the beginning of the next end step, if any of those cards remain exiled, put them into your graveyard, then create (an? .+? token) for each card put into your graveyard this way\. Those tokens have "([^"]+)"\.?""")
+    /** "Put a collection counter on this enchantment. Then if there are three or more collection counters on it, sacrifice it. If you do, …" */
+    val COUNTER_THEN_IF_SACRIFICE_IT_IF_YOU_DO = Regex("""(Put an? \S+ counter on (.+?)\.) Then if (there are .+? counters on it), sacrifice it\. If you do, (.+)""")
+    /** "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this way. Put a stun
+     * counter on each of them." */
+    val TAP_ALL_PAY_ENERGY_CHOOSE_THAT_MANY_COUNTER = Regex("""Tap all (.+?) target player controls\. You may pay any amount of \{E\}\. If you do, choose up to that many (.+?) tapped this way\. Put an? (\S+) counter on each of them\.""")
+    /** "Sacrifice any number of creatures. Search your library and/or graveyard for a creature card with mana value less than or equal to the number of
+     * creatures sacrificed this way and put it onto the battlefield. If you search your library this way, shuffle." */
+    val SACRIFICE_ANY_NUMBER_SEARCH_MV_AT_MOST_SACRIFICED = Regex("""Sacrifice any number of (.+?)\. Search your library and/or graveyard for an? (.+?) with mana value less than or equal to the number of (.+?) sacrificed this way and put it onto the battlefield\. If you search your library this way, shuffle\.""")
+    /** "Search your library for a card, exile it face down, then shuffle." (the card remembered, CR 406.3, 607.2a) */
+    val SEARCH_EXILE_IT_FACE_DOWN = Regex("""Search your library for an? (.+?), exile it face down, then shuffle\.""")
+    /** "Turn the exiled card face up. If it's a creature card, you lose life equal to its mana value." */
+    val TURN_EXILED_FACE_UP_IF_LOSE_LIFE = Regex("""Turn the exiled card face up\. If it's an? (.+?), you lose life equal to its mana value\.""")
+    /** "You may put the exiled card onto the battlefield if it's a creature card. If you don't put it onto the battlefield, put it into its owner's hand." */
+    val MAY_PUT_EXILED_IF_ELSE_HAND = Regex("""You may put the exiled card onto the battlefield if it's an? (.+?)\. If you don't put it onto the battlefield, put it into its owner's hand\.""")
+    /** "Reveal a card from your hand or the top card of your library. If you reveal a creature card this way, put it onto the battlefield." */
+    val REVEAL_FROM_HAND_OR_TOP_IF_PUT = Regex("""Reveal a card from your hand or the top card of your library\. If you reveal an? (.+?) this way, put it onto the battlefield\.""")
+    /** "you may remove a counter from another target permanent or opponent" (of any kind, CR 122.1) */
+    val REMOVE_COUNTER_FROM_TARGET_OR_PLAYER = Regex("""([Yy]ou may )?[Rr]emove a counter from (another )?target (permanent|creature|artifact) or (opponent|player)\.""")
+    /** "Kaalia attacks an opponent" (a player, not a planeswalker or battle, CR 508.1b) */
+    val ATTACKS_AN_OPPONENT = Regex("""(.+) attacks an opponent""")
+    /** "Put a +1/+1 counter on target creature you control, then each modified creature you control deals damage equal to its power to target …" */
+    val COUNTER_THEN_EACH_DEALS_POWER = Regex("""(Put an? \S+ counter on target [^,]+), then (each .+ deals damage equal to its power to target .+\.)""")
+    /** "Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is …" */
+    val DEALS_X_AND_YOU_GAIN_X = Regex("""(.+?) deals X damage to (target [^,]+?) and you gain X life(, where X is .+)?\.""")
 }

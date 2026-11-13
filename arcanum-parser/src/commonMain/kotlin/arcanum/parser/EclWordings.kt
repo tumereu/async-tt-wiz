@@ -49,7 +49,7 @@ internal object Ecl {
     val EACH_CREATURE_TARGET_OPPONENT_LOSES = Regex("""[Ee]ach creature target opponent controls loses all abilities, becomes an? ([A-Z]\w+) in addition to its other types, and has base power and toughness (\d+)/(\d+)\.""")
     val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three|X) target cards from graveyards\.""") // mh3 chunk 09: X
     val LOOK_TOP_X_PUT_ANY_NUMBER = Regex("""Look at the top X cards of your library\. You may put any number of (.+?) from among them onto the battlefield\. Then shuffle\.""")
-    val MAY_PUT_FROM_HAND_TAPPED_ATTACKING = Regex("""[Yy]ou may put an? (.+?) from your hand onto the battlefield tapped and attacking\.""")
+    val MAY_PUT_FROM_HAND_TAPPED_ATTACKING = Regex("""[Yy]ou may put an? (.+?) from your hand onto the battlefield tapped and attacking( that (?:opponent|player))?\.""") // mh3 chunk 12: that opponent
     val EXILE_ANY_NUMBER_RETURN_NEXT_END = Regex("""Exile any number of target (creatures)\. At the beginning of the next end step, return those cards to the battlefield tapped under their owners' control\.""")
     val UNTIL_YOUR_NEXT_TURN_PREVENT_TO_YOU = Regex("""Until your next turn, prevent all damage that would be dealt to you\.""")
     val EXILE_SELF = Regex("""Exile (.+?)\.""")
@@ -109,7 +109,7 @@ internal object Ecl {
     val ONCE_EACH_TURN_CAST_EXILED_WITH = Regex("""Once each turn, you may cast a spell with mana value less than or equal to the number of (.+?) you control from among cards exiled with (.+?) this turn without paying its mana cost\.""")
     val EXILE_UP_TO_ONE_UNTIL_LEAVES = Regex("""[Ee]xile up to one target (.+?) until (.+?) leaves the battlefield\.""")
     val DEALS_TO_ANY_AND_ANY_OTHER = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to (?:any other target|each of up to (\w+) other targets)\.""")
-    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals X damage to each opponent and each creature they control\.""")
+    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to each opponent and each creature they control\.""") // mh3 chunk 12: a number
     val IT_DEALS_POWER_TO_UP_TO_ONE = Regex("""It deals damage equal to its power to up to one target (.+?)\.""")
     val GAIN_LIFE_EQUAL_TO = Regex("""[Yy]ou gain life equal to (.+)\.""")
     val ENCHANTED_FIGHTS_UP_TO_ONE = Regex("""[Ee]nchanted creature fights up to one target (.+?)\.""")

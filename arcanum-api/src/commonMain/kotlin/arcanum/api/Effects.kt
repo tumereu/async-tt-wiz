@@ -89,11 +89,14 @@ sealed interface Effect {
         val objects: Objects, val kind: CounterKind, val amount: Value, val distributed: Boolean = false,
     ) : Effect
     /** Remove [amount] counters of [kind] (any kind when null) from each of [objects]; [bind] names the number removed ("Draw
-     * that many cards", dgm). */
+     * that many cards", dgm); mh3: also from each of [players] ("remove a counter from another target permanent or opponent": a player's
+     * counters, CR 122.1). */
     @Serializable @SerialName("remove-counters") data class RemoveCounters(
         val objects: Objects, val kind: CounterKind?, val amount: Value,
         // dgm
         val bind: String? = null,
+        // mh3
+        val players: Players? = null,
     ) : Effect
     @Serializable @SerialName("player-counters") data class GivePlayerCounters(val players: Players, val kind: CounterKind, val amount: Value) : Effect
 

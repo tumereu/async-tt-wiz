@@ -336,9 +336,12 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()), role = arcanum.api.EventRole.Source))
         }
-        // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
+        // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"; mh3 chunk 12: "card with
+        // mana value less than or equal to your devotion to black"
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.AtMost, Values.value(m.groupValues[2]) ?: return null))
+            val value = Values.value(m.groupValues[3]) ?: return null
+            val noun = noun(m.groupValues[1]) ?: return null
+            return all(noun, if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, value) else ObjectFilter.ManaValue(Comparison.AtMost, value))
         }
         // dgm: "creatures named Biovisionary" (CR 201.2)
         GTC_NAMED.matchEntire(phrase)?.let { m ->
@@ -354,7 +357,7 @@ internal object Filters {
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
-    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with power less than or equal to (.+)""")
+    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|mana value) less than or equal to (.+)""") // mh3 chunk 12: mana value
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
     private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
@@ -1196,6 +1199,8 @@ internal object Conditions {
         IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
         }
+        // mh3 chunk 12: "you have the city's blessing" (CR 702.131c)
+        if (text == "you have the city's blessing") return Condition.PlayerMatches(Players.You, PlayerFilter.Has(arcanum.api.Designation.CitysBlessing))
         // chunk 26: "Kaito entered this turn"
         ENTERED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield, objects = ObjectFilter.Any)))

@@ -2460,6 +2460,7 @@ internal class Sentences(
         dftTrigger(text)?.let { return it } // dft
         spmTrigger(text)?.let { return it } // spm
         eclTrigger(text)?.let { return it } // ecl
+        mh3Trigger(text)?.let { return it } // mh3
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
@@ -5216,7 +5217,10 @@ internal class Sentences(
         // chunk 20: "Return this card from your graveyard to the battlefield"
         RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             // dsk chunk 07: "… with a finality counter on it" (CR 122.6)
-            val counters = it.groupValues[3].takeIf { c -> c.isNotEmpty() }?.let { c -> listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(1))) }
+            val counters = it.groupValues[4].takeIf { c -> c.isNotEmpty() }?.let { c ->
+                val n = Numbers.count(it.groupValues[3]) ?: return null
+                listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(n)))
+            }
             if (counters != null) return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty(), counters = counters))))
             context.it = Objects.Bound("returned")
             // inr sweep: "When enchanted creature dies, return this card from your graveyard to the battlefield": the Aura is a new object there (CR 400.7)
@@ -6588,8 +6592,8 @@ internal class Sentences(
         }
         // gtc chunk 11: "Return target creature you control and all Auras you control attached to it to their owner's hand."
         Gtc.RETURN_TARGET_AND_AURAS.matchEntire(sentence)?.let { m ->
-            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
-            val auras = Objects.AttachmentsOf(target, Filters.noun(m.groupValues[2]) ?: return null)
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[1] + m.groupValues[2]) ?: return null)
+            val auras = Objects.AttachmentsOf(target, Filters.noun(m.groupValues[3]) ?: return null)
             return listOf(Step.Do(Effect.Move(Objects.Union(listOf(target, auras)), Destination(Zone.Hand))))
         }
         // gtc chunk 11: "Destroy target creature and you lose life equal to its toughness." (as it last existed)
@@ -11487,7 +11491,7 @@ internal class Sentences(
         val IF_CAST_FROM_GRAVEYARD = Regex("""If this spell was cast from a graveyard, (.+)""")
         val UNTIL_END_OF_TURN_WHENEVER = Regex("""Until end of turn, whenever (.+?), (.+)""")
         val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+)""")
-        val RETURN_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (another )?target (.+?) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
+        val RETURN_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (another )?target (.+?) from your graveyard to the battlefield( tapped)?(?: with (an?|\w+) (\S+) counters? on it)?\.""") // mh3 chunk 12: "with two +1/+1 counters"
         val GAINS_FLASHBACK_OF_ITS_MANA_COST = Regex("""Each (.+?) card in your graveyard gains flashback until end of turn\. The flashback cost is equal to its mana cost\.""")
         val CAST_UP_TO_ONE_EACH_FROM_GRAVEYARD = Regex("""You may cast (.+?) from your graveyard each with mana value (X|\d+) or less without paying their mana costs\.""")
         val UP_TO_ONE_TARGET_CARD = Regex("""up to one target (\w+) card""")
@@ -11506,7 +11510,7 @@ internal class Sentences(
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
         val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
         val SACRIFICE_THAT = Regex("""Sacrifice that (\w+)\.""")
-        val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
+        val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with (an?|\w+) (\S+) counters? on it)?\.""") // mh3 chunk 12: "with two +1/+1 counters"
         val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to the sacrificed \w+'s (power|toughness)\.""")
         val PUT_UP_TO_TARGET_ON_BOTTOM = Regex("""Put up to (\w+) target (.+) from your graveyard on the bottom of your library\.""")
         val LOOK_TOP_OF_TARGET_LIBRARY = Regex("""Look at the top (card|(\w+) cards) of target player's library\.""")
@@ -14464,7 +14468,8 @@ internal class Sentences(
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " card") ?: return null
             return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
-                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Bound("found"), if (m.groupValues[4].isNotEmpty()) Destination(Zone.Graveyard)
+                    else Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
                 Step.Do(Effect.Shuffle(Players.You)))
         }
         // tmt chunk 04: "Add that much {R}." (the damage dealt, CR 120.3)
@@ -15857,6 +15862,34 @@ internal class Sentences(
     /** inr: whole multi-sentence effects. */
     /** mh3 chunk 02: "At the beginning of combat on your turn, you may pay {E}{E}. When you do, choose one —": a cost paid on resolution
      * (CR 118.12), then a reflexive trigger whose modes are chosen as it is put on the Stack (CR 603.12, 700.2). */
+    /** mh3: trigger conditions of Modern Horizons 3. */
+    private fun mh3Trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // mh3 chunk 12: "Kaalia attacks an opponent" (a player, not a planeswalker or battle, CR 508.1b)
+        Mh3.ATTACKS_AN_OPPONENT.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self), target = RecipientFilter(players = PlayerFilter.Opponent))) to null
+        }
+        // mh3 chunk 12: "two or more creatures attack" (any player's attackers, declared together, CR 508.1)
+        Mh3.N_OR_MORE_ATTACK.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Attack(noun)), oneOrMore = true, atLeast = n) to null
+        }
+        // mh3 chunk 12: "you get one or more {E}" (each time counters are put on you; the event's amount is how many, CR 122.1)
+        if (text == "you get one or more {E}") return arcanum.api.Trigger.On(EventPattern.PlayerCountersPut(PlayerFilter.You, arcanum.api.CounterKind.Energy)) to null
+        // mh3 chunk 12: "one or more cards are put into exile from your library and/or your graveyard" (one batch, CR 603.2c)
+        Mh3.PUT_INTO_EXILE_FROM_YOUR.matchEntire(text)?.let { m ->
+            val cards = Filters.all(Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You))
+            val zones = listOfNotNull(m.groupValues[2], m.groupValues[3].ifEmpty { null }).map { if (it == "library") Zone.Library else Zone.Graveyard }
+            return arcanum.api.Trigger.On(zones.map { EventPattern.ZoneChange(cards, from = it, to = Zone.Exile) }, oneOrMore = true) to null
+        }
+        // mh3 chunk 12: "you cast or copy an instant or sorcery spell" (CR 707.10: copying a spell isn't casting it)
+        Mh3.YOU_CAST_OR_COPY.matchEntire(text)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Cast(spells, PlayerFilter.You), EventPattern.Copy(spells, PlayerFilter.You))) to null
+        }
+        return null
+    }
+
     private fun mh3ModalTrigger(header: String, modeLines: List<String>): Ability? {
         // mh3 chunk 11: "Whenever …, choose one that hasn't been chosen this turn. Create a creature token with those characteristics." with
         // modes "• 2/2 white Fox with vigilance.": each mode creates that token (CR 700.2, 111.1)
@@ -15891,6 +15924,15 @@ internal class Sentences(
             val otherwise = line(m.groupValues[4].replaceFirstChar { it.uppercase() }) as? Ability.Static ?: return@let
             if (first.condition != null || otherwise.condition != null) return@let
             return listOf(first.copy(condition = condition), otherwise.copy(condition = arcanum.api.Condition.Not(condition)))
+        }
+        // mh3 chunk 12: "When this enchantment enters and whenever you draw your third card each turn, amass Zombies 3.": two trigger conditions of
+        // one effect, kept as two abilities because the second counts its own events this turn (as [Mh3.AND_WHEN], CR 603.1)
+        Mh3.ENTERS_AND_WHENEVER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val second = triggered("Whenever ${m.groupValues[2]}, ${m.groupValues[3]}") ?: return@let
+            // only when the second counts its events this turn ("your third card each turn"): otherwise one ability holds both events
+            if (((second as? Ability.Triggered)?.trigger as? arcanum.api.Trigger.On)?.nthThisTurn == null) return@let
+            val first = triggered("When ${m.groupValues[1]} enters, ${m.groupValues[3]}") ?: return@let
+            return listOf(first, second)
         }
         return null
     }
@@ -16016,6 +16058,39 @@ internal class Sentences(
 
     /** mh3: one-sentence effects, tried first. */
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
+        // mh3 chunk 12: "Put a +1/+1 counter on target creature you control, then each modified creature you control deals damage equal to its power to
+        // target creature you don't control." (the counter first, so that creature is modified, CR 700.9)
+        Mh3.COUNTER_THEN_EACH_DEALS_POWER.matchEntire(sentence)?.let { m ->
+            val first = effect(m.groupValues[1] + ".", context) ?: return@let
+            return first + (effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return@let)
+        }
+        // mh3 chunk 12: "Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is …" (one X, CR 107.3)
+        Mh3.DEALS_X_AND_YOU_GAIN_X.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val first = effect("${m.groupValues[1]} deals X damage to ${m.groupValues[2]}${m.groupValues[3]}.", context) ?: return@let
+            return first + (effect("You gain X life${m.groupValues[3]}.", context) ?: return@let)
+        }
+        // mh3 chunk 12: "you may remove a counter from another target permanent or opponent." (one target, an object or a player; its counter of a
+        // kind chosen as it resolves, CR 115.1, 122.1)
+        Mh3.REMOVE_COUNTER_FROM_TARGET_OR_PLAYER.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2] + m.groupValues[3]) ?: return@let
+            val players = if (m.groupValues[4] == "opponent") PlayerFilter.Opponent else PlayerFilter.Any
+            context.targets += TargetSlot("target", TargetKind.Either(noun, players), min = Value.Fixed(1), max = Value.Fixed(1))
+            val remove = Step.Do(Effect.RemoveCounters(Objects.Target("target"), null, Value.Fixed(1), players = Players.Target("target")))
+            return listOf(if (m.groupValues[1].isEmpty()) remove else Step.May(listOf(remove), player = Players.You))
+        }
+        // mh3 chunk 12: "Search your library for a card, exile it face down, then shuffle." (remembered for "the exiled card" later, CR 406.3, 607.2a)
+        Mh3.SEARCH_EXILE_IT_FACE_DOWN.matchEntire(sentence)?.let { m ->
+            val card = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.Search(Players.You, card, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // mh3 chunk 12: "this enchantment deals that much damage to any target." after "Whenever you get one or more {E}" (the energy got, CR 122.1)
+        if (context.event is EventPattern.PlayerCountersPut) SELF_DEALS_THAT_MUCH_TO_ANY_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            context.anyTarget()
+            return listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), Value.EventAmount, Objects.Self)))
+        }
         // mh3 chunk 11: "Create a Spellgorger Weird token." defined by its reminder text: a token with that name and the mana cost,
         // characteristics and abilities the reminder gives (its colour from its mana cost, CR 111.4, 202.2)
         Mh3.CREATE_NAMED_TOKEN.matchEntire(sentence)?.let { m ->
@@ -16310,6 +16385,114 @@ internal class Sentences(
         context.thatMuch?.takeIf { Mh3.ENERGY_PAID_THIS_WAY.matches(text) && it == Value.Bound("energy") }
 
     private fun mh3Whole(text: String, context: Context): List<Step>? {
+        // mh3 chunk 12: "Exile the top three cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of
+        // those cards remain exiled, put them into your graveyard, then create a 0/1 … token for each card put into your graveyard this way. Those tokens
+        // have "…"." (a delayed trigger about the cards still in exile, CR 603.7c, 400.7; the play permission, CR 601.2a, 305.1)
+        Mh3.EXILE_TOP_PLAY_THIS_TURN_END_STEP_GRAVEYARD_TOKENS.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val defined = Tokens.defined(m.groupValues[2]) ?: return@let
+            val granted = Sentences(setOf("this token", "This token")).line(m.groupValues[3]) ?: return@let
+            val token = Effect.CreateToken(defined.copy(face = defined.face.copy(abilities = defined.face.abilities + granted)), Value.Fixed(1), Players.You)
+            val exiled = Objects.Bound("exiled")
+            val stillExiled = Objects.Each(Filters.all(ObjectFilter.Is(exiled), ObjectFilter.InZone(Zone.Exile)))
+            return listOf(
+                Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)),
+                    arcanum.api.Affected.Objects(exiled), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                    Instructions(steps = listOf(Step.If(arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Is(exiled), ObjectFilter.InZone(Zone.Exile)), atLeast = 1), then = listOf(
+                        Step.Do(Effect.Move(stillExiled, Destination(Zone.Graveyard), postBind = "put")),
+                        Step.Do(token.copy(count = Value.Count(Objects.Each(Filters.all(ObjectFilter.Is(Objects.Bound("put")), ObjectFilter.InZone(Zone.Graveyard))))))))))))
+            )
+        }
+        // mh3 chunk 12: "Reveal a card from your hand or the top card of your library. If you reveal a creature card this way, put it onto the battlefield."
+        // (one card, chosen among both; CR 701.20a)
+        Mh3.REVEAL_FROM_HAND_OR_TOP_IF_PUT.matchEntire(text)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return@let
+            val among = Objects.Union(listOf(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))),
+                Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true)))
+            val chosen = Objects.Bound("revealed")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = among), bind = "revealed", chooser = Players.You),
+                Step.Do(Effect.Reveal(chosen)),
+                Step.If(arcanum.api.Condition.ObjectMatches(chosen, kind), then = listOf(Step.Do(Effect.Move(chosen, Destination(Zone.Battlefield))))))
+        }
+        // mh3 chunk 12: "Turn the exiled card face up. If it's a creature card, you lose life equal to its mana value." (the card a chapter before
+        // exiled face down, CR 607.2a, 708.8)
+        Mh3.TURN_EXILED_FACE_UP_IF_LOSE_LIFE.matchEntire(text)?.let { m ->
+            val card = Objects.Remembered(EXILED_WITH)
+            val kind = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.TurnFaceUp(card)), Step.If(arcanum.api.Condition.ObjectMatches(card, kind), then = listOf(
+                Step.Do(Effect.LoseLife(Players.You, Value.Of(arcanum.api.NumericProperty.ManaValue, card, arcanum.api.Combine.Total))))))
+        }
+        // mh3 chunk 12: "You may put the exiled card onto the battlefield if it's a creature card. If you don't put it onto the battlefield, put it into
+        // its owner's hand." (CR 607.2a)
+        Mh3.MAY_PUT_EXILED_IF_ELSE_HAND.matchEntire(text)?.let { m ->
+            val card = Objects.Remembered(EXILED_WITH)
+            val kind = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(card, kind), then = listOf(
+                    Step.May(listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield), postBind = "put"))), player = Players.You))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty("put")), then = listOf(Step.Do(Effect.Move(card, Destination(Zone.Hand))))))
+        }
+        // mh3 chunk 12: "Sacrifice any number of creatures. Search your library and/or graveyard for a creature card with mana value less than or equal
+        // to the number of creatures sacrificed this way and put it onto the battlefield. If you search your library this way, shuffle." (both zones
+        // searched, so the library is shuffled, CR 701.23a, 701.21a)
+        Mh3.SACRIFICE_ANY_NUMBER_SEARCH_MV_AT_MOST_SACRIFICED.matchEntire(text)?.let { m ->
+            val sacrificed = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return@let
+            val card = Filters.noun(m.groupValues[2]) ?: return@let
+            val mv = ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Count(Objects.Bound(SACRIFICED)))
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(sacrificed, ObjectFilter.ControlledBy(PlayerFilter.You)), Value.Fixed(0), null), bind = "chosen",
+                    chooser = Players.You),
+                Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = SACRIFICED)),
+                Step.Do(Effect.Search(Players.You, Filters.all(card, mv), max = Value.Fixed(1), zones = listOf(Zone.Library, Zone.Graveyard), bind = "found",
+                    searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // mh3 chunk 12: "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this
+        // way. Put a stun counter on each of them." (tapped this way: those that were untapped, CR 701.26a; any amount, CR 107.1b, 107.14)
+        Mh3.TAP_ALL_PAY_ENERGY_CHOOSE_THAT_MANY_COUNTER.matchEntire(text)?.let { m ->
+            val player = context.targetPlayer()
+            val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return@let
+            val chosen = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return@let
+            val kind = Counters.kind(m.groupValues[3]) ?: return@let
+            val pay = effect("You may pay any amount of {E}.", context) ?: return@let
+            return listOf(
+                Step.Bind(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)), noun,
+                    ObjectFilter.ControlledBy(PlayerFilter.Is(player)))), "tapped"),
+                Step.Do(Effect.Tap(Objects.Bound("tapped")))) + pay + listOf(
+                Step.Choose(arcanum.api.Choice.Objects(chosen, Value.Fixed(0), Value.Bound("energy"), from = Objects.Bound("tapped")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.PutCounters(Objects.Bound("chosen"), kind, Value.Fixed(1))))
+        }
+        // mh3 chunk 12: "Put a collection counter on this enchantment. Then if there are three or more collection counters on it, sacrifice it. If you do,
+        // draw a card, then you may search …" ("it": this enchantment; "If you do": it was sacrificed, CR 701.21a, 608.2c)
+        Mh3.COUNTER_THEN_IF_SACRIFICE_IT_IF_YOU_DO.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val put = effect(m.groupValues[1], context) ?: return@let
+            val condition = Conditions.condition(m.groupValues[3], self) ?: return@let
+            val rest = m.groupValues[4].replaceFirstChar { it.uppercase() }
+            val parts = rest.split(", then ", limit = 2)
+            val then = effect(rest, context) ?: if (parts.size < 2) return@let else
+                (effect("${parts[0]}.", context) ?: return@let) + (effect(parts[1].replaceFirstChar { it.uppercase() }, context) ?: return@let)
+            return put + Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, postBind = "sacrificed")),
+                Step.If(arcanum.api.Condition.NonEmpty("sacrificed"), then = then)))
+        }
+        // mh3 chunk 12: "Look at the top four cards of your library. You may put a land card from among them onto the battlefield tapped. If you don't,
+        // put a card from among them into your hand. Put the rest on the bottom of your library in a random order." (CR 401.4)
+        Mh3.LOOK_MAY_PUT_ONTO_BATTLEFIELD_IF_YOU_DONT_HAND.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val first = Filters.noun(m.groupValues[2]) ?: return@let
+            val second = Filters.noun(m.groupValues[4]) ?: return@let
+            val looked = Objects.Bound("looked")
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "looked")),
+                Step.Choose(arcanum.api.Choice.Objects(first, Value.Fixed(0), Value.Fixed(1), from = looked), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty("chosen")), then = listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(second, Value.Fixed(1), Value.Fixed(1), from = looked), bind = "kept", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))))),
+                Step.Do(Effect.Move(Objects.Except(looked, Objects.Union(listOf(Objects.Bound("chosen"), Objects.Bound("kept")))),
+                    Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
         // mh3 chunk 10: "Return each creature card from your graveyard to the battlefield with a finality counter on it. Those creatures are Vampires in
         // addition to their other types." (counters and type as they enter, CR 614.1c, 205.1b)
         Mh3.RETURN_EACH_WITH_COUNTER_THOSE_ARE.matchEntire(text)?.let { m ->
@@ -19031,7 +19214,9 @@ internal class Sentences(
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)),
                 Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = true,
+                    // mh3 chunk 12: "attacking that opponent": the player the trigger's attack is against (CR 508.4)
+                    attacking = if (m.groupValues[2].isEmpty()) arcanum.api.AttackTarget.Chosen else arcanum.api.AttackTarget.These(Recipients(players = Players.EventPlayer))))))
         }
         // ecl chunk 10: "Until your next turn, prevent all damage that would be dealt to you."
         if (Ecl.UNTIL_YOUR_NEXT_TURN_PREVENT_TO_YOU.matches(sentence))
@@ -19511,7 +19696,7 @@ internal class Sentences(
         Ecl.DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent),
                 objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Opponent)))),
-                Value.Announced(name = "X"), Objects.Self)))
+                it.groupValues[2].toIntOrNull()?.let { n -> Value.Fixed(n) } ?: Value.Announced(name = "X"), Objects.Self)))
         }
         // ecl chunk 14: "It deals damage equal to its power to up to one target creature an opponent controls." (the creature named before)
         Ecl.IT_DEALS_POWER_TO_UP_TO_ONE.matchEntire(sentence)?.let { m ->

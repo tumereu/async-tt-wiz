@@ -85,7 +85,7 @@ internal object Gtc {
     val MAY_BECOME_COPY_EXCEPT = Regex("""You may have (.+?) become a copy of that card, except (.+)\.""")
     val BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?), except (.+)\.""")
     val CREATE_X_TOKEN_THAT_SPELL = Regex("""(Create an X/X .+? token), where X is that spell's mana value\.""")
-    val RETURN_TARGET_AND_AURAS = Regex("""Return target (.+?) and all (.+?) attached to it to their owner's hand\.""")
+    val RETURN_TARGET_AND_AURAS = Regex("""Return (another )?target (.+?) and all (.+?) attached to it to their owner's hand\.""") // mh3 chunk 12: another
     val DESTROY_AND_LOSE_LIFE_EQUAL = Regex("""Destroy target (.+?) and you lose life equal to its (power|toughness)\.""")
     val ITS_CONTROLLER_MILLS = Regex("""Its controller mills (\w+) cards\.""")
     val SEARCH_N_AND_REVEAL = Regex("""Search your library for (\w+) (.+?) cards and reveal them\.""")

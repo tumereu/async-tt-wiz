@@ -277,3 +277,6 @@ fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyLi
     Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
 /** "investigate N times" (CR 701.16a) */
 fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction.Investigate(count)))
+/** "When you do, …" (CR 603.12) */
+fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
+    Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))

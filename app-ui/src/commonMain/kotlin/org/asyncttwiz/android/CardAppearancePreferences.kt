@@ -26,9 +26,10 @@ fun cardScale(value: Float) = if (value.isFinite()) value.coerceIn(MIN_CARD_SCAL
 fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
     ?.takeIf { it.isFinite() }?.let(::cardScale)
 
-/** The desktop layout's card sizes before the player changes them (WEB-019, docs/specs/web-client.md §7.2): battlefield
- * 1.5×, hand 2×, the other areas 1.5×. */
-val DesktopCardAppearance = CardAppearance(cardSize = 1.5f, customizeAreas = true,
+/** The desktop layout's card sizes before the player changes them (WEB-022, docs/specs/web-client.md §7.2): battlefield
+ * 2× (the wireframes' proportions for a 1440-wide table; the opening view still fits the battlefields' height, TBL-121),
+ * hand 2×, the other areas 1.5×. */
+val DesktopCardAppearance = CardAppearance(cardSize = 2f, customizeAreas = true,
     areas = mapOf(CardArea.HAND to 2f, CardArea.PILES to 1.5f, CardArea.STACK to 1.5f, CardArea.PANELS to 1.5f))
 
 /** One file for the device, intentionally independent of account IDs and logout cleanup. WEB-019: one per layout, the

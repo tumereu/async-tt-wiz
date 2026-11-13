@@ -239,3 +239,5 @@ number	item	screenshot	catalog	decisions	sequence
 238	Desktop table: a decision that needs the board is a strip bottom-centre	desktop/prompt-strip.png	WEB-019 STK-047		Desktop table
 239	Desktop table: a choice that doesn't need the board is a centred overlay over the dimmed table	desktop/prompt-overlay.png	WEB-019 STK-023		Desktop table
 240	Desktop table: timeline mode, the strip under the hand and Previous / Auto / Next in the action area	desktop/table-timeline.png	WEB-021 HIS-008		Desktop table
+241	Desktop table: holding Alt over a card inspects it with its changes over the dimmed table	desktop/inspect-alt.png	WEB-024 WEB-025 TBL-131		Desktop table
+242	Desktop table: a hovered hand card's chips, faded, the one under the pointer solid with its Autotap source outlined	desktop/hover-chips.png	WEB-027 ZON-080		Desktop table

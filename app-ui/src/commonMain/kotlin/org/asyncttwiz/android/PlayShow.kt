@@ -352,6 +352,8 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
         }
     }
     val density = LocalDensity.current
+    // WEB-025 (§5: no press-and-hold Inspect on desktop): on the desktop table the left button held on a play only pauses it
+    val holdInspects = LocalAppLayout.current != AppLayout.Desktop
     val step = if (group.size <= 1) 0f else minOf(PLAY_SHOW_PILE_STEP, PLAY_SHOW_PILE_SPREAD / (group.size - 1))
     // The pile's middle stays the board's: each play's place in it, from the board's centre (dp)
     fun pile(i: Int): Float = (i - (group.size - 1) / 2f) * step
@@ -365,7 +367,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
             val touches = if (!now) Modifier else Modifier.choiceCardGestures(entry,
                 tap = { if (pause.tapOnShow(tapScope)) skip(i) },
-                hold = { holding -> pause.finger = holding; inspect(entry, holding) }, moved = moved)
+                hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved)
             // The card's centre is the board's (and its place in the pile), so its flights move and scale it about its own
             // centre. They are read while drawing only: they move the card without composing it again
             Box(Modifier
@@ -429,7 +431,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 }
                 .widthIn(max = 300.dp)
                 .choiceCardGestures(entry, tap = { if (pause.tapOnShow(tapScope)) skip(i) },
-                    hold = { holding -> pause.finger = holding; inspect(entry, holding) }, moved = moved),
+                    hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved),
                 shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
                 CardText(look.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
                     style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,

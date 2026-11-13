@@ -59,7 +59,10 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
     }
-    CompositionLocalProvider(LocalAppLayout provides layout) {
+    // WEB-033: the account's hotkeys, read only where there is a keyboard layout to use them (never on Android)
+    val keyBindings = state.account?.accountId?.takeIf { layout == AppLayout.Desktop || org.asyncttwiz.appui.desktopLayoutOffered }
+        ?.let { key(it) { rememberKeyBindings(it, controller, lobby?.accountOrigin ?: org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN) } }
+    CompositionLocalProvider(LocalAppLayout provides layout, LocalKeyBindings provides keyBindings) {
     theme {
         ScreenBackHandler(enabled = reset.state != null) { reset.dismiss() }
         ScreenBackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
@@ -129,6 +132,8 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
                 else -> null
             }, modifier = Modifier.align(Alignment.BottomCenter))
+            // WEB-034: "?" shows the list of keys over any screen of the desktop layout
+            HotkeySheetHost(layout == AppLayout.Desktop && state.account != null) { controller.push(ShellDestination.SETTINGS) }
         }
     }
     }

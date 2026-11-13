@@ -565,6 +565,16 @@ Two batches come first, in this order:
   card naming itself inside its frame, the desktop battlefield at 2×. Tests: `DesktopMouseTest`, D4 and hover chips in
   `DesktopTableScreenshotTest`. Left for 5c besides its own: Alt over the play shown, the dock's Stack list and the draft's
   cards (it only pauses there now).
+- Built in 5c (2026-11-13): hotkeys, the "?" sheet and rebinding (WEB-031 to WEB-036, LOB-147): `DesktopHotkeys.kt`
+  (`KeyChord`, `HotkeyAction`, `KeyBindings` with one key per action, `ControlKeys` that `ActionSquare` fills for the main
+  button and Undo, `PanelOptions` / `NumberedOptions` for 1–9, `FingerTargets` for Alt over the play shown and the dock's
+  Stack entries), `DesktopHotkeysUi.kt` (`HotkeySheet` / `HotkeySheetHost`, `KeyboardShortcutsSetting`), the table's listener
+  in `EngineTableScreen`, Tab in `PodDraftScreen`, Alt and K / B / U in `PodPickView`; Shift with another key is a chord
+  (`DesktopFingerKey.chord`); the server keeps `AccountSettings.keyBindings` (V86, `account.key_bindings`). Esc keeps
+  WEB-004 (the catalog wins over this section's "never leaves the table"); "?" is fixed like Esc, Enter and 1–9 (Claude's
+  choice). Tests: `DesktopHotkeysTest`, `DesktopHotkeysScreenshotTest` (D6, the Settings rows), `AccountHttpTest`, e2e
+  `DesktopTableTest`. Left for step 6: Ctrl+S and ← / → / ↓ in Build, Prepare and the editors (no edge zones yet), Enter
+  in dialogs and the draft's Confirm.
 
 ### Step 6: desktop lobby, decks, drafts
 

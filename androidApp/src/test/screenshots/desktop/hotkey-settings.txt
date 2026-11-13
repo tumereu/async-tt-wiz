@@ -1,0 +1,1 @@
+In Settings on the desktop layout Alice gave Timeline mode the C key (Write in chat now has no key, its row says Timeline mode took it), then clicked Undo's key and pressed Enter: the row waits for another key and says Enter can't be changed.

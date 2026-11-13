@@ -74,7 +74,9 @@ import org.asyncttwiz.appui.AppPlatform
 internal class E2ePlayer(val account: TestAccount, private val compose: ComposeTestRule,
     val engineWorker: EngineWorker = EngineWorker.Background,
     setRepository: org.asyncttwiz.android.PodSetRepository? = null, withCatalog: Boolean = false,
-    holdCatalog: Boolean = false) : AutoCloseable {
+    holdCatalog: Boolean = false,
+    /** WEB-013: the app drawn in the desktop layout (the web client's, at the test's window size), else the phone's. */
+    val desktop: Boolean = false) : AutoCloseable {
     val name: String get() = account.identity.username
     val id: String get() = account.id
     /** This phone's network: [NetworkLink.cut] it to drop the connection. */
@@ -238,7 +240,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                     LocalCardListSupport provides cardListSupport) {
                     Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, catalog = catalog, lobby = lobby, pods = pods,
                         deckImport = deckImport.takeIf { decksShown }, decks = decks.takeIf { decksShown },
-                        tableEdgeToEdge = { edgeToEdge = it }) }
+                        tableEdgeToEdge = { edgeToEdge = it },
+                        layout = if (desktop) org.asyncttwiz.android.AppLayout.Desktop else org.asyncttwiz.android.rememberAppLayout()) }
                 }
             }
         }
@@ -261,6 +264,25 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         foreground = true
         auth.foreground()
         lobby.foreground()
+    }
+
+    // ---- The keyboard (the desktop layout's, WEB-031): the page's keys as the browser hands them to the app
+
+    private var keyTime = 0L
+
+    /** The page's key [name] ("t", " ", "Alt", "?") goes down ([down]) or up, with [shift] / [ctrl] held; [at]: its time (ms,
+     * compared only with other keys'), else the phone's clock. Whether the app took it. */
+    fun key(name: String, down: Boolean, shift: Boolean = false, ctrl: Boolean = false, at: Long? = null): Boolean {
+        keyTime = at ?: maxOf(keyTime + 1, android.os.SystemClock.uptimeMillis())
+        return org.asyncttwiz.android.DesktopKeyboard.dispatch(org.asyncttwiz.android.DesktopKey(name, down, keyTime, shift = shift, ctrl = ctrl))
+    }
+
+    /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. */
+    fun press(name: String, shift: Boolean = false, ctrl: Boolean = false) {
+        if (shift) key("Shift", true, shift = true)
+        key(name, true, shift, ctrl)
+        key(name, false, shift, ctrl)
+        if (shift) key("Shift", false)
     }
 
     // ---- The screen

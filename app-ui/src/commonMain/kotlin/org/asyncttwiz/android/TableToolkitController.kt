@@ -554,6 +554,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             capture != null || player != null || panel != null -> dismiss()
         }
     }
+    /** WEB-031: zooms the desktop table to fit (its F key); set by the table while it is drawn, null elsewhere. */
+    var fitTable: (() -> Unit)? = null
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun stackContents() { dismiss(); panel = "manageStack" }

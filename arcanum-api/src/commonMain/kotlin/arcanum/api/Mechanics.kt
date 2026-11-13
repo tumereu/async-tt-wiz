@@ -584,6 +584,10 @@ sealed interface Mechanic {
         /** A triggered ability linked to this replacement, triggering each time it is applied ("When this card is
          * exiled this way", madness, CR 702.35a, 603.11); [Objects.EventObject] in it is the replaced event's object. */
         val whenApplied: Instructions? = null,
+        // woe
+        /** It applies only to an event for which [condition] holds, checked as the event would happen with the event as the trigger event
+         * ([Value.EventAmount] its amount): "If you would pay life while your library has at least that many cards in it" (CR 614.1a). */
+        val condition: Condition? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -693,7 +697,9 @@ sealed interface Modification {
          * creature"): not copiable values, but part of the same replacement (CR 614.1c, 707.9b). */
         val withCounters: List<EntersWithCounters> = emptyList(),
     ) : Modification
-    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times it is done. */
+    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
+     * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
+     * times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If

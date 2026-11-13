@@ -13,7 +13,7 @@ internal object Gtc {
 
     // one-shot effects
     val REGENERATE = Regex("""Regenerate (.+)\.""")
-    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+) this turn\.""")
+    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+?) this turn(?: by (.+))?\.""")
     val PREVENT_ALL_COMBAT_DAMAGE_BY = Regex("""Prevent all combat damage that would be dealt this turn by (.+)\.""")
     val RETURN_ALL_TO_HAND = Regex("""Return all (.+) to their owners?'s? hands?\.""")
     val EXILE_ALL = Regex("""Exile all (.+)\.""")
@@ -83,7 +83,8 @@ internal object Gtc {
     val RETURN_THEN_THAT_PLAYER_DISCARDS = Regex("""Return target (.+?) to its owner's hand, then that player discards a card\.""")
     val IF_ITS_A_MAY_REVEAL_INTO_HAND = Regex("""If it's an? (.+?), you may reveal it and put it into your hand\.""")
     val FIGHTS_ANOTHER_TARGET = Regex("""Target (.+?) fights another target (.+)\.""")
-    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights target (.+)\.""")
+    // woe chunk 07: also "up to one target …"
+    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights (up to one )?target (.+)\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+)""")
     val MAY_BECOME_COPY_EXCEPT = Regex("""You may have (.+?) become a copy of that card, except (.+)\.""")
     val BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?), except (.+)\.""")
@@ -137,7 +138,7 @@ internal object Gtc {
     val ALL_ABLE_TO_BLOCK_DO_SO = Regex("""All creatures able to block target (.+?) this turn do so\.""")
     val EACH_PLAYER_SACRIFICES_LIST = Regex("""Each player sacrifices (.+?) of their choice\.""")
     val PUT_X_COUNTERS_POWER_OF_EXILED = Regex("""Put X (\S+) counters on target (.+?), where X is the power of the card you exiled\.""")
-    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any target)\.""")
+    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any (?:other )?target)\.""")
     val REMOVE_ALL_COUNTERS_FROM_TARGET = Regex("""Remove all (\S+) counters from target (.+)\.""")
     val UNTAP_EACH = Regex("""Untap each (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")
@@ -162,7 +163,8 @@ internal object Gtc {
     val EXILE_SELF_COST = Regex("""Exile (.+)""")
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
-    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them and put the revealed cards into your hand\.""")
+    // woe chunk 04: the end optional; one chunk 02: also "any number of"
+    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them( and put the revealed cards into your hand)?\.""")
     // rvr chunk 05: also "You may pay 2 life." (Savra, Queen of the Golgari)
     val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+|\d+ life)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")

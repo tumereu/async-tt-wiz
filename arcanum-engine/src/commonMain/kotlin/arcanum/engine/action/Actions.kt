@@ -878,7 +878,7 @@ internal object Actions {
 
     // ---- Tapping (CR 701.26)
 
-    fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =
+    fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList(), cause: Cause? = null): List<ObjectId> =
         ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.filter {
             // msh: "can't become untapped"
             tapped || act.view()[it]?.has { m -> m == Mechanic.CantBecomeUntapped } != true
@@ -889,7 +889,9 @@ internal object Actions {
                 false
             }
         }.onEach {
-            act.record(Changes.tap(act.state, it, tapped, meanings))
+            // woe: the tap names the player who did it (EventPattern.Tap.by, CR 701.26a)
+            act.record(Changes.tap(act.state, it, tapped, meanings).let { c ->
+                if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) })
         }
 
     // ---- Tokens (CR 111)

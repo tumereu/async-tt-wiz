@@ -46,7 +46,8 @@ internal object Legality {
     fun cantPlayLand(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int = 0): String? {
         val o = snap.state.obj(card) ?: return "no such card"
         if (face != 0 && (o.definition.layout != Layout.ModalDoubleFaced || face !in o.definition.faces.indices)) return "no face $face to play"
-        val types = if (face == 0) snap.view[card]?.characteristics?.types.orEmpty() else o.definition.faces[face].types
+        // woe: a card exiled face down has no characteristics, but it's turned face up as it's played (CR 406.3a): its card's types
+        val types = if (face == 0 && !(o.faceDown && o.zone == Zone.Exile)) snap.view[card]?.characteristics?.types.orEmpty() else o.definition.faces[face].types
         if (CardType.Land !in types) return "not a land"
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"

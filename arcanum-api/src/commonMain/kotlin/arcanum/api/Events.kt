@@ -53,6 +53,10 @@ sealed interface EventPattern {
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
+    // woe
+    /** [players] pay life (CR 119.4, 118.3b: a cost or an effect's payment, such as Phyrexian mana or "you may pay 2 life"); its amount
+     * ([Value.EventAmount]) is the life to be paid. A payment is also a loss of life, so [LoseLife] matches it too. */
+    @Serializable @SerialName("pay-life") data class PayLife(val players: PlayerFilter) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]); [exceptFirstIn]: not the first card
      * that player draws in each of their own [exceptFirstIn] steps ("except the first one they draw in each of their draw
      * steps", dgm). */
@@ -108,6 +112,10 @@ sealed interface EventPattern {
         // fin
         /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
         val producing: ManaCost? = null,
+        // woe
+        /** Only when a player matching this taps it by an effect or an ability's cost ("Whenever you tap an untapped creature an opponent
+         * controls", CR 701.26a: tapping is done by a player; attacking and being tapped as a cost of an ability of another player don't count). */
+        val by: PlayerFilter? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13

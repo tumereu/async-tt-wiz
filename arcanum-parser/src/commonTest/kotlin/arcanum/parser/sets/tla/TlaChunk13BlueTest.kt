@@ -137,7 +137,7 @@ class TlaChunk13BlueTest {
     ) parsesTo abilities(
         triggered(youCast(noncreature), createClue),
         activated(cost(tap), untilEndOfTurn(target("token"),
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Construct")))),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Construct"))), replaceSubtypes = true), // CR 205.1b: a "[creature type] artifact creature" replaces creature types
             Mechanic.SetPowerToughness(n(3), n(1)), has(Keyword.Flying)),
             targets = listOf(slot("token", and(artifact, token, you)))),
     )

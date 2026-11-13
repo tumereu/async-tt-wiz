@@ -383,8 +383,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 // dsk gaps: a copy of a card isn't a card (CR 109.1)
                 ObjectCategory.Card -> (o != null && !o.isToken && !o.copyOfCard) || (o == null && lki(id)?.token == false)
                 ObjectCategory.Token -> o?.isToken ?: lki(id)?.token ?: false
-                // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
-                ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
+                // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"; an object of the history
+                // read as of its event ([Context.asOf]) as it was then, so one that entered and has left since still entered as a permanent
+                ObjectCategory.Permanent -> (then?.zone ?: zoneOf(id)) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
                 // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)
                 ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy } ||
                     ctx.prospectiveCast && (prospectiveCastFrom(id) != null || state.obj(id)?.zone == Zone.Stack)
@@ -421,9 +422,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
             // CR 708.2a: a face-down permanent has no name
-            ObjectFilter.HasName -> names(c).any { it.isNotEmpty() }
+            ObjectFilter.HasName -> names(c).isNotEmpty()
             // CR 709.4a: a split card has each of its halves' names
-            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
+            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> !(filter.other && other == id) && names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> hasChosenName(c, ctx.names[filter.name])
             // CR 702.106f: double agenda's second name counts as the chosen name too
             is ObjectFilter.RememberedName -> hasChosenName(c, selfMemory(filter.key)) ||
@@ -492,6 +493,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             // dft: no abilities at all (CR 113.1)
             ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
+            // woe: an Adventure in its copiable values, used or not (CR 715.2a, b)
+            ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo
@@ -670,7 +673,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return values.indices.all { place(it, mutableSetOf()) }
     }
 
-    private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
+    /** Its names; none for a face-down permanent (CR 708.2a), so two face-down permanents never share a name (CR 201.2). */
+    private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ")?.filter { it.isNotEmpty() }.orEmpty()
 
     /** CR 709.4a: an object has the chosen name if one of its names is it. */
     private fun hasChosenName(c: Characteristics?, chosen: NamedValue?): Boolean {
@@ -813,6 +817,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             objects(value.objects).flatMap { characteristics(it)?.colors.orEmpty() }.distinct().count { it in among }
         }
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
+        is Value.If -> if (holds(value.condition)) value(value.then) else value(value.otherwise)
         // gtc chunk 05: the greatest of a value for each player ("the greatest number of cards a player discarded this way")
         is Value.GreatestFor -> players(value.players).maxOfOrNull { p -> with(ctx.copy(testedPlayer = p)).value(value.value) } ?: 0
     }
@@ -985,6 +990,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
+        // woe: CR 601.2i: recorded as its casting finished
+        is Condition.AsCast -> ctx.self?.let { facts(it) }?.heldAsCast?.contains(condition.condition) == true
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }

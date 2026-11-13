@@ -34,7 +34,7 @@ internal object Hob {
     val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled (?:that (?:creature|artifact|enchantment|land|planeswalker|battle|permanent)|it), (.+)""")
     val PUT_COUNTERS_ON_ONE_OR_MORE = Regex("""Whenever you put one or more counters on (.+ you control), (.+?) deals (\d+) damage to target opponent\.""")
     val PER_OPPONENT_EXILE_UNTIL_LEAVES = Regex("""For each opponent, exile up to one target (.+?) that player controls until (.+?) leaves the battlefield\.""")
-    val IT_GETS_FOR_EACH = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
+    val IT_GETS_FOR_EACH = Regex("""(It|.+?) gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
     val TARGET_OPPONENT_SACRIFICES = Regex("""Target opponent sacrifices an? (.+?) of their choice\.""")
     val IF_THAT_CREATURE_IS_COUNTER_ON_IT = Regex("""If that creature is an? (.+?), put an? (\S+) counter on it\.""")
     val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target player controls get ([+-]\d+)/([+-]\d+) until end of turn\.""")

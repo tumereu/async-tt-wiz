@@ -177,7 +177,7 @@ internal object Effects {
             is Effect.GivePlayerCounters -> scope.players(effect.players).forEach { p ->
                 Actions.putCounters(act, cause, TargetRef.Player(p), effect.kind, scope.value(effect.amount))
             }
-            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true)
+            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true, cause = scope.cause)
             is Effect.Untap -> Actions.tap(act, onBattlefield(scope, effect.objects), false)
             is Effect.Attach -> {
                 val to = recipients(scope, effect.to).firstOrNull() ?: return
@@ -964,6 +964,9 @@ internal object Effects {
         val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
+        // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
+        // became illegal) isn't created (CR 303.4i)
+        if (effect.attachedTo != null && attachTo == null) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         val created = scope.players(effect.controller).flatMap { p ->
             Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }
@@ -1258,6 +1261,13 @@ internal object Effects {
         is Mechanic.Replacement -> mechanic.copy(modify = mechanic.modify.map { m ->
             if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount)) else m
         })
+        // woe chunk 08: "Spells you cast this turn … cost {X} less to cast, where X is the amount of life you lost this turn": X found as the
+        // ability resolves (CR 608.2h), unless it is about the spell being cast
+        is Mechanic.CostChange -> if (mentionsAffected(mechanic.change.times) || mechanic.change.times.toString().contains("Tested")) mechanic
+            else mechanic.copy(change = when (val c = mechanic.change) {
+                is arcanum.api.CostChange.Less -> c.copy(times = fixValue(e, c.times))
+                is arcanum.api.CostChange.More -> c.copy(times = fixValue(e, c.times))
+            })
         // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
         is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
             if (a is arcanum.api.Keyword.Protection) arcanum.api.Keyword.Protection(fixColors(e, a.from)) else a

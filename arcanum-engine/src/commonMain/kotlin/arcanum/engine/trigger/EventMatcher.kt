@@ -121,6 +121,7 @@ internal object EventMatcher {
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
         is EventPattern.LoseLife -> life(e, change, pattern.players, Meaning.LifeLost)
+        is EventPattern.PayLife -> life(e, change, pattern.players, Meaning.LifePaid)
         is EventPattern.Draw -> moves(change).filter { Meaning.Drew in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (pattern.exceptFirstIn?.let { step -> !firstDrawIn(e.board.state, step, it.before.owner) } ?: true) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.before.owner)) }
@@ -166,7 +167,9 @@ internal object EventMatcher {
             val paid = c.meanings.firstOrNull { it is Meaning.PaidFor && it.keyword == pattern.forCost } as? Meaning.PaidFor
             val forCost = pattern.forCost == null || paid != null
             // dft: the Vehicle crewed or the Mount saddled is the event's source ("that Mount or Vehicle", CR 702.122b, 702.171c)
-            if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && e.matches(pattern.objects, c.id))
+            // woe: tapped by a player's effect or cost ("Whenever you tap ...")
+            val byOk = pattern.by == null || c.by?.let { e.matches(pattern.by!!, it.controller) } == true
+            if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && byOk && e.matches(pattern.objects, c.id))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()

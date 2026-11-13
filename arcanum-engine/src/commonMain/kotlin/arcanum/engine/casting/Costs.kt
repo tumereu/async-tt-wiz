@@ -179,7 +179,8 @@ internal object Costs {
         }
         val generic = symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
         val rest = symbols.filterNot { it is ManaSymbol.Generic }
-        val left = maxOf(minOf(generic, minimum - rest.size), generic - genericOff)
+        // woe chunk 08: "can't reduce the mana in that cost to less than one mana": the other symbols count toward the minimum
+        val left = maxOf(minOf(generic, (minimum - rest.size).coerceAtLeast(0)), generic - genericOff)
         return ManaCost((if (left > 0) listOf(ManaSymbol.Generic(left)) else emptyList()) + rest)
     }
 

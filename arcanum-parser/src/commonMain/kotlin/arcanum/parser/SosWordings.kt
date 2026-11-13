@@ -65,7 +65,8 @@ internal object Sos {
     val LOOK_REVEAL_UP_TO_LANDS_BATTLEFIELD_CREATURES_HAND = Regex("""Look at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them, then put the rest on the bottom of your library in a random order\. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand\.""")
     val LOOK_REVEAL_LAND_OR_X = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal a land card or a card with \{X\} in its mana cost from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
     val REVEAL_UNTIL_PUT_HAND_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal an? (.+?)\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
-    val MILL_PUT_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Mill (\w+) cards\. Then put an? (.+?) from among them onto the battlefield\.""")
+    // woe chunk 07: also "all …", "from among the milled cards", "into your hand"
+    val MILL_PUT_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Mill (\w+) cards\. Then put (an?|all) (.+?) from among (?:them|the milled cards) (onto the battlefield|into your hand)\.""")
     val MILL_MAY_PLAY_THIS_TURN = Regex("""[Mm]ill a card\. You may play that card this turn\.""")
     val SEARCH_PUT_HAND_OR_GRAVEYARD = Regex("""Search your library for an? (.+?), reveal it, put it into your hand or graveyard, then shuffle\.""")
 
@@ -222,6 +223,8 @@ internal object SosPhrases {
         if (text == "the number of cards you've drawn this turn") return Value.EventsThisTurn(EventPattern.Draw(PlayerFilter.You), Measure.Events)
         // sos chunk 05: "the amount of life you gained this turn"
         if (text == "the amount of life you gained this turn") return Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), Measure.Amount)
+        // woe chunk 08: "the amount of life you lost this turn"
+        if (text == "the amount of life you lost this turn") return Value.EventsThisTurn(EventPattern.LoseLife(PlayerFilter.You), Measure.Amount)
         // sos chunk 09: "the number of differently named lands you control"
         DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, SharedQuality.Name)

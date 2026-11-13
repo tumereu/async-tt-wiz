@@ -12,12 +12,10 @@ import arcanum.api.KeywordActionKind
 import arcanum.api.Measure
 import arcanum.api.NumericProperty
 import arcanum.api.ObjectFilter
-import arcanum.api.ObjectMark
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.RecipientFilter
 import arcanum.api.SharedQuality
-import arcanum.api.Status
 import arcanum.api.Value
 import arcanum.api.Zone
 
@@ -216,18 +214,12 @@ internal object FraPhrases {
         return null
     }
 
-    private val ISNT_PREPARED = Regex("""(.+?) (isn't|is) prepared""")
     private val OPPONENT_DEALT_NONCOMBAT = Regex("""an opponent (?:was|has been) dealt noncombat damage (this|last) turn""")
     private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn""")
     private val LOYALTY_AMONG = Regex("""there are (\S+) or more loyalty counters among (.+)""")
     private val NUMBER_WORDS = mapOf("twenty-five" to 25)
 
     fun condition(text: String, self: Set<String>): Condition? {
-        // fra chunk 06: "this creature isn't prepared" (CR 722.3a)
-        ISNT_PREPARED.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
-            val prepared = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Prepared)))
-            return if (m.groupValues[2] == "is") prepared else Condition.Not(prepared)
-        }
         // fra chunk 04: "you've scried or surveilled this turn"
         if (text == "you've scried or surveilled this turn") return Condition.Or(listOf(
             Condition.HappenedThisTurn(ActionWordings.youDid(KeywordActionKind.Scry), atLeast = 1, measure = Measure.Events),

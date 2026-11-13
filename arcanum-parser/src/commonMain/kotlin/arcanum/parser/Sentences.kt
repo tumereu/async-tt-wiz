@@ -3165,6 +3165,17 @@ internal class Sentences(
             val then = more ?: effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
             return steps.dropLast(1) + Step.If(condition, then = then, otherwise = listOf(last))
         }
+        // mkm chunk 05: "Return target creature card from your graveyard to the battlefield. Suspect it.": "it" after a target is put onto the
+        // battlefield is the permanent it became (CR 400.7j), not the card in the graveyard
+        val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move
+        if (move != null && move.postBind == null && move.objects is Objects.Target && move.to.zone == Zone.Battlefield && IT_WORD.containsMatchIn(sentence)) {
+            val (it, thisWay, targets) = Triple(context.it, context.thisWay, context.targets.size)
+            afterMove(sentence, steps, context)?.let { rebound ->
+                if (rebound.drop(steps.size).toString().contains("Bound(name=returned)")) return rebound
+                context.it = it; context.thisWay = thisWay
+                while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
+            }
+        }
         return null
     }
 
@@ -5222,8 +5233,9 @@ internal class Sentences(
             val on = m.groupValues[3]
             val objects = when {
                 isSelf(on) -> Objects.Self
-                // chunk 36: "on it"
-                on == "it" -> context.it
+                // chunk 36: "on it"; mkm chunk 05: in an activated ability with no event or target, "it" is the source ("{2}{B}: If this creature
+                // is suspected, put a +1/+1 counter on it.")
+                on == "it" -> context.it ?: Objects.Self.takeIf { context.event == null && context.targets.isEmpty() && !isSpell }
                 on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), nounIn(it, context) ?: return null) }
                 // chunk 35: other wordings ("on Korvold and draw a card") are left to the rules below
                 else -> null
@@ -5684,6 +5696,9 @@ internal class Sentences(
             if (m.groupValues[1].isNotEmpty() || m.groupValues[2].isNotEmpty() || m.groupValues[3] != "its owner's" || counters.isNotEmpty())
                 return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty(),
                     transformed = m.groupValues[2].isNotEmpty(), controller = controller, counters = counters))))
+            // mkm chunk 05: "it" afterwards is the permanent it became ("return it to the battlefield under its owner's control and suspect it",
+            // CR 400.7)
+            context.it = Objects.Bound("returned")
             return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, controller = Players.OwnerOf(card)), postBind = "returned")))
         }
         MILL.matchEntire(sentence)?.let { m ->
@@ -11325,6 +11340,7 @@ internal class Sentences(
         val ENCHANTED_IS = Regex("""Enchanted \w+ is an? (.+?)(?: with (.+?))?( and it loses all other card types)?\.""")
         const val SACRIFICED = "sacrificed"
         val OTHERWISE = Regex("""Otherwise, (.+)""")
+        val IT_WORD = Regex("""\b[Ii]t\b""")
         val UNTAP_TARGET = Regex("""Untap target (.+)\.""")
         val UNTAP_ALL = Regex("""Untap all (.+)\.""")
         val IF_ITS_A = Regex("""If it's an? (.+?), (.+)""")
@@ -15660,6 +15676,17 @@ internal class Sentences(
 
     /** mkm: wordings of several sentences read as one. */
     private fun mkmWhole(text: String, context: Context): List<Step>? {
+        // mkm chunk 05: "you may suspect one of the other creatures. If you do, this creature is no longer suspected." after a batch trigger
+        // ("one or more other creatures you control enter"): zero or one of the creatures that entered, chosen as it resolves (CR 701.60a)
+        Mkm.MAY_SUSPECT_ONE_OF_THE_OTHER.matchEntire(text)?.let { m ->
+            if (context.event == null) return@let
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.EventObject(arcanum.api.EventRole.After)),
+                    bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Mark(Objects.Bound("chosen"), arcanum.api.ObjectMark.Suspected)),
+                Step.If(arcanum.api.Condition.NonEmpty("chosen"), then = then))
+        }
         // mkm chunk 04: "You may choose a creature card from among them. Until end of turn, target token you control becomes a copy of it, except it
         // has flying." after a batch trigger (the target is chosen as the ability goes on the stack, the card as it resolves; CR 707.2, 707.9a)
         Mkm.MAY_CHOOSE_FROM_AMONG_THEM_TARGET_BECOMES_COPY.matchEntire(text)?.let { m ->
@@ -15715,6 +15742,29 @@ internal class Sentences(
 
     /** mkm: single-sentence effects, tried first. */
     private fun mkmEffect(sentence: String, context: Context): List<Step>? {
+        // mkm chunk 05: "Suspect it.", "suspect this creature" (CR 701.60a)
+        Mkm.SUSPECT_OBJECTS.matchEntire(sentence)?.let { m ->
+            val objects = (if (m.groupValues[1] == "them") context.them else fraObjects(m.groupValues[1], context)) ?: return@let
+            return listOf(Step.Do(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected)))
+        }
+        // mkm chunk 05: "All suspected creatures are no longer suspected.", "this creature is no longer suspected." (CR 701.60a)
+        Mkm.NO_LONGER.matchEntire(sentence)?.let { m ->
+            val mark = ActionWordings.mark(m.groupValues[2]) ?: return@let
+            val subject = m.groupValues[1]
+            val objects = if (subject.startsWith("All ") || subject.startsWith("all ")) Objects.Each(Filters.noun(subject.substringAfter(' ')) ?: return@let)
+                else fraObjects(subject, context) ?: return@let
+            return listOf(Step.Do(Effect.Mark(objects, mark, remove = true)))
+        }
+        // mkm chunk 05: "If it's suspected, exile it." about the object the sentences before named (a target chosen before, CR 608.2b)
+        Mkm.IF_IT_IS_MARKED.matchEntire(sentence)?.let { m ->
+            val mark = ActionWordings.mark(m.groupValues[3]) ?: return@let
+            val objects = fraObjects(m.groupValues[1], context) ?: return@let
+            val then = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            // an "Otherwise, …" after it is about the same object, whatever the first branch did to it
+            context.it = objects
+            val marked = arcanum.api.Condition.ObjectMatches(objects, ObjectFilter.HasStatus(arcanum.api.Status.Marked(mark)))
+            return listOf(Step.If(if (m.groupValues[2].isEmpty()) marked else arcanum.api.Condition.Not(marked), then = then))
+        }
         // mkm chunk 04: "Exile a card from a graveyard." (not targeted: the controller chooses one in any graveyard as it resolves)
         if (Mkm.EXILE_A_CARD_FROM_A_GRAVEYARD.matches(sentence))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard))),

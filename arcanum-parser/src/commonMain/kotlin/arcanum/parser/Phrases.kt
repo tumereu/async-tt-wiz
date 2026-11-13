@@ -1014,6 +1014,12 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        // fra chunk 06: "this creature isn't prepared" (CR 722.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
+        // (about this object, CR 701.60a)
+        MARKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            val marked = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Marked(ActionWordings.mark(m.groupValues[3]) ?: return@let)))
+            return if (m.groupValues[2].isEmpty()) marked else Condition.Not(marked)
+        }
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1378,6 +1384,8 @@ internal object Conditions {
     // blb chunk 12
     // dgm
     private val GTC_ISNT_A_TOKEN = Regex("""(.+) isn't a token""")
+    // mkm chunk 05: "this creature is suspected", "it's not suspected", "this creature isn't prepared" (a mark, [ActionWordings.mark])
+    private val MARKED = Regex("""(.+?)(?: is|'s)(n't| not)? (\w+)""")
     private val OPPONENT_CONTROLS_MORE = Regex("""an opponent controls more (.+) than you""")
     private val TOTAL_POWER = Regex("""(.+) have total power (\d+) or greater""")
     private val SELF_POWER_AT_LEAST = Regex("""(.+)'s power is (\d+) or greater""")

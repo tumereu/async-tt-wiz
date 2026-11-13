@@ -261,3 +261,18 @@ fun mayCollectEvidenceAsAdditionalCost(amount: Int): Ability =
 val evidenceCollected: Condition = Condition.Paid(null, times = 1, of = Objects.Self)
 fun collectEvidenceStep(amount: Int): Step = Step.Do(Effect.Action(KeywordAction.CollectEvidence(n(amount))))
 val youCollectEvidence: Trigger = on(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.CollectEvidence, arcanum.api.PlayerFilter.You))
+
+// ---- chunk 05: suspect (CR 701.60)
+
+/** A suspected object (CR 701.60a) */
+val suspected: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Suspected))
+/** "Suspect [objects]" (CR 701.60a) */
+fun suspect(objects: Objects): Step = doing(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected))
+/** "[objects] is no longer suspected" (CR 701.60a) */
+fun noLongerSuspected(objects: Objects): Step = doing(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected, remove = true))
+/** "[objects] is suspected" */
+fun isSuspected(objects: Objects = Objects.Self): Condition = Condition.ObjectMatches(objects, suspected)
+/** "Counter target spell unless its controller pays [cost]." (CR 118.12) */
+fun counterUnless(cost: String, slotName: String = "spell"): List<Step> = listOf(
+    Step.Pay(manaCost(cost), payer = Players.ControllerOf(target(slotName)), bind = "paid"),
+    Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Counter(target(slotName))))))

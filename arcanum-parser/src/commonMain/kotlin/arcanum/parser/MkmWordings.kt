@@ -69,4 +69,12 @@ internal object Mkm {
     val MAY_CHOOSE_FROM_AMONG_THEM_TARGET_BECOMES_COPY = Regex("""You may choose an? (.+?) from among them\. Until end of turn, target (.+?) becomes a copy of it, except it has (\w+)\.""")
     // mkm chunk 04: "exile a card from a graveyard" (chosen as it resolves, from any player's graveyard; CR 701.13a)
     val EXILE_A_CARD_FROM_A_GRAVEYARD = Regex("""[Ee]xile a card from a graveyard\.""")
+    // mkm chunk 05: "Suspect it." (an object named otherwise than as a target; CR 701.60a)
+    val SUSPECT_OBJECTS = Regex("""[Ss]uspect (?!up to |target |other |another |one of )(.+?)\.""")
+    // mkm chunk 05: "All suspected creatures are no longer suspected.", "this creature is no longer suspected." (CR 701.60a)
+    val NO_LONGER = Regex("""(.+?) (?:is|are) no longer (\w+)\.""")
+    // mkm chunk 05: "If it's suspected, exile it." about the object the sentences before named
+    val IF_IT_IS_MARKED = Regex("""If (it|that creature)(?:'s| is)(n't| not)? (\w+), (.+)""")
+    // mkm chunk 05: "you may suspect one of the other creatures. If you do, this creature is no longer suspected." after a batch trigger
+    val MAY_SUSPECT_ONE_OF_THE_OTHER = Regex("""[Yy]ou may suspect one of the other (.+?)\. If you do, (.+)""")
 }

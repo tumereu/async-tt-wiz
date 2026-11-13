@@ -17,6 +17,7 @@ LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
 MSH Marvel Super Heroes
 RTR Return to Ravnica
+RVR Ravnica Remastered
 SOS Secrets of Strixhaven
 SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm

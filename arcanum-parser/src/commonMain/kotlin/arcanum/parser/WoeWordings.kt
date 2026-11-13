@@ -73,6 +73,19 @@ internal object Woe {
     // woe chunk 09: "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn,
     // where X is the number of cards exiled this way." (CR 603.12)
     val MAY_EXILE_FROM_GRAVEYARD_WHEN_YOU_DO_GET_MINUS_X = Regex("""You may exile one or more (.+?) from your graveyard\. When you do, each (other )?(.+?) gets -X/-X until end of turn, where X is the number of cards exiled this way\.""")
+    // woe chunk 09r: "That creature gets an additional -3/-3 until end of turn if you controlled a Faerie as you cast this spell."
+    val GETS_ADDITIONAL_IF = Regex("""(.+?) gets an additional ([+-]\d+)/([+-]\d+) until end of turn if (.+)\.""")
+    // woe chunk 09r: "At the beginning of the next combat phase this turn, target creature you control deals damage equal to its power to …"
+    val AT_NEXT_COMBAT_THIS_TURN = Regex("""At the beginning of the next combat phase this turn, (.+)""")
+    // woe chunk 09r: "For each of those cards, its owner may play it for as long as it remains exiled."
+    val EACH_OWNER_MAY_PLAY_WHILE_EXILED = Regex("""(?:For each of those cards, its|Its) owner may (play|cast) (?:it|that card) for as long as it remains exiled\.""")
+    // woe chunk 09r: "Whenever one or more nontoken creatures enter, if one or more of them entered from exile or was cast from exile, you draw a card."
+    val ENTER_IF_ONE_ENTERED_OR_CAST_FROM = Regex("""Whenever one or more (.+?) enter, if one or more of them entered from (exile|a graveyard) or (?:was|were) cast from (?:exile|a graveyard), (.+?)\.( This ability triggers only once each turn\.)?""")
+    // woe chunk 09r: 'you may have The Irencrag become a legendary Equipment artifact named Everflame, Heroes' Legacy. If you do, it gains equip {3}
+    // and "Equipped creature gets +3/+3" and loses all other abilities.'
+    val MAY_BECOME_NAMED_GAINS_LOSES_OTHERS = Regex("""[Yy]ou may have (.+?) become an? (legendary )?([A-Z][a-z]+(?: [A-Z][a-z]+)*) (artifact|enchantment|creature|land) named (.+?)\. If you do, it gains ([a-z]+(?: \{[^}]+\})*) and "(.+?)" and loses all other abilities\.""")
+    // woe chunk 09r: "You may exile a creature card from among them."
+    val MAY_EXILE_FROM_AMONG = Regex("""You may exile an? (.+?) from among them\.""")
     // woe chunk 09: "Sacrifice all Reflections you control."
     val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+?) you control\.""")
 }
@@ -141,7 +154,14 @@ internal object WoePhrases {
     private val A_NOUN_IS_ATTACKING = Regex("""an? ([A-Z]\w+|creature) is attacking""")
     private val YOU_OWN_IN_EXILE = Regex("""you own an? (\w+) in exile(?: (that .+))?""")
 
-    fun condition(text: String): arcanum.api.Condition? {
+    private val AS_YOU_CAST_THIS_SPELL = Regex("""(.+) as you cast this spell""")
+
+    fun condition(text: String, self: Set<String>): arcanum.api.Condition? {
+        // woe chunk 09r: "you controlled a Faerie as you cast this spell" (answered as casting finishes, CR 601.2i)
+        AS_YOU_CAST_THIS_SPELL.matchEntire(text)?.let { m ->
+            val now = m.groupValues[1].replace(Regex("""^you controlled """), "you control ")
+            return arcanum.api.Condition.AsCast(Conditions.condition(now, self) ?: return null)
+        }
         // woe chunk 08: "your life total is 5 or less"
         LIFE_TOTAL_OR_LESS.matchEntire(text)?.let { m ->
             return arcanum.api.Condition.Compare(arcanum.api.Value.LifeOf(arcanum.api.Players.You), arcanum.api.Comparison.AtMost, arcanum.api.Value.Fixed(m.groupValues[1].toInt()))

@@ -221,6 +221,11 @@ sealed interface Condition {
         val costIndex: Int? = null,
         val of: Objects,
     ) : Condition
+    // woe
+    /** [condition] held as this spell was cast, checked as its casting finished (CR 601.2i): "if you controlled a Faerie as
+     * you cast this spell". The answer stays fixed whatever happens later; a copy wasn't cast, so it doesn't hold for one
+     * (CR 707.10). */
+    @Serializable @SerialName("as-cast") data class AsCast(val condition: Condition) : Condition
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition

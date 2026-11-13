@@ -895,6 +895,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
+        // woe: CR 601.2i: recorded as its casting finished
+        is Condition.AsCast -> ctx.self?.let { facts(it) }?.heldAsCast?.contains(condition.condition) == true
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }

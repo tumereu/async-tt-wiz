@@ -515,6 +515,28 @@ internal object Payment {
 
     // ---- Finishing
 
+    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested. */
+    private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
+        fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
+            is arcanum.api.Condition.AsCast -> listOf(c.condition)
+            is arcanum.api.Condition.And -> c.all.flatMap(::of)
+            is arcanum.api.Condition.Or -> c.any.flatMap(::of)
+            is arcanum.api.Condition.Not -> of(c.condition)
+            else -> emptyList()
+        }
+        fun of(steps: List<arcanum.api.Step>): List<arcanum.api.Condition> = steps.flatMap { step ->
+            when (step) {
+                is arcanum.api.Step.If -> of(step.condition) + of(step.then) + of(step.otherwise)
+                is arcanum.api.Step.May -> of(step.steps)
+                is arcanum.api.Step.ForEach -> of(step.steps)
+                is arcanum.api.Step.Repeat -> of(step.steps)
+                is arcanum.api.Step.RepeatWhile -> of(step.condition) + of(step.steps)
+                else -> emptyList()
+            }
+        }
+        return of(instructions.steps) + instructions.modes?.options.orEmpty().flatMap { asCastConditions(it.instructions) }
+    }
+
     private fun finishSpell(
         recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>,
         paidWith: Map<ManaPaymentWay, List<ObjectId>>,
@@ -522,8 +544,13 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
+        // woe: CR 601.2i: "if you controlled a Faerie as you cast this spell" is answered now, once
+        val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->
+            if (conditions.isEmpty()) emptyList() else recorder.snapshot().evaluator(plan.player, self = id).let { e -> conditions.filter { e.holds(it) } }
+        }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
+            heldAsCast = asCast,
             x = plan.choices.announced["X"],
             manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
                 spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }

@@ -943,17 +943,26 @@ internal object Effects {
         val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
-        val created = scope.players(effect.controller).flatMap { p ->
-            Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
+        // CR 608.2f: "each player creates …" creates every player's tokens at once, one event
+        val requests = scope.players(effect.controller).map { p -> Actions.TokenRequest(values, count, p, effect.tapped, attachTo) }
+        val attacking = effect.attacking?.let { attackTarget(scope, it) }
+        val batch = scope.batch
+        if (batch != null) {
+            // "for each …, create …": created with the other tokens of the loop, as one event; bound when they are
+            batch += Batched(scope, emptyList(), null, tokens = requests, tokenBind = effect.bind, attacking = attacking)
+            return
         }
-        effect.attacking?.let { target ->
-            val to = attackTarget(scope, target)
-            val combat = act.state.combat
-            if (to != null && combat != null) {
-                act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, to) })))
-            }
+        tokensCreated(scope, Actions.createTokensTogether(act, scope.cause, requests).flatten(), attacking, effect.bind)
+    }
+
+    /** After tokens [created] were created: those created attacking [attacking] attack it (CR 508.4); [bind] names them. */
+    internal fun tokensCreated(scope: Scope, created: List<ObjectId>, attacking: TargetRef?, bind: String?) {
+        val act = scope.act
+        val combat = act.state.combat
+        if (attacking != null && combat != null) {
+            act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, attacking) })))
         }
-        scope.bind(effect.bind, NamedValue.Objects(created))
+        scope.bind(bind, NamedValue.Objects(created))
     }
 
     /** CR 707.10: a copy of a spell or ability is put on the Stack (not cast); it may get new targets. */

@@ -6173,12 +6173,17 @@ internal class Sentences(
         }
         // dgm: "Each creature card in your graveyard has scavenge. The scavenge cost is equal to its mana cost." (CR 702.97a)
         Gtc.CARDS_HAVE_SCAVENGE.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            // otj fixes: "The top card of your library has plot." (CR 702.170a; it works from there only with a permission, 702.170f)
+            val objects = if (m.groupValues[1] == "The top card of your library") Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true)
+                else Objects.Each(Filters.noun(m.groupValues[1].removePrefix("Each ")) ?: return null)
             // inr chunk 09: also madness, for cards in every zone but the battlefield (CR 702.35a)
             val cost = Cost(listOf(CostPart.ItsManaCost))
-            val keyword = if (m.groupValues[2] == "madness") arcanum.api.Keyword.Madness(cost) else arcanum.api.Keyword.Scavenge(cost)
-            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))),
-                affects = Affected.Objects(Objects.Each(filter)))
+            val keyword = when (m.groupValues[2]) {
+                "madness" -> arcanum.api.Keyword.Madness(cost)
+                "plot" -> arcanum.api.Keyword.Plot(cost)
+                else -> arcanum.api.Keyword.Scavenge(cost)
+            }
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))), affects = Affected.Objects(objects))
         }
         return null
     }
@@ -16620,6 +16625,14 @@ internal class Sentences(
     }
 
     private fun otjLine(line: String): Ability? {
+        // otj fixes: "You may plot nonland cards from the top of your library." (the plot ability works from there, the card exiled from
+        // the library as the action is taken, CR 702.170f; the top card only, as "play … from the top of your library")
+        Otj.MAY_KEYWORD_FROM_TOP.matchEntire(line)?.let { m ->
+            val keyword = when (m.groupValues[1]) { "plot" -> arcanum.api.Keyword.Plot.Kind; else -> return null }
+            val cards = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.KeywordFunctionsIn(keyword, Zone.Library, topOnly = true)), affects = Affected.Objects(Objects.Each(
+                Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
         // otj chunk 05: "If you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters on it
         // instead." (counters you put, CR 614.1a)
         Otj.YOU_WOULD_PUT_COUNTERS_PLUS.matchEntire(line)?.let { m ->

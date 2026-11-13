@@ -862,7 +862,11 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         val players = state.players.filter { !it.lost }.map { it.id }
         // CR 113.6, 602.2: cards outside the hand, the Stack and the battlefield with abilities or special actions to use there
         val sources = players.associateWith { player ->
-            arcanum.engine.casting.Legality.abilitySources(state, player).filter { offZone(view.objects[it]) }
+            // otj: a library's top card only when one of its keywords works there (CR 702.170f)
+            arcanum.engine.casting.Legality.abilitySources(state, player).filter { id ->
+                val o = view.objects[id]
+                offZone(o) && (o!!.zone != Zone.Library || o.mechanics.any { it.mechanic is arcanum.api.Mechanic.KeywordFunctionsIn })
+            }
         }
         if (held.isEmpty() && sources.values.all { it.isEmpty() }) return view
         if (held.any { o -> o.mechanics.any { (it.mechanic as? arcanum.api.Mechanic.MayPlay)?.condition != null } }) reads.log = true

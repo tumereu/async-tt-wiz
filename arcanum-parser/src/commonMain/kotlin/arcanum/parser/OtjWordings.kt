@@ -61,6 +61,8 @@ internal object Otj {
     // on it instead" (after "Until end of turn, ")
     val YOU_WOULD_PUT_COUNTERS_PLUS = Regex("""If you would put one or more (\S+) counters on (.+?), put that many plus (\w+) (\S+) counters on it instead\.""")
     // otj chunk 05: Doc Aurlock: "Plotting cards from your hand costs {2} less." (plot's special action, CR 702.170a)
+    // otj fixes: Fblthp: "You may plot nonland cards from the top of your library." (CR 702.170f)
+    val MAY_KEYWORD_FROM_TOP = Regex("""You may (plot) (.+?) from the top of your library\.""")
     val PLOTTING_FROM_HAND_COSTS_LESS = Regex("""Plotting cards from your hand costs ((?:\{[^}]+\})+) less\.""")
     val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
     // otj chunk 06: Ertha Jo, Frontier Mentor

@@ -430,6 +430,13 @@ sealed interface Mechanic {
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */
     @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects, val reveal: Boolean = false) : Mechanic
+    // otj
+    /** The affected cards' [keyword] abilities function in [zone] too, not only where that keyword works ("You may plot nonland cards
+     * from the top of your library", CR 702.170f, 113.6): its special action is taken from there, the card moving from that zone as
+     * it is. [topOnly]: only the top card of a library. */
+    @Serializable @SerialName("keyword-functions-in") data class KeywordFunctionsIn(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val zone: Zone, val topOnly: Boolean = false,
+    ) : Mechanic
     /** Damage matching [event] can't be prevented (CR 615.12); replacement effects still apply. */
     @Serializable @SerialName("damage-cant-be-prevented") data class DamageCantBePrevented(val event: EventPattern) : Mechanic
 

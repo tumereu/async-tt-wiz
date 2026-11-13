@@ -23,8 +23,13 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TriggerEvent
 import arcanum.engine.view.Subtypes
 
-/** Zone changes collected to happen as one event (CR 608.2c, 608.2e): [moves], binding [postBind] in [scope]. */
-internal class Batched(val scope: Scope, val moves: List<PlannedMove>, val postBind: String?, val noRegeneration: Boolean = false)
+/** Zone changes collected to happen as one event (CR 608.2c, 608.2e): [moves], binding [postBind] in [scope]. Token creations
+ * ([tokens], CR 608.2f) collected likewise are created as one event, then bound to [tokenBind] and put onto the battlefield
+ * attacking [attacking] when that is set. */
+internal class Batched(
+    val scope: Scope, val moves: List<PlannedMove>, val postBind: String?, val noRegeneration: Boolean = false,
+    val tokens: List<Actions.TokenRequest> = emptyList(), val tokenBind: String? = null, val attacking: arcanum.engine.state.TargetRef? = null,
+)
 
 /**
  * Where a resolution (or a replacement's instructions, or "as enters" steps) is: [cause] says who "you" and "this"
@@ -169,8 +174,21 @@ internal object Steps {
 
     fun flush(act: Act, cause: Cause, batch: List<Batched>) {
         if (batch.isEmpty()) return
-        val moved = Actions.move(act, cause, batch.flatMap { it.moves }, noRegeneration = batch.any { it.noRegeneration })
-        batch.forEach { b ->
+        // CR 608.2f: the tokens "for each" creates are created at once, one event ("one or more tokens enter" triggers once)
+        val creating = batch.filter { it.tokens.isNotEmpty() }
+        if (creating.isNotEmpty()) {
+            val created = Actions.createTokensTogether(act, cause, creating.flatMap { it.tokens })
+            var at = 0
+            creating.forEach { b ->
+                val ids = created.subList(at, at + b.tokens.size).flatten()
+                at += b.tokens.size
+                Effects.tokensCreated(b.scope, ids, b.attacking, b.tokenBind)
+            }
+        }
+        val moving = batch.filter { it.tokens.isEmpty() }
+        if (moving.isEmpty()) return
+        val moved = Actions.move(act, cause, moving.flatMap { it.moves }, noRegeneration = moving.any { it.noRegeneration })
+        moving.forEach { b ->
             b.scope.bind(b.postBind, NamedValue.Objects(b.moves.mapNotNull { moved[it.id] }))
         }
     }
@@ -202,6 +220,9 @@ internal object Steps {
         }
         if (step.together) {
             step.steps.forEach { s -> stepTogether(scope, scopes, s) }
+        } else if (step.steps.all { (it as? Step.Do)?.effect is arcanum.api.Effect.CreateToken }) {
+            // CR 608.2f: "for each of them, create a token …": the tokens are created simultaneously, as one event
+            together(scope) { scopes.forEach { it.batch = scope.batch; run(it, step.steps); it.batch = null } }
         } else {
             scopes.forEach { run(it, step.steps) }
         }

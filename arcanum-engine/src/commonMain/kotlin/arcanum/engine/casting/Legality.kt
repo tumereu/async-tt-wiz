@@ -376,6 +376,18 @@ internal object Legality {
     fun cantUse(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
         notTheirs(snap, player, source, instance) ?: usedUp(snap, source, instance)
 
+    /** otj: [instance], an ability of a keyword of [o], functions where [o] is by a [Mechanic.KeywordFunctionsIn] applied to it ("You may
+     * plot nonland cards from the top of your library", CR 702.170f, 113.6). */
+    private fun keywordFunctionsHere(snap: Snapshot, o: GameObject, instance: AbilityInstance): Boolean {
+        val origin = instance.origin as? AbilityOrigin.Expansion ?: return false
+        val view = snap.view[o.id] ?: return false
+        val keyword = view.characteristics?.abilities.orEmpty().firstOrNull { it.origin == origin.keyword }?.ability as? Keyword ?: return false
+        return view.mechanics.any { applied ->
+            val m = applied.mechanic as? Mechanic.KeywordFunctionsIn ?: return@any false
+            m.keyword == keyword.kind && m.zone == o.zone && (!m.topOnly || snap.state.player(o.owner).library.firstOrNull() == o.id)
+        }
+    }
+
     /** [cantUse] without the uses: it doesn't function where [source] is, or [player] may not activate or take it there. */
     private fun notTheirs(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
         when (val ability = instance.ability) {
@@ -385,7 +397,7 @@ internal object Legality {
                 val o = snap.state.obj(source) ?: return "no such object"
                 val you = snap.board.controller(source) ?: o.owner
                 when {
-                    o.zone !in Functioning.zones(ability, false) -> "it doesn't work from ${o.zone}"
+                    o.zone !in Functioning.zones(ability, false) && !keywordFunctionsHere(snap, o, instance) -> "it doesn't work from ${o.zone}"
                     you != player -> "only its controller may take it"
                     ability.condition != null && !snap.evaluator(you, self = source).holds(ability.condition!!) -> "its condition isn't met"
                     else -> null
@@ -411,11 +423,13 @@ internal object Legality {
 
     /**
      * The objects whose activated abilities and special actions [player] may activate (CR 602.2, 116.2): the battlefield, their
-     * hand and graveyard, exile, the command zone and their cards outside the game (a revealed companion, CR 702.139a), in that
-     * order. What [arcanum.engine.Engine.options] tries, and where a host's status looks outside a hand.
+     * hand and graveyard, exile, the command zone, their cards outside the game (a revealed companion, CR 702.139a) and the top card
+     * of their library (otj: plotted from there, CR 702.170f), in that order. What [arcanum.engine.Engine.options] tries, and where a
+     * host's status looks outside a hand.
      */
     fun abilitySources(state: arcanum.engine.state.GameState, player: PlayerId): List<ObjectId> =
-        state.battlefield + state.player(player).hand + state.player(player).graveyard + state.exile + state.command + state.player(player).outside
+        state.battlefield + state.player(player).hand + state.player(player).graveyard + state.exile + state.command + state.player(player).outside +
+            state.player(player).library.take(1)
 
     /** [id]'s activated abilities and special actions, those it shows and those the rules give it ([SpecialActions]). */
     fun activatable(snap: Snapshot, id: ObjectId): List<AbilityInstance> =

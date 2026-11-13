@@ -4,6 +4,7 @@ import arcanum.engine.state.withStatus
 import arcanum.engine.state.deathtouchDamage
 import arcanum.engine.state.goadedBy
 import arcanum.engine.state.heldPhasedOut
+import arcanum.engine.state.heldPhasedOutWhile
 import arcanum.api.CounterKind
 import arcanum.api.Duration
 import arcanum.api.Mechanic
@@ -280,8 +281,11 @@ internal object Steps {
         s.battlefield.toList().forEach { id ->
             val o = s.obj(id) ?: return@forEach
             val controller = o.controller ?: o.owner
-            if (o.phasedOut && controller == active && !o.heldPhasedOut /* mh2 */) {
+            // dmu: held out while a player controls an object (CR 611.2b, 702.26b)
+            val heldWhile = o.heldPhasedOutWhile?.takeIf { h -> s.obj(h.source)?.let { it.zone == Zone.Battlefield && !it.phasedOut && snap.board.controller(h.source) == h.player } == true }
+            if (o.phasedOut && controller == active && !o.heldPhasedOut /* mh2 */ && heldWhile == null) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, true, false, listOf(Meaning.PhasedIn)))
+                if (o.heldPhasedOutWhile != null) arcanum.engine.change.Changes.status(recorder.state, id, "held-phased-out-while", null)?.let(recorder::record)
             } else if (!o.phasedOut && snap.board.controller(id) == active && hasPhasing(snap, id)) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, false, true, listOf(Meaning.PhasedOut)))
             }

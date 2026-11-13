@@ -108,7 +108,7 @@ internal object Tla {
     val PUT_COUNTER_ON_SELF_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on (.+) and draw a card\.""")
     val QUEST_COUNTER_THEN_IF = Regex("""[Pp]ut a quest counter on (.+?)\. Then if it has (\w+) or more quest counters on it, (.+)""")
     val OWNER_SHUFFLES_ENCHANTED = Regex("""Enchanted creature's owner shuffles it into their library\.""")
-    val MAY_CAST_FROM_HAND_FREE = Regex("""You may cast an? (.+?) spell from your hand without paying its mana cost\.""")
+    val MAY_CAST_FROM_HAND_FREE = Regex("""You may cast an? (.+?) spell( with mana value [^.]+?)? from your hand without paying its mana cost\.""") // dmu chunk 04: with mana value
 
     // tla chunk 03: black, red and green wordings
     val SACRIFICE_SELF_IF_YOU_DO = Regex("""Sacrifice (.+?)\. If you do, (.+)""")
@@ -133,7 +133,7 @@ internal object Tla {
     val IF_X_IS_N_OR_MORE_THAT_CREATURE_GAINS = Regex("""If X is (\w+) or more, that creature gains (.+) until end of turn\.""")
     val DEALS_DAMAGE_THAT_PLAYER_DISCARDS = Regex("""(.+) deals (\d+) damage to target player\. That player discards (\w+) cards?\.""")
     val AS_LONG_AS_NAMED_IS_ARTIFACT_CREATURE = Regex("""As long as you control (\w+) or more permanents named (.+?), (.+) is an artifact creature\.""")
-    val AS_LONG_AS_COUNTERS_ITS_ARTIFACT_CREATURE = Regex("""As long as (.+) has (\w+) or more (\S+) counters on it, it's an artifact creature\.""")
+    val AS_LONG_AS_COUNTERS_ITS_ARTIFACT_CREATURE = Regex("""As long as (.+) has (\w+) or more (\S+) counters on it, it's an? (?:([A-Z]\w+) )?(artifact creature|creature)( in addition to its other types)?\.""") // dmu chunk 04: "a Phyrexian creature in addition to its other types"
     val YOU_SACRIFICE_ANOTHER = Regex("""you sacrifice another (\w+)""")
     val YOU_SACRIFICE_DURING_YOUR_TURN = Regex("""you sacrifice an? (\w+) during your turn""")
     val EXILE_FROM_GRAVEYARD_IF_CREATURE_CLUE = Regex("""[Ee]xile up to one target (card from a graveyard)\. If a (\w+) card is exiled this way, (.+)""")

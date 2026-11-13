@@ -309,7 +309,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
         // fin: in an effect a triggered ability created, "that player" is its event's player, kept as the effect began (CR 608.2h)
         Players.EventPlayer -> ctx.event?.players ?: (ctx.names[EVENT_PLAYERS] as? arcanum.engine.state.NamedValue.Players)?.ids.orEmpty()
-        is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
+        // dmu chunk 04: "its controller" of an object that has left its zone is its last known controller (CR 608.2h)
+        is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) ?: lki(it)?.controller }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()
         Players.Active -> listOf(state.turn.active)
         is Players.DefendingPlayerOf -> {

@@ -28,6 +28,9 @@ internal object Dmu {
     val IF_ITS_MANA_VALUE_AT_MOST = Regex("""(.+?) if its mana value is less than or equal to (.+)\.""")
     // dmu chunk 03: Keldon Flamesage
     val MAY_EXILE_MV_X_FROM_AMONG = Regex("""You may exile an? (.+?) card with mana value X or less from among them\.""")
+    // dmu chunk 04
+    val CANT_PHASE_IN_WHILE_YOU_CONTROL = Regex("""(?:It|They) can't phase in for as long as you control (.+)\.""")
+    val FOR_EACH_DESTROYED_CONTROLLER_CREATES = Regex("""For each (.+?) destroyed this way, its controller creates (.+)\.""")
     private val TIMES_KICKED = Regex("""(?:the number of )?times? (.+) was kicked""")
 
     /** "time it was kicked", "the number of times this spell was kicked": how many of its kicker costs were paid (CR 702.33d). */

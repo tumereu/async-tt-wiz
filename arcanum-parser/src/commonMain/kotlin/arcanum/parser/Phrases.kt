@@ -210,6 +210,11 @@ internal object Filters {
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
+            // dmu chunk 04: "with mana value 1 or 2" (either value)
+            m.groupValues[3].removePrefix(" or ").toIntOrNull()?.let { other ->
+                return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, value),
+                    ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(other)))))
+            }
             // blb gaps 2: "… or greater"
             val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(comparison, value))
@@ -461,7 +466,7 @@ internal object Filters {
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
-    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less| or greater)?""")
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less| or greater| or \d+)?""") // dmu chunk 04: "1 or 2"
     // blb gaps 2
     private val SPELLS_OF_TYPES_YOU_CAST = Regex("""(\w+) and (\w+) spells you cast""")
     private val WITH_X_IN_MANA_COST = Regex("""(.+) with \{X\} in (?:its|their) mana costs?""")

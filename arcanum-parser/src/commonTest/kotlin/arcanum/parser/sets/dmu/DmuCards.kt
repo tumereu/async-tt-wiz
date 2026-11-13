@@ -227,3 +227,11 @@ fun untilYourNextTurn(objects: Objects, vararg mechanics: Mechanic): Step =
 /** "{T}: Add {a} or {b}." (CR 106.1) */
 fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
     colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { ColorRef.Literal(it) })), Players.You)))
+
+// ---- dmu chunk 04
+
+/** A Saga's chapter ability for [numbers] ("I, II — …", CR 714.2b, c). */
+fun chapters(vararg numbers: Int, steps: List<Step>, targets: List<TargetSlot> = emptyList()): Ability =
+    Ability.Triggered(Trigger.Chapter(numbers.toList()), Instructions(targets = targets, steps = steps))
+/** "Whenever a creature you control dies" (CR 700.4). */
+val creatureYouControlDies: Trigger = on(EventPattern.ZoneChange(creatureYouControl, from = Zone.Battlefield, to = Zone.Graveyard))

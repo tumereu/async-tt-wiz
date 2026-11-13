@@ -250,6 +250,11 @@ internal object Effects {
                     Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
                     if (until != null) arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, arcanum.engine.state.ObjectStatus.HeldPhasedOut)?.let(act::record)
                 }
+                // dmu: "It can't phase in for as long as you control this Saga" (CR 611.2b: if you no longer control it, the hold does nothing)
+                effect.whileYouControl?.let { scope.objects(it).firstOrNull() }?.let { source ->
+                    val held = arcanum.engine.state.ObjectStatus.HeldPhasedOutWhile(source, scope.you)
+                    phased.forEach { arcanum.engine.change.Changes.status(act.state, it, held.key, held)?.let(act::record) }
+                }
                 scope.bind(effect.bind, NamedValue.Objects(phased))
                 if (until != null && phased.isNotEmpty()) createDelayed(scope,
                     Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(UNTIL_SOURCE)), from = Zone.Battlefield)),
@@ -261,6 +266,7 @@ internal object Effects {
             is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }.forEach {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
                 arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, null)?.let(act::record)
+                arcanum.engine.change.Changes.status(act.state, it, "held-phased-out-while", null)?.let(act::record)
             }
             // A mark goes only where it can live (a warped or plotted card in exile, CR 702.185b, 702.170c; a suspected permanent, 701.60b)
             is Effect.Mark -> {

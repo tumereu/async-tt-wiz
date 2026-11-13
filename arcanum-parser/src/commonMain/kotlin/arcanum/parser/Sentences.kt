@@ -938,10 +938,12 @@ internal class Sentences(
                 Step.Do(Effect.Mill(player, Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(player))))))))))
         }
         // dft chunk 09: "Put any number of permanent cards from your hand onto the battlefield."
+        // dmu chunk 04: "Put up to two non-Saga permanent cards from your hand onto the battlefield."
         Dft.PUT_ANY_NUMBER_FROM_HAND.matchEntire(sentence)?.let { m ->
-            val filter = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
-            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = null), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))))
+            val max = if (m.groupValues[1] == "any number of") null else Value.Fixed(Numbers.count(m.groupValues[1].removePrefix("up to ")) ?: return null)
+            val filter = Filters.all(Filters.noun(m.groupValues[2] + " card") ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = max), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))))
         }
         // dft chunk 07: "It deals 2 damage to each player who doesn't have max speed." (speed below 4, none counting as 0, CR 702.179e, f)
         Dft.DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED.matchEntire(sentence)?.let { m ->
@@ -8569,6 +8571,15 @@ internal class Sentences(
             val first = effect(m.groupValues[1] + ".", context) ?: return@let
             announcedX = true
             val reflexive = try { instructions(m.groupValues[2]) } finally { announcedX = false } ?: return@let
+            // dmu chunk 04: "Tap any number of untapped artifacts you control. When you do, this Saga deals that much damage to …": only if at least
+            // one was tapped (CR 603.12), "that much" being the number tapped (not the triggering event's amount)
+            val tapped = (first.lastOrNull() as? Step.Do)?.effect == Effect.Tap(Objects.Bound("tapped"))
+            if (tapped) {
+                val damage = reflexive.steps.singleOrNull()?.let { (it as? Step.Do)?.effect as? Effect.DealDamage }?.takeIf { it.amount == Value.EventAmount }
+                val steps = damage?.let { listOf(Step.Do(it.copy(amount = Value.Count(Objects.Bound("tapped"))))) } ?: reflexive.steps
+                if (steps.toString().contains("EventAmount")) return@let
+                return first + Step.If(arcanum.api.Condition.NonEmpty("tapped"), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive.copy(steps = steps)))))
+            }
             return first + Step.Do(Effect.ReflexiveTrigger(reflexive))
         }
         // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
@@ -10101,10 +10112,12 @@ internal class Sentences(
                 Step.Do(Effect.Shuffle(player)))))
         }
         // rtr chunk 05: "Any opponent may sacrifice a creature of their choice." (CR 118.12)
+        // dmu chunk 04: "Target opponent may sacrifice a nonland, nontoken permanent of their choice." then "If they don't, …" (paid: whether they did)
         Rtr.ANY_OPPONENT_MAY_SACRIFICE.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            val target = m.groupValues[1] == "Target"
             return listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1))))),
-                payer = Players.Each(PlayerFilter.Opponent), bind = "sacrificed"))
+                payer = if (target) context.targetOpponent() else Players.Each(PlayerFilter.Opponent), bind = if (target) "paid" else "sacrificed"))
         }
         // rtr chunk 05: "Target opponent reveals the top three cards of their library, may put a creature card from among them onto the
         // battlefield, then puts the rest into their graveyard."
@@ -11218,7 +11231,7 @@ internal class Sentences(
         val THOSE_PLAYERS_EACH_DISCARD = Regex("""Those players each discard (\w+) cards?( at random)?\.""")
         val TARGET_PLAYER_WHO_LOST_LIFE_LOSES = Regex("""Target player who lost life this turn loses (\d+) life\.""")
         val SEARCH_OPPONENTS_ZONES_FOR_NAME = Regex("""Search target opponent's graveyard, hand, and library for any number of cards with that name and exile them\.""")
-        val ANY_OPPONENT_MAY_SACRIFICE = Regex("""Any opponent may sacrifice an? (.+) of their choice\.""")
+        val ANY_OPPONENT_MAY_SACRIFICE = Regex("""(Any|Target) opponent may sacrifice an? (.+) of their choice\.""") // dmu chunk 04: target
         val IF_A_PLAYER_DOES = Regex("""If a player does, (.+)\.""")
         // rtr chunk 06
         val SELF_DEALS_TO_THAT_PLAYER = Regex("""(.+) deals (\d+) damage to that player\.""")
@@ -11777,7 +11790,7 @@ internal class Sentences(
         val EXTRA_LAND_PLAYS = Regex("""You may play (an additional land|any number of lands|\w+ additional lands) on each of your turns\.""")
         val ENCHANTED_IS = Regex("""Enchanted \w+ is an? (.+?)(?: with (.+?))?( and it loses all other card types)?\.""")
         const val SACRIFICED = "sacrificed"
-        val OTHERWISE = Regex("""Otherwise, (.+)""")
+        val OTHERWISE = Regex("""(?:Otherwise|If it doesn't), (.+)""") // dmu chunk 04: "… if it has seven or more … counters on it. If it doesn't, scry 1."
         val UNTAP_TARGET = Regex("""Untap target (.+)\.""")
         val UNTAP_ALL = Regex("""Untap all (.+)\.""")
         val IF_ITS_A = Regex("""If it's an? (.+?), (.+)""")
@@ -13651,8 +13664,10 @@ internal class Sentences(
                 Step.Do(Effect.Shuffle(Players.OwnerOf(Objects.Bound("shuffled")))))
         }
         // "You may cast a noncreature spell from your hand without paying its mana cost." (CR 608.2g)
+        // dmu chunk 04: "… an instant or sorcery spell with mana value 1 or 2 from your hand …"
         Tla.MAY_CAST_FROM_HAND_FREE.matchEntire(sentence)?.let { m ->
-            val cards = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val noun = if (m.groupValues[2].isEmpty()) m.groupValues[1] else "${m.groupValues[1]} card${m.groupValues[2]}"
+            val cards = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(0), Value.Fixed(1)), bind = "card", chooser = Players.You),
                 Step.Do(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
         }
@@ -13712,8 +13727,15 @@ internal class Sentences(
                     ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = n))
         }
         // "As long as this Vehicle has three or more fire counters on it, it's an artifact creature." (layer 4)
+        // dmu chunk 04: "As long as Weatherlight Compleated has four or more phyresis counters on it, it's a Phyrexian creature in addition to its other
+        // types." (a subtype or a lone type replaces unless kept, CR 205.1b)
         Tla.AS_LONG_AS_COUNTERS_ITS_ARTIFACT_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            return Ability.Static(listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature))), affects = Affected.Objects(Objects.Self),
+            val subtype = m.groupValues[4].takeIf { it.isNotEmpty() }
+            if ((subtype != null || m.groupValues[5] == "creature") && m.groupValues[6].isEmpty()) return null
+            if (subtype != null && subtype !in RulesWords.subtypes) return null
+            val types = if (m.groupValues[5] == "creature") listOf(CardType.Creature) else listOf(CardType.Artifact, CardType.Creature)
+            return Ability.Static(listOf(Mechanic.SetTypes(add = types, addSubtypes = listOfNotNull(subtype?.let { arcanum.api.SubtypeRef.Literal(Subtype(it)) }))),
+                affects = Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[3]) ?: return null,
                     atLeast = Numbers.count(m.groupValues[2]) ?: return null)))
         }
@@ -16835,6 +16857,12 @@ internal class Sentences(
         }
         // dmu chunk 01: "Those permanents phase out." (CR 702.26)
         if (Dmu.THOSE_PHASE_OUT.matches(sentence)) return listOf(Step.Do(Effect.PhaseOut(context.them ?: return null)))
+        // dmu chunk 04: "Another target nonland permanent phases out." (CR 702.26)
+        PHASES_OUT.matchEntire(sentence)?.takeIf { Regex("""(?:[Aa]nother )?[Tt]arget .+""").matches(it.groupValues[1]) }?.let { m ->
+            val target = fraObjects(m.groupValues[1], context) as? Objects.Target ?: return null
+            context.it = target
+            return listOf(Step.Do(Effect.PhaseOut(target)))
+        }
         return null
     }
 
@@ -16858,6 +16886,20 @@ internal class Sentences(
 
     /** dmu: sentences that change the step before them. */
     private fun dmuModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // dmu chunk 04: "… phases out. It can't phase in for as long as you control this Saga." (CR 611.2b, 702.26b)
+        Dmu.CANT_PHASE_IN_WHILE_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val phase = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.PhaseOut)?.takeIf { it.untilLeaves == null } ?: return null
+            return steps.dropLast(1) + Step.Do(phase.copy(whileYouControl = Objects.Self))
+        }
+        // dmu chunk 04: "Destroy all creatures. For each creature destroyed this way, its controller creates a 2/2 black Phyrexian creature token."
+        // (each destroyed creature's last controller, CR 608.2h; only those destroyed, CR 701.8a)
+        Dmu.FOR_EACH_DESTROYED_CONTROLLER_CREATES.matchEntire(sentence)?.let { m ->
+            val destroy = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Destroy)?.takeIf { it.preBind == null } ?: return null
+            if ((destroy.objects as? Objects.Each)?.filter != Filters.noun(m.groupValues[1])) return null
+            val (count, token) = Tokens.spec(m.groupValues[2]) ?: return null
+            return steps.dropLast(1) + Step.Do(destroy.copy(preBind = "destroyed")) + Step.ForEach(arcanum.api.Each.Objects(Objects.Bound("destroyed")), bind = "creature",
+                steps = listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), controller = Players.ControllerOf(Objects.Bound("creature"))))))
+        }
         // dmu chunk 01: "Return target creature card … to the battlefield. It gains haste. Sacrifice it at the beginning of the next end step.": "it" is
         // the permanent the card became (CR 400.7), which has haste for as long as it stays (CR 611.2a)
         Dmu.IT_GAINS.matchEntire(sentence)?.let { m ->
@@ -17037,8 +17079,10 @@ internal class Sentences(
     /** one: single sentences, tried first in [effectRules]. */
     private fun oneEffect(sentence: String, context: Context): List<Step>? {
         // one chunk 10: Kaito, "you may activate loyalty abilities of Kaito twice this turn rather than only once" (CR 606.3)
-        One.ACTIVATE_LOYALTY_TWICE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.LoyaltyActivationsPerTurn(2)), Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        // dmu chunk 04: "… of planeswalkers you control …" (not a characteristic: also those that come under your control later this turn, CR 611.2c)
+        One.ACTIVATE_LOYALTY_TWICE.matchEntire(sentence)?.let { m ->
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self else Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.LoyaltyActivationsPerTurn(2)), Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
         }
         // one chunk 10: "Whenever one or more creatures you control deal combat damage to a player, you may return one of them to its owner's
         // hand." (one of the creatures that dealt the damage, still on the battlefield, CR 400.7)
@@ -25390,10 +25434,15 @@ internal class Sentences(
                 Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))), Step.If(condition, then = three, otherwise = two))
         }
         // ltr chunk 09: "Scry 3, then you may reveal the top card of your library. If a creature card is revealed this way, draw a card."
+        // dmu chunk 04: "… If a planeswalker card is revealed this way, put it into your hand." ("it": the revealed card, not this object)
         Ltr.SCRY_THEN_MAY_REVEAL_IF_REVEALED_DRAW.matchEntire(body)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return@let
             val filter = Filters.noun(m.groupValues[2]) ?: return@let
-            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            val outer = context.it
+            context.it = Objects.Bound("revealed")
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context)
+            context.it = outer
+            if (then == null) return@let
             return listOf(Step.Do(Effect.Scry(Players.You, Value.Fixed(n))),
                 Step.May(listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), bind = "revealed"))), Players.You),
                 Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound("revealed"), filter), then = then))

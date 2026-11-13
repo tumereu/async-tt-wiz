@@ -126,6 +126,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("color-count") data class ColorCount(val count: Int) : ObjectFilter
     /** Shares a colour / card type / creature type with [objects]. */
     @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
+    /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card or a meld card (CR 712.1), also a double-faced
+     * token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
+    @Serializable @SerialName("double-faced") data object DoubleFaced : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter

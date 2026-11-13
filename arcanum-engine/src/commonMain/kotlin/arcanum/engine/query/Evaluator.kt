@@ -357,6 +357,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
             is ObjectFilter.ColorCount -> c != null && c.colors.size == filter.count
+            // mom chunk 09: CR 712.1: two faces of a nonmodal, modal or meld double-faced card (or token, CR 111.13)
+            ObjectFilter.DoubleFaced -> o != null && o.definition.faces.size > 1 &&
+                (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced || o.definition.layout is arcanum.api.Layout.Meld)
             is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false

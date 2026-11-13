@@ -62,6 +62,14 @@ internal object Mom {
     val PUT_THOSE_CARDS_ONTO_BATTLEFIELD_UNDER_YOUR_CONTROL = Regex("""Put those cards onto the battlefield( tapped)? under your control\.""")
     // mom chunk 07: Breach the Multiverse "each creature you control becomes a Phyrexian in addition to its other types" (no duration)
     val EACH_BECOMES_SUBTYPE_IN_ADDITION = Regex("""[Ee]ach (.+?) becomes an? ([A-Z][a-z]+) in addition to its other types\.""")
+    // mom chunk 09: Holy Frazzle-Cannon "put a +1/+1 counter on that creature and each other creature you control that shares a creature type with it"
+    val COUNTER_ON_THAT_AND_EACH_OTHER_SHARING = Regex("""[Pp]ut an? (\S+) counter on that creature and each other (.+?) that shares an? (creature type|color|card type) with it\.""")
+    // mom chunk 09: Sword of Once and Future "you may cast an instant or sorcery spell with mana value 2 or less from your graveyard without paying its mana cost"
+    val MAY_CAST_FROM_YOUR_GRAVEYARD_MV_FREE = Regex("""You may cast an? (.+?) spell with mana value (\d+) or less from your graveyard without paying its mana cost\.""")
+    // mom chunk 09: Invasion of Regatha "it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature"
+    val DEALS_TO_TARGET_OR_PLAYER_AND_UP_TO_ONE = Regex("""(.+?) deals (\d+) damage to (another )?target (\w+) or (opponent|player) and (\d+) damage to up to one target (.+)\.""")
+    // mom chunk 09: Kogla and Yidaro "Shuffle this card into your library from your graveyard" (after discarding it as a cost)
+    val SHUFFLE_THIS_CARD_FROM_YOUR_GRAVEYARD = Regex("""[Ss]huffle this card into your library from your graveyard\.""")
     val SEARCH_EXILE_FACE_DOWN_MAY_PLAY = Regex("""[Ss]earch your library for an? (.+?), exile it face down, then shuffle\. For as long as that card remains exiled, you may play it\.""")
 }
 

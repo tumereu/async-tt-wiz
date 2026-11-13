@@ -72,4 +72,37 @@ class Mh3FixesTest {
             Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)), FIRST_UPKEEP_LOOK)))))),
             affects = Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Hand)),
     )
+
+    private val anotherNontokenDies = Trigger.On(EventPattern.ZoneChange(and(another, not(token), creature, you), from = Zone.Battlefield, to = Zone.Graveyard))
+
+    // CR 603.10a, 608.2h: "that creature was a Cleric" is the creature as it last existed on the battlefield
+    @Test
+    fun thatCreatureWasAClericIsLastKnown() = card(
+        name = "Gravecall Sentinel",
+        cost = "{2}{B}",
+        type = "Legendary Creature — Demon Cleric",
+        pt = "2/2",
+        text = "Whenever another nontoken creature you control dies, put a +1/+1 counter on this creature. If that creature was a Cleric, you may draw a card. If you do, you lose 1 life.",
+    ) parsesTo abilities(
+        Ability.Triggered(anotherNontokenDies, Instructions(steps = listOf(
+            Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), n(1))),
+            Step.If(Condition.ObjectMatches(Objects.EventObject(EventRole.Before), ObjectFilter.Sub(Subtype("Cleric"))), then = listOf(
+                Step.Pay(null, steps = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1)))), payer = Players.You, mandatory = false, bind = "paid"),
+                Step.If(Condition.Did("paid"), then = listOf(Step.Do(Effect.LoseLife(Players.You, Value.Fixed(1))))))),
+        ))),
+    )
+
+    // CR 603.10a, 603.4, 608.2h: an intervening "if it was a Cleric" likewise
+    @Test
+    fun itWasAClericIsLastKnown() = card(
+        name = "Ashen Chaplain",
+        cost = "{1}{B}",
+        type = "Creature — Human Cleric",
+        pt = "2/1",
+        text = "Whenever another creature you control dies, if it was a Cleric, you gain 1 life.",
+    ) parsesTo abilities(
+        Ability.Triggered(Trigger.On(EventPattern.ZoneChange(and(another, creature, you), from = Zone.Battlefield, to = Zone.Graveyard)),
+            Instructions(steps = listOf(Step.Do(Effect.GainLife(Players.You, Value.Fixed(1))))),
+            interveningIf = Condition.ObjectMatches(Objects.EventObject(EventRole.Before), ObjectFilter.Sub(Subtype("Cleric")))),
+    )
 }

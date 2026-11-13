@@ -474,29 +474,37 @@ internal object Mana {
         fun color(c: Color): (Payer) -> Boolean = { c in it.colors }
         val colorless: (Payer) -> Boolean = { null in it.colors }
         val any: (Payer) -> Boolean = { true }
+        // mh3 fixes: a symbol paid with life (Phyrexian, or "you may pay 2 life rather than pay that mana", [lifeSymbols]) needs no mana
+        if (i in lifeFor) return@flatMapIndexed listOf(Need(i, emptyList(), life = true, generic = false))
         when (s) {
             is ManaSymbol.Generic -> List(s.amount) { Need(i, listOf(listOf(any)), life = false, generic = true) }
-            // mh3 fixes: "you may pay 2 life rather than pay that mana" ([lifeSymbols])
-            is ManaSymbol.Colored -> listOf(if (i in lifeFor) Need(i, emptyList(), life = true, generic = false) else Need(i, listOf(listOf(color(s.color))), false, false))
+            is ManaSymbol.Colored -> listOf(Need(i, listOf(listOf(color(s.color))), false, false))
             ManaSymbol.Colorless -> listOf(Need(i, listOf(listOf(colorless)), false, false))
             ManaSymbol.Snow -> listOf(Need(i, listOf(listOf { p: Payer -> p.snow }), false, false))
             is ManaSymbol.Variable -> emptyList()
             is ManaSymbol.Hybrid -> listOf(Need(i, listOf(listOf(color(s.first)), listOf(color(s.second))), false, false))
             is ManaSymbol.GenericHybrid -> listOf(Need(i, listOf(listOf(color(s.color)), List(s.amount) { any }), false, false))
             is ManaSymbol.ColorlessHybrid -> listOf(Need(i, listOf(listOf(colorless), listOf(color(s.color))), false, false))
-            is ManaSymbol.Phyrexian -> listOf(Need(i, if (i in lifeFor) emptyList() else listOf(listOf(color(s.color))), life = i in lifeFor, generic = false))
-            is ManaSymbol.PhyrexianHybrid -> listOf(Need(i, if (i in lifeFor) emptyList()
-                else listOf(listOf(color(s.first)), listOf(color(s.second))), life = i in lifeFor, generic = false))
+            is ManaSymbol.Phyrexian -> listOf(Need(i, listOf(listOf(color(s.color))), false, false))
+            is ManaSymbol.PhyrexianHybrid -> listOf(Need(i, listOf(listOf(color(s.first)), listOf(color(s.second))), false, false))
         }
     }
 
     // mh3 fixes
-    /** The symbols of [cost] [player] may pay with 2 life: Phyrexian ones (CR 107.4f) and each plain {B} (or other colour) symbol while an
-     * effect lets them pay life rather than that mana ([Mechanic.PayLifeForMana]). */
+    /** The symbols of [cost] [player] may pay with 2 life: Phyrexian ones (CR 107.4f) and, while an effect lets them pay life rather
+     * than {B} (or another colour, [Mechanic.PayLifeForMana]), each symbol that can be announced as that colour: a plain one and a hybrid
+     * one with that colour as a half ({B/G}, {2/B}, {C/B}), which is announced as its nonhybrid equivalent before it's paid (CR 601.2b). */
     fun lifeSymbols(snap: Snapshot, player: PlayerId, cost: ManaCost): List<Int> {
         val colors = snap.view.players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.PayLifeForMana)?.color }.toSet()
         return cost.symbols.withIndex().filter { (_, s) ->
-            s is ManaSymbol.Phyrexian || s is ManaSymbol.PhyrexianHybrid || (s is ManaSymbol.Colored && s.color in colors)
+            when (s) {
+                is ManaSymbol.Phyrexian, is ManaSymbol.PhyrexianHybrid -> true
+                is ManaSymbol.Colored -> s.color in colors
+                is ManaSymbol.Hybrid -> s.first in colors || s.second in colors
+                is ManaSymbol.GenericHybrid -> s.color in colors
+                is ManaSymbol.ColorlessHybrid -> s.color in colors
+                else -> false
+            }
         }.map { it.index }
     }
 

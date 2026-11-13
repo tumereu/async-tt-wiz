@@ -5809,7 +5809,8 @@ internal class Sentences(
         }
         // chunk 41: "If it was a permanent card, put a +1/+1 counter on this permanent."
         IF_IT_WAS.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: return null
+            // mh3 fixes: "If it was a Cleric" after it left the battlefield is as it last existed there; "a permanent card" is the card
+            val it = context.it?.let { o -> if ("card" in m.groupValues[1]) o else lastKnown(o, context) } ?: return null
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             val then = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, context) ?: return null
             return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, filter), then = then))
@@ -7681,6 +7682,12 @@ internal class Sentences(
             Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single)))
     }
 
+    /** mh3 fixes: "If that creature was a Cleric" in a trigger on leaving the battlefield: the creature as it last existed there, not the
+     * card in its new zone (CR 603.10a, 608.2h). */
+    private fun lastKnown(it: Objects, context: Context): Objects =
+        if ((context.event as? EventPattern.ZoneChange)?.from == Zone.Battlefield && it == Objects.EventObject(EventRole.After)) Objects.EventObject(EventRole.Before)
+        else it
+
     /** chunk 56: a condition about "it", the object an earlier sentence acted on ("it has no ice counters on it"). */
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
         // fdn chunk 07: "target player has exactly 10 life" (the target is chosen as the spell is cast, CR 601.2c)
@@ -7708,7 +7715,7 @@ internal class Sentences(
         }
         // blb chunk 02: "that creature isn't legendary", "that creature is a Bird, Frog, Otter, or Rat"
         Blb.IT_IS.matchEntire(text)?.let { m ->
-            val it = named() ?: return null
+            val it = named()?.let { o -> if (m.groupValues[1].startsWith("was")) lastKnown(o, context) else o } ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] == "is" || m.groupValues[1] == "was") filter else ObjectFilter.Not(filter))
         }

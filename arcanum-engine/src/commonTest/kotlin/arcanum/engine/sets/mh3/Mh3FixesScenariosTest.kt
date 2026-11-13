@@ -195,14 +195,43 @@ class Mh3FixesScenariosTest {
         }
     }
 
-    // CR 107.4e: a hybrid {B/G} symbol isn't "{B}": it can't be paid with life
+    // CR 601.2b, 107.4e: a hybrid {B/G} symbol is announced as {B} before it's paid, so it may be paid with 2 life
     @Test
-    fun payLifeRatherThanBlackManaLeavesHybridAlone() = scenario {
+    fun payLifeRatherThanBlackManaPaysAHybridSymbolAnnouncedAsBlack() = scenario {
         alice.battlefield(krovath)
         alice.hand(hedge)
         alice.casts(hedge)
+        resolveAll()
+        expect {
+            alice.battlefield has hedge
+            alice.life shouldBe 18
+        }
+    }
+
+    private val widow = Cards.invent("Gravesap Widow", "{2/B}{2/B}", "Creature — Spider", "", "2/2")
+
+    // CR 601.2b, 107.4e: each monocolored hybrid {2/B} announced as {B} may be paid with 2 life
+    @Test
+    fun payLifeRatherThanBlackManaPaysMonocoloredHybrid() = scenario {
+        alice.battlefield(krovath)
+        alice.hand(widow)
+        alice.casts(widow)
+        resolveAll()
+        expect {
+            alice.battlefield has widow
+            alice.life shouldBe 16
+        }
+    }
+
+    // CR 107.4e: a hybrid symbol without a black half ({G/W}) still needs mana
+    @Test
+    fun payLifeRatherThanBlackManaLeavesNonBlackHybridAlone() = scenario {
+        alice.battlefield(krovath)
+        alice.hand(sprout)
+        alice.casts(sprout)
         assertEquals(emptyList(), decision<Decision.ManaPayment>().suggestion)
     }
+    private val sprout = Cards.invent("Dawnmeadow Sprout", "{G/W}", "Creature — Plant", "", "1/1")
 
     private val maw = Cards.invent("Maw of the Foretold End", "{5}{C}{C}", "Creature — Eldrazi", """
         You may reveal this card from your opening hand. If you do, at the beginning of your first upkeep, look at the top four cards of your library. You may put one of those cards back on top of your library. Exile the rest.
@@ -295,6 +324,30 @@ class Mh3FixesScenariosTest {
             card(sentinel).power shouldBe 3
             alice.hand.names.size shouldBe 0
             alice.life shouldBe 20
+        }
+    }
+
+    private val vestment = Cards.invent("Vestment of the Chapel", "{1}", "Artifact — Equipment", """
+        Equipped creature gets +1/+0 and is a Cleric in addition to its other types.
+        Equip {1}
+    """)
+
+    // CR 603.10a, 608.2h: "If that creature was a Cleric" looks at the creature as it last existed on the battlefield: a Merfolk that was a
+    // Cleric through Equipment offers the draw though the card in the graveyard isn't a Cleric
+    @Test
+    fun thatCreatureWasAClericUsesLastKnownInformation() = scenario {
+        alice.battlefield(sentinel, runt, vestment, "Mountain")
+        attach(vestment, to = runt)
+        alice.hand(cinder)
+        alice.library("Plains", "Plains")
+        alice.casts(cinder, target = runt)
+        resolveAll()
+        answer(Answer.YesNo(true))
+        resolveAll()
+        expect {
+            card(sentinel).power shouldBe 3
+            alice.hand.names.size shouldBe 1
+            alice.life shouldBe 19
         }
     }
 }

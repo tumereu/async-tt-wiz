@@ -15606,6 +15606,10 @@ internal class Sentences(
     /** inr: single-sentence effects. */
     /** mom: static lines of March of the Machine, tried in [static]. */
     private fun momStatic(line: String): Ability? {
+        // mom chunk 06: "This creature assigns combat damage equal to its toughness rather than its power." (CR 510.1c)
+        Mom.SELF_ASSIGNS_BY_TOUGHNESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.AssignsDamageByToughness), affects = Affected.Objects(Objects.Self))
+        }
         // mom chunk 01: "For each non-Human creature you control, you may have that creature assign its combat damage as though it weren't
         // blocked." (each such creature's controller chooses as it assigns its damage, CR 510.1c)
         Mom.MAY_ASSIGN_AS_THOUGH_UNBLOCKED.matchEntire(line)?.let { m ->
@@ -15675,6 +15679,17 @@ internal class Sentences(
 
     /** mom: wordings of several sentences read as one, tried in [instructions]. */
     private fun momWhole(text: String, context: Context): List<Step>? {
+        // mom chunk 06: Doomskar Warrior: "that many" is the damage dealt (CR 510.2); the unchosen cards go to the bottom in a random order (CR 401.4)
+        Mom.LOOK_THAT_MANY_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM.matchEntire(text)?.takeIf { context.event is EventPattern.Damage }?.let { m ->
+            val noun = Filters.noun(m.groupValues[1] + " card") ?: return null
+            val seen = Objects.Bound("seen")
+            val chosen = Objects.Bound("chosen")
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.EventAmount, fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(noun, Value.Fixed(0), Value.Fixed(1), from = seen), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(chosen)),
+                Step.Do(Effect.Move(chosen, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(seen, chosen), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
         // mom chunk 01: Ayara, Furnace Queen: "it" is the returned permanent, a new object (CR 400.7); "It gains haste." has no duration, so it lasts
         // while that permanent stays (CR 611.2a); the delayed trigger exiles it (CR 603.7)
         Mom.RETURN_UP_TO_ONE_HASTE_EXILE_AT_END.matchEntire(text)?.let { m ->

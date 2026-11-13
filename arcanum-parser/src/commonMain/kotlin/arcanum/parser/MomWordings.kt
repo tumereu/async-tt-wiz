@@ -10,6 +10,10 @@ import arcanum.api.Zone
 
 /** Wordings first met in March of the Machine (MOM). */
 internal object Mom {
+    // mom chunk 06: Doomskar Warrior "look at that many cards from the top of your library. You may reveal a creature or land card from among them…"
+    val LOOK_THAT_MANY_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM = Regex("""[Ll]ook at that many cards from the top of your library\. You may reveal an? (.+?) card from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    // mom chunk 06: Streetwise Negotiator "This creature assigns combat damage equal to its toughness rather than its power."
+    val SELF_ASSIGNS_BY_TOUGHNESS = Regex("""(.+) assigns combat damage equal to its toughness rather than its power\.""")
     // mom chunk 01: Blightreaper Thallid "this creature transforms into Blightsower Thallid or dies"
     val TRANSFORMS_INTO_OR_DIES = Regex("""(.+) transforms into (.+) or dies""")
     // mom chunk 03: Elesh Norn "that source's controller loses 2 life" (a damage trigger's source)

@@ -103,7 +103,7 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
 
 /** The source of a cast (STK-044): the card cast, or for an activation ([abilityText] its text) the ability as its
  * Stack token would show it (STK-046), the source's art with the marker. */
-fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: String?): ChoiceCardData {
+fun castSource(play: TableBoard, viewer: String, flow: CastShown, abilityText: String?): ChoiceCardData {
     val card = choiceCard(play, viewer, "source/${flow.cardId}", flow.cardId, shown = true, fallback = CastController.cardName(play, flow.cardId))
     return if (abilityText == null) card else card.copy(ability = StackAbilityShown(triggered = false, source = card.name, text = abilityText))
 }
@@ -241,7 +241,7 @@ fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? =
 }
 
 @Composable
-private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
+private fun TargetBar(cast: CastController, flow: CastShown, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
     val pick = cast.pick ?: return
     val decision = pick.decision
     val inspector = remember { ChoiceInspector() }
@@ -297,7 +297,7 @@ fun IconText(icon: ImageVector, text: String) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
+private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
     val inspector = remember { ChoiceInspector() }
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
@@ -425,7 +425,7 @@ fun Section(title: String, hint: String? = null, content: @Composable ColumnScop
  * table. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>,
+private fun AnsweredSection(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>,
     index: Int, decision: Decision, answer: Answer) {
     when {
         decision is Decision.May && answer is Answer.YesNo -> Section(mayTitle(decision)) {
@@ -768,14 +768,14 @@ fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") 
 
 /** The cast panel's title (STK-023, STK-044): what is done and the card it is done with, [name] ("Cast Storm Spark",
  * "Play Mountain", "Activate Ember Herald": an ability by its source's name), the card also at the panel's right. */
-fun castTitle(flow: CastFlow, name: String) = when {
+fun castTitle(flow: CastShown, name: String) = when {
     flow.begin is Input.PlayLand -> "Play $name"
     flow.activation -> "Activate $name"
     else -> "Cast $name"
 }
 
 /** The panel's main button: Play for a land, Activate for an ability or special action (§3 I4), else Cast. */
-private fun actionLabel(flow: CastFlow) = when {
+private fun actionLabel(flow: CastShown) = when {
     flow.begin is Input.PlayLand -> "Play"
     flow.activation -> "Activate"
     else -> "Cast"
@@ -787,7 +787,7 @@ fun cardText(play: TableBoard, cardId: String): String? {
     return faces.joinToString("\n") { it.rulesText }.trim().ifEmpty { null }
 }
 
-private fun wayLabel(play: TableBoard, flow: CastFlow, way: Input): String = when (way) {
+private fun wayLabel(play: TableBoard, flow: CastShown, way: Input): String = when (way) {
     is Input.Cast -> CastFlow.wayLabel(flow.state.objects.values.firstOrNull { (it.id as? ObjectId.Card)?.card ==
         (way.card as ObjectId.Card).card }?.definition, way) ?: "Cast"
     is Input.PlayLand -> if (way.face == 0) "Play" else "Play back face"

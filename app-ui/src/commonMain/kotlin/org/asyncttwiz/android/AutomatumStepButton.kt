@@ -216,12 +216,6 @@ const val RESOLVE_CHAIN = "Resolve the whole Stack"
 class MainAction(val label: String, val icon: ImageVector, val refusal: String? = null, val tooltip: String? = null,
     val run: () -> Unit)
 
-/** TRN-063 (owner playtest 2026-11-09): a quick second tap on the main button is ignored. */
-object MainButtonGuard {
-    /** A press this soon (ms) after the last one taken is the second tap of a double tap. */
-    const val MILLIS = 300L
-}
-
 /**
  * TRN-063 (owner playtest 2026-11-09): the go-on action of the open panel or bar (the cast panel's Cast, a target bar's Done, a
  * choice's OK, Pay), which the main button holds while it is open instead of the panel having a button of its own. The panel

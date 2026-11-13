@@ -20,6 +20,16 @@ import androidx.compose.ui.window.PopupProperties
  */
 @Composable expect fun ScreenBackHandler(enabled: Boolean = true, onBack: () -> Unit)
 
+/**
+ * Back that leaves a game's table or the draft once no layer is open (docs/specs/web-client.md §8.4). Android: nothing
+ * (the screen's own [BackHandler] or [ScreenBackHandler] does it). The web (WEB-004): Esc and Android Chrome's system Back
+ * leave the screen too, as Android's Back does, without counting as an open layer.
+ */
+@Composable expect fun LeaveScreenBackHandler(enabled: Boolean = true, onBack: () -> Unit)
+
+/** Whether leaving a game's table takes a second Back (SYS-050): Android. The web leaves at once (WEB-002). */
+expect val secondBackLeavesTable: Boolean
+
 /** The screen's width in dp (Android: the configuration's screenWidthDp). */
 @Composable expect fun screenWidthDp(): Int
 

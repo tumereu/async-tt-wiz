@@ -51,13 +51,16 @@ internal sealed interface Prevention {
     data class Amount(val each: arcanum.api.Value?, val additional: arcanum.api.Instructions? = null) : Prevention
 
     /** Up to the amount left on a shield (CR 615.7, D26), used up as it prevents. */
-    data class Shield(val effect: EffectId) : Prevention
+    data class Shield(val effect: EffectId, val redirectTo: arcanum.api.Recipients? = null) : Prevention
 
     /** Prevents all of the damage, whatever the amount. */
     val all: Boolean get() = this is Protection || (this is Amount && each == null)
 
     /** Does more than prevent (CR 615.5), so the order it applies in can matter. */
-    val hasAdditional: Boolean get() = this is Amount && additional != null
+    val hasAdditional: Boolean get() = this is Amount && additional != null || isRedirect
+
+    /** rvr: a redirection shield ([arcanum.api.Effect.PreventDamage.redirectTo]): a replacement, not prevention (CR 614.9). */
+    val isRedirect: Boolean get() = this is Shield && redirectTo != null
 }
 
 /**
@@ -250,4 +253,7 @@ internal class ProposedBoard(private val base: Board, private val extra: Map<Obj
     } ?: base.snapshot(id)
 
     override fun proposedZone(id: ObjectId): arcanum.api.Zone? = extra[id]?.zone ?: base.proposedZone(id)
+
+    override fun createdBy(id: ObjectId): ObjectId? = extra[id]?.statuses?.filterIsInstance<arcanum.engine.state.ObjectStatus.CreatedBy>()?.firstOrNull()?.source
+        ?: base.createdBy(id)
 }

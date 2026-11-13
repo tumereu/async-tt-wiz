@@ -11,17 +11,16 @@ import arcanum.engine.decision.ManaUse
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.StackItem
 import arcanum.engine.state.TargetRef
-import org.asyncttwiz.automatum.AutomatumLog
-import org.asyncttwiz.automatum.CombatFlow
-import org.asyncttwiz.automatum.CombatRefused
-import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.ManaWays
-import org.asyncttwiz.automatum.SharedFlow
-import org.asyncttwiz.automatum.StepFlow
+import org.asyncttwiz.automatum.boundary.ManaBelongs
+import org.asyncttwiz.automatum.boundary.SharedAnswer
+import org.asyncttwiz.automatum.boundary.SharedFlowValue
+import org.asyncttwiz.automatum.boundary.SharedOp
+import org.asyncttwiz.automatum.boundary.SharedRequest
 import org.asyncttwiz.protocol.*
-import org.asyncttwiz.appui.simpleClassName
 
 /**
  * Priority, responding, resolution, triggers and the steps of the turn through Automatum (integration spec §3 I2b, I3)
@@ -33,7 +32,11 @@ import org.asyncttwiz.appui.simpleClassName
  * hides the panel (I-D10).
  *
  * The engine work of each answer runs on [work] (off the main thread in the app, SYS-025); meanwhile [busy] is true and
- * further answers wait. [view] is the shown board's flow, set by the panel's host once worked out ([show]).
+ * further answers wait. [view] is the shown board's flow, set by the panel's host once worked out ([load]).
+ *
+ * Web client step 4e: the flows run as sessions where the engine is ([port]: in-process, a flow shown at once and its steps on
+ * [work]; in the browser the engine's Web Worker beside the game's device), and the panels draw the plain data each answers
+ * ([view], a [SharedShown]), never the live flow. A step's answer applies only while nothing replaced what it was made on.
  */
 class SharedFlowController(
     private val viewer: String,
@@ -52,11 +55,20 @@ class SharedFlowController(
      * one's words ([EngineGame.takeBacks]). */
     private val takeBacks: () -> Long = { 0L },
     private val lastTakeBack: () -> String = { "" },
+    /** Web client step 4e: where the flows' sessions run: in-process on [work] unless said otherwise ([TableSharedPort]: the
+     * browser's engine worker when the game's device is there). */
+    private val port: SharedPort = LocalSharedPort(viewer) { w, d -> work.run(w, d) },
+    /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
+    private val stacks: (TableBoard) -> List<List<String>> = { TopmostSources.stacks(BattlefieldLayout.groups(it, viewer)) },
 ) : FlowQuestions {
     /** The take-backs counted when the shown choice opened ([takeBacks]). */
     private var shownAt = 0L
     /** The flow of the shown board, null until worked out (or when there is none). */
-    var view by mutableStateOf<SharedFlow?>(null); private set
+    var view by mutableStateOf<SharedShown?>(null); private set
+    /** The session the shown flows belong to (web client step 4e): opened with the first flow shown, closed with the panel. */
+    private var session = 0L
+    /** Bumped by each flow asked for or dropped: an older answer isn't shown. */
+    private var loading = 0
     /** The eye (I-D10): the panel is hidden so the board can be looked at. */
     var hidden by mutableStateOf(false); private set
     /** "Respond" was tapped in this priority window (the board's event): the prompt is a slim bar while the player casts. */
@@ -66,16 +78,48 @@ class SharedFlowController(
     /** Targets picked so far for a slot that takes several. */
     var picked by mutableStateOf<List<TargetRef>>(emptyList()); private set
     override var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
+    /** Whether [mana] pays the open payment (worked out where the flow runs: with the flow, after each tap). */
+    override var paid by mutableStateOf(false); private set
     /** STK-024: the sources the player tapped in the open payment (with their ways), the ways chosen with a source's corner chip,
      * and those they took out: Autotap fills in the rest. */
     private var taps = ManaTaps()
     /** Automatum is working out the last answer (SYS-025): nothing else is taken meanwhile. */
     var busy by mutableStateOf(false); private set
     private var shownDecision: String? = null
-    private var visible: Set<ObjectId>? = null
+
+    /** Whether the flows run across the boundary (the browser's engine worker): the panel's host then asks for a board's flow
+     * without working it out here. */
+    val remote: Boolean get() = port.remote
+
+    /**
+     * Asks for [play]'s flow as its panels draw it, then shows it ([show]); in-process at once (the panel's host has worked
+     * the board's flow out, off the main thread). None when the board has no flow Automatum can read.
+     */
+    fun load(play: TableBoard) {
+        val run = ++loading
+        if (session == 0L) session = nextSession()
+        // Owner problem report RC3J4K: a take-back since the choice opened drops its picks, so the flow opens as a new choice
+        val keeping = shownDecision.takeIf { takeBacks() == shownAt }
+        val request = SharedRequest(session, board = play.values?.number,
+            op = SharedOp.Show(autotap(), keeping, if (keeping != null) mana else emptyList()))
+        port.ask(request, play, { stacks(play) }) { answer ->
+            if (run != loading) return@ask
+            when (answer) {
+                is SharedAnswer.Show -> show(SharedShown(answer.value, play))
+                else -> { AppLog.info("decision", "No flow to show on board ${request.board}: $answer"); show(null) }
+            }
+        }
+    }
 
     /** Shows [next], the flow of the board now shown; a new decision starts with its suggestion and the panel shown. */
-    fun show(next: SharedFlow?) {
+    fun show(next: SharedShown?) {
+        if (next == null) {
+            loading++
+            if (session != 0L) {
+                port.ask(SharedRequest(session, op = SharedOp.Close("no flow shown")), null, { null }) {}
+                session = 0L
+            }
+        }
         if (next === view) return
         // Owner problem report RC3J4K: a take-back (an undo or rewind, a branch) since the choice opened drops what was picked
         // in it, also when the board it went back to asks the same choice again: the choice begins anew
@@ -99,12 +143,22 @@ class SharedFlowController(
             hidden = false
             taps = ManaTaps()
             // STK-049 (owner gallery review, 2026-11-06): with Autotap on a payment opens with its sources picked, off none
-            mana = if (!autotap() || next == null) emptyList()
-                else ((next.decision as? Decision.ManaPayment) ?: next.payment)?.let { suggestion(next, it) }.orEmpty()
+            // (worked out with the flow where it runs)
+            mana = next?.value?.mana.orEmpty()
+            paid = next?.value?.paid ?: false
             if (choosingFor != id) choosingFor = null
+        } else if (next != null) {
+            if (next.value.mana == mana) paid = next.value.paid else recheckPaid(next)
         }
-        visible = null
         view = next
+    }
+
+    /** The picks kept on a new board asking the same decision, changed while its flow was worked out: whether they pay there. */
+    private fun recheckPaid(next: SharedShown) {
+        val now = mana
+        port.ask(SharedRequest(session, next.version, next.value.board, SharedOp.Pays(now)), next.play, { null }) { answer ->
+            if (view === next && mana === now && answer is SharedAnswer.Mana) paid = answer.paid
+        }
     }
 
     /** The open decision, when the viewer answers it: theirs, or the other player's after "Choose for them". */
@@ -127,11 +181,11 @@ class SharedFlowController(
 
     /**
      * STK-030: the flow the panel shows on [play]: that board's own, or, until it is worked out off the main thread
-     * ([show]), the flow of the board before when [play] asks the very same open decision (the other player's event beside
+     * ([load]), the flow of the board before when [play] asks the very same open decision (the other player's event beside
      * the game brought a new board): the panel stays on the table and what is picked in it with it. The whole decision is
      * compared, as its id can come again for another question on another line.
      */
-    fun flowOn(play: TableBoard): SharedFlow? = view?.takeIf { flow ->
+    fun flowOn(play: TableBoard): SharedShown? = view?.takeIf { flow ->
         flow.board === play.board || flow.state.pending?.decision?.let { it == play.engine?.state?.pending?.decision } == true
     }
 
@@ -162,10 +216,7 @@ class SharedFlowController(
     fun pass(player: String): Boolean {
         val play = current() ?: return false
         responding = null
-        return sendCall(play) { flow ->
-            if (flow.priority != player) throw Refused("${if (player == viewer) "You don't" else "They don't"} hold priority now.")
-            flow.pass(player)
-        }
+        return sendCall(play, SharedOp.Pass(player))
     }
 
     /**
@@ -176,7 +227,21 @@ class SharedFlowController(
     fun step(): Boolean {
         val play = current() ?: return false
         stepRefusal(play)?.let { fail(it); return false }
-        return sendCall(play) { flow -> pressed(play, flow) }
+        return sendCall(play, SharedOp.Step(autotap()))
+    }
+
+    /**
+     * Problem report XGN86Q: who declares attackers or blockers on [play] now (the step arrow then declares what the lanes
+     * hold), from the board's own flow: the shown one's, else the board's (in-process worked out now, waiting for the engine
+     * thread as before; across the boundary asked of the worker), given to [done] on the main thread. No panel shows at a
+     * declaration, so the panel's flow is seldom there to ask.
+     */
+    fun declaring(play: TableBoard, done: (String?) -> Unit) {
+        view?.takeIf { it.board === play.board }?.let { return done(it.declaring) }
+        if (!port.remote) return done(AutomatumBoards.sharedValue(play)?.declaring)
+        port.ask(SharedRequest(session, board = play.values?.number, op = SharedOp.Declaring), play, { null }) { answer ->
+            done((answer as? SharedAnswer.Declaring)?.player)
+        }
     }
 
     /** Why the step button can't act on [play] at all (nothing is worked out then), or null. */
@@ -190,63 +255,37 @@ class SharedFlowController(
         return null
     }
 
-    /** The engine call a press of the step button makes on [play]'s flow. */
-    private fun pressed(play: TableBoard, flow: SharedFlow): EngineRun {
-        if (CombatStackRules.stack(play.board).cards.isNotEmpty()) {
-            val holder = flow.priority ?: throw Refused(STACK_WAITING)
-            return flow.pass(holder)
-        }
-        val holder = flow.holder
-        val declaring = if (holder == null) flow.declaring else null
-        if (holder == null && declaring == null) throw Refused(NOTHING_TO_PASS)
-        return if (holder != null) flow.step(holder) else flow.declare(autotap()) { suggestion(flow, it) }
-    }
-
-    /** STK-024, TBL-130 (owner playtest 2026-11-07): Autotap's suggestion for [payment] of [flow], taking the topmost members
-     * of stacks of identical sources ([TopmostSources]); the engine's own when that doesn't pay. */
-    private fun suggestion(flow: SharedFlow, payment: Decision.ManaPayment): List<ManaUse> {
-        val play = current() ?: return payment.suggestion
-        val topmost = TopmostSources.of(payment.suggestion, payment.options, BattlefieldLayout.groups(play, viewer), flow::atwCard)
-        return if (topmost == payment.suggestion || flow.pays(topmost)) topmost else payment.suggestion
-    }
-
     override fun answer(answer: Answer): Boolean = answerWith(answer, emptyList())
 
     /** I-D48: a two-area choice's answer and the orders the engine then asks of the same cards, as one step
-     * ([SharedFlow.answer]). */
-    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answerOpen("$answer then $then") { flow ->
-        // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
-        if (answer is Answer.Division && flow.division != null) flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount })
-        else flow.answer(answer, then)
-    }
+     * ([org.asyncttwiz.automatum.SharedFlow.answer]); a division of combat damage deals it (I-D29). */
+    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean =
+        answerOpen("$answer then $then") { decision -> SharedOp.Give(decision, answer, then) }
 
-    /** STK-030, CR 616.1: the replacement preference list as one step ([SharedFlow.answerReplacements]). */
+    /** STK-030, CR 616.1: the replacement preference list as one step ([org.asyncttwiz.automatum.SharedFlow.answerReplacements]). */
     override fun answerReplacements(decision: Decision.ChooseReplacement, preference: List<arcanum.engine.decision.ReplacementOption>): Boolean =
-        answerOpen("replacements $preference") { flow -> flow.answerReplacements(preference) }
+        answerOpen("replacements $preference") { open -> SharedOp.Replacements(open, preference) }
 
     override fun paymentAfter(decision: Decision): Decision.ManaPayment? = view?.takeIf { it.decision?.id == decision.id }?.payment
 
     /** STK-049: the open payment with the sources picked, or "yes" to the open "you may pay" and its payment, as one step. */
     override fun payMana(): Boolean {
         val uses = mana
-        return answerOpen("mana $uses") { flow -> if (flow.decision is Decision.May) flow.payMay(uses) else flow.answer(Answer.ManaPayment(uses)) }
+        return answerOpen("mana $uses") { decision -> SharedOp.Pay(decision, uses) }
     }
 
-    /** Sends [perform] on the open decision the panel shows, unless the table changed meanwhile. */
-    private fun answerOpen(what: String, perform: (SharedFlow) -> org.asyncttwiz.automatum.EngineRun): Boolean {
+    /** Sends [op] on the open decision the panel shows ([op] gets its id), unless the table changed meanwhile. */
+    private fun answerOpen(what: String, op: (String) -> SharedOp): Boolean {
         // Report DH3QX6: each answer tapped, and below what became of it
         AppLog.info("decision", "Answer tapped on $shownDecision: ${what.take(400)}${if (busy) " (still working out the last one)" else ""}")
         val play = current() ?: run { AppLog.info("decision", "Answer not sent: no board"); return false }
         val open = view?.takeIf { it.board === play.board }?.decision
         if (open != null && open.id.value != shownDecision) {
             AppLog.info("decision", "Answer not sent: the panel shows $shownDecision, the board asks ${open.id.value}")
-            fail("The table changed: look at the choice again."); return false
+            fail(SharedSessions.LOOK_AGAIN); return false
         }
-        return sendCall(play) { flow ->
-            val decision = flow.decision ?: throw Refused(null)
-            if (decision.id.value != shownDecision) throw Refused("The table changed: look at the choice again.")
-            perform(flow)
-        }
+        // Checked again where the flow runs: the board's open decision must still be the one shown
+        return sendCall(play, op(shownDecision.orEmpty()))
     }
 
     /**
@@ -256,10 +295,7 @@ class SharedFlowController(
      */
     fun answerEarly(): Boolean {
         val play = current() ?: return false
-        return sendCall(play) { flow ->
-            if (flow.early == null) throw Refused(null)
-            flow.answerEarly()
-        }
+        return sendCall(play, SharedOp.Early)
     }
 
     /** A tap on a table item while the open decision is picked on the table (I-D5: players by their life squares; D1:
@@ -292,7 +328,6 @@ class SharedFlowController(
         return targetGlow(play, pick.options.map(flow::ref))
     }
 
-    /** STK-047: the table items picked so far for a decision that takes several, drawn as picked. */
     /**
      * STK-047, STK-030 (owner 2026-11-11, which pick is which): the text of the trigger (or other announcement) whose targets
      * the viewer picks on the table, with the phrase picked now and what was chosen for the ones before
@@ -329,6 +364,7 @@ class SharedFlowController(
         return pickText(play)?.roles.orEmpty().mapNotNull { (ref, role) -> (flow.ref(ref) as? MtgRef.Card)?.cardId?.let { it to role } }.toMap()
     }
 
+    /** STK-047: the table items picked so far for a decision that takes several, drawn as picked. */
     fun pickedGlow(play: TableBoard): Set<String> {
         val flow = view ?: return emptySet()
         if (pick == null) return emptySet()
@@ -344,31 +380,26 @@ class SharedFlowController(
 
     override val engine: GameState? get() = view?.state ?: null.also { Faults.report("SharedFlowController", "engine state read with no flow open") }
     override fun atwCard(id: ObjectId): String? = view?.atwCard(id)
-    /** Worked out with the flow, off the main thread ([SharedFlow.prepared], SYS-025). */
-    override fun listedAnswers(): List<Answer> = view?.listedAnswers().orEmpty()
+    /** Worked out with the flow where it runs ([SharedFlowValue.listed], SYS-025). */
+    override fun listedAnswers(): List<Answer> = view?.value?.listed.orEmpty()
 
-    /** A choice up to a total (CR 701.59a): OK waits for the total, as in a cast or crew; any other choice is as the decision says. */
+    /** A choice up to a total (CR 701.59a): OK waits for the total, as in a cast or crew; any other choice is as the decision
+     * says. Worked out where the flow runs. */
     override fun selectionOf(chosen: List<ObjectId>, done: (arcanum.engine.Selection?) -> Unit) {
         val flow = view?.takeIf { (it.decision as? Decision.ChooseObjects)?.total != null } ?: return done(null)
-        work.run({ runCatching { flow.selection(chosen.map { TargetRef.Object(it) }) }.getOrNull() }, done)
+        port.ask(SharedRequest(session, flow.version, flow.value.board, SharedOp.Selection(chosen.map { TargetRef.Object(it) })),
+            flow.play, { null }) { answer -> done((answer as? SharedAnswer.Selected)?.selection?.selection()) }
     }
-    /** Worked out once per flow and tapping, off the main thread: the suggestion with the flow ([SharedFlow.prepared]),
-     * each tapping by [toggleMana] (SYS-025, final cast review #9). */
-    private var paidFor: Triple<SharedFlow, List<ManaUse>, Boolean>? = null
-    override val paid: Boolean get() {
-        val flow = view ?: return false
-        paidFor?.takeIf { it.first === flow && it.second === mana }?.let { return it.third }
-        return flow.pays(mana).also { paidFor = Triple(flow, mana, it) }
-    }
-    /** The tapped sources are a set: their colours are worked out together ([ManaTaps], as in a cast), on [work]
+
+    /** The tapped sources are a set: their colours are worked out together ([ManaTaps], as in a cast), where the flow runs
      * (SYS-025: up to a few dozen engine calls). A pool or life chip in the bar. */
     override fun toggleMana(group: List<ManaUse>) {
         val key = ManaPicks.key(group.first())
-        tapWays(group, "chip ${ManaWays.label(group.first())}") { ManaPicks.key(it) == key }
+        tapWays(group, "chip ${ManaWays.label(group.first())}", ManaBelongs.Key(key))
     }
 
     /** STK-049 (owner playtest 2026-11-09): the open payment the viewer makes while something resolves, picked on the table: a
-     * [Decision.ManaPayment], or the payment after a "you may pay" ([payment]); null when none is open for them. */
+     * [Decision.ManaPayment], or the payment after a "you may pay" ([SharedShown.payment]); null when none is open for them. */
     val payment: Decision.ManaPayment? get() {
         val decision = answering ?: return null
         return decision as? Decision.ManaPayment ?: view?.takeIf { decision is Decision.May }?.payment
@@ -408,48 +439,38 @@ class SharedFlowController(
         if (!paying) return false
         val ways = waysOf(cardId).ifEmpty { return false }
         AppLog.info("decision", "Payment while resolving: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
-        val mine = ways.toSet()
-        tapWays(ways, "source $cardId") { it in mine }
+        tapWays(ways, "source $cardId", ManaBelongs.Uses(ways))
         return true
     }
 
     /** STK-024 (owner playtest 2026-11-09): [way] chosen with the corner chip of the table card [cardId]: kept exactly. */
     fun chooseWay(cardId: String, way: ManaUse) {
         val flow = view ?: return
-        val decision = payment ?: return
+        payment ?: return
         if (busy || !paying) return
-        val mine = waysOf(cardId).toSet()
-        val before = taps
-        val autotapOn = autotap()
-        run(flow, mana, { ManaTaps.choose(before, decision, way, { it in mine }, autotapOn, engineOf(flow)) }, "$cardId's corner chip")
+        val mine = waysOf(cardId)
+        payStep(flow, mana, SharedOp.ChooseWay(cardId, way, mine, mana, taps.wire(), autotap()))
     }
 
-    private fun engineOf(flow: SharedFlow) = ManaTaps.Engine({ pinned, removed, exact -> flow.fill(pinned, removed, exact) }, flow::pays)
-
-    private fun tapWays(ways: List<ManaUse>, what: String, belongs: (ManaUse) -> Boolean) {
+    private fun tapWays(ways: List<ManaUse>, what: String, belongs: ManaBelongs) {
         val flow = view ?: return
-        val decision = payment ?: return
+        payment ?: return
         if (busy) return
-        val current = mana
-        val before = taps
-        val autotapOn = autotap()
-        run(flow, current, {
-            ManaTaps.tap(before, decision, current, ways, belongs, autotapOn, ManaWays.care(flow.state, decision.source), engineOf(flow))
-        }, what)
+        payStep(flow, mana, SharedOp.Tap(ways, belongs, what, mana, taps.wire(), autotap()))
     }
 
-    /** Works [outcome] out on [work] and applies it while the same flow and payment are shown. */
-    private fun run(flow: SharedFlow, current: List<ManaUse>, outcome: () -> ManaTaps.Outcome, what: String) {
+    /** Works the payment's [op] out where the flow runs and applies it while the same flow and payment are shown. */
+    private fun payStep(flow: SharedShown, current: List<ManaUse>, op: SharedOp) {
         busy = true
-        work.run({
-            runCatching { outcome().let { it to flow.pays(it.mana) } }
-                .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${simpleClassName(it)}") }.getOrNull()
-        }) { result ->
+        port.ask(SharedRequest(session, flow.version, flow.value.board, op), flow.play, { null }) { answer ->
             busy = false
-            val (done, pays) = result ?: return@run
-            AppLog.info("decision", "Payment while resolving: $what, ${done.said}; paying now ${done.mana.joinToString { ManaWays.label(it) }}" +
-                (if (pays) ", paid" else ", not paid yet"))
-            if (view === flow && mana === current) { mana = done.mana; taps = done.taps; paidFor = Triple(flow, done.mana, pays) }
+            val done = answer as? SharedAnswer.Mana ?: run {
+                AppLog.warn("automatum", "Mana tapping couldn't be worked out: $answer")
+                return@ask
+            }
+            AppLog.info("decision", "Payment while resolving: ${done.said}; paying now ${done.mana.joinToString { ManaWays.label(it) }}" +
+                (if (done.paid) ", paid" else ", not paid yet"))
+            if (view === flow && mana === current) { mana = done.mana; taps = done.taps.taps(); paid = done.paid }
         }
     }
 
@@ -461,68 +482,29 @@ class SharedFlowController(
     override fun shown(id: ObjectId): Boolean {
         val flow = view ?: return false
         if (id is ObjectId.StackItem) return true
-        val known = visible ?: flow.visible(viewer).also { visible = it }
-        if (id in known) return true
-        if (flow.offeredAfterLeaving(id)) return true
+        if (id in flow.value.visible) return true
+        if (id in flow.value.left) return true
         // A trigger's source that has left the battlefield (3UE2NW): what it was there is public
         if (org.asyncttwiz.automatum.LastKnown.public(flow.state, id)) return true
         val zone = flow.state.obj(id)?.zone
         return flow.decision?.player?.value == viewer && zone != null && zone !in PUBLIC_ZONES
     }
 
-    /** The flow of [play]'s board: the shown one, or worked out now when the board moved on (blocking: on [work]). */
-    private fun flowOf(play: TableBoard): SharedFlow =
-        view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play) ?: throw Refused(TAKE_OVER)
-
-    /** A refusal with its message for the player (null: none). */
-    private class Refused(message: String?) : Exception(message)
-
-    private sealed interface Outcome {
-        class Fail(val message: String?) : Outcome
-        data object Empty : Outcome
-        /** I-D56 step C: the viewer's own [inputs] made on [play]'s board. */
-        class Engine(val play: TableBoard, val inputs: List<arcanum.engine.input.Input>) : Outcome {
-            val board: BoardState get() = play.board
-        }
-    }
-
     /**
-     * Works one engine call out on [work] (SYS-025) from [play]'s flow and sends the viewer's own inputs of it, unless
-     * the board moved on meanwhile. True when it was taken (with [AutomatumWork.Inline]: what the result says).
+     * Sends [op], made on [play]'s board, where the flows run and sends the viewer's own inputs it comes to, unless the board
+     * moved on meanwhile. True when it was taken (in-process with [AutomatumWork.Inline]: what the result says).
      */
-    private fun sendCall(play: TableBoard, perform: (SharedFlow) -> EngineRun): Boolean {
+    private fun sendCall(play: TableBoard, op: SharedOp): Boolean {
         val route = engineSend ?: run { fail("Automatum isn't available here."); return false }
         if (busy) { AppLog.info("decision", "Flow step not taken: the last one is still being worked out"); return false }
         busy = true
         var result = true
-        work.run({ outcome(play, perform) }) { outcome ->
+        val request = SharedRequest(session, view?.version, play.values?.number, op)
+        port.ask(request, play, { stacks(play) }) { answer ->
             busy = false
-            result = deliver(outcome, route)
+            result = deliver(play, answer, route)
         }
         return result
-    }
-
-    /** Works one engine call out from [play]'s flow ([perform]): the viewer's own inputs of it. */
-    private fun outcome(play: TableBoard, perform: (SharedFlow) -> EngineRun): Outcome = try {
-        val call = perform(flowOf(play))
-        // I-D56 step C: only the viewer's own inputs go out; their device folds what follows by itself (the other player's
-        // points are assumed, automatic or waited for, never passed for them)
-        val own = call.inputs.takeWhile { it !is arcanum.engine.input.Input.MandatoryLoop &&
-            !(it is arcanum.engine.input.Input.PassPriority && it.player.value != viewer) }
-        if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play, own)
-    } catch (refused: Refused) {
-        Outcome.Fail(refused.message).also { refused.message?.let { AutomatumLog.refusal(play.gameId, "shared flow", it) } }
-    } catch (refused: CombatRefused) {
-        AutomatumLog.refusal(play.gameId, "combat", refused.reason)
-        Outcome.Fail(refused.reason)
-    } catch (problem: IllegalArgumentException) {
-        AppLog.info("automatum", "Answer refused: ${problem.message?.take(200)}")
-        AutomatumLog.refusal(play.gameId, "shared flow", problem.message.orEmpty())
-        Outcome.Fail(CastController.NOT_ALLOWED)
-    } catch (problem: Exception) {
-        AppLog.warn("automatum", "Shared flow couldn't go on: ${simpleClassName(problem)}: ${problem.message?.take(200)}")
-        AutomatumLog.refusal(play.gameId, "shared flow", "${simpleClassName(problem)}: ${problem.message}")
-        Outcome.Fail("Automatum couldn't go on from here.")
     }
 
     /**
@@ -533,22 +515,25 @@ class SharedFlowController(
      */
     private fun sameDecision(worked: TableBoard): Boolean {
         val now = current() ?: return false
-        val same = now.board.combat == worked.board.combat && now.engine != null && worked.engine != null &&
-            org.asyncttwiz.protocol.game.GameDevice.sameDecision(worked.engine.state, now.engine.state)
+        val nowEngine = now.engine
+        val workedEngine = worked.engine
+        val same = now.board.combat == worked.board.combat && nowEngine != null && workedEngine != null &&
+            org.asyncttwiz.protocol.game.GameDevice.sameDecision(workedEngine.state, nowEngine.state)
         if (same) AppLog.info("decision", "Flow step worked out on an older board: the same decision on the board shown, sent")
         return same
     }
 
-    /** [outcome] on the main thread: its inputs go out unless the board moved on meanwhile. True when it was taken. */
-    private fun deliver(outcome: Outcome, route: (List<arcanum.engine.input.Input>) -> String?): Boolean = when (outcome) {
-        is Outcome.Fail -> { AppLog.info("decision", "Flow step not sent: ${outcome.message}"); outcome.message?.let(fail); false }
-        Outcome.Empty -> { AppLog.info("decision", "Flow step: nothing to send"); fail(null); picked = emptyList(); true }
-        is Outcome.Engine -> when {
-            current()?.board !== outcome.board && !sameDecision(outcome.play) -> {
-                AppLog.info("decision", "Flow step not sent: the board moved on"); fail("The table changed: try again."); false }
+    /** [answer] to a step made on [play], on the main thread: its inputs go out unless the board moved on meanwhile. True when
+     * it was taken. */
+    private fun deliver(play: TableBoard, answer: SharedAnswer, route: (List<arcanum.engine.input.Input>) -> String?): Boolean = when (answer) {
+        is SharedAnswer.Refuse -> { AppLog.info("decision", "Flow step not sent: ${answer.message}"); answer.message?.let(fail); false }
+        SharedAnswer.Empty -> { AppLog.info("decision", "Flow step: nothing to send"); fail(null); picked = emptyList(); true }
+        is SharedAnswer.Send -> when {
+            current()?.board !== play.board && !sameDecision(play) -> {
+                AppLog.info("decision", "Flow step not sent: the board moved on"); fail(SharedSessions.TABLE_CHANGED); false }
             else -> {
-                val refusal = route(outcome.inputs)
-                AppLog.info("decision", "Flow step ${if (refusal == null) "sent" else "refused: ${refusal.take(300)}"}: ${outcome.inputs.toString().take(300)}")
+                val refusal = route(answer.inputs)
+                AppLog.info("decision", "Flow step ${if (refusal == null) "sent" else "refused: ${refusal.take(300)}"}: ${answer.inputs.toString().take(300)}")
                 when (refusal) {
                     null -> { fail(null); picked = emptyList(); true }
                     org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
@@ -556,9 +541,10 @@ class SharedFlowController(
                 }
             }
         }
+        else -> { AppLog.warn("decision", "Flow step answered unexpectedly: $answer"); false }
     }
 
-    private fun targetOf(flow: SharedFlow, options: List<TargetRef>, item: TableItem): TargetRef? {
+    private fun targetOf(flow: SharedShown, options: List<TargetRef>, item: TableItem): TargetRef? {
         if (item.kind == TableItemKind.LIFE) return options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
         val ids = listOfNotNull(item.sourceId, item.cardId)
         return options.firstOrNull { target ->
@@ -574,11 +560,57 @@ class SharedFlowController(
         private val PUBLIC_ZONES = setOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Stack, arcanum.api.Zone.Graveyard,
             arcanum.api.Zone.Exile, arcanum.api.Zone.Command)
         const val BUSY = "Automatum is waiting for a choice. Answer it first."
-        const val STACK_WAITING = "Let the Stack resolve before changing the step."
+        const val STACK_WAITING = SharedSessions.STACK_WAITING
         /** TRN-027: with Automatum on the first turn begins once both players are Ready. */
         const val OPENING = "The game begins once both players are Ready."
-        const val TAKE_OVER = "Automatum can't take over this board."
-        const val NOTHING_TO_PASS = "Automatum couldn't go on from here."
+        const val TAKE_OVER = SharedSessions.TAKE_OVER
+        const val NOTHING_TO_PASS = SharedSessions.CANT_GO_ON
+
+        /** The table's shared-flow sessions, numbered across the page (web client step 4e: the engine side keys them by game). */
+        private val sessions = org.asyncttwiz.appui.AtomicLong()
+        private fun nextSession(): Long = sessions.incrementAndGet()
     }
 }
 
+/**
+ * Web client step 4e: a board's shared flow as the shared panels draw it: the plain data its session answered ([value]) on the
+ * board it is of ([play]), never the flow itself. Its engine state ([state]) is the board's own (in-process the flow's copy of
+ * it; in the browser the page's copy of the board's), read for names and what is shown, never changed.
+ */
+class SharedShown(val value: SharedFlowValue, val play: TableBoard) {
+    /** The engine state of the board (names, the open decision's options). */
+    val state: GameState by lazy { value.flow?.state ?: requireNotNull(play.engine) { "A flow's board without its engine state" }.state }
+    /** The session's version of this flow. */
+    val version: Long get() = value.version
+    /** The board the flow is on. */
+    val board: BoardState get() = play.board
+    /** The open decision (a division given early as its suggestion, I-D33), or null. */
+    val decision: Decision? get() = value.decision
+    /** Who holds priority with something on the Stack and nothing to decide; null otherwise. */
+    val priority: String? get() = value.priority
+    /** Who holds priority now with nothing to decide (an empty Stack too), or null. */
+    val holder: String? get() = value.holder
+    /** Who declares attackers or blockers now (CR 508.1, 509.1), or null. */
+    val declaring: String? get() = value.declaring
+    /** The open division of combat damage in ATW's terms, or null. */
+    val division: org.asyncttwiz.automatum.DamageDivision? get() = value.division
+    /** STK-049: the payment the open "you may pay" of a mana cost goes on to, or null. */
+    val payment: Decision.ManaPayment? get() = value.payment
+    /** The top of the Stack, which resolves next (CR 405.5); null when the Stack is empty. */
+    val top: StackItem? get() = state.stack.lastOrNull()?.let { state.stackItems[it] }
+
+    /** The printed text of [item]'s ability (a spell's text, an ability's line), when it has one. */
+    fun text(item: StackItem): String? = org.asyncttwiz.automatum.CastFlow.text(item.ability)
+
+    /** The ATW reference of an engine object or player (target glow, labels). */
+    fun ref(target: TargetRef): MtgRef = when (target) {
+        is TargetRef.Player -> MtgRef.Player(target.id.value)
+        is TargetRef.Object -> when (val id = target.id) {
+            is ObjectId.Card -> MtgRef.Card(id.card.value, id.zoneChanges)
+            is ObjectId.StackItem -> MtgRef.StackItem(id.id)
+        }
+    }
+
+    /** The ATW card of an engine object, when it is a card. */
+    fun atwCard(id: ObjectId): String? = (id as? ObjectId.Card)?.card?.value
+}

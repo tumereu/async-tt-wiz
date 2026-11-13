@@ -1,0 +1,1 @@
+fix: When the game has to load again while you are watching it, it carries on live instead of pausing with "Tap to watch".

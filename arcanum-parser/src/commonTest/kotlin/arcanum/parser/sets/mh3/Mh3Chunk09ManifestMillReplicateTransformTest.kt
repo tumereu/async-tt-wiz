@@ -99,7 +99,7 @@ class Mh3Chunk09ManifestMillReplicateTransformTest {
         triggered(dies(and(creature, you, ObjectFilter.Modified)), Step.Do(Effect.Action(KeywordAction.Manifest(n(1))))),
     )
 
-    // CR 603.2, 404.2: a creature card entering from its owner's (your) graveyard, or cast from your graveyard; CR 118.12 "you may pay … If you do";
+    // CR 603.4, 404.2: an intervening if on this or another creature you control entering: it entered from your graveyard, or you cast it from there; CR 118.12 "you may pay … If you do";
     // CR 701.27a; CR 701.17a: "if a black card was milled this way" is any one of the milled cards; CR 707.9b: the copies are 1/1 black and green
     // Insects
     @Test
@@ -116,10 +116,15 @@ class Mh3Chunk09ManifestMillReplicateTransformTest {
         ) to abilities(
             Keyword.Deathtouch,
             Ability.Triggered(Trigger.On(listOf(
-                EventPattern.ZoneChange(and(creature, you, ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard, to = Zone.Battlefield),
-                EventPattern.ZoneChange(and(creature, you, ObjectFilter.OwnedBy(PlayerFilter.You), ObjectFilter.WasCast(from = Zone.Graveyard)), to = Zone.Battlefield))),
+                EventPattern.ZoneChange(ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self), and(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature, you))),
+                    to = Zone.Battlefield))),
                 Instructions(steps = listOf(Step.Pay(manaCost("{G}"), payer = Players.You, bind = "paid"),
-                    ifThen(Condition.Did("paid"), *exileAndReturnTransformed.toTypedArray())))),
+                    ifThen(Condition.Did("paid"), *exileAndReturnTransformed.toTypedArray()))),
+                interveningIf = Condition.Or(listOf(
+                    Condition.ObjectMatches(Objects.EventObject(arcanum.api.EventRole.After), and(ObjectFilter.OwnedBy(PlayerFilter.You),
+                        ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Any, from = Zone.Graveyard, to = Zone.Battlefield), role = arcanum.api.EventRole.After))),
+                    Condition.CastFrom(Zone.Graveyard, Objects.EventObject(arcanum.api.EventRole.After)),
+                ))),
         ),
         card(
             name = "Grindle, the Plague Host",

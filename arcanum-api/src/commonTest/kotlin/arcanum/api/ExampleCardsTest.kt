@@ -310,6 +310,25 @@ class ExampleCardsTest {
         assertEquals(1, DefinitionChecks.problems(onDeath(EventRole.OtherCombatant)).size)
     }
 
+    // CR 115.1a, c, d: a target identifies something the spell or ability affects: a declared slot nothing reads is reported
+    @Test
+    fun targetSlotsNothingReadsAreReported() {
+        fun slot(name: String) = TargetSlot(name, TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))
+        val tapsIt = Step.Do(Effect.Tap(Objects.Target("creature")))
+        val used = Instructions(targets = listOf(slot("creature")), steps = listOf(tapsIt))
+        val stray = Instructions(targets = listOf(slot("creature"), slot("second creature")), steps = listOf(tapsIt))
+        assertEquals(emptyList(), DefinitionChecks.unusedTargetSlots(Ability.Spell(used)))
+        assertEquals(listOf("second creature"), DefinitionChecks.unusedTargetSlots(Ability.Spell(stray)))
+        fun spell(instructions: Instructions) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Idle Aim", abilities = listOf(Ability.Spell(instructions)))))
+        assertEquals(emptyList(), DefinitionChecks.problems(spell(used)))
+        assertEquals(1, DefinitionChecks.problems(spell(stray)).size)
+        // a player slot read through Recipients, and a delayed trigger's own slot read inside it, are reads
+        val player = TargetSlot("player", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+        val reflexive = Instructions(targets = listOf(player), steps = listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Target("player")), n(2), Objects.Self)),
+            Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.Draw(PlayerFilter.You)), Instructions(targets = listOf(slot("creature")), steps = listOf(tapsIt))))))
+        assertEquals(emptyList(), DefinitionChecks.unusedTargetSlots(Ability.Spell(reflexive)))
+    }
+
     // CR 614.12, 110.5b: "as enters" steps only pay, choose, check or modify how it enters; CR 714: chapters are Sagas'.
     @Test
     fun asEntersEffectsAndStrayChaptersAreReported() {

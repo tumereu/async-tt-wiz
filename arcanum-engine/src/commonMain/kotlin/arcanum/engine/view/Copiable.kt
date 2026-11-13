@@ -3,6 +3,7 @@ package arcanum.engine.view
 import arcanum.engine.state.castOrNone
 import arcanum.engine.state.fixedCopies
 import arcanum.engine.state.gainedInCopying
+import arcanum.engine.state.createdBy
 import arcanum.engine.state.mergedAbove
 import arcanum.engine.state.mergedBelow
 import arcanum.engine.state.turnedFaceUp
@@ -79,7 +80,19 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
      */
     fun forToken(id: ObjectId): CopiableValues? {
         val values = values(id) ?: return null
-        val o = state.obj(id)
+        return shapedForToken(state.obj(id), values)
+    }
+
+    /**
+     * The values of a token that's a copy of [id] as it last existed in the zone it left (CR 707.2, 608.2h): of a permanent that left the
+     * battlefield, what a copy effect or its face-down status made it there, not the card it is now. Null: it left no zone known.
+     */
+    fun lastKnownForToken(id: ObjectId): CopiableValues? {
+        val m = arcanum.engine.query.Lki.move(state, id) ?: return null
+        return shapedForToken(m.before, m.seen?.copiable ?: plain(m.before))
+    }
+
+    private fun shapedForToken(o: GameObject?, values: CopiableValues): CopiableValues {
         val printed = o?.definition?.takeIf { !o.faceDown && !o.merged && doubleFaced(it.layout) && it.faces.size > 1 }
         // A double-faced permanent under a copy effect: each of its faces has what the effect gives (CR 707.8a)
         if (printed != null && values.layout == Layout.Normal && values.faces.size == 1)
@@ -116,7 +129,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is
         if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
         val definition = o.definition
-        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying).let { Worked(it, inEffect(it, o)) }
+        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying, o.createdBy).let { Worked(it, inEffect(it, o)) }
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             worked = worked.map(::prototyped)
@@ -182,9 +195,21 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
      * whose `affects` include it ([staticCopies]), as effect objects of the ability's timestamp. */
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =
-        (state.effects.values.filter { it.locked?.contains(id) == true }
+        // CR 611.2b: a copy effect lasting "for as long as" a condition holds stops applying as soon as it doesn't (the view doesn't wait for
+        // the flow that notices to end the effect object)
+        (state.effects.values.filter { it.locked?.contains(id) == true && stillLasts(it) }
             .flatMap { e -> e.mechanics.filterIsInstance<Mechanic.CopyOf>().map { e to it } } + staticCopiesOn(id))
             .sortedBy { it.first.timestamp }
+
+    private var judgingDuration = false
+
+    /** Whether a copy effect's "for as long as" condition holds. The condition is judged on the board as printed; while it is, the copy
+     * effects it reads about are taken as lasting, which ends the loop of a condition about a permanent that is itself copied. */
+    private fun stillLasts(effect: EffectObject): Boolean {
+        if (effect.duration !is arcanum.api.Duration.AsLongAs || judgingDuration) return true
+        judgingDuration = true
+        try { return Layers.active(state, PrintedBoard(state, this), effect) } finally { judgingDuration = false }
+    }
 
     /** A static ability with a copy effect (CR 613.2a, 707.2: "… is a copy of …") printed on [source], a permanent. */
     private class StaticCopy(val source: GameObject, val index: Int, val ability: Ability.Static, val copy: Mechanic.CopyOf)
@@ -260,6 +285,12 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     }
 
     companion object {
+        /** [o]'s copiable values from its card alone (or its face-down values, CR 708.2a), before copy effects and the rest of layer 1:
+         * what [arcanum.engine.state.ObjectSnapshot.copiable] is compared with. */
+        fun plain(o: GameObject): CopiableValues =
+            if (o.faceDown) CopiableValues.of(faceDown(o))
+            else CopiableValues(o.definition.layout, o.definition.faces, o.face, o.gainedInCopying, o.createdBy)
+
         /** A merged permanent's [faces] as one face (CR 707.2): the first face, with the abilities of its other components (CR
          * 730.2a, 702.140e: they are part of its copiable values). */
         private fun copiedFace(faces: List<IndexedFace>): FaceDefinition? {
@@ -346,12 +377,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                         e.addSubtypes.mapNotNull { (it as? arcanum.api.SubtypeRef.Literal)?.subtype },
                     supertypes = ((f.supertypes + e.addSupertypes).distinct() - e.removeSupertypes.toSet()),
                 )
-                // mh3 chunk 09: colours that replace the copied ones replace those of its mana cost too (CR 707.9b)
-                is CopyException.Colors -> f.copy(
-                    colorIndicator = ((if (e.add) colorsOf(f) else emptyList<Color>()) +
-                        e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color }).distinct(),
-                    colorsFromIndicatorOnly = true,
-                )
+                // one chunk 07: the final colours are the copiable value, whatever the mana cost says (CR 707.9b)
+                is CopyException.Colors -> ((if (e.add) colorsOf(f) else emptyList<Color>()) + e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color })
+                    .distinct().let { colors -> f.copy(colorIndicator = colors, colors = colors) }
                 is CopyException.PowerToughness -> f.copy(power = PrintedNumber.Fixed(e.power), toughness = PrintedNumber.Fixed(e.toughness))
                 is CopyException.AddAbilities -> f.copy(abilities = f.abilities + e.abilities)
                 is CopyException.WithoutKeyword -> f.copy(abilities = f.abilities.filterNot { it is Keyword && it.kind == e.keyword })
@@ -363,7 +391,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
         /** CR 202.2, 204: colours from the mana cost and colour indicator. */
         fun colorsOf(face: FaceDefinition): List<Color> {
-            if (face.colorsFromIndicatorOnly) return Color.all.filter { it in face.colorIndicator.orEmpty() }
+            face.colors?.let { set -> return Color.all.filter { it in set } }
             val fromCost = face.manaCost?.symbols.orEmpty().flatMap { Evaluator.symbolColors(it) }
             return Color.all.filter { it in fromCost || it in face.colorIndicator.orEmpty() }
         }

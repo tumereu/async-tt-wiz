@@ -206,7 +206,7 @@ internal object Fin {
     val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""You may cast target (.+?) from a graveyard, and mana of any type can be spent to cast that spell\. If that spell would be put into a graveyard, exile it instead\.""")
     val ADDITIONAL_COST_OR = Regex("""As an additional cost to cast this spell, (sacrifice an? .+?) or (pay \{.+\})\.""")
     val ATTACKED_THIS_TURN_MAY_PLAY_TOP = Regex("""As long as (.+?) attacked this turn, you may play the top card of your library\.""")
-    val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill that many cards plus (\w+) instead\.""")
+    val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill (?:that many cards plus (\w+)|(twice) that many cards) instead\.""")
     val COPY_ABILITY_X_TIMES = Regex("""(\{X\}\{X\}, \{T\}): Copy target activated or triggered ability you control X times\. You may choose new targets for the copies\. This ability can't be copied and X can't be 0\.""")
     // fin chunk 11
     val RETURN_TARGET_WITH_ADDITIONAL_COUNTERS = Regex("""Return target (.+?) from your graveyard to the battlefield with (\w+) additional (\S+) counters? on it\.""")
@@ -241,7 +241,7 @@ internal object Fin {
     val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
     val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
     val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast ([A-Z][a-z]+) spells from the top of your library\.""")
-    val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val WHEN_YOU_SEARCH_THIS_WAY = Regex("""When you search your library this way, (.+)""")
     val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")
     val SELF_BECOMES_CREATURE = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][a-z]+) creature in addition to its other types\.""")

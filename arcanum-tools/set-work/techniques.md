@@ -16,23 +16,53 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   unclear are false alarms.
 - A delayed trigger made by a triggered ability ("return it at the beginning of the next end step") has its own event:
   bind the outer event's object first (`Step.Bind(EventObject(After), "<name>")`) and use `Bound` inside (CR 603.7c).
-- "That creature" after a sacrifice is the sacrifice's bound object, last known information (CR 608.2h).
+- "That creature" after a sacrifice is the sacrifice's bound object, last known information (CR 608.2h). After "gain
+  control of target X" it is that target; "sacrifice/exile it (that token) at the next end step" after creating a token is
+  the token; in an attach trigger it is the creature attached to (`EventRole.To`), not whatever is attached at resolution.
+  An intervening "if it has ..." after "another creature enters/attacks" is the event object, not this object.
+- "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
+  it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
+  Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
+  that graveyard's owner (CR 110.2, 404.1).
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
+- Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
+  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b). "any number of target X" divided has min 0.
+- A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule.
+  The parser leaves an ability with an unused target slot unread (`DefinitionChecks.unusedTargetSlots`, CR 115.1).
+- "becomes a [type] artifact creature" keeps the object's other subtypes (CR 205.1b); "Until your next turn, X." reads
+  as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
+- "enchanted player" = `Players.AttachedTo(Objects.Self)`; "Curses attached to you" = `ObjectFilter.Attached(toPlayers =
+  ...)`. "<cost part choosing one object> and pay its mana cost" = `CostPart.ManaCostOf(Bound)`; a token's text naming
+  the card that made it = `Objects.Creator`, kept by copies (CR 201.5a).
 - Slot names: one target card is `card`, "up to two target creature cards" is `cards`; a second "target creature" is
   `second creature`; "and/or" slots take the last noun ("artifacts"); "creature or planeswalker you don't control" is
   `permanent`; "player or planeswalker" is `TargetKind.Either(planeswalker, PlayerFilter.Any)`.
-- "you don't control" = `ControlledBy(PlayerFilter.Not(You))`; "that player controls" = `ControlledBy(PlayerFilter.Is(
-  Players.EventPlayer))`; "its controller creates" = `CreateToken(controller = Players.ControllerOf(target(slot)))`.
+- "you don't control" = `ControlledBy(PlayerFilter.Not(You))`; "that player controls" in a trigger = `ControlledBy(
+  PlayerFilter.Is(Players.EventPlayer))`, in a spell or activated ability the chosen or targeted player (no event, CR
+  608.2c); "its controller creates" = `CreateToken(controller = Players.ControllerOf(target(slot)))`. "its controller" of
+  a creature that died is its last controller on the battlefield (`EventObject(Before)`, CR 603.10a), not the owner.
 - `And` filter order matters for equality: "another" (`Not(Is(Self))`) first, status words (attacking, tapped) before the
   type, then power, then control. Copy the order from the nearest test.
 - A tap or sacrifice cost "an untapped creature you control" = `CostObjects.Choose(creature, n)`: control and untapped are
   implicit, not in the filter.
 - Ability words: `abilityWord = "<word>"` on the static, spell or triggered ability; a condition on a trigger is
   `interveningIf` ("if you control ..."), a "while" on an attack trigger is `triggersOnlyIf`.
+- "you may <a choice you make>" (put counters on a creature you control) = `Choose` zero-or-one, not `May` + `Choose`;
+  when another player makes the choice ("you may have target opponent sacrifice") it stays `May` (CR 608.2d).
+- "you may look ... If you do, ..." is one `Step.May`: a `Step.Pay(steps = [LookAt])` never counts as done.
+- A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
+- "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
+  are `onlyIf` (CR 601.2c).
+- "It's still a <type>." keeps all prior types (no replaceTypes/replaceSubtypes); "[creature type] artifact creature"
+  still replaces creature types (CR 205.1b, last sentence).
+- A target "of an opponent's choice" is `TargetSlot.chosenBy`; "the next N damage ... is dealt to X instead" is
+  `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
+- Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
+  [combat] damage" with no recipient, default `SourceAndRecipient` for "a source deals damage to Y".
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
 
 ## Engine scenarios
@@ -65,15 +95,31 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Several players: "any opponent may" asks `decision<Decision.May>().player` in turn order; a pile split asks the
   separator `ChooseObjects`, then the chooser `Answer.Option("first"/"second")`; several copies of a spell are ordered by
   their controller (`ChooseObjects`).
+- Several defenders: `perform(Input.DeclareAttackers(alice.id, listOf(Attack(card(a), TargetRef.Player(bob.id)), ...)))`;
+  `attach(curse, "bob")` attaches to a player. Random results: `random({ _ -> Answer.RandomObjects(listOf(card(x))) })`,
+  `random(Answer.CoinFlip(true))`.
+- A card with several ways to cast it (two flashback permissions): `casts(card, way = Engine.options(...).way)`;
+  `castsOf(player, name)` lists another player's ways.
 - Set support files hold shared drivers (`resolveAll`, `playOut`, `ownAlternative` for an alternative cost); import the
   one `helpers.md` lists under "Shared scenario drivers" (its package, file and line) rather than copying it.
+- Counters: proliferate is `decision<Decision.Targets>()` with slot "proliferate" (asks nothing when nothing has a
+  counter); player counters at setup `bob.counters(CounterKind.Poison, 3)`; named kinds `CounterKind.Named("oil")`. A
+  trigger's `Modes` decision is asked even when only one mode is available.
+- First or double strike: `hits(...)` stops after the first damage step, `advanceTo(TurnStep.EndOfCombat)` for the
+  second. A spell's divided amount has no suggestion: `answer(Answer.Division(listOf(Share(target(a), 2), ...)))`.
+- Objects that left are judged by last known information: a token "copy of it" copies the last known copiable values
+  (a clone copies what it copied, CR 707.2); events record the controller at the time (CR 608.2h). Test both with 3
+  players and a control change.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
+- A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
+  controller the order one at a time: answer with `alice.chooses(name)`.
 
 ## Test conventions
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.
 - Invented lands take cost `null`; invented planeswalker text needs "[+1]: ..." loyalty prefixes; change cost and
   subtypes only where it doesn't affect play.
+- An invented spell needs a mana cost (`{0}` for a free one): a spell with no mana cost can't be cast for it (CR 118.6).
 - A card of several faces: `Cards.inventFaces(layout, face(...), ...)` (colour indicator last) and `cardFaces(...)` in
   parser tests.
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the

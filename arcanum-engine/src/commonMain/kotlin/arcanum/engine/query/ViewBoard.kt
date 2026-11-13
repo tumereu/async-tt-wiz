@@ -21,6 +21,7 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
         state.stackItems[id]?.let { return it.controller }
         return snapshot(id)?.let { it.controller ?: it.owner }
     }
+    override fun createdBy(id: ObjectId): ObjectId? = view[id]?.copiable?.createdBy ?: super.createdBy(id)
     override fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = view[id]?.has(mechanic) == true
     override fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = view[id]?.mechanics.orEmpty().map { it.mechanic }
 }
@@ -47,6 +48,16 @@ internal object Lki {
         }
         state.stackItems.values.forEach { item -> item.snapshots.firstOrNull { it.id == id }?.let { return it } }
         state.delayedTriggers.values.forEach { d -> d.snapshots.firstOrNull { it.id == id }?.let { return it } }
+        return null
+    }
+
+    /** The zone change by which [id] left its zone (CR 400.7), once it has; null otherwise. */
+    fun move(state: GameState, id: ObjectId): arcanum.engine.change.Move? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            change.moves.firstOrNull { it.before.id == id }?.let { return it }
+        }
         return null
     }
 

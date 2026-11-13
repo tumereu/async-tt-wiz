@@ -10,6 +10,10 @@ import arcanum.api.Cost
 import arcanum.api.CostPart
 import arcanum.api.ManaCost
 import arcanum.api.Objects
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
@@ -25,7 +29,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 90
+    const val VERSION: Int = 96
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -52,10 +56,11 @@ object OracleParser {
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
-            // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
-            // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
+            // sos chunk 08, tla chunk 01, isd chunk 10: "As an additional cost to cast this spell, pay X life | waterbend {X} | exile X cards from your
+            // graveyard." (X announced as it is cast, CR 601.2b, 107.3)
+            // one chunk 14: "As an additional cost to cast this spell, sacrifice an artifact or creature with mana value X." (X in an additional
+            // cost, not defined by the text: announced as it is cast, CR 107.3a)
+            (isSpell && ADDITIONAL_COST_X.containsMatchIn(card.text))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -124,6 +129,7 @@ object OracleParser {
         (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
 
     private val EMERGE_FROM = Regex("""Emerge from (\w+) ((?:\{[^}]+\})+)""")
+    private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, [^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
     private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
@@ -355,6 +361,16 @@ object OracleParser {
             if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
                 parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
             }
+            // rvr fixes: "return target creature card of an opponent's choice from your graveyard": read without the phrase; an opponent
+            // chooses that target, the controller picking which opponent when there are several (CR 601.2c; CR 801.5a's example)
+            if (instead == null && parsed == null) OPPONENTS_CHOICE.find(line)?.let { m ->
+                val stripped = line.removeRange(m.range)
+                val index = TARGET_WORD.findAll(line.substring(0, m.range.first)).count() - 1
+                parsed = (sentences.multi(stripped) ?: sentences.line(stripped)?.let(::listOf))?.singleOrNull()
+                    ?.let { chosenByOpponent(it, index, TARGET_WORD.findAll(stripped).count()) }?.let(::listOf)
+            }
+            // rvr fixes: "It's still a land." keeps every prior type and subtype, creature types included (CR 205.1b)
+            if (STILL_A_TYPE.containsMatchIn(line)) parsed = parsed?.map(::keepingPriorSubtypes)
             // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
             if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
                 sentences.continuation(line, previous.instructions)?.let { joined ->
@@ -378,6 +394,9 @@ object OracleParser {
                 }
             }
         }
+        // one fixes: a target slot nothing reads (a rule declared it before giving up, and another reading took the text) would still have to be
+        // chosen (CR 115.1a, c, d: a target is something the ability affects): such a reading isn't one, the line stays unread
+        result.indices.forEach { i -> if (arcanum.api.DefinitionChecks.unusedTargetSlots(result[i]).isNotEmpty()) result[i] = Ability.Unparsed(raws[i]) }
         // A spell resolves as one object (CR 608.2b): if any of its lines can't be read, none of its spell text or
         // casting costs is automated; they stay as printed for the players.
         if (isSpell && result.any { it is Ability.Unparsed }) {
@@ -404,24 +423,30 @@ object OracleParser {
         }
     }
 
-    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h). */
+    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h); isd chunk 07:
+     * one that reads "the exiled card" (bound as "exiled") names the card its additional cost exiles (CR 601.2h, 400.7). */
     private fun dftSacrificedCost(abilities: List<Ability>): List<Ability> {
         val json = kotlinx.serialization.json.Json
-        val reads = abilities.filterIsInstance<Ability.Spell>().any {
-            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$SACRIFICED\"}")
+        fun reads(name: String) = abilities.filterIsInstance<Ability.Spell>().any {
+            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$name\"}")
         }
-        if (!reads) return abilities
+        val sacrificed = reads(SACRIFICED)
+        val exiled = reads("exiled")
+        if (!sacrificed && !exiled) return abilities
         return abilities.map { ability ->
             val static = ability as? Ability.Static ?: return@map ability
             val additional = static.mechanics.singleOrNull() as? arcanum.api.Mechanic.AdditionalCost ?: return@map ability
             // mh3 chunk 10: "sacrifice a creature or sacrifice a modified creature": each option names what it sacrifices
             val options = (additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.OneOf)?.options
-            if (options != null && options.all { (it.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice)?.let { p -> p.preBind == null } == true })
+            if (sacrificed && options != null && options.all { (it.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice)?.let { p -> p.preBind == null } == true })
                 return@map static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(arcanum.api.CostPart.OneOf(options.map { o ->
                     o.copy(parts = listOf((o.parts.single() as arcanum.api.CostPart.Sacrifice).copy(preBind = SACRIFICED))) }))))))
-            val sacrifice = additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice ?: return@map ability
-            if (sacrifice.preBind != null) return@map ability
-            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(sacrifice.copy(preBind = SACRIFICED))))))
+            val named = when (val part = additional.cost.parts.singleOrNull()) {
+                is arcanum.api.CostPart.Sacrifice -> part.takeIf { sacrificed && it.preBind == null }?.copy(preBind = SACRIFICED)
+                is arcanum.api.CostPart.Exile -> part.takeIf { exiled && it.preBind == null && it.postBind == null && it.remember == null }?.copy(postBind = "exiled")
+                else -> null
+            } ?: return@map ability
+            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(named)))))
         }
     }
 
@@ -558,6 +583,11 @@ object OracleParser {
         // dgm: "protection from white and from black" is two protection abilities (CR 702.16g); mh2 chunk 02: also first on its line
         val split = parts.flatMap { p ->
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
+        }.fold(mutableListOf<String>()) { out, p ->
+            // isd chunk 06: "Protection from Vampires, from Werewolves, and from Zombies": one protection ability each (CR 702.16g)
+            val more = PROTECTION_LIST_ITEM.matchEntire(p)?.takeIf { out.lastOrNull()?.let { PROTECTION.matchEntire(it) } != null }
+            out += more?.let { "protection from " + it.groupValues[1] } ?: p
+            out
         }
         val first = keyword(split.first()) ?: return null
         return listOf(first) + split.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
@@ -786,7 +816,11 @@ object OracleParser {
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
-    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+(?: and from [a-z ]+)?)""") // mh3 chunk 11: "and from …"
+    // isd chunk 06: also a creature type, "protection from Zombies" (CR 702.16a)
+    // isd chunk 07: "protection from non-Human creatures"
+    // mh3 chunk 11: "protection from spells and from permanents that were cast this turn": one ability of either quality
+    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+(?: and from [a-z ]+)?|non-[A-Z][a-z]+ [a-z]+)""")
+    private val PROTECTION_LIST_ITEM = Regex("""(?:and )?from ([A-Za-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06
@@ -801,6 +835,49 @@ object OracleParser {
     private val FLAVOR_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\- ]+) — (.+)""")
     // blb chunk 02
     private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
+    /** "target creature card of an opponent's choice" (CR 601.2c). */
+    private val OPPONENTS_CHOICE = Regex(""" of an opponent's choice\b""")
+    private val TARGET_WORD = Regex("""\btargets?\b""")
+
+    /** rvr fixes: [ability] with its target slot number [index] chosen by an opponent ([TargetSlot.chosenBy]); null unless the ability
+     * has one slot for each of the [count] "target" words of its text, so the slot is known. */
+    private fun chosenByOpponent(ability: Ability, index: Int, count: Int): Ability? {
+        fun mark(i: arcanum.api.Instructions) = i.takeIf { it.targets.size == count && index in it.targets.indices }
+            ?.let { it.copy(targets = it.targets.mapIndexed { n, slot -> if (n == index) slot.copy(chosenBy = arcanum.api.PlayerFilter.Opponent) else slot }) }
+        return when (ability) {
+            is Ability.Spell -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            is Ability.Triggered -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            is Ability.Activated -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            else -> null
+        }
+    }
+
+    /** "It's still a land.", "He's still a planeswalker." (CR 205.1b). */
+    private val STILL_A_TYPE = Regex("""\b(?:It's|He's|She's|They're) still an? [a-z]+\.""")
+
+    /**
+     * rvr fixes, CR 205.1b: an effect that says the object is "still a [type]" keeps all the object's prior card types, supertypes
+     * and subtypes: its type change that makes it a creature replaces neither card types nor subtypes (a land creature's creature
+     * types stay). The rule's more specific case, "becomes a [creature type] artifact creature", still replaces creature types.
+     * Through the ability's JSON form, so every wording that sets types is handled alike.
+     */
+    private fun keepingPriorSubtypes(ability: Ability): Ability {
+        fun walk(e: JsonElement): JsonElement = when (e) {
+            is JsonObject -> {
+                val add = (e["add"] as? JsonArray)?.map { it.toString() }.orEmpty()
+                val animates = e["type"] == JsonPrimitive("types") && add.any { "\"creature\"" in it }
+                val artifactCreatureOfType = add.any { "\"artifact\"" in it } && (e["addSubtypes"] as? JsonArray)?.isNotEmpty() == true
+                val dropped = if (!animates) emptySet() else setOfNotNull("replaceTypes", "replaceSubtypes".takeUnless { artifactCreatureOfType })
+                JsonObject(e.filterKeys { it !in dropped }.mapValues { (_, v) -> walk(v) })
+            }
+            is JsonArray -> JsonArray(e.map(::walk))
+            else -> e
+        }
+        val tree = STILL_JSON.encodeToJsonElement(Ability.serializer(), ability)
+        val changed = walk(tree)
+        return if (changed == tree) ability else STILL_JSON.decodeFromJsonElement(Ability.serializer(), changed)
+    }
+    private val STILL_JSON = kotlinx.serialization.json.Json
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dft
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Choice
 import arcanum.api.ColorRef
@@ -72,7 +73,7 @@ class DftChunk16ArtifactsTest {
         """,
         loyalty = "4",
     ) parsesTo abilities(
-        static(Mechanic.CantBeAttacked, has(triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.AttachedTo(Objects.Self)), RecipientFilter(), combat = true)),
+        static(Mechanic.CantBeAttacked, has(triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.AttachedTo(Objects.Self)), RecipientFilter(), combat = true, per = DamageOccurrence.Source)),
                 counters(Objects.Self, Value.EventAmount, CounterKind.Loyalty), triggersOnlyIf = Condition.YourTurn)),
             condition = Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), creature)),
         activated(cost(CostPart.Loyalty(n(1))), doing(Effect.Attach(Objects.Self, Recipients(objects = target("creature")))), counters(target("creature")),

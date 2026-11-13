@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dgm
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
 import arcanum.api.Affected
@@ -125,7 +126,7 @@ class DgmChunk05MulticoloredATest {
         text = "Whenever an instant or sorcery spell you control deals damage, create two 1/1 red and white Soldier creature tokens with haste.",
     ) parsesTo abilities(
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(ObjectFilter.And(listOf(instantOrSorcery, ObjectFilter.Category(ObjectCategory.Spell), you)), RecipientFilter())),
+            Trigger.On(EventPattern.Damage(ObjectFilter.And(listOf(instantOrSorcery, ObjectFilter.Category(ObjectCategory.Spell), you)), RecipientFilter(), per = DamageOccurrence.Source)),
             steps(Step.Do(Effect.CreateToken(creatureToken("Soldier", listOf(Color.Red, Color.White), 1, 1, listOf(Keyword.Haste)), n(2), Players.You))),
         ),
     )

@@ -127,6 +127,9 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         return event
     }
 
+    /** Web client step 4c: the open draft as made so far ([EventBuilder.provisional]), null when none is open. */
+    fun draftEvent(): GameEvent? = draft?.provisional()
+
     /** Takes the open draft back, if any. */
     fun abandon() {
         draft?.abandon()

@@ -289,6 +289,21 @@ class LciChunk01DiscoverScenariosTest {
         }
     }
 
+    // CR 701.57a: discover's own question is whether to cast the discovered card, not the trigger's "you may tap …" sentence
+    @Test
+    fun itzaroAsksWhetherToCastTheDiscoveredCard() = scenario(players = 3) {
+        alice.battlefield(itzaro, mole, idol, lizard)
+        alice.library("Mountain", spark, "Mountain")
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(itzaro, defender = "bob")
+        resolveAll()
+        assertTrue(decision<Decision.May>().text.contains("tap two untapped"))
+        alice.answers(Answer.YesNo(true))
+        alice.chooses(mole, idol)
+        resolveAll()
+        assertEquals("Cast Seam Spark without paying its mana cost?", decision<Decision.May>().text)
+    }
+
     // ---- Tonalli, the Core Flame
 
     // CR 101.2, 701.6a: an opponent's counterspell can't counter your spell

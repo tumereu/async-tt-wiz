@@ -150,7 +150,20 @@ internal object Steps {
     private const val REPEAT_LIMIT = 1000
 
     /** The prompt of an optional step (API review 3): its sentence of the resolving ability's printed text. */
-    private fun mayText(scope: Scope, step: Step): String = arcanum.engine.decision.Texts.may(scope.cause.item?.ability, step)
+    private fun mayText(scope: Scope, step: Step): String {
+        val ability = scope.cause.item?.ability
+        if (!arcanum.engine.decision.Texts.printedMay(ability, step)) castText(scope, step)?.let { return it }
+        return arcanum.engine.decision.Texts.may(ability, step)
+    }
+
+    /** The question of a cast a keyword action offers (discover, CR 701.57a: "you may cast it without paying its mana cost"),
+     * naming the card: the ability's own "you may" sentence asks something else. */
+    private fun castText(scope: Scope, step: Step): String? {
+        val cast = ((step as? Step.Pay)?.steps?.singleOrNull() as? Step.Do)?.effect as? arcanum.api.Effect.Cast ?: return null
+        val e = scope.eval()
+        val names = scope.objects(cast.objects).mapNotNull { e.characteristics(it)?.name }.ifEmpty { return null }
+        return "Cast ${names.joinToString(" and ")}${if (cast.withoutPaying) " without paying its mana cost" else ""}?"
+    }
 
     private fun withActor(scope: Scope, player: PlayerId, block: () -> Unit) {
         val saved = scope.actor

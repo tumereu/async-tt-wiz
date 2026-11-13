@@ -11,6 +11,9 @@ import arcanum.engine.sets.fin.backFaceUp
 import arcanum.engine.sets.rtr.resolveAll
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertEquals
+import arcanum.engine.Engine
+import arcanum.engine.input.Input
 
 /** LCI chunk 02: craft (CR 702.167) played: materials from the battlefield and the graveyard, "one or more" and several kinds, only as a
  * sorcery, and the back faces reading "the exiled cards used to craft it"; and the cards around them. Invented names carry the oracle text. */
@@ -76,6 +79,7 @@ class LciChunk02CraftScenariosTest {
     private val lurker = Cards.invent("Brinefin Lurker", "{U}", "Creature — Merfolk", "", "1/1")
     private val corsair = Cards.invent("Gallows Corsair", "{B}", "Creature — Human Pirate", "", "1/1")
     private val courtier = Cards.invent("Duskfang Courtier", "{B}", "Creature — Vampire", "", "1/1")
+    private val saurian = Cards.invent("Reefjaw Saurian", "{1}{U}", "Creature — Dinosaur Merfolk", "", "2/2")
     private val pumper = Cards.invent("Oakhide Pumper", "{1}{G}", "Creature — Elf", "{1}: This creature gets +1/+1 until end of turn.", "2/2")
     private val ogre = Cards.invent("Riverside Ogre", "{2}{R}", "Creature — Ogre", "", "4/4")
 
@@ -174,6 +178,30 @@ class LciChunk02CraftScenariosTest {
             "Marrow Regent".power shouldBe 7
             alice.exile.names.size shouldBe 4
         }
+    }
+
+    // CR 602.2b, 601.2h: each material is its own object: a Dinosaur Merfolk can't be both the Dinosaur and the Merfolk, so with
+    // only it, a Pirate and a Vampire the craft can't be paid, isn't offered, and the creature can't be chosen twice
+    @Test
+    fun oneCreatureIsNotTwoMaterials() = scenario {
+        alice.battlefield(seat, saurian, "Swamp", "Swamp", "Swamp", "Swamp")
+        alice.graveyard(corsair, courtier)
+        // only the mill ability
+        assertEquals(1, Engine.options(state, alice.id).count { it is Input.Activate && it.source == card(seat) })
+        assertFailsWith<IllegalArgumentException> {
+            alice.activates(seat, ability = 1, choosing = listOf(saurian, saurian, corsair, courtier), paying = List(4) { "Swamp" })
+        }
+    }
+
+    // CR 601.2h: with a second creature it can be paid; the Dinosaur Merfolk covers one of its types
+    @Test
+    fun aDinosaurMerfolkCoversOneMaterial() = scenario {
+        alice.battlefield(seat, saurian, lurker, "Swamp", "Swamp", "Swamp", "Swamp")
+        alice.graveyard(corsair, courtier)
+        assertEquals(2, Engine.options(state, alice.id).count { it is Input.Activate && it.source == card(seat) })
+        alice.activates(seat, ability = 1, choosing = listOf(saurian, lurker, corsair, courtier), paying = List(4) { "Swamp" })
+        resolveAll()
+        expect { alice.exile.names.size shouldBe 4 }
     }
 
     // CR 611.2b: its activated abilities can't be activated while it stays tapped; once it untaps, the effect is over

@@ -394,22 +394,18 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
                 }
             }
         }
-        // Web client step 4e: a spell of hers on the Stack while she holds priority: the shared flow's panel asked of the worker,
-        // then "Let it resolve" worked out in its session and sent
-        if (s.stack.isNotEmpty() && s.priority.holder == me && s.pending == null && sharedTurn != s.turn.number) {
-            sharedTurn = s.turn.number
-            return timed("Shared flow's panel (asked of the worker)", { done ->
-                val play = game.play()
-                shared.load(play)
-                waitFor({ shared.view?.board === play.board }) { done("priority ${shared.view?.priority}, decision ${shared.view?.decision?.kind}") }
-            }) { timed("Let it resolve through the shared-flow session", { done -> sharedStep(done) { shared.pass(game.me) } }, next) }
-        }
         if (s.turn.active == me && attacked && s.turn.step == arcanum.api.TurnStep.PostcombatMain) endedAfterAttack = true
         // Before combat with a creature that can attack: on to combat (a pass), not End turn
         val canAttack = s.battlefield.any { id -> s.obj(id)?.controller == me && s.obj(id)?.tapped == false &&
             Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true }
         if (s.turn.active == me && s.turn.step == arcanum.api.TurnStep.PrecombatMain && canAttack && attackedTurn != s.turn.number && s.priority.holder == me)
-            return timed("Pass to combat", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
+            // Web client step 4e: the shared flow's panel value asked of the worker, then the step arrow's pass worked out in
+            // its session and sent
+            return timed("Shared flow's panel (asked of the worker)", { done ->
+                val play = game.play()
+                shared.load(play)
+                waitFor({ shared.view?.board === play.board }) { done("holder ${shared.view?.holder}, decision ${shared.view?.decision?.kind}") }
+            }) { timed("Pass to combat through the shared-flow session", { done -> sharedStep(done) { shared.step() } }, next) }
         if (s.turn.active == me || s.priority.holder != me) return timed("End turn", { done -> game.endTurn { done("") } }, next)
         timed("Pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
     }
@@ -452,7 +448,6 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         jsLater(1) { drive() }
     }
 
-    private var sharedTurn = -1
     /** Web client step 4e: what waits for the shared flow's step's send, and when the step was asked. */
     private var sharedSent: ((String) -> Unit)? = null
     private var sharedAt = 0.0

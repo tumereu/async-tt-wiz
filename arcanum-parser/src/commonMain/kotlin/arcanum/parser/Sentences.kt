@@ -7413,6 +7413,20 @@ internal class Sentences(
         }
         MAY_FROM_AMONG_INTO_HAND.matchEntire(sentence)?.let { m ->
             val seen = context.seen ?: return null
+            // lci chunk 17: "a creature card and/or a land card": up to one of each, put into hand together (CR 700.2)
+            val both = m.groupValues[2].split(Regex(" and/or an? "))
+            if (both.size == 2 && m.groupValues[1] == "put") {
+                val first = Filters.noun(both[0]) ?: return null
+                val second = Filters.noun(both[1]) ?: return null
+                val chosen = Objects.Bound("chosen")
+                context.picked = "picked both"
+                return listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(first, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "chosen", chooser = Players.You),
+                    Step.Choose(arcanum.api.Choice.Objects(second, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Except(Objects.Bound(seen), chosen)),
+                        bind = "chosen second", chooser = Players.You),
+                    Step.Bind(Objects.Union(listOf(chosen, Objects.Bound("chosen second"))), "picked both"),
+                    Step.Do(Effect.Move(Objects.Bound("picked both"), Destination(Zone.Hand))))
+            }
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             context.picked = "chosen"
             return listOfNotNull(

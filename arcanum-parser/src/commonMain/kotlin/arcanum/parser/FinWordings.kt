@@ -198,7 +198,8 @@ internal object Fin {
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of (\S+) counters on (.+)""")
     // fin chunk 08
     val GET_FOR_EACH_AND_EACH = Regex("""(.+?) get \+(\d+)/\+(\d+) for each (.+?) and each (.+?)\.""")
-    val EACH_OPPONENT_MILLS = Regex("""Each opponent mills (X|\w+) cards?\.""")
+    // mom chunk 07: also "Each player mills ten cards.", "each player mills a card." in a trigger (CR 701.17)
+    val EACH_OPPONENT_MILLS = Regex("""([Ee]ach (?:opponent|player)) mills (X|\w+) cards?\.""")
     // fin chunk 09
     val IF_CAST_FROM_GRAVEYARD_COUNTERS_ON_TOKEN = Regex("""(?:Then )?[Ii]f this spell was cast from a graveyard, put (\w+) (\S+) counters? on that token\.""")
     val CHOOSE_SPELL_SURVEIL_COUNTER_UNLESS = Regex("""Choose target spell\. Surveil (\w+), then counter the chosen spell unless its controller pays (\{\d+\}) for each card in your graveyard\.""")

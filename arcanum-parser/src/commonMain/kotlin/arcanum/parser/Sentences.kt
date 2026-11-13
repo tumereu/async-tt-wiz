@@ -1700,6 +1700,13 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(amount(m.groupValues[1].toInt()), amount(m.groupValues[2].toInt()))),
                 affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
         }
+        // mom chunk 07: "You may play lands and cast permanent spells from your graveyard.": playing a card is playing a land or casting a
+        // spell (CR 305.1, 601.2), so one permission to play land cards and those cards
+        Mom.MAY_PLAY_LANDS_AND_CAST_FROM_GRAVEYARD.matchEntire(line)?.let { m ->
+            val filter = ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Land), Filters.noun(m.groupValues[1] + " card") ?: return null))
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)), affects = arcanum.api.Affected.Objects(Objects.Each(
+                Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
         // chunk 21: "You may play lands from your graveyard." (CR 305.1)
         MAY_PLAY_FROM_GRAVEYARD.matchEntire(line)?.let { m ->
             val how = if (m.groupValues[1] == "play") arcanum.api.PlayKind.Play else arcanum.api.PlayKind.Cast
@@ -2569,6 +2576,8 @@ internal class Sentences(
     }
 
     private fun costPart(text: String): List<CostPart>? {
+        // mom chunk 07: "exile this card" in a trigger on this object dying: the card it became in the graveyard, not this permanent (CR 400.7)
+        if (text == "Exile this card") triggerIt?.takeIf { it.second == Zone.Graveyard }?.let { return listOf(CostPart.Exile(CostObjects.These(it.first), from = Zone.Graveyard)) }
         // fin chunk 12: "Pay life equal to Raubahn's power" (ward's cost, read where the card's name isn't known: the permanent with the ward)
         Fin.PAY_LIFE_EQUAL_TO_POWER.matchEntire(text)?.let {
             return listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)))
@@ -5728,7 +5737,9 @@ internal class Sentences(
         // "[A], then [B].": tried last, after the wordings that contain ", then" themselves.
         THEN.matchEntire(sentence)?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return null
-            val second = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            // mom chunk 07: "Each opponent discards three cards, then mills three cards.": a half that is only a verb phrase keeps the subject
+            val subject = Fdn.PLAYER_SUBJECT.find(m.groupValues[1])?.value?.takeIf { Fdn.VERB_PHRASE.containsMatchIn(m.groupValues[2]) }
+            val second = effect(if (subject != null) "$subject ${m.groupValues[2]}" else m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
             return first + second
         }
         // chunk 35: "[A] and [B].", two effects in one sentence ("each opponent loses 1 life and you gain 1 life"): tried
@@ -6359,7 +6370,8 @@ internal class Sentences(
                 Mechanic.GainAbilities(k.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
             }
             val cantBeBlocked = Mechanic.CantBeBlocked.takeIf { m.groupValues[6].isNotEmpty() }
-            return listOf(Step.Do(Effect.ApplyMechanics(mechanics + listOfNotNull(gains, cantBeBlocked), arcanum.api.Affected.Objects(objects), eot)))
+            val duration = if (m.groupValues[5] == " until your next turn") arcanum.api.Duration.UntilYourNextTurn else eot
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics + listOfNotNull(gains, cantBeBlocked), arcanum.api.Affected.Objects(objects), duration)))
         }
         // gtc chunk 06: "it gets +1/+1 until end of turn for each creature it's blocking." (the attackers it blocks, CR 509.1a)
         Gtc.GETS_FOR_EACH_BLOCKED.matchEntire(sentence)?.let { m ->
@@ -7123,6 +7135,15 @@ internal class Sentences(
             val noun = text.substringAfter(' ')
             Filters.noun(noun)?.let { context.target(Filters.slotName(noun), it) }
         }
+        // mom chunk 07: "Up to one target land you control" (CR 115.1)
+        text.startsWith("Up to one target ") || text.startsWith("up to one target ") -> {
+            val noun = text.substringAfter("one target ")
+            Filters.noun(noun)?.let { filter ->
+                val name = Filters.slotName(noun).let { base -> if (context.targets.none { it.name == base }) base else return@let null } ?: return@let null
+                context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(1))
+                Objects.Target(name)
+            }
+        }
         else -> (Filters.noun(text.replaceFirstChar { it.lowercase() }) ?: Filters.noun(text))?.let { Objects.Each(it) }
     }
 
@@ -7190,11 +7211,11 @@ internal class Sentences(
         PT_COLOR_TYPE_IN_ADDITION.matchEntire(text)?.let { m ->
             val color = Tokens.color(m.groupValues[3]) ?: return null
             val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
-            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
+            val keywords = m.groupValues[6].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }
             return listOfNotNull(
                 arcanum.api.CopyException.PowerToughness(m.groupValues[1].toInt(), m.groupValues[2].toInt()),
                 arcanum.api.CopyException.Colors(listOf(ColorRef.Literal(color)), add = true),
-                arcanum.api.CopyException.Types(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                arcanum.api.CopyException.Types(add = listOfNotNull(CardType.Creature.takeIf { m.groupValues[5].isNotEmpty() }), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
                 keywords?.let { arcanum.api.CopyException.AddAbilities(it) },
             )
         }
@@ -9150,8 +9171,6 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Mill(Players.EventPlayer, Value.EventAmount)))
         // rtr chunk 01: "Target player mills X cards." (X defined by the ability)
         if (sentence == "Target player mills X cards.") return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Announced(name = "X"))))
-        // fdn chunk 05: "Each player mills X cards."
-        if (sentence == "Each player mills X cards.") return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Any), Value.Announced(name = "X"))))
         // rtr chunk 05: "That player discards a card at random.", "That player loses 2 life.", "That player draws an additional card.",
         // "That player loses half their life, rounded up.", "That player loses the game." (the event's player)
         Rtr.THAT_PLAYER.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
@@ -11180,7 +11199,8 @@ internal class Sentences(
         // dsk chunk 13
         val SELF_IS_PT_CREATURE = Regex("""(.+) is an? (\d+)/(\d+) ((?:[A-Z]\w+ )*)creature(?: and has (.+))?\.""")
         val MAY_CAST_SELF_FROM_GRAVEYARD_IF = Regex("""You may cast (.+) from your graveyard if (.+?)\. If you do, (.+) enters with an? (\S+) counter on it\.""")
-        val PT_COLOR_TYPE_IN_ADDITION = Regex("""it's an? (\d+)/(\d+) (\w+) (\w+) creature in addition to its other colors and types(?: and it has (.+))?""")
+        // mom chunk 07: Lazotep Convert "it's a 4/4 black Zombie in addition to its other colors and types" (no "creature")
+        val PT_COLOR_TYPE_IN_ADDITION = Regex("""it's an? (\d+)/(\d+) (\w+) (\w+)( creature)? in addition to its other colors and types(?: and it has (.+))?""")
         val BECOME_COPIES_OF_IT_UNTIL_NEXT_END_STEP = Regex("""(.+) become copies of it until the next end step\.""")
         // dsk gaps
         val REPEAT_IF_MILLED_SHARE = Regex("""If two cards that share a (card type|color) were milled this way, (.+) and repeat this process\.""")
@@ -11673,6 +11693,8 @@ internal class Sentences(
     /** blb gaps: "creature on the battlefield with mana value less than or equal to the amount of mana spent to cast this
      * creature" (the mana spent, kept by the permanent, CR 400.7d). */
     private fun copyCandidates(phrase: String): ObjectFilter? {
+        // mom chunk 07: Lazotep Convert "any creature card in a graveyard"
+        BlbGaps.IN_A_GRAVEYARD.matchEntire(phrase)?.let { return Filters.all(Filters.noun(it.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         val m = BlbGaps.ON_THE_BATTLEFIELD_WITH.matchEntire(phrase) ?: return null
         val noun = Filters.noun(m.groupValues[1]) ?: return null
         if (m.groupValues[2].isEmpty()) return noun
@@ -11877,6 +11899,7 @@ internal class Sentences(
         val ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may sacrifice any number of (.+?)\. This spell costs ((?:\{[^}]+\})+) less to cast for each (?:permanent|creature|artifact) sacrificed this way\.""")
         val FIRST_SPELL_EACH_TURN_COSTS_LESS = Regex("""The first (.+?) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast(?: for each (.+))?\.""")
         val ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of any (.+?)(?:, except (.+))?\.""")
+        val IN_A_GRAVEYARD = Regex("""(.+? card) in a graveyard""")
         val ON_THE_BATTLEFIELD_WITH = Regex("""(.+?) on the battlefield(?: with (.+))?""")
         val MANA_VALUE_AT_MOST_MANA_SPENT = Regex("""mana value less than or equal to the amount of mana spent to cast (.+)""")
         val TYPE_IN_ADDITION_AND_HAS = Regex("""it's an? (\S+) in addition to its other types and it has (.+)""")
@@ -14358,9 +14381,11 @@ internal class Sentences(
         }
         // tmt chunk 07: "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle."
         Tmt.SEARCH_UP_TO_PUT_THEM_TAPPED.matchEntire(sentence)?.let { m ->
-            val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " card") ?: return null
-            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+            val max = if (m.groupValues[1] == "any number of")
+                Value.Count(Objects.Each(Filters.all(filter, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))))
+                else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = max, zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
                 Step.Do(Effect.Shuffle(Players.You)))
         }
@@ -15644,6 +15669,60 @@ internal class Sentences(
             val spells = Filters.noun(m.groupValues[1].replace(" and ", " or ") + " card") ?: return null
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You)),
                 Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Graveyard)))), arcanum.api.Duration.EndOfTurn)))
+        }
+        // mom chunk 07: a choice of cards from your graveyard, not a target, made as it resolves (CR 608.2c); "you may put a card" chooses zero or one
+        Mom.CHOOSE_FROM_YOUR_GRAVEYARD_MOVE.matchEntire(sentence)?.let { m ->
+            val upTo = m.groupValues[2].startsWith("up to ")
+            val max = if (upTo) Numbers.count(m.groupValues[2].removePrefix("up to ")) ?: return null else 1
+            val min = if (upTo || m.groupValues[1].isNotEmpty()) 0 else 1
+            val destination = if (m.groupValues[4] == "to your hand") Destination(Zone.Hand)
+                // several cards put on top need an order (CR 401.4): not read here
+                else if (max == 1) Destination(Zone.Library, libraryPosition = 0) else return null
+            val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(min), Value.Fixed(max)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), destination)))
+        }
+        // mom chunk 07: a target card in any graveyard, put onto the battlefield under your control (CR 110.2a)
+        Mom.PUT_TARGET_FROM_A_GRAVEYARD_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)))
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty(), controller = Players.You))))
+        }
+        // mom chunk 07: Realmbreaker: "their" is the player named before; the card is chosen as it resolves, not targeted (CR 608.2c); "it"
+        // afterwards is the permanent it became (CR 400.7)
+        Mom.PUT_A_FROM_THEIR_GRAVEYARD_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            val player = context.lastPlayer ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
+            context.it = Objects.Bound("put")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty(), controller = Players.You),
+                    postBind = "put")))
+        }
+        // mom chunk 07: Breach the Multiverse: you choose one card in each player's graveyard (CR 608.2c); "those cards" are all of them
+        Mom.FOR_EACH_PLAYER_CHOOSE_IN_THEIR_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val players = Filters.players("each " + m.groupValues[1]) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Bound("player"))))
+            context.it = Objects.Bound("chosen")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(players), "player", together = true, steps = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You))))
+        }
+        // mom chunk 07: Realmbreaker 'It gains "If this land would leave the battlefield, …"' (the permanent just put onto the battlefield, for as
+        // long as it stays, CR 611.2a; layer 6)
+        Mom.IT_GAINS_QUOTED.matchEntire(sentence)?.let { m ->
+            val it = context.it as? Objects.Bound ?: return@let
+            val ability = Sentences(setOf("this land", "this creature", "this permanent", "this artifact")).line(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(ability))), Affected.Objects(it), arcanum.api.Duration.Indefinitely)))
+        }
+        Mom.PUT_THOSE_CARDS_ONTO_BATTLEFIELD_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            val those = context.it as? Objects.Bound ?: return null
+            return listOf(Step.Do(Effect.Move(those, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty(), controller = Players.You))))
+        }
+        // mom chunk 07: a type change with no duration lasts indefinitely, on the objects that were affected as it resolved (CR 611.2c, 613.1d)
+        Mom.EACH_BECOMES_SUBTYPE_IN_ADDITION.matchEntire(sentence)?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))))),
+                Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.Indefinitely)))
         }
         // mom chunk 02: Jin-Gitaxias's Saga: cast one at a time while the chapter resolves, in the order chosen (CR 608.2g); a land can't be
         // cast (CR 305.9)
@@ -19961,8 +20040,8 @@ internal class Sentences(
         }
         // fin chunk 08: "Each opponent mills X cards." (CR 701.17)
         Fin.EACH_OPPONENT_MILLS.matchEntire(sentence)?.let { m ->
-            val amount = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
-            return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), amount)))
+            val amount = if (m.groupValues[2] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.Mill(Filters.players(m.groupValues[1]) ?: return null, amount)))
         }
         // fin chunk 09: "If it's the first end step of the turn, there is an additional end step after this step." (CR 500.9)
         if (sentence == "If it's the first end step of the turn, there is an additional end step after this step.") {

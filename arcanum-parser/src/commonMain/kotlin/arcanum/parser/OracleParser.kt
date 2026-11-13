@@ -29,7 +29,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 95
+    const val VERSION: Int = 96
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -698,6 +698,10 @@ object OracleParser {
                 else -> if (type in RulesWords.subtypes) arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(type)) else return null
             }
             return Keyword.Typecycling(cards, part.substringBefore(' ' + m.groupValues[2]), Cost.mana(cost))
+        }
+        // dmu chunk 01: "Kicker {B} and/or {R}": two kicker costs (CR 702.33b, d)
+        Dmu.KICKER_AND_OR.matchEntire(part)?.let { m ->
+            return Keyword.Kicker(m.groupValues.drop(1).map { Cost.mana(ManaCost.parse(it) ?: return null) })
         }
         // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
         LANDWALK.matchEntire(part)?.let { m ->

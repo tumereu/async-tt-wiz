@@ -124,14 +124,17 @@ object DefinitionChecks {
                     // Deep: steps nested in an If are steps of the entering too.
                     visitAll(element["steps"] ?: JsonArray(emptyList())) { step ->
                         // spm: looking at cards changes nothing ("As this creature enters, look at an opponent's hand, then choose …")
-                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() != "look"))
+                        // dmu: milling as it enters is part of the replacement ("As this creature enters, mill three cards for each time it was
+                        // kicked.", CR 614.1c)
+                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() !in setOf("look", "mill")))
                             found += "\"as enters\" may only pay, choose, check or modify how it enters, not do effects (CR 614.12)"
                     }
                     visitShallow(element["steps"]) { step ->
                         if (step.typeName() !in asEntersSteps && step.typeName() != "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
                     }
                     var decides = false
-                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "choose")) decides = true }
+                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "choose") ||
+                        it.typeName() == "do" && (it["effect"] as? JsonObject)?.typeName() == "mill") decides = true }
                     if (!decides) found += "\"as enters\" without a payment or choice: write the modification directly, with the static ability's condition"
                 }
                 if (type == "pay" && ((element["cost"] != null) == ((element["steps"] as? JsonArray)?.isNotEmpty() == true)))

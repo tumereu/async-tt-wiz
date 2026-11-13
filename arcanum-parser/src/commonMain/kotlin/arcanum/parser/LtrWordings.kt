@@ -189,7 +189,7 @@ internal object LtrPhrases {
     private val BLOCKED_OR_WAS_BLOCKED_BY = Regex("""(.+?) that blocked or was blocked by an? (.+?) this turn""")
     private val WITH_MANA_VALUE_N_OR_M = Regex("""(.+?) with mana value (\d+) or (\d+)""")
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
-    private val WITH_LESSER_POWER = Regex("""(.+?) with (lesser|greater) power""")
+    private val WITH_LESSER_POWER = Regex("""(.+?) with (?:(lesser|greater) power|power (less|greater) than this creature's power)""")
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
     private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
@@ -253,7 +253,8 @@ internal object LtrPhrases {
         // ltr chunk 04: "creature with lesser power" (than this creature)
         WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: return null
-            return Filters.all(base, ObjectFilter.Power(if (m.groupValues[2] == "lesser") Comparison.Less else Comparison.Greater,
+            // dmu chunk 01: "creature with power less than this creature's power"
+            return Filters.all(base, ObjectFilter.Power(if (m.groupValues[2] == "lesser" || m.groupValues[3] == "less") Comparison.Less else Comparison.Greater,
                 Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Self, arcanum.api.Combine.Single)))
         }
         return null

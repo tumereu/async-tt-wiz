@@ -164,7 +164,7 @@ internal object Fin {
     val RETURN_ANY_NUMBER_TOTAL = Regex("""Return any number of target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\.""")
     val PUT_UP_TO_ONE_MILLED = Regex("""Put up to one (.+?) milled this way into your hand\.""")
     val DURING_YOUR_TURN_SELF_AND_OTHERS_HAVE = Regex("""During your turn, (.+?) and other (.+?) have (.+)\.""")
-    val PUT_IT_ON_LIBRARY = Regex("""Put it on the (top|bottom) of its owner's library\.""")
+    val PUT_IT_ON_LIBRARY = Regex("""Put (it|that permanent|that creature) on the (top|bottom) of its owner's library\.""")
     val UNTIL_NEXT_TURN_IT_GAINS = Regex("""Until your next turn, it gains (.+)\.""")
     val IF_THAT_CREATURE_IS = Regex("""If that creature is (\w+), (.+)\.""")
     val ADD_MANA_LIST = Regex("""Add ((?:\{[WUBRGC]\})+(?:, (?:and )?(?:\{[WUBRGC]\})+)+)\.""")

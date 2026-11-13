@@ -123,7 +123,9 @@ internal object Actions {
             )
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
-        val final = replaced.mapNotNull { auraEntering(act, it) }
+        // one: "Permanent cards in graveyards can't enter the battlefield": such a card stays where it is (CR 101.2)
+        val final = replaced.filterNot { it.to == Zone.Battlefield && act.view()[it.id]?.has { m -> m == Mechanic.CantEnterBattlefield } == true }
+            .mapNotNull { auraEntering(act, it) }
         val result = commitMoves(act, cause, final, linked)
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }

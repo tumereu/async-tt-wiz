@@ -176,7 +176,7 @@ internal object Gtc {
     val CAN_BLOCK_ANY_NUMBER = Regex("""(.+) can block any number of creatures\.""")
     val ARE_THE_CHOSEN_TYPE = Regex("""(.+) are the chosen type in addition to their other types\.""")
     val AS_ENTERS_CHOOSE_BASIC_LAND_TYPE = Regex("""As (.+) enters, choose a basic land type\.""")
-    val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't) .+)\.""")
+    val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't|attacks? each combat) .+)\.""")
     val STATIC_PREDICATE_AND = Regex(""",? and (?=(?:has|have|gets?|can't|attacks?|its) )""")
     val HAVE_KEYWORDS = Regex("""(?:has|have) (.+)""")
     val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets -X/-(X|0), where X is the number of (?:(.+?) )?cards? in (its controller's|your) graveyard\.""")

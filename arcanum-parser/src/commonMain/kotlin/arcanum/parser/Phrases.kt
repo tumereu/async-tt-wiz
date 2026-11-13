@@ -130,6 +130,8 @@ internal object Filters {
         IN_YOUR_GRAVEYARD.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
         }
+        // one chunk 10: "permanent cards in graveyards" (any player's)
+        IN_GRAVEYARDS.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 51: "artifact card with mana value equal to 1 plus the sacrificed artifact's mana value" (its last known
         // information, CR 608.2h)
         MANA_VALUE_PLUS_SACRIFICED.matchEntire(phrase)?.let { m ->
@@ -337,8 +339,11 @@ internal object Filters {
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()), role = arcanum.api.EventRole.Source))
         }
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
+        // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.AtMost, Values.value(m.groupValues[2]) ?: return null))
+            val value = Values.value(m.groupValues[3]) ?: return null
+            return all(noun(m.groupValues[1]) ?: return null,
+                if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, value) else ObjectFilter.ManaValue(Comparison.AtMost, value))
         }
         // dgm: "creatures named Biovisionary" (CR 201.2)
         GTC_NAMED.matchEntire(phrase)?.let { m ->
@@ -355,7 +360,7 @@ internal object Filters {
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
-    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with power less than or equal to (.+)""")
+    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|mana value) less than or equal to (.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
     private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
@@ -468,6 +473,7 @@ internal object Filters {
         "Werewolves" to "Werewolf")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
+    private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
     // chunk 32
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
@@ -558,6 +564,11 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject, attacker = ObjectFilter.Any))
         }
+        // one chunk 10: "an equipped creature you control other than Rhuk attacks or dies"
+        ATTACKS_OR_DIES.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.Attack(subject), EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
+        }
         // chunk 36: "Korvold enters or attacks"
         ENTERS_OR_ATTACKS.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -608,6 +619,8 @@ internal object Events {
         DIE_PLURAL.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard) }
         if (text == "an opponent draws a card") return EventPattern.Draw(PlayerFilter.Opponent)
         // dsk chunk 10: "enchanted creature is dealt damage", "enchanted player is dealt damage", "this creature is dealt damage"
+        // one chunk 10: "a source deals damage to this creature" is "this creature is dealt damage" (CR 120.1)
+        A_SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m -> return event("${m.groupValues[1]} is dealt damage", self) }
         IS_DEALT_DAMAGE.matchEntire(text)?.let { m ->
             if (m.groupValues[1] == "enchanted player")
                 return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))))
@@ -889,6 +902,10 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // one chunk 10: "an equipped creature you control other than Rhuk" (any but this object)
+        OTHER_THAN.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
+            return Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), subject(m.groupValues[1], self) ?: return null)
+        }
         // chunk 40: "another nontoken creature you control"
         if (text.startsWith("another ")) return Filters.noun(text)
         // chunk 25: "a creature", "a land you control", "one or more creature cards"
@@ -916,6 +933,7 @@ internal object Events {
     private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(one or more .+) are put into your graveyard from your library""")
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
+    private val A_SOURCE_DEALS_DAMAGE_TO = Regex("""a source deals damage to (.+)""")
     // dsk chunk 08
     private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
     // blb gaps 2
@@ -970,6 +988,8 @@ internal object Events {
     private val DIES_OR_PUT_INTO_GRAVEYARD = Regex("""(.+) dies or (.+) is put into a graveyard from the battlefield""")
     // chunk 36
     private val ENTERS_OR_ATTACKS = Regex("""(.+) enters or attacks""")
+    private val ATTACKS_OR_DIES = Regex("""(.+) attacks or dies""")
+    private val OTHER_THAN = Regex("""(.+) other than (.+)""")
     private val ATTACKS = Regex("""(.+) attacks""")
     // chunk 46
     // chunk 47

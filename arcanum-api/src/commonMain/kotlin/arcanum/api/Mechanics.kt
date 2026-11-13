@@ -510,6 +510,13 @@ sealed interface Mechanic {
     /** Loyalty abilities of the affected permanents may be activated on any player's turn any time their controller could
      * cast an instant (CR 606.3 otherwise: only as a sorcery); still only once each turn. */
     @Serializable @SerialName("loyalty-at-instant-speed") data object LoyaltyAtInstantSpeed : Mechanic
+    // one chunk 10
+    /** Loyalty abilities of the affected permanents may be activated [count] times each turn rather than only once ("you may
+     * activate loyalty abilities of Kaito twice this turn rather than only once", CR 606.3). */
+    @Serializable @SerialName("loyalty-activations") data class LoyaltyActivationsPerTurn(val count: Int) : Mechanic
+    /** The affected cards can't enter the battlefield ("Permanent cards in graveyards can't enter the battlefield"): an effect that would
+     * put one there leaves it where it is (CR 101.2); the affected objects name the zones it applies in. */
+    @Serializable @SerialName("cant-enter-battlefield") data object CantEnterBattlefield : Mechanic
     // mh2
     /** For the affected players: loyalty abilities they activate cost an additional [[+amount]] ("Planeswalkers' loyalty abilities you activate cost an
      * additional [+1] to activate"): [amount] more loyalty counters are put on the planeswalker, or that many fewer removed, as the cost is paid

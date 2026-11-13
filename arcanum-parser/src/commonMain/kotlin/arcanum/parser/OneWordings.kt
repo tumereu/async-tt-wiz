@@ -56,6 +56,23 @@ internal object One {
     val DRAW_EQUAL_TO_ITS_TOTAL = Regex("""Draw cards equal to its total (\w+) value\.""")
     // one chunk 05: Black Sun's Twilight, "return a creature card with mana value X or less from your graveyard to the battlefield tapped."
     val RETURN_A_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn an? (.+?) from your graveyard to the battlefield( tapped)?\.""")
+    val NO_MORE_THAN_CAN_ATTACK = Regex("""No more than (\w+) creatures? can attack (.+?) each combat\.""")
+    val FOR_EACH_PLAYER_CHOOSE_SACRIFICE_REST = Regex("""For each player, choose an? (\w+) that player controls\. Each player sacrifices all (\w+) they control not chosen this way\.""")
+    val ACTIVATE_LOYALTY_TWICE = Regex("""You may activate loyalty abilities of (.+?) twice this turn rather than only once\.""")
+    val RETURN_ONE_OF_THEM = Regex("""Return one of them to its owner's hand\.""")
+    val CANT_ENTER_THE_BATTLEFIELD = Regex("""([A-Z].+? cards in .+?) can't enter the battlefield\.""")
+    val PLAYERS_CANT_CAST_FROM = Regex("""(Players|Your opponents) can't cast (.+?) from (graveyards|exile|graveyards or exile)\.""")
+    val REVEAL_X_PLUS_CHOOSE_AND_OR_IF_X_BATTLEFIELD_OR_HAND = Regex(
+        """Reveal the top X plus (\w+) cards of your library\. Choose (an? .+? card) and/or (an? .+? card) from among them\. Put those cards into your hand and the rest on the bottom of your library in a random order\. If X is (\d+) or more, instead put the chosen cards onto the battlefield or into your hand and the rest on the bottom of your library in a random order\.""")
+    val ARE_TYPE_SAME_IS_TRUE_FOR_SPELLS_AND_CARDS = Regex(
+        """(.+?) you control are (the chosen type|artifacts|enchantments) in addition to their other types\. The same is true for (.+?) spells you control and (.+?) cards you own that aren't on the battlefield\.""")
+    val CANT_BE_TARGET_OF_SPELLS_OR_ABILITIES_FROM = Regex("""(.+?) can't be the target of (\S+) spells your opponents control or abilities from \2 sources your opponents control\.""")
+    val THAT_SOURCES_CONTROLLER_SACRIFICES = Regex("""That source's controller sacrifices (that many|an?|\w+) (.+?) of their choice\.""")
+    val ATTACH_ALL_ATTACHED_TO_THAT_TO = Regex("""Attach all (Equipment|Auras) attached to (?:that creature|it) to (.+)\.""")
+    val YOU_PUT_COUNTERS_ON_PERMANENT_OR_PLAYER = Regex("""(?:[Ww]henever )?you put one or more counters on a permanent or player""")
+    val WHEN_YOU_DISCARD_THIS_WAY = Regex("""When you discard a card this way, (.+)""")
+    val DEALS_TO_OPPONENT_CREATURE_OR_PLANESWALKER = Regex("""(.+?) deals (that much|\d+) damage to target opponent, creature an opponent controls, or planeswalker an opponent controls\.""")
+    val RETURN_IT_AT_NEXT_END_STEP = Regex("""Return (?:it|that card) to the battlefield under its owner's control at the beginning of (?:the|(that player's)) next end step\.""")
     // one chunk 06: Jace, the Perfected Mind and Nahiri, the Unforgiving, "Until your next turn, up to one target creature gets -3/-0."
     val UNTIL_YOUR_NEXT_TURN_PREFIX = Regex("""Until your next turn, (.+)\.""")
     // one chunk 06: Nahiri, "up to one target creature attacks a player each combat if able" (as "Until your next turn, …" is reread)
@@ -122,7 +139,11 @@ internal object OnePhrases {
     private val DIFFERENT_NAMES_AMONG = Regex("""there are (\w+) or more (\w+) with different names among (?:the )?(.+?) (\w+) you control""")
     private val IS_ON_THE_BATTLEFIELD = Regex("""(.+) is on the battlefield""")
 
-    fun value(text: String, exiled: Objects?): Value? = AS_YOU_ACTIVATE.matchEntire(text)?.let { Values.value(it.groupValues[1], exiled) }
+    fun value(text: String, exiled: Objects?): Value? {
+        // one chunk 10: "the mana value of the discarded card" (as it is in the graveyard, CR 202.3)
+        if (text == "the mana value of the discarded card") return Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("discarded"), arcanum.api.Combine.Single)
+        return AS_YOU_ACTIVATE.matchEntire(text)?.let { Values.value(it.groupValues[1], exiled) }
+    }
 
     /** A keyword named bare ("flying", "toxic": an amount keyword with any amount). */
     fun keywordKind(word: String): KeywordKind? = OracleParser.keyword(word.replaceFirstChar { it.uppercase() })?.kind

@@ -425,6 +425,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             // dft: no abilities at all (CR 113.1)
             ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
+            // woe: an Adventure in its copiable values, used or not (CR 715.2a, b)
+            ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo

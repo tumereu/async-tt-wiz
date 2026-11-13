@@ -59,6 +59,7 @@ internal object Filters {
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
+        WoePhrases.noun(phrase)?.let { return it } // woe
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -140,6 +141,9 @@ internal object Filters {
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
         if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
+        // woe chunk 07: "permanent spell" (CR 110.4b): an artifact, battle, creature, enchantment, or planeswalker spell (a spell isn't a permanent)
+        if (phrase == "permanent spell" || phrase == "permanent spells")
+            return all(ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }), ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
@@ -1004,6 +1008,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        WoePhrases.condition(text)?.let { return it } // woe
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

@@ -564,7 +564,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether a filter on the spell can't change with what is chosen while casting (an allow-list: its mana value can, with X, CR 202.3e; a term not
      * known here may). */
     private fun fixedBeforeChoices(f: ObjectFilter): Boolean = when (f) {
-        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost -> true
+        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost, ObjectFilter.HasAdventure -> true
         is ObjectFilter.And -> f.all.all(::fixedBeforeChoices)
         is ObjectFilter.Or -> f.any.all(::fixedBeforeChoices)
         is ObjectFilter.Not -> fixedBeforeChoices(f.filter)

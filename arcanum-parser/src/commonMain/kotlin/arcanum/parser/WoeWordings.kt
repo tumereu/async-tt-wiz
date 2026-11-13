@@ -45,4 +45,36 @@ internal object Woe {
     val IF_THE_TOKEN_IS = Regex("""If the token is an? (\w+), (.+)\.""")
     // woe chunk 06: 'As long as …, Goddric is a Dragon with base power and toughness 4/4, flying, and "{R}: …."' (keywords, then a quoted ability)
     val IS_SUBTYPE_WITH_BASE_PT = Regex("""(?:As long as (.+?), )?(.+?) is an? ([A-Z]\w+(?: [A-Z]\w+)*) with base power and toughness (\d+)/(\d+)((?:, [a-z ]+?)*),? and "(.+)"\.?""")
+    // woe chunk 07: "You may look at and play those cards for as long as they remain exiled." (after exiling them face down, CR 406.3)
+    val MAY_LOOK_AT_AND_PLAY_WHILE_EXILED = Regex("""You may look at and play (those cards|that card) for as long as (?:they remain|it remains) exiled\.""")
+    // woe chunk 07: "Counter target spell unless its controller pays {2} plus an additional {1} for each Faerie you control." (CR 118.12)
+    val COUNTER_UNLESS_PAYS_PLUS_FOR_EACH = Regex("""Counter target (.+?) unless its controller pays \{(\d+)\} plus an additional \{(\d+)\} for each (.+)\.""")
+    // woe chunk 07: "Create a Monster Role token attached to target creature you control. When you do, that creature fights …" (CR 603.12)
+    val CREATE_ATTACHED_WHEN_YOU_DO = Regex("""(Create an? .+? token attached to .+?)\. When you do, (.+)""")
+}
+
+/** Phrases first met in Wilds of Eldraine (WOE). */
+internal object WoePhrases {
+    // woe chunk 07: "permanent spells you cast that have an Adventure", "cards that have an Adventure" (CR 715.2a)
+    private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
+
+    fun noun(phrase: String): arcanum.api.ObjectFilter? {
+        THAT_HAS_AN_ADVENTURE.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
+            return Filters.all(base, arcanum.api.ObjectFilter.HasAdventure)
+        }
+        return null
+    }
+
+    // woe chunk 07: "you own a card in exile that has an Adventure" (CR 715.2a; cards in exile are owned, CR 108.3)
+    private val YOU_OWN_IN_EXILE = Regex("""you own an? (\w+) in exile(?: (that .+))?""")
+
+    fun condition(text: String): arcanum.api.Condition? {
+        YOU_OWN_IN_EXILE.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(listOf(m.groupValues[1], m.groupValues[2]).filter { it.isNotEmpty() }.joinToString(" ")) ?: return null
+            return arcanum.api.Condition.Exists(Filters.all(noun, arcanum.api.ObjectFilter.InZone(arcanum.api.Zone.Exile),
+                arcanum.api.ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.You)), atLeast = 1)
+        }
+        return null
+    }
 }

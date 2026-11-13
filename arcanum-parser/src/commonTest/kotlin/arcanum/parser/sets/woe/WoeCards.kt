@@ -212,6 +212,9 @@ fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step
 /** A Saga's chapter ability (CR 714.2b). */
 fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
+/** A Saga's ability for several chapters ("I, II — …", CR 714.2b). */
+fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Triggered(Trigger.Chapter(numbers), Instructions(targets = targets, steps = steps.toList()))
 fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = emptyList()): Step = Step.If(condition, then.toList(), otherwise)
 
 // ---- woe chunk 01: Role tokens (CR 111.10j–r)

@@ -127,7 +127,8 @@ internal object Msh {
 
     // msh chunk 09: more wordings
     val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
-    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast\.""")
+    // woe chunk 07: also "… spells you cast that have an Adventure"
+    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast(?: that [^.]+?)?) cost (\{\d+\}) less to cast\.""")
     val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(.+ spells you cast) this turn cost (\{\d+\}) less to cast\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")

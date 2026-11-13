@@ -80,7 +80,8 @@ internal object Gtc {
     val RETURN_THEN_THAT_PLAYER_DISCARDS = Regex("""Return target (.+?) to its owner's hand, then that player discards a card\.""")
     val IF_ITS_A_MAY_REVEAL_INTO_HAND = Regex("""If it's an? (.+?), you may reveal it and put it into your hand\.""")
     val FIGHTS_ANOTHER_TARGET = Regex("""Target (.+?) fights another target (.+)\.""")
-    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights target (.+)\.""")
+    // woe chunk 07: also "up to one target …"
+    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights (up to one )?target (.+)\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+)""")
     val MAY_BECOME_COPY_EXCEPT = Regex("""You may have (.+?) become a copy of that card, except (.+)\.""")
     val BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?), except (.+)\.""")

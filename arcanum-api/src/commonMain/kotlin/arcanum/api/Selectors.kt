@@ -249,6 +249,10 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("could-produce") data class CouldProduce(val mana: ManaCost) : ObjectFilter
     /** Its mana cost is exactly [cost] ("an artifact card with mana cost {0} or {1}", CR 202.1); a card with no mana cost has none. */
     @Serializable @SerialName("has-mana-cost") data class HasManaCost(val cost: ManaCost) : ObjectFilter
+    // woe
+    /** It has an Adventure: its copiable values include an Adventure spell's alternative characteristics, whether or not it uses
+     * them now ("permanent spells you cast that have an Adventure", "a card in exile that has an Adventure", CR 715.2a, b). */
+    @Serializable @SerialName("has-adventure") data object HasAdventure : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

@@ -44,7 +44,7 @@ internal object Gtc {
     val REVEALS_THAT_MANY_FROM_HAND = Regex("""Target opponent reveals that many cards from their hand\.""")
     val THIS_TURN_ENTERS_WITH_ADDITIONAL = Regex("""This turn, each (.+) enters with an additional (\S+) counter on it\.""")
     val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move any number of (\S+) counters from target (.+?) onto another target (.+?) with the same controller\.""")
-    val REMOVE_COUNTERS_COST = Regex("""Remove (a|an|one|two|three|four|five|six|one or more) (\S+) counters? from (.+)""")
+    val REMOVE_COUNTERS_COST = Regex("""Remove (one or more|a|an|\w+) (\S+) counters? from (.+)""")
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 
@@ -158,7 +158,7 @@ internal object Gtc {
     val EXILE_SELF_COST = Regex("""Exile (.+)""")
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
-    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal up to (\w+) (.+?) cards from among them and put the revealed cards into your hand\.""")
+    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them and put the revealed cards into your hand\.""")
     val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
@@ -177,7 +177,7 @@ internal object Gtc {
     val ARE_THE_CHOSEN_TYPE = Regex("""(.+) are the chosen type in addition to their other types\.""")
     val AS_ENTERS_CHOOSE_BASIC_LAND_TYPE = Regex("""As (.+) enters, choose a basic land type\.""")
     // isd chunk 03: also "Creatures enchanted player controls attack each combat if able." (CR 508.1d)
-    val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't) .+|attacks? each combat if able)\.""")
+    val HAS_PREDICATES = Regex("""(.+?) ((?:has|have|gets?|can't|attacks? each combat) .+)\.""")
     val STATIC_PREDICATE_AND = Regex(""",? and (?=(?:has|have|gets?|can't|attacks?|its) )""")
     val HAVE_KEYWORDS = Regex("""(?:has|have) (.+)""")
     val GETS_MINUS_X_CONTROLLERS_GRAVEYARD = Regex("""(.+) gets ([+-])X/\2(X|0), where X is the number of (?:(.+?) )?cards? in (its controller's|your) graveyard\.""")

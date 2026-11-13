@@ -347,6 +347,10 @@ sealed interface Effect {
      * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for
      * each permanent and player chosen, CR 701.34a). */
     @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
+    // one
+    /** The controller chooses a kind of counter on each of [recipients] and gives it another counter of that kind ("choose a counter on
+     * target permanent. Put an additional counter of that kind on that permanent", CR 122.1, 122.6); one with no counters gets none. */
+    @Serializable @SerialName("one-more-of-chosen-kind") data class OneMoreCounterOfChosenKind(val recipients: Recipients) : Effect
     /** "Increase your speed by [amount]" (CR 702.179c): a player with no speed gets that speed; speed is at most 4. */
     @Serializable @SerialName("increase-speed") data class IncreaseSpeed(val players: Players, val amount: Value) : Effect
     // dft

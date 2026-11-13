@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 88
+    const val VERSION: Int = 94
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -53,6 +53,8 @@ object OracleParser {
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08, tla chunk 01, isd chunk 10: "As an additional cost to cast this spell, pay X life | waterbend {X} | exile X cards from your
             // graveyard." (X announced as it is cast, CR 601.2b, 107.3)
+            // one chunk 14: "As an additional cost to cast this spell, sacrifice an artifact or creature with mana value X." (X in an additional
+            // cost, not defined by the text: announced as it is cast, CR 107.3a)
             (isSpell && ADDITIONAL_COST_X.containsMatchIn(card.text))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
@@ -369,6 +371,9 @@ object OracleParser {
                 }
             }
         }
+        // one fixes: a target slot nothing reads (a rule declared it before giving up, and another reading took the text) would still have to be
+        // chosen (CR 115.1a, c, d: a target is something the ability affects): such a reading isn't one, the line stays unread
+        result.indices.forEach { i -> if (arcanum.api.DefinitionChecks.unusedTargetSlots(result[i]).isNotEmpty()) result[i] = Ability.Unparsed(raws[i]) }
         // A spell resolves as one object (CR 608.2b): if any of its lines can't be read, none of its spell text or
         // casting costs is automated; they stay as printed for the players.
         if (isSpell && result.any { it is Ability.Unparsed }) {

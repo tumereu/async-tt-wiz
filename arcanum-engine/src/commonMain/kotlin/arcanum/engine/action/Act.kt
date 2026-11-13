@@ -116,6 +116,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
             token = o.token, attachedTo = o.attachedTo, cast = o.cast, linked = o.linked, statuses = arcanum.engine.state.snapshotStatuses(o),
             attacking = state.combat?.attackers.orEmpty().any { it.id == id },
+            copiable = v?.copiable?.takeIf { it != arcanum.engine.view.Copiable.plain(o) },
         )
     }
 

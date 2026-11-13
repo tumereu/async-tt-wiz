@@ -12145,11 +12145,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(noun)), Destination(Zone.Exile), untilLeaves = Objects.Self)))
         }
         // hob chunk 07: "It gets +1/+1 until end of turn for each other creature you control."
-        Hob.IT_GETS_FOR_EACH.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: Objects.Self
-            val count = Value.Count(Filters.objects(m.groupValues[3]) ?: return null)
+        // woe chunk 05: also with this creature named: "This creature gets +1/+1 until end of turn for each enchantment you control."
+        Hob.IT_GETS_FOR_EACH.matchEntire(sentence)?.takeIf { it.groupValues[1] == "It" || isSelf(it.groupValues[1]) }?.let { m ->
+            val it = if (m.groupValues[1] == "It") context.it ?: Objects.Self else Objects.Self
+            val count = Value.Count(Filters.objects(m.groupValues[4]) ?: return null)
             fun times(n: Int) = if (n == 0) Value.Fixed(0) else if (n == 1) count else Value.Times(count, n)
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[1].toInt()), times(m.groupValues[2].toInt()))),
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[2].toInt()), times(m.groupValues[3].toInt()))),
                 Affected.Objects(it), arcanum.api.Duration.EndOfTurn)))
         }
         // hob chunk 10: "Creatures target player controls get -1/-1 until end of turn." (the affected set fixed as it resolves, CR 611.2c)
@@ -14847,6 +14848,10 @@ internal class Sentences(
         Msh.ONE_OR_MORE_BECOME_TAPPED.matchEntire(events)?.let { m ->
             return arcanum.api.Trigger.On(EventPattern.Tap(Filters.noun(m.groupValues[1]) ?: return null), oneOrMore = true)
         }
+        // woe chunk 05: "you tap an untapped creature an opponent controls" (a player's own effect or cost, CR 701.26a)
+        Woe.YOU_TAP_AN_UNTAPPED.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Tap(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You))
+        }
         // msh chunk 05: "a creature you control becomes tapped", "Hawkeye becomes tapped"
         Msh.BECOMES_TAPPED.matchEntire(events)?.let { m ->
             val filter = if (isSelf(m.groupValues[1])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[1].removeArticle()) ?: return null
@@ -15687,6 +15692,14 @@ internal class Sentences(
 
     /** woe: sentences that change the steps before them. */
     private fun woeModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // woe chunk 05: "If the token is an Aura, untap Yenna, then scry 2." (after creating a token: the token it made, CR 111.1)
+        Woe.IF_THE_TOKEN_IS.matchEntire(sentence)?.let { m ->
+            val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return null
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val bind = create.bind ?: "token"
+            val rest = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound(bind), kind), then = rest)
+        }
         // woe chunk 02: "Return target creature card … to the battlefield. Create a Young Hero Role token attached to it.", "return it to the
         // battlefield …, then create a Wicked Role token attached to it.": "it" is the permanent the move put onto the battlefield, a new
         // object (CR 400.7)
@@ -15750,6 +15763,16 @@ internal class Sentences(
 
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe chunk 05: 'Until end of turn, this land becomes a 2/1 blue and red Elemental creature with "During your turn, this creature has first
+        // strike." It's still a land.' (a granted ability isn't characteristic-defining, CR 604.3a; the old types kept, CR 205.1b)
+        Woe.BECOMES_WITH_QUOTED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val mechanics = gtcBecomes(m.groupValues[3]) ?: return null
+            val read = Sentences(setOf("this creature", "this land")).line(m.groupValues[4]) ?: return null
+            if (read is Ability.Unparsed) return null
+            val granted = (read as? Ability.Static)?.copy(characteristicDefining = false) ?: read
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics + Mechanic.GainAbilities(listOf(granted)), Affected.Objects(Objects.Self),
+                if (m.groupValues[1].isNotEmpty()) arcanum.api.Duration.EndOfTurn else arcanum.api.Duration.Indefinitely)))
+        }
         // woe chunk 04: "Put two of them into your hand and the rest on the bottom of your library in a random order." (after looking)
         Woe.PUT_N_OF_THEM_INTO_HAND_REST_BOTTOM.matchEntire(sentence)?.let { m ->
             val seen = Objects.Bound(context.seen ?: return null)
@@ -16671,6 +16694,9 @@ internal class Sentences(
                 Affected.Objects(Objects.Bound(bind)), arcanum.api.Duration.Indefinitely))
         }
         // fdn chunk 10a: the same after "Then you may have it become a 0/0 Elemental creature until end of turn."
+        // woe chunk 05: the same after "…becomes a 2/1 … creature with "…"" (a reminder, CR 205.1b)
+        if (sentence == "It's still a land." && ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics)?.mechanics?.any { it is Mechanic.SetTypes } == true)
+            return steps.toList()
         if (sentence == "It's still a land." && (((steps.lastOrNull() as? Step.May)?.steps?.singleOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics)?.mechanics?.any { it is Mechanic.SetTypes } == true)
             return steps.toList()
         // sos chunk 13: "Create a 3/3 … token with flying. It gains haste until end of turn." ("it" is the token)
@@ -23225,6 +23251,18 @@ internal class Sentences(
             val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return@let, text = it) }
             return Ability.Triggered(trigger, Instructions(steps = listOf(
                 Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.These(ltrIt(trigger))))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(
+                    modes = arcanum.api.Modes(options, min = n, max = n, chooser = Players.You)))))))), triggersOnlyIf = onlyIf)
+        }
+        // woe chunk 05: "Whenever you tap an untapped creature an opponent controls, you may pay {1}. When you do, choose one —" (CR 603.12)
+        Woe.MAY_PAY_WHEN_YOU_DO_CHOOSE.matchEntire(header)?.let { m ->
+            val w = WHENEVER.matchEntire("${m.groupValues[1]}, draw a card.") ?: return@let
+            val (trigger, onlyIf) = trigger(w.groupValues[2]) ?: return@let
+            val choose = CHOOSE_MODES.matchEntire(m.groupValues[3]) ?: return@let
+            val n = Numbers.count(choose.groupValues[1]) ?: return@let
+            val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return@let, text = it) }
+            return Ability.Triggered(trigger, Instructions(steps = listOf(
+                Step.Pay(Cost(listOf(CostPart.Mana(ManaCost.parse(m.groupValues[2]) ?: return@let))), payer = Players.You, bind = "paid"),
                 Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(
                     modes = arcanum.api.Modes(options, min = n, max = n, chooser = Players.You)))))))), triggersOnlyIf = onlyIf)
         }

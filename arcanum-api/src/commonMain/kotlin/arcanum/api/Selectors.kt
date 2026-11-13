@@ -129,7 +129,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("in-zone") data class InZone(val zone: Zone) : ObjectFilter
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
-    @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects) : ObjectFilter
+    /** Has the same name as an object of [objects] (CR 201.2). [other]: an object that is not the one tested ("doesn't have the same name as
+     * another permanent you control": a permanent doesn't share its name with itself, CR 201.2a). */
+    @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects, val other: Boolean = false) : ObjectFilter
     /** Has the card name chosen by the [Step.Choose] named [name] in this resolution. */
     @Serializable @SerialName("chosen-name") data class ChosenName(val name: String) : ObjectFilter
     /** Has the card name kept as card memory under [key] ("the chosen name" of a permanent). */

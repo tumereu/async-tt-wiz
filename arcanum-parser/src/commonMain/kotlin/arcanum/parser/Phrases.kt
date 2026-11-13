@@ -93,6 +93,9 @@ internal object Filters {
         }
         // dsk chunk 01: "a Room card that doesn't have the same name as a Room you control" (CR 709.4a: either name)
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
+            // woe chunk 05: "another permanent you control": any permanent but the one tested (CR 201.2a)
+            if (m.groupValues[2].startsWith("another ")) return all(noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removePrefix("another ")) ?: return null), other = true)))
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
         // dsk chunk 08: "an instant or sorcery spell that targets only a single creature you control" (CR 115.7)

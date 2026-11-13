@@ -35,4 +35,12 @@ internal object Woe {
     // woe chunk 04: "Search your library for a card, exile it face down, then shuffle. If this spell was bargained, you may cast the exiled card
     // without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way."
     val SEARCH_EXILE_FACE_DOWN_MAY_CAST_FREE_OR_HAND = Regex("""Search your library for (an? .+?), exile it face down, then shuffle\. If (.+?), you may cast the exiled card without paying its mana cost if that spell's mana value is (\d+) or less\. Put the exiled card into your hand if it wasn't cast this way\.""")
+    // woe chunk 05: "Whenever you tap an untapped creature an opponent controls" (the trigger event; only an untapped permanent can be tapped)
+    val YOU_TAP_AN_UNTAPPED = Regex("""you tap an untapped (.+)""")
+    // woe chunk 05: "Whenever …, you may pay {1}. When you do, choose one —" (a mana cost paid on resolution, CR 118.12; the reflexive trigger's modes, CR 603.12)
+    val MAY_PAY_WHEN_YOU_DO_CHOOSE = Regex("""(Whenever .+?), you may pay (\{[^}]+\})\. When you do, (.+)""")
+    // woe chunk 05: 'Until end of turn, this land becomes a 2/1 blue and red Elemental creature with "…"' (It's still a land. is a separate sentence)
+    val BECOMES_WITH_QUOTED = Regex("""(Until end of turn, )?(.+?) becomes (an? [^"]+?) with "(.+)"\.""")
+    // woe chunk 05: "If the token is an Aura, untap Yenna, then scry 2." (after "Create a token that's a copy of it, …")
+    val IF_THE_TOKEN_IS = Regex("""If the token is an? (\w+), (.+)\.""")
 }

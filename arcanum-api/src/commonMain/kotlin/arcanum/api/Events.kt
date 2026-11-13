@@ -104,6 +104,10 @@ sealed interface EventPattern {
         // fin
         /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
         val producing: ManaCost? = null,
+        // woe
+        /** Only when a player matching this taps it by an effect or an ability's cost ("Whenever you tap an untapped creature an opponent
+         * controls", CR 701.26a: tapping is done by a player; attacking and being tapped as a cost of an ability of another player don't count). */
+        val by: PlayerFilter? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13

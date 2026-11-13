@@ -177,7 +177,7 @@ internal object Effects {
             is Effect.GivePlayerCounters -> scope.players(effect.players).forEach { p ->
                 Actions.putCounters(act, cause, TargetRef.Player(p), effect.kind, scope.value(effect.amount))
             }
-            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true)
+            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true, cause = scope.cause)
             is Effect.Untap -> Actions.tap(act, onBattlefield(scope, effect.objects), false)
             is Effect.Attach -> {
                 val to = recipients(scope, effect.to).firstOrNull() ?: return

@@ -363,7 +363,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
             // CR 709.4a: a split card has each of its halves' names
-            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
+            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> !(filter.other && other == id) && names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> hasChosenName(c, ctx.names[filter.name])
             // CR 702.106f: double agenda's second name counts as the chosen name too
             is ObjectFilter.RememberedName -> hasChosenName(c, selfMemory(filter.key)) ||

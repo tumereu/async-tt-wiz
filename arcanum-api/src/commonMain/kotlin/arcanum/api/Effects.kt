@@ -67,6 +67,10 @@ sealed interface Effect {
         val library: Players, val filter: ObjectFilter, val max: Value, val reveal: Boolean = false,
         val zones: List<Zone>, val differentNames: Boolean = false, val bind: String? = null,
         val searcher: Players,
+        // rvr
+        /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
+         * total mana value 6 or less", CR 701.23a). */
+        val totalAtMost: Choice.TotalLimit? = null,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */
@@ -176,6 +180,12 @@ sealed interface Effect {
      * whose amount goes down by the damage it prevents. [from] limits the sources ("by a source of your choice"). */
     @Serializable @SerialName("prevent-damage") data class PreventDamage(
         val to: Recipients, val amount: Value, val from: ObjectFilter, val duration: Duration,
+        // rvr
+        /** "The next [amount] damage that would be dealt to [to] this turn is dealt to [redirectTo] instead": a redirection shield (a
+         * replacement effect, CR 614.9; not prevention, so damage that can't be prevented is still redirected) with the same countdown:
+         * up to the amount left of each damage event goes to [redirectTo], the rest stays. It does nothing while [to] or [redirectTo]
+         * isn't a creature, planeswalker or battle on the battlefield, or a player in the game (CR 614.9). Fixed as it resolves. */
+        val redirectTo: Recipients? = null,
     ) : Effect
     /** Remove [objects] from combat (CR 506.4). */
     @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect
@@ -402,6 +412,11 @@ data class Destination(
      * a continuous effect that applies as it enters the battlefield, not after (CR 611.2e), so its enters triggers and
      * state-based actions see it. */
     val entersAs: List<Mechanic> = emptyList(),
+    // rvr
+    /** Onto the battlefield blocking [blocking] (an attacking creature, "put … onto the battlefield blocking that creature"). Not
+     * declared as a blocker, so "whenever blocks" doesn't trigger, but "becomes blocked by a creature" does (CR 509.3d, 509.4); if
+     * that creature is no longer attacking, or its controller isn't the defending player for it, it isn't blocking (CR 509.4a). */
+    val blocking: Objects? = null,
 )
 
 /** [amount] counters of [kind]. */

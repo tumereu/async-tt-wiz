@@ -1,5 +1,6 @@
 package arcanum.parser.sets.ltr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.Comparison
@@ -185,7 +186,7 @@ class LtrChunk07RedTest {
             {7}{R}: This enchantment deals 7 damage to target creature.
         """,
     ) parsesTo abilities(
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = creatureOpponentControls), combat = false, excess = true)),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = creatureOpponentControls), combat = false, excess = true, per = DamageOccurrence.Recipient)),
             amassOrcs(Value.EventAmount)),
         activated(cost(mana("{7}{R}")), damage(7, toObjects(target("creature"))), targets = listOf(slot("creature", creature))),
     )

@@ -10,6 +10,10 @@ import arcanum.api.Cost
 import arcanum.api.CostPart
 import arcanum.api.ManaCost
 import arcanum.api.Objects
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
@@ -25,7 +29,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 94
+    const val VERSION: Int = 95
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -348,6 +352,16 @@ object OracleParser {
             if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
                 parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
             }
+            // rvr fixes: "return target creature card of an opponent's choice from your graveyard": read without the phrase; an opponent
+            // chooses that target, the controller picking which opponent when there are several (CR 601.2c; CR 801.5a's example)
+            if (instead == null && parsed == null) OPPONENTS_CHOICE.find(line)?.let { m ->
+                val stripped = line.removeRange(m.range)
+                val index = TARGET_WORD.findAll(line.substring(0, m.range.first)).count() - 1
+                parsed = (sentences.multi(stripped) ?: sentences.line(stripped)?.let(::listOf))?.singleOrNull()
+                    ?.let { chosenByOpponent(it, index, TARGET_WORD.findAll(stripped).count()) }?.let(::listOf)
+            }
+            // rvr fixes: "It's still a land." keeps every prior type and subtype, creature types included (CR 205.1b)
+            if (STILL_A_TYPE.containsMatchIn(line)) parsed = parsed?.map(::keepingPriorSubtypes)
             // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
             if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
                 sentences.continuation(line, previous.instructions)?.let { joined ->
@@ -771,6 +785,49 @@ object OracleParser {
     private val FLAVOR_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\- ]+) — (.+)""")
     // blb chunk 02
     private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
+    /** "target creature card of an opponent's choice" (CR 601.2c). */
+    private val OPPONENTS_CHOICE = Regex(""" of an opponent's choice\b""")
+    private val TARGET_WORD = Regex("""\btargets?\b""")
+
+    /** rvr fixes: [ability] with its target slot number [index] chosen by an opponent ([TargetSlot.chosenBy]); null unless the ability
+     * has one slot for each of the [count] "target" words of its text, so the slot is known. */
+    private fun chosenByOpponent(ability: Ability, index: Int, count: Int): Ability? {
+        fun mark(i: arcanum.api.Instructions) = i.takeIf { it.targets.size == count && index in it.targets.indices }
+            ?.let { it.copy(targets = it.targets.mapIndexed { n, slot -> if (n == index) slot.copy(chosenBy = arcanum.api.PlayerFilter.Opponent) else slot }) }
+        return when (ability) {
+            is Ability.Spell -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            is Ability.Triggered -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            is Ability.Activated -> mark(ability.instructions)?.let { ability.copy(instructions = it) }
+            else -> null
+        }
+    }
+
+    /** "It's still a land.", "He's still a planeswalker." (CR 205.1b). */
+    private val STILL_A_TYPE = Regex("""\b(?:It's|He's|She's|They're) still an? [a-z]+\.""")
+
+    /**
+     * rvr fixes, CR 205.1b: an effect that says the object is "still a [type]" keeps all the object's prior card types, supertypes
+     * and subtypes: its type change that makes it a creature replaces neither card types nor subtypes (a land creature's creature
+     * types stay). The rule's more specific case, "becomes a [creature type] artifact creature", still replaces creature types.
+     * Through the ability's JSON form, so every wording that sets types is handled alike.
+     */
+    private fun keepingPriorSubtypes(ability: Ability): Ability {
+        fun walk(e: JsonElement): JsonElement = when (e) {
+            is JsonObject -> {
+                val add = (e["add"] as? JsonArray)?.map { it.toString() }.orEmpty()
+                val animates = e["type"] == JsonPrimitive("types") && add.any { "\"creature\"" in it }
+                val artifactCreatureOfType = add.any { "\"artifact\"" in it } && (e["addSubtypes"] as? JsonArray)?.isNotEmpty() == true
+                val dropped = if (!animates) emptySet() else setOfNotNull("replaceTypes", "replaceSubtypes".takeUnless { artifactCreatureOfType })
+                JsonObject(e.filterKeys { it !in dropped }.mapValues { (_, v) -> walk(v) })
+            }
+            is JsonArray -> JsonArray(e.map(::walk))
+            else -> e
+        }
+        val tree = STILL_JSON.encodeToJsonElement(Ability.serializer(), ability)
+        val changed = walk(tree)
+        return if (changed == tree) ability else STILL_JSON.decodeFromJsonElement(Ability.serializer(), changed)
+    }
+    private val STILL_JSON = kotlinx.serialization.json.Json
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

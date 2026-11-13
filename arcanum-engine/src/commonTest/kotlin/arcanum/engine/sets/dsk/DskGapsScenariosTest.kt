@@ -327,6 +327,7 @@ class DskGapsScenariosTest {
         advanceTo(TurnStep.PrecombatMain)
         answer(Answer.Targets(listOf(target(lash), target(gust))))
         allPass()
+        alice.chooses(lash) // CR 608.2f: the caster chooses the order the copies are cast in
         // The copy of Ember Lash is cast, paying {2}{R}; the copy of Cinder Gust isn't
         answer(Answer.YesNo(true))
         answer(Answer.ManaPayment((pending as Decision.ManaPayment).suggestion))
@@ -371,6 +372,7 @@ class DskGapsScenariosTest {
         advanceTo(TurnStep.PrecombatMain)
         answer(Answer.Targets(listOf(target(lash), target(gust))))
         allPass()
+        alice.chooses(lash) // CR 608.2f: the caster chooses the order the copies are cast in
         answer(Answer.YesNo(true))
         expect { payOptions() shouldBe listOf("Pay its mana cost {2}{R}", "Pay {0} rather than its mana cost (Smoldering Gallery)") }
         payWith("{0}")
@@ -401,6 +403,7 @@ class DskGapsScenariosTest {
         advanceTo(TurnStep.PrecombatMain)
         answer(Answer.Targets(listOf(target(lash), target(gust))))
         allPass()
+        alice.chooses(lash) // CR 608.2f: the caster chooses the order the copies are cast in
         answer(Answer.YesNo(true))
         payWith("mana cost {2}{R}")
         answer(Answer.ManaPayment((pending as Decision.ManaPayment).suggestion))

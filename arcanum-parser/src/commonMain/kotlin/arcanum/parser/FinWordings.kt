@@ -204,7 +204,7 @@ internal object Fin {
     val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""You may cast target (.+?) from a graveyard, and mana of any type can be spent to cast that spell\. If that spell would be put into a graveyard, exile it instead\.""")
     val ADDITIONAL_COST_OR = Regex("""As an additional cost to cast this spell, (sacrifice an? .+?) or (pay \{.+\})\.""")
     val ATTACKED_THIS_TURN_MAY_PLAY_TOP = Regex("""As long as (.+?) attacked this turn, you may play the top card of your library\.""")
-    val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill that many cards plus (\w+) instead\.""")
+    val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill (?:that many cards plus (\w+)|(twice) that many cards) instead\.""")
     val COPY_ABILITY_X_TIMES = Regex("""(\{X\}\{X\}, \{T\}): Copy target activated or triggered ability you control X times\. You may choose new targets for the copies\. This ability can't be copied and X can't be 0\.""")
     // fin chunk 11
     val RETURN_TARGET_WITH_ADDITIONAL_COUNTERS = Regex("""Return target (.+?) from your graveyard to the battlefield with (\w+) additional (\S+) counters? on it\.""")

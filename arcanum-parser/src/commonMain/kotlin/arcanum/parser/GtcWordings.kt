@@ -43,7 +43,7 @@ internal object Gtc {
 
     val REVEALS_THAT_MANY_FROM_HAND = Regex("""Target opponent reveals that many cards from their hand\.""")
     val THIS_TURN_ENTERS_WITH_ADDITIONAL = Regex("""This turn, each (.+) enters with an additional (\S+) counter on it\.""")
-    val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move any number of (\S+) counters from target (.+?) onto another target (.+?) with the same controller\.""")
+    val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move (any number of|an?) (\S+) counters? from target (.+?) onto another target (.+?) with the same controller\.""") // rvr chunk 04: a
     val REMOVE_COUNTERS_COST = Regex("""Remove (one or more|a|an|\w+) (\S+) counters? from (.+)""")
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
@@ -51,7 +51,8 @@ internal object Gtc {
     val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
-    val BECOMES = Regex("""(Until end of turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
+    // rvr chunk 03: also "Until your next turn, "
+    val BECOMES = Regex("""(Until end of turn, |Until your next turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
     val BECOMES_DESCRIPTION = Regex("""an? (?:(\d+)/(\d+) )?(?:((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) )?((?:[A-Z][a-z]+ )*)(artifact creature|creature)(?: with (.+))?""")
     val PT_EACH_EQUAL = Regex("""power and toughness each equal to (.+)""")
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
@@ -108,7 +109,7 @@ internal object Gtc {
     val EXILE_ALL_FROM_TARGET_PLAYERS_GRAVEYARD = Regex("""Exile all (.+?) cards from target player's graveyard\.""")
     val GAIN_LIFE_FOR_EACH_EXILED = Regex("""You gain (\d+) life for each card exiled this way\.""")
     val LOSES_LIFE_THEN_REVEALS_RANDOM = Regex("""Target opponent loses (\d+) life, then reveals a card at random from their hand\.""")
-    val DEALS_N_AND_N = Regex("""(.+?) deals (\d+) damage to (target .+?) and (\d+) damage to (target .+)\.""")
+    val DEALS_N_AND_N = Regex("""(.+?) deals (\d+) damage to (target .+?) and (\d+) damage to ((?:up to one )?target .+)\.""") // rvr chunk 04: up to one
     val TARGET_FIGHTS_TARGET = Regex("""Target (.+?) fights target (.+)\.""")
     val DEALS_DAMAGE_EQUAL_DISCARDED_TO_THAT = Regex("""(.+?) deals damage equal to the discarded card's mana value to that permanent or player\.""")
     val ATTACKS_OR_BLOCKS_AND_CANT = Regex("""Up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat\.""")
@@ -138,7 +139,8 @@ internal object Gtc {
     val REMOVE_ALL_COUNTERS_FROM_TARGET = Regex("""Remove all (\S+) counters from target (.+)\.""")
     val UNTAP_EACH = Regex("""Untap each (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")
-    val DEALS_DAMAGE_TO_PLAYER_EQUAL_HAND = Regex("""(.+?) deals damage to target player equal to the number of cards in that player's hand\.""")
+    // rvr chunk 03: also "the number of cards that player owns in exile"
+    val DEALS_DAMAGE_TO_PLAYER_EQUAL_HAND = Regex("""(.+?) deals damage to target player equal to the number of cards (in that player's hand|that player owns in exile)\.""")
     val WIN_IF_DIFFERENT_NAMES = Regex("""If you control (\w+) or more (\w+)s with different names, you win the game\.""")
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
@@ -159,7 +161,8 @@ internal object Gtc {
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
     val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them and put the revealed cards into your hand\.""")
-    val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (.+)""")
+    // rvr chunk 05: also "You may pay 2 life." (Savra, Queen of the Golgari)
+    val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+|\d+ life)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")

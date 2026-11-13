@@ -196,8 +196,10 @@ object DefinitionChecks {
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")
                     found += "objects narrowed from a reference are Objects.Where (Each looks at the battlefield)"
                 if (type == "may") (element["steps"] as? JsonArray)?.firstOrNull()?.let { first ->
-                    val choice = (first as? JsonObject)?.takeIf { it.typeName() == "choose" }?.get("choice") as? JsonObject
-                    if (choice?.typeName() == "objects" && choice.fixed("min") == 1 && choice.fixed("max") == 1)
+                    val choose = (first as? JsonObject)?.takeIf { it.typeName() == "choose" }
+                    val choice = choose?.get("choice") as? JsonObject
+                    // only when the one who may is the one who chooses: "you may have target opponent sacrifice a creature" is May (CR 608.2d)
+                    if (choice?.typeName() == "objects" && choice.fixed("min") == 1 && choice.fixed("max") == 1 && choose["chooser"] == element["player"])
                         found += "\"you may choose one\" is a choice of zero or one, not May"
                 }
                 if (type == "pay" && element.string("bind") == null)

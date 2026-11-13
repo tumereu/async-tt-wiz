@@ -1,5 +1,6 @@
 package arcanum.parser.sets.rtr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -269,7 +270,7 @@ class RtrChunk12ArtifactsAndLandsTest {
     ) parsesTo abilities(
         Keyword.Trample,
         static(Objects.Self, Mechanic.MustAttack()),
-        triggered(Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             Step.Do(Effect.FlipCoin(Players.You, bind = "flip")),
             Step.If(Condition.Not(Condition.WonFlip("flip")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))),
         triggered(thisDies,

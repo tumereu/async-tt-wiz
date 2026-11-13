@@ -151,6 +151,14 @@ sealed interface ObjectFilter {
     ) : ObjectFilter
     /** Has at least one ability of [kind] ("creatures with activated abilities"). */
     @Serializable @SerialName("has-ability-kind") data class HasAbilityKind(val kind: AbilityKind) : ObjectFilter
+    // rvr
+    /** Has an activated ability with the tap symbol in its cost (CR 107.5: "a creature that has an activated ability with {T} in its
+     * cost"); mana abilities count (CR 605.1a). */
+    @Serializable @SerialName("has-tap-ability") data object HasTapAbility : ObjectFilter
+    /** A permanent one of [attachment] could legally be attached to as it is (CR 701.3b): an Aura as its enchant abilities allow
+     * (CR 303.4d), an Equipment to a creature (CR 301.5c), a Fortification to a land (CR 301.6), never to itself or to a permanent
+     * with protection from it (CR 702.16c, d) ("attach target Aura … to another permanent" chooses only among these). */
+    @Serializable @SerialName("attachable-by") data class AttachableBy(val attachment: Objects) : ObjectFilter
     /** An ability (on the Stack, or being activated) of [kind] (any when null), whose source matches [source], labelled
      * [label] ("activated or triggered ability you control from an artifact source", "an exhaust ability"). Its
      * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */
@@ -335,6 +343,9 @@ sealed interface SharedQuality {
     // tdm
     /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
     @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
+    // rvr
+    /** Permanent types: artifact, battle, creature, enchantment, land, planeswalker (CR 110.4a: "shares a permanent type with it"). */
+    @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

@@ -134,6 +134,9 @@ internal object Casts {
                 // dgm: "target … chosen at random": the host picks one (a die with a side for each legal target)
                 slot.atRandom -> listOfNotNull(options.getOrNull((act.random(controller, source,
                     arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1))
+                // rvr fixes: "target … of an opponent's choice": the controller picks which opponent, who chooses it (CR 601.2c; 801.5a's example)
+                slot.chosenBy != null -> act.chooseTargets(act.choosePlayer(controller, source, act.state.playersFrom(controller).filter { e.matches(slot.chosenBy!!, it) })
+                    ?: controller, source, slot.name, options, min, max)
                 else -> act.chooseTargets(controller, source, slot.name, options, min, max)
             }
             // msh: "up to two target creatures with total mana value 6 or less" (CR 601.2c)

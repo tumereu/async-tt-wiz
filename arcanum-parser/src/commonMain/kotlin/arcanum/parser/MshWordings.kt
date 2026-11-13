@@ -55,7 +55,7 @@ internal object Msh {
     val FEWER_THAN_CARDS_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
     val CANT_BE_BLOCKED_IF = Regex("""(.+) can't be blocked if (.+)\.""")
     val AS_LONG_AS_GETS_AND_ALL_TYPES = Regex("""As long as (.+), (.+?) gets \+(\d+)/\+(\d+) and is all creature types\.""")
-    val CANT_ATTACK_YOU_OR_BLOCK = Regex("""(.+) can't attack you or block (.+)\.""")
+    val CANT_ATTACK_YOU_OR_BLOCK = Regex("""(.+) can't attack you(?: or block (.+))?\.""") // rvr chunk 04: also "Creatures can't attack you."
     val PREVENT_ALL_DAMAGE_TO_SELF = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val DAMAGE_DEALT_OTHER_HEALED = Regex("""If damage would be dealt to (.+?), instead that damage is dealt, but all other damage already dealt to (?:it|him|her) is healed\.""")
     val OPENING_HAND_BEGIN = Regex("""If (.+) is in your opening hand, you may begin the game with (?:it|him|her) on the battlefield\.""")

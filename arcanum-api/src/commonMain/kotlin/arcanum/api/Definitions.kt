@@ -375,6 +375,11 @@ data class TargetSlot(
      * ability with its chosen targets named in its text. Null when not known (a definition written by hand, a slot the
      * engine makes, a wording whose phrases the parser couldn't place). It has no rules meaning. */
     val span: TextSpan? = null,
+    // rvr
+    /** The target is chosen by a player matching this, not by the spell's or ability's controller ("target creature card of an
+     * opponent's choice"); with several such players the controller picks which one chooses (CR 601.2c; CR 801.5a's example).
+     * Null: the controller chooses it. */
+    val chosenBy: PlayerFilter? = null,
 )
 
 /** A piece of a printed text: the characters from [start] (inclusive) to [end] (exclusive), counted in UTF-16 code

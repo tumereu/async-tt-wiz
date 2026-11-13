@@ -51,6 +51,18 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   implicit, not in the filter.
 - Ability words: `abilityWord = "<word>"` on the static, spell or triggered ability; a condition on a trigger is
   `interveningIf` ("if you control ..."), a "while" on an attack trigger is `triggersOnlyIf`.
+- "you may <a choice you make>" (put counters on a creature you control) = `Choose` zero-or-one, not `May` + `Choose`;
+  when another player makes the choice ("you may have target opponent sacrifice") it stays `May` (CR 608.2d).
+- "you may look ... If you do, ..." is one `Step.May`: a `Step.Pay(steps = [LookAt])` never counts as done.
+- A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
+- "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
+  are `onlyIf` (CR 601.2c).
+- "It's still a <type>." keeps all prior types (no replaceTypes/replaceSubtypes); "[creature type] artifact creature"
+  still replaces creature types (CR 205.1b, last sentence).
+- A target "of an opponent's choice" is `TargetSlot.chosenBy`; "the next N damage ... is dealt to X instead" is
+  `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
+- Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
+  [combat] damage" with no recipient, default `SourceAndRecipient` for "a source deals damage to Y".
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
 
 ## Engine scenarios
@@ -100,6 +112,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   players and a control change.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
+- A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
+  controller the order one at a time: answer with `alice.chooses(name)`.
 
 ## Test conventions
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.

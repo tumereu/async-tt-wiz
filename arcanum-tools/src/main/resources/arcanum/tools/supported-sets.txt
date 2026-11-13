@@ -18,6 +18,7 @@ MH2 Modern Horizons 2
 MSH Marvel Super Heroes
 ONE Phyrexia: All Will Be One
 RTR Return to Ravnica
+RVR Ravnica Remastered
 SOS Secrets of Strixhaven
 SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm

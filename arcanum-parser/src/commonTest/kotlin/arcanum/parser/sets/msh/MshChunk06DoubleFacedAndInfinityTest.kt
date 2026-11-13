@@ -1,5 +1,6 @@
 package arcanum.parser.sets.msh
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.AbilityLabel
 import arcanum.api.Affected
@@ -70,7 +71,7 @@ class MshChunk06DoubleFacedAndInfinityTest {
             Keyword.Reach,
             Keyword.Trample,
             opponentsCantCastDuringYourTurn,
-            Ability.Triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = creatureYouControl))), Instructions(targets = listOf(anyTarget),
+            Ability.Triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = creatureYouControl), per = DamageOccurrence.Recipient)), Instructions(targets = listOf(anyTarget),
                 steps = listOf(Step.May(listOf(damage(Value.EventAmount, toAny)), player = Players.You))), actionOncePerTurn = true),
         ),
     )
@@ -136,7 +137,7 @@ class MshChunk06DoubleFacedAndInfinityTest {
         ) to abilities(
             Keyword.Reach,
             Keyword.Trample,
-            triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+            triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
                 counters(Objects.EventObject(EventRole.Object)),
                 Step.If(Condition.ObjectMatches(Objects.Self, attacking), then = listOf(untapIt(Objects.Self), Step.Do(Effect.ExtraCombat()))),
                 abilityWord = "Enrage"),

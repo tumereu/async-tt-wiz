@@ -75,7 +75,7 @@ class GtcChunk15SimicTest {
     ) parsesTo abilities(
         spell(
             untilEndOfTurn(Objects.Target("land"),
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental"))), replaceSubtypes = true),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),
                 Mechanic.SetPowerToughness(n(3), n(3)),
                 Mechanic.GainAbilities(listOf(Keyword.Flying))),
             targets = listOf(slot("land", land)),

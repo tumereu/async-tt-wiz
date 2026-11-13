@@ -97,19 +97,25 @@ val webDist = tasks.register("webDist") {
     description = "The web client as the server serves it (WEB_APP_DIR)."
     val distribution = tasks.named("wasmJsBrowserDistribution")
     dependsOn(distribution)
+    // The engine's Web Worker (engine.js and its wasm), beside the app's files (docs/specs/web-client.md §1 item 3)
+    dependsOn(":webApp:engine:wasmJsBrowserDistribution")
     val source = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
+    val engineSource = project(":webApp:engine").layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
     val output = layout.buildDirectory.dir("web")
     inputs.dir(source)
+    inputs.dir(engineSource)
     outputs.dir(output)
     doLast {
-        val from = source.get().asFile
-        val files = from.walkTopDown().filter { it.isFile && it.name != "index.html" }.sortedBy { it.relativeTo(from).invariantSeparatorsPath }.toList()
+        fun filesOf(from: File) = from.walkTopDown().filter { it.isFile && it.name != "index.html" }.map { it.relativeTo(from).invariantSeparatorsPath to it }
+        val files = (filesOf(source.get().asFile) + filesOf(engineSource.get().asFile)).sortedBy { it.first }.toList()
+        check(files.map { it.first }.toSet().size == files.size) { "The app's and the engine worker's files share a name" }
         val digest = MessageDigest.getInstance("SHA-256")
-        files.forEach { digest.update(it.relativeTo(from).invariantSeparatorsPath.toByteArray()); digest.update(it.readBytes()) }
+        files.forEach { (path, file) -> digest.update(path.toByteArray()); digest.update(file.readBytes()) }
         val build = digest.digest().joinToString("") { "%02x".format(it) }.take(16)
         val to = output.get().asFile
         to.deleteRecursively()
-        files.forEach { it.copyTo(to.resolve("$build/${it.relativeTo(from).invariantSeparatorsPath}")) }
+        val from = source.get().asFile
+        files.forEach { (path, file) -> file.copyTo(to.resolve("$build/$path")) }
         to.resolve("index.html").writeText(from.resolve("index.html").readText()
             .replace("%ATW_BASE%", "/web/$build/").replace("%ATW_BUILD%", build))
         to.resolve("build").writeText(build + "\n")

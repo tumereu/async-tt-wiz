@@ -4,6 +4,7 @@ import arcanum.api.TurnStep
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 /**
  * A full e2e run, 2026-11-08 (MainPhaseUndoTest timed out, "Bob having seen it"): a phone's own events were on the server
@@ -44,5 +45,27 @@ class HeadCrossesRevisionsTest : E2e() {
             alice.settled(this) && alice.engine { device.session.head } == tip && alice.engine { device.localHeads[bob.me] } == tip
         }
         assertEquals(emptyMap(), repeatedRefusals(alice))
+    }
+
+    // HIS-006 (full e2e run 2026-11-13, PassesAndUndoTest in the opening: a head past her revisions loaded Alice's game again
+    // and her live table paused for the centre text): a head that overtakes Bob's events on their way to Alice's live table
+    // loads her game again, and it stays live: his Mountain shows as it would have, with no catch-up pause
+    @Test fun aGameLoadedAgainWhileItsTableIsLiveStaysLive() {
+        startGame(bobStarts = true, deal = { _, b -> "Mountain" in hand(b) })
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        waitUntil("both settled") { alice.settled(this) && bob.settled(this) }
+
+        var paused = false
+        everyRun += { if (alice.game?.shown?.status == GameDevice.Status.CatchUp) paused = true }
+        alice.connection.holdRevisions()
+        bob.playFromHand("Mountain", this)
+        waitUntil("Bob's Mountain on the server") { bob.field("Mountain").isNotEmpty() && bob.engine { device.session.pending.isEmpty() } }
+        alice.askHead()
+        waitUntil("the head having overtaken it") { alice.connection.overtaken }
+        waitUntil("Bob's Mountain on Alice's live table") { alice.field("Mountain", bob.me).isNotEmpty() }
+        assertFalse(paused, "Alice's live table never paused for the centre text")
     }
 }

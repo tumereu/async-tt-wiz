@@ -343,7 +343,9 @@ internal object EventMatcher {
 
     private fun moveEvent(e: Evaluator, m: Move, proposed: Boolean, from: Zone?, objectRole: EventRole? = null): TriggerEvent {
         val tested = tested(m, from, proposed)
-        val player = m.seen?.controller ?: m.before.controller ?: m.before.owner
+        // isd sweep: a permanent entering is the player's it enters under the control of (CR 110.2), who may not be the card's owner
+        // or the controller it had in its previous zone
+        val player = (if (m.to == Zone.Battlefield) m.after.controller else null) ?: m.seen?.controller ?: m.before.controller ?: m.before.owner
         return TriggerEvent(
             objects = listOf(
                 RoleObjects(EventRole.Object, listOf(if (objectRole == EventRole.Before) m.before.id else tested)),

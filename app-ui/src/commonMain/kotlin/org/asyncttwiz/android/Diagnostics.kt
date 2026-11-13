@@ -29,6 +29,8 @@ object Diagnostics {
     /** What recording reports needs from the platform, from [start]. */
     private var hooks: ReportHooks? = null
 
+    init { installEngineDiagnostics() }
+
     fun enabledFor(alwaysOn: Boolean, choice: ReportChoice) = alwaysOn || choice == ReportChoice.ON
 
     fun start(hooks: ReportHooks) {

@@ -64,6 +64,12 @@ sealed interface Objects {
     /** The source of each activated or triggered ability on the Stack among [of] (CR 113.7, 113.8): "that permanent" after "if an ability
      * of a creature is countered this way". Bind it before the ability leaves the Stack. */
     @Serializable @SerialName("source-of") data class SourceOf(val of: Objects) : Objects
+    // isd
+    /** In a token's ability, the object whose ability created the token, as long as it is still that object ('create a green Ooze
+     * creature token with "This token's power and toughness are each equal to the number of slime counters on Gutter Grime."',
+     * CR 201.5a); a copy of the token refers to the object that created the original. Nothing once that object has left its zone
+     * (CR 400.7) or for an object no ability created. */
+    @Serializable @SerialName("creator") data object Creator : Objects
 }
 
 /**
@@ -177,8 +183,8 @@ sealed interface ObjectFilter {
     /** A spell or ability that targets something in [objects] or [players] ("spells that target you"). */
     @Serializable @SerialName("targets") data class Targets(val objects: Objects? = null, val players: Players? = null) : ObjectFilter
     /** Attached to something in [objects] ("Auras attached to it") or has attachments matching [attachments]
-     * ("enchanted creatures"). */
-    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null) : ObjectFilter
+     * ("enchanted creatures"); or attached to one of [toPlayers] ("Curses attached to you", an Aura enchanting a player, CR 303.4e). */
+    @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null, val toPlayers: Players? = null) : ObjectFilter
     /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"), in [role] of the
      * event when given (any role when null): "creature that dealt damage this turn" is the [EventRole.Source] of a damage
      * event, "creature that was dealt damage this turn" its [EventRole.Object]. */

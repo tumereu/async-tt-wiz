@@ -62,7 +62,7 @@ internal object Ltr {
     val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent) was (.+?), (.+)""")
     val MAY_SACRIFICE_IT_WHEN_YOU_DO = Regex("""(Whenever .+?), you may sacrifice it\. When you do, (.+)""")
     val YOU_CREATE_OR_SACRIFICE_A_TOKEN = Regex("""you create or sacrifice a token""")
-    val CREATE_TAPPED_AND_ATTACKING_SACRIFICE_AT_END_OF_COMBAT = Regex("""Create (.+? tokens?(?: with [^.]+?)?)(?: named (.+?))? that's tapped and attacking\. Sacrifice that token at end of combat\.""")
+    val CREATE_TAPPED_AND_ATTACKING_SACRIFICE_AT_END_OF_COMBAT = Regex("""Create (.+? tokens?(?: with [^.]+?)?)(?: named (.+?))? that's tapped and attacking\. (Sacrifice|Exile) that token at end of combat\.""") // isd chunk 07: Exile
     val EXILE_TARGET_THEN_CREATE_X = Regex("""Exile (target .+?), then create X (.+?), where X is the exiled card's (power|toughness)\.""")
     val AS_LONG_AS_YOUR_TURN_AND_IS_ARTIFACT_CREATURE = Regex("""As long as it's your turn and (.+?), (.+?) is an artifact creature\.""")
     val HAND_OVER_N_EXILE_DIFFERENCE = Regex("""If its controller has more than (\w+) cards in hand, they exile cards from their hand equal to the difference\.""")

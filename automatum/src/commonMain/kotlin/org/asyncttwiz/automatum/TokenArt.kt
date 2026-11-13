@@ -22,4 +22,5 @@ fun interface TokenArt {
  * indicator) and the card whose effect made it, by its card name ([sourceName]) and its catalog printing
  * ([sourcePrintingId], when the game's card data names one).
  */
+@kotlinx.serialization.Serializable
 data class TokenArtQuery(val face: DefinitionFace, val sourceName: String? = null, val sourcePrintingId: String? = null)

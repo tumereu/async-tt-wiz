@@ -1226,13 +1226,23 @@ internal object Effects {
     /** "Prevent the next N damage" (CR 615.7, D26): a shield effect object whose amount goes down as it prevents. */
     private fun preventDamage(scope: Scope, effect: Effect.PreventDamage) {
         val targets = recipients(scope, effect.to)
+        // dmr: "Prevent the next 5 damage … to any number of targets, divided as you choose": each target its own shield of its share (CR 601.2d, 615.7)
+        val divided = scope.cause.item?.divided.orEmpty()
+        if (divided.isNotEmpty()) {
+            targets.forEach { r -> shield(scope, effect, listOf(r), scope.eval(dividedShare = divided.firstOrNull { it.target == r }?.amount).value(effect.amount)) }
+            return
+        }
+        shield(scope, effect, targets, scope.value(effect.amount))
+    }
+
+    private fun shield(scope: Scope, effect: Effect.PreventDamage, targets: List<TargetRef>, amount: Int) {
         val objects = targets.filterIsInstance<TargetRef.Object>().map { it.id }
         val players = targets.filterIsInstance<TargetRef.Player>().map { it.id }
         val saved = scope.names
         scope.names = scope.names.with(SHIELDED, NamedValue.Objects(objects)).with(SHIELDED_PLAYERS, NamedValue.Players(players))
         val pattern = EventPattern.Damage(effect.from, RecipientFilter(
             objects = ObjectFilter.Is(Objects.Bound(SHIELDED)), players = PlayerFilter.Is(Players.Bound(SHIELDED_PLAYERS))))
-        applyMechanics(scope, listOf(Mechanic.Prevention(pattern)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
+        applyMechanics(scope, listOf(Mechanic.Prevention(pattern)), null, effect.duration, null, amountLeft = amount)
         scope.names = saved
     }
 

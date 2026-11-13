@@ -24,11 +24,30 @@ internal object Dmr {
     val ACTIVATED_N_OR_MORE_TIMES = Regex("""this ability has been activated (\w+) or more times this turn""")
     // dmr chunk 04: Gemstone Mine
     val IF_NO_COUNTERS_SACRIFICE_IT = Regex("""If there are no (\S+) counters on (.+?), sacrifice it\.""")
+    // dmr chunk 05: Sulfuric Vortex (and fin's "you gain twice that much life")
+    val WOULD_GAIN_LIFE_INSTEAD = Regex("""If (you|a player) would gain life, (?:you gain|that player gains) (twice that much life|no life) instead\.""")
+    // dmr chunk 05: Overmaster (and fra's "The next spell you cast this turn can't be countered.")
+    val NEXT_SPELL_CANT_BE_COUNTERED = Regex("""The next (?:(.+?) )?spell you cast this turn can't be countered\.""")
+    // dmr chunk 05: Remedy
+    val PREVENT_NEXT_DIVIDED = Regex("""Prevent the next (\d+) damage that would be dealt this turn to any number of targets, divided as you choose\.""")
+    // dmr chunk 05: Forgotten Ancient
+    val MOVE_ANY_NUMBER_ONTO_OTHERS = Regex("""Move any number of (\S+) counters from (.+?) onto other (\w+?)s\.""")
+    // dmr chunk 05: Arcades Sabboth
+    val EACH_GETS_AS_LONG_AS_NOT_ATTACKING = Regex("""Each (.+?) gets \+?(-?\d+)/\+?(-?\d+) as long as it's not attacking\.""")
+    // dmr chunk 05: Valduk, Keeper of the Flame
+    val FOR_EACH_ATTACHED_CREATE = Regex("""For each (Aura|Equipment) and (Aura|Equipment) attached to (.+?), create (an? .+)""")
+    // dmr chunk 05: Spinal Embrace
+    val SACRIFICE_IT_IF_YOU_DO = Regex("""(Sacrifice (?:it|that creature))\. If you do, (.+)""")
+    val AND_GAIN_CONTROL_OF_IT = Regex("""(.+?) and gain control of it\.""")
     fun property(word: String): arcanum.api.NumericProperty = when (word) {
         "mana value" -> arcanum.api.NumericProperty.ManaValue
         "power" -> arcanum.api.NumericProperty.Power
         else -> arcanum.api.NumericProperty.Toughness
     }
+
+    /** "During combat": any step of the combat phase (CR 506.1). */
+    val duringCombat: arcanum.api.Condition = arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers,
+        arcanum.api.TurnStep.DeclareBlockers, arcanum.api.TurnStep.CombatDamage, arcanum.api.TurnStep.EndOfCombat).map { arcanum.api.Condition.StepIs(it) })
 
     /** "The player with the most life": each player whose life total equals the greatest life total (CR 119.1). */
     val playersWithMostLife: arcanum.api.Players = arcanum.api.Players.Each(arcanum.api.PlayerFilter.Where(arcanum.api.Condition.Compare(

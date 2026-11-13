@@ -47,7 +47,37 @@ internal object Filters {
      * "land", "nonbasic land", "Mountain or Plains", "basic land", "artifact, enchantment, or nonbasic land an opponent
      * controls", "land card with a basic land type", "legendary creature you control".
      */
-    fun noun(phrase: String): ObjectFilter? {
+    fun noun(phrase: String): ObjectFilter? = nounOf(phrase)?.let(::permanentOutsideBattlefield)
+
+    /**
+     * lci sweep: "permanent" next to "spell" or a zone other than the battlefield names permanent types, not the battlefield
+     * category (which never matches there): a "permanent spell" is an artifact, battle, creature, enchantment, or planeswalker spell
+     * (CR 110.4b), a permanent card in a graveyard, hand, library or exile one of those or a land card (CR 110.4a): "counter target
+     * noncreature permanent spell", "return a permanent card from your graveyard". Only filters that could never match change.
+     */
+    private fun permanentOutsideBattlefield(filter: ObjectFilter): ObjectFilter {
+        val parts = (filter as? ObjectFilter.And)?.all ?: return filter
+        return when {
+            ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) in parts -> permanentAsTypes(filter, spell = true)
+            parts.any { it is ObjectFilter.InZone && it.zone != Zone.Battlefield } ->
+                permanentAsTypes(filter, spell = false)
+            else -> filter
+        }
+    }
+
+    /** [filter] with "permanent" (on its own or in an "and") as the permanent types: of a spell (no land, CR 110.4b) or a card (CR 110.4a). */
+    private fun permanentAsTypes(filter: ObjectFilter, spell: Boolean): ObjectFilter {
+        val permanent = ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+        val types = ObjectFilter.Or(PERMANENT_TYPES.filter { !spell || it != CardType.Land }.map { ObjectFilter.Type(it) })
+        fun one(f: ObjectFilter): ObjectFilter = when (f) {
+            permanent -> types
+            ObjectFilter.Not(permanent) -> ObjectFilter.Not(types)
+            else -> f
+        }
+        return if (filter is ObjectFilter.And) ObjectFilter.And(filter.all.map(::one)) else one(filter)
+    }
+
+    private fun nounOf(phrase: String): ObjectFilter? {
         // CR 701.54e: "your Ring-bearer"
         if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         LtrPhrases.noun(phrase)?.let { return it } // ltr
@@ -380,7 +410,7 @@ internal object Filters {
 
     /** All of [filters], nested "and"s flattened into one (one canonical form). */
     fun all(vararg filters: ObjectFilter): ObjectFilter =
-        ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) })
+        permanentOutsideBattlefield(ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) }))
 
     private fun singular(word: String): String = when {
         word.endsWith("s") && word.dropLast(1).lowercase() in SINGULAR_NOUNS -> word.dropLast(1)
@@ -486,8 +516,8 @@ internal object Filters {
 
     /** lci chunk 01: the kind a cast names before "spell" ("you cast a creature spell"); a "permanent spell" is an artifact, battle,
      * creature, enchantment, or planeswalker spell (CR 110.4b), not a permanent on the battlefield. */
-    fun spellKind(text: String): ObjectFilter? =
-        if (text == "permanent") ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }) else noun(text)
+    // lci sweep: also qualified ("noncreature permanent", "permanent … with mana value 4 or greater")
+    fun spellKind(text: String): ObjectFilter? = noun(text)?.let { permanentAsTypes(it, spell = true) }
     // chunk 20
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
@@ -625,7 +655,7 @@ internal object Events {
         // "you lose life"
         YOU_CAST_SPELL_THAT.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You) }
         // blb gaps 2: "you cast a creature spell with mana value 4 or greater" (the event's object is a spell: the filter names its kind)
-        YOU_CAST_SPELL_WITH.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1] + " " + m.groupValues[2]) ?: return null, by = PlayerFilter.You) }
+        YOU_CAST_SPELL_WITH.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.spellKind(m.groupValues[1] + " " + m.groupValues[2]) ?: return null, by = PlayerFilter.You) }
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
         if (text == "you lose life") return EventPattern.LoseLife(PlayerFilter.You)
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
@@ -689,7 +719,7 @@ internal object Events {
         }
         // inr chunk 09: "you cast another Vampire spell" (not this card itself, CR 109.1)
         YOU_CAST_ANOTHER.matchEntire(text)?.let { m ->
-            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
+            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.spellKind(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
         }
         YOU_CAST.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it) ?: return null } ?: ObjectFilter.Any
@@ -840,7 +870,7 @@ internal object Events {
         }
         if (Gtc.PLAYER_CASTS_FROM_HAND.matches(text)) return EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.Any, from = Zone.Hand)
         Gtc.OPPONENT_CASTS.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim()) ?: return null } ?: ObjectFilter.Any
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it.trim()) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(kind, by = PlayerFilter.Opponent)
         }
         Gtc.YOU_CAST_FROM_YOUR_LIBRARY.matchEntire(text)?.let { m ->

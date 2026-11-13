@@ -558,14 +558,19 @@ internal object Actions {
         dealt.forEach { d ->
             val source = board.characteristics(d.source)
             val keywords = source?.keywords.orEmpty().map { it.kind }.toSet()
+            // lci sweep: CR 120.3b, d, g: the source's controller gives or puts the counters its damage causes, through the replacements of
+            // counters being put ("If you would put one or more counters on a permanent or player, … twice that many", CR 614.1a, 122.6)
+            val giver = board.controller(d.source)?.let { ctl ->
+                if (cause != null && cause.controller == ctl) cause else Cause(ctl, d.source, key = "${cause?.key ?: "damage"}:${d.source}")
+            } ?: cause
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
-                    if (Keyword.Infect in keywords) act.record(Changes.counters(act.state, r, CounterKind.Poison, d.amount))
+                    if (Keyword.Infect in keywords) putCounters(act, giver, r, CounterKind.Poison, d.amount)
                     // CR 120.3a: damage dealt to a player causes that player to lose that much life, so life-loss replacements apply
                     // (lci chunk 09: "If an opponent would lose life …, they lose twice that much life instead")
                     else loseLife(act, cause, r.id, d.amount)
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
-                    if (d.combat && toxic > 0) act.record(Changes.counters(act.state, r, CounterKind.Poison, toxic))
+                    if (d.combat && toxic > 0) putCounters(act, giver, r, CounterKind.Poison, toxic)
                 }
                 is TargetRef.Object -> {
                     val o = act.obj(r.id) ?: return@forEach
@@ -577,7 +582,7 @@ internal object Actions {
                         excessTo[r] = (excessTo[r] ?: 0) + over
                         if (Keyword.Wither in keywords || Keyword.Infect in keywords) {
                             // CR 122.6, 614.1: the counters are put on it, so effects that change counters being put apply
-                            putCounters(act, cause, r, CounterKind.PowerToughness(-1, -1), d.amount)
+                            putCounters(act, giver, r, CounterKind.PowerToughness(-1, -1), d.amount)
                             if (Keyword.Deathtouch in keywords) {
                                 val now = act.obj(r.id)!!
                                 act.record(Change.DamageMarked(r.id, now.damage, now.damage, now.deathtouchDamage, true))

@@ -455,20 +455,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
         // tmt backfill: "the next noncreature spell you cast this turn has affinity for artifacts": a keyword an effect
         // grants the next spells whose meaning changes the spell's cost applies as that spell is cast (CR 601.2f, 611.2f)
-        snap.state.effects.values.filter { it.affects is arcanum.api.Affected.NextSpells }.forEach { effect ->
-            val granted = effect.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }
-            if (granted.isEmpty()) return@forEach
-            val e = snap.evaluator(effect.controller, self = effect.source, names = effect.names)
-            if (!NextSpells.appliesTo(snap.state, effect.id, e, itemId)) return@forEach
-            val own = snap.evaluator(player, self = itemId)
-            granted.flatMap { a -> (a as? Keyword)?.let { arcanum.api.KeywordExpansions.expand(it) } ?: listOf(a) }
-                .filterIsInstance<Ability.Static>().flatMap { it.mechanics }.filterIsInstance<Mechanic.CostChange>()
-                .filter { own.matches(it.what, itemId) }
-                .forEach { cc ->
-                    val mana = Costs.expand(cc.change, own)
-                    if (cc.change is CostChange.More) increases += mana else reductions += mana to cc.minimum
-                }
-        }
+        val own = snap.evaluator(player, self = itemId)
+        grantedByNextSpells().filterIsInstance<Ability.Static>().flatMap { it.mechanics }.filterIsInstance<Mechanic.CostChange>()
+            .filter { own.matches(it.what, itemId) }
+            .forEach { cc ->
+                val mana = Costs.expand(cc.change, own)
+                if (cc.change is CostChange.More) increases += mana else reductions += mana to cc.minimum
+            }
         // eoe: "Each spell cast this way costs {1} more to cast" (the permission it is cast with, CR 601.2f)
         permission?.first?.costChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
@@ -613,11 +606,23 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             increases, reductions)
     }
 
+    /** The abilities effects give the next spells ("the next spell you cast this turn has improvise") still waiting for this
+     * spell, keywords expanded: they apply as it is cast (CR 601.2f, 611.2f). */
+    private fun grantedByNextSpells(): List<Ability> = snap.state.effects.values.filter { it.affects is arcanum.api.Affected.NextSpells }.flatMap { effect ->
+        val granted = effect.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }
+        if (granted.isEmpty()) return@flatMap emptyList()
+        val e = snap.evaluator(effect.controller, self = effect.source, names = effect.names)
+        if (!NextSpells.appliesTo(snap.state, effect.id, e, itemId)) return@flatMap emptyList()
+        granted.flatMap { a -> (a as? Keyword)?.let { arcanum.api.KeywordExpansions.expand(it) } ?: listOf(a) }
+    }
+
     /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2); ecl: also those
-     * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a). */
+     * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a); mh3: and those an effect gives the
+     * next spell ("The next spell you cast this turn has improvise"). */
     val manaWays: List<ManaPaymentWay> by lazy {
         (if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
-            withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
+            (withGrantedAsSpell().map { it.ability } + grantedByNextSpells())
+                .flatMap { (it as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
             // tla: one Waterbend for each generic mana of its waterbend costs (CR 701.67b; Mana.specialPayers)
             List(total.waterbend) { ManaPaymentWay.Waterbend }
     }

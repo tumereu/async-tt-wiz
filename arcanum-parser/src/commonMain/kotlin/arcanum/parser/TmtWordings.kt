@@ -88,7 +88,8 @@ internal object Tmt {
     val RETURN_IF_ARTIFACT_CREATURE_OTHERWISE = Regex("""Choose target (.+?)\. Return it to the battlefield if it's an artifact creature card\. Otherwise, return it to the battlefield and it's an? (\d+)/(\d+) ([A-Z]\w+) artifact creature with ([a-z ,]+)\.""")
     val THEN_IF_CONTROL_LOSES_HALF = Regex("""Then if you control (\w+) or more (.+?), that player loses half their life, rounded (up|down)\.""")
     val EXILE_TWO_THEN_RETURN_THEM = Regex("""[Ee]xile up to one target (.+?) and up to one target (.+?)\. Then return them to the battlefield under their owners' control\.""")
-    val NEXT_SPELL_HAS = Regex("""the next (.+?) spell you cast this turn has (.+?)\.""")
+    /** "the next noncreature spell you cast this turn has affinity for artifacts", "the next spell you cast this turn has improvise" (mh3) */
+    val NEXT_SPELL_HAS = Regex("""the next ((?:.+? )?spell) you cast this turn has (.+?)\.""")
     val EXILE_THEN_RETURN = Regex("""[Ee]xile (up to one )?target (.+?), then return it to the battlefield under (its owner's|your) control( tapped and attacking)\.""")
     val EXILE_UNTIL_NONLAND = Regex("""[Ee]ach opponent exiles cards from the top of their library until they exile a (\w+) card\.""")
     val MAY_CAST_EXILED_WITH_FREE = Regex("""[Yy]ou may cast a card exiled with (.+) without paying its mana cost\.""")

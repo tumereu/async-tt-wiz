@@ -274,6 +274,8 @@ internal object TdmPhrases {
                 Value.Sum(listOf(Value.Announced(name = "X"), Value.Fixed(m.groupValues[2].toInt())))))
         }
         // tdm chunk 13: "colorless spell", "colorless nonland cards" (CR 105.2c)
+        // mh3 chunk 05: "Spend this mana only to cast a colorless spell" names the quality alone
+        if (phrase == "colorless") return ObjectFilter.Colorless
         if (phrase.startsWith("colorless ")) return Filters.all(ObjectFilter.Colorless, Filters.noun(phrase.removePrefix("colorless ")) ?: return null)
         // tdm chunk 11: "spells you cast" (spells a player cast are spells they control, CR 112.2)
         if (phrase == "spells you cast") return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You))

@@ -106,6 +106,11 @@ internal object Filters {
         }
         // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+        // mh3 chunk 05: "noncreature spells you cast from exile": cast from that zone (CR 601.2a)
+        SPELLS_YOU_CAST_FROM.matchEntire(phrase)?.let { m ->
+            val zone = when (m.groupValues[2]) { "exile" -> Zone.Exile; "your hand" -> Zone.Hand; else -> Zone.Graveyard }
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.WasCast(from = zone))
+        }
         // dsk chunk 01: "creature spells you cast": spells a player cast are spells they control (CR 112.2)
         SPELLS_YOU_CAST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)) }
         // blb gaps 2: "instant and sorcery spells you cast": each spell of either type
@@ -431,6 +436,7 @@ internal object Filters {
     // dsk chunk 01
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
+    private val SPELLS_YOU_CAST_FROM = Regex("""(.+ spells you cast) from (exile|your hand|your graveyard)""")
     private val SPELLS_YOU_CAST = Regex("""(\w+(?:(?:,| or|, or) \w+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26

@@ -453,7 +453,9 @@ internal class Sentences(
         }
         // dft chunk 07: "Noncreature spells you cast cost {X} less to cast, where X is your speed." (the reduction as {1} X times, CR 601.2f)
         Dft.COST_X_LESS_WHERE.matchEntire(line)?.let { m ->
-            val x = Values.value(m.groupValues[2]) ?: return null
+            // mh3 chunk 05: "where X is this creature's power"
+            val x = Values.value(m.groupValues[2]) ?: Mh3.SELF_POWER.matchEntire(m.groupValues[2])?.takeIf { isSelf(it.groupValues[1]) }?.let {
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single) } ?: return null
             val one = static("${m.groupValues[1]} cost {1} less to cast.") as? Ability.Static ?: return null
             val change = one.mechanics.singleOrNull() as? Mechanic.CostChange ?: return null
             val less = change.change as? arcanum.api.CostChange.Less ?: return null
@@ -1348,6 +1350,7 @@ internal class Sentences(
         blbGapsStatic(line)?.let { return it } // blb gaps
         blbGaps2Static(line)?.let { return it } // blb gaps 2
         rtrStatic(line)?.let { return it } // rtr
+        mh3Static(line)?.let { return it } // mh3
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -5894,9 +5897,13 @@ internal class Sentences(
         Inr.OPPONENTS_CANT_CAST_SPELLS_WITH.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.CantCast(Filters.noun(m.groupValues[1]) ?: return null)), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
         }
+        // mh3 chunk 05: "Spells with the chosen name cost {3} more to cast." (every player's, CR 601.2f)
         Gtc.CHOSEN_NAME_COSTS_LESS.matchEntire(line)?.let { m ->
-            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.RememberedName(CHOSEN_NAME),
-                ObjectFilter.ControlledBy(PlayerFilter.You)), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))), affects = self)
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val spells = listOfNotNull(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.RememberedName(CHOSEN_NAME),
+                ObjectFilter.ControlledBy(PlayerFilter.You).takeIf { m.groupValues[1].isNotEmpty() })
+            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(*spells.toTypedArray()), change)), affects = self)
         }
         // dgm: "Prevent all damage that would be dealt to creature tokens you control." (CR 615)
         Gtc.PREVENT_ALL_DAMAGE_TO_STATIC.matchEntire(line)?.let { m ->
@@ -7715,8 +7722,10 @@ internal class Sentences(
                 return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per,
                     Value.CountDistinct(Objects.Each(among), arcanum.api.SharedQuality.CardType)))), affects = Affected.Objects(Objects.Self))
             }
-            val counted = Filters.noun(m.groupValues[2].replace(" and ", " or ").replace(" in exile or in ", " in exile and in ")) ?: return null
-            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per, Value.Count(Objects.Each(counted))))),
+            val counted = Filters.noun(m.groupValues[2].replace(" and ", " or ").replace(" in exile or in ", " in exile and in "))
+            // mh3 chunk 05: "for each card you've drawn this turn": the number a value phrase names ("the number of cards you've drawn this turn")
+            val count = counted?.let { Value.Count(Objects.Each(it)) } ?: mh3ForEachValue(m.groupValues[2]) ?: return@let
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per, count))),
                 affects = Affected.Objects(Objects.Self))
         }
         // blb chunk 09: "If a card or token would be put into your graveyard from anywhere, exile it instead." (CR 614.1a)
@@ -8988,9 +8997,11 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.CastRestriction(condition = Conditions.condition(m.groupValues[2], self) ?: return null)),
                 affects = Affected.Objects(Objects.Self))
         }
-        // rtr chunk 05: "Creature spells you cast cost {1} less to cast for each 1 life your opponents have lost this turn."
+        // rtr chunk 05: "Creature spells you cast cost {1} less to cast for each 1 life your opponents have lost this turn."; mh3 chunk 05:
+        // "This spell costs {1} less to cast for each 1 life your opponents have lost this turn." (CR 601.2f)
         Rtr.COST_LESS_FOR_EACH_LIFE_LOST.matchEntire(line)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val spells = if (m.groupValues[1] == "This spell") ObjectFilter.Is(Objects.Self)
+                else Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
             val mana = ManaCost.parse(m.groupValues[2]) ?: return null
             val who = if (m.groupValues[3] == "your opponents have") PlayerFilter.Opponent else PlayerFilter.You
             return Ability.Static(listOf(Mechanic.CostChange(spells, arcanum.api.CostChange.Less(mana,
@@ -10783,7 +10794,7 @@ internal class Sentences(
         // rtr chunk 05
         val OPPONENT_CAUSES_DISCARD = Regex("""If a spell or ability an opponent controls causes you to discard (.+), put it onto the battlefield instead of putting it into your graveyard\.""")
         val CANT_CAST_SELF_UNLESS = Regex("""You can't cast (.+) unless (.+)\.""")
-        val COST_LESS_FOR_EACH_LIFE_LOST = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast for each 1 life (your opponents have|you've) lost this turn\.""")
+        val COST_LESS_FOR_EACH_LIFE_LOST = Regex("""(.+ spells you cast|This spell) costs? (\{\d+\}) less to cast for each 1 life (your opponents have|you've) lost this turn\.""")
         val THAT_PLAYER = Regex("""That player (.+)\.""")
         val PUT_ON_TOP_OF_LIBRARY = Regex("""Put (it|target .+) on top of its owner's library\.""")
         val ITS_CONTROLLER_REVEALS_UNTIL = Regex("""Its controller reveals cards from the top of their library until they reveal (an? .+), then puts those cards into their graveyard\.""")
@@ -14501,9 +14512,10 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(Objects.Union(listOf(Objects.Target(a), Objects.Target(b))), Destination(Zone.Exile), postBind = "exiled")),
                 Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))))
         }
-        // tmt chunk 07: "The next noncreature spell you cast this turn has affinity for artifacts." (CR 702.41a)
+        // tmt chunk 07: "The next noncreature spell you cast this turn has affinity for artifacts." (CR 702.41a); mh3 chunk 05: "The next spell
+        // you cast this turn has improvise." (CR 702.126a)
         Tmt.NEXT_SPELL_HAS.matchEntire(sentence.replaceFirstChar { it.lowercase() })?.let { m ->
-            val spells = Filters.all(Filters.noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+            val spells = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
             val keyword = OracleParser.keyword(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))), Affected.NextSpells(spells, 1), arcanum.api.Duration.EndOfTurn)))
         }
@@ -15778,8 +15790,34 @@ internal class Sentences(
         return null
     }
 
+    /** mh3: static abilities, tried after the other sets' (general fallbacks). */
+    private fun mh3Static(line: String): Ability? {
+        // mh3 chunk 05: "Creature spells of the chosen type cost {2} less to cast.", "Colorless spells you cast with mana value 7 or greater cost {1}
+        // less to cast.": the spells the noun names, anyone's unless it says "you cast" (CR 601.2f)
+        Mh3.SPELLS_COST.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return@let
+            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.CostChange(spells, change)), affects = Affected.Objects(Objects.Self))
+        }
+        // mh3 chunk 05: "Enchantment spells you cast have affinity for Auras." (CR 702.41a)
+        Mh3.SPELLS_HAVE_AFFINITY.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            val keyword = OracleParser.keyword("Affinity for " + m.groupValues[2]) ?: return@let
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))), affects = Affected.Objects(Objects.Each(spells)))
+        }
+        return null
+    }
+
     /** mh3: one-sentence effects, tried first. */
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
+        // mh3 chunk 05: "Target opponent exiles the top three cards of their library." (no choice is made in it); "those cards" are the exiled ones
+        Mh3.TARGET_OPPONENT_EXILES_TOP.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            context.them = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(context.targetOpponent(), Value.Fixed(n), fromTop = true), Destination(Zone.Exile),
+                postBind = "exiled")))
+        }
         // mh3 chunk 04: "It gains haste." (no duration: for as long as it stays, CR 611.2a) about the object "it" names
         Mh3.IT_GAINS.matchEntire(sentence)?.let { m ->
             val it = context.it ?: return@let
@@ -15875,11 +15913,29 @@ internal class Sentences(
         return null
     }
 
+    /** mh3: "for each card you've drawn this turn" as the value "the number of cards you've drawn this turn". */
+    private fun mh3ForEachValue(text: String): Value? {
+        val (noun, rest) = text.split(' ', limit = 2).takeIf { it.size == 2 } ?: return null
+        return Values.value("the number of ${noun}s $rest")
+    }
+
     /** mh3: "the amount of {E} paid this way" after "you may pay any amount of {E}". */
     private fun mh3PaidThisWay(text: String, context: Context): Value? =
         context.thatMuch?.takeIf { Mh3.ENERGY_PAID_THIS_WAY.matches(text) && it == Value.Bound("energy") }
 
     private fun mh3Whole(text: String, context: Context): List<Step>? {
+        // mh3 chunk 05: "… Until the end of your next turn, you may play those cards. If you cast a spell this way, mana of any type can be spent to
+        // cast it.": the permission the sentences before give also lets any type of mana pay for those spells (CR 609.4b)
+        Mh3.IF_CAST_THIS_WAY_ANY_TYPE.matchEntire(text)?.let { m ->
+            val steps = sentences(m.groupValues[1]).map { effect(it, context) ?: return@let }.flatten()
+            var changed = 0
+            val anyType = steps.map { step ->
+                val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return@map step
+                val mechanics = apply.mechanics.map { if (it is Mechanic.MayPlay) { changed++; it.copy(manaAsAnyColor = true) } else it }
+                Step.Do(apply.copy(mechanics = mechanics))
+            }
+            return anyType.takeIf { changed == 1 }
+        }
         // mh3 chunk 01: "Exile up to one target …. If you do, …", "Exile target …. You may cast that card for as long as it remains exiled, …": the
         // later sentence is about the exiled card, a new object (CR 400.7); "if you do" holds only when something was exiled
         Mh3.EXILE_THEN.matchEntire(text)?.let { m ->

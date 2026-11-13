@@ -143,7 +143,8 @@ internal object Gtc {
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
     val AS_LONG_AS_LIFE = Regex("""As long as you have (\d+) or more life and an opponent has (\d+) or less life, (.+?) ((?:gets|has) .+)\.""")
-    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name you cast cost (\{\d+\}) less to cast\.""")
+    /** "Spells with the chosen name you cast cost {2} less to cast.", "Spells with the chosen name cost {3} more to cast." (mh3: anyone's) */
+    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name( you cast)? cost (\{\d+\}) (less|more) to cast\.""")
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")

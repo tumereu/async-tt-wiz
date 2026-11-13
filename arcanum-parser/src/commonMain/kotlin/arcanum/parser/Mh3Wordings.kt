@@ -69,4 +69,16 @@ internal object Mh3 {
     val PUT_A_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""Put an? (.+?) exiled with (.+?) onto the battlefield under your control(?: with an? (\S+) counter on it)?\.""")
     /** "It gains haste.": keywords for good (the sentence's own duration words make it another wording). */
     val IT_GAINS = Regex("""It gains ([a-z ,]+)\.""")
+
+    // mh3 chunk 05: spells and their costs
+    /** "Creature spells of the chosen type cost {2} less to cast.", "Colorless spells you cast with mana value 7 or greater cost {1} less …" */
+    val SPELLS_COST = Regex("""(.+? spells(?: .+?)?) cost (\{\d+\}) (more|less) to cast\.""")
+    /** "this creature's power" (as the normalizer leaves it, the name or "this creature") */
+    val SELF_POWER = Regex("""(.+)'s power""")
+    /** "Enchantment spells you cast have affinity for Auras." (CR 702.41a) */
+    val SPELLS_HAVE_AFFINITY = Regex("""(.+? spells you cast) have affinity for (\w+)\.""")
+    /** "Target opponent exiles the top three cards of their library." */
+    val TARGET_OPPONENT_EXILES_TOP = Regex("""Target opponent exiles the top (\w+) cards? of their library\.""")
+    /** "… you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it." (CR 609.4b) */
+    val IF_CAST_THIS_WAY_ANY_TYPE = Regex("""(.+\.) If you cast a spell this way, mana of any type can be spent to cast it\.""")
 }

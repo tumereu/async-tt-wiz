@@ -16385,6 +16385,14 @@ internal class Sentences(
         context.thatMuch?.takeIf { Mh3.ENERGY_PAID_THIS_WAY.matches(text) && it == Value.Bound("energy") }
 
     private fun mh3Whole(text: String, context: Context): List<Step>? {
+        // mh3 chunk 17: "You may draw cards equal to its power. If you do, discard that many cards." (the number actually drawn, CR 608.2c)
+        Mh3.MAY_DRAW_EQUAL_TO_IF_YOU_DO_DISCARD_THAT_MANY.matchEntire(text)?.let { m ->
+            val amount = gtcValue(m.groupValues[1], context) ?: return@let
+            return listOf(
+                Step.Pay(cost = null, steps = listOf(Step.Do(Effect.Draw(Players.You, amount, postBind = "drawn"))), payer = Players.You, mandatory = false, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
+                    Step.Do(Effect.Discard(Players.You, Value.Count(Objects.Bound("drawn")), filter = ObjectFilter.Any)))))
+        }
         // mh3 chunk 12: "Exile the top three cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of
         // those cards remain exiled, put them into your graveyard, then create a 0/1 … token for each card put into your graveyard this way. Those tokens
         // have "…"." (a delayed trigger about the cards still in exile, CR 603.7c, 400.7; the play permission, CR 601.2a, 305.1)

@@ -182,7 +182,9 @@ object DefinitionChecks {
                 }
                 if (type == "pay" && element.string("bind") == null)
                     found += "a Pay that nothing reads is a May; give it a bind for \"if you do\""
-                if (type == "discard" && element.typeOf("count") == "count")
+                // mh3 chunk 17: a count of cards bound earlier ("draw cards …, then discard that many") is a number, not the hand
+                if (type == "discard" && element.typeOf("count") == "count" &&
+                    ((element["count"] as? JsonObject)?.typeOf("objects") != "bound"))
                     found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
                 if (type == "cast" && "objects" in element && element.boolean("withoutPaying") && element["cost"] != null)
                     found += "cast either without paying or for a cost, not both"

@@ -199,6 +199,8 @@ internal object Mh3 {
     /** "sacrifice all creatures you control." (CR 701.21a) */
     val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+? you control)\.""")
 
+    /** "You may draw cards equal to its power. If you do, discard that many cards." (CR 121.1, 608.2c: "that many" is the number drawn) */
+    val MAY_DRAW_EQUAL_TO_IF_YOU_DO_DISCARD_THAT_MANY = Regex("""You may draw cards equal to (.+?)\. If you do, discard that many cards\.""")
     // mh3 chunk 12
     /** "Look at the top four cards of your library. You may put a land card from among them onto the battlefield tapped. If you don't, put a card
      * from among them into your hand. Put the rest on the bottom of your library in a random order." */

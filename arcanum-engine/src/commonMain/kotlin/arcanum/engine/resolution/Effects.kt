@@ -378,7 +378,11 @@ internal object Effects {
                 }
             }
             // fin: CR 500.9: an additional step right after this one, before those added earlier
-            is Effect.AdditionalStep -> act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
+            is Effect.AdditionalStep -> if (effect.afterPhase) {
+                // otj: CR 500.10: each one a phase of its own after this phase, holding only that step (Steps.afterPhase)
+                val n = scope.value(effect.count).coerceAtLeast(0)
+                act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = List(n) { effect.step } + act.state.turn.extraPhases)))
+            } else act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
             // fin: CR 724.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
             // leaves ([Resolution.finish]) and the turn goes on from its cleanup step ([arcanum.engine.turn.Steps.endTheTurn])
             Effect.EndTurn -> {

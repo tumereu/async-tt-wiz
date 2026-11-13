@@ -18,6 +18,7 @@ import arcanum.api.Zone
 
 /** Regular expressions of Lorwyn Eclipsed (ecl) wordings read in [Sentences]. */
 internal object Ecl {
+    val UNTIL_NEXT_END_STEP_PLAY_THOSE = Regex("""Until your next end step, you may play those cards(, and mana of any type can be spent to cast those spells)?\.""") // otj chunk 12
     // ecl chunk 01: blight (CR 701.68)
     val BLIGHT = Regex("""[Bb]light (\d+|X)""")
     val PLAYERS_BLIGHT = Regex("""(Target opponent|target opponent|Each opponent|each opponent|Each player|each player) blights (\d+)\.""")

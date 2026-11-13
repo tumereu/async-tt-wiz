@@ -33,10 +33,11 @@ internal object Hob {
     val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled that creature, (.+)""")
     val PUT_COUNTERS_ON_ONE_OR_MORE = Regex("""Whenever you put one or more counters on (.+ you control), (.+?) deals (\d+) damage to target opponent\.""")
     val PER_OPPONENT_EXILE_UNTIL_LEAVES = Regex("""For each opponent, exile up to one target (.+?) that player controls until (.+?) leaves the battlefield\.""")
-    val IT_GETS_FOR_EACH = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
+    val IT_GETS_FOR_EACH = Regex("""It gets (?:an additional )?([+-]\d+)/([+-]\d+) until end of turn for each (.+)\.""") // otj chunk 12: signed, "an additional"
     val TARGET_OPPONENT_SACRIFICES = Regex("""Target opponent sacrifices an? (.+?) of their choice\.""")
     val IF_THAT_CREATURE_IS_COUNTER_ON_IT = Regex("""If that creature is an? (.+?), put an? (\S+) counter on it\.""")
-    val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target player controls get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+    // otj chunk 12: also "target opponent" and "lose first strike and double strike"
+    val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target (player|opponent) controls (?:get ([+-]\d+)/([+-]\d+)|lose (.+?)) until end of turn\.""")
     val CREATE_X_TAPPED = Regex("""Create X tapped (\w+) tokens\.""")
     val A_PLAYER_LOSES_LIFE = Regex("""a player loses life""")
     val SACRIFICE_WHEN_YOU_DO_EXCESS = Regex("""You may sacrifice another creature\. When you do, (.+?) deals damage equal to that creature's power to another target creature\. If excess damage was dealt this way, amass (\w+) X, where X is that excess damage\.""")

@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 88
+    const val VERSION: Int = 89
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -737,7 +737,7 @@ object OracleParser {
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
-    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
+    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+|[A-Z][a-z]+s)""") // otj chunk 12: a creature type ("protection from Coyotes")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06

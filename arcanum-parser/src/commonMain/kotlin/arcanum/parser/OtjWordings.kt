@@ -80,6 +80,17 @@ internal object Otj {
     // otj chunk 11: Magebane Lizard
     val DEALS_DAMAGE_TO_THAT_PLAYER_EQUAL_TO = Regex("""(.+?) deals damage to that player equal to (.+)\.""")
     // otj chunk 11: Hollow Marauder, after "any number of target opponents each discard a card"
+    val INSTEAD_IF = Regex("""([A-Z][^.]+?) instead if ([^.]+)\.""")
+    val RETURN_IT_TO = Regex("""Return (?:it|that card) to (the battlefield|its owner's hand|your hand)( tapped)?""")
+    val EXILE_CARDS_EQUAL_TO_FROM_TOP = Regex("""[Ee]xile cards equal to (.+?) from the top of (target player's|target opponent's|your) library\.""")
+    val MAY_SEARCH_PUT_REPEAT_IF_SHUFFLE = Regex(
+        """[Yy]ou may search your library for an? (.+?) and put it onto the battlefield( tapped)?\. Then if (.+?), repeat this process once\. If you search your library this way, shuffle\.""")
+    val ITS_A_WITH_LOSES_OTHER_TYPES = Regex("""It's an? ([A-Za-z ]+?) with "(.+?),?" and it loses all other card types\.""")
+    val ADDITIONAL_STEPS_AFTER_THIS_PHASE = Regex("""[Yy]ou get (that many|an|\w+) additional (upkeep|draw) steps? after this phase\.""")
+    val FOR_EACH_OF_THEM_COPY = Regex("""[Ff]or each of them, create a( tapped)? token that's a copy of it\.""")
+    val COUNTER_FOR_EACH_OTHER_ENTERED = Regex("""[Pp]ut an? (\S+) counter on it for each other (.+?) that entered the battlefield under your control this turn\.""")
+    val EXILE_ANY_NUMBER_RETURN_REPEAT = Regex(
+        """Exile any number of (.+?), then return them to the battlefield under their owner's control\. Then repeat this process (X|\w+) more times?\.""")
     val FOR_EACH_WHO_DIDNT_DISCARD = Regex("""For each of those (opponents|players) who didn't discard (an? .+?), (.+)""")
 }
 
@@ -103,6 +114,15 @@ internal object OtjPhrases {
         if (text == "it's your combat phase") return arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
             arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers, arcanum.api.TurnStep.DeclareBlockers,
                 arcanum.api.TurnStep.CombatDamage, arcanum.api.TurnStep.EndOfCombat).map { arcanum.api.Condition.StepIs(it) })))
+        return null
+    }
+
+    private val CARD_OR_A_CARD = Regex("""(?:an? )?(.+?) card or an? ((?:(?! card).)+?)(?: card)?""")
+    fun noun(phrase: String): arcanum.api.ObjectFilter? {
+        // otj chunk 12: "a basic land card or a Desert card": a card of either kind
+        CARD_OR_A_CARD.matchEntire(phrase)?.let { m ->
+            return arcanum.api.ObjectFilter.Or(listOf(Filters.noun(m.groupValues[1]) ?: return null, Filters.noun(m.groupValues[2]) ?: return null))
+        }
         return null
     }
 }

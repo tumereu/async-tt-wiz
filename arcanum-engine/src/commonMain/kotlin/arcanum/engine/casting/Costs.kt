@@ -288,6 +288,7 @@ internal object Costs {
         is CostPart.ChoosePlayer -> "Choose a player"
         // ecl
         is CostPart.Choose -> "Choose"
+        is CostPart.RevealChoice -> "Reveal the chosen ${part.key}"
         else -> arcanum.engine.decision.Texts.costName(part)
     }
 

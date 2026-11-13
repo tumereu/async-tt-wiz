@@ -55,7 +55,8 @@ class MkmChunk04SurveilTest {
     private fun Trigger_attack(filter: ObjectFilter) = arcanum.api.Trigger.On(EventPattern.Attack(filter), oneOrMore = true)
 
     // CR 603.2c: one trigger for the batch of exiled objects, from the battlefield and from your graveyard; CR 707.9b: a copy "except it has flying"
-    // (the exception's ability is added); CR 701.25a surveil, CR 701.13a exile a card, CR 601.2c one target per other player
+    // (the exception's ability is added); CR 701.25a surveil, CR 701.13a exile a card, CR 601.2c one target per other player (CR 102.2, 102.3: every player but you, teammates
+    // included, not only opponents); CR 108.2: "a creature card from among them" is a card, not a token
     @Test
     fun sigridVerdictOfSpirits() = card(
         name = "Sigrid, Verdict of Spirits",
@@ -74,7 +75,7 @@ class MkmChunk04SurveilTest {
                 EventPattern.ZoneChange(and(creature, you), from = Zone.Battlefield, to = Zone.Exile),
                 EventPattern.ZoneChange(and(creature, ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard, to = Zone.Exile)),
                 oneOrMore = true),
-            Step.Choose(Choice.Objects(creature, n(0), n(1), from = Objects.EventObject(EventRole.After)), bind = "chosen", chooser = Players.You),
+            Step.Choose(Choice.Objects(and(creature, cardFilter), n(0), n(1), from = Objects.EventObject(EventRole.After)), bind = "chosen", chooser = Players.You),
             Step.If(Condition.NonEmpty("chosen"), listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.Bound("chosen"),
                 except = listOf(CopyException.AddAbilities(listOf(Keyword.Flying))))), Affected.Objects(target("token")), Duration.EndOfTurn)))),
             targets = listOf(slot("token", and(token, you)))),
@@ -85,7 +86,7 @@ class MkmChunk04SurveilTest {
         loyalty(-2, move(target("creature"), Zone.Exile), move(target("second creature"), Zone.Exile),
             targets = listOf(slot("creature", and(creature, you)),
                 arcanum.api.TargetSlot("second creature", arcanum.api.TargetKind.Objects(and(creature, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer)))),
-                    min = n(0), max = n(1), perPlayer = PlayerFilter.Opponent))),
+                    min = n(0), max = n(1), perPlayer = PlayerFilter.Not(PlayerFilter.You)))),
     )
 
     // CR 305.6: the basic land types give the mana abilities; CR 614.1c: enters tapped

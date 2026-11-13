@@ -195,6 +195,8 @@ internal object Answers {
             is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
+            // mkm fix: "Reveal the creature type you chose": only a choice the source keeps (CR 118.3)
+            is CostPart.RevealChoice -> plan.snap.state.obj(plan.sourceId)?.linked?.get(part.key) != null
             is CostPart.RemoveCounters -> when (val from = part.from) {
                 is arcanum.api.CostObjects.Choose -> Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                     .let { choice -> choice == null || choice.options.size >= choice.min }

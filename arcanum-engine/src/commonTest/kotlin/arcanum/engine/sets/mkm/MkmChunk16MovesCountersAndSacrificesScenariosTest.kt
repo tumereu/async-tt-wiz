@@ -52,6 +52,17 @@ class MkmChunk16MovesCountersAndSacrificesScenariosTest {
         }
     }
 
+    // CR 118.12: the prompt of the payment says everything paying does, the haste sentence after "If you do" included
+    @Test
+    fun payPromptCoversTheWholeRest() = scenario(players = 3) {
+        alice.battlefield(baron, Plain.idol, outlet, "Mountain")
+        setup()
+        alice.activates(outlet, choosing = listOf(Plain.idol))
+        resolveAll()
+        assertEquals("You may pay {R}. If you do, create a 1/1 red Goblin creature token. It gains haste until end of turn.",
+            decision<Decision.May>().text)
+    }
+
     // CR 603.2: an opponent's artifact dying triggers it too ("an artifact"), and declining the payment makes nothing
     @Test
     fun decliningMakesNoGoblin() = scenario(players = 3) {

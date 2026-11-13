@@ -2696,6 +2696,8 @@ internal class Sentences(
         hobCostPart(text)?.let { return it } // hob
         fraCostPart(text)?.let { return it } // fra
         isdCostPart(text)?.let { return it } // isd
+        // mkm fix: "Reveal the creature type you chose" (the source's secret chosen type)
+        if (Mkm.REVEAL_THE_TYPE_YOU_CHOSE.matches(text)) return listOf(CostPart.RevealChoice("type"))
         // fdn chunk 08: "Remove six counters from among creatures you control" (any kinds, spread as the payer chooses, CR 118.3, 601.2h)
         Fdn.REMOVE_COUNTERS_FROM_AMONG.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -6631,7 +6633,7 @@ internal class Sentences(
         }
         // gtc chunks 06-10: the Primordials: "For each opponent, exile up to one target creature that player controls and that player
         // gains life equal to its power." (one target for each opponent, CR 601.2c)
-        Gtc.FOR_EACH_OPPONENT.matchEntire(sentence)?.let { m -> return gtcForEachOpponent(m.groupValues[1], context) }
+        Gtc.FOR_EACH_OPPONENT.matchEntire(sentence)?.let { m -> return gtcForEachOpponent(m.groupValues[2], gtcPerPlayer(m.groupValues[1]), context) }
         return null
     }
 
@@ -7287,11 +7289,15 @@ internal class Sentences(
         Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
     } ?: Values.value(text)
 
-    /** gtc: "For each opponent, …" of the Primordials: a target for each opponent among that player's objects (CR 601.2c). */
-    private fun gtcForEachOpponent(text: String, context: Context): List<Step>? {
+    /** "For each opponent" / "For each other player": the players [Gtc.FOR_EACH_OPPONENT] gives a target each (CR 102.2, 102.3: other
+     * players include teammates, who aren't opponents). */
+    private fun gtcPerPlayer(who: String): PlayerFilter = if (who == "other player") PlayerFilter.Not(PlayerFilter.You) else PlayerFilter.Opponent
+
+    /** gtc: "For each opponent, …" of the Primordials: a target for each of [per] among that player's objects (CR 601.2c). */
+    private fun gtcForEachOpponent(text: String, per: PlayerFilter, context: Context): List<Step>? {
         val eot = arcanum.api.Duration.EndOfTurn
         fun slot(name: String, filter: ObjectFilter, upTo: Boolean) = TargetSlot(name, TargetKind.Objects(filter),
-            min = Value.Fixed(if (upTo) 0 else 1), max = Value.Fixed(1), perPlayer = PlayerFilter.Opponent)
+            min = Value.Fixed(if (upTo) 0 else 1), max = Value.Fixed(1), perPlayer = per)
         val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer))
         val theirGraveyard = Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.SlotPlayer)))
         Gtc.PRIMORDIAL_EXILE_GAIN_LIFE.matchEntire(text)?.let { m ->
@@ -10695,7 +10701,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         // fra chunk 05: "For each opponent, destroy up to one target creature or planeswalker that player controls." and the like:
         // one target for each opponent (CR 601.2c)
-        Gtc.FOR_EACH_OPPONENT.matchEntire(sentence)?.let { m -> fraForEachOpponent(m.groupValues[1], context)?.let { return it } }
+        Gtc.FOR_EACH_OPPONENT.matchEntire(sentence)?.let { m -> fraForEachOpponent(m.groupValues[2], gtcPerPlayer(m.groupValues[1]), context)?.let { return it } }
         // fra chunk 08: "search your library for a card, put it into your hand, shuffle, then discard a card at random."
         if (sentence == "Search your library for a card, put it into your hand, shuffle, then discard a card at random.")
             return listOf(Step.Do(Effect.Search(Players.You, ObjectFilter.Any, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
@@ -10988,7 +10994,7 @@ internal class Sentences(
     }
 
     /** fra: "For each opponent, [verb] up to one target [noun] that player controls[, …]" (CR 601.2c: one target per opponent). */
-    private fun fraForEachOpponent(text: String, context: Context): List<Step>? {
+    private fun fraForEachOpponent(text: String, per: PlayerFilter, context: Context): List<Step>? {
         val m = Fra.PER_OPPONENT.matchEntire(text) ?: return null
         val noun = m.groupValues[3]
         val filter = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer)))
@@ -10996,7 +11002,7 @@ internal class Sentences(
         // creature that player controls.") gets a new name, so the two aren't one slot
         val name = spmNewSlotName(context, Filters.slotName(noun))
         context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (m.groupValues[2].isNotEmpty()) 0 else 1), max = Value.Fixed(1),
-            perPlayer = PlayerFilter.Opponent)
+            perPlayer = per)
         val it = Objects.Target(name)
         val verb = m.groupValues[1]
         val rest = m.groupValues[4]
@@ -16130,7 +16136,9 @@ internal class Sentences(
         // mkm chunk 04: "You may choose a creature card from among them. Until end of turn, target token you control becomes a copy of it, except it
         // has flying." after a batch trigger (the target is chosen as the ability goes on the stack, the card as it resolves; CR 707.2, 707.9a)
         Mkm.MAY_CHOOSE_FROM_AMONG_THEM_TARGET_BECOMES_COPY.matchEntire(text)?.let { m ->
-            val chosen = Filters.noun(m.groupValues[1]) ?: return null
+            // "a creature card": a card, not a token (CR 108.2)
+            val chosen = (Filters.noun(m.groupValues[1]) ?: return null)
+                .let { if (m.groupValues[1].endsWith(" card")) Filters.all(it, ObjectFilter.Category(arcanum.api.ObjectCategory.Card)) else it }
             val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
             val keyword = OracleParser.keyword(m.groupValues[3].replaceFirstChar { it.uppercase() }) ?: return null
             return listOf(Step.Choose(arcanum.api.Choice.Objects(chosen, Value.Fixed(0), Value.Fixed(1), from = Objects.EventObject(arcanum.api.EventRole.After)),
@@ -16285,6 +16293,23 @@ internal class Sentences(
         }
         // mkm chunk 08: "If the card's mana value is 1 or less, create a 1/1 … token." (the card named last; its last known information once
         // it has moved, CR 608.2h)
+        // mkm fix: "Then secretly choose Human, Merfolk, or Goblin." (kept as the source's chosen type, secret until revealed; CR 607.2d)
+        Mkm.SECRETLY_CHOOSE_TYPE_AMONG.matchEntire(sentence)?.let { m ->
+            val types = m.groupValues[1].split(LazyRegexes.OR_LIST).map { it.takeIf { t -> t in RulesWords.subtypes } ?: return@let }
+            return listOf(Step.Choose(arcanum.api.Choice.CreatureTypeAmong(types.map { Subtype(it) }), bind = "type", chooser = Players.You,
+                remember = true, secret = true))
+        }
+        // mkm fix: "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end
+        // of turn." (the target is chosen as it is activated; the type is the one its source chose, CR 607.2d, 608.2h)
+        Mkm.IF_TARGET_IS_CHOSEN_TYPE.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return@let)
+            val outer = context.it
+            context.it = target
+            val then = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, context)
+            context.it = outer
+            then ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type"))), then = then))
+        }
         Mkm.IF_ITS_MANA_VALUE.matchEntire(sentence)?.let { m ->
             val it = context.it ?: return@let
             val comparison = if (m.groupValues[2] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast

@@ -85,6 +85,10 @@ sealed interface CostPart {
     @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null, val remember: String? = null) : CostPart
     @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
+    // mkm fix
+    /** "Reveal the creature type you chose": reveals the secret choice the source keeps as card memory under [key] (a
+     * [Step.Choose] with secret, CR 607.2d); it can't be paid when the source keeps no such choice (CR 118.3). */
+    @Serializable @SerialName("reveal-choice") data class RevealChoice(val key: String) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
     /** Remove [amount] counters of [kind] from each of [from]'s objects, or ([distributed]) [amount] in total from among

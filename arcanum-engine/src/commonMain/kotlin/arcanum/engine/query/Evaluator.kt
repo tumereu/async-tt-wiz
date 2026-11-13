@@ -110,6 +110,10 @@ internal data class Context(
      * (CR 601.2a): [ObjectFilter.WasCast] from their zone, a spell, controlled by [you]. For alternative costs given to
      * spells cast from a zone and to the next spells cast. */
     val prospectiveCast: Boolean = false,
+    /** mkm fix: the object an event of the history is read as, as it was at that event (CR 603.4: "if a face-down creature entered
+     * … this turn" is about the creature as it entered, not as it is now): its statuses and, when it was face down then and isn't
+     * now, its face-down characteristics (CR 708.2a). */
+    val asOf: GameObject? = null,
 )
 
 /**
@@ -322,9 +326,19 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun characteristics(id: ObjectId): Characteristics? = board.characteristics(id)
 
+    /** [then]'s characteristics as of an event when its face-down status has changed since: face down then, the face-down
+     * values (CR 708.2a); null to read them as they are now. */
+    private fun asOfCharacteristics(then: GameObject): Characteristics? {
+        val now = state.obj(then.id) ?: return null
+        if (now.faceDown == then.faceDown || !then.faceDown) return null
+        val face = arcanum.engine.view.Copiable.faceDown(then)
+        return arcanum.engine.view.Copiable.initial(then, listOf(arcanum.engine.view.IndexedFace(0, face)), null)
+    }
+
     fun matches(filter: ObjectFilter, id: ObjectId): Boolean {
-        val o = state.obj(id)
-        val c = characteristics(id)
+        val then = ctx.asOf?.takeIf { it.id == id }
+        val o = then ?: state.obj(id)
+        val c = then?.let { asOfCharacteristics(it) } ?: characteristics(id)
         return when (filter) {
             ObjectFilter.Any -> true
             is ObjectFilter.And -> filter.all.all { matches(it, id) }
@@ -1062,7 +1076,7 @@ internal object History {
         val number = turn ?: state.turn.number
         return when (measure) {
             arcanum.api.Measure.Events -> state.eventsOf(number).count { change ->
-                arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change).isNotEmpty()
+                arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change, history = true).isNotEmpty()
             }
             // mkm chunk 06: each object once ("three or more creatures attacked": a creature attacking in two combats is one creature)
             arcanum.api.Measure.Objects -> instances(evaluator, event, number).flatMap { e ->
@@ -1132,7 +1146,7 @@ internal object History {
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern, turn: Int? = null): List<TriggerEvent> {
         evaluator.board.readingLog()
         val state = evaluator.board.state
-        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
+        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it, history = true) }
     }
 }
 

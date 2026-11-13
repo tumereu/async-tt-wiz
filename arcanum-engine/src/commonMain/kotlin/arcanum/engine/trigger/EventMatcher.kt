@@ -49,17 +49,22 @@ internal object EventMatcher {
         else -> filter
     }
 
-    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
+    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null, history: Boolean = false): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> {
             // tmt backfill: an object that left its zone is tested as it last existed, its controller too (CR 603.10a,
             // 608.2h), whichever board asks: "if a permanent left the battlefield under your control this turn" in a
             // static ability's condition
             val back = Evaluator(LastKnownBoard(e.board), e.ctx)
             moves(change).filter { m ->
+                // mkm fix: an event of the history is about the object as it was then: one that entered and is still there is
+                // read as it entered (CR 603.4, 708.2a: a creature that entered face down and was turned face up later still
+                // entered face down)
+                val tested = tested(m, pattern.from, proposed)
+                val asOf = if (history && tested == m.after.id && m.to == Zone.Battlefield) back.with(back.ctx.copy(asOf = m.after)) else back
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
-                    (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
+                    (asOf.matches(pattern.objects, tested) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
                     (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
@@ -507,4 +512,10 @@ internal object EventMatcher {
 internal class LastKnownBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
     override fun controller(id: ObjectId): PlayerId? = base.controller(id)
         ?: if (base.state.obj(id) == null && id !in base.state.stackItems) { base.readingLog(); base.snapshot(id)?.let { it.controller ?: it.owner } } else null
+}
+
+/** A [base] board without last known information: an object that has left its zone is gone (a "for as long as" duration
+ * tracking it ends, CR 611.2b, 400.7). */
+internal class CurrentBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
+    override fun snapshot(id: ObjectId): arcanum.engine.state.ObjectSnapshot? = null
 }

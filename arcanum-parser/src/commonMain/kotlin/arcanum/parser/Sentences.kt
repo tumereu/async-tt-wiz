@@ -2837,7 +2837,7 @@ internal class Sentences(
             val left = (event as? EventPattern.ZoneChange)?.takeIf { it.objects == ObjectFilter.Is(Objects.Self) && it.from == Zone.Battlefield }
             val own = if (left != null) (selfOwn as Value.Of).copy(objects = Objects.EventObject(EventRole.Before)) else selfOwn
             val plain = read(text, null, seedTargets, event, them, that, itZone)
-            if (plain != null && !plain.toString().contains("CastX(")) return plain
+            if (plain != null && !plain.usesCastX()) return plain
             return read(text, own, seedTargets, event, them, that, itZone) ?: plain
         }
         return read(text, defined, seedTargets, event, them, that, itZone)?.let { ltrBindAmassedArmy(text, it) } // ltr
@@ -8422,6 +8422,10 @@ internal class Sentences(
             val first = effect(m.groupValues[1] + ".", context) ?: return@let
             announcedX = true
             val reflexive = try { instructions(m.groupValues[2]) } finally { announcedX = false } ?: return@let
+            // CR 603.12, 107.1c: after "any number" (a choice that may be empty) the trigger needs the action to have happened to
+            // something: zero chosen ("Tap any number of untapped creatures you control" tapping none) is no event, no trigger
+            val anyNumber = first.filterIsInstance<Step.Choose>().lastOrNull { (it.choice as? arcanum.api.Choice.Objects)?.min == Value.Fixed(0) }
+            if (anyNumber != null) return first + Step.If(arcanum.api.Condition.NonEmpty(anyNumber.bind), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive))))
             return first + Step.Do(Effect.ReflexiveTrigger(reflexive))
         }
         // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
@@ -16247,8 +16251,8 @@ internal class Sentences(
             val destination = if (m.groupValues[4] == "to your hand") Destination(Zone.Hand)
                 // mom chunk 10: Deeproot Wayfinder "return a land card from your graveyard to the battlefield tapped"
                 else if (m.groupValues[4].startsWith("to the battlefield")) Destination(Zone.Battlefield, tapped = m.groupValues[4].endsWith(" tapped"))
-                // several cards put on top need an order (CR 401.4): not read here
-                else if (max == 1) Destination(Zone.Library, libraryPosition = 0) else return null
+                // several cards put on top at once: their owner orders them as they go (CR 401.4)
+                else Destination(Zone.Library, libraryPosition = 0)
             val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(min), Value.Fixed(max)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), destination)))
@@ -25443,6 +25447,18 @@ private fun Instructions.withX(x: Value): Instructions {
         else -> e
     }
     return json.decodeFromJsonElement(Instructions.serializer(), replace(json.encodeToJsonElement(Instructions.serializer(), this)))
+}
+
+/** mom fixes: whether any value in these instructions is the X an object was cast with ([Value.CastX]), found by walking the JSON
+ * form's type discriminators, as [withX] does. */
+private fun Instructions.usesCastX(): Boolean {
+    val castX = Value.CastX.serializer().descriptor.serialName
+    fun any(e: kotlinx.serialization.json.JsonElement): Boolean = when (e) {
+        is kotlinx.serialization.json.JsonObject -> (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == castX || e.values.any { any(it) }
+        is kotlinx.serialization.json.JsonArray -> e.any { any(it) }
+        else -> false
+    }
+    return any(kotlinx.serialization.json.Json.encodeToJsonElement(Instructions.serializer(), this))
 }
 
 /** "[steps] unless [payer] pays [cost]" (CR 118.12a): the payer may pay; if they didn't, [steps] happen (D52). The

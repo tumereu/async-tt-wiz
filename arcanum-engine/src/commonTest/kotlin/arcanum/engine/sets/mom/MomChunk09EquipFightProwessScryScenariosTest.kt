@@ -51,7 +51,7 @@ class MomChunk09EquipFightProwessScryScenariosTest {
         OracleCard("Invasion of Corvanth", "{2}{R}", "Battle — Siege",
             "When this Siege enters, it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature.", defense = "5"),
         OracleCard("Acolytes of the Pyre", null, "Creature — Human Monk", "Prowess\nIf a noncreature source you control would deal damage to a creature, battle, or opponent, it deals that much damage plus 2 instead.",
-            "4/4", colorIndicator = "R"))
+            "4", "4", colorIndicator = "R"))
     private val acolytes = Cards.invent("Pyrebound Acolytes", "{2}{R}", "Creature — Human Monk", """
         Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)
         If a noncreature source you control would deal damage to a creature, battle, or opponent, it deals that much damage plus 2 instead.
@@ -59,7 +59,7 @@ class MomChunk09EquipFightProwessScryScenariosTest {
     private val mireholt = Cards.inventFaces("Transform",
         OracleCard("Invasion of Mireholt", "{G}{U}", "Battle — Siege",
             "When this Siege enters, scry 3, then reveal the top card of your library. If it's a land or double-faced card, draw a card.", defense = "4"),
-        OracleCard("Towering Slabhide", null, "Creature — Beast", "Trample, ward {2}\nOther transformed permanents you control have trample and ward {2}.", "4/4",
+        OracleCard("Towering Slabhide", null, "Creature — Beast", "Trample, ward {2}\nOther transformed permanents you control have trample and ward {2}.", "4", "4",
             colorIndicator = "GU"))
     private val lancer = Cards.inventFaces("Transform",
         face("Sandjackal Lancer", "{1}{R}", "Creature — Jackal Warrior", """

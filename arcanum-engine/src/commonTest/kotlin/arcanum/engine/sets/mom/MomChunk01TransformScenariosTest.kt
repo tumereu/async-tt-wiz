@@ -36,7 +36,7 @@ class MomChunk01TransformScenariosTest {
         """.trimIndent(), "3/3", null, "U"))
     private val fen = Cards.inventFaces("Transform",
         OracleCard("Siege of the Glass Fen", "{2}{R}", "Battle — Siege", "", defense = "5"),
-        OracleCard("Glass Fen Warden", null, "Creature — Elemental", "", "2/2", colorIndicator = "R"))
+        OracleCard("Glass Fen Warden", null, "Creature — Elemental", "", "2", "2", colorIndicator = "R"))
     private val vessa = Cards.inventFaces("Transform",
         face("Vessa, Widow of Ash", "{1}{B}{B}", "Legendary Creature — Elf Noble", """
             {T}, Sacrifice another creature or artifact: Vessa deals X damage to target opponent or battle and you gain X life, where X is the sacrificed permanent's mana value.
@@ -67,24 +67,30 @@ class MomChunk01TransformScenariosTest {
             You may cast spells as though they had flash.
             Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.
         """.trimIndent(), "4/6", null, "U"))
-    // the back faces of Sieges, alone (a Siege's back face is reached by defeating it, CR 310.11b)
-    private val cinder = Cards.invent("Momentide Reaper", "{B}{R}", "Creature — Zombie Elemental", """
-        Menace
-        At the beginning of your end step, put a +1/+1 counter on this creature if a permanent was put into a graveyard from the battlefield this turn.
-    """.trimIndent(), "2/1")
-    private val ilsabet = Cards.invent("Momentide Monarch", "{4}{B}{B}", "Legendary Creature — Human Noble", """
-        Menace, deathtouch
-        At the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.
-    """.trimIndent(), "3/6")
+    // the back faces of Sieges, set up back face up (a Siege's back face is reached by defeating it, CR 310.12b, 712.8e)
+    private val cinder = Cards.inventFaces("Transform",
+        OracleCard("Invasion of Momentide Ash", "{3}{B}{R}", "Battle — Siege", "", defense = "5"),
+        face("Momentide Reaper", null, "Creature — Zombie Elemental", """
+            Menace
+            At the beginning of your end step, put a +1/+1 counter on this creature if a permanent was put into a graveyard from the battlefield this turn.
+        """.trimIndent(), "2/1", null, "BR"))
+    private val ilsabet = Cards.inventFaces("Transform",
+        OracleCard("Invasion of Momentide Court", "{4}{B}{B}", "Battle — Siege", "", defense = "4"),
+        face("Momentide Monarch", null, "Legendary Creature — Human Noble", """
+            Menace, deathtouch
+            At the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.
+        """.trimIndent(), "3/6", null, "B"))
     private val sandmere = Cards.inventFaces("Transform",
         OracleCard("Invasion of Sandmere", "{1}{W}", "Battle — Siege",
             "When this Siege enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.",
             defense = "3"),
         OracleCard("Glintshield Array", null, "Enchantment", "Sacrifice this enchantment: Creatures you control gain hexproof and indestructible until end of turn.", colorIndicator = "W"))
-    private val grothmaw = Cards.invent("Momentide Apex", "{X}{G}{G}", "Legendary Creature — Dinosaur", """
-        Reach
-        For each non-Human creature you control, you may have that creature assign its combat damage as though it weren't blocked.
-    """.trimIndent(), "8/8")
+    private val grothmaw = Cards.inventFaces("Transform",
+        OracleCard("Invasion of Momentide Wilds", "{X}{G}{G}", "Battle — Siege", "", defense = "6"),
+        face("Momentide Apex", null, "Legendary Creature — Dinosaur", """
+            Reach
+            For each non-Human creature you control, you may have that creature assign its combat damage as though it weren't blocked.
+        """.trimIndent(), "8/8", null, "G"))
     // the back face's text on a front face, to cast it
     private val tagCall = Cards.invent("Momentide Tag Call", "{2}{R}{W}", "Sorcery",
         "Create two 3/2 red and white Warrior creature tokens with \"Whenever this token and at least one other creature token attack, put a +1/+1 counter on this token.\"")
@@ -95,7 +101,7 @@ class MomChunk01TransformScenariosTest {
         """.trimIndent(), loyalty = "4", colorIndicator = "WU"))
     private val concordia = Cards.inventFaces("Transform",
         OracleCard("Invasion of Concordia", "{5}", "Battle — Siege", "When this Siege enters, exile target nonland permanent an opponent controls that isn't exactly two colors.", defense = "4"),
-        OracleCard("Accord Paragon", null, "Artifact Creature — Construct", "", "5/5"))
+        OracleCard("Accord Paragon", null, "Artifact Creature — Construct", "", "5", "5"))
 
     private val bear = Cards.invent("Momentide Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val human = Cards.invent("Momentide Squire", "{1}{W}", "Creature — Human Soldier", "", "2/2")
@@ -106,6 +112,7 @@ class MomChunk01TransformScenariosTest {
     private val insight = Cards.invent("Momentide Insight", "{U}", "Instant", "Target player draws two cards.")
     private val icon = Cards.invent("Momentide Icon", "{W}{U}", "Artifact", "")
     private val idol = Cards.invent("Momentide Idol", "{W}", "Artifact", "")
+    private val pebble = Cards.invent("Momentide Pebble", "{0}", "Artifact", "")
     private val ox = Cards.invent("Momentide Ox", "{4}{G}", "Creature — Ox", "", "4/4")
 
     private fun Scenario.libraries() = players.forEach { it.library("Island", "Island", "Island", "Island", "Island", "Island") }
@@ -245,6 +252,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun theReaperGrowsOnlyAfterAPermanentWentToAGraveyard() = scenario {
         alice.battlefield(cinder)
+        backFaceUp(cinder)
         libraries()
         advanceTo(TurnStep.End)
         resolveAll()
@@ -255,6 +263,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun theReaperGrowsAfterAnOpponentsCreatureDied() = scenario {
         alice.battlefield(cinder, "Mountain")
+        backFaceUp(cinder)
         alice.hand(zap)
         bob.battlefield(bear)
         libraries()
@@ -269,6 +278,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun ilsabetDrawsNothingAfterCombatDamageSinceHerLastTurn() = scenario(players = 3) {
         alice.battlefield(ilsabet)
+        backFaceUp(ilsabet)
         bob.battlefield(bear)
         libraries()
         advanceTo(TurnStep.DeclareAttackers, turn = 2)
@@ -285,6 +295,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun ilsabetDrawsWhenNotDealtCombatDamage() = scenario(players = 3) {
         alice.battlefield(ilsabet)
+        backFaceUp(ilsabet)
         libraries()
         advanceTo(TurnStep.Upkeep, turn = 4)
         resolveAll()
@@ -321,6 +332,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun grothmawLetsABlockedCreatureHitThePlayer() = scenario {
         alice.battlefield(grothmaw, ox)
+        backFaceUp(grothmaw)
         bob.battlefield(wall)
         libraries()
         advanceTo(TurnStep.DeclareAttackers)
@@ -340,6 +352,7 @@ class MomChunk01TransformScenariosTest {
     @Test
     fun grothmawLeavesHumansBlocked() = scenario {
         alice.battlefield(grothmaw, human)
+        backFaceUp(grothmaw)
         bob.battlefield(wall)
         libraries()
         advanceTo(TurnStep.DeclareAttackers)
@@ -377,6 +390,25 @@ class MomChunk01TransformScenariosTest {
         resolveAll()
         advanceTo(TurnStep.DeclareAttackers, turn = 3)
         return state.battlefield.filter { state.obj(it)?.let { o -> nameOf(o) } == "Warrior Token" }.also { assertEquals(2, it.size) }
+    }
+
+    // CR 603.12, 107.1c: tapping no creatures is no event, so the reflexive trigger doesn't trigger (a mana value 0 permanent stays)
+    @Test
+    fun aldricTappingNoCreaturesShufflesNothing() = scenario {
+        alice.battlefield(aldric, counters = listOf(CounterKind.Loyalty to 4))
+        backFaceUp(aldric)
+        alice.battlefield(bear)
+        bob.battlefield(pebble)
+        libraries()
+        alice.activates(aldric)
+        resolveAll()
+        alice.chooses()
+        resolveAll()
+        expect {
+            pebble.zone shouldBe Zone.Battlefield
+            bear.tapped shouldBe false
+            stack.size shouldBe 0
+        }
     }
 
     // CR 603.12, 107.3c: two creatures tapped make X 2; CR 701.24a: the target is shuffled into its owner's library

@@ -27,9 +27,9 @@ class MomChunk02TransformScenariosTest {
         OracleCard("Invasion of Drakmoor", "{1}{R}", "Battle — Siege",
             "When this Siege enters, reveal any number of Dragon cards from your hand. When you do, this Siege deals X plus 2 damage to any other target, where X is the number of cards revealed this way. (X can be 0.)",
             defense = "5"),
-        OracleCard("Unbowed Stormwing", null, "Creature — Dragon", "Flying, trample\nWhenever a Dragon you control attacks, it deals 2 damage to any target.", "4/4",
+        OracleCard("Unbowed Stormwing", null, "Creature — Dragon", "Flying, trample\nWhenever a Dragon you control attacks, it deals 2 damage to any target.", "4", "4",
             colorIndicator = "R"))
-    // the back faces of Sieges, alone (a Siege's back face is reached by defeating it, CR 310.11b)
+    // the back faces of Sieges, alone (a Siege's back face is reached by defeating it, CR 310.12b)
     private val stormwing = Cards.invent("Momentide Stormwing", "{3}{R}{R}", "Creature — Dragon", """
         Flying, trample
         Whenever a Dragon you control attacks, it deals 2 damage to any target.

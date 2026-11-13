@@ -11,7 +11,10 @@ import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.cards.face
 import arcanum.engine.decision.Decision
+import arcanum.engine.input.Attack
 import arcanum.engine.input.Input
+import arcanum.engine.state.TargetRef
+import arcanum.parser.OracleCard
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.dft.yes
 import arcanum.engine.sets.fin.choose
@@ -63,9 +66,13 @@ class MomChunk07MillScenariosTest {
             Menace (This creature can't be blocked except by two or more creatures.)
             When this creature transforms into Ghastly Spokewheel, put target permanent card with mana value 2 or less from a graveyard onto the battlefield under your control.
         """.trimIndent(), "4/5", null, "B"))
-    // Lazotep Convert's text on a single-faced card (a Siege's back face can't be set up face up, see notes)
-    private val mimic = Cards.invent("Lazuli Mimic", "{2}{U}{B}", "Creature — Zombie",
-        "You may have this creature enter as a copy of any creature card in a graveyard, except it's a 4/4 black Zombie in addition to its other colors and types.", "4/4")
+    // Lazotep Convert's text on a Siege's back face, reached by defeating the Siege (CR 310.12b)
+    private val mimic = Cards.inventFaces("Transform",
+        OracleCard("Invasion of Lazuli", "{1}{U}{B}", "Battle — Siege", "", defense = "2"),
+        face("Lazuli Mimic", null, "Creature — Zombie",
+            "You may have this creature enter as a copy of any creature card in a graveyard, except it's a 4/4 black Zombie in addition to its other colors and types.",
+            "4/4", null, "UB"))
+    private val mimicAttacker = Cards.invent("Lazuli Raider", "{1}{B}", "Creature — Zombie", "", "2/2")
     private val skirmisher = Cards.invent("Darting Skirmisher", "{2}{B}", "Creature — Faerie Rogue", """
         Flying
         When this creature dies, each player mills two cards. Then you may exile this card. When you do, put target creature or battle card from your graveyard on top of your library. (To mill two cards, a player puts the top two cards of their library into their graveyard.)
@@ -238,13 +245,20 @@ class MomChunk07MillScenariosTest {
         }
     }
 
-    // CR 707.9b: a copy of Bob's graveyard creature that is also a 4/4 black Zombie; CR 614.1c: the card stays in the graveyard
+    // CR 712.11a, 707.9b: the transformed Siege enters as a copy of Bob's graveyard creature that is also a 4/4 black Zombie; CR 614.1c: the card stays in the graveyard
     @Test
     fun mimicEntersAsACopyOfAGraveyardCreatureCard() = scenario {
-        alice.battlefield("Island", "Island", "Swamp", "Swamp")
-        alice.hand(mimic)
+        alice.battlefield(mimic, counters = listOf(CounterKind.Defense to 2))
+        alice.battlefield(mimicAttacker)
         bob.graveyard(hulk)
-        alice.casts(mimic)
+        alice.library("Island", "Island")
+        bob.library("Island", "Island")
+        advanceTo(TurnStep.DeclareAttackers)
+        perform(Input.DeclareAttackers(alice.id, listOf(Attack(card(mimicAttacker), TargetRef.Object(card(mimic))))))
+        advanceTo(TurnStep.CombatDamage)
+        // CR 310.12b, 704.5v: defeated, it's exiled and cast transformed
+        allPass()
+        yes()
         resolveAll()
         drive(
             { d: Decision -> d is Decision.ChooseObjects } to { alice.chooses(hulk) },

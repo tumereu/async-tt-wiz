@@ -491,9 +491,11 @@ class MomChunk01TransformTest {
             loyalty(-3,
                 Step.Choose(Choice.Objects(and(not(tapped), creature, you), min = n(0), max = null), bind = "tapped", chooser = Players.You),
                 tapIt(Objects.Bound("tapped")),
-                reflexive(move(target("permanent"), Zone.Library), Step.Do(Effect.Shuffle(Players.OwnerOf(target("permanent")))),
-                    targets = listOf(slot("permanent", and(nonland, permanentFilter, opponents,
-                        ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Bound("tapped"))))))),
+                // CR 603.12, 107.1c: tapping none is no event, so the reflexive trigger needs a creature tapped
+                ifThen(Condition.NonEmpty("tapped"),
+                    reflexive(move(target("permanent"), Zone.Library), Step.Do(Effect.Shuffle(Players.OwnerOf(target("permanent")))),
+                        targets = listOf(slot("permanent", and(nonland, permanentFilter, opponents,
+                            ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Bound("tapped")))))))),
             ),
         ),
     )

@@ -166,10 +166,8 @@ internal object Effects {
             is Effect.RemoveCounters -> {
                 var removed = 0
                 scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
-                    val n = scope.value(effect.amount)
-                    val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
-                    var left = n
-                    kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
+                    // CR 608.2d: of no named kind, the effect's controller chooses which counters
+                    removed += Actions.removeChosenCounters(act, scope.you, scope.self, id, effect.kind, scope.value(effect.amount))
                 }
                 // gtc: "Draw that many cards": the number actually removed
                 effect.bind?.let { scope.bind(it, NamedValue.Number(removed)) }

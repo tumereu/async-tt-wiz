@@ -813,6 +813,38 @@ internal object Actions {
         return n
     }
 
+    /**
+     * Removes [amount] counters from object [id]: of [kind], or, with [kind] null ("remove up to three counters from target
+     * creature"), counters of any kinds [chooser] chooses one at a time as the effect applies (CR 608.2d, 609.3: no choice when
+     * one kind is there or every counter goes). Returns the number removed.
+     */
+    fun removeChosenCounters(act: Act, chooser: PlayerId, source: ObjectId?, id: ObjectId, kind: CounterKind?, amount: Int): Int {
+        if (kind != null) return removeCounters(act, TargetRef.Object(id), kind, amount)
+        val there = act.obj(id)?.counters?.filter { it.count > 0 }?.associate { it.kind to it.count }.orEmpty()
+        val total = there.values.sum()
+        val taken: Map<CounterKind, Int> = if (there.size <= 1 || amount >= total) there.mapValues { (_, c) -> minOf(c, amount) }
+        else {
+            val left = there.toMutableMap()
+            val chosen = mutableMapOf<CounterKind, Int>()
+            repeat(amount) {
+                val labels = left.filterValues { it > 0 }.keys.associateBy { counterLabel(it) }
+                val k = labels.getValue(act.chooseOption(chooser, source, labels.keys.toList(), text = "Choose a counter to remove"))
+                left[k] = left.getValue(k) - 1
+                chosen[k] = (chosen[k] ?: 0) + 1
+            }
+            chosen
+        }
+        return taken.entries.sumOf { (k, n) -> removeCounters(act, TargetRef.Object(id), k, n) }
+    }
+
+    /** A counter kind in a few words for a choice: "+1/+1", "stun", "flying". */
+    private fun counterLabel(kind: CounterKind): String = when (kind) {
+        is CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
+        is CounterKind.Named -> kind.name
+        else -> (kotlinx.serialization.json.Json.encodeToJsonElement(CounterKind.serializer(), kind) as kotlinx.serialization.json.JsonObject)
+            .let { o -> (o["keyword"] ?: o["type"])?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content ?: it.toString() } ?: kind.toString() }
+    }
+
     // ---- Tapping (CR 701.26)
 
     fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =

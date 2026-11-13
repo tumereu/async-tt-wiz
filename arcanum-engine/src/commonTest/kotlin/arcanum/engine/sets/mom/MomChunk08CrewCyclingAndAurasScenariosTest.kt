@@ -62,7 +62,7 @@ class MomChunk08CrewCyclingAndAurasScenariosTest {
 
     private val siege = Cards.inventFaces("Transform",
         OracleCard("Siege of the Rusted Spire", "{2}{R}", "Battle — Siege", "", defense = "5"),
-        OracleCard("Rusted Spire Keeper", null, "Creature — Construct", "", "2/2", colorIndicator = "R"))
+        OracleCard("Rusted Spire Keeper", null, "Creature — Construct", "", "2", "2", colorIndicator = "R"))
     private val bear = Cards.invent("Vatside Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val elk = Cards.invent("Vatside Elk", "{2}{G}", "Creature — Elk", "", "2/3")
     private val stag = Cards.invent("Vatside Stag", "{1}{G}", "Creature — Elk", "", "2/2")

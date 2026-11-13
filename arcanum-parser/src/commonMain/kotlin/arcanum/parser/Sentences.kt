@@ -2568,7 +2568,27 @@ internal class Sentences(
         // combatant the trigger names (CR 509.3b, 509.3d)
         is EventPattern.Block -> Objects.EventObject(if (event.perAttacker) EventRole.OtherCombatant else EventRole.Object)
         is EventPattern.BecomesBlocked -> Objects.EventObject(if (event.perBlocker) EventRole.OtherCombatant else EventRole.Object)
+        is EventPattern.Damage -> Objects.EventObject(damageThatRole(event))
         else -> Objects.EventObject(role = EventRole.Object)
+    }
+
+    /** isd sweep: "that creature" of a damage event is the creature the trigger names besides this one (CR 120.2): the one that dealt
+     * the damage when it was dealt to a player, to this object or to the one this is attached to; otherwise the one dealt it. */
+    private fun damageThatRole(event: EventPattern.Damage): EventRole {
+        val named = setOf(ObjectFilter.Is(Objects.Self), ObjectFilter.Is(Objects.AttachedTo(Objects.Self)))
+        return when {
+            event.to.objects == null -> EventRole.Source
+            event.to.objects in named && event.source != ObjectFilter.Any && event.source !in named -> EventRole.Source
+            else -> EventRole.Object
+        }
+    }
+
+    /** isd sweep: "that player" of a zone change into a graveyard the trigger names by its owner ("an opponent's graveyard"): that
+     * owner (CR 404.1), whoever controlled the card before; null where the event's player is meant. */
+    private fun ownerNamedBy(event: EventPattern?): Players? {
+        val move = event as? EventPattern.ZoneChange ?: return null
+        val filters = (move.objects as? ObjectFilter.And)?.all ?: listOf(move.objects)
+        return if (filters.any { it is ObjectFilter.OwnedBy }) Players.OwnerOf(Objects.EventObject(EventRole.After)) else null
     }
 
     /** chunk 31: "it" in a trigger on this object moving: the permanent that entered, or the new card in a graveyard
@@ -2786,6 +2806,9 @@ internal class Sentences(
         if (event is EventPattern.StepBegins && event.whose == PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(Objects.Self)))) context.it = Objects.AttachedTo(Objects.Self)
         // blb chunk 05: "Whenever a creature you control deals combat damage to a player, … exile it": the creature dealing it
         if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && event.to.objects == null) context.it = Objects.EventObject(EventRole.Source)
+        // isd sweep: also "Whenever a creature deals combat damage to this creature, put a -1/-1 counter on it": the creature that dealt it,
+        // the one the trigger names besides this object (CR 120.2)
+        if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && damageThatRole(event) == EventRole.Source) context.it = Objects.EventObject(EventRole.Source)
         // gtc chunk 07: "When this creature deals combat damage, return it to its owner's hand": it is this creature
         if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to == RecipientFilter()) context.it = Objects.Self
         // spm chunk 02: "Whenever this creature deals combat damage to a player, he connives": the player isn't an object, "it" is this creature
@@ -6517,9 +6540,10 @@ internal class Sentences(
         }
         if (sentence == "That player loses 1 life." && context.event is EventPattern.ZoneChange) {
             // isd chunk 03: a permanent entering is the player's who controls it ("a creature enchanted player controls enters", CR 110.2);
-            // a card put into a graveyard is its owner's (CR 404.1)
+            // a card put into a graveyard the trigger names by its owner is that owner's (CR 404.1); isd sweep: otherwise the event's
+            // player ("a creature an opponent controls dies": the controller it last had, CR 603.10a)
             val after = Objects.EventObject(EventRole.After)
-            val player = if ((context.event as EventPattern.ZoneChange).to == Zone.Battlefield) Players.ControllerOf(after) else Players.OwnerOf(after)
+            val player = ownerNamedBy(context.event) ?: if ((context.event as EventPattern.ZoneChange).to == Zone.Battlefield) Players.ControllerOf(after) else Players.EventPlayer
             return listOf(Step.Do(Effect.LoseLife(player, Value.Fixed(1))))
         }
         // gtc chunk 12: "each player reveals the top card of their library, loses life equal to that card's mana value, then puts it
@@ -6908,9 +6932,9 @@ internal class Sentences(
         }
         // dgm: "destroy that creature." (the creature that dealt the damage)
         // isd chunk 13: when this object dealt the damage, "that creature" is the one it damaged (CR 120.2), not itself
+        // isd sweep: the role every damage trigger's "that creature" reads (CR 120.2)
         if (sentence == "Destroy that creature." && context.event is EventPattern.Damage) {
-            val dealt = (context.event as EventPattern.Damage).source == ObjectFilter.Is(Objects.Self)
-            return listOf(Step.Do(Effect.Destroy(Objects.EventObject(if (dealt) EventRole.Object else EventRole.Source))))
+            return listOf(Step.Do(Effect.Destroy(Objects.EventObject(damageThatRole(context.event as EventPattern.Damage)))))
         }
         // dgm: "create a 2/2 white Knight creature token with vigilance, a 3/3 green Centaur creature token, and a 4/4 green Rhino
         // creature token with trample."
@@ -7119,7 +7143,7 @@ internal class Sentences(
                 min = Value.Fixed(1), max = Value.Fixed(1))
             Recipients(target = name)
         }
-        "that player" -> Recipients(players = context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null } ?: return null)
+        "that player" -> Recipients(players = context.lastPlayer ?: context.event?.let { ownerNamedBy(it) ?: Players.EventPlayer } ?: return null)
         // isd chunk 05: "that permanent or player" after "Choose any target" (the chosen target, CR 115.4)
         "that permanent or player" -> Recipients(target = context.targets.firstOrNull { it.name == "any" }?.name ?: return null)
         "each opponent" -> Recipients(players = Players.Each(PlayerFilter.Opponent))
@@ -7639,7 +7663,8 @@ internal class Sentences(
         "target opponent" -> context.targetOpponent()
         "target player" -> context.targetPlayer()
         // blb chunk 05: "they", "that player": the player named before, or the event's player
-        "they", "that player" -> context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null }
+        // isd sweep: a card put into the graveyard of a player named by ownership: that owner (CR 404.1)
+        "they", "that player" -> context.lastPlayer ?: context.event?.let { ownerNamedBy(it) ?: Players.EventPlayer }
         // blb chunk 07: "defending player" in an attack trigger (CR 506.2)
         "defending player" -> (context.event as? EventPattern.Attack)?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
         else -> Filters.players(phrase)
@@ -9714,8 +9739,7 @@ internal class Sentences(
             val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
             if (onlyIf != null) return null
             val event = trigger.events.single()
-            val that = if (event is EventPattern.Damage && event.to.objects == ObjectFilter.Is(Objects.Self)) Objects.EventObject(EventRole.Source) else that(trigger)
-            val instructions = instructions(m.groupValues[2], event = event, that = that) ?: return null
+            val instructions = instructions(m.groupValues[2], event = event, that = that(trigger)) ?: return null
             return listOf(Step.Do(Effect.CreateDelayedTrigger(trigger, instructions, duration = arcanum.api.Duration.UntilYourNextTurn, repeats = true)))
         }
         // rtr chunk 10: "Destroy that creature." (the event's creature)
@@ -23260,8 +23284,9 @@ internal class Sentences(
         if (Mh2.ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED.matches(sentence) && (context.event as? EventPattern.Tap)?.forMana == true)
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.SameAsProduced(Value.Fixed(1))), Players.You)))
         // mh2 chunk 13: "exile that creature." after damage to it; "counter that spell." after it was cast (the event's object)
+        // isd sweep: the role every damage trigger's "that creature" reads (CR 120.2): the creature that dealt damage to this one or to you
         if (sentence == "Exile that creature." && context.event is EventPattern.Damage)
-            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.Object), Destination(Zone.Exile))))
+            return listOf(Step.Do(Effect.Move(Objects.EventObject(damageThatRole(context.event as EventPattern.Damage)), Destination(Zone.Exile))))
         if (sentence == "Counter that spell." && context.event is EventPattern.Cast)
             return listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Object))))
         // mh2 chunk 13: "Target nonland permanent becomes an artifact in addition to its other types until end of turn." (layer 4)

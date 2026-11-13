@@ -3979,6 +3979,34 @@
      "text": "Spells your opponents cast that target this creature cost {2} more to cast.",
      "power": "1",
      "toughness": "1"
+    },
+    {
+     "uuid": "194f9268-02d0-3b4f-aad2-8a610cf66c6f",
+     "name": "Zinc Hauler",
+     "setCode": "E2E",
+     "number": "124",
+     "language": "English",
+     "layout": "normal",
+     "type": "Artifact Creature — Construct",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "9dd7b75a-2d7f-3ab3-b394-451774a3d2de"
+     },
+     "manaCost": "{0}",
+     "power": "4",
+     "toughness": "3"
     }
    ],
    "tokens": [

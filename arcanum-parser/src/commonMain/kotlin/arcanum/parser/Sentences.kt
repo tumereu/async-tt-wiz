@@ -2593,6 +2593,12 @@ internal class Sentences(
         mshCostPart(text)?.let { return it } // msh
         hobCostPart(text)?.let { return it } // hob
         fraCostPart(text)?.let { return it } // fra
+        // one chunk 08: "Remove ten oil counters from among permanents you control and sacrifice The Filigree Sylex" (two cost parts, CR 601.2h)
+        One.COST_AND_SACRIFICE.matchEntire(text)?.let { m ->
+            val first = costPart(m.groupValues[1]) ?: return@let
+            val second = costPart(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return@let
+            return first + second
+        }
         // fdn chunk 08: "Remove six counters from among creatures you control" (any kinds, spread as the payer chooses, CR 118.3, 601.2h)
         Fdn.REMOVE_COUNTERS_FROM_AMONG.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -5621,7 +5627,11 @@ internal class Sentences(
         }
         // chunk 50: "[Do X] unless you [pay a cost]." (CR 118.12a)
         UNLESS_YOU.matchEntire(sentence)?.let { m ->
-            costPart(m.groupValues[2].replaceFirstChar { it.uppercase() })?.let { parts ->
+            // one chunk 08: "return this creature to its owner's hand unless you remove two oil counters from it" ("it": this object, named before)
+            val named = self.firstOrNull { n -> m.groupValues[1].contains(n) }
+            val cost = m.groupValues[2].let { if (it.endsWith(" from it") && (context.it == null || context.it == Objects.Self) && context.event !is EventPattern.ZoneChange && named != null)
+                it.removeSuffix(" from it") + " from " + named else it }
+            costPart(cost.replaceFirstChar { it.uppercase() })?.let { parts ->
                 effect(m.groupValues[1] + ".", context)?.let { return unlessPays(Players.You, Cost(parts), it) }
             }
         }
@@ -5708,7 +5718,10 @@ internal class Sentences(
         }
         // "[Effect] unless [condition]." (not "unless [player] pays", which is a pay, see unlessPays)
         UNLESS_CONDITION.matchEntire(sentence)?.let { m ->
-            Conditions.condition(m.groupValues[2], self)?.let { condition ->
+            // one chunk 08: "… deals 2 damage to that player unless they control two or more basic lands" ("they": the player the effect names)
+            val unless = if (m.groupValues[2].startsWith("they ") && m.groupValues[1].endsWith(" that player"))
+                "that player " + m.groupValues[2].removePrefix("they ") else m.groupValues[2]
+            Conditions.condition(unless, self)?.let { condition ->
                 val then = effect(m.groupValues[1] + ".", context) ?: return null
                 return listOf(Step.If(arcanum.api.Condition.Not(condition), then = then))
             }
@@ -7239,14 +7252,23 @@ internal class Sentences(
             return arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.Before),
                 ObjectFilter.HasStatus(if (m.groupValues[1] == "attacking") arcanum.api.Status.Attacking else arcanum.api.Status.Blocking))
         }
-        // blb chunk 02: "that creature isn't legendary", "that creature is a Bird, Frog, Otter, or Rat"
-        Blb.IT_IS.matchEntire(text)?.let { m ->
+        fun named(): Objects? {
             val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
             // blb chunk 13: "that creature" after a target names the target, not the trigger's event object
-            val event = context.it is Objects.EventObject
-            val it = (if (text.startsWith("that creature ") && event) target ?: context.it else context.it ?: target) ?: return null
+            // one chunk 08: nor this object ("target creature you control gets +1/+1 … If that creature has toxic")
+            val event = context.it is Objects.EventObject || context.it == Objects.Self
+            return if (text.startsWith("that creature ") && event) target ?: context.it else context.it ?: target
+        }
+        // blb chunk 02: "that creature isn't legendary", "that creature is a Bird, Frog, Otter, or Rat"
+        Blb.IT_IS.matchEntire(text)?.let { m ->
+            val it = named() ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] == "is" || m.groupValues[1] == "was") filter else ObjectFilter.Not(filter))
+        }
+        // one chunk 08: "that creature has toxic" (any toxic value, CR 702.164), "it has flying"
+        One.IT_HAS_KEYWORD.matchEntire(text)?.let { m ->
+            val kind = OnePhrases.keywordKind(m.groupValues[1]) ?: return@let
+            return arcanum.api.Condition.ObjectMatches(named() ?: return null, ObjectFilter.HasKeyword(kind))
         }
         val it = context.it ?: return null
         val m = IT_HAS_NO_COUNTERS.matchEntire(text) ?: return null
@@ -10133,10 +10155,12 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.NoGraveyardForZeroLoyalty), affects = Affected.Objects(Objects.Each(fraPlural(m.groupValues[1]) ?: return null)))
         }
         // fra chunk 09: "Artifacts and creatures entering the battlefield don't cause abilities to trigger." (CR 603.2)
+        // one chunk 08: "Permanents entering don't cause abilities of permanents your opponents control to trigger." (only those sources' abilities)
         Fra.ENTERING_DOESNT_TRIGGER.matchEntire(line)?.let { m ->
             val types = m.groupValues[1].split(" and ").map { fraPlural(it) ?: return null }
             val filter = if (types.size == 1) types.single() else ObjectFilter.Or(types)
-            return Ability.Static(listOf(Mechanic.EventDoesntTrigger(EventPattern.ZoneChange(filter, to = Zone.Battlefield))), affects = selfOnly)
+            val sources = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { fraPlural(it) ?: return null }
+            return Ability.Static(listOf(Mechanic.EventDoesntTrigger(EventPattern.ZoneChange(filter, to = Zone.Battlefield), sources)), affects = selfOnly)
         }
         // fra chunk 10: "During combat, players can't cast spells or activate abilities that aren't mana abilities."
         if (line == "During combat, players can't cast spells or activate abilities that aren't mana abilities.") {
@@ -12077,10 +12101,12 @@ internal class Sentences(
                 condition = arcanum.api.Condition.Exists(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1))
         }
         // hob chunk 12: "Thranduil has all activated abilities of all Elf cards in your graveyard." (layer 6, CR 613.1f)
+        // one chunk 08: "… of all land cards in all graveyards" (each player's)
         Hob.HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val filter = Filters.noun(m.groupValues[2]) ?: return null
-            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Each(Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard),
-                ObjectFilter.OwnedBy(PlayerFilter.You))))), affects = hobSelfOnly)
+            val owner = if (m.groupValues[3] == "your graveyard") listOf(ObjectFilter.OwnedBy(PlayerFilter.You)) else emptyList()
+            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Each(Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), *owner.toTypedArray())))),
+                affects = hobSelfOnly)
         }
         return null
     }
@@ -15795,6 +15821,26 @@ internal class Sentences(
 
     /** one: sentences that change the steps before them, tried after the other sets' in [modify]. */
     private fun oneModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // one chunk 08: "If that creature has toxic, Hexgold Slash deals 4 damage to that creature instead.", "If that creature has toxic, instead it gets
+        // +2/+2 until end of turn.": the sentence before happens only if the condition is false ("it": the object the condition names)
+        One.IF_IT_INSTEAD.matchEntire(sentence)?.let { m ->
+            val condition = itCondition(m.groupValues[1], context) as? arcanum.api.Condition.ObjectMatches ?: return@let
+            val (_, stepsFrom) = context.previous ?: return@let
+            val previous = steps.drop(stepsFrom)
+            if (previous.isEmpty()) return@let
+            val text = m.groupValues[2].ifEmpty { m.groupValues[3] }
+            // "[This] deals 4 damage to that creature": the same damage to the same creature, another amount
+            val damage = One.SELF_DEALS_N_TO_IT.matchEntire(text)?.takeIf { d -> isSelf(d.groupValues[1]) }?.let { d ->
+                val dealt = (previous.singleOrNull() as? Step.Do)?.effect as? Effect.DealDamage ?: return@let null
+                if (dealt.to != arcanum.api.Recipients(objects = condition.objects) && dealt.to.target?.let { t -> Objects.Target(t) } != condition.objects) return@let null
+                listOf(Step.Do(dealt.copy(amount = Value.Fixed(d.groupValues[2].toInt()))))
+            }
+            val it = context.it
+            context.it = condition.objects
+            val then = damage ?: effect(tmtSentence(text), context)
+            context.it = it
+            return steps.take(stepsFrom) + Step.If(condition, then = then ?: return@let, otherwise = previous)
+        }
         // one chunk 01 (from tmt chunk 07): "If that permanent's mana value was 3 or less, proliferate.", "If that permanent had mana value 3 or
         // less, …", "If its mana value was 4 or less, …" after destroying, countering or bouncing a target (as it last existed, CR 608.2h)
         One.IF_MANA_VALUE_WAS.matchEntire(sentence)?.let { m ->
@@ -23189,12 +23235,18 @@ internal class Sentences(
         if (sentence == "Counter that spell." && context.event is EventPattern.Cast)
             return listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Object))))
         // mh2 chunk 13: "Target nonland permanent becomes an artifact in addition to its other types until end of turn." (layer 4)
+        // one chunk 08: "Until end of turn, target creature you control becomes a blue artifact in addition to its other colors and types." (as
+        // reread by ltr's "Until end of turn, …"; the color added, layer 5)
         Mh2.TARGET_BECOMES_TYPE_IN_ADDITION_UNTIL_EOT.matchEntire(sentence)?.let { m ->
-            val type = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment)[m.groupValues[2]] ?: return@let
+            val words = m.groupValues[2].split(' ')
+            val color = if (words.size == 2) BECOME_COLORS[words[0]] ?: return@let else null
+            if ((color != null) != m.groupValues[3].isNotEmpty()) return@let
+            val type = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment)[words.last()] ?: return@let
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
             val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1]))
             context.targets += mh2Slot(name, noun)
-            return listOf(mh2UntilEndOfTurn(Objects.Target(name), Mechanic.SetTypes(add = listOf(type))))
+            val colors = listOfNotNull(color?.let { Mechanic.SetColors(listOf(ColorRef.Literal(it)), add = true) })
+            return listOf(mh2UntilEndOfTurn(Objects.Target(name), Mechanic.SetTypes(add = listOf(type)), *colors.toTypedArray()))
         }
         // mh2 chunk 13: "Until end of turn, this Vehicle becomes a copy of the exiled card, except it's a Vehicle artifact in addition to its other
         // types." (CR 707.9b)

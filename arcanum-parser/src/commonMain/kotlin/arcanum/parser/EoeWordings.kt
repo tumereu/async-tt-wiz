@@ -157,7 +157,7 @@ internal object Eoe {
     val AS_LONG_AS_DRAW_PLUS_ONE = Regex("""As long as (.+?), if you would draw one or more cards, you draw that many cards plus one instead\.""")
     val COUNTER_ON_TARGET_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on target (.+?) and draw a card\.""")
     val DEFENDING_PLAYER_MILLS = Regex("""[Dd]efending player mills (\w+) cards\.""")
-    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_GAINS = Regex("""([Uu]p to one (?:other )?target .+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains ([a-z ]+) until end of turn\.""")
     val COUNTER_IF_SPENT_LESS_DRAW = Regex("""Counter target spell\. If the amount of mana spent to cast that spell was less than its mana value, you draw a card\.""")
     val NTH_SPELL_EACH_TURN_COSTS_LESS = Regex("""The (\w+) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast\.""")

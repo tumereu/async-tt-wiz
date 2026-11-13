@@ -44,7 +44,7 @@ internal object Gtc {
     val REVEALS_THAT_MANY_FROM_HAND = Regex("""Target opponent reveals that many cards from their hand\.""")
     val THIS_TURN_ENTERS_WITH_ADDITIONAL = Regex("""This turn, each (.+) enters with an additional (\S+) counter on it\.""")
     val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move any number of (\S+) counters from target (.+?) onto another target (.+?) with the same controller\.""")
-    val REMOVE_COUNTERS_COST = Regex("""Remove (a|an|one|two|three|four|five|six|one or more) (\S+) counters? from (.+)""")
+    val REMOVE_COUNTERS_COST = Regex("""Remove (one or more|a|an|\w+) (\S+) counters? from (.+)""")
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 

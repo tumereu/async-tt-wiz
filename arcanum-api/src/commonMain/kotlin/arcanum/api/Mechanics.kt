@@ -517,8 +517,13 @@ sealed interface Mechanic {
     @Serializable @SerialName("additional-loyalty-cost") data class AdditionalLoyaltyCost(val amount: Int) : Mechanic
     /** "[Event] doesn't cause abilities to trigger" ("Artifacts and creatures entering the battlefield don't cause abilities to
      * trigger", CR 603.2): triggered abilities don't trigger on events matching [event]. Scoped by its event, like
-     * [TriggersAdditionalTime]. */
-    @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(val event: EventPattern) : Mechanic
+     * [TriggersAdditionalTime]. [sources] when given: only triggered abilities of objects matching it are muted ("Permanents entering don't
+     * cause abilities of permanents your opponents control to trigger", one), relative to this ability's controller. */
+    @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(
+        val event: EventPattern,
+        // one chunk 08
+        val sources: ObjectFilter? = null,
+    ) : Mechanic
     // hob
     /** The affected players get [designation] for the rest of the game any time the ability's condition holds and they don't
      * have it (storied, CR 702.195a): a static ability, not a trigger, so it happens at once, and continuous effects are

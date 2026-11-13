@@ -235,3 +235,6 @@ val planeswalker: ObjectFilter = ObjectFilter.Type(CardType.Planeswalker)
 /** "[+1]: Until your next turn, …": a loyalty ability's effect lasting until its controller's next turn (CR 611.2b). */
 fun untilYourNextTurn(objects: Objects, vararg mechanics: Mechanic): Step =
     Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), Duration.UntilYourNextTurn))
+/** "{T}: Add {a} or {b}." (CR 106.1) */
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { ColorRef.Literal(it) })), Players.You)))

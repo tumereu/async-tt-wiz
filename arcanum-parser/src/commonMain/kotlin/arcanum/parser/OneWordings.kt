@@ -2,6 +2,9 @@ package arcanum.parser
 
 import arcanum.api.Comparison
 import arcanum.api.Condition
+import arcanum.api.EventPattern
+import arcanum.api.KeywordKind
+import arcanum.api.Measure
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
@@ -39,6 +42,12 @@ internal object One {
     // one chunk 04: Blade of Shared Souls
     val BECOMES_ATTACHED_TO = Regex("""(?:[Ww]henever )?(.+?) becomes attached to an? (\w+)""")
     val WHILE_ATTACHED_MAY_BECOME_COPY = Regex("""[Ff]or as long as (.+?) remains attached to (?:it|that creature), you may have that creature become a copy of another target (\w+ you control)\.""")
+    // one chunk 08: Compleat Devotion, Hexgold Slash, Porcelain Zealot
+    val IT_HAS_KEYWORD = Regex("""(?:that creature|it) has ([a-z]+)""")
+    val IF_IT_INSTEAD = Regex("""If ((?:that creature|it) .+?), (?:instead (.+)|(.+) instead)\.""")
+    val SELF_DEALS_N_TO_IT = Regex("""(.+) deals (\d+) damage to (?:that creature|it)""")
+    // one chunk 08: The Filigree Sylex
+    val COST_AND_SACRIFICE = Regex("""([A-Z].+?) and (sacrifice .+)""")
     // one chunk 03: Goliath Hatchery, "choose a creature you control, then draw cards equal to its total toxic value."
     val CHOOSE_THEN = Regex("""Choose an? ([^,]+), then (.+)\.""")
     // one chunk 03: Anoint with Affliction, Bring the Ending
@@ -81,17 +90,57 @@ internal object OnePhrases {
     // one chunk 06: "… as you activate this ability": the value then, already how a where-X value of an activated ability is read (CR 602.2b, 601.2b)
     private val AS_YOU_ACTIVATE = Regex("""(.+) as you activate this ability""")
 
+    // one chunk 08: "you control two or fewer other lands" (fastlands), "that player controls two or more basic lands" (the event's player)
+    private val CONTROLS_N_OR_MORE_OR_FEWER = Regex("""(you|that player) controls? (\w+) or (more|fewer) (.+)""")
+
+    // one chunk 08: Churning Reservoir, "an oil counter was removed from a permanent you controlled this turn or a permanent with an oil counter on
+    // it was put into a graveyard this turn"
+    private val TWO_THIS_TURN = Regex("""(.+? this turn) or (.+ this turn)""")
+    private val COUNTER_WAS_REMOVED_THIS_TURN = Regex("""an? (\S+) counter was removed from (.+?) this turn""")
+    private val PUT_INTO_A_GRAVEYARD_THIS_TURN = Regex("""(an? .+?) was put into a graveyard this turn""")
+    // one chunk 08: Mirran Safehouse, "as long as this artifact is on the battlefield" (the zone its static ability works in, CR 113.6)
+    private val IS_ON_THE_BATTLEFIELD = Regex("""(.+) is on the battlefield""")
+
     fun value(text: String, exiled: Objects?): Value? = AS_YOU_ACTIVATE.matchEntire(text)?.let { Values.value(it.groupValues[1], exiled) }
 
-    fun condition(text: String): Condition? {
+    /** A keyword named bare ("flying", "toxic": an amount keyword with any amount). */
+    fun keywordKind(word: String): KeywordKind? = OracleParser.keyword(word.replaceFirstChar { it.uppercase() })?.kind
+        ?: Filters.AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(word, ignoreCase = true) }
+
+    fun condition(text: String, self: Set<String>): Condition? {
+        IS_ON_THE_BATTLEFIELD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield))
+        }
+        TWO_THIS_TURN.matchEntire(text)?.let { m ->
+            val first = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val second = Conditions.condition(m.groupValues[2], self) ?: return@let
+            return Condition.Or(listOf(first, second))
+        }
+        // a counter removed by anything, from the permanent as it was then (its controller then, CR 603.10a; "you controlled": CR 108.4)
+        COUNTER_WAS_REMOVED_THIS_TURN.matchEntire(text)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val from = Filters.noun(m.groupValues[2].removeArticle().replace(" you controlled", " you control")) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.CountersRemoved(from, kind), atLeast = 1, measure = Measure.Events)
+        }
+        // "a permanent …": from the battlefield (only there is it a permanent, CR 110.1), tested as it last existed there (CR 603.10a)
+        PUT_INTO_A_GRAVEYARD_THIS_TURN.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val from = if (m.groupValues[1].startsWith("a permanent")) Zone.Battlefield else null
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(noun, from = from, to = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
+        }
+        CONTROLS_N_OR_MORE_OR_FEWER.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val filter = Filters.noun(m.groupValues[4] + if (m.groupValues[1] == "you") " you control" else " that player controls") ?: return null
+            return if (m.groupValues[3] == "more") Condition.Exists(filter, atLeast = n)
+                else Condition.Compare(Value.Count(Objects.Each(filter)), Comparison.AtMost, Value.Fixed(n))
+        }
         A_GRAVEYARD_HAS.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.PlayerExists(PlayerFilter.Where(Condition.Exists(
                 ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Tested)))), atLeast = n)), atLeast = 1)
         }
         ATTACHED_HAS_KEYWORD.matchEntire(text)?.let { m ->
-            val kind = OracleParser.keyword(m.groupValues[1].replaceFirstChar { it.uppercase() })?.kind
-                ?: Filters.AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(m.groupValues[1], ignoreCase = true) } ?: return null
+            val kind = keywordKind(m.groupValues[1]) ?: return null
             return Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), ObjectFilter.HasKeyword(kind))
         }
         SOMEONE_HAS_COUNTERS.matchEntire(text)?.let { m ->

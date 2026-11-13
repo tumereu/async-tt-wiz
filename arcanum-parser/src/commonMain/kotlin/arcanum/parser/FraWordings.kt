@@ -62,7 +62,7 @@ internal object Fra {
     val ASSIGNS_BY_TOUGHNESS = Regex("""Each (.+?) assigns combat damage equal to its toughness rather than its power\.""")
     val POWER_NEGATIVE_ASSIGNS = Regex("""If (.+?)'s power is negative, (?:he|she|it) assigns combat damage as though (?:his|her|its) power were positive\.""")
     val NO_GRAVEYARD_FOR_ZERO_LOYALTY = Regex("""(.+?) aren't put into their owners' graveyards for having 0 loyalty\.""")
-    val ENTERING_DOESNT_TRIGGER = Regex("""(.+?) entering the battlefield don't cause abilities to trigger\.""")
+    val ENTERING_DOESNT_TRIGGER = Regex("""(.+?) entering(?: the battlefield)? don't cause abilities(?: of (.+?))? to trigger\.""")
     val SPELLS_HAVE_KEYWORD = Regex("""(.+? spells you control) have ([a-z ]+)\.""")
     val SPELLS_OPPONENTS_CAST_COST_MORE = Regex("""(.+? spells) your opponents cast cost (\{\d+\}) more to cast\.""")
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")

@@ -947,6 +947,8 @@ class HobMoreMechanicAndColorCardsScenariosTest {
         alice.hand("Mountain", dragon)
         alice.plays("Mountain")
         resolveAll()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("hand and library"))
         chooseIfOffered(dragon)
         resolveAll()
         expect {

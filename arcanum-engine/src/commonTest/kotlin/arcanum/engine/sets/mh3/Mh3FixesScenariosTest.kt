@@ -275,4 +275,26 @@ class Mh3FixesScenariosTest {
         alice.graveyard(goyf, "Island", veil, runt, grub)
         kotlin.test.assertFails { alice.casts(goyf, choosing = listOf("Island", veil, runt)) }
     }
+
+    private val sentinel = Cards.invent("Gravecall Sentinel", "{2}{B}", "Legendary Creature — Demon Cleric", """
+        Flying
+        Whenever another nontoken creature you control dies, put a +1/+1 counter on this creature. If that creature was a Cleric, you may draw a card. If you do, you lose 1 life.
+    """, "2/2")
+    private val cinder = Cards.invent("Stray Cinder", "{R}", "Instant", "Stray Cinder deals 2 damage to any target.")
+
+    // CR 603.10a: "that creature" is the one that died (a Merfolk), not this Cleric: a counter, but no draw is offered
+    @Test
+    fun thatCreatureInADiesTriggerIsTheCreatureThatDied() = scenario {
+        alice.battlefield(sentinel, runt, "Mountain")
+        alice.hand(cinder)
+        alice.library("Plains", "Plains")
+        alice.casts(cinder, target = runt)
+        resolveAll()
+        assertEquals(null, pending)
+        expect {
+            card(sentinel).power shouldBe 3
+            alice.hand.names.size shouldBe 0
+            alice.life shouldBe 20
+        }
+    }
 }

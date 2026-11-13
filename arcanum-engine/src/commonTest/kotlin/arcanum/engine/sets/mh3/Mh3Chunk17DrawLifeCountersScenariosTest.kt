@@ -29,7 +29,7 @@ class Mh3Chunk17DrawLifeCountersScenariosTest {
         "Put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.")
     private val bear = Cards.invent("Reaping Bear", "{1}{G}", "Creature — Bear", "", "2/2")
 
-    // CR 603.5, 121.1, 608.2c: "that many" is the number of cards drawn (here the attacker's power, 2)
+    // CR 603.5, 121.1, 121.2: "that many" is the number the draw named (the attacker's power, 2)
     @Test
     fun webspinnerDrawsItsPowerThenDiscardsThatMany() = scenario {
         alice.battlefield(webspinner)

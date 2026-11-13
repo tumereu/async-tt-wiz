@@ -913,6 +913,8 @@ class MshMulticolorArtifactAndLandCardsScenariosTest {
         alice.library(bear, drone)
         alice.casts(syntheticQuest, x = 3)
         resolveAll()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         chooseIfOffered(drone)
         resolveAll()
         expect { drone.counters(p1p1) shouldBe 3 }

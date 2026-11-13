@@ -5575,8 +5575,11 @@ internal class Sentences(
                 else -> null
             }
             // mh3 chunk 10: "Whenever this creature or another artifact you control enters, put a +1/+1 counter on this creature. It can't be
-            // blocked this turn.": "it" is now this creature, the object last named, whichever object entered
-            if (objects == Objects.Self && (context.event as? EventPattern.ZoneChange)?.objects?.let { it != ObjectFilter.Is(Objects.Self) } == true) context.it = Objects.Self
+            // blocked this turn.": "it" is now this creature, the object last named, whichever object entered (mh3 fixes: only an enters trigger; in
+            // "Whenever another nontoken creature you control dies, put a +1/+1 counter on this creature. If that creature was a Cleric, …" "that
+            // creature" stays the one that died, CR 603.10a)
+            if (objects == Objects.Self && (context.event as? EventPattern.ZoneChange)?.let { it.to == Zone.Battlefield && it.objects != ObjectFilter.Is(Objects.Self) } == true)
+                context.it = Objects.Self
             if (objects != null) return listOf(Step.Do(Effect.PutCounters(objects, kind, Value.Fixed(n))))
         }
         // chunk 21: "When a creature card is exiled this way, [effect]": a reflexive trigger (CR 603.12)

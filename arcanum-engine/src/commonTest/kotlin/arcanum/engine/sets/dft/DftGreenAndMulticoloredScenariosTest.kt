@@ -70,6 +70,8 @@ class DftGreenAndMulticoloredScenariosTest {
         alice.casts(DftSet.fangDruidCaller)
         resolveAll()
         yes()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         choose(bear)
         expect { alice.hand has bear }
     }

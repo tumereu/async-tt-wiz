@@ -1,5 +1,6 @@
 package arcanum.engine.cube
 
+import arcanum.engine.decision.Answer
 import arcanum.api.Keyword
 import arcanum.engine.scenario.scenario
 import kotlin.test.Test
@@ -16,6 +17,8 @@ class Chunk12HarderCardFlowScenariosTest {
 
         alice.casts("Coda of Ruin", x = 3)
         allPass()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         alice.chooses("Elvish Hierophant")
 
         expect {
@@ -34,6 +37,8 @@ class Chunk12HarderCardFlowScenariosTest {
 
         alice.casts("Coda of Ruin", x = 1)
         allPass()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         alice.chooses("Elvish Seer")
 
         expect {
@@ -53,6 +58,8 @@ class Chunk12HarderCardFlowScenariosTest {
 
         alice.casts("Coda of Ruin", x = 10)
         allPass()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         alice.chooses("Elvish Hierophant")
 
         expect {

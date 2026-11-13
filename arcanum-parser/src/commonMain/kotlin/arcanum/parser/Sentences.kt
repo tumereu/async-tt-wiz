@@ -2778,6 +2778,7 @@ internal class Sentences(
                 ?: sosWhole(body.replaceFirstChar { it.uppercase() }, context) // sos
                 ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
+                ?: woeWhole(body.replaceFirstChar { it.uppercase() }, context) // woe
                 ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
                 ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
@@ -5554,7 +5555,12 @@ internal class Sentences(
         // chunks 52, 56: "If [condition], [effect]." (checked as it resolves)
         IF_CONDITION.matchEntire(sentence)?.let { m ->
             val condition = itCondition(m.groupValues[1], context) ?: Conditions.condition(m.groupValues[1], self)
+            val before = context.targets.size
             val then = condition?.let { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) }
+            // woe chunk 04: a target of a part that happens only if an optional cost was paid ("If this spell was bargained, target land …")
+            // is chosen only if it was (CR 601.2c)
+            if (condition is arcanum.api.Condition.Paid && condition.of == Objects.Self && then != null)
+                for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
             if (condition != null && then != null) return listOf(Step.If(condition, then = then))
         }
         // chunk 21: "You may [do something]." with nothing depending on it (CR 608.2d)
@@ -6576,8 +6582,9 @@ internal class Sentences(
             return listOf(
                 Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[2]) ?: return null, Value.Fixed(0), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
                     from = seen), bind = "revealed", chooser = Players.You),
-                Step.Do(Effect.Reveal(Objects.Bound("revealed"))),
-                Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand))))
+                Step.Do(Effect.Reveal(Objects.Bound("revealed")))) +
+                // woe chunk 04: "You may reveal up to two creature cards from among them." (where they go is a later sentence)
+                (if (m.groupValues[3].isEmpty()) emptyList() else listOf(Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand)))))
         }
         if (sentence == "Put the rest on the bottom of your library in any order." && context.picked == "revealed") {
             val seen = Objects.Bound(context.seen ?: return null)
@@ -15691,11 +15698,96 @@ internal class Sentences(
             return steps.dropLast(1) + Step.Do(move.copy(postBind = name)) +
                 Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, attachedTo = Recipients(objects = Objects.Bound(name))))
         }
+        // woe chunk 04: "If this spell was bargained, destroy that creature instead.", "…, it deals twice X damage to that permanent instead.",
+        // "…, instead it deals 3 damage to that permanent and you scry 1.": the damage before happens only if the condition is false
+        Woe.IF_INSTEAD_OF_DAMAGE.matchEntire(sentence)?.let { m ->
+            val damage = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.DealDamage ?: return@let
+            val damaged = damage.to.target?.let { Objects.Target(it) } ?: damage.to.objects?.takeIf { it is Objects.Target } ?: return@let
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val body = m.groupValues[2].ifEmpty { m.groupValues[3] }
+            val then = Woe.DEALS_TO_THAT.matchEntire(body)?.let { d ->
+                val amount = if (d.groupValues[1] == "twice X") Value.Times(damage.amount.takeIf { it == Value.Announced(name = "X") } ?: return null, 2)
+                    else Value.Fixed(d.groupValues[1].toInt())
+                // "and you scry 1": the controller's part, read as its own sentence
+                val rest = d.groupValues[2].takeIf { it.isNotEmpty() }?.removePrefix("you ")?.let { effect(it.replaceFirstChar { c -> c.uppercase() } + ".", context) ?: return null }
+                listOf(Step.Do(damage.copy(amount = amount))) + rest.orEmpty()
+            } ?: if (Woe.DESTROY_THAT.matches(body)) listOf(Step.Do(Effect.Destroy(damaged))) else return@let
+            return steps.dropLast(1) + Step.If(condition, then = then, otherwise = steps.takeLast(1))
+        }
+        // woe chunk 04: "If this spell was bargained, you may put one of those cards with mana value 4 or less onto the battlefield instead of
+        // putting it into your hand." after returning target cards: one of them, chosen as the spell resolves, goes to the battlefield
+        Woe.MAY_PUT_ONE_OF_THOSE_ONTO_BATTLEFIELD_INSTEAD.matchEntire(sentence)?.let { m ->
+            val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Hand && it.objects is Objects.Target } ?: return null
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            val chosen = Objects.Bound("chosen")
+            return steps.dropLast(1) + Step.If(condition, then = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[2].toInt())),
+                    Value.Fixed(0), Value.Fixed(1), from = move.objects), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(chosen, Destination(Zone.Battlefield))),
+                Step.Do(move.copy(objects = Objects.Except(move.objects, chosen)))), otherwise = steps.takeLast(1))
+        }
+        return null
+    }
+
+    /** woe: whole multi-sentence effects. */
+    private fun woeWhole(text: String, context: Context): List<Step>? {
+        // woe chunk 04: "Search your library for a card, exile it face down, then shuffle. If this spell was bargained, you may cast the exiled card
+        // without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way."
+        // (CR 406.3, 601.2: the spell's mana value as cast, CR 118.9)
+        Woe.SEARCH_EXILE_FACE_DOWN_MAY_CAST_FREE_OR_HAND.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.Shuffle(Players.You)),
+                Step.If(condition, then = listOf(Step.Pay(steps = listOf(Step.Do(Effect.Cast(exiled, PlayKind.Cast, withoutPaying = true, caster = Players.You,
+                    resultingSpell = ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[3].toInt()))))), payer = Players.You, bind = "cast"))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("cast")), then = listOf(Step.Do(Effect.Move(exiled, Destination(Zone.Hand))))))
+        }
         return null
     }
 
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe chunk 04: "Put two of them into your hand and the rest on the bottom of your library in a random order." (after looking)
+        Woe.PUT_N_OF_THEM_INTO_HAND_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val seen = Objects.Bound(context.seen ?: return null)
+            val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, n, n, from = seen), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(seen, Objects.Bound("kept")), Destination(Zone.Library, libraryPosition = -1, randomOrder = m.groupValues[2] == "a random"))))
+        }
+        // woe chunk 04: "put up to two of them back on top of your library in any order and the rest into your graveyard" (after looking; the
+        // kept cards stay on top, in an order of the player's choice, CR 401.4)
+        Woe.PUT_UP_TO_BACK_ON_TOP_REST_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val seen = Objects.Bound(context.seen ?: return null)
+            val kept = Objects.Bound("kept")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), from = seen),
+                bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Except(seen, kept), Destination(Zone.Graveyard))),
+                Step.Do(Effect.Reorder(kept, chooser = Players.You)))
+        }
+        // woe chunk 04: "Put the revealed cards onto the battlefield." / "… into your hand."
+        Woe.PUT_THE_REVEALED_CARDS.matchEntire(sentence)?.takeIf { context.picked == "revealed" }?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(if (m.groupValues[1] == "onto the battlefield") Zone.Battlefield else Zone.Hand))))
+        }
+        // woe chunk 04: "target land you control becomes a 3/3 Elemental creature with haste that's still a land" (for good, CR 611.2a; the old
+        // types kept, CR 205.1b)
+        Woe.BECOMES_THATS_STILL.matchEntire(sentence)?.let { m ->
+            val targets = context.targets.size
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            val mechanics = gtcBecomes(m.groupValues[2]) ?: run { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return null }
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.Indefinitely)))
+        }
+        // woe chunk 04: "If a permanent dealt damage by Torch the Tower would die this turn, exile it instead." (a later paragraph: the spell's
+        // object target; only a creature dies, CR 700.4; a replacement for the rest of the turn, CR 614.1a)
+        Woe.IF_DEALT_DAMAGE_BY_WOULD_DIE_EXILE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val damaged = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(damaged), ObjectFilter.Type(CardType.Creature)), from = Zone.Battlefield, to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.EndOfTurn)))
+        }
         // woe chunk 03: "Up to one target creature gets -X/-X until end of turn, where X is …"
         Woe.TARGET_GETS_MINUS_X_UNTIL_EOT.matchEntire(sentence)?.takeIf { announcedX }?.let { m ->
             val target = eoeTarget(m.groupValues[1], context) ?: return null

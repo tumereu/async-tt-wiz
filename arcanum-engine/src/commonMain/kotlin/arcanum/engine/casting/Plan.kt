@@ -357,6 +357,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         else -> eval.holds(condition)
     }
 
+    /** woe chunk 04: whether [condition] reads the spell's own optional costs ([holdsAsCast] reads them from the choices). */
+    private fun readsCastChoices(condition: arcanum.api.Condition): Boolean = when (condition) {
+        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self
+        is arcanum.api.Condition.Not -> readsCastChoices(condition.condition)
+        is arcanum.api.Condition.And -> condition.all.any(::readsCastChoices)
+        is arcanum.api.Condition.Or -> condition.any.any(::readsCastChoices)
+        else -> false
+    }
+
     /** How often the optional cost of [inst] was chosen; null while not asked. */
     /** tdm: the spell could be cast now without an additional cost that gives it flash: sorcery timing apart from the spell itself on the
      * Stack (CR 307.1), or an instant. */
@@ -442,8 +451,22 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
         val chosen = chosenCostObjects()
+        // woe chunk 04: the spell's own reductions on a condition about its optional costs ("This spell costs {2} less to cast if it's bargained"),
+        // read from the choices made (CR 601.2b comes before 601.2f); the game's view can't know them before the spell is cast
+        val ownOnChoices = if (!isSpell) emptyList() else withGrantedAsSpell().filter { inst ->
+            (inst.ability as? Ability.Static)?.condition?.let(::readsCastChoices) == true }
+        ownOnChoices.forEach { inst ->
+            val static = inst.ability as Ability.Static
+            if (!holdsAsCast(static.condition!!)) return@forEach
+            val e = snap.evaluator(player, self = itemId, names = chosen)
+            static.mechanics.filterIsInstance<Mechanic.CostChange>().filter { e.matches(it.what, itemId) }.forEach { m ->
+                val mana = Costs.expand(m.change, e)
+                if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
+            }
+        }
         snap.view.game.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
+            if (applied.source == itemId && ownOnChoices.any { it.origin == applied.origin }) return@forEach
             // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
             val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
             val e = snap.evaluator(applied.controller, self = applied.source, names = names)

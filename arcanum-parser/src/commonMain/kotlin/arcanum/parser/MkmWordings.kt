@@ -77,4 +77,19 @@ internal object Mkm {
     val IF_IT_IS_MARKED = Regex("""If (it|that creature)(?:'s| is)(n't| not)? (\w+), (.+)""")
     // mkm chunk 05: "you may suspect one of the other creatures. If you do, this creature is no longer suspected." after a batch trigger
     val MAY_SUSPECT_ONE_OF_THE_OTHER = Regex("""[Yy]ou may suspect one of the other (.+?)\. If you do, (.+)""")
+    // mkm chunk 06: "three or more sources you controlled dealt damage this turn" (each source once, CR 120.1)
+    val N_SOURCES_DEALT_DAMAGE_THIS_TURN = Regex("""(\w+) or more sources you controlled dealt damage this turn""")
+    // mkm chunk 06: "three or more creatures attacked this turn" (any player's, each creature once, CR 508.1)
+    val N_ATTACKED_THIS_TURN = Regex("""(\w+) or more (.+?) attacked this turn""")
+    // mkm chunk 06: "three or more creature cards were put into graveyards from anywhere this turn"
+    val N_PUT_INTO_GRAVEYARDS_THIS_TURN = Regex("""(\w+) or more (.+?) were put into graveyards from anywhere this turn""")
+    // mkm chunk 06: "This Case is a 4/4 Gorgon creature with deathtouch and lifelink in addition to its other types."
+    val IS_PT_CREATURE_WITH_IN_ADDITION = Regex("""(.+?) is an? (\d+)/(\d+) ((?:[A-Z]\w+ )*)creature(?: with ([a-z ,]+?))? in addition to its other types\.""")
+    // mkm chunk 06: "You may look at the top card of your library any time, and you may play lands and cast … from the top of your library." (two
+    // permissions of the player in one sentence)
+    val YOU_MAY_AND_YOU_MAY = Regex("""(You may .+?), and you may (.+\.)""")
+    // mkm chunk 06: "Creature cards in your graveyard gain "You may cast this card from your graveyard" until end of turn."
+    val CARDS_IN_YOUR_GRAVEYARD_GAIN_QUOTED = Regex("""(.+?) cards? in your graveyard gains? "(.+)" until end of turn\.""")
+    // mkm chunk 06: "create a 2/1 black Skeleton creature token and suspect it"
+    val CREATE_TOKEN_AND_IT = Regex("""([Cc]reate an? [^.]+? token) and ([a-z][^.]* it)\.""")
 }

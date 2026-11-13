@@ -997,6 +997,27 @@ internal object Events {
 
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
+    /** mkm: "N or more sources you controlled dealt damage this turn", "N or more creatures attacked this turn", "N or more creature cards were put
+     * into graveyards from anywhere this turn". */
+    private fun mkmCondition(text: String): Condition? {
+        Mkm.N_SOURCES_DEALT_DAMAGE_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), arcanum.api.RecipientFilter()),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Sources)
+        }
+        Mkm.N_ATTACKED_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.Attack(Filters.noun(m.groupValues[2]) ?: return null),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Objects)
+        }
+        Mkm.N_PUT_INTO_GRAVEYARDS_THIS_TURN.matchEntire(text)?.let { m ->
+            // "creature cards": a token put into a graveyard isn't a card (CR 108.2, 111.7)
+            val cards = Filters.noun(m.groupValues[2]) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(if (m.groupValues[2].endsWith("cards")) Filters.all(cards, ObjectFilter.Category(
+                arcanum.api.ObjectCategory.Card)) else cards, to = Zone.Graveyard),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Objects)
+        }
+        return null
+    }
+
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
         LtrPhrases.condition(text)?.let { return it } // ltr
@@ -1014,6 +1035,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        mkmCondition(text)?.let { return it } // mkm
         // fra chunk 06: "this creature isn't prepared" (CR 722.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
         // (about this object, CR 701.60a)
         MARKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->

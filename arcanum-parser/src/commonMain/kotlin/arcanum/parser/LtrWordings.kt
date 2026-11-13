@@ -289,11 +289,11 @@ internal object LtrPhrases {
                 ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Saga"))), ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))),
                 arcanum.api.Combine.Total), Comparison.AtLeast, Value.Fixed(n))
         }
-        // ltr chunk 12: "two or more creatures died under your control this turn"
+        // ltr chunk 12: "two or more creatures died under your control this turn" (the creatures, not the events: two destroyed at once are two, CR 700.4)
         Ltr.N_OR_MORE_CREATURES_DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return@let
             return arcanum.api.Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature),
-                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield, to = Zone.Graveyard), atLeast = n, measure = arcanum.api.Measure.Events)
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield, to = Zone.Graveyard), atLeast = n, measure = arcanum.api.Measure.Objects)
         }
         // ltr chunk 10: "a permanent you controlled left the battlefield this turn" (as it last existed, CR 603.10a)
         if (Ltr.PERMANENT_YOU_CONTROLLED_LEFT.matches(text))

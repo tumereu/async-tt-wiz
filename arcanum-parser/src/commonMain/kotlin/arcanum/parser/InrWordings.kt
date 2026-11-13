@@ -63,7 +63,8 @@ internal object Inr {
     // inr chunk 08: Vexing Devil: "any opponent may have it deal 4 damage to them." (each in turn order until one does, CR 101.4)
     val ANY_OPPONENT_MAY_HAVE_DEAL_TO_THEM = Regex("""[Aa]ny opponent may have (it|this [a-z]+) deal (\d+) damage to them\.""")
     // inr chunk 08: Moonlight Hunt: "Each creature you control that's a Wolf or a Werewolf deals damage equal to its power to that creature."
-    val EACH_DEALS_POWER_TO_THAT = Regex("""Each (.+?) deals damage equal to its power to (that creature|target .+)\.""")
+    // mkm chunk 06: "Each creature you control deals 1 damage to that creature." (a fixed amount from each)
+    val EACH_DEALS_POWER_TO_THAT = Regex("""Each (.+?) deals (?:damage equal to its power|(\d+) damage) to (that creature|target .+)\.""")
     // inr chunk 08: Tree of Perdition (CR 701.12g)
     val EXCHANGE_LIFE_WITH_SELF_PT = Regex("""Exchange (target opponent's|target player's|your) life total with (.+)'s (power|toughness)\.""")
     // inr chunk 08: Chandra, Dressed to Kill: "If it's red, you may cast it this turn." (the card exiled just before)

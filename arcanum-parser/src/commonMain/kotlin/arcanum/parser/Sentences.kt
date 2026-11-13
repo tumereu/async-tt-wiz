@@ -15730,6 +15730,24 @@ internal class Sentences(
 
     /** mkm: lines of several abilities. */
     private fun mkmMulti(line: String): List<Ability>? {
+        // mkm chunk 06: "Solved — [abilities]": a label on each ability a line of several makes (CR 702.169a)
+        ABILITY_WORD.matchEntire(line)?.let { m ->
+            val label = LABELS[m.groupValues[1].lowercase()] ?: return@let
+            return (multi(m.groupValues[2]) ?: finMulti(m.groupValues[2]))?.map { ability ->
+                when (ability) {
+                    is Ability.Activated -> ability.copy(label = label)
+                    is Ability.Triggered -> ability.copy(label = label)
+                    is Ability.Static -> ability.copy(label = label)
+                    else -> return null
+                }
+            } ?: return null
+        }
+        // mkm chunk 06: "You may look at the top card of your library any time, and you may play lands and cast creature and enchantment spells from
+        // the top of your library.": each permission read as a line of its own
+        Mkm.YOU_MAY_AND_YOU_MAY.matchEntire(line)?.let { m ->
+            fun part(text: String) = multi(text) ?: line(text)?.takeIf { it !is Ability.Unparsed }?.let { listOf(it) } ?: finMulti(text)
+            return (part("${m.groupValues[1]}.") ?: return@let) + (part("You may ${m.groupValues[2]}") ?: return@let)
+        }
         // mkm chunk 03: "As an additional cost to cast this spell, you may collect evidence 6. This spell costs {2} less to cast if evidence was
         // collected." (the cost, then a rule of the spell linked to it, CR 601.2f, 701.59c)
         Mkm.ADDITIONAL_COST_THEN_THIS_SPELL.matchEntire(line)?.let { m ->
@@ -15742,6 +15760,27 @@ internal class Sentences(
 
     /** mkm: single-sentence effects, tried first. */
     private fun mkmEffect(sentence: String, context: Context): List<Step>? {
+        // mkm chunk 06: "Creature cards in your graveyard gain "You may cast this card from your graveyard" until end of turn." (the cards there as it
+        // resolves, CR 611.2c; the ability works in the graveyard, CR 113.6f)
+        Mkm.CARDS_IN_YOUR_GRAVEYARD_GAIN_QUOTED.matchEntire(sentence)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            val quoted = m.groupValues[2].let { if (it.endsWith(".")) it else "$it." }
+            val granted = Sentences(setOf("this card", "This card")).line(quoted)?.takeIf { it !is Ability.Unparsed } ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted))), Affected.Objects(Objects.Each(
+                Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))), arcanum.api.Duration.EndOfTurn)))
+        }
+        // mkm chunk 06: "create a 2/1 black Skeleton creature token and suspect it": "it" is the token just created (CR 111.1), not this object
+        Mkm.CREATE_TOKEN_AND_IT.matchEntire(sentence)?.let { m ->
+            val steps = effect(m.groupValues[1] + ".", context) ?: return@let
+            val create = (steps.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            if (create.count != Value.Fixed(1)) return@let
+            val bind = create.bind ?: "token"
+            val saved = context.it
+            context.it = Objects.Bound(bind)
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context)
+            if (then == null) { context.it = saved; return@let }
+            return listOf(Step.Do(create.copy(bind = bind))) + then
+        }
         // mkm chunk 05: "Suspect it.", "suspect this creature" (CR 701.60a)
         Mkm.SUSPECT_OBJECTS.matchEntire(sentence)?.let { m ->
             val objects = (if (m.groupValues[1] == "them") context.them else fraObjects(m.groupValues[1], context)) ?: return@let
@@ -15901,6 +15940,14 @@ internal class Sentences(
 
     /** mkm: whole lines, tried in [line]. */
     private fun mkmLine(line: String): Ability? {
+        // mkm chunk 06: "This Case is a 4/4 Gorgon creature with deathtouch and lifelink in addition to its other types." (CR 205.1b, 613.1d, f, 613.4b)
+        Mkm.IS_PT_CREATURE_WITH_IN_ADDITION.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtypes = m.groupValues[4].trim().split(' ').filter { it.isNotEmpty() }
+                .map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
+            val gains = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { listOf(Mechanic.GainAbilities(keywords(it) ?: return null)) }.orEmpty()
+            return Ability.Static(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))) + gains, affects = Affected.Objects(Objects.Self))
+        }
         // mkm chunk 03: "You may choose not to untap this creature during your untap step." (CR 502.3)
         Mkm.MAY_CHOOSE_NOT_TO_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.MayChooseNotToUntap), affects = Affected.Objects(Objects.Self))
@@ -15977,12 +16024,14 @@ internal class Sentences(
         // source of its own damage, all dealt at once, CR 120.3)
         Inr.EACH_DEALS_POWER_TO_THAT.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1])
-            val to = if (m.groupValues[2] == "that creature") context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
-                else m.groupValues[2].removePrefix("target ").let { noun -> Filters.noun(noun)?.let { context.target(Filters.slotName(noun), it) } }
+            val to = if (m.groupValues[3] == "that creature") context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+                else m.groupValues[3].removePrefix("target ").let { noun -> Filters.noun(noun)?.let { context.target(Filters.slotName(noun), it) } }
             if (filter != null && to != null) {
                 val each = Objects.Bound("source")
+                val amount = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Value.Fixed(it.toInt()) }
+                    ?: Value.Of(arcanum.api.NumericProperty.Power, each, arcanum.api.Combine.Single)
                 return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(filter)), bind = "source", together = true, steps = listOf(
-                    Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = to), Value.Of(arcanum.api.NumericProperty.Power, each, arcanum.api.Combine.Single), each)))))
+                    Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = to), amount, each)))))
             }
         }
         // inr chunk 08: "Exchange target opponent's life total with this creature's toughness." (CR 701.12g)
@@ -19517,11 +19566,12 @@ internal class Sentences(
             return listOf(first, second)
         }
         // fin chunk 13: "You may play lands and cast Bird spells from the top of your library." (two permissions, CR 305.1, 601.2a)
+        // mkm chunk 06: "… and cast creature and enchantment spells from the top of your library" (any spell noun)
         Fin.PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP.matchEntire(line)?.let { m ->
-            val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+            val spells = Filters.noun(m.groupValues[1].replace(" and ", " or ")) ?: return null
             fun top(cards: ObjectFilter, how: PlayKind) = Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)),
                 affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
-            return listOf(top(ObjectFilter.Type(arcanum.api.CardType.Land), PlayKind.Play), top(ObjectFilter.Sub(Subtype(subtype)), PlayKind.Cast))
+            return listOf(top(ObjectFilter.Type(arcanum.api.CardType.Land), PlayKind.Play), top(spells, PlayKind.Cast))
         }
         // fin-multi-end
         return null

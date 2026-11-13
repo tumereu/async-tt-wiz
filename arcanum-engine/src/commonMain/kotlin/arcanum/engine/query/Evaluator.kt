@@ -1035,11 +1035,16 @@ internal object History {
             arcanum.api.Measure.Events -> state.eventsOf(number).count { change ->
                 arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change).isNotEmpty()
             }
+            // mkm chunk 06: each object once ("three or more creatures attacked": a creature attacking in two combats is one creature)
             arcanum.api.Measure.Objects -> instances(evaluator, event, number).flatMap { e ->
                 (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
                     ?: e.objects.firstOrNull())?.ids.orEmpty()
-            }.size
+            }.distinct().size
             arcanum.api.Measure.Amount -> instances(evaluator, event, number).sumOf { it.amount ?: 0 }
+            // mkm: each source once, however often it dealt damage
+            arcanum.api.Measure.Sources -> instances(evaluator, event, number).flatMap { e ->
+                e.objects.filter { it.role == arcanum.api.EventRole.Source }.flatMap { it.ids }
+            }.distinct().size
             // tmt: the qualities among the events' objects, each as it was then ("card types among spells you've cast this turn")
             is arcanum.api.Measure.Distinct -> evaluator.distinct(measure.quality, instances(evaluator, event, number).flatMap { e ->
                 (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }

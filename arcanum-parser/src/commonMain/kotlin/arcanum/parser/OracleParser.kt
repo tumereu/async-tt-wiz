@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 82
+    const val VERSION: Int = 83
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -140,6 +140,15 @@ object OracleParser {
             names + names.filter { it.contains('.') }.map { it.replace(".", "") } }
 
     /** msh: [line] with each of [self]'s names that has a full stop written as its dotless alias (also a name of [self]). */
+    private val THOUSANDS_SEPARATOR = Regex("""(?<=\b\d{1,3}),(?=\d{3}\b)""")
+
+    /** lci chunk 06: a number with thousands separators ("1,000") is read as its digits; an ability word before " — " keeps its printed
+     * form ("10,000 Needles"). */
+    private fun plainNumbers(line: String): String {
+        val body = line.indexOf(" — ").let { if (it < 0) 0 else it }
+        return line.substring(0, body) + line.substring(body).replace(THOUSANDS_SEPARATOR, "")
+    }
+
     private fun dotless(line: String, self: Set<String>): String =
         self.filter { it.contains('.') }.sortedByDescending { it.length }.fold(line) { l, name -> l.replace(name, name.replace(".", "")) }
 
@@ -170,7 +179,7 @@ object OracleParser {
         while (i < lines.size) {
             val raw = lines[i++]
             // msh: a name with full stops ("M.O.D.O.K.", "Ms. Marvel") is read as its dotless alias, so sentences split right
-            val line = dotless(REMINDER.replace(raw, "").trim(), self)
+            val line = plainNumbers(dotless(REMINDER.replace(raw, "").trim(), self))
             // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
             // A section with an unread line stays printed text as a whole.
             val classLevel = CLASS_LEVEL.matchEntire(line)

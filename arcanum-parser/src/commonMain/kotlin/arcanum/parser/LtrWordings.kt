@@ -94,7 +94,7 @@ internal object Ltr {
     val UNTIL_EOT_GAIN_CONTROL_OF_TARGET = Regex("""[Uu]ntil end of turn, gain control of (target .+?)\. (.+)""")
     val DEALS_DAMAGE_TO_EACH_OF_UP_TO = Regex("""(.+?) deals (\w+) damage to each of up to (\w+) target (.+)\.""")
     val IF_ITS_A_IT_ALSO_GAINS = Regex("""If it's (legendary|an? .+?), it also gains (.+) until end of turn\.""")
-    val IS_DEALT_EXCESS_NONCOMBAT_DAMAGE = Regex("""an? (.+?) is dealt excess noncombat damage""")
+    val IS_DEALT_EXCESS_NONCOMBAT_DAMAGE = Regex("""(?:an? (.+?) is|one or more (.+?) are) dealt excess noncombat damage""")
     val THAT_EXCESS_DAMAGE = "that excess damage"
     val AS_LONG_AS_EQUIPPED_IS_IT_HAS = Regex("""As long as equipped creature is (legendary|an? .+?), it has (.+)\.""")
     val TARGET_CANT_BLOCK_UNTIL_EOT = Regex("""(Up to one target .+?|Target .+?) can't block until end of turn\.""")

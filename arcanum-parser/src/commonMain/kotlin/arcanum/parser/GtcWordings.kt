@@ -38,7 +38,7 @@ internal object Gtc {
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
     val BLOCKS_IF_ABLE = Regex("""(Target .+?) blocks this turn if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
-    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on enchanted creature\.""")
+    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on (?:enchanted|equipped) creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
     val GAIN_LIFE_POWER_PLUS_TOUGHNESS = Regex("""You gain life equal to that creature's power plus its toughness\.""")
 

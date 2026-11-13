@@ -62,6 +62,7 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        lciMulti(line)?.let { return it } // lci
         // inr chunk 09: "Grimgrin enters tapped and doesn't untap during your untap step." (two static abilities, CR 614.1c, 502.3)
         Inr.ENTERS_TAPPED_AND_DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val tapped = line("${m.groupValues[1]} enters tapped.")?.takeIf { it !is Ability.Unparsed } ?: return@let
@@ -2399,6 +2400,13 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // lci chunk 06: "you untap one or more permanents during your untap step" (the untap step's untapping, CR 502.3; once for the batch,
+        // CR 603.2c)
+        Lci.YOU_UNTAP_DURING_YOUR_UNTAP_STEP.matchEntire(text)?.let { m ->
+            val untapped = Filters.noun("${m.groupValues[1]} you control") ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Untap(untapped)), oneOrMore = true) to arcanum.api.Condition.And(listOf(
+                arcanum.api.Condition.YourTurn, arcanum.api.Condition.StepIs(arcanum.api.TurnStep.Untap)))
+        }
         // lci chunk 01: "you cast a permanent spell using mana produced by Tecutlan": a cast trigger only when mana from this object was
         // spent on that spell (CR 106.3, 603.2)
         Lci.YOU_CAST_USING_MANA_FROM.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -5571,9 +5579,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Connive(objects = Objects.Self, count = Value.Fixed(1)))))
         }
         // chunk 47: "Put that many +1/+1 counters on this creature." after discarding one or more cards: one per card
-        PUT_THAT_MANY_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) && context.event is EventPattern.Discard }?.let { m ->
+        // lci chunk 06: also after untapping one or more permanents: one per permanent
+        PUT_THAT_MANY_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) && (context.event is EventPattern.Discard || context.event is EventPattern.Untap) }?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Count(Objects.EventObject(arcanum.api.EventRole.After)))))
+            val role = if (context.event is EventPattern.Untap) arcanum.api.EventRole.Object else arcanum.api.EventRole.After
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Count(Objects.EventObject(role)))))
         }
         // fdn chunk 10b: "You lose life equal to that permanent's mana value." (the target as it last existed, CR 608.2h)
         Fdn.YOU_LOSE_LIFE_EQUAL_TO_THAT.matchEntire(sentence)?.let { m ->
@@ -6310,7 +6320,7 @@ internal class Sentences(
             val objects = gtcSubject(m.groupValues[2], context) ?: return null
             return listOf(Step.Do(Effect.PutCounters(objects, kind, Value.Fixed(1))), Step.Do(Effect.Untap(objects)))
         }
-        // gtc chunk 10: "put a +1/+1 counter on enchanted creature."
+        // gtc chunk 10: "put a +1/+1 counter on enchanted creature." (lci chunk 06: also "equipped creature")
         Gtc.PUT_COUNTER_ON_ATTACHED.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.PutCounters(Objects.AttachedTo(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1))))
         }
@@ -8070,7 +8080,8 @@ internal class Sentences(
             return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(1))))
         }
         // blb chunk 11: "Double the number of +1/+1 counters on it." (CR 701.10e)
-        Blb.DOUBLE_COUNTERS_ON_IT.matchEntire(sentence)?.let { m ->
+        // lci chunk 06: also on its name ("Double the number of time counters on The Millennium Calendar.")
+        Blb.DOUBLE_COUNTERS_ON_IT.matchEntire(sentence)?.takeIf { it.groupValues[2] == "it" || it.groupValues[2].startsWith("this ") || isSelf(it.groupValues[2]) }?.let { m ->
             // fdn chunk 04: "on this creature" is this permanent whatever the trigger's event was about
             val it = if (m.groupValues[2] != "it") Objects.Self else context.it ?: Objects.EventObject(EventRole.Object)
             return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(it, Counters.kind(m.groupValues[1]) ?: return null)))))
@@ -10963,7 +10974,7 @@ internal class Sentences(
         val RETURN_UP_TO_ONE_LESSER = Regex("""Return up to one target (.+) with lesser mana value to its owner's hand\.""")
         val YOU_PUT_COUNTERS_ON = Regex("""you put one or more (\S+) counters on (.+)""")
         val COUNTER_ON_EACH_OF_UP_TO = Regex("""Put an? (\S+) counter on each of up to (two|three) (other )?target (.+)\.""")
-        val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on (it|this \w+)\.""")
+        val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on (it|this \w+|.+)\.""")
         val TAP_UP_TO_ONE_AND_COUNTERS = Regex("""Tap up to one target (.+?) and put (\w+) (\S+) counters on it\.""")
         val IF_YOU_CONTROL_THAT = Regex("""If you control that creature, (.+)""")
         val FLICKER_OTHER_WITH_COUNTER = Regex("""Exile another target (.+?), then return it to the battlefield under its owner's control with (a|an|two) (\S+) counters? on it\.""")
@@ -15635,7 +15646,33 @@ internal class Sentences(
         return null
     }
 
+    /** "Until end of turn, you may look at the top card of your library any time and you may play cards from the top of your library": a
+     * look permission and two play permissions, spells cast for [castCost] when given (CR 118.9, 305.1, 601.2a). */
+    private fun untilEotLookAndPlayFromTop(castCost: Cost? = null): List<Step> {
+        val top = Filters.all(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))
+        val eot = arcanum.api.Duration.EndOfTurn
+        return listOf(
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true))), Affected.Players(Players.You), eot)),
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Play, topOnly = true, holder = PlayerFilter.You)),
+                Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Land), top))), eot)),
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Cast, topOnly = true, holder = PlayerFilter.You, cost = castCost)),
+                Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), top))), eot)))
+    }
+
     // ---- lci
+
+    /** lci: static lines that become several abilities. */
+    private fun lciMulti(line: String): List<Ability>? {
+        // lci chunk 06: "Equipped creature has deathtouch during your turn. Otherwise, it has reach." (two statics, one for your turns and one for
+        // the others; CR 611.3a)
+        Lci.HAS_DURING_YOUR_TURN_OTHERWISE.matchEntire(line)?.let { m ->
+            fun static(keywords: String) = (line("${m.groupValues[1]} has $keywords.") as? Ability.Static)?.takeIf { it.condition == null }
+            val yours = static(m.groupValues[2]) ?: return null
+            val others = static(m.groupValues[3]) ?: return null
+            return listOf(yours.copy(condition = arcanum.api.Condition.YourTurn), others.copy(condition = arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn)))
+        }
+        return null
+    }
 
     /** lci: static lines. */
     private fun lciStatic(line: String): Ability? {
@@ -15695,6 +15732,17 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 06: "Until end of turn, you may look at the top card of your library any time, and you may play lands and cast spells from the
+        // top of your library." (CR 305.1, 601.2a)
+        if (Lci.UNTIL_EOT_LOOK_AND_PLAY_FROM_TOP.matches(sentence)) return untilEotLookAndPlayFromTop()
+        // lci chunk 06: "create a green Fungus Dinosaur creature token with base power and toughness each equal to the total power of those
+        // creatures." (the creatures that died, as they last existed, CR 603.10a, 608.2h; fixed as the token is created, CR 111.4)
+        Lci.CREATE_TOKEN_BASE_PT_EQUAL_TO_TOTAL_POWER.matchEntire(sentence)?.let { m ->
+            (context.event as? EventPattern.ZoneChange)?.takeIf { it.from == Zone.Battlefield } ?: return null
+            val token = Tokens.defined("a X/X ${m.groupValues[1]} token") ?: return null
+            val total = Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Total)
+            return listOf(Step.Do(Effect.CreateToken(token.copy(power = total, toughness = total), Value.Fixed(1), Players.You)))
+        }
         // lci chunk 05: "Whenever you cast an instant spell from your hand, it gains rebound." (the cast spell, for as long as it is that object on
         // the Stack, CR 400.7, 611.2c)
         Lci.IT_GAINS_KEYWORD.matchEntire(sentence)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
@@ -17882,17 +17930,8 @@ internal class Sentences(
         }
         // spm chunk 06: "until end of turn, you may look at the top card of your library any time and you may play cards from the top of your
         // library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (CR 118.9, 305.1)
-        if (Spm.GWENOM.matches(text)) {
-            val top = Filters.all(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))
-            val eot = arcanum.api.Duration.EndOfTurn
-            return listOf(
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true))), Affected.Players(Players.You), eot)),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Play, topOnly = true, holder = PlayerFilter.You)),
-                    Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Land), top))), eot)),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Cast, topOnly = true, holder = PlayerFilter.You,
-                    cost = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single)))))),
-                    Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), top))), eot)))
-        }
+        if (Spm.GWENOM.matches(text))
+            return untilEotLookAndPlayFromTop(Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single)))))
         // spm chunk 06: "Two target players each reveal the top card of their library. They each lose life equal to the mana value of the card
         // revealed by the other player. Then they each put the card they revealed into their hand." (a library holds only its owner's cards,
         // CR 400.3)
@@ -23564,9 +23603,11 @@ internal class Sentences(
             return arcanum.api.Trigger.On(listOf(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), causedBy = ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true)
         }
         // ltr chunk 07: "a creature an opponent controls is dealt excess noncombat damage" (CR 120.4a); the amount is the excess
+        // lci chunk 06: "one or more creatures your opponents control are dealt excess noncombat damage": once per batch (CR 603.2c)
         Ltr.IS_DEALT_EXCESS_NONCOMBAT_DAMAGE.matchEntire(events)?.let { m ->
-            val noun = Filters.noun(m.groupValues[1]) ?: return@let
-            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = noun), combat = false, excess = true))
+            val batch = m.groupValues[2].isNotEmpty()
+            val noun = Filters.noun(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return@let
+            return arcanum.api.Trigger.On(listOf(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = noun), combat = false, excess = true)), oneOrMore = batch)
         }
         // ltr chunk 09: "you cast a spell that targets Haldir", "… that targets a creature you don't control" (CR 601.2c)
         Ltr.YOU_CAST_A_SPELL_THAT_TARGETS.matchEntire(events)?.let { m ->

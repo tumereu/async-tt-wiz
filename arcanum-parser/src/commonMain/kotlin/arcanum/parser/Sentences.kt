@@ -6110,8 +6110,10 @@ internal class Sentences(
         // gtc chunk 07: "That creature's controller creates a 3/3 green Frog Lizard creature token." (CR 111.2)
         Gtc.CONTROLLER_CREATES.matchEntire(sentence)?.let { m ->
             val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
-            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), controller = Players.ControllerOf(of))))
+            // bro chunk 02: "Its controller creates a tapped Powerstone token." (CR 111.10h)
+            val tappedForm = Regex("""(\w+) tapped (.+)""").matchEntire(m.groupValues[1])
+            val (count, token) = Tokens.spec(tappedForm?.let { it.groupValues[1] + " " + it.groupValues[2] } ?: m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), controller = Players.ControllerOf(of), tapped = tappedForm != null)))
         }
         // gtc chunk 04: "Move a +1/+1 counter from this creature onto target creature."
         Gtc.MOVE_COUNTER.matchEntire(sentence)?.let { m ->
@@ -11131,7 +11133,7 @@ internal class Sentences(
         val CAST_MV_EQUAL_TO_POWER = Regex("""you cast an? (.+?) spell with mana value equal to (.+?)'s power""")
         val ATTACK_WITH_N_OR_MORE = Regex("""you attack with (\w+) or more (\w+)""")
         val DEALS_N_OR_MORE_DAMAGE = Regex("""(.+?) deals (\d+) or more damage""")
-        val ENTERS_FROM_A = Regex("""(.+?) enters from an? (graveyard|exile)""")
+        val ENTERS_FROM_A = Regex("""(.+?) enters from (an?|your) (graveyard|exile)""")
         val COUNTERS_ON_SELF = Regex("""the number of (\w+) counters on (.+)""")
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
         val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
@@ -11493,7 +11495,7 @@ internal class Sentences(
         val ACTIVATE_ONLY_AS_SORCERY = Regex("""Activate only as a sorcery\.""")
         val ACTIVATE_ONLY_DURING_YOUR_TURN = Regex("""Activate only during your turn\.""")
         val TRIGGERS_ONLY_ONCE = Regex("""This ability triggers only once each turn\.""")
-        val CHOOSE_MODES = Regex("""choose (one|two)( that hasn't been chosen( this turn)?)?(?: —|\.)""") // tmt chunk 02: or a period
+        val CHOOSE_MODES = Regex("""choose (one|two|three)( that hasn't been chosen( this turn)?)?(?: —|\.)""") // tmt chunk 02: or a period
         val DURING_YOUR_TURN = Regex("""(.+) during your turn""")
         val ONE_OR_MORE_LEAVE = Regex("""one or more (.+) leave the battlefield""")
         val YOU_CREATE_ONE_OR_MORE = Regex("""you create one or more (.+) tokens""")
@@ -17834,8 +17836,11 @@ internal class Sentences(
         }
         // spm chunk 08: "this land enters from a graveyard"
         ENTERS_FROM_A.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val zone = when (m.groupValues[2]) { "graveyard" -> Zone.Graveyard; "exile" -> Zone.Exile; else -> return null }
-            return arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = zone, to = Zone.Battlefield)) to null
+            val zone = when (m.groupValues[3]) { "graveyard" -> Zone.Graveyard; "exile" -> Zone.Exile; else -> return null }
+            // bro chunk 02: "enters from your graveyard": it was in its controller's own graveyard, so the controller owns it (CR 108.3)
+            val what = if (m.groupValues[2] == "your") ObjectFilter.And(listOf(ObjectFilter.Is(Objects.Self), ObjectFilter.OwnedBy(PlayerFilter.You)))
+                else ObjectFilter.Is(Objects.Self)
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(what, from = zone, to = Zone.Battlefield)) to null
         }
         // spm chunk 06: "a creature an opponent controls with the greatest power among creatures that player controls dies" (its power as it
         // last existed against the creatures an opponent still controls; in a two-player game, that player's)

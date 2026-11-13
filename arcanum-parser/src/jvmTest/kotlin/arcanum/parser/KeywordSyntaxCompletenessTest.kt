@@ -15,7 +15,9 @@ class KeywordSyntaxCompletenessTest {
         // tla: "Firebending X, where X is …" is read by its own rule
         "FirebendingX",
         // mh2: "Reinforce X—{X}{G}{G}" is read by its own rule
-        "ReinforceX")
+        "ReinforceX",
+        // lci: "Craft with [materials] [cost]" is read by its own rule
+        "Craft")
 
     @Test
     fun parserReadsEveryKeywordTypeExactlyOnce() {

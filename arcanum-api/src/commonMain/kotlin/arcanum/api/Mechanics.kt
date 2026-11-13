@@ -356,6 +356,10 @@ sealed interface Mechanic {
         // ltr chunk 13
         /** Not their mana abilities ("all activated abilities of lands your opponents control except mana abilities", CR 605.1a). */
         val exceptMana: Boolean = false,
+        // lci
+        /** Each of those abilities may be activated only this many times each turn ("You may activate each of those abilities only once each
+         * turn", CR 602.5b). */
+        val perTurn: Int? = null,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent

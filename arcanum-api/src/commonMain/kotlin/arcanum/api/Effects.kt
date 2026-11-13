@@ -398,6 +398,10 @@ data class Destination(
      * a continuous effect that applies as it enters the battlefield, not after (CR 611.2e), so its enters triggers and
      * state-based actions see it. */
     val entersAs: List<Mechanic> = emptyList(),
+    // lci
+    /** Names bound earlier in the ability (by a cost's `remember` or a step) whose objects the permanent keeps as its card memory
+     * under the same names as it enters ("the exiled cards used to craft it", CR 702.167c, 607.2a). */
+    val keeps: List<String> = emptyList(),
 )
 
 /** [amount] counters of [kind]. */

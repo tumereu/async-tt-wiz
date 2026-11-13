@@ -703,6 +703,9 @@ internal object Effects {
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
+                // lci: what the ability kept for the permanent ("the exiled cards used to craft it", CR 702.167c, 607.2a)
+                memory = if (dest.zone != Zone.Battlefield) arcanum.engine.state.Bindings.EMPTY
+                    else arcanum.engine.state.Bindings(dest.keeps.mapNotNull { k -> scope.names[k]?.let { k to it } }.toMap()),
             )
         }
         val batch = scope.batch

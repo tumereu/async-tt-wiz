@@ -631,7 +631,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                     .filter { !mechanic.exceptLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().none { p -> p is CostPart.Loyalty } }
                     // ltr chunk 13: "except mana abilities" (CR 605.1a)
                     .filter { !mechanic.exceptMana || !it.ability.isManaAbility() }
-                    .map { AbilityInstance(it.ability, AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
+                    // lci: "You may activate each of those abilities only once each turn" (CR 602.5b)
+                    .map { AbilityInstance(limited(it.ability, mechanic.perTurn), AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
             })
             is Mechanic.LoseAbilities -> Op.Lose(mechanic.keyword)
             is Mechanic.CantHaveAbility -> Op.CantHave(mechanic.keyword)
@@ -941,3 +942,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
 private inline fun <K, V> MutableMap<K, V>.replaceEach(f: (K, V) -> V) {
     for (entry in entries) entry.setValue(f(entry.key, entry.value))
 }
+
+/** lci: [ability] activated at most [perTurn] times each turn (its own limit too, if lower; CR 602.5b). */
+private fun limited(ability: arcanum.api.Ability, perTurn: Int?): arcanum.api.Ability =
+    if (perTurn == null || ability !is arcanum.api.Ability.Activated) ability
+    else ability.copy(rules = ability.rules.copy(perTurn = minOf(ability.rules.perTurn ?: perTurn, perTurn)))

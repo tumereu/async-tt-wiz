@@ -1909,7 +1909,8 @@ internal class Sentences(
         }
         // chunk 46: "Master of Etherium's power and toughness are each equal to the number of artifacts you control." (CR 604.3)
         PT_EACH_EQUAL_TO_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val count = Value.Count(Filters.objects(m.groupValues[2]) ?: return null)
+            // lci chunk 02: "… the number of colors among the exiled cards used to craft it" (CR 702.167c)
+            val count = Filters.objects(m.groupValues[2])?.let { Value.Count(it) } ?: LciPhrases.value("the number of " + m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.SetPowerToughness(count, count)), characteristicDefining = true, affects = Affected.Objects(Objects.Self))
         }
         // chunk 46: "Nonartifact spells cost {1} more to cast."
@@ -6821,7 +6822,8 @@ internal class Sentences(
             return listOf(apply(listOf(Mechanic.AssignsNoCombatDamage), Objects.Self, arcanum.api.Duration.EndOfCombat))
         }
         // dgm: "Melek copies it": "copy it. You may choose new targets for the copy." (the spell cast)
-        if (sentence == "Copy it." && context.event is EventPattern.Cast) {
+        // lci chunk 02: also the ability activated ("Whenever you activate an ability that isn't a mana ability, copy it.", CR 707.10)
+        if (sentence == "Copy it." && (context.event is EventPattern.Cast || context.event is EventPattern.Activate)) {
             context.copied = true
             return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true)))
         }
@@ -15591,6 +15593,12 @@ internal class Sentences(
 
     /** lci: static lines. */
     private fun lciStatic(line: String): Ability? {
+        // lci chunk 02: "Locus of Enlightenment has each activated ability of the exiled cards used to craft it. You may activate each of those
+        // abilities only once each turn." (layer 6, CR 613.1f; CR 702.167c)
+        Lci.HAS_EACH_ACTIVATED_ABILITY_OF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = LciPhrases.craftedWith(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(of, perTurn = if (m.groupValues[3].isEmpty()) null else 1)), affects = Affected.Objects(Objects.Self))
+        }
         // lci chunk 01: "Enchanted artifact is a Golem creature with base power and toughness 5/4 in addition to its other types." (layer 4 and
         // 7b, CR 613.1d, 613.4b)
         Lci.ATTACHED_IS_CREATURE_BASE_PT.matchEntire(line)?.let { m ->
@@ -15623,6 +15631,23 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 02: "Then you may put an exiled creature card used to craft The Grim Captain onto the battlefield under your control tapped and
+        // attacking." (CR 702.167c; CR 508.4: not declared as an attacker, its controller chooses what it attacks)
+        Lci.MAY_PUT_CRAFTED_ONTO_BATTLEFIELD.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })
+            ?.takeIf { isSelf(it.groupValues[2]) || it.groupValues[2] == "it" }?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val attacking = m.groupValues[3].isNotEmpty()
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(kind, Value.Fixed(0), Value.Fixed(1), from = Objects.LinkedTo(arcanum.api.Keyword.Craft.Kind)),
+                bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), arcanum.api.Destination(Zone.Battlefield, tapped = attacking, controller = Players.You,
+                    attacking = arcanum.api.AttackTarget.Chosen.takeIf { attacking }))))
+        }
+        // lci chunk 02: "Its activated abilities can't be activated for as long as it remains tapped." (CR 611.2b: ends once it untaps, for good)
+        if (sentence == "Its activated abilities can't be activated for as long as it remains tapped.") {
+            val it = context.it ?: context.targets.lastOrNull()?.takeIf { t -> t.what is TargetKind.Objects }?.let { t -> Objects.Target(t.name) } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeActivated(manaAbilities = true)), Affected.Objects(it),
+                arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))))))
+        }
         // lci chunk 01: "Then if there are three or more bore counters on it, remove those counters and transform it." (the rest read as a
         // sentence of its own)
         Lci.REMOVE_THOSE_COUNTERS_AND.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })
@@ -18084,10 +18109,14 @@ internal class Sentences(
     private fun eclLine(line: String): Ability? {
         eclLine2(line)?.let { return it }
         // ecl chunk 03: "Vivid — {T}: For each color among permanents you control, add one mana of that color." (CR 106.1)
-        if (line == "{T}: For each color among permanents you control, add one mana of that color.")
+        // lci chunk 02: "{T}: For each color among the exiled cards used to craft this creature, add one mana of that color." (CR 702.167c)
+        Lci.EACH_COLOR_AMONG_ADD.matchEntire(line)?.let { m ->
+            val among = if (m.groupValues[1] == "permanents you control")
+                Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You)))
+                else LciPhrases.craftedWith(m.groupValues[1]) ?: return null
             return Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(steps = listOf(Step.Do(Effect.AddMana(ManaProduction(
-                ManaKind.EachColorAmong(Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))))),
-                Players.You)))), arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
+                ManaKind.EachColorAmong(among)), Players.You)))), arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
+        }
         return null
     }
 
@@ -20845,6 +20874,11 @@ internal class Sentences(
         if (granterName != null && text == "Tap $granterName") return listOf(CostPart.TapObjects(CostObjects.These(Objects.Granter)))
         // inr chunk 05: "Sacrifice Blazing Torch" in an ability the Equipment gives: sacrifice the Equipment (CR 113.10, 602.2b)
         if (granterName != null && text == "Sacrifice $granterName") return listOf(CostPart.Sacrifice(CostObjects.These(Objects.Granter)))
+        // lci chunk 02: "sacrifice an artifact other than Dire Blunderbuss" in an ability the Equipment gives: not the Equipment (CR 113.10)
+        if (granterName != null && text.startsWith("Sacrifice ") && text.endsWith(" other than $granterName")) {
+            val noun = Filters.noun(text.removePrefix("Sacrifice ").removeSuffix(" other than $granterName").removeArticle()) ?: return null
+            return listOf(CostPart.Sacrifice(CostObjects.Choose(Filters.all(noun, ObjectFilter.Not(ObjectFilter.Is(Objects.Granter))), Value.Fixed(1))))
+        }
         // eoe chunk 13: "Tap X untapped artifacts you control" (X announced, CR 107.3a); as "Tap two untapped Elves you control" reads, only the
         // kind is named (a cost taps untapped permanents its payer controls, CR 602.2b)
         Eoe.TAP_X_UNTAPPED.matchEntire(text)?.let { m ->

@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 78
+    const val VERSION: Int = 79
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -535,6 +535,8 @@ object OracleParser {
         PARTNER_WITH.matchEntire(line)?.let { return listOf(Keyword.PartnerWith(it.groupValues[1])) }
         // fdn chunk 02: "Enchant creature, land, or planeswalker": one list of what it can enchant, not several keywords (CR 702.5a)
         if (line.startsWith("Enchant ")) keyword(line)?.let { return listOf(it) }
+        // lci chunk 02: "Craft with a Dinosaur, a Merfolk, a Pirate, and a Vampire {4}": one keyword, its commas the materials' (CR 702.167a)
+        if (line.startsWith("Craft with ")) keyword(line)?.let { return listOf(it) }
         // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
         val parts = when {
             line.contains("; ") -> line.split("; ")
@@ -634,6 +636,10 @@ object OracleParser {
                 "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
+        }
+        // lci chunk 02: "Craft with artifact {5}{W}{W}" (CR 702.167a)
+        Lci.CRAFT.matchEntire(part)?.let { m ->
+            return Keyword.Craft(LciPhrases.craftMaterials(m.groupValues[1]) ?: return null, Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null), m.groupValues[1])
         }
         // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
         AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }

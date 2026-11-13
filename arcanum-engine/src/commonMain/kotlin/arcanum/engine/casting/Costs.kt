@@ -229,12 +229,15 @@ internal object Costs {
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
             is CostPart.Action -> (if (part.action is arcanum.api.KeywordAction.Blight) emptyList() else s.player(player).hand) +
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
-            is CostPart.Exile -> when (part.from) {
-                Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
-                // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
-                Zone.Stack -> s.stack.filter { s.stackItems[it]?.controller == player }
-                Zone.Exile, Zone.Command -> emptyList()
-                else -> s.zone(part.from, player)
+            // lci: craft exiles from among permanents you control and/or cards in your graveyard (CR 702.167a)
+            is CostPart.Exile -> (listOf(part.from) + part.alsoFrom).flatMap { from ->
+                when (from) {
+                    Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
+                    // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
+                    Zone.Stack -> s.stack.filter { s.stackItems[it]?.controller == player }
+                    Zone.Exile, Zone.Command -> emptyList()
+                    else -> s.zone(from, player)
+                }
             }
             else -> emptyList()
         }
@@ -251,7 +254,8 @@ internal object Costs {
         // rtr chunk 07: only objects with enough others sharing the quality can be among the chosen
         val sharing = choose.shared?.let { q -> options.filter { a -> options.count { b -> b != a && eval.shares(q, a, b) } >= (count ?: 1) - 1 } } ?: options
         return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared)
-            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: 0, count, text, null, choose.shared)
+            // lci: "one or more", "four or more" (craft, CR 702.167a)
+            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: choose.atLeast ?: 0, count, text, null, choose.shared)
     }
 
     /** A plain description of a cost part, for decisions ("Sacrifice a creature"). */

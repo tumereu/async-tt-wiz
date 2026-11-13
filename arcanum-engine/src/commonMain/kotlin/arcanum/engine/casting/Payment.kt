@@ -404,12 +404,16 @@ internal object Payment {
             }
             is CostPart.Exile -> {
                 val ids = objects(part.what)
-                check(ids, part.from)
+                // lci: craft's materials come from the battlefield and/or the graveyard (CR 702.167a)
+                if (part.alsoFrom.isEmpty()) check(ids, part.from)
+                else ids.forEach { id -> if ((s.obj(id) ?: refuse("$id is gone")).zone !in part.alsoFrom + part.from) refuse("$id isn't in ${part.from}") }
                 val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
                 part.remember?.let {
-                    bound[it] = NamedValue.Objects(after)
+                    // lci: several exile parts kept under one key add up ("a Dinosaur, a Merfolk, …" of craft)
+                    val kept = NamedValue.Objects((bound[it] as? NamedValue.Objects)?.ids.orEmpty() + after)
+                    bound[it] = kept
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
-                    bound[REMEMBERED + it] = NamedValue.Objects(after)
+                    bound[REMEMBERED + it] = kept
                 }
             }
             is CostPart.ReturnToHand -> {

@@ -71,6 +71,10 @@ sealed interface CostPart {
      * becomes can still find them ("return the exiled card", CR 607.2q). */
     @Serializable @SerialName("exile") data class Exile(
         val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null, val remember: String? = null,
+        // lci
+        /** Zones it may also come from, the payer's own ("from among permanents you control and/or cards in your graveyard", craft,
+         * CR 702.167a). Several exile parts remembering under one key add up there. */
+        val alsoFrom: List<Zone> = emptyList(),
     ) : CostPart
     /** Pay one of [options] ("discard a card or pay {5}"). */
     @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
@@ -126,6 +130,9 @@ sealed interface CostObjects {
         val shared: SharedQuality? = null,
         /** [count] is the most chosen, none being enough ("tapping up to one untapped creature you control", harmonize). */
         val upTo: Boolean = false,
+        // lci
+        /** With [count] null, at least this many ("one or more Dinosaurs", "four or more nonlands", craft, CR 702.167a). */
+        val atLeast: Int? = null,
     ) : CostObjects
 }
 

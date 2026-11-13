@@ -81,6 +81,15 @@ internal object Mom {
     val CHOOSE_EXILED_WITH_MAY_CAST_FREE_THIS_TURN = Regex("""Choose target (.+?) exiled with (.+?)\. You may cast that card this turn without paying its mana cost\.(?: If that spell would be put into a graveyard, (exile it|put it on the bottom of its owner's library) instead\.)?""")
     val DEALS_TO_EACH_OF_UP_TO_TARGETS = Regex("""(.+?) deals (X|\w+) damage to each of up to (\w+) targets\.""")
     val PUT_ANY_NUMBER_ON_BOTTOM_DRAW_THAT_MANY = Regex("""Put any number of cards from your hand on the bottom of your library, then draw that many cards( plus one)?\.""")
+    // mom chunk 12: Surge of Salvation "Prevent all damage that black and/or red sources would deal to creatures you control this turn."
+    val PREVENT_ALL_DAMAGE_SOURCES_WOULD_DEAL = Regex("""Prevent all (combat )?damage that (.+?) sources would deal to (.+?) this turn\.""")
+    // mom chunk 12: Glistening Deluge "Creatures that are green and/or white get an additional -2/-2 until end of turn." (adds to the earlier change)
+    val GET_AN_ADDITIONAL = Regex("""(.+? gets?) an additional ([+-]\d+/[+-]\d+ until end of turn\.)""")
+    // mom chunk 12: Borborygmos and Fblthp "draw a card, then you may discard any number of land cards. When you discard one or more cards this way, …
+    // deals twice that much damage to target creature."
+    val DRAW_MAY_DISCARD_ANY_NUMBER_WHEN_TWICE_DAMAGE = Regex("""Draw a card, then you may discard any number of (.+?) cards\. When you discard one or more cards this way, (.+?) deals twice that much damage to target (.+)\.""")
+    // mom chunk 12: Djeru and Hazoret, Nahiri's Warcrafting: look at the top N (or the excess damage) cards, exile one, the rest on the bottom, play it
+    val LOOK_MAY_EXILE_ONE_REST_BOTTOM_PLAY = Regex("""(?:(.+?) deals (\d+) damage to target (.+?)\. )?Look at the top (\w+) cards of your library(, where X is the excess damage dealt this way)?\. You may exile (?:one of those cards|an? (.+?) from among them)\. Put the rest on the bottom of your library in a random order\. (You may play the exiled card this turn|Until end of turn, you may cast the exiled card without paying its mana cost)\.""")
     val SOURCE_DAMAGE_PLUS_THIS_TURN = Regex("""If a source would deal damage to (a player or battle|a player|an opponent) this turn, it deals that much damage plus (\d+) instead\.""")
 }
 
@@ -98,6 +107,20 @@ internal object MomPhrases {
     // mom chunk 05: "each creature that convoked it", "creatures that convoked this creature" (CR 702.51c)
     private val THAT_CONVOKED = Regex("""(?:each )?creatures? that convoked (?:it|this creature|this spell)""")
 
+    // mom chunk 12: Rampaging Raptor "planeswalker that player controls or battle that player protects" (a battle's protector, CR 310.8)
+    private val CONTROLS_OR_PROTECTS = Regex("""(.+?) (that player|an opponent|you) controls? or (.+?) \2 protects?""")
+    private val PROTECTS = Regex("""(.+?) (that player|an opponent|you) protects?""")
+
+    // mom chunk 12: Glistening Deluge "creatures that are green and/or white" (CR 105.2)
+    private val THAT_ARE_COLORS = Regex("""(.+?) that (?:are|is) ((?:white|blue|black|red|green)(?:(?:,| and/or| or|, or) (?:white|blue|black|red|green))*)""")
+
+    private fun protector(who: String): PlayerFilter? = when (who) {
+        "that player" -> PlayerFilter.Is(arcanum.api.Players.EventPlayer)
+        "an opponent" -> PlayerFilter.Opponent
+        "you" -> PlayerFilter.You
+        else -> null
+    }
+
     /** mom chunk 05: objects that aren't a filter: the creatures tapped to pay for this object's convoke (CR 702.51c). */
     fun objects(phrase: String): arcanum.api.Objects? {
         if (THAT_CONVOKED.matches(phrase)) return arcanum.api.Objects.PaidWith(arcanum.api.ManaPaymentWay.TapCreatures, arcanum.api.Objects.Self)
@@ -105,6 +128,19 @@ internal object MomPhrases {
     }
 
     fun noun(phrase: String): ObjectFilter? {
+        CONTROLS_OR_PROTECTS.matchEntire(phrase)?.let { m ->
+            val controlled = Filters.noun("${m.groupValues[1]} ${m.groupValues[2]} controls") ?: return null
+            val protected = noun("${m.groupValues[3]} ${m.groupValues[2]} protects") ?: return null
+            return ObjectFilter.Or(listOf(controlled, protected))
+        }
+        PROTECTS.matchEntire(phrase)?.let { m ->
+            val who = protector(m.groupValues[2]) ?: return null
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Where(Condition.PlayerMatches(arcanum.api.Players.ProtectorOf(arcanum.api.Objects.Tested), who)))
+        }
+        THAT_ARE_COLORS.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, Filters.noun(m.groupValues[2]) ?: return null)
+        }
         WAS_ACTIVATED_THIS_TURN.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(
                 EventPattern.Activate(ObjectFilter.Any, PlayerFilter.Any, kind = arcanum.api.AbilityKind.Loyalty), role = arcanum.api.EventRole.Source))

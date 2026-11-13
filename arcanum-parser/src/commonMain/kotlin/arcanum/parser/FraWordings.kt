@@ -94,7 +94,7 @@ internal object Fra {
     val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may discard their hand and draw (\w+) cards\.""")
     val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""For each creature target player controls, create a token that's a copy of that creature, except it has (\w+) and "(.+)"\.""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
-    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|target .+?)\.""")
+    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?)\.""")
     val TARGET_LOSES_ALL_ABILITIES = Regex("""Target (.+?) loses all abilities until end of turn\.""")
     val SEARCH_UP_TO_THAT_MANY = Regex("""(You may )?[Ss]earch your library for up to that many (.+?), put them onto the battlefield( tapped)?, then shuffle\.""")
     val GAINS_YOUR_CHOICE_OF = Regex("""(It|.+?) gains your choice of (.+?) until end of turn\.""")

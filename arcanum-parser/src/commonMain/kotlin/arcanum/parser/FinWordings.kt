@@ -203,7 +203,8 @@ internal object Fin {
     // fin chunk 09
     val IF_CAST_FROM_GRAVEYARD_COUNTERS_ON_TOKEN = Regex("""(?:Then )?[Ii]f this spell was cast from a graveyard, put (\w+) (\S+) counters? on that token\.""")
     val CHOOSE_SPELL_SURVEIL_COUNTER_UNLESS = Regex("""Choose target spell\. Surveil (\w+), then counter the chosen spell unless its controller pays (\{\d+\}) for each card in your graveyard\.""")
-    val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""You may cast target (.+?) from a graveyard, and mana of any type can be spent to cast that spell\. If that spell would be put into a graveyard, exile it instead\.""")
+    // mom chunk 12: also "… from a graveyard without paying its mana cost. If that spell would …"
+    val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""You may cast target (.+?) from a graveyard(, and mana of any type can be spent to cast that spell| without paying its mana cost)\. If that spell would be put into a graveyard, exile it instead\.""")
     val ADDITIONAL_COST_OR = Regex("""As an additional cost to cast this spell, (sacrifice an? .+?) or (pay \{.+\})\.""")
     val ATTACKED_THIS_TURN_MAY_PLAY_TOP = Regex("""As long as (.+?) attacked this turn, you may play the top card of your library\.""")
     val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill that many cards plus (\w+) instead\.""")

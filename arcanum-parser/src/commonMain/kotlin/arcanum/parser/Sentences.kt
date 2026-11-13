@@ -2501,7 +2501,9 @@ internal class Sentences(
         eclTrigger(text)?.let { return it } // ecl
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
-        val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
+        // lci fixes: "an opponent casts a spell during their turn": the event's player is the active player (CR 603.2)
+        val onlyIf = during?.let { if (it.groupValues[2] == "your") arcanum.api.Condition.YourTurn
+            else arcanum.api.Condition.PlayerMatches(Players.EventPlayer, PlayerFilter.Is(Players.Active)) }
         tdmTrigger(events)?.let { return it to onlyIf } // tdm
         eoeTrigger(events)?.let { return it to onlyIf } // eoe
         finTrigger(events)?.let { return it to onlyIf } // fin
@@ -2832,7 +2834,8 @@ internal class Sentences(
         val diedOther = (event as? EventPattern.ZoneChange)?.takeIf { it.to == Zone.Graveyard && it.from == Zone.Battlefield &&
             it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
         val defined = whereX(text)?.let { w ->
-            if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
+            // lci fixes: also its toughness or mana value ("where X is its toughness", Fruit of the First Tree)
+            if (diedOther != null && w.groupValues[1] in DIED_NUMBERS) Value.Of(DIED_NUMBERS.getValue(w.groupValues[1]), Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
             else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: fdnValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
         }
@@ -2847,6 +2850,61 @@ internal class Sentences(
                     "mana value" -> arcanum.api.NumericProperty.ManaValue; "power" -> arcanum.api.NumericProperty.Power; else -> arcanum.api.NumericProperty.Toughness })
             } else null
     }
+
+    private val DIED_NUMBERS = mapOf("its power" to arcanum.api.NumericProperty.Power, "its toughness" to arcanum.api.NumericProperty.Toughness,
+        "its mana value" to arcanum.api.NumericProperty.ManaValue)
+
+    /** lci fixes: "sacrifice another creature. You gain X life …, where X is that creature's power": the one object sacrificed, named as it
+     * is chosen and read as it last existed (CR 608.2h). [steps] get the name on that sacrifice; null (unchanged) unless the steps pick
+     * exactly one thing and that is the sacrifice of one object. */
+    private fun sacrificedReferent(steps: MutableList<Step>): Objects? {
+        val scan = SacrificeScan(SACRIFICED)
+        val named = scan.all(steps)
+        if (scan.picks != 1) return null
+        steps.clear(); steps += named
+        return scan.found
+    }
+
+    /** What [sacrificedReferent] looks for: how many objects the steps pick (a choice not followed by its sacrifice counts as two, so it is
+     * never the one) and the name of the one sacrificed object, given [name] on a sacrifice cost that had none. */
+    private class SacrificeScan(val name: String) {
+        var picks = 0
+        var found: Objects? = null
+
+        private fun one(what: arcanum.api.CostObjects): Boolean =
+            what is arcanum.api.CostObjects.Choose && what.count == Value.Fixed(1) && !what.upTo && what.total == null && what.atLeast == null
+
+        fun all(list: List<Step>): List<Step> = list.mapIndexed { i, step ->
+            // "Sacrifice another creature." (one chosen, then sacrificed: the chosen name is it as it was)
+            val choice = (step as? Step.Choose)?.choice as? arcanum.api.Choice.Objects
+            val sacrifice = (list.getOrNull(i + 1) as? Step.Do)?.effect as? Effect.Sacrifice
+            val previous = ((list.getOrNull(i - 1) as? Step.Choose)?.bind)?.let { Objects.Bound(it) }
+            when {
+                step is Step.Choose && choice != null && choice.min == Value.Fixed(1) && choice.max == Value.Fixed(1) &&
+                    sacrifice?.objects == Objects.Bound(step.bind) -> { picks++; found = sacrifice.objects; step }
+                step is Step.Do && previous != null && (step.effect as? Effect.Sacrifice)?.objects == previous -> step
+                else -> one(step)
+            }
+        }
+
+        private fun one(step: Step): Step = when (step) {
+            is Step.Choose -> step.also { if (it.choice is arcanum.api.Choice.Objects) picks += 2 }
+            is Step.Pay -> step.copy(cost = step.cost?.let { cost -> cost.copy(parts = cost.parts.map { part ->
+                if (part !is arcanum.api.CostPart.Sacrifice || part.what == arcanum.api.CostObjects.Self) return@map part
+                picks++
+                if (!one(part.what)) return@map part
+                val bound = part.preBind ?: name
+                found = Objects.Bound(bound)
+                part.copy(preBind = bound)
+            }) }, steps = all(step.steps))
+            is Step.Do -> step.also { s -> if ((s.effect as? Effect.Sacrifice)?.objects?.let { it != Objects.Self } == true) picks += 2 }
+            is Step.If -> step.copy(then = all(step.then), otherwise = all(step.otherwise))
+            is Step.May -> step.copy(steps = all(step.steps))
+            else -> step
+        }
+    }
+
+    private val SACRIFICED = "sacrificed"
 
     // lci chunk 01: "its mana value", "that spell's power": a number of the object the sentence using X names
     private val IT_NUMBER = Regex("""(?:its|that (spell|creature|card|permanent)'s) (mana value|power|toughness)""")
@@ -2866,7 +2924,11 @@ internal class Sentences(
             else -> false
         }
         if (before.any(::picks)) return null
-        if ((context.event as? EventPattern.ZoneChange)?.from == Zone.Battlefield) return null
+        val objectTargetsSoFar = context.targets.any { it.what is TargetKind.Objects }
+        // lci fixes: "When this creature dies, you may discover X, where X is its toughness.": the object as it last existed on the battlefield
+        // (CR 603.10a, 608.2h), when nothing else in the ability is an object "its" could name
+        if ((context.event as? EventPattern.ZoneChange)?.from == Zone.Battlefield)
+            return Objects.EventObject(EventRole.Before).takeIf { word == "its" && !objectTargetsSoFar && context.it == Objects.EventObject(EventRole.After) }
         fun namesSpell(f: ObjectFilter): Boolean = f == ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) || (f is ObjectFilter.And && f.all.any(::namesSpell))
         val objectTargets = context.targets.filter { it.what is TargetKind.Objects }
         if (word == "spell") return objectTargets.lastOrNull { namesSpell((it.what as TargetKind.Objects).filter) }?.let { Objects.Target(it.name) }
@@ -2961,7 +3023,9 @@ internal class Sentences(
                 } else steps += renameRepeatedTargets(parsed, context, targetsFrom) // rtr chunk 08
                 context.previous = targetsFrom to stepsFrom
                 if (itNumber != null && itX == null && X_WORD.containsMatchIn(sentence))
-                    itX = Value.Of(itNumber.second, itReferent(itNumber.first, steps, context) ?: return null, arcanum.api.Combine.Single)
+                    itX = Value.Of(itNumber.second, itReferent(itNumber.first, steps, context)
+                        ?: (if (itNumber.first == "creature" || itNumber.first == "permanent") sacrificedReferent(steps) else null) ?: return null,
+                        arcanum.api.Combine.Single)
             }
         } finally { announcedX = outerX }
         val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
@@ -11688,7 +11752,7 @@ internal class Sentences(
         val ACTIVATE_ONLY_DURING_YOUR_TURN = Regex("""Activate only during your turn\.""")
         val TRIGGERS_ONLY_ONCE = Regex("""This ability triggers only once each turn\.""")
         val CHOOSE_MODES = Regex("""choose (one|two)( that hasn't been chosen( this turn)?)?(?: —|\.)""") // tmt chunk 02: or a period
-        val DURING_YOUR_TURN = Regex("""(.+) during your turn""")
+        val DURING_YOUR_TURN = Regex("""(.+) during (your|their) turn""")
         val ONE_OR_MORE_LEAVE = Regex("""one or more (.+) leave the battlefield""")
         val YOU_CREATE_ONE_OR_MORE = Regex("""you create one or more (.+) tokens""")
         val REMOVE_COUNTERS_FROM_SELF = Regex("""Remove (a|an|one|two|three) (\S+) counters? from (.+)""")
@@ -15924,6 +15988,15 @@ internal class Sentences(
 
     /** lci: static lines. */
     private fun lciStatic(line: String): Ability? {
+        // lci fixes: "Each opponent who attacked you or a planeswalker you control this turn can't cast spells." Only the active player attacks
+        // (CR 506.2, 508.1), so that opponent is the active player once a creature attacked you or a planeswalker you control this turn
+        Lci.OPPONENT_WHO_ATTACKED_YOU_CANT_CAST.matchEntire(line)?.let { m ->
+            val walkers = if (m.groupValues[1].isEmpty()) null else Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.You))
+            val attackedYou = arcanum.api.Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.Any,
+                target = arcanum.api.RecipientFilter(objects = walkers, players = PlayerFilter.You)), atLeast = 1, measure = arcanum.api.Measure.Events)
+            return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Any)),
+                affects = Affected.Players(Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Is(Players.Active))))), condition = attackedYou)
+        }
         // lci chunk 09: "You may cast Dinosaur creature spells from among cards you own exiled with this creature. If you cast a spell this way, that
         // creature enters with a finality counter on it." (the cards its other ability exiled, linked, CR 607.2a; CR 122.1h)
         Lci.MAY_CAST_FROM_AMONG_EXILED_WITH_FINALITY.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -16113,6 +16186,30 @@ internal class Sentences(
         Lci.ATTACKING_PLAYER_GAINS_CONTROL_AND_UNTAPS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.Active)), Affected.Objects(Objects.Self),
                 arcanum.api.Duration.Indefinitely)), Step.Do(Effect.Untap(Objects.Self)))
+        }
+        // lci fixes: "for each player, choose a creature with power 2 or less that player controls." (not targeted: you choose one for each player
+        // in turn order, CR 101.4); "chosen this way" afterwards is all of them
+        Lci.FOR_EACH_PLAYER_CHOOSE_ONE.matchEntire(sentence)?.takeIf { !it.groupValues[3].startsWith("target ") && !it.groupValues[3].startsWith("other target ") }?.let { m ->
+            val theirs = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player"))))
+            val who = if (m.groupValues[1] == "opponent") PlayerFilter.Opponent else PlayerFilter.Any
+            val least = if (m.groupValues[2] == "up to one") 0 else 1
+            context.them = Objects.Bound("chosen")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(who)), "player", together = true, steps = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(theirs, Value.Fixed(least), Value.Fixed(1)), bind = "chosen", chooser = Players.You))))
+        }
+        // lci fixes: "Then destroy all creatures except creatures chosen this way." (all at once, CR 608.2e; the choice before named them)
+        Lci.ALL_EXCEPT_CHOSEN_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val chosen = context.them as? Objects.Bound ?: return null
+            val rest = Objects.Except(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null), chosen)
+            return listOf(Step.Do(if (m.groupValues[1].lowercase() == "destroy") Effect.Destroy(rest) else Effect.Move(rest, Destination(Zone.Exile))))
+        }
+        // lci fixes: "they can't attack you or planeswalkers you control this turn." (the event's player: every creature they control, including
+        // ones they gain control of later, CR 508.1c, 611.2c)
+        Lci.PLAYER_CANT_ATTACK_YOU_THIS_TURN.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
+            val walkers = if (m.groupValues[2].isEmpty()) null else Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            val theirs = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Is(Players.EventPlayer)))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(arcanum.api.Recipients(objects = walkers, players = Players.You))),
+                Affected.Objects(Objects.Each(theirs)), arcanum.api.Duration.EndOfTurn)))
         }
         // lci chunk 08: "for each player, choose up to one other target artifact or creature that player controls." (one target for each
         // player, CR 601.2c); "the chosen permanents" afterwards are those targets

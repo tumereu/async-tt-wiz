@@ -57,6 +57,12 @@ internal object Lci {
     // lci chunk 09: also "you put a Cave onto the battlefield this way"
     val YOU_EXILED_CARD_THIS_WAY = Regex("""you (?:exiled an? (.+?) card|put an? (.+?) onto the battlefield) this way""")
     val THE_TARGET_ENTERED_THIS_TURN = Regex("""the (.+) entered this turn""")
+    // lci fixes: Unstable Glyphbridge (an untargeted choice for each player, then all the others; CR 608.2c)
+    val FOR_EACH_PLAYER_CHOOSE_ONE = Regex("""[Ff]or each (player|opponent), (?:you )?choose (an?|up to one) (.+?) that player controls\.""")
+    val ALL_EXCEPT_CHOSEN_THIS_WAY = Regex("""(?:Then )?([Dd]estroy|[Ee]xile) all (.+?) except (?:those|the ones|[a-z]+) chosen this way\.""")
+    // lci fixes: Sandswirl Wanderglyph ("they" is the player the trigger's event names; CR 508.1c)
+    val PLAYER_CANT_ATTACK_YOU_THIS_TURN = Regex("""([Tt]hey|[Tt]hat player) can't attack you( or planeswalkers you control)? this turn\.""")
+    val OPPONENT_WHO_ATTACKED_YOU_CANT_CAST = Regex("""Each opponent who attacked you( or a planeswalker you control)? this turn can't cast spells\.""")
     val FOR_EACH_PLAYER_CHOOSE_UP_TO_ONE_TARGET = Regex("""[Ff]or each player, choose up to one (other )?target (.+?) that player controls\.""")
     val CHOSEN_BECOME_ARTIFACTS_LOSE_OTHER_ABILITIES = Regex("""For as long as (.+?) remains on the battlefield, the chosen permanents become ([A-Z]\w+) artifacts with "(.+)" and lose all other abilities\.""")
     val FOR_EACH_POWER_GREATER_THAN_BASE_COUNTERS = Regex("""[Ff]or each (.+?) with power greater than that creature's base power, put a number of (\S+) counters on that creature equal to the difference\.""")

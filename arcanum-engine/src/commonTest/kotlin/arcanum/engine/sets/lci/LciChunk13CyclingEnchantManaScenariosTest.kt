@@ -214,6 +214,19 @@ class LciChunk13CyclingEnchantManaScenariosTest {
         }
     }
 
+    // CR 613.1f, 106.1b: the granted mana ability is chosen by name and colour ("paying"): the Shrine's {C} and the Cave's {G} for a life
+    @Test
+    fun shrineGrantedAbilityIsChosenByPaying() = scenario {
+        alice.battlefield(shrine, prospectorsCave)
+        alice.hand(bear)
+        alice.casts(bear, paying = listOf("Shrine of Hollows", "Prospector's Cave:G"))
+        resolveAll()
+        expect {
+            alice.life shouldBe 19
+            alice.battlefield has bear
+        }
+    }
+
     // CR 613.1f: "other": the Shrine itself makes only {C}, so a lone Shrine can't pay for a green spell
     @Test
     fun shrineDoesNotGrantItselfTheAbility() = scenario {

@@ -26,14 +26,24 @@ fun cardScale(value: Float) = if (value.isFinite()) value.coerceIn(MIN_CARD_SCAL
 fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
     ?.takeIf { it.isFinite() }?.let(::cardScale)
 
-/** One file for the device, intentionally independent of account IDs and logout cleanup. */
-class CardAppearancePreferences(platform: AppPlatform) {
-    private val store = platform.preferences("card-appearance")
-    fun read() = CardAppearance(
-        cardScale(store.getFloat("size", 1f)), store.getBoolean("custom-areas", false),
-        CardArea.entries.associateWith { cardScale(store.getFloat("area/${it.name}", store.getFloat("size", 1f))) },
-        cardScale(store.getFloat("text", 1f)), store.getBoolean("custom-text", false),
-        CardTextScalePart.entries.associateWith { cardScale(store.getFloat("text/${it.name}", store.getFloat("text", 1f))) })
+/** The desktop layout's card sizes before the player changes them (WEB-019, docs/specs/web-client.md §7.2): battlefield
+ * 1.5×, hand 2×, the other areas 1.5×. */
+val DesktopCardAppearance = CardAppearance(cardSize = 1.5f, customizeAreas = true,
+    areas = mapOf(CardArea.HAND to 2f, CardArea.PILES to 1.5f, CardArea.STACK to 1.5f, CardArea.PANELS to 1.5f))
+
+/** One file for the device, intentionally independent of account IDs and logout cleanup. WEB-019: one per layout, the
+ * desktop layout's ([AppLayout.Desktop]) starting from [DesktopCardAppearance]. */
+class CardAppearancePreferences(platform: AppPlatform, layout: AppLayout = AppLayout.Phone) {
+    private val defaults = if (layout == AppLayout.Desktop) DesktopCardAppearance else CardAppearance()
+    private val store = platform.preferences(if (layout == AppLayout.Desktop) "card-appearance-desktop" else "card-appearance")
+    fun read(): CardAppearance {
+        val size = store.getFloat("size", defaults.cardSize)
+        val text = store.getFloat("text", defaults.textSize)
+        return CardAppearance(cardScale(size), store.getBoolean("custom-areas", defaults.customizeAreas),
+            CardArea.entries.associateWith { cardScale(store.getFloat("area/${it.name}", if (store.contains("size")) size else defaults.areas[it] ?: size)) },
+            cardScale(text), store.getBoolean("custom-text", defaults.customizeText),
+            CardTextScalePart.entries.associateWith { cardScale(store.getFloat("text/${it.name}", text)) })
+    }
 
     fun setSize(value: Float, area: CardArea? = null) {
         store.edit().putFloat(area?.let { "area/${it.name}" } ?: "size", cardScale(value)).apply()
@@ -57,7 +67,9 @@ class CardAppearancePreferences(platform: AppPlatform) {
 @Composable
 fun rememberCardAppearancePreferences(): CardAppearancePreferences {
     val platform = AppPlatform.current
-    return remember(platform) { CardAppearancePreferences(platform) }
+    // WEB-019: the sizes of the layout the app is drawn in
+    val layout = LocalAppLayout.current
+    return remember(platform, layout) { CardAppearancePreferences(platform, layout) }
 }
 
 @Composable

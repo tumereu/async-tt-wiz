@@ -760,7 +760,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
     // (owner, 2026-11-12) OK closes it at once on this phone, before the engine thread has published the dismissal
     val reveal = routes.openReveal().takeIf { !reviewing }
-    if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
+    if (reveal != null) AboveHand(handRow(scene, routes.viewer), PromptPlace.Choice) {
         // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
         RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
             reveal.left?.owner?.let { names[it.value] } ?: opponent) {

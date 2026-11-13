@@ -92,7 +92,8 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
     var panelHeight by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
-    DockedAboveHand(handRow) {
+    // WEB-019: on the desktop table paying with permanents needs the board (a strip); ways, extras, X and modes don't (an overlay)
+    DockedAboveHand(handRow, if (flow.pending is Decision.ManaPayment) PromptPlace.Board else PromptPlace.Choice) {
         Box(Modifier.onSizeChanged { panelHeight = with(density) { it.height.toDp().value } }) {
             CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
                 CastPanel(cast, flow, play, names, source) { card -> scene == null || handRow == null || scene.inView(card, handRow.y - panelHeight) }
@@ -111,7 +112,8 @@ fun castSource(play: TableBoard, viewer: String, flow: CastShown, abilityText: S
 /** I-D47: the table's full width, its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom
  * without one), at most up to the table's top. */
 @Composable
-private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+private fun DockedAboveHand(hand: TableBounds?, place: PromptPlace, content: @Composable () -> Unit) {
+    LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
     val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
@@ -302,6 +304,9 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
+    // WEB-019: hidden, a centred overlay's dimming goes with it
+    val dim = LocalPromptDim.current
+    if (dim != null) SideEffect { dim.shown = shown }
     // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also answers a choice built
     // up in place (X) and goes on. TRN-063 (owner playtest 2026-11-09): it is the main button, the panel has no button of its own
     val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }

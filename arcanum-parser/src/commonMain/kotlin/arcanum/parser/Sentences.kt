@@ -4996,7 +4996,12 @@ internal class Sentences(
                 val x = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Target(slot), arcanum.api.Combine.Single)
                 return listOf(Step.Pay(Cost(listOf(CostPart.Mana(cost, x = x))), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
             }
-            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            // mkm chunk 16: the "If you do" part may be several sentences ("create a token. It gains haste until end of turn.")
+            val then = mutableListOf<Step>()
+            for (part in sentences(m.groupValues[2].replaceFirstChar { it.uppercase() })) {
+                val modified = modify(part, then, context)
+                if (modified != null) { then.clear(); then += modified } else then += effect(part, context) ?: return null
+            }
             return listOf(Step.Pay(Cost.mana(cost), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
         UNTAP.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -7719,6 +7724,8 @@ internal class Sentences(
             // chunk 14: "The flashback cost is equal to its mana cost." completes the sentence before it.
             if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,") || sentence.startsWith("The flashback cost is") ||
                     sentence.startsWith("When you do,") || // chunk 31
+                    // mkm chunk 16: "If you do, create a … token. It gains haste until end of turn.": "it" is what the "If you do" made
+                    (sentence.startsWith("It gains ") && acc.lastOrNull()?.contains(" If you do, create ") == true) ||
                     (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
                     acc.lastOrNull()?.contains(" When you do, ") == true) && acc.isNotEmpty())

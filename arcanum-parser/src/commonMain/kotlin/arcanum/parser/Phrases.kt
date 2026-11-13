@@ -837,6 +837,8 @@ internal object Events {
 
     /** gtc: the Gatecrash and Dragon's Maze trigger events. */
     private fun gtcEvent(text: String, self: Set<String>): EventPattern? {
+        // dmu chunk 03: "this creature enlists a creature" (CR 702.154c)
+        DMU_ENLISTS.matchEntire(text)?.let { m -> return EventPattern.Enlists(subject(m.groupValues[1], self) ?: return null) }
         // gtc chunk 06: "this creature blocks" (once per combat, CR 509.3a); "a creature blocks"
         GTC_BLOCKS.matchEntire(text)?.let { m -> return EventPattern.Block(subject(m.groupValues[1], self) ?: return null, attacker = ObjectFilter.Any) }
         // gtc chunk 04: "a +1/+1 counter is put on this creature" (one event per counter put, CR 122.6); "this creature evolves"
@@ -910,6 +912,7 @@ internal object Events {
     }
 
     // gtc
+    private val DMU_ENLISTS = Regex("""(.+) enlists an? creature""")
     private val GTC_BLOCKS = Regex("""(.+) blocks""")
     private val GTC_COUNTER_PUT_ON = Regex("""an? (\S+) counter is put on (.+)""")
     private val GTC_EVOLVES = Regex("""(.+) evolves""")

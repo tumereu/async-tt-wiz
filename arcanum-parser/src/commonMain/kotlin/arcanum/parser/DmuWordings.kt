@@ -26,6 +26,8 @@ internal object Dmu {
     // dmu chunk 02: Bortuk Bonerattle
     val RETURN_IT = Regex("""Return (?:it|that card) to (the battlefield|your hand)( tapped)?\.""")
     val IF_ITS_MANA_VALUE_AT_MOST = Regex("""(.+?) if its mana value is less than or equal to (.+)\.""")
+    // dmu chunk 03: Keldon Flamesage
+    val MAY_EXILE_MV_X_FROM_AMONG = Regex("""You may exile an? (.+?) card with mana value X or less from among them\.""")
     private val TIMES_KICKED = Regex("""(?:the number of )?times? (.+) was kicked""")
 
     /** "time it was kicked", "the number of times this spell was kicked": how many of its kicker costs were paid (CR 702.33d). */

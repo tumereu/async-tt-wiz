@@ -16803,6 +16803,28 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "kept", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Library, libraryPosition = 0))))
         }
+        // dmu chunk 03: after a look at the top X cards (X defined), "You may exile an instant or sorcery card with mana value X or less from
+        // among them." (the card seen, CR 401.4), "Put the rest on the bottom of your library in a random order.", "You may cast the exiled card
+        // without paying its mana cost." (CR 601.2, 118.9)
+        Dmu.MAY_EXILE_MV_X_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val x = context.definedX ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, x))
+            context.picked = "exiled"
+            context.it = Objects.Bound("exiledCard") // the card in exile is a new object (CR 400.7)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "exiled", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Exile), postBind = "exiledCard")))
+        }
+        if (sentence == "Put the rest on the bottom of your library in a random order.") {
+            val seen = context.seen ?: return null
+            val picked = context.picked ?: return null
+            return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound(picked)), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        if (sentence == "You may cast the exiled card without paying its mana cost.") {
+            val it = context.it as? Objects.Bound ?: return null
+            if (it.name != "exiledCard") return null
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(it, arcanum.api.PlayKind.Cast, withoutPaying = true, caster = Players.You))), Players.You))
+        }
         // dmu chunk 02: "Return that card to the battlefield if its mana value is less than or equal to the number of basic land types among lands
         // you control." (compared as it resolves)
         Dmu.IF_ITS_MANA_VALUE_AT_MOST.matchEntire(sentence)?.let { m ->

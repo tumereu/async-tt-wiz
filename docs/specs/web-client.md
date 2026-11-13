@@ -486,6 +486,35 @@ Two batches come first, in this order:
   state), a board's plays when published before they were worked out (asked of the planner with a snapshot: the page keeps
   no `BoardLines` for the worker's boards), and the reads that return at once (`read`, `requestPreview`, `preview`,
   `undoNeedsRequest`, `take`, `playToStop`: tests only, they fail loudly when the device is in the worker).
+- Built in 4d (2026-11-13): the table's own staging with the device across the boundary (`EngineGame.stageOwn`, a
+  `DeviceRequest.Staging` checked against the board the page showed, answered after its boards; the battlefield places and
+  combat staging work in the worker); a board published before its plays were worked out gets them from the worker's
+  device by the board's number (`DeviceRequest.Plays`: the device holds the board, so nothing else is sent; asked when the
+  table first reads them); the two production paths that used result-returning reads (playback's step, the ending tools)
+  use the callback forms; the page sends the worker its build values first (a device there read them at a choice and
+  failed without them); the worker's device is the web's default (`?device=page` keeps it on the page), and a lost worker
+  leaves later games' devices on the page. `#engine-bench` plays the table's flows through the worker's device (land, a
+  cast with its payment, turns, an attacker staged and declared, blockers assumed, combat damage, End turn, Undo). Measured
+  there (headless Chrome, a 120-object game played on to turn 8, a machine loaded by other builds): results back after a land
+  52 ms, a cast 58 ms (its payment worked out on the page in 23–59 ms, the one flow step still there), a pass 29 ms, staging
+  24 ms, declaring attackers 33 ms, assuming no blockers with the combat damage 178 ms, End turn 119 ms, Undo 4 ms; the
+  worst page frame over all of them 27 ms (18–32 ms across runs). Not yet:
+  flow sessions in the worker for the cast, shared-flow and combat panels (their steps and values still run on the page's
+  copy of the state: the controllers read the live `CastFlow` and `SharedFlow` for drawing, so moving them needs the
+  panels' data as wire values first).
+- Built in 4e part 1 (2026-11-13): cast, land play and activation flows as sessions where the device is (`automatum`'s
+  `CastMessages`: `CastRequest` steps by session and flow version, `CastAnswer`s with the panel's plain data,
+  `CastPanelValue`; app-engine's `CastSessions`, behind `CastPort`: in the browser the engine's Web Worker beside the game's
+  device, `DeviceRequest.Cast`; Android in-process on the Automatum worker as before). The cast panel and target bar draw
+  only those values (`CastShown`): the flow's steps, open question, payment and its table sources, Autotap's suggestion and
+  the payment around the player's taps, castability's picks, the X's most, the listed answers and what the caster may see
+  are worked out there; the flow's engine state on the page is its board's copy with the flow's changes. A step on a flow
+  version or session the engine side no longer keeps is refused as stale, one on a board it no longer holds drops the cast;
+  sessions log their opening, steps, refusals and end. The complete cast's inputs still go out as their own request.
+  Measured (`#engine-bench`, headless Chrome, the 120-object game): a creature's cast through its session, payment included,
+  40 ms for the session step and 72 ms to the send's result, nothing of it on the page; worst page frame over the flows
+  19.5 ms. Not yet: the shared-flow panels (choices, reveals, piles, payments while resolving) and the combat panels (their
+  values and steps still on the page's copy of the board), and the hand's cost chips (`HandCasts.chips` on the page).
 
 ### Step 5: desktop table
 

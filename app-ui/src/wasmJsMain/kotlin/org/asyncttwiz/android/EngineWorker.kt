@@ -22,7 +22,8 @@ fun startEngineWorkers(base: String): EngineWorkerChannels {
     val started = jsWorkerNow()
     // The worker listens only once its wasm has loaded (a message before that would be lost): requests wait for its
     // READY message
-    var waiting: MutableList<String>? = mutableListOf()
+    // Web client step 4d: the page's build values go first (the devices there read them)
+    var waiting: MutableList<String>? = listOfNotNull(org.asyncttwiz.appui.buildInfoMessage()).toMutableList()
     val channel = MessageEngineChannel({ text -> waiting?.add(text) ?: jsPostMessage(worker, text) }, EngineBoundary.log)
     val devices = DeviceChannel({ text -> waiting?.add(text) ?: jsPostMessage(worker, text) })
     jsOnWorkerMessages(worker, { text ->
@@ -55,6 +56,6 @@ private const val READY = "ready"
 
 private fun jsWorkerNow(): Double = js("performance.now()")
 
-/** Web client step 4c part 3: whether the page keeps the games' devices in the engine's Web Worker (`?device=worker`);
- * until the flows step moves too (the combat staging works with the device), the table keeps them on the page. */
-fun jsDevicesInWorker(): Boolean = js("new URLSearchParams(location.search).get('device') === 'worker'")
+/** Web client step 4d: whether the page keeps the games' devices in the engine's Web Worker: yes unless the address says
+ * `?device=page` (debugging: the devices on the page's own thread, as before the worker). */
+fun jsDevicesInWorker(): Boolean = js("new URLSearchParams(location.search).get('device') !== 'page'")

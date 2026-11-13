@@ -84,8 +84,14 @@ sealed interface DeviceRequest {
     @Serializable @SerialName("request-undo") data class RequestUndo(override val id: Long, val target: String, val message: String) : DeviceRequest
     @Serializable @SerialName("answer-request") data class AnswerRequest(override val id: Long, val accept: Boolean) : DeviceRequest
     @Serializable @SerialName("cancel-request") data class CancelRequest(override val id: Long) : DeviceRequest
+    /** Web client step 4d: the table's own changes its controls make (a card's place, the combat staging, attack choices,
+     * early answers), worked out on the board the page showed: [DeviceResult.Flag] taken. */
+    @Serializable @SerialName("staging") data class Staging(override val id: Long, override val seen: Long?,
+        val actions: List<org.asyncttwiz.protocol.PlayAction>, val requestId: String? = null) : Own
     @Serializable @SerialName("stage") data class Stage(override val id: Long, val board: BoardState) : DeviceRequest
     @Serializable @SerialName("unstage") data class Unstage(override val id: Long) : DeviceRequest
+    /** Web client step 4e: a step of a cast flow session where the device is ([CastRequest]): [DeviceResult.Cast]. */
+    @Serializable @SerialName("cast") data class Cast(override val id: Long, val request: CastRequest) : DeviceRequest
 
     // ---- Playback and the view's holds
     @Serializable @SerialName("start-playback") data class StartPlayback(override val id: Long) : DeviceRequest
@@ -117,6 +123,9 @@ sealed interface DeviceRequest {
     /** The incoming undo request's dialog: [DeviceResult.View]. */
     @Serializable @SerialName("request-view") data class RequestView(override val id: Long, val viewer: String, val localHead: String,
         val target: String) : DeviceRequest
+    /** Web client step 4d: the hand plays and card menus' plays of the published board numbered [board] (its
+     * app-engine's EngineBoardValues number), worked out on the engine side where the board is: [DeviceResult.Plays]. */
+    @Serializable @SerialName("plays") data class Plays(override val id: Long, val board: Long) : DeviceRequest
     /** The device's reproduction bundle: [DeviceResult.Repro]. */
     @Serializable @SerialName("repro") data class Repro(override val id: Long) : DeviceRequest
     /** The board shown and the player's options into the log (a problem report follows). */
@@ -151,6 +160,12 @@ sealed interface DeviceResult {
         val board: LooseBoard?) : DeviceResult
     @Serializable @SerialName("view-none") data object NoView : DeviceResult
     @Serializable @SerialName("repro") data class Repro(val repro: GameRepro?) : DeviceResult
+    /** A published board's plays ([DeviceRequest.Plays]); null where the engine side no longer holds the board. */
+    @Serializable @SerialName("plays") data class Plays(
+        @Serializable(with = HandPlaysSerializer::class) val hand: org.asyncttwiz.automatum.HandPlays? = null,
+        @Serializable(with = CardPlaysSerializer::class) val card: org.asyncttwiz.automatum.CardPlays? = null) : DeviceResult
+    /** A cast flow session's step's answer ([DeviceRequest.Cast]). */
+    @Serializable @SerialName("cast") data class Cast(val answer: CastAnswer) : DeviceResult
 }
 
 /** A board sent outside a [ShownWire] (its own engine state, sent whole), with what the page lacks to read it. */

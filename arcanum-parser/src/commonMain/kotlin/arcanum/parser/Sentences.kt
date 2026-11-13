@@ -7163,7 +7163,8 @@ internal class Sentences(
         }
         // gtc chunk 13: "that creature fights target creature an opponent controls." (the creature that entered)
         Gtc.THAT_CREATURE_FIGHTS_TARGET.matchEntire(sentence)?.let { m ->
-            val that = context.that ?: return null
+            // mom chunk 09: "Then that creature fights …" after a sentence that targeted it: that target (as [gtcSubject] reads "That creature")
+            val that = gtcSubject("That creature", context) ?: return null
             val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
             // woe chunk 07: "up to one target creature": with none chosen, no fight (CR 701.14b)
             if (m.groupValues[1].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(min = Value.Fixed(0))
@@ -24537,7 +24538,7 @@ internal class Sentences(
                 amountOf(Conditions.condition("a ${d.groupValues[1]} died this turn", self) ?: return null) ?: return null
             }
             // woe chunk 09: "for each creature that died under your control this turn" (its controller as it died, CR 700.4)
-            val diedUnderYours = if (m.groupValues[3].endsWith(" that died under your control this turn")) Values.value("the number of ${m.groupValues[3]}") else null
+            val diedUnderYours = if (m.groupValues[5].endsWith(" that died under your control this turn")) Values.value("the number of ${m.groupValues[5]}") else null
             // isd chunk 06: "for each other Zombie you control and each Zombie card in your graveyard" (both counted)
             val each = died ?: diedUnderYours ?: Filters.objects(m.groupValues[5])?.let { Value.Count(it) } ?: perEach(m.groupValues[5]) ?: return null
             val count = if (n == 1) each else Value.Times(each, n)

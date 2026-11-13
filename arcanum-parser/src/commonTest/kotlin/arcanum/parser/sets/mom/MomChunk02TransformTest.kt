@@ -23,6 +23,7 @@ import arcanum.api.ManaProduction
 import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.NumericProperty
+import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayKind
@@ -352,7 +353,7 @@ class MomChunk02TransformTest {
             triggered(youCast(or(instant, sorcery)), damage(1, Recipients(players = Players.Target("opponent"))),
                 doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(arcanum.api.ManaCost.parse("{R}")!!)), Players.You)), targets = listOf(targetOpponent)),
             activated(manaCost("{R}"), *exileAndReturnTransformed,
-                rules = asSorcery.copy(condition = Condition.HappenedThisTurn(EventPattern.Cast(or(instant, sorcery), PlayerFilter.You), atLeast = 3,
+                rules = asSorcery.copy(condition = Condition.HappenedThisTurn(EventPattern.Cast(and(or(instant, sorcery), ObjectFilter.Category(ObjectCategory.Spell)), PlayerFilter.You), atLeast = 3,
                     measure = Measure.Events))),
         ),
         card(

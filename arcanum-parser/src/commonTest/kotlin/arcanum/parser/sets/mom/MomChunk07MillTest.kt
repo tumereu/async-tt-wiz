@@ -306,7 +306,7 @@ class MomChunk07MillTest {
         ) parsesTo abilities(
             static(Mechanic.GainAbilities(listOf(anyColorMana)), affects = Objects.Each(and(land, you))),
             loyalty(1, doing(Effect.ApplyMechanics(listOf(
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental"))), replaceSubtypes = true),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),
                 Mechanic.SetPowerToughness(n(3), n(3)),
                 Mechanic.GainAbilities(listOf(Keyword.Vigilance, Keyword.Hexproof, Keyword.Haste))),
                 Affected.Objects(target("land")), Duration.UntilYourNextTurn)),

@@ -46,6 +46,10 @@ sealed interface EventPattern {
     @Serializable @SerialName("damage") data class Damage(
         val source: ObjectFilter, val to: RecipientFilter, val combat: Boolean? = null,
         val excess: Boolean = false,
+        // rvr fixes
+        /** What one occurrence of the event is in one damage event (CR 603.2c, 120.3): by default each source's damage to each
+         * recipient. */
+        val per: DamageOccurrence = DamageOccurrence.SourceAndRecipient,
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
@@ -331,6 +335,20 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */
 @Serializable
 data class RecipientFilter(val objects: ObjectFilter? = null, val players: PlayerFilter? = null)
+
+/** What counts as one occurrence of an [EventPattern.Damage] within one damage event (CR 603.2c: an ability triggers once each time its
+ * trigger event occurs, repeatedly if one event contains several occurrences); the wording decides. */
+@Serializable
+sealed interface DamageOccurrence {
+    /** Each source's damage to each recipient ("whenever a source deals damage to you", "a creature deals combat damage to a player"). */
+    @Serializable @SerialName("source-and-recipient") data object SourceAndRecipient : DamageOccurrence
+    /** All the damage one recipient is dealt, however many sources deal it ("whenever this creature is dealt damage": combat damage from
+     * two blockers is one occurrence); amount = the total, roles source = every source, object = the recipient. */
+    @Serializable @SerialName("recipient") data object Recipient : DamageOccurrence
+    /** All the damage one source deals, to however many recipients ("whenever this creature deals damage": damage to a blocker and,
+     * trampling over, a player is one occurrence); amount = the total, roles source = the source, object = every object dealt damage. */
+    @Serializable @SerialName("source") data object Source : DamageOccurrence
+}
 
 /** What a triggered ability waits for (CR 603). */
 @Serializable

@@ -96,12 +96,22 @@ internal object EventMatcher {
             // ltr chunk 07: "is dealt excess damage" (CR 120.4a): only the part over lethal, its amount the excess
             (!pattern.excess || d.excess > 0) && (pattern.combat == null || pattern.combat == d.combat) &&
                 e.matches(pattern.source, d.source) && recipient(e, pattern.to, d.recipient)
-        }.map { d ->
+        }.let { parts ->
+            // rvr fixes: one occurrence per source and recipient, per recipient ("is dealt damage") or per source ("deals damage"),
+            // as the wording says (CR 603.2c); a group's amount is its total
+            when (pattern.per) {
+                arcanum.api.DamageOccurrence.SourceAndRecipient -> parts.map { listOf(it) }
+                arcanum.api.DamageOccurrence.Recipient -> parts.groupBy { it.recipient }.values.toList()
+                arcanum.api.DamageOccurrence.Source -> parts.groupBy { it.source }.values.toList()
+            }
+        }.map { group ->
+            val recipients = group.map { it.recipient }.distinct()
             TriggerEvent(
-                objects = listOf(RoleObjects(EventRole.Source, listOf(d.source))) +
-                    listOfNotNull((d.recipient as? TargetRef.Object)?.let { RoleObjects(EventRole.Object, listOf(it.id)) }),
-                players = listOfNotNull((d.recipient as? TargetRef.Player)?.id),
-                amount = if (pattern.excess) d.excess else d.amount,
+                objects = listOf(RoleObjects(EventRole.Source, group.map { it.source }.distinct())) +
+                    recipients.filterIsInstance<TargetRef.Object>().map { it.id }.takeIf { it.isNotEmpty() }
+                        ?.let { listOf(RoleObjects(EventRole.Object, it)) }.orEmpty(),
+                players = recipients.filterIsInstance<TargetRef.Player>().map { it.id },
+                amount = group.sumOf { if (pattern.excess) it.excess else it.amount },
             )
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)

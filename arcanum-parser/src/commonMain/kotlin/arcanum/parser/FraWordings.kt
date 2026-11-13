@@ -198,7 +198,8 @@ internal object FraPhrases {
             return EventPattern.Discard(ObjectFilter.Is(Objects.Self), PlayerFilter.You)
         }
         // fra chunk 05: "an opponent is dealt noncombat damage" (CR 120)
-        if (text == "an opponent is dealt noncombat damage") return EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false)
+        if (text == "an opponent is dealt noncombat damage")
+            return EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Opponent), combat = false, per = arcanum.api.DamageOccurrence.Recipient)
         // fra chunk 05: "a creature you control attacks a player alone" (CR 506.5)
         ATTACKS_A_PLAYER_ALONE.matchEntire(text)?.let { m ->
             return EventPattern.Attack(Filters.noun(m.groupValues[1].removePrefix("a ")) ?: return null, alone = true, target = RecipientFilter(players = PlayerFilter.Any))

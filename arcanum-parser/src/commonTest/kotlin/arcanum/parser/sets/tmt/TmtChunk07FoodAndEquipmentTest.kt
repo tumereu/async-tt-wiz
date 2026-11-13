@@ -1,5 +1,6 @@
 package arcanum.parser.sets.tmt
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.CardType
 import arcanum.api.Comparison
 import arcanum.api.Condition
@@ -189,7 +190,7 @@ class TmtChunk07FoodAndEquipmentTest {
             Equip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)
         """,
     ) parsesTo abilities(
-        static(pt(1, 1), has(triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true)), untapIt(Objects.Self), gainLife(2))),
+        static(pt(1, 1), has(triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true, per = DamageOccurrence.Source)), untapIt(Objects.Self), gainLife(2))),
             affects = equipped),
         triggered(enters(and(ninja, you)), Step.May(listOf(doing(Effect.Attach(Objects.Self, Recipients(objects = enteredOne)))), player = Players.You)),
         equip("{2}"),

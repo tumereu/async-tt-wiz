@@ -53,7 +53,7 @@ class RvrChunk14DrawLifeCountersTest {
         """,
     ) parsesTo abilities(
         Keyword.Flying,
-        triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter())), doing(Effect.GainLife(Players.You, Value.EventAmount))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), per = DamageOccurrence.Source)), doing(Effect.GainLife(Players.You, Value.EventAmount))),
     )
 
     // CR 119.3, 119.4 (gain or lose life), 107.4 hybrid mana

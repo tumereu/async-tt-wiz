@@ -21,7 +21,6 @@ import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.blb.resolveAll
 import arcanum.engine.sets.dgm.ownAlternative
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -101,10 +100,7 @@ class RvrSweepScenariosTest {
     }
 
     // CR 603.2c, 608.2f: "whenever this creature is dealt damage" triggers once for one damage event, however many sources deal damage
-    // in it (unlike "whenever a source deals damage to …"). Out of the suite: the engine triggers once per source (EventMatcher's Damage
-    // case makes one trigger event per DamageDealt part); it needs the API to tell "is dealt damage" from "a source deals damage" and the
-    // matcher to group parts by recipient, summing the amount, for the former (combat damage from several blockers alike).
-    @Ignore
+    // in it (unlike "whenever a source deals damage to …")
     @Test
     fun isDealtDamageTriggersOnceForOneDamageEvent() = scenario(players = 3) {
         val volley = Cards.invent("Fangpack Barrage", "{2}{R}", "Instant",

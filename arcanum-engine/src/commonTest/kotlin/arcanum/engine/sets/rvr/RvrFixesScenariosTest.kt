@@ -282,4 +282,44 @@ class RvrFixesScenariosTest {
             alice.graveyard.names shouldBe listOf(barrowBear, gravecallBargain)
         }
     }
+
+    private val painsponge = Cards.invent("Painsponge Wall", "{3}{G}", "Creature — Plant",
+        "Whenever this creature is dealt damage, put a +1/+1 counter on it.", "0/6")
+    private val gloomhorn = Cards.invent("Gloomhorn Ox", "{1}{B}", "Creature — Ox", "", "2/2")
+    private val emberwake = Cards.invent("Emberwake Sage", "{2}{R}", "Creature — Human Wizard",
+        "Whenever an instant or sorcery spell you control deals damage, put a +1/+1 counter on this creature.", "1/3")
+    private val cindersweep = Cards.invent("Cindersweep", "{1}{R}", "Sorcery", "Cindersweep deals 1 damage to each creature.")
+
+    // CR 603.2c, 510.2: combat damage from two blockers is one damage event: "is dealt damage" triggers once, for the total
+    @Test
+    fun isDealtDamageByTwoBlockersTriggersOnce() = scenario(players = 3) {
+        alice.battlefield(painsponge)
+        bob.battlefield(gloomhorn, fernhide)
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(painsponge, defender = "bob")
+        advanceTo(TurnStep.DeclareBlockers)
+        bob.blocks(gloomhorn to painsponge, fernhide to painsponge)
+        advanceTo(TurnStep.EndOfCombat)
+        expect {
+            painsponge.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 1
+            painsponge.view.obj?.damage shouldBe 4
+        }
+    }
+
+    // CR 603.2c, 120.3: a spell dealing damage to several creatures at once is one occurrence of "a spell you control deals
+    // damage", so the trigger fires once
+    @Test
+    fun spellDealingDamageToManyTriggersOnce() = scenario(players = 3) {
+        alice.battlefield(emberwake, "Mountain", "Mountain")
+        alice.hand(cindersweep)
+        bob.battlefield(gloomhorn)
+        carol.battlefield(fernhide)
+        alice.casts(cindersweep)
+        resolveAll()
+        expect {
+            emberwake.counters(arcanum.api.CounterKind.PowerToughness(1, 1)) shouldBe 1
+            gloomhorn.view.obj?.damage shouldBe 1
+            fernhide.view.obj?.damage shouldBe 1
+        }
+    }
 }

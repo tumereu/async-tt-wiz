@@ -1,5 +1,6 @@
 package arcanum.parser.sets.inr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Combine
@@ -339,7 +340,7 @@ class InrChunk07ConditionsCopiesCountersTest {
             [−7]: Draw three cards. You get an emblem with "You may cast spells from your hand without paying their mana costs."
         """,
     ) parsesTo abilities(
-        loyalty(1, doing(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.Damage(ObjectFilter.Is(target("creatures")), RecipientFilter(), combat = true)),
+        loyalty(1, doing(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.Damage(ObjectFilter.Is(target("creatures")), RecipientFilter(), combat = true, per = DamageOccurrence.Source)),
             Instructions(steps = listOf(draw(1))), duration = Duration.UntilYourNextTurn, repeats = true)),
             targets = listOf(slot("creatures", creature, min = 0, max = 2))),
         loyalty(-2, tapIt(target("permanents")), doing(Effect.ApplyMechanics(listOf(Mechanic.DoesntUntap), Affected.Objects(target("permanents")),

@@ -21060,7 +21060,7 @@ internal class Sentences(
         if (events == "the end of combat on your turn") return arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.EndOfCombat, PlayerFilter.You))
         // fin chunk 05: "Whenever Cedric deals damage" (to anything, combat or not)
         Fin.SELF_DEALS_DAMAGE.matchEntire(events)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()))
+            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), per = arcanum.api.DamageOccurrence.Source))
         }
         // fin chunk 05: "Whenever an opponent loses life" (CR 119.3)
         if (events == "an opponent loses life") return arcanum.api.Trigger.On(EventPattern.LoseLife(PlayerFilter.Opponent))
@@ -24238,7 +24238,7 @@ internal class Sentences(
         // ltr chunk 07: "a creature an opponent controls is dealt excess noncombat damage" (CR 120.4a); the amount is the excess
         Ltr.IS_DEALT_EXCESS_NONCOMBAT_DAMAGE.matchEntire(events)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
-            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = noun), combat = false, excess = true))
+            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = noun), combat = false, excess = true, per = arcanum.api.DamageOccurrence.Recipient))
         }
         // ltr chunk 09: "you cast a spell that targets Haldir", "… that targets a creature you don't control" (CR 601.2c)
         Ltr.YOU_CAST_A_SPELL_THAT_TARGETS.matchEntire(events)?.let { m ->

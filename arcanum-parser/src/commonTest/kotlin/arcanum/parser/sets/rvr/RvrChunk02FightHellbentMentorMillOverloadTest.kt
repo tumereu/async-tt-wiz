@@ -1,5 +1,6 @@
 package arcanum.parser.sets.rvr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Choice
 import arcanum.api.Color
 import arcanum.api.Condition
@@ -212,7 +213,7 @@ class RvrChunk02FightHellbentMentorMillOverloadTest {
         """,
     ) parsesTo abilities(
         mentor,
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             damage(Value.EventAmount, Recipients(players = Players.Target("player"))),
             targets = listOf(targetPlayer),
         ),

@@ -617,10 +617,11 @@ internal object Events {
         DIE_PLURAL.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard) }
         if (text == "an opponent draws a card") return EventPattern.Draw(PlayerFilter.Opponent)
         // dsk chunk 10: "enchanted creature is dealt damage", "enchanted player is dealt damage", "this creature is dealt damage"
+        // rvr fixes: once for all the damage the recipient is dealt at once, from any number of sources (CR 603.2c)
         IS_DEALT_DAMAGE.matchEntire(text)?.let { m ->
             if (m.groupValues[1] == "enchanted player")
-                return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))))
-            return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = subject(m.groupValues[1], self) ?: return null))
+                return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))), per = arcanum.api.DamageOccurrence.Recipient)
+            return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = subject(m.groupValues[1], self) ?: return null), per = arcanum.api.DamageOccurrence.Recipient)
         }
         // dsk chunk 08: "you cast an instant or sorcery spell that targets only a single creature you control", "you gain life",
         // "you lose life"
@@ -820,9 +821,9 @@ internal object Events {
         // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
         Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
-        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent)
+        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent); rvr fixes: once for all it deals at once (CR 603.2c)
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true)
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true, per = arcanum.api.DamageOccurrence.Source)
         }
         // dgm: "a creature deals combat damage to you"
         GTC_DEALS_COMBAT_DAMAGE_TO_YOU.matchEntire(text)?.let { m ->
@@ -863,9 +864,9 @@ internal object Events {
                 else Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Card))
             return EventPattern.ZoneChange(Filters.all(cards, ObjectFilter.OwnedBy(PlayerFilter.Opponent)), to = Zone.Graveyard)
         }
-        // dgm: "an instant or sorcery spell you control deals damage"
+        // dgm: "an instant or sorcery spell you control deals damage"; rvr fixes: once per spell for all it deals at once (CR 603.2c)
         GTC_SPELL_DEALS_DAMAGE.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(Filters.noun(m.groupValues[1]) ?: return null, arcanum.api.RecipientFilter())
+            return EventPattern.Damage(Filters.noun(m.groupValues[1]) ?: return null, arcanum.api.RecipientFilter(), per = arcanum.api.DamageOccurrence.Source)
         }
         return null
     }

@@ -33,7 +33,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
         automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send },
-        revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
+        revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        // Web client step 4e: the cast's flow session runs beside the game's device (the browser's engine worker), else here
+        port = TableCastPort(LocalCastPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },

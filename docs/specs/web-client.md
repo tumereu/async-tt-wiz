@@ -502,6 +502,19 @@ Two batches come first, in this order:
   flow sessions in the worker for the cast, shared-flow and combat panels (their steps and values still run on the page's
   copy of the state: the controllers read the live `CastFlow` and `SharedFlow` for drawing, so moving them needs the
   panels' data as wire values first).
+- Built in 4e part 1 (2026-11-13): cast, land play and activation flows as sessions where the device is (`automatum`'s
+  `CastMessages`: `CastRequest` steps by session and flow version, `CastAnswer`s with the panel's plain data,
+  `CastPanelValue`; app-engine's `CastSessions`, behind `CastPort`: in the browser the engine's Web Worker beside the game's
+  device, `DeviceRequest.Cast`; Android in-process on the Automatum worker as before). The cast panel and target bar draw
+  only those values (`CastShown`): the flow's steps, open question, payment and its table sources, Autotap's suggestion and
+  the payment around the player's taps, castability's picks, the X's most, the listed answers and what the caster may see
+  are worked out there; the flow's engine state on the page is its board's copy with the flow's changes. A step on a flow
+  version or session the engine side no longer keeps is refused as stale, one on a board it no longer holds drops the cast;
+  sessions log their opening, steps, refusals and end. The complete cast's inputs still go out as their own request.
+  Measured (`#engine-bench`, headless Chrome, the 120-object game): a creature's cast through its session, payment included,
+  40 ms for the session step and 72 ms to the send's result, nothing of it on the page; worst page frame over the flows
+  19.5 ms. Not yet: the shared-flow panels (choices, reveals, piles, payments while resolving) and the combat panels (their
+  values and steps still on the page's copy of the board), and the hand's cost chips (`HandCasts.chips` on the page).
 
 ### Step 5: desktop table
 

@@ -200,6 +200,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.RequestView -> done(r.id, game.requestViewOn(r.viewer, r.localHead, r.target)?.let { v ->
                     DeviceResult.View(v.message, v.unseen, v.turn, v.board?.let(::loose)) } ?: DeviceResult.NoView)
                 is DeviceRequest.Plays -> done(r.id, plays(r.board))
+                is DeviceRequest.Cast -> done(r.id, DeviceResult.Cast(casts.handle(r.request, r.request.board?.let(::boardNumbered)) { r.request.stacks }))
                 is DeviceRequest.Repro -> game.repro { done(r.id, DeviceResult.Repro(it)) }
                 is DeviceRequest.LogBoard -> game.logBoard { done(r.id, DeviceResult.None) }
                 is DeviceRequest.TokenArtFound -> {
@@ -223,6 +224,15 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 ?: return DeviceResult.Plays().also { AppLog.info("engine", "Device boundary: plays of board $number, no longer kept here") }
             return DeviceResult.Plays(values.workedHandPlays(), values.cardPlays())
         }
+
+        /** Web client step 4e: the player's cast flow sessions, worked out here beside the device; each flow's changes written
+         * with the game's codec for the page's copy of its board. */
+        private val casts = CastSessions(open.me, encode = { changes ->
+            game.codec.encodeElement(kotlinx.serialization.builtins.ListSerializer(arcanum.engine.change.Change.serializer()), changes)
+        })
+
+        /** The published board numbered [number] (its [EngineBoardValues.number]) while kept here; null after. */
+        private fun boardNumbered(number: Long): TableBoard? = recent.values.lastOrNull { it.board.values?.number == number }?.board
 
         private fun loose(board: TableBoard) = checkNotNull(encoder) { "No board published yet" }.loose(board)
 

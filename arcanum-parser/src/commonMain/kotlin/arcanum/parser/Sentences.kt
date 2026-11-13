@@ -2039,6 +2039,11 @@ internal class Sentences(
         COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
         }
+        // lci chunk 07: "creature that left the battlefield under your control this turn": each one (CR 400.7, 603.10a: as it last existed)
+        Lci.THAT_LEFT_UNDER_YOUR_CONTROL.matchEntire(phrase)?.let { m ->
+            return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                from = Zone.Battlefield), arcanum.api.Measure.Objects)
+        }
         // chunk 52: "instant and sorcery card in your graveyard": each card that is either
         return (Filters.objects(phrase, self) ?: Filters.objects(phrase.replace(" and ", " or "), self))?.let { Value.Count(it) }
     }
@@ -8609,7 +8614,8 @@ internal class Sentences(
                 else -> return null
             }
             val kind = Counters.kind(m.groupValues[2]) ?: return null
-            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[4]) ?: return null))
+            // lci chunk 07: else what "for each" counts ("creature that left the battlefield under your control this turn")
+            val per = Filters.noun(m.groupValues[4])?.let { Value.Count(Objects.Each(it)) } ?: perEach(m.groupValues[4]) ?: return null
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return listOf(Step.Do(Effect.PutCounters(on, kind, if (n == 1) per else Value.Times(per, n))))
         }
@@ -10851,7 +10857,7 @@ internal class Sentences(
         // rtr chunk 07
         val ATTACKS_YOU_OR_PLANESWALKER = Regex("""an? (.+) attacks you or a planeswalker you control""")
         // rtr chunk 08
-        val ALL_GET_UNTIL_EOT = Regex("""All (.+) get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+        val ALL_GET_UNTIL_EOT = Regex("""All (.+) get ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
         val EACH_DEALS_TO_ITS_CONTROLLER = Regex("""Each (\w+) deals (\d+) damage to its controller\.""")
         val EXILE_TARGET_AND_SAME_NAME = Regex("""(You may )?([Ee]xile|[Dd]estroy) target (.+) and all other (\w+) with the same name as that \w+\.""")
         val NOT_NAMED = Regex("""(.+) not named (.+)""")
@@ -15732,6 +15738,21 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 07: "Return to the battlefield target nonland permanent card in your graveyard with mana value less than or equal to …" (the
+        // same as "Return target … from your graveyard to the battlefield")
+        Lci.RETURN_TO_ZONE_TARGET_IN_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            return effect("Return target ${m.groupValues[2]}${m.groupValues[3]} from your graveyard to ${m.groupValues[1]}.", context)
+        }
+        // lci chunk 07: "Then return up to two creature cards from your graveyard to your hand." (chosen as it resolves, not targeted, CR 115.10a;
+        // fewer when there are fewer)
+        Lci.RETURN_CHOSEN_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val count = m.groupValues[1].removePrefix("up to ")
+            val max = if (count == "a" || count == "an") 1 else Numbers.count(count) ?: return null
+            val min = if (m.groupValues[1].startsWith("up to ")) 0 else max
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(min), Value.Fixed(max)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), arcanum.api.Destination(Zone.Hand))))
+        }
         // lci chunk 06: "Until end of turn, you may look at the top card of your library any time, and you may play lands and cast spells from the
         // top of your library." (CR 305.1, 601.2a)
         if (Lci.UNTIL_EOT_LOOK_AND_PLAY_FROM_TOP.matches(sentence)) return untilEotLookAndPlayFromTop()
@@ -15784,11 +15805,12 @@ internal class Sentences(
                 arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))))))
         }
         // lci chunk 01: "Then if there are three or more bore counters on it, remove those counters and transform it." (the rest read as a
-        // sentence of its own)
+        // sentence of its own; lci chunk 07: "remove those counters, transform this artifact, and create three Treasure tokens", each in turn)
         Lci.REMOVE_THOSE_COUNTERS_AND.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })
             ?.takeIf { !REMOVE_THOSE_COUNTERS_AND_DEALS.matches(it.value) }?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
-            val rest = effect(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            val parts = if (m.value.contains("remove those counters,")) m.groupValues[3].split(", and ", ", ") else listOf(m.groupValues[3])
+            val rest = parts.flatMap { effect(it.replaceFirstChar { c -> c.uppercase() } + ".", context) ?: return null }
             return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = Numbers.count(m.groupValues[1]) ?: return null)),
                 then = listOf(Step.Do(Effect.RemoveCounters(Objects.Self, kind, Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self,
                     arcanum.api.Combine.Single)))) + rest))

@@ -214,6 +214,9 @@ fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step
 val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
     modify = listOf(arcanum.api.Modification.EntersTapped))), affects = Affected.Objects(Objects.Self))
 /** "{T}: Add {C}." for one colour */
+/** "{T}: Add {U} or {B}." (one mana of either colour, CR 106.1). */
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { ColorRef.Literal(it) })), Players.You)))
 fun addOne(color: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse(color)!!)), Players.You)))
 // a loyalty ability (CR 606.4)
 fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =

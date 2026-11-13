@@ -325,6 +325,10 @@ sealed interface SharedQuality {
     // tdm
     /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
     @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
+    // lci
+    /** Permanent types: the card types artifact, battle, creature, enchantment, land and planeswalker only (CR 110.4a: "four or more permanent
+     * types among cards in your graveyard"; a kindred card's kindred type isn't one). */
+    @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

@@ -21,7 +21,11 @@ internal object Lci {
     // lci chunk 01: "If the discovered card's mana value is less than 10, create a number of tapped Treasure tokens equal to the difference." (CR 701.57c)
     val IF_DISCOVERED_LESS_CREATE_DIFFERENCE = Regex("""If the discovered card's mana value is less than (\d+), create a number of (tapped )?(.+? tokens?) equal to the difference\.""")
     // lci chunk 01: "remove those counters and transform it" after "If there are three or more bore counters on it"
-    val REMOVE_THOSE_COUNTERS_AND = Regex("""If there are (\w+) or more (\S+) counters on it, remove those counters and (.+)\.""")
+    // lci chunk 07: also "remove those counters, transform this artifact, and create three Treasure tokens"
+    val REMOVE_THOSE_COUNTERS_AND = Regex("""If there are (\w+) or more (\S+) counters on it, remove those counters(?: and|,) (.+)\.""")
+    val RETURN_TO_ZONE_TARGET_IN_GRAVEYARD = Regex("""Return to (the battlefield|your hand) target (.+?) in your graveyard( with .+)?\.""")
+    val RETURN_CHOSEN_FROM_GRAVEYARD_TO_HAND = Regex("""(?:Then )?[Rr]eturn (a|an|one|two|three|up to (?:one|two|three|four)) (.+?) cards? from your graveyard to your hand\.""")
+    val THAT_LEFT_UNDER_YOUR_CONTROL = Regex("""(.+?) that left the battlefield under your control this turn""")
     // lci chunk 01: "Whenever you cast a permanent spell using mana produced by Tecutlan" (CR 106.3)
     val YOU_CAST_USING_MANA_FROM = Regex("""you cast an? (.+?) using mana produced by (.+)""")
     // lci chunk 02: "Craft with artifact {5}{W}{W}", "Craft with one or more Dinosaurs {4}{R}" (CR 702.167a)

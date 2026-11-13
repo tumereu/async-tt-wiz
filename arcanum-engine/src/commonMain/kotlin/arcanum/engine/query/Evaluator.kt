@@ -566,6 +566,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
+            SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // lci
         }
     }
 
@@ -586,6 +587,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
+                SharedQuality.PermanentType -> permanentTypes(c) // lci
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -851,6 +853,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
+            SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // lci
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -867,8 +870,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
+            SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // lci
         }
     }
+
+    /** lci: its permanent types (CR 110.4a), its card types without instant, sorcery, kindred and the others. */
+    private fun permanentTypes(c: Characteristics): List<CardType> = c.types.filter { it in PERMANENT_TYPES }
+    private val PERMANENT_TYPES = setOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land,
+        CardType.Planeswalker)
 
     // ---- Conditions
 

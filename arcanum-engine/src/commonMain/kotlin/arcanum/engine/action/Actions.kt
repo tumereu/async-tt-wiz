@@ -784,6 +784,8 @@ internal object Actions {
     fun putCounters(act: Act, cause: Cause?, holder: TargetRef, kind: CounterKind, amount: Int, meanings: List<Meaning> = emptyList()): Int {
         if (amount <= 0) return 0
         if (holder is TargetRef.Object && act.obj(holder.id) == null) return 0
+        // one: "you can't get additional poison counters this turn" (CR 101.2: a "can't" wins)
+        if (holder is TargetRef.Player && act.view().players[holder.id]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantGetCounters(kind) }) return 0
         val affected = when (holder) {
             is TargetRef.Player -> holder.id
             is TargetRef.Object -> act.controllerOf(holder.id) ?: act.state.turn.active

@@ -244,7 +244,8 @@ internal object FraPhrases {
             return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Events)
         }
         // fra chunk 08: "you didn't cast a spell this turn"
-        if (text == "you didn't cast a spell this turn")
+        // one chunk 07: "you haven't cast a spell this turn"
+        if (text == "you didn't cast a spell this turn" || text == "you haven't cast a spell this turn")
             return Condition.Not(Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = 1, measure = Measure.Events))
         // fra chunk 08: "you've cast a noncreature spell this turn"
         if (text == "you've cast a noncreature spell this turn")

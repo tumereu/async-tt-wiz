@@ -220,7 +220,8 @@ internal object Tdm {
     // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
     val HEXPROOF_FROM = Regex("""[Hh]exproof from (.+)""")
     // tdm chunk 02: "If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time."
-    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) attacking causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    // one chunk 07: "dying" too
+    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) (attacking|dying) causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     // tdm chunk 10: "for each opponent, create a tapped token that's a copy of the exiled card attacking that opponent. At the beginning of your next end
     // step, sacrifice those tokens."
     // tdm chunk 14: "Sidisi": "Sacrifice a creature you control with mana value X other than Sidisi"

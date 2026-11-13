@@ -23,6 +23,16 @@ internal object One {
     val CHOOSE_COUNTER_PUT_ADDITIONAL = Regex("""Choose a counter on target (\w+)\. Put an additional counter of that kind on that (\w+)\.""")
     // one chunk 01: Tekuthal, Inquiry Dominus
     val WOULD_DO_TWICE_INSTEAD = Regex("""If you would ([a-z ]+), ([a-z ]+) twice instead\.""")
+    // one chunk 07: Melira, the Living Cure
+    val WOULD_GET_COUNTERS_INSTEAD_ONE_THEN_CANT = Regex("""If you would get one or more (\w+) counters, instead you get one \1 counter and you can't get additional \1 counters this turn\.""")
+    // one chunk 07: Phyrexian Vindicator
+    val IF_DAMAGE_WOULD_PREVENT_WHEN_PREVENTED = Regex("""If damage would be dealt to (.+?), prevent that damage\. When damage is prevented this way, (.+)""")
+    // one chunk 07: Kethek, Crucible Goliath
+    val MAY_SACRIFICE_REVEAL_UNTIL_LESSER = Regex("""[Yy]ou may sacrifice (an? .+?|another .+?)\. If you do, reveal cards from the top of your library until you reveal an? (.+?) card with lesser mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order\.""")
+    // one chunk 07: Evolved Spinoderm
+    val HAS_AS_LONG_AS_OTHERWISE = Regex("""(.+?) has ([a-z ,]+) as long as (.+?)\. Otherwise, it has ([a-z ,]+)\.""")
+    // one chunk 07: Conduit of Worlds
+    val CANT_CAST_ADDITIONAL_SPELLS_THIS_TURN = Regex("""You can't cast (?:additional|more) spells this turn\.""")
     // one chunk 02: Skrelv, Defector Mite
     val CHOOSE_COLOR_GAINS_HEXPROOF_FROM_UNBLOCKABLE_BY = Regex(
         """Choose a color\. (Another target|Target) (.+?) gains (?:(.+?) and )?hexproof from that color until end of turn\. (?:It|That creature) can't be blocked by (\w+) of that color this turn\.""")

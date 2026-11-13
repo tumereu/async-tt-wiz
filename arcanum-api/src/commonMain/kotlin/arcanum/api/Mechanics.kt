@@ -430,6 +430,10 @@ sealed interface Mechanic {
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
+    // one chunk 07
+    /** The affected players can't get counters of [kind] ("you can't get additional poison counters this turn", CR 122.1, 101.2): putting
+     * them on such a player does nothing. */
+    @Serializable @SerialName("cant-get-counters") data class CantGetCounters(val kind: CounterKind) : Mechanic
     /** The affected player can't win the game by an effect (CR 104.2b); being the last player left still wins (CR 104.2a). */
     @Serializable @SerialName("cant-win-game") data object CantWinGame : Mechanic
     @Serializable @SerialName("no-maximum-hand-size") data object NoMaximumHandSize : Mechanic

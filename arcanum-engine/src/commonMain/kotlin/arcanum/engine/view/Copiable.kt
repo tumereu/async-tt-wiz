@@ -358,10 +358,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                         e.addSubtypes.mapNotNull { (it as? arcanum.api.SubtypeRef.Literal)?.subtype },
                     supertypes = ((f.supertypes + e.addSupertypes).distinct() - e.removeSupertypes.toSet()),
                 )
-                is CopyException.Colors -> f.copy(
-                    colorIndicator = (if (e.add) colorsOf(f) else emptyList<Color>()) +
-                        e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color },
-                )
+                // one chunk 07: the final colours are the copiable value, whatever the mana cost says (CR 707.9b)
+                is CopyException.Colors -> ((if (e.add) colorsOf(f) else emptyList<Color>()) + e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color })
+                    .distinct().let { colors -> f.copy(colorIndicator = colors, colors = colors) }
                 is CopyException.PowerToughness -> f.copy(power = PrintedNumber.Fixed(e.power), toughness = PrintedNumber.Fixed(e.toughness))
                 is CopyException.AddAbilities -> f.copy(abilities = f.abilities + e.abilities)
                 is CopyException.WithoutKeyword -> f.copy(abilities = f.abilities.filterNot { it is Keyword && it.kind == e.keyword })
@@ -373,6 +372,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
         /** CR 202.2, 204: colours from the mana cost and colour indicator. */
         fun colorsOf(face: FaceDefinition): List<Color> {
+            face.colors?.let { set -> return Color.all.filter { it in set } }
             val fromCost = face.manaCost?.symbols.orEmpty().flatMap { Evaluator.symbolColors(it) }
             return Color.all.filter { it in fromCost || it in face.colorIndicator.orEmpty() }
         }

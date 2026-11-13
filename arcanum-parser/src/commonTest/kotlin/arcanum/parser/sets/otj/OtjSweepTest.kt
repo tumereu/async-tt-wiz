@@ -49,4 +49,24 @@ class OtjSweepTest {
             Step.Do(Effect.DealDamage(toAny, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single), source = Objects.Self)),
             targets = listOf(anyTarget)),
     )
+
+    // CR 608.2c, 701.21a: "Sacrifice any number of lands you control, then search your library for up to that many land cards, …": "that many"
+    // is the number of lands sacrificed (a spell has no event to take an amount from)
+    @Test
+    fun searchUpToThatManyAfterSacrificingAnyNumber() = card(
+        name = "Rootswap Rite", cost = "{3}{G}", type = "Sorcery",
+        text = """
+            Sacrifice any number of lands you control, then search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.
+        """,
+    ) parsesTo abilities(
+        spell(
+            Step.Choose(Choice.Objects(and(ObjectFilter.Type(CardType.Land), ObjectFilter.ControlledBy(PlayerFilter.You)), Value.Fixed(0), null),
+                bind = "chosen", chooser = Players.You),
+            Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")),
+            Step.Do(Effect.Search(Players.You, ObjectFilter.Type(CardType.Land), max = Value.Count(Objects.Bound("sacrificed")), zones = listOf(Zone.Library),
+                bind = "found", searcher = Players.You)),
+            Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+            Step.Do(Effect.Shuffle(Players.You)),
+        ),
+    )
 }

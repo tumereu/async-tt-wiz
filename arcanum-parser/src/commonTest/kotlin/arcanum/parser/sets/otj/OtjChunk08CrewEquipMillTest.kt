@@ -126,8 +126,7 @@ class OtjChunk08CrewEquipMillTest {
             Step.Choose(Choice.Objects(nonland, n(0), n(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
             move(Objects.Bound("chosen"), Zone.Exile, postBind = "exiled"),
             doing(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))),
-            Step.If(Condition.NonEmpty("exiled"), then = listOf(Step.Pay(steps = listOf(doing(Effect.Cast(Objects.Bound("exiled"), PlayKind.Cast,
-                withoutPaying = true, caster = Players.You))), payer = Players.You, bind = "cast")))),
+            Step.May(listOf(doing(Effect.Cast(Objects.Bound("exiled"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You)),
         Keyword.Equip(manaCost("{2}{U}")),
     )
 

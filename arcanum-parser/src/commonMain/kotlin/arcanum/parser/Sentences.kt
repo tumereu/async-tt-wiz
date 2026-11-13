@@ -11389,11 +11389,13 @@ internal class Sentences(
         }
         // fra chunk 03: "{T}: Add {C}. This mana can't be spent to cast spells from your hand." is an activated ability; its sentences:
         // fra chunk 07: "Whenever this creature is dealt damage, you may search your library for up to that many land cards, put them onto
-        // the battlefield tapped, then shuffle."
+        // the battlefield tapped, then shuffle."; otj close: after "Sacrifice any number of lands you control, then …", "that many" is the
+        // number sacrificed (CR 608.2c), not an event's amount
         Fra.SEARCH_UP_TO_THAT_MANY.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
             val tapped = m.groupValues[3].isNotEmpty()
-            val steps = listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.EventAmount, zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+            val max = context.thatMuch ?: Value.EventAmount.takeIf { context.event != null } ?: return null
+            val steps = listOf(Step.Do(Effect.Search(Players.You, filter, max = max, zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = tapped))), Step.Do(Effect.Shuffle(Players.You)))
             return if (m.groupValues[1].isNotEmpty()) listOf(Step.May(steps, player = Players.You)) else steps
         }
@@ -16774,11 +16776,6 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound(context.seen!!)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")))
         }
-        // otj chunk 08: "You may cast the exiled card without paying its mana cost." (cast while the ability resolves, CR 608.2g, 118.9)
-        Otj.MAY_CAST_EXILED_FREE.matchEntire(sentence)?.takeIf { (context.it as? Objects.Bound)?.name == "exiled" }?.let {
-            return listOf(Step.If(arcanum.api.Condition.NonEmpty("exiled"), then = listOf(Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("exiled"),
-                PlayKind.Cast, withoutPaying = true, caster = Players.You))), payer = Players.You, bind = "cast"))))
-        }
         // otj chunk 05: "Until end of turn, if you would put … instead." (a replacement effect the resolving ability makes, lasting until end of
         // turn: a rule of the game, not of an object, CR 614.1a, 611.2a)
         // otj chunk 12r: "If a source you control would deal noncombat damage to a permanent or player this turn, it deals … instead." (the same)
@@ -16893,13 +16890,6 @@ internal class Sentences(
             val per = perEach(m.groupValues[4]) ?: return null
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You, bind = "token")),
                 Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, times(per, Numbers.count(m.groupValues[2]) ?: return null))))
-        }
-        // otj chunk 01: "Sacrifice any number of permanents you control, then draw that many cards." (zero is a number, CR 107.1)
-        Otj.SACRIFICE_ANY_NUMBER_DRAW_THAT_MANY.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")),
-                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("sacrificed")))))
         }
         // otj chunk 02: "All creatures lose all abilities until end of turn." (the creatures there as it resolves, CR 611.2c, 613.1f)
         Otj.GROUP_LOSES_ALL_ABILITIES_UNTIL_EOT.matchEntire(sentence)?.let { m ->
@@ -19318,7 +19308,10 @@ internal class Sentences(
         Woe.SACRIFICE_ANY_NUMBER.matchEntire(sentence)?.let { m ->
             val kind = woePluralList(m.groupValues[1]) ?: return null
             val sacrificed = Value.Count(Objects.Bound("sacrificed"))
-            val steps = listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.You)), Value.Fixed(0), null),
+            // otj chunk 01: "permanents you control" already says whose (zero is a number, CR 107.1)
+            val yours = ObjectFilter.ControlledBy(PlayerFilter.You)
+            val among = if (kind == yours || (kind as? ObjectFilter.And)?.all?.contains(yours) == true) kind else Filters.all(kind, yours)
+            val steps = listOf(Step.Choose(arcanum.api.Choice.Objects(among, Value.Fixed(0), null),
                 bind = "chosen", chooser = Players.You), Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")))
             context.thatMuch = sacrificed
             val then = when (val rest = m.groupValues[2]) {

@@ -252,7 +252,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 // Why an open game loads again (e2e CombatHoldTest, 2026-11-10: a load in the middle of play said nothing of it)
                 AppLog.info("engine", "Game ${head.gameId.take(8)} loads again from head ${head.engine?.headId?.take(8)} at revision " +
                     "${head.revision}: ${if (existing.needsReload) "the device can't follow" else "the head is past revision ${existing.revision}"}")
-                existing.load(snapshot, play)
+                // HIS-006: the open game loading again doesn't make a live table pause (unless the app is away or the
+                // table already paused: [EngineGame.load] decides and logs)
+                existing.load(snapshot, play, live = true)
             }
             reloadAsked.remove(head.gameId)
         } else following = true

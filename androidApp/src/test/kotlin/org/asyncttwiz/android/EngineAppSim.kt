@@ -69,14 +69,15 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
     fun state(): GameModel = warm?.takeIf { it.at == head }?.model?.copy() ?: history.stateAt(head)
     fun line(): List<GameEvent> = MainLine.after(history, head, store.rootId)!!
 
-    /** [p]'s game opened (or opened again) from the server's snapshot: at their local head, the rest buffered. */
-    fun load(p: String): EngineGame {
+    /** [p]'s game opened (or opened again) from the server's snapshot: at their local head, the rest buffered. [live]: loaded
+     * again as the open game's stream does (HIS-006: a live table stays live). */
+    fun load(p: String, live: Boolean = false): EngineGame {
         val baseId = heads.values.minByOrNull { history.depthOf(it) } ?: head
         val after = MainLine.after(history, head, baseId)!!
         val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
             settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
             if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
-        val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot, { java.util.UUID.nameUUIDFromBytes("$p-${++ids}".encodeToByteArray()).toString() }, worker(p))
+        val game = games[p]?.also { it.load(snapshot, live = live) } ?: EngineGame(f.game.id, p, f.base, snapshot, { java.util.UUID.nameUUIDFromBytes("$p-${++ids}".encodeToByteArray()).toString() }, worker(p))
         games[p] = game
         inbox.getValue(p).clear()
         watch(game)

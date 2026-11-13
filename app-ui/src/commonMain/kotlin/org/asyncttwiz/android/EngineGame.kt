@@ -242,8 +242,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** The last [Transition] published (the screen applies each once, by its serial). */
     val transition: Transition? get() = shown?.transition
 
-    /** (Re)loads the game from the server's [snapshot] (a new head, or the device asked to load again). */
-    fun load(snapshot: EngineSnapshot, base: PlayState = this.base) {
+    /** (Re)loads the game from the server's [snapshot] (a new head, or the device asked to load again). [live]: the open
+     * game loading again from its stream (HIS-006: a live table stays live, [GameSession]). */
+    fun load(snapshot: EngineSnapshot, base: PlayState = this.base, live: Boolean = false) {
         this.base = base
         worker.run {
             // HIS-106, HIS-108: opened for the first time, where another player's branch or undo took back what the player
@@ -267,6 +268,21 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                 device.older?.let { o -> loaded.older = o.carriedTo(loaded.session.lineStart, device.olderEvents + old.events) }
                 // HIS-110: a reveal is closed only by the player's OK or by being taken back, never by loading again
                 loaded.carryReveals(device)
+                // HIS-006 (e2e full run 2026-11-13: a head that overtook revisions while the table was live): loaded again
+                // while the table was live (in sight, not away, not in the catch-up's pause or timeline mode, no take-back
+                // held), the game stays live: what the server had that the device hadn't shown plays on as it would have,
+                // with no centre-text pause. Loaded again while away or paused, the catch-up's pause stays (HIS-033, HIS-035)
+                val why = when {
+                    !live -> "a load not from the open game's stream (a reopening)"
+                    awayPaused -> "the app away"
+                    device.holding -> "a take-back held"
+                    device.catchUp -> "in the catch-up's pause or timeline mode"
+                    else -> null
+                }
+                AppLog.info("engine", "Loaded again " + if (why == null) "while the table was live: it stays live, " +
+                    "${loaded.session.buffered.size} events to show${if (loaded.catchUp) " (no catch-up pause)" else ""}"
+                    else "with $why: ${if (loaded.catchUp) "the catch-up pause stays" else "nothing to catch up on"}")
+                if (why == null) loaded.play()
             }
             device = loaded; codec = json
             device.clock = clock

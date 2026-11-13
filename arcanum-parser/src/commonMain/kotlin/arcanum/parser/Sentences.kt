@@ -2362,10 +2362,14 @@ internal class Sentences(
             .let { c ->
                 // one chunk 16: "Whenever a creature you control enters, if it has one or more oil counters on it": "it" is the creature that
                 // entered, not the permanent with the ability (CR 603.4)
-                val enteredOther = (trigger.events.singleOrNull() as? EventPattern.ZoneChange)
-                    ?.let { it.to == Zone.Battlefield && it.objects != ObjectFilter.Is(Objects.Self) } == true
-                if (enteredOther && conditional?.groupValues?.get(1)?.startsWith("it has ") == true && c is arcanum.api.Condition.ObjectMatches && c.objects == Objects.Self)
-                    c.copy(objects = Objects.EventObject(EventRole.After)) else c
+                // one sweep: and "Whenever a creature you control attacks, if it has a +1/+1 counter on it": the attacking creature
+                val aboutOther = when (val e = trigger.events.singleOrNull()) {
+                    is EventPattern.ZoneChange -> e.to == Zone.Battlefield && e.objects != ObjectFilter.Is(Objects.Self)
+                    is EventPattern.Attack -> e.attacker != ObjectFilter.Is(Objects.Self)
+                    else -> false
+                }
+                if (aboutOther && conditional?.groupValues?.get(1)?.startsWith("it has ") == true && c is arcanum.api.Condition.ObjectMatches && c.objects == Objects.Self)
+                    c.copy(objects = that(trigger)) else c
             }
             .let { c ->
                 // tdm chunk 11: "Whenever a creature you control enters, if you cast it, …": it is the creature that entered (CR 603.4)
@@ -3139,14 +3143,15 @@ internal class Sentences(
         }
         // dsk chunk 13: "Sacrifice it …" after creating one token
         // one chunk 09: also "Sacrifice that token …" (the token just created, not the trigger's event object)
-        if (sentence == "Sacrifice them at the beginning of the next end step." || (sentence == "Sacrifice it at the beginning of the next end step." ||
-                sentence == "Sacrifice that token at the beginning of the next end step.") &&
-            ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.count == Value.Fixed(1)) {
-            val bound = bindTokens(steps) ?: return null
+        // one sweep: and "Exile it …" (in a dies trigger, "it" is the token too, not the creature that died, CR 608.2c)
+        SACRIFICE_OR_EXILE_TOKENS_AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { m -> m.groupValues[2] == "them" ||
+            ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.count == Value.Fixed(1) }?.let { m ->
+            val bound = bindTokens(steps) ?: return@let
+            val tokens = Objects.Bound(TOKENS)
             // CR 603.7: a delayed trigger, triggering once at the next end step
             return bound + Step.Do(Effect.CreateDelayedTrigger(
                 arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound(TOKENS)))))))
+                Instructions(steps = listOf(Step.Do(if (m.groupValues[1] == "Sacrifice") Effect.Sacrifice(tokens) else Effect.Move(tokens, Destination(Zone.Exile)))))))
         }
         // chunk 36: "You may put a land card from among them into your hand." after milling: zero or one of the milled cards
         MAY_PUT_FROM_AMONG_THEM_INTO_HAND.matchEntire(sentence)?.let { m ->
@@ -11316,6 +11321,8 @@ internal class Sentences(
         // one chunk 03: also "Exile target creature if it has mana value 3 or less."
         val DESTROY_TARGET_IF = Regex("""(Destroy|Exile) (target|that) (.+?) if it has mana value (\d+) or less\.""")
         val DESTROY_EACH = Regex("""Destroy each (.+)\.""")
+        // one sweep: after creating tokens (CR 603.7)
+        val SACRIFICE_OR_EXILE_TOKENS_AT_NEXT_END_STEP = Regex("""(Sacrifice|Exile) (them|it|that token) at the beginning of the next end step\.""")
         val EXILE_TARGET = Regex("""Exile target (.+?)( if its mana value is less than or equal to the number of colors of mana spent to cast this spell)?\.""")
         val RETURN_TARGET_TO_HAND = Regex("""Return target (.+) to its owner's hand\.""")
         val ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER = Regex("""(?:Its|That creature's) controller gains life equal to its power\.""")
@@ -25241,15 +25248,24 @@ internal class Sentences(
         }
         // ltr chunk 02: "Target creature you control gains indestructible for as long as you control this Saga." (CR 611.2b): the effect read as
         // lasting until end of turn, its duration then replaced
+        // one sweep: also inside "you may" ("you may gain control of target creature for as long as you control this creature"); when it doesn't
+        // read, the target slots the attempt added are taken back, so no stray target is left for the rule that reads it (CR 115.1)
         Ltr.FOR_AS_LONG_AS_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val asLong = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.You)))
-            val steps = effect("${m.groupValues[1]} until end of turn.", context) ?: return@let
+            val targets = context.targets.size
+            val steps = effect("${m.groupValues[1]} until end of turn.", context)
             var replaced = 0
-            val result = steps.map { step ->
+            fun lasting(step: Step): Step {
                 val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics
-                if (apply != null && apply.duration == arcanum.api.Duration.EndOfTurn) { replaced++; Step.Do(apply.copy(duration = asLong)) } else step
+                return when {
+                    apply != null && apply.duration == arcanum.api.Duration.EndOfTurn -> { replaced++; Step.Do(apply.copy(duration = asLong)) }
+                    step is Step.May -> step.copy(steps = step.steps.map(::lasting))
+                    else -> step
+                }
             }
-            if (replaced == 1) return result
+            val result = steps?.map(::lasting)
+            if (result != null && replaced == 1) return result
+            while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         }
         // ltr chunk 02: "Choose up to one target permanent card in your graveyard that was put there from the battlefield this turn." (only the target;
         // "it" in the next sentence is that card)

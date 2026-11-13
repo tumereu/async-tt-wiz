@@ -559,10 +559,12 @@ internal object Actions {
             val keywords = source?.keywords.orEmpty().map { it.kind }.toSet()
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
-                    if (Keyword.Infect in keywords) act.record(Changes.counters(act.state, r, CounterKind.Poison, d.amount))
+                    // CR 120.3b, 702.164c, 614.1a: the poison counters are given through putCounters, so "if you would get poison counters"
+                    // replacements and "can't get poison counters" apply to damage as to effects (one sweep)
+                    if (Keyword.Infect in keywords) putCounters(act, cause, r, CounterKind.Poison, d.amount)
                     else act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
-                    if (d.combat && toxic > 0) act.record(Changes.counters(act.state, r, CounterKind.Poison, toxic))
+                    if (d.combat && toxic > 0) putCounters(act, cause, r, CounterKind.Poison, toxic)
                 }
                 is TargetRef.Object -> {
                     val o = act.obj(r.id) ?: return@forEach
@@ -952,8 +954,16 @@ internal object Actions {
         if (act.state.obj(id) == null && id !in act.state.stackItems) return copiable.lastKnownForToken(id) ?: copiable.forToken(id)
         val item = act.recorder.by?.item
         if (item == null || act.state.obj(id)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return copiable.forToken(id)
-        // the move that made it, looked for only since the instructions' Stack item was put on the Stack
         val log = act.state.log
+        // one sweep: the card a permanent became by the zone change that triggered this ability ("Whenever another creature you control dies,
+        // create a token that's a copy of it"): "it" is the permanent that left, as it last existed (CR 608.2h, 603.10a)
+        val event = act.state.stackItems[item]?.event?.objects.orEmpty()
+        if (event.any { it.role == arcanum.api.EventRole.After && id in it.ids }) {
+            val move = log.asReversed().firstNotNullOfOrNull { entry -> (entry.change as? Change.ZoneChange)?.moves?.firstOrNull { it.after.id == id } }
+            if (move != null && move.from == Zone.Battlefield && event.any { it.role == arcanum.api.EventRole.Before && move.before.id in it.ids })
+                return copiable.lastKnownForToken(move.before.id) ?: copiable.forToken(id)
+        }
+        // the move that made it, looked for only since the instructions' Stack item was put on the Stack
         for (i in log.indices.reversed()) {
             when (val change = log[i].change) {
                 is Change.StackItemAdded -> if (change.item.id == item) break

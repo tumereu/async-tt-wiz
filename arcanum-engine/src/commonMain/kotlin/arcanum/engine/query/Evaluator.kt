@@ -78,6 +78,9 @@ internal interface Board {
 
     /** dft: the rules that apply to [id] in the finished view (none part-way through the layers). */
     fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = emptyList()
+
+    /** lci: its base power (CR 208.4b), its power after layer 7b; null when not worked out (then its power is read). */
+    fun basePower(id: ObjectId): Int? = null
 }
 
 /**
@@ -761,6 +764,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 (if (property == NumericProperty.Power) c?.power else c?.toughness) ?: 0
             }
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
+            // lci: CR 208.4b, its power before effects and counters that modify it
+            NumericProperty.BasePower -> {
+                board.readingPowerToughness()
+                board.basePower(id) ?: c?.power ?: 0
+            }
             NumericProperty.Loyalty -> c?.loyalty ?: 0
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }

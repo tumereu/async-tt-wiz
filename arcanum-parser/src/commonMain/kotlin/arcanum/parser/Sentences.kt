@@ -2405,6 +2405,12 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // lci chunk 08: "you're dealt combat damage": once for all the damage dealt to you at the same time, from however many sources
+        // (CR 510.2, 603.2c)
+        Lci.YOURE_DEALT_DAMAGE.matchEntire(text)?.let { m ->
+            return arcanum.api.Trigger.On(listOf(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.You),
+                combat = if (m.groupValues[1].isEmpty()) null else true)), oneOrMore = true) to null
+        }
         // lci chunk 06: "you untap one or more permanents during your untap step" (the untap step's untapping, CR 502.3; once for the batch,
         // CR 603.2c)
         Lci.YOU_UNTAP_DURING_YOUR_UNTAP_STEP.matchEntire(text)?.let { m ->
@@ -7268,6 +7274,19 @@ internal class Sentences(
 
     /** chunk 56: a condition about "it", the object an earlier sentence acted on ("it has no ice counters on it"). */
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
+        // lci chunk 08: "you exiled a land card this way": among the cards the exile before moved (CR 608.2c)
+        Lci.YOU_EXILED_CARD_THIS_WAY.matchEntire(text)?.let { m ->
+            val exiled = context.them ?: context.thisWay ?: return@let
+            return arcanum.api.Condition.Compare(Value.Count(Objects.Where(exiled, Filters.noun(m.groupValues[1]) ?: return null)),
+                arcanum.api.Comparison.AtLeast, Value.Fixed(1))
+        }
+        // lci chunk 08: "the creature you control entered this turn" (a target named by its noun)
+        Lci.THE_TARGET_ENTERED_THIS_TURN.matchEntire(text)?.let { m ->
+            val slot = context.slotFor(m.groupValues[1]) ?: return@let
+            // "If the creature you control entered this turn, put a +1/+1 counter on it.": "it" is the creature the condition names
+            context.it = slot
+            return arcanum.api.Condition.ObjectMatches(slot, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield, objects = ObjectFilter.Any)))
+        }
         // fdn chunk 07: "target player has exactly 10 life" (the target is chosen as the spell is cast, CR 601.2c)
         Fdn.TARGET_PLAYER_HAS_EXACTLY_LIFE.matchEntire(text)?.let { m ->
             return arcanum.api.Condition.Compare(Value.LifeOf(context.targetPlayer()), arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[1].toInt()))
@@ -15738,6 +15757,46 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 08: "for each creature you control with power greater than that creature's base power, put a number of +1/+1 counters on
+        // that creature equal to the difference." (base power, CR 208.4b; each creature's own difference)
+        Lci.FOR_EACH_POWER_GREATER_THAN_BASE_COUNTERS.matchEntire(sentence)?.let { m ->
+            fun of(property: arcanum.api.NumericProperty, objects: Objects) = Value.Of(property, objects, arcanum.api.Combine.Single)
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Power(arcanum.api.Comparison.Greater, of(arcanum.api.NumericProperty.BasePower, Objects.Tested)))
+            val each = Objects.Bound("creature")
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(filter)), bind = "creature", steps = listOf(Step.Do(Effect.PutCounters(each,
+                Counters.kind(m.groupValues[2]) ?: return null, Value.Difference(of(arcanum.api.NumericProperty.Power, each),
+                    of(arcanum.api.NumericProperty.BasePower, each)))))))
+        }
+        // lci chunk 08: "the attacking player gains control of this artifact and untaps it." (the active player attacks, CR 506.2; for good,
+        // CR 611.2a; layer 2)
+        Lci.ATTACKING_PLAYER_GAINS_CONTROL_AND_UNTAPS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.Active)), Affected.Objects(Objects.Self),
+                arcanum.api.Duration.Indefinitely)), Step.Do(Effect.Untap(Objects.Self)))
+        }
+        // lci chunk 08: "for each player, choose up to one other target artifact or creature that player controls." (one target for each
+        // player, CR 601.2c); "the chosen permanents" afterwards are those targets
+        Lci.FOR_EACH_PLAYER_CHOOSE_UP_TO_ONE_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val filter = Filters.all(*listOfNotNull(context.another().takeIf { m.groupValues[1].isNotEmpty() }, noun,
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer))).toTypedArray())
+            val name = Filters.slotName(m.groupValues[2])
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(1), perPlayer = PlayerFilter.Any)
+            context.them = Objects.Target(name)
+            return emptyList()
+        }
+        // lci chunk 08: 'For as long as this creature remains on the battlefield, the chosen permanents become Treasure artifacts with "{T},
+        // Sacrifice this artifact: Add one mana of any color" and lose all other abilities.' (their card types and subtypes replaced, layer 4,
+        // CR 205.1a; the granted ability kept, layer 6, CR 613.1f; until it leaves, CR 611.2b)
+        Lci.CHOSEN_BECOME_ARTIFACTS_LOSE_OTHER_ABILITIES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val chosen = context.them as? Objects.Target ?: return null
+            if (m.groupValues[2] !in RulesWords.subtypes) return null
+            val granted = Sentences(setOf("this artifact")).line(m.groupValues[3] + ".") ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Artifact), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))),
+                    replaceTypes = true, replaceSubtypes = true),
+                Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(granted))), Affected.Objects(chosen), arcanum.api.Duration.UntilLeaves(Objects.Self))))
+        }
         // lci chunk 07: "Return to the battlefield target nonland permanent card in your graveyard with mana value less than or equal to …" (the
         // same as "Return target … from your graveyard to the battlefield")
         Lci.RETURN_TO_ZONE_TARGET_IN_GRAVEYARD.matchEntire(sentence)?.let { m ->

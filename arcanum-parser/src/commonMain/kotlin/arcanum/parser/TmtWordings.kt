@@ -104,7 +104,8 @@ internal object Tmt {
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")
-    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that crewed it this turn""")
+    // otj chunk 03: also "that saddled it this turn" (CR 702.171c)
+    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that (crewed|saddled) it this turn""")
     val THEN_IF_DOUBLE_COUNTERS = Regex("""Then if that creature is (?:an? )?(.+?), double the number of (\+1/\+1) counters on it\.""")
     val RETURN_EXILED_WITH_CREATURE_AND_OTHERS = Regex("""Return a (.+?) exiled with (.+?) to the battlefield under your control\. Return each other card exiled with (.+?) to its owner's hand\.""")
     val CARD_TYPES_AMONG_SPELLS_CAST = Regex("""[Dd]raw a card for each card type among spells you've cast this turn\.""")
@@ -166,7 +167,8 @@ internal object TmtPhrases {
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.Targets(objects = Objects.Each(targeted)))
         }
         Tmt.CREATURE_THAT_CREWED_IT.matchEntire(phrase)?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.CrewedThisTurn(Objects.Self))
+            val tapped = if (m.groupValues[2] == "crewed") ObjectFilter.CrewedThisTurn(Objects.Self) else ObjectFilter.SaddledThisTurn(Objects.Self)
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, tapped)
         }
         return null
     }

@@ -28,6 +28,13 @@ internal object Otj {
     // otj chunk 02: Rush of Dread
     val TARGET_PLAYER_HALF = Regex(
         """Target (opponent|player) (sacrifices half the (.+?) they control of their choice|discards half the cards in their hand|loses half their life), rounded (up|down)\.""")
+    // chunk 03
+    val GAIN_LIFE_FOR_EACH_OF_THOSE = Regex("""You gain (\w+) life for each of those creatures\.""")
+    val MAY_RETURN_ANY_NUMBER_TO_OWNERS_HAND = Regex("""(?:Then )?[Yy]ou may return any number of (.+?) to their owners?'s? hands?\.""")
+    val AT_END_OF_COMBAT_EXILE_IT_AND_UP_TO_ONE_RETURN = Regex(
+        """[Aa]t end of combat, exile it and up to one (.+?), then return those cards to the battlefield under their owners?'s? control\.""")
+    val CREATE_TAPPED_ATTACKING_COPY_OF_IT = Regex("""[Cc]reate a tapped and attacking token that's a copy of (?:it|that creature)\.""")
+    val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
 }
 
 /** Phrases first met in Outlaws of Thunder Junction (OTJ). */

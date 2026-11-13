@@ -3019,7 +3019,9 @@ internal class Sentences(
                 arcanum.api.Affected.Objects(Objects.Bound(TOKENS)), arcanum.api.Duration.Indefinitely))
         }
         // dsk chunk 13: "Sacrifice it …" after creating one token
-        if (sentence == "Sacrifice them at the beginning of the next end step." || sentence == "Sacrifice it at the beginning of the next end step." &&
+        // otj chunk 03: also "Sacrifice that token …"
+        if (sentence == "Sacrifice them at the beginning of the next end step." ||
+            (sentence == "Sacrifice it at the beginning of the next end step." || sentence == "Sacrifice that token at the beginning of the next end step.") &&
             ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.count == Value.Fixed(1)) {
             val bound = bindTokens(steps) ?: return null
             // CR 603.7: a delayed trigger, triggering once at the next end step
@@ -3048,7 +3050,16 @@ internal class Sentences(
         // chunk 25: "If …, …. Otherwise, …."
         OTHERWISE.matchEntire(sentence)?.let { m ->
             val iff = (steps.lastOrNull() as? Step.If)?.takeIf { it.otherwise.isEmpty() } ?: return null
-            val otherwise = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            // otj chunk 03: "You lose life equal to that card's mana value if …. Otherwise, each opponent loses that much life." ("that much"
+            // is the amount the first branch named)
+            val outer = context.thatMuch
+            if (outer == null) context.thatMuch = when (val e = (iff.then.singleOrNull() as? Step.Do)?.effect) {
+                is Effect.LoseLife -> e.amount
+                is Effect.GainLife -> e.amount
+                is Effect.DealDamage -> e.amount
+                else -> null
+            }
+            val otherwise = try { effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) } finally { context.thatMuch = outer } ?: return null
             return steps.dropLast(1) + iff.copy(otherwise = otherwise)
         }
         // chunk 33: "If this creature was kicked, copy that spell twice instead." after a delayed copy trigger
@@ -4987,7 +4998,14 @@ internal class Sentences(
                 val move = ((st.singleOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { refersBack && it.to.zone == Zone.Exile && it.postBind == null }
                 if (move == null) st else { context.it = Objects.Bound("exiled"); listOf(Step.Do(move.copy(postBind = "exiled"))) }
             }
-            val pay = if (costParts != null) Step.Pay(Cost(costParts), bind = "paid", payer = Players.You)
+            // otj chunk 03: "you may sacrifice a creature …. If you do, draw X cards, …, where X is the sacrificed creature's power": the
+            // sacrifice names the object the effect reads, as it last existed (CR 608.2h)
+            val readsSacrificed = m.groupValues[2].contains("the sacrificed ") ||
+                (context.definedX as? Value.Of)?.objects == Objects.Bound(SACRIFICED)
+            val namedParts = if (!readsSacrificed) costParts else costParts?.map {
+                if (it is CostPart.Sacrifice && it.what is CostObjects.Choose && it.preBind == null) it.copy(preBind = SACRIFICED) else it
+            }
+            val pay = if (namedParts != null) Step.Pay(Cost(namedParts), bind = "paid", payer = Players.You)
                 else Step.Pay(steps = steps!!, bind = "paid", payer = Players.You)
             val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
             return listOf(pay, Step.If(arcanum.api.Condition.Did("paid"), then = then))
@@ -7244,10 +7262,15 @@ internal class Sentences(
         }
         if (sentence == "Return it to your hand.") return listOf(Step.Do(Effect.Move(context.it ?: return null, Destination(Zone.Hand))))
         MAY_PUT_FROM_HAND.matchEntire(sentence)?.let { m ->
-            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, yourHand)
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, yourHand)
+            val max = when (m.groupValues[1]) {
+                "" -> Value.Fixed(1)
+                "X" -> Value.Announced(name = "X").takeIf { isSpell || announcedX } ?: return null
+                else -> Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            }
             return listOf(
-                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))))
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = max), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))))
         }
         PUT_IT.matchEntire(sentence)?.let { m ->
             val to = if (m.groupValues[1] == "into your hand") Destination(Zone.Hand) else Destination(Zone.Battlefield)
@@ -7293,9 +7316,14 @@ internal class Sentences(
         GAINS_FLASHBACK.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
-            return listOf(Step.Do(Effect.ApplyMechanics(
-                listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Flashback(Cost(listOf(CostPart.ItsManaCost)))))),
-                arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+            fun gain(cost: Cost) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Flashback(cost)))),
+                arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn))
+            val itsManaCost = gain(Cost(listOf(CostPart.ItsManaCost)))
+            if (m.groupValues[2].isEmpty()) return listOf(itsManaCost)
+            // otj chunk 03: "… instead if this creature is saddled" (checked as it resolves, CR 608.2c)
+            val instead = Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null)
+            val condition = Conditions.condition(m.groupValues[3], self) ?: return null
+            return listOf(Step.If(condition, then = listOf(gain(instead)), otherwise = listOf(itsManaCost)))
         }
         CHOOSE_TARGET.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
@@ -7555,6 +7583,8 @@ internal class Sentences(
             // otj chunk 01: "Each player who does draws seven cards." completes "Each player may …" before it
             if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,") || sentence.startsWith("The flashback cost is") ||
                     (sentence.startsWith("Each player who does ") && acc.lastOrNull()?.startsWith("Each player may ") == true) ||
+                    // otj chunk 03: "That card gains flashback {0} until end of turn instead if …" replaces the flashback before it
+                    (sentence.startsWith("That card gains flashback ") && acc.lastOrNull()?.contains("The flashback cost is") == true) ||
                     sentence.startsWith("When you do,") || // chunk 31
                     (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
@@ -11427,9 +11457,11 @@ internal class Sentences(
         val LOOK_PUT_UP_TO_ONE_ON_TOP = Regex("""Look at the top (\w+) cards of your library\. Put up to one of them on top of your library and the rest on the bottom of your library in a random order\.""")
         val WIN_IF_X_AT_LEAST = Regex("""If X is greater than or equal to (.+), you win the game\.""")
         val RETURN_ALL_OR_SELF_TO_BATTLEFIELD = Regex("""Return (target |all )?(.+) from your graveyard to the battlefield( tapped)?\.""")
-        val GAINS_FLASHBACK = Regex("""[Tt]arget (.+) gains flashback until end of turn\. The flashback cost is equal to (?:its|that card's) mana cost\.""")
+        // otj chunk 03: also "That card gains flashback {0} until end of turn instead if this creature is saddled."
+        val GAINS_FLASHBACK = Regex("""[Tt]arget (.+) gains flashback until end of turn\. The flashback cost is equal to (?:its|that card's) mana cost\.(?: That card gains flashback ((?:\{[^}]+\})+) until end of turn instead if (.+)\.)?""")
         val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
-        val MAY_PUT_FROM_HAND = Regex("""You may put an? (.+) from your hand onto the battlefield( tapped)?\.""")
+        // otj chunk 03: also "put up to X land cards from your hand onto the battlefield tapped"
+        val MAY_PUT_FROM_HAND = Regex("""(?:You may put an?|Put up to (\w+)) (.+) from your hand onto the battlefield( tapped)?\.""")
         val GRAVEYARD_ON_BOTTOM = Regex("""(Up to one target|Target) player puts all the cards from their graveyard on the bottom of their library in a random order\.""")
         // chunk 32
         val HAVE_KEYWORDS = Regex("""(.+) have ([a-z ,]+)\.""")
@@ -15579,6 +15611,41 @@ internal class Sentences(
 
     /** otj: single-sentence effects. */
     private fun otjEffect(sentence: String, context: Context): List<Step>? {
+        // otj chunk 03: "Then you may return any number of creatures that saddled it this turn to their owner's hand." (chosen as it
+        // resolves, not targeted; zero is a number, CR 107.1)
+        Otj.MAY_RETURN_ANY_NUMBER_TO_OWNERS_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // otj chunk 03: "at end of combat, exile it and up to one creature that saddled it this turn, then return those cards to the battlefield
+        // under their owner's control." (a delayed trigger, CR 603.7; the creature is chosen as it resolves; each card returns as a new object
+        // under its owner's control, CR 400.7, 610.3)
+        Otj.AT_END_OF_COMBAT_EXILE_IT_AND_UP_TO_ONE_RETURN.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.EndOfCombat, PlayerFilter.Any)),
+                Instructions(steps = listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Union(listOf(it, Objects.Bound("chosen"))), Destination(Zone.Exile), postBind = "exiled")),
+                    Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = Players.OwnerOf(exiled)))))))))
+        }
+        // otj chunk 03: "choose a nonlegendary creature that saddled it this turn and create a tapped and attacking token that's a copy of it."
+        // (chosen as it resolves, not targeted; "it" is the chosen creature)
+        // otj chunk 03: "create a tapped and attacking token that's a copy of it." (CR 707.2, 508.4: its controller chooses what it attacks)
+        Otj.CREATE_TAPPED_ATTACKING_COPY_OF_IT.matchEntire(sentence)?.let {
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(context.it ?: return null), Value.Fixed(1), Players.You, tapped = true,
+                attacking = arcanum.api.AttackTarget.Chosen)))
+        }
+        Otj.CHOOSE_A_AND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val outer = context.it
+            context.it = Objects.Bound("chosen")
+            val then = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() } + ".", context)
+            if (then == null) { context.it = outer; return null }
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You)) + then
+        }
         // otj chunk 01: "It becomes plotted." (the card an earlier sentence exiled; the mark lives only in exile, CR 702.170c)
         Otj.BECOMES_PLOTTED.matchEntire(sentence)?.let { m ->
             val subject = m.groupValues[1]
@@ -15667,6 +15734,17 @@ internal class Sentences(
 
     /** otj: sentences that change the steps before them. */
     private fun otjModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // otj chunk 03: "Repeat this process once.": the steps before it, done twice
+        if (sentence == "Repeat this process once." && steps.isNotEmpty()) return listOf(Step.Repeat(Value.Fixed(2), steps.toList()))
+        // otj chunk 03: "put a +1/+1 counter on each other creature you control. You gain 1 life for each of those creatures." (the creatures
+        // the counters were put on, CR 608.2c)
+        Otj.GAIN_LIFE_FOR_EACH_OF_THOSE.matchEntire(sentence)?.let { m ->
+            val put = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters)?.takeIf { it.objects is Objects.Each } ?: return null
+            val per = Numbers.count(m.groupValues[1]) ?: return null
+            val those = Objects.Bound("those creatures")
+            return steps.dropLast(1) + Step.Bind(put.objects, "those creatures") + Step.Do(put.copy(objects = those)) +
+                Step.Do(Effect.GainLife(Players.You, times(Value.Count(those), per)))
+        }
         // otj chunk 01: "exile target spell. It becomes plotted.": the card the exile moved, a new object in exile (CR 400.7, 702.170c)
         if (sentence == "It becomes plotted.") {
             val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile } ?: return null

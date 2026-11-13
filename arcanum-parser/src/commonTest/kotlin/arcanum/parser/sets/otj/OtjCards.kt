@@ -237,3 +237,15 @@ fun spreeMode(cost: String, vararg steps: Step, targets: List<TargetSlot> = empt
     Mode(Instructions(targets = targets, steps = steps.toList()), extraCost = manaCost(cost))
 /** An outlaw: an Assassin, Mercenary, Pirate, Rogue and/or Warlock (CR 700.12). */
 val outlaw: ObjectFilter = or(sub("Assassin"), sub("Mercenary"), sub("Pirate"), sub("Rogue"), sub("Warlock"))
+
+// ---- chunk 03: saddle
+
+/** It is saddled (CR 702.171b). */
+val saddledMark: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Saddled))
+/** "Whenever this creature attacks while saddled" (CR 702.171b). */
+val attacksSaddled: Trigger = on(EventPattern.Attack(and(ObjectFilter.Is(Objects.Self), saddledMark)))
+fun attacksWhileSaddled(vararg steps: Step, targets: List<TargetSlot> = emptyList()) = triggered(attacksSaddled, *steps, targets = targets)
+/** "this creature is saddled" (CR 702.171b). */
+val selfSaddled: Condition = Condition.ObjectMatches(Objects.Self, saddledMark)
+/** "[creature] that saddled it this turn" (CR 702.171c). */
+fun thatSaddledIt(filter: ObjectFilter): ObjectFilter = and(filter, ObjectFilter.SaddledThisTurn(Objects.Self))

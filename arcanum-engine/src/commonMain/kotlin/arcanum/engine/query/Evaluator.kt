@@ -419,6 +419,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.CrewedThisTurn -> History.crewed(this, id, objects(filter.vehicles).toSet())
             // fin: a Vehicle one of [crew] crewed this turn (CR 702.122b)
             is ObjectFilter.CrewedBy -> objects(filter.crew).any { History.crewed(this, it, setOf(id)) }
+            // otj: tapped this turn to pay a saddle cost of one of the Mounts (CR 702.171c)
+            is ObjectFilter.SaddledThisTurn -> History.saddled(this, id, objects(filter.mounts).toSet())
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -1050,6 +1052,17 @@ internal object History {
         return state.eventsOf(state.turn.number).any { change ->
             change is arcanum.engine.change.Change.Status && change.id == id &&
                 change.meanings.any { it is arcanum.engine.change.Meaning.Crewed && it.vehicle in vehicles }
+        }
+    }
+
+    /** otj: whether [id] was tapped this turn to pay the saddle cost of one of [mounts] (CR 702.171c). */
+    fun saddled(evaluator: Evaluator, id: ObjectId, mounts: Set<ObjectId>): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        return state.eventsOf(state.turn.number).any { change ->
+            change is arcanum.engine.change.Change.Status && change.id == id && change.meanings.any {
+                it is arcanum.engine.change.Meaning.PaidFor && it.keyword == arcanum.api.Keyword.Saddle.Kind && it.source in mounts
+            }
         }
     }
 

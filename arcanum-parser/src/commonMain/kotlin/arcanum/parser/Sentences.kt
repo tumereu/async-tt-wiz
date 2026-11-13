@@ -7249,7 +7249,7 @@ internal class Sentences(
             val event = context.it is Objects.EventObject
             val it = (if (text.startsWith("that creature ") && event) target ?: context.it else context.it ?: target) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
-            return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] == "is") filter else ObjectFilter.Not(filter))
+            return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] != "isn't") filter else ObjectFilter.Not(filter))
         }
         val it = context.it ?: return null
         val m = IT_HAS_NO_COUNTERS.matchEntire(text) ?: return null
@@ -10600,9 +10600,24 @@ internal class Sentences(
             return listOf(Step.Do(Effect.PutCounters(Objects.Each(Filters.noun(m.groupValues[3]) ?: return null), Counters.kind(m.groupValues[2]) ?: return null, count)))
         }
         // fra chunk 07: "This land becomes a copy of target creature you control until end of turn." (CR 707.2)
-        Fra.BECOMES_COPY_OF_TARGET_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)), Affected.Objects(Objects.Self), eot)))
+        Fra.BECOMES_COPY_OF_TARGET_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val subject = m.groupValues[1]
+            // otj chunk 10: "Untap that creature. Until end of turn, it becomes a copy of up to one other target creature." ("it" = that creature)
+            val objects = if (isSelf(subject)) Objects.Self else if (subject == "It" || subject == "That creature")
+                context.it ?: context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null else return@let
+            val noun = m.groupValues[4]
+            val other = m.groupValues[3].isNotEmpty()
+            val upToOne = m.groupValues[2].isNotEmpty()
+            val target = if (!other && !upToOne) context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null) else {
+                val filter = Filters.noun(if (other && objects == Objects.Self) "another $noun" else noun) ?: return null
+                val base = Filters.slotName(noun)
+                val name = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
+                // "other": not the object that becomes the copy (CR 115.3 for a target, 109.5 for this object)
+                context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (upToOne) 0 else 1), max = Value.Fixed(1),
+                    distinctFrom = listOfNotNull((objects as? Objects.Target)?.slot?.takeIf { other }))
+                Objects.Target(name)
+            }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)), Affected.Objects(objects), eot)))
         }
         // fra chunk 02: "Choose a creature type." (named for "the chosen type")
         if (sentence == "Choose a creature type.") return listOf(Step.Choose(arcanum.api.Choice.CreatureType, bind = "type", chooser = Players.You))
@@ -10958,7 +10973,8 @@ internal class Sentences(
         val IF_GIFT_AFTER = Regex("""(.+) if the gift (was|wasn't) promised\.""")
         val ALSO = Regex("""(.+?) also (.+)""")
         val YOU_AND_GAIN = Regex("""You and (.+) gain hexproof until end of turn\.""")
-        val IT_IS = Regex("""(?:that creature|it) (is|isn't) (?:an? )?(.+)""")
+        // otj chunk 10: "it's tapped" (a status of the object "it" names)
+        val IT_IS = Regex("""(?:that creature|it)(?: (is|isn't)|'s) (?:an? )?(.+)""")
         val ATTACHED_GETS_HAS_LOSES = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: and has ([a-z ,]+?))?(?: and loses ([a-z ,]+?))?\.""")
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
@@ -15899,6 +15915,13 @@ internal class Sentences(
         // "another" fails when the source returned itself (CR 608.2h)
         Otj.IF_A_WAS_EXILED_THIS_WAY.matchEntire(sentence)?.takeIf { it.groupValues[3] == "returned" }?.let { m ->
             val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            // otj chunk 10: "return up to one target nonland permanent you control to its owner's hand. If a permanent was returned this
+            // way, …": a target can only be a permanent, so it's whether anything was returned (CR 608.2c)
+            if (move.objects is Objects.Target && move.to.zone == Zone.Hand && m.groupValues[1] != "another" && m.groupValues[2] == "permanent") {
+                val then = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context) ?: return null
+                val bind = move.postBind ?: "returned"
+                return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.If(arcanum.api.Condition.NonEmpty(bind), then = then)
+            }
             val moved = move.objects.takeIf { it is Objects.Bound && move.to.zone == Zone.Hand } ?: return null
             val kind = Filters.noun(if (m.groupValues[1] == "another") "another " + m.groupValues[2] else m.groupValues[2]) ?: return null
             val then = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context) ?: return null
@@ -21678,10 +21701,15 @@ internal class Sentences(
         // 'until end of turn, another target creature you control gets +2/+0 and gains "When this creature dies, return it to the battlefield
         // tapped under its owner's control."'
         Eoe.UNTIL_EOT_GETS_AND_GAINS_QUOTED.matchEntire(sentence)?.let { m ->
-            val target = eoeTarget(m.groupValues[1], context) ?: return null
-            val quoted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[4].let { if (it.endsWith(".")) it else "$it." }) ?: return null
+            val subject = m.groupValues[1]
+            // otj chunk 10: "each creature you control" (the creatures there as it resolves, CR 611.2c)
+            val target = if (Regex("""(?:another )?target .+""").matches(subject)) eoeTarget(subject, context) ?: return null
+                else Objects.Each(Filters.noun(subject.removePrefix("each ")) ?: return null)
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { dftKeywords(it) ?: return null }.orEmpty()
+            val quoted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[5].let { if (it.endsWith(".")) it else "$it." }) ?: return null
+            if (quoted is Ability.Unparsed) return null
             return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
-                Mechanic.GainAbilities(listOf(quoted))))
+                Mechanic.GainAbilities(keywords + quoted)))
         }
         // 'Until end of turn, target creature gains "Whenever this creature is dealt damage, you draw that many cards and lose that much life."
         // That creature's controller may have this artifact deal 1 damage to it.'
@@ -22105,7 +22133,8 @@ internal class Sentences(
                     Step.Pay(steps = listOf(Step.Do(Effect.Reveal(Objects.Bound("top"))), Step.Do(Effect.Move(Objects.Bound("top"), Destination(Zone.Hand)))),
                         payer = Players.You, bind = "kept"))),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("kept")), listOf(
-                    Step.May(listOf(Step.Do(Effect.Move(Objects.Bound("top"), Destination(Zone.Graveyard)))), player = Players.You))))
+                    Step.May(listOf(Step.Do(Effect.Move(Objects.Bound("top"),
+                        if (m.groupValues[2] == "into your graveyard") Destination(Zone.Graveyard) else Destination(Zone.Library, libraryPosition = -1)))), player = Players.You))))
         }
         // tdm chunk 08: "Return up to two target permanent cards from your graveyard to your hand. Target player shuffles up to four target cards from
         // their graveyard into their library. Exile Rite of Renewal."
@@ -24755,7 +24784,14 @@ internal class Sentences(
                 val objects = ltrObjects(a.groupValues[1], context) ?: return null
                 return listOf(ltrUntilEndOfTurn(objects, Mechanic.AssignsDamageByToughness))
             }
-            return effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} until end of turn.", context)
+            val before = context.targets.size
+            effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} until end of turn.", context)?.let { return it }
+            while (context.targets.size > before) context.targets.removeAt(context.targets.lastIndex)
+            // otj chunk 10: "Until end of turn, target creature you control gets +1/+1 and target creature an opponent controls gets -1/-1."
+            // (the duration covers both clauses)
+            val parts = m.groupValues[1].split(Regex(""" and (?=(?:another |up to one )?target )"""))
+            if (parts.size < 2) return null
+            return effect(parts.joinToString(" and ") { "$it until end of turn" }.replaceFirstChar { it.uppercase() } + ".", context)
         }
         return null
     }

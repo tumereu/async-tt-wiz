@@ -1177,6 +1177,11 @@ internal object Conditions {
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = n)
         }
+        // otj chunk 10: "you control two or fewer other lands" = not N+1 or more
+        CONTROL_N_OR_FEWER_PHRASE.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = n + 1))
+        }
         // chunk 26: "this card is in your graveyard"
         IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
@@ -1411,6 +1416,7 @@ internal object Conditions {
     private val SACRIFICED_THIS_TURN = Regex("""you've sacrificed an? (.+) this turn""")
     // chunk 56
     private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")
+    private val CONTROL_N_OR_FEWER_PHRASE = Regex("""you control (\w+) or fewer (.+)""")
 }
 
 /** The name a sacrifice cost gives the sacrificed object when the effect reads it ("the sacrificed creature's power"). */

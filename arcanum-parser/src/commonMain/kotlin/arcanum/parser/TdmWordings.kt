@@ -91,7 +91,8 @@ internal object Tdm {
     val DRAW_IF_ELSE_COUNTER = Regex("""[Dd]raw a card if (.+?)\. If you don't draw a card this way, put an? (\S+) counter on (.+)\.""")
     // tdm chunk 08: "look at the top card of your library. If it's a land card, you may reveal it and put it into your hand. If you don't put
     // the card into your hand, you may put it into your graveyard."
-    val LOOK_TOP_LAND_HAND_ELSE_GRAVEYARD = Regex("""[Ll]ook at the top card of your library\. If it's an? (.+?) card, you may reveal it and put it into your hand\. If you don't put the card into your hand, you may put it into your graveyard\.""")
+    // otj chunk 10: "If you don't put it into your hand, you may put it on the bottom of your library." (CR 401.4: bottom)
+    val LOOK_TOP_LAND_HAND_ELSE_GRAVEYARD = Regex("""[Ll]ook at the top card of your library\. If it's an? (.+?) card, you may reveal it and put it into your hand\. If you don't put (?:the card|it) into your hand, you may put it (into your graveyard|on the bottom of your library)\.""")
     // tdm chunk 08: "Return up to two target permanent cards from your graveyard to your hand. Target player shuffles up to four target cards
     // from their graveyard into their library. Exile Rite of Renewal."
     val RETURN_AND_PLAYER_SHUFFLES = Regex("""Return up to (\w+) target (.+?) from your graveyard to your hand\. Target player shuffles up to (\w+) target cards from their graveyard into their library\. Exile (.+)\.""")

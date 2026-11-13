@@ -167,7 +167,7 @@ internal object Legality {
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
-        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
+        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash } || ownConditionalFlash(snap, player, card)
         // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
         val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
@@ -229,6 +229,16 @@ internal object Legality {
             } ?: true
             val sourceOk = filter.source?.let { snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
             keywordOk && sourceOk
+        }
+
+    /** otj chunk 10: "This spell has flash as long as …": a spell that would have flash only if conditions are met may be begun to be
+     * cast as though it had flash while they are (CR 601.3d, 702.8a). */
+    private fun ownConditionalFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+            val static = inst.ability as? Ability.Static ?: return@any false
+            static.affects == arcanum.api.Affected.Objects(arcanum.api.Objects.Self) &&
+                static.mechanics.any { m -> m is Mechanic.GainAbilities && m.abilities.any { it == Keyword.Flash } } &&
+                static.condition?.let { snap.evaluator(player, self = card).holds(it) } ?: true
         }
 
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =

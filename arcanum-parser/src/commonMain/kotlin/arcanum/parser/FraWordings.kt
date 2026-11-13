@@ -124,7 +124,8 @@ internal object Fra {
     val EXILE_EACH_TYPE_COPY_CAST = Regex("""When (.+?) enters, if you cast (?:him|her|it), exile up to one target (.+?) card of each card type from your graveyard\. Copy those cards\. You may cast any number of spells with total mana value (\d+) or less from among the copies without paying their mana costs\.""")
     val PUT_ITS_COUNTERS_ON = Regex("""Put its counters on (up to one )?target (.+)\.""")
     val PUT_N_COUNTERS_ON_EACH = Regex("""Put (X|two|three|four) (\S+) counters on each (.+)\.""")
-    val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of target (.+?) until end of turn\.""")
+    // otj chunk 10: "it becomes a copy of up to one other target creature until end of turn"
+    val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of (up to one )?(other |another )?target (.+?) until end of turn\.""")
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|X|two|three) (\S+) counters? on (?:it|that creature)\.""")
     val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
     val IT_FIGHTS_TARGET = Regex("""It fights target (.+)\.""")

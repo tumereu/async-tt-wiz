@@ -37,7 +37,6 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.decision.Share
 import org.asyncttwiz.automatum.DamageDivision
 import org.asyncttwiz.automatum.Divisions
-import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.protocol.*
 
 /**
@@ -399,7 +398,7 @@ fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, division: Dam
 
 /** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog (not one Automatum's
  * table makes by itself, CMB-033). */
-fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Decision.Divide &&
+fun dividingInDialog(flow: SharedShown): Boolean = flow.decision is Decision.Divide &&
     flow.division?.let { askedInDialog(flow.board, it) } == true
 
 /**

@@ -385,10 +385,24 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             val target = arcanum.engine.state.TargetRef.Player(PlayerId(if (game.me == "alice") "bob" else "alice"))
             return timed("Stage an attacker", { done -> game.stageOwn(game.play(), draft.actions, draft.requestId) { done(it.toString()) } }) {
                 attacked = true
-                timed("Declare attackers", { done ->
-                    game.send(listOf(Input.DeclareAttackers(me, listOf(arcanum.engine.input.Attack(ready.first(), target))))) { done(it::class.simpleName.orEmpty()) }
-                }, next)
+                // Web client step 4e: what the table shows of combat on the staged board, asked of the worker's device, then
+                // the step arrow's declaration worked out in the worker's shared-flow session and sent
+                timed("Combat of the staged board (asked of the worker)", { done ->
+                    AutomatumBoards.askCombat(game.play()) { shown -> done("${shown.choices.attacks.size} may attack, preview ${shown.preview != null}") }
+                }) {
+                    timed("Declare attackers through the shared-flow session", { done -> sharedStep(done) { shared.step() } }, next)
+                }
             }
+        }
+        // Web client step 4e: a spell of hers on the Stack while she holds priority: the shared flow's panel asked of the worker,
+        // then "Let it resolve" worked out in its session and sent
+        if (s.stack.isNotEmpty() && s.priority.holder == me && s.pending == null && sharedTurn != s.turn.number) {
+            sharedTurn = s.turn.number
+            return timed("Shared flow's panel (asked of the worker)", { done ->
+                val play = game.play()
+                shared.load(play)
+                waitFor({ shared.view?.board === play.board }) { done("priority ${shared.view?.priority}, decision ${shared.view?.decision?.kind}") }
+            }) { timed("Let it resolve through the shared-flow session", { done -> sharedStep(done) { shared.pass(game.me) } }, next) }
         }
         if (s.turn.active == me && attacked && s.turn.step == arcanum.api.TurnStep.PostcombatMain) endedAfterAttack = true
         // Before combat with a creature that can attack: on to combat (a pass), not End turn
@@ -436,6 +450,32 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         }
         if (!panel.begin(cardId, cast)) { finish("not begun"); return }
         jsLater(1) { drive() }
+    }
+
+    private var sharedTurn = -1
+    /** Web client step 4e: what waits for the shared flow's step's send, and when the step was asked. */
+    private var sharedSent: ((String) -> Unit)? = null
+    private var sharedAt = 0.0
+
+    /** The table's shared flows ([SharedFlowController]), their sessions in the worker beside the device. */
+    private val shared by lazy {
+        SharedFlowController(game.me, { game.play() }, { message -> if (message != null) line("Shared flow: $message") },
+            engineSend = { inputs ->
+                val worked = jsNow() - sharedAt
+                val done = sharedSent
+                sharedSent = null
+                game.send(inputs) { acted -> done?.invoke("${acted::class.simpleName}: worked out in the session in ${worked.f()} ms") }
+                null
+            },
+            port = TableSharedPort(LocalSharedPort(game.me) { w, d -> d(w()) }) { game })
+    }
+
+    /** A shared flow's step ([step]) whose send's result goes to [done]; one refused or with nothing to send says so. */
+    private fun sharedStep(done: (String) -> Unit, step: () -> Boolean) {
+        sharedSent = done
+        sharedAt = jsNow()
+        if (!step()) { sharedSent = null; done("not taken") }
+        else waitFor({ !shared.busy }) { if (sharedSent != null) { sharedSent = null; done("nothing sent") } }
     }
 
     private fun summary(then: () -> Unit) {

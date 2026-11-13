@@ -347,6 +347,8 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
                 // ZON-080, ZON-082 (owner 2026-11-07): a hand card's ways and extras, as chips (its way filled violet)
                 cast.hand?.let { hand ->
+                    // WEB-032: 1–9 choose a way, unless an open choice below has options of its own
+                    if (hand.ways.size > 1) NumberedOptions(hand.ways.indices.map { index -> { cast.handWay(index) } })
                     if (hand.ways.size > 1) Section("Cast as") {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             hand.ways.forEachIndexed { index, chip -> WayChip(chip, index == hand.way, { cast.handWay(index) }, {}) }
@@ -360,6 +362,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                         }
                     }
                 }
+                if (cast.hand == null && cast.ways.size > 1) NumberedOptions(cast.ways.map { way -> { if (way != flow.begin) cast.way(way) } })
                 if (cast.hand == null && cast.ways.size > 1) Section("Cast as") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
@@ -499,6 +502,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         }
         is Decision.Modes -> ModesSection(cast, decision)
         is Decision.ChooseOption -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.options.map { option -> { cast.answer(Answer.Option(option)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (option in decision.options) ChoiceButton(option.replaceFirstChar { it.uppercase() }, Icons.Outlined.RadioButtonUnchecked) {
                     cast.answer(Answer.Option(option))
@@ -506,6 +510,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
             }
         }
         is Decision.ChooseColor -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.among.map { color -> { cast.answer(Answer.ColorChoice(color)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (color in decision.among) OutlinedButton({ cast.answer(Answer.ColorChoice(color)) },
                     contentPadding = PaddingValues(start = 10.dp, end = 14.dp)) {
@@ -547,6 +552,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         is Decision.ChooseReplacement -> ReplacementOrderSection(cast, flow, play, decision)
         // Owner gallery review (2026-11-06, bug): each player as their avatar beside their name, as on their life square
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.options.map { player -> { cast.answer(Answer.Player(player)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (player in decision.options) PlayerChoiceButton(player.value, names[player.value] ?: "A player") {
                     cast.answer(Answer.Player(player))
@@ -575,6 +581,7 @@ fun OkRow(decision: Decision, enabled: Boolean, label: String = "OK", answer: ()
 @Composable
 private fun ListedSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
     Section(choiceWhat(decision), choiceHint(decision)) {
+        NumberedOptions(flow.listedAnswers().map { answer -> { cast.answer(answer) } })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (answer in flow.listedAnswers()) ChoiceButton(answerLabel(flow, play, names, decision, answer), Icons.Outlined.RadioButtonUnchecked) {
                 cast.answer(answer)
@@ -596,6 +603,13 @@ private fun ModesSection(cast: FlowQuestions, decision: Decision.Modes) {
     val pawprints = chosen.sumOf { i -> decision.options.firstOrNull { it.index == i }?.pawprints ?: 0 }
     val overLimit = decision.pawprintLimit?.let { pawprints > it } == true
     // I-D48: every mode chip carries a mark (chosen or not), "−" is an icon with its tooltip on hold
+    // WEB-032: 1–9 tap the Nth mode, as a tap on its chip does
+    NumberedOptions(decision.options.map { mode -> {
+        if (!mode.available) Unit
+        else if (decision.repeatable) { if (chosen.size < decision.max) chosen = chosen + mode.index }
+        else if (decision.max == 1) cast.answer(Answer.Modes(listOf(mode.index)))
+        else chosen = if (mode.index in chosen) chosen - mode.index else chosen + mode.index
+    } })
     Section(choiceWhat(decision), choiceHint(decision)) {
         if (decision.repeatable) {
             for (mode in decision.options) {

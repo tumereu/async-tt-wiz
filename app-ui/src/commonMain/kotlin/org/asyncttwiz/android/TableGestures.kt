@@ -372,6 +372,8 @@ class TableGestureCoordinator(
             old.y + (anchorY - pan.y) / old.zoom - anchorY / zoom, zoom)
         navigate(next, elastic = true)
     }
+    /** TBL-012, WEB-031: zooms the table to fit, as a double tap on the empty battlefield does. */
+    fun fit() { scene.world?.fit()?.let { navigate(it) } }
     fun panBy(x: Float, y: Float) = navigate(scene.camera.copy(x = scene.camera.x + x, y = scene.camera.y + y))
     /** WEB-029: pans the table by [dx], [dy] dp on the screen (the wheel sideways, the middle button), within its bounds. */
     fun panScreen(dx: Float, dy: Float) {

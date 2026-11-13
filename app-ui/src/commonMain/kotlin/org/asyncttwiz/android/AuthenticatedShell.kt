@@ -301,7 +301,9 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
-            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth)
+            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth,
+                // The account's server: the lobby's (the same as the build's in the app)
+                accountSettings = rememberAccountSettingsSource(accountId, auth, lobby?.accountOrigin ?: org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN))
             else if (destination == ShellDestination.STATS && lobby != null) StatsContent(lobby.history, accountId,
                 decks?.let { library -> { id: String -> navigate(ShellDestination.DECKS); library.open(id) } })
             else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,

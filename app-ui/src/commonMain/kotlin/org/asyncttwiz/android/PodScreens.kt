@@ -407,6 +407,20 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val buildSideBySide = rememberPodBuildSideBySide()
     val historyColumns = rememberPodHistoryColumns(podHistoryPackSize(detail))
     val waiting = podWaitingText(detail, accountId)
+    // WEB-031 (decision 29): Tab / Shift+Tab move between the pod's tabs on the desktop layout
+    val bindings = currentKeyBindings()
+    DesktopKeyboard.Listen(LocalAppLayout.current == AppLayout.Desktop) { key ->
+        val step = when (hotkeyOf(key, bindings)) {
+            HotkeyAction.NextTab -> 1
+            HotkeyAction.PreviousTab -> -1
+            else -> return@Listen false
+        }
+        if (key.repeat) return@Listen true
+        val next = tabs[(tabs.indexOf(selected) + step).mod(tabs.size)]
+        AppLog.info("keys", "Hotkey ${key.key}${if (key.shift) " with Shift" else ""}: pod tab ${selected.name.lowercase()} -> ${next.name.lowercase()}")
+        controller.tab(next)
+        true
+    }
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
             // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.

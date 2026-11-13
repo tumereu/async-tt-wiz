@@ -39,7 +39,8 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                 runtime.undo?.let { undo -> Box(Modifier.padding(top = 56.dp, start = 2.dp).height(48.dp), contentAlignment = Alignment.CenterStart) {
                     ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected, Modifier.shaken(runtime.undoShakes),
                         holdName = if (runtime.undoHold != null) "Undo to an earlier point" else null,
-                        onHold = runtime.undoHold, icon = { TableChromeIcon("undo") }, onClick = { undo() })
+                        onHold = runtime.undoHold, icon = { TableChromeIcon("undo") }, keys = LocalTableHotkeys.current?.undo,
+                        onClick = { undo() })
                 } }
             }
         }

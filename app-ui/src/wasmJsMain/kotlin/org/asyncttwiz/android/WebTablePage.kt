@@ -69,12 +69,23 @@ internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boole
         return !!element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable === true);
     };
     const held = new Set();
+    // WEB-031: the keys whose press a hotkey took: their release is the app's too
+    const taken = new Set();
     const send = (event, down) => {
         if (typeof event.key !== 'string') return;
         if (down) held.add(event.key); else held.delete(event.key);
-        const taken = key(event.key, down, event.timeStamp, event.repeat === true, event.altKey, event.shiftKey, event.ctrlKey,
+        const took = key(event.key, down, event.timeStamp, event.repeat === true, event.altKey, event.shiftKey, event.ctrlKey,
             event.metaKey, typing());
-        if (taken && event.cancelable && event.key === 'Alt') event.preventDefault();
+        if (took && event.cancelable && event.key === 'Alt') event.preventDefault();
+        if (event.key === 'Alt' || event.key === 'Shift') return;
+        // WEB-031: a hotkey the app took is the app's only, its press and its release: no browser default (Tab's focus move,
+        // Space's scroll) and no second handling by the focused control
+        const code = event.code || event.key;
+        if (down ? took : taken.has(code)) {
+            if (down) taken.add(code); else taken.delete(code);
+            if (event.cancelable) event.preventDefault();
+            event.stopPropagation();
+        }
     };
     window.addEventListener('keydown', (event) => send(event, true), true);
     window.addEventListener('keyup', (event) => send(event, false), true);

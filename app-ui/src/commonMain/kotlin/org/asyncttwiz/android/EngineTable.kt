@@ -515,6 +515,7 @@ fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
         gestureKey = action.label to action.refusal, tooltip = action.refusal ?: action.tooltip,
         // TRN-017: a greyed one only says why
         holdName = action.holdName.takeIf { !refused && action.hold != null }, onHold = action.hold.takeIf { !refused },
+        keys = LocalTableHotkeys.current?.main,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (refused) shakes++ else action.run() })
 }
@@ -731,6 +732,17 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
             }
         }
     }
+}
+
+/** WEB-031 (M): the next response mode (Control, Normal, Quick), as a tap on the quick actions' mode cell does; false without
+ * a game shown. */
+fun EngineTableRoutes.nextResponseMode(): Boolean {
+    val game = engine ?: return false
+    val settings = game.shown?.settings ?: return false
+    val next = MODES[(MODES.indexOf(settings.mode) + 1) % MODES.size]
+    AppLog.info("game", "Response mode by its hotkey: ${settings.mode.label()} -> ${next.label()}")
+    game.settings(settings.copy(mode = next)); pump()
+    return true
 }
 
 /** TRN-059: what holding the greyed Assume resolves cell says in catch-up playback, where the device assumes nothing. */

@@ -155,6 +155,7 @@ internal object Texts {
         is CostPart.OneOf -> "OneOf"
         is CostPart.Action -> "Action"
         is CostPart.ReturnToHand -> "ReturnToHand"
+        is CostPart.PutOnBottomOfLibrary -> "PutOnBottomOfLibrary"
         is CostPart.Reveal -> "Reveal"
         is CostPart.PayLife -> "PayLife"
         is CostPart.PayEnergy -> "PayEnergy"

@@ -325,11 +325,12 @@ internal object Mana {
                     if (n > 0) limit = minOf(limit, if (kind == null) 0 else (o?.counters(kind) ?: 0) / n)
                     tier = 2
                 } else unknown = true
-                is CostPart.Sacrifice, is CostPart.Exile, is CostPart.Discard, is CostPart.ReturnToHand, is CostPart.TapObjects -> {
+                is CostPart.Sacrifice, is CostPart.Exile, is CostPart.PutOnBottomOfLibrary, is CostPart.Discard, is CostPart.ReturnToHand, is CostPart.TapObjects -> {
                     if (part !is CostPart.TapObjects) tier = 2
                     val what = when (part) {
                         is CostPart.Sacrifice -> part.what
                         is CostPart.Exile -> part.what
+                        is CostPart.PutOnBottomOfLibrary -> part.what
                         is CostPart.Discard -> part.what
                         is CostPart.ReturnToHand -> part.what
                         is CostPart.TapObjects -> part.what
@@ -384,6 +385,7 @@ internal object Mana {
                 when (part) {
                     is CostPart.Sacrifice -> { away += ids; bind(part.preBind, part.postBind) }
                     is CostPart.Exile -> { away += ids; bind(part.preBind, part.postBind) }
+                    is CostPart.PutOnBottomOfLibrary -> { away += ids; bind(part.preBind, part.postBind) }
                     is CostPart.Discard -> { away += ids; bind(part.preBind, part.postBind) }
                     is CostPart.ReturnToHand -> { away += ids; bind(part.preBind, part.postBind) }
                     is CostPart.TapObjects -> { taps += ids; bind(part.bind) }

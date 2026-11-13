@@ -251,7 +251,7 @@ internal object CombatRules {
 
     /** Whether paying [part] uses its chosen objects up, so no other part can choose them. */
     private fun usesUp(part: arcanum.api.CostPart): Boolean = part is arcanum.api.CostPart.Sacrifice || part is arcanum.api.CostPart.TapObjects ||
-        part is arcanum.api.CostPart.Discard || part is arcanum.api.CostPart.Exile || part is arcanum.api.CostPart.ReturnToHand
+        part is arcanum.api.CostPart.Discard || part is arcanum.api.CostPart.Exile || part is arcanum.api.CostPart.PutOnBottomOfLibrary || part is arcanum.api.CostPart.ReturnToHand
 
     /** Whether each of [slots] can take a different object among its options (a bipartite matching, augmenting paths). */
     private fun distinctObjects(slots: List<List<ObjectId>>): Boolean {

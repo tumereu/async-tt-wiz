@@ -1879,7 +1879,8 @@ internal class Sentences(
                     attached.replaceFirstChar { c -> c.uppercase() } + " creature " + rest.removePrefix("It ").replace(Regex("""^gets an additional """), "gets ")
                 pronoun != null -> "This permanent is " + rest.substring(pronoun.range.last + 1)
                 rest.startsWith("It ") -> "This permanent " + rest.removePrefix("It ")
-                else -> rest
+                // dmr chunk 03: "White creatures get an additional +1/+1 as long as …": one more modification (CR 613.4c)
+                else -> rest.replace(Dmr.GET_AN_ADDITIONAL, "$1 ")
             }) as? Ability.Static }
             if (inner != null && inner.condition == null) return inner.copy(condition = condition, functionsIn = zoneOf(condition))
         }
@@ -1900,7 +1901,8 @@ internal class Sentences(
                 // dsk chunk 05: "Equipped creature has menace."
                 subject == "Equipped creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
                 // dsk chunk 07: subtypes keep their capitals ("Insects and Spiders you control")
-                else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { arcanum.api.Affected.Objects(Objects.Each(it)) }
+                // dmr chunk 03: "All Squirrels get +2/+2": every one on the battlefield, whoever controls it
+                else -> subject.removePrefix("All ").let { noun -> (Filters.noun(noun.replaceFirstChar { it.lowercase() }) ?: Filters.noun(noun))?.let { arcanum.api.Affected.Objects(Objects.Each(it)) } }
             }
             val mechanics = predicates(m.groupValues[2])
             if (affects != null && mechanics != null) return Ability.Static(mechanics, affects = affects)
@@ -2140,6 +2142,8 @@ internal class Sentences(
         var perTurn: Int? = null
         // blb chunk 07: "Activate only if … and only once each turn.", "… and only once." (CR 602.5b)
         var once = false
+        // dmr chunk 03: "Activate only once each turn and only if …." is the same restrictions in the other order (CR 602.5b)
+        Dmr.ONCE_EACH_TURN_AND_ONLY_IF.find(text)?.let { m -> text = text.replace(m.value, "Activate only if " + m.groupValues[1] + " and only once each turn.") }
         if (text.contains(" and only once each turn.")) { perTurn = 1; text = text.replace(" and only once each turn.", ".") }
         if (text.contains(" and only once.")) { once = true; text = text.replace(" and only once.", ".") }
         ACTIVATE_ONLY_ONCE_EACH_TURN.find(text)?.let { m ->
@@ -2726,6 +2730,10 @@ internal class Sentences(
                 else -> costChoice(phrase) ?: return null
             }
             return listOf(CostPart.Exile(what, from = Zone.Graveyard))
+        }
+        // dmr chunk 03: "Put three cards from your graveyard on the bottom of your library" (CR 401.4)
+        Dmr.PUT_FROM_YOUR_GRAVEYARD_ON_BOTTOM_COST.matchEntire(text)?.let { m ->
+            return listOf(CostPart.PutOnBottomOfLibrary(costChoice(m.groupValues[1] + " cards") ?: return null, from = Zone.Graveyard))
         }
         // chunk 31: "exile it" in a trigger on this object moving
         if (text == "Exile it") triggerIt?.let { (it, zone) -> return listOf(CostPart.Exile(CostObjects.These(it), from = zone ?: return null)) }
@@ -12435,8 +12443,9 @@ internal class Sentences(
         // hob chunk 05: "Tap one or two target creatures."
         Hob.TAP_ONE_OR_TWO.matchEntire(sentence)?.let { m ->
             // the plural slot name, as the dsk chunk 12 wording with "untapped … you control" has it
-            val noun = m.groupValues[1].replace("creatures", "creature")
-            context.targets += hobSlot("creatures", Filters.noun(noun) ?: return null, min = 1, max = 2)
+            // dmr chunk 03: "Tap two target creatures." (exactly two)
+            val noun = m.groupValues[2].replace("creatures", "creature")
+            context.targets += hobSlot("creatures", Filters.noun(noun) ?: return null, min = if (m.groupValues[1] == "two") 2 else 1, max = 2)
             return listOf(Step.Do(Effect.Tap(Objects.Target("creatures"))))
         }
         // hob chunk 05: "Exchange control of two target nonland permanents that share a card type." (CR 701.12; the second target

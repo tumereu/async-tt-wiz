@@ -9,6 +9,11 @@ internal object Dmr {
     // dmr chunk 02: Lightning Reflexes (a Mirage-era flash wording, the same on every card that has it)
     const val FLASH_SACRIFICE_AT_NEXT_CLEANUP = "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been " +
         "cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."
+    // dmr chunk 03: Divine Sacrament ("get an additional +1/+1": one more modification, CR 613.4c)
+    val GET_AN_ADDITIONAL = Regex("""\b(gets?) an additional """)
+    val ONCE_EACH_TURN_AND_ONLY_IF = Regex("""Activate only once each turn and only if (.+?)\.""")
+    // dmr chunk 03: Battlefield Scrounger
+    val PUT_FROM_YOUR_GRAVEYARD_ON_BOTTOM_COST = Regex("""Put (\w+) cards? from your graveyard on the bottom of your library""")
     // dmr chunk 01: Wild Dogs
     val PLAYER_WITH_MOST_LIFE_GAINS_CONTROL = Regex("""[Tt]he player with the most life gains control of (.+)\.""")
 

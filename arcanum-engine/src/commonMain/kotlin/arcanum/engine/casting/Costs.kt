@@ -216,6 +216,7 @@ internal object Costs {
             is CostPart.Discard -> part.what
             is CostPart.Exile -> part.what
             is CostPart.ReturnToHand -> part.what
+            is CostPart.PutOnBottomOfLibrary -> part.what
             is CostPart.Reveal -> part.what
             // CR 701.4a: beholding is revealing a card from the hand or choosing a permanent you control
             is CostPart.Action -> when (val action = part.action) {
@@ -237,6 +238,7 @@ internal object Costs {
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
             is CostPart.Action -> (if (part.action is arcanum.api.KeywordAction.Blight) emptyList() else s.player(player).hand) +
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
+            is CostPart.PutOnBottomOfLibrary -> s.zone(part.from, player)
             is CostPart.Exile -> when (part.from) {
                 Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
                 // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
@@ -269,6 +271,7 @@ internal object Costs {
         is CostPart.Discard -> "Discard"
         is CostPart.Exile -> "Exile from ${part.from}"
         is CostPart.ReturnToHand -> "Return to hand"
+        is CostPart.PutOnBottomOfLibrary -> "Put on the bottom of your library from ${part.from}"
         is CostPart.Reveal -> "Reveal"
         is CostPart.Action -> when (part.action) {
             is arcanum.api.KeywordAction.Behold -> "Behold (reveal from your hand or choose one you control)"

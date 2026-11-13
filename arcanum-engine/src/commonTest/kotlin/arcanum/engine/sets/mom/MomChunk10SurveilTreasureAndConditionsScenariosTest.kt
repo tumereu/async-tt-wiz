@@ -48,7 +48,7 @@ class MomChunk10SurveilTreasureAndConditionsScenariosTest {
         {T}: Untap target land.
         {T}: Choose target battle. If an opponent protects it, remove a defense counter from it. Otherwise, put a defense counter on it. Activate only as a sorcery.
     """.trimIndent(), "1/1")
-    private val spark = Cards.invent("Cinder Flick", "{R}", "Instant", "This spell deals 1 damage to any target.")
+    private val spark = Cards.invent("Cinder Sputter", "{R}", "Instant", "This spell deals 1 damage to any target.")
     private val ox = Cards.invent("Chronicle Plain Ox", "{2}{G}", "Creature — Ox", "", "3/3")
     private val bear = Cards.invent("Chronicle Plain Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val boar = Cards.invent("Chronicle Plain Boar", "{1}{G}", "Creature — Boar", "", "2/2")

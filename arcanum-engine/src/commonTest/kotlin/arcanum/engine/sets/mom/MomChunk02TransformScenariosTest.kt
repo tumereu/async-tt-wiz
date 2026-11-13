@@ -202,7 +202,8 @@ class MomChunk02TransformScenariosTest {
         expect { alice.hand.size shouldBe 14 }
     }
 
-    // CR 608.2g: the chosen spells are cast for free while chapter III resolves; CR 305.9: the land stays; CR 712.14: it returns front face up
+    // CR 608.2g: the chosen spells are cast for free while chapter III resolves (one at a time, in the order chosen, CR 608.2f); CR 305.9: the
+    // land stays; CR 712.14: it returns front face up
     @Test
     fun theGrandDistillationCastsFromHandForFree() = scenario {
         alice.battlefield(velQuorias, counters = listOf(CounterKind.Lore to 2))
@@ -214,6 +215,7 @@ class MomChunk02TransformScenariosTest {
         advanceTo(TurnStep.PrecombatMain)
         resolveAll()
         alice.chooses(brute, bolt)
+        alice.chooses(brute)
         answer(Answer.Targets(listOf(target(grizzly))))
         resolveAll()
         expect {

@@ -192,7 +192,8 @@ class MomChunk01TransformScenariosTest {
         }
     }
 
-    // CR 101.4: each library in turn order, three players; CR 608.2g: the found spells are cast while the ability resolves; lands stay exiled
+    // CR 101.4: each library in turn order, three players; CR 608.2g: the found spells are cast while the ability resolves (one at a time, in
+    // the order chosen, CR 608.2f); lands stay exiled
     @Test
     fun okkarExilesFromEveryLibraryAndCastsTheSpells() = scenario(players = 3) {
         alice.hand(okkar)
@@ -207,6 +208,8 @@ class MomChunk01TransformScenariosTest {
             bob.exile has "Forest"
         }
         alice.chooses(bear, ogre, trinket)
+        alice.chooses(bear)
+        alice.chooses(ogre)
         resolveAll()
         expect {
             bear.controller shouldBe alice.id

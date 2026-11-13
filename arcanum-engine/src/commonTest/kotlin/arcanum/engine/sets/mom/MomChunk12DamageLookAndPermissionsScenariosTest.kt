@@ -32,7 +32,7 @@ class MomChunk12DamageLookAndPermissionsScenariosTest {
         Runestone Volley deals 1 damage to target creature or planeswalker. It deals 5 damage instead if that target is white and/or blue.
     """.trimIndent())
     private val adept = Cards.invent("Tidecaller Adept", "{1}{U}", "Creature — Merfolk Wizard", "", "3/3")
-    private val grazer = Cards.invent("Mossback Grazer", "{1}{G}", "Creature — Beast", "", "3/3")
+    private val grazer = Cards.invent("Mossback Trampler", "{1}{G}", "Creature — Beast", "", "3/3")
     private val spearman = Cards.invent("Cragborn Spearman", "{4}{R}", "Creature — Ogre Spirit", """
         Reach
         {T}: This creature deals 2 damage to target player or battle.

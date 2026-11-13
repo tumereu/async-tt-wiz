@@ -41,7 +41,7 @@ internal object Spm {
     val MAY_ENTER_AS_COPY_EXCEPT_NAME = Regex("""You may have (.+?) enter as a copy of an? (.+?), except (?:his|her|its|their) name is (.+)\.""")
     val MAY_ENTER_AS_COPY_OF_CARD_IN_GRAVEYARD = Regex("""You may have (.+?) enter as a copy of any (.+?) in a graveyard, except (?:his|her|its|their) name is (.+?) and (?:he's|she's|it's|they're) an? (\d+)/(\d+) ((?:[A-Z]\w+ ?)+) in addition to (?:his|her|its|their) other types\. When you do, exile that card\.""")
     val NEXT_CREATURE_SPELL_COPY_NOT_LEGENDARY = Regex("""When you next cast an? (.+?) spell this turn, copy it, except the copy isn't legendary\.""")
-    val COPY_THAT_SPELL_NOT_LEGENDARY = Regex("""[Cc]opy that spell, except the copy isn't legendary\.""")
+    val COPY_THAT_SPELL_NOT_LEGENDARY = Regex("""[Cc]opy (?:that spell|it), except the copy (isn't legendary|is an? ([a-z]+) in addition to its other types)\.""")
     val CREATE_TOKEN_COPY_NOT_LEGENDARY = Regex("""[Cc]reate a token that's a copy of it, except it isn't legendary\.""")
     val CHOOSE_NAME_DAMAGE_TRIGGER_THIS_TURN = Regex("""Choose a card name\. Whenever a (creature) with the chosen name deals combat damage to a player this turn, (.+)""")
     val MAY_COPY_FROM_ELSEWHERE_HASTE = Regex("""[Yy]ou may copy it\. If you do, you may choose new targets for the copy\. If the copy is a permanent spell, it gains haste\.""")

@@ -49,6 +49,11 @@ internal object FinPhrases {
             val spell = Filters.noun(m.groupValues[1]) ?: return null
             return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
         }
+        // bro chunk 07: "activated or triggered ability" (abilities on the Stack, CR 113.1c)
+        if (phrase == "activated or triggered ability") {
+            fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
+            return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
+        }
         SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
             val spell = Filters.noun(m.groupValues[1]) ?: return null

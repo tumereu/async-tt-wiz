@@ -133,7 +133,7 @@ internal object Msh {
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")
     val PUT_X_COUNTERS_ON = Regex("""Put X (\S+) counters on (.+)\.""")
-    val ADD_MANA_CANT_BE_SPENT = Regex("""Add (.+)\. This mana can't be spent to cast an? (.+) spell\.""")
+    val ADD_MANA_CANT_BE_SPENT = Regex("""Add (.+)\. This mana can't be spent to cast (?:an? (.+) spell|(.+) spells)\.""")
     val CREATE_THEN = Regex("""(Create .+? tokens?(?: with [a-z ,]+)?), then (creatures you control get .+)\.""")
     val DRAW_FOR_EACH_DISCARDED = Regex("""Draw a card for each card you've discarded this turn\.""")
     val IS_A_IN_ADDITION = Regex("""That creature is an? ([A-Z]\w+) in addition to its other types\.""")

@@ -97,7 +97,7 @@ internal object Hob {
     val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards, reveal them, put one onto the battlefield tapped and the other into your hand, then shuffle\.""")
     val EXILE_ALL_ATTACKING_TARGET_PLAYER = Regex("""Exile all attacking creatures target player controls\. That player may search their library for that many (.+?) cards, put those cards onto the battlefield tapped, then shuffle\.""")
     val BECOMES_TYPE_AND_GAINS = Regex("""Until end of turn, target (.+?) becomes an? (artifact|enchantment) in addition to its other types and gains (.+)\.""")
-    val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast spells this turn\.""")
+    val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast (?:(\S+) )?spells this turn\.""")
     val RETURN_TARGET_SPELL_TO_HAND = Regex("""Return target spell to its owner's hand\.""")
     val OWNER_SHUFFLES_SELF_DRAWS = Regex("""(.+?)'s owner shuffles (?:him|her|it|them) into their library and draws (\w+) cards\.""")
     val EXILE_UP_TO_TWO_RETURN_NEXT_END = Regex("""Exile up to (\w+) other target (.+?)\. Return those cards to the battlefield under their owner's control at the beginning of the next end step\.""")

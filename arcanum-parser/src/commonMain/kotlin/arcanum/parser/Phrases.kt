@@ -375,6 +375,8 @@ internal object Filters {
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
         if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
+        // bro chunk 07: "activated or triggered ability" is an ability
+        if (core == "activated or triggered ability") return "ability"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -679,7 +681,9 @@ internal object Events {
         PLAYER_SACRIFICES.matchEntire(text)?.let { m -> return EventPattern.Sacrifice(Filters.noun(m.groupValues[1]) ?: return null) }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
-            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+            // bro chunk 07: also "is put into exile from the battlefield" (a leaves-the-battlefield trigger, CR 603.10a)
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield,
+                to = if (m.groupValues[2] == "exile") Zone.Exile else Zone.Graveyard)
         }
         // chunk 12
         // "you cast a creature spell": the event's object is always a spell, so the filter names only its kind.
@@ -945,7 +949,7 @@ internal object Events {
     private val STEPS = mapOf<String, arcanum.api.TurnStep>("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
         // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
         "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
-    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
+    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
     // chunk 12
@@ -1029,7 +1033,7 @@ internal object Conditions {
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
         IsdPhrases.condition(text, self)?.let { return it } // isd
-        BroPhrases.condition(text)?.let { return it } // bro
+        BroPhrases.condition(text, self)?.let { return it } // bro
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

@@ -70,6 +70,8 @@ internal data class PlannedMove(
     /** Set by "as enters" steps and modifications (CR 614.12): card memory, copy, extra abilities. */
     val memory: Bindings = Bindings.EMPTY,
     val copyOf: Pair<ObjectId, List<CopyException>>? = null,
+    /** mh3: how long the copy effect of [copyOf] lasts (null: for good). */
+    val copyDuration: Duration? = null,
     val abilities: List<arcanum.api.Ability> = emptyList(),
     /** Put into a library in a random order together with the other moves so marked: their places are known as a group
      * only ([LibraryPlaces.group]). */
@@ -261,7 +263,7 @@ internal object Actions {
                         if (bind != null && then != null) linked += WaitingTrigger(controller = r.controller,
                             ability = arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), then), origin = null, source = r.source,
                             names = r.names.with(bind, NamedValue.Objects(listOf(of))))
-                        move.copy(copyOf = of to mod.except)
+                        move.copy(copyOf = of to mod.except, copyDuration = mod.duration)
                     } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
@@ -318,7 +320,7 @@ internal object Actions {
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", listOf(Mechanic.CopyOf(Objects.Bound(COPIED), except)), next, m.controller, ts, act,
                     Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))),
                     // CR 707.2, 730.2a: a merged permanent's copiable values include every component's abilities
-                    copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of)) })
+                    copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of), duration = m.copyDuration ?: Duration.Indefinitely) })
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
                 lockedEffect("E$ts", listOf(Mechanic.GainAbilities(m.abilities)), next, m.controller, ts, act)
@@ -441,11 +443,11 @@ internal object Actions {
 
     private fun lockedEffect(
         id: String, mechanics: List<Mechanic>, on: ObjectId, controller: PlayerId?, ts: Long, act: Act,
-        names: Bindings = Bindings.EMPTY, copied: arcanum.engine.state.CopiableValues? = null,
+        names: Bindings = Bindings.EMPTY, copied: arcanum.engine.state.CopiableValues? = null, duration: Duration = Duration.Indefinitely,
     ) = EffectObject(
         id = EffectId(id), mechanics = mechanics, affects = Affected.Objects(Objects.Self), locked = listOf(on), source = on,
         controller = controller ?: act.state.turn.active, timestamp = ts, createdTurn = act.state.turn.number,
-        duration = Duration.Indefinitely, names = names, copiedValues = copied,
+        duration = duration, names = names, copiedValues = copied,
     )
 
     /** Destroys [ids] (CR 701.8): indestructible permanents aren't (CR 702.12b); regeneration shields replace it (CR
@@ -572,7 +574,8 @@ internal object Actions {
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
                     if (Keyword.Infect in keywords) act.record(Changes.counters(act.state, r, CounterKind.Poison, d.amount))
-                    else act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
+                    // mh3: damage dealt to a player who can't lose life doesn't change their life total (CR 119.8, 120.3a)
+                    else if (!cantLoseLife(act, r.id)) act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
                     if (d.combat && toxic > 0) act.record(Changes.counters(act.state, r, CounterKind.Poison, toxic))
                 }
@@ -761,6 +764,8 @@ internal object Actions {
     /** [player] loses [amount] life (CR 119.3); returns the life actually lost. */
     fun loseLife(act: Act, cause: Cause?, player: PlayerId, amount: Int, meanings: List<Meaning> = listOf(Meaning.LifeLost)): Int {
         if (amount <= 0 || act.state.player(player).lost) return 0
+        // mh3: CR 119.8
+        if (cantLoseLife(act, player)) return 0
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, player, null,
             proposed = { n -> Changes.life(act.state, player, -n, meanings) },
@@ -770,6 +775,10 @@ internal object Actions {
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
+
+    /** mh3: [player] can't lose life (CR 119.8). */
+    fun cantLoseLife(act: Act, player: PlayerId): Boolean =
+        act.view().players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseLife }
 
     /** [player] pays [amount] life (CR 119.4): they lose that much life, so replacements of life loss and "whenever you
      * lose life" apply; the payment is made whatever the replacements do to the loss. Returns the life actually lost. */

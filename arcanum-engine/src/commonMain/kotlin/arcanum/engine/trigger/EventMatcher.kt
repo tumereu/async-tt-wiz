@@ -138,6 +138,13 @@ internal object EventMatcher {
             if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id) && causedBy(e, change, pattern.causedBy))
                 listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
         }.orEmpty()
+        // mh3: counters paid or lost by a player ("you've paid or lost four or more {E} this turn", CR 107.14)
+        is EventPattern.PlayerCountersRemoved -> (change as? Change.Counters)?.let { c ->
+            val holder = c.holder as? TargetRef.Player ?: return@let null
+            val delta = (c.before?.count ?: 0) - (c.after?.count ?: 0)
+            if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id))
+                listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
+        }.orEmpty()
         // fin: "tap a land for {C}": seen as the mana its ability added goes to the pool ([tappedProducing])
         is EventPattern.Tap -> if (pattern.producing != null) tappedProducing(e, change, pattern, pattern.producing!!)
             else (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->

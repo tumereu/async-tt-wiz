@@ -1027,6 +1027,11 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        // mh3 chunk 10: "you've paid or lost four or more {E} this turn" (energy counters removed from you, CR 107.14)
+        Mh3.PAID_OR_LOST_ENERGY_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.PlayerCountersRemoved(PlayerFilter.You, arcanum.api.CounterKind.Energy),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = arcanum.api.Measure.Amount)
+        }
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

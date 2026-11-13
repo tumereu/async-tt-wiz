@@ -582,6 +582,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "annihilator"; override val text: String get() = "Annihilator"; override val rule: String get() = "702.86" }
     }
+    // mh3
+    /** "Annihilator X, where X is [amount]" (CR 702.86a): annihilator with a computed amount, read as the ability resolves. Its kind is
+     * annihilator's, so "has annihilator" finds it. */
+    @Serializable @SerialName("annihilator-x") data class AnnihilatorX(val amount: Value) : Keyword {
+        override val kind: KeywordKind get() = Annihilator.Kind
+        override val text: String get() = "Annihilator"; override val rule: String get() = "702.86"
+    }
     /** Tribute (CR 702.104) */
     @Serializable @SerialName("tribute") data class Tribute(override val amount: Int) : Keyword, HasAmount {
         init { requireAmount(amount) }

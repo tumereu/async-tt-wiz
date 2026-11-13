@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 86
+    const val VERSION: Int = 87
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -162,6 +162,9 @@ object OracleParser {
         sentences.kickerCosts = text.lines().firstNotNullOfOrNull { KICKER_AND_OR.matchEntire(it.trim()) }?.let { listOf(it.groupValues[1], it.groupValues[2]) }.orEmpty()
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
+            // mh3 chunk 10: "Imprint — When this land enters, you may exile a … card from your hand.": the card it remembers as imprinted is "the
+            // exiled card" (CR 607.2a)
+            text.lines().any { Mh3.IMPRINT_FROM_HAND.containsMatchIn(it) } -> arcanum.api.Objects.Remembered(Mh3.IMPRINTED)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
             // dsk chunk 09: an exile effect of a card that refers to the cards "exiled with it" keeps them
             text.contains("exiled with it ") -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -409,6 +412,11 @@ object OracleParser {
         return abilities.map { ability ->
             val static = ability as? Ability.Static ?: return@map ability
             val additional = static.mechanics.singleOrNull() as? arcanum.api.Mechanic.AdditionalCost ?: return@map ability
+            // mh3 chunk 10: "sacrifice a creature or sacrifice a modified creature": each option names what it sacrifices
+            val options = (additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.OneOf)?.options
+            if (options != null && options.all { (it.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice)?.let { p -> p.preBind == null } == true })
+                return@map static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(arcanum.api.CostPart.OneOf(options.map { o ->
+                    o.copy(parts = listOf((o.parts.single() as arcanum.api.CostPart.Sacrifice).copy(preBind = SACRIFICED))) }))))))
             val sacrifice = additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice ?: return@map ability
             if (sacrifice.preBind != null) return@map ability
             static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(sacrifice.copy(preBind = SACRIFICED))))))

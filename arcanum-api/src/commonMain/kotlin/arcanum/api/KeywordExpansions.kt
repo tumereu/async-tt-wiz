@@ -531,13 +531,8 @@ object KeywordExpansions {
         is Keyword.Poisonous -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
             steps(Effect.GivePlayerCounters(Players.EventPlayer, CounterKind.Poison, Value.Fixed(keyword.amount)))))
         // CR 702.86a: "Whenever this creature attacks, defending player sacrifices N permanents."
-        is Keyword.Annihilator -> {
-            val defending = Players.DefendingPlayerOf(Objects.Self)
-            listOf(Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
-                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.ControlledBy(PlayerFilter.Is(defending)))),
-                    Value.Fixed(keyword.amount), Value.Fixed(keyword.amount)), bind = "annihilated", chooser = defending),
-                Step.Do(Effect.Sacrifice(Objects.Bound("annihilated")))))))
-        }
+        is Keyword.Annihilator -> listOf(annihilator(Value.Fixed(keyword.amount)))
+        is Keyword.AnnihilatorX -> listOf(annihilator(keyword.amount)) // mh3
         // CR 702.112a: "When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1 counters on
         // it and it becomes renowned."
         is Keyword.Renown -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
@@ -745,6 +740,15 @@ object KeywordExpansions {
         is ObjectFilter.And -> filter.all.any { ofAbilities(it) }
         is ObjectFilter.Or -> filter.any.isNotEmpty() && filter.any.all { ofAbilities(it) }
         else -> false
+    }
+
+    /** CR 702.86a: "Whenever this creature attacks, defending player sacrifices [amount] permanents of their choice." */
+    private fun annihilator(amount: Value): Ability {
+        val defending = Players.DefendingPlayerOf(Objects.Self)
+        return Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
+            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.ControlledBy(PlayerFilter.Is(defending)))),
+                amount, amount), bind = "annihilated", chooser = defending),
+            Step.Do(Effect.Sacrifice(Objects.Bound("annihilated"))))))
     }
 
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(

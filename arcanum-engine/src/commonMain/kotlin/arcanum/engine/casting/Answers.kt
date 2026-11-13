@@ -192,7 +192,8 @@ internal object Answers {
     fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
         val you = plan.snap.state.player(plan.player)
         when (part) {
-            is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
+            is CostPart.PayLife -> plan.eval.value(part.amount).let { n -> you.life >= n && (n == 0 ||
+                plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife }) } // mh3: CR 119.8
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
             is CostPart.RemoveCounters -> when (val from = part.from) {

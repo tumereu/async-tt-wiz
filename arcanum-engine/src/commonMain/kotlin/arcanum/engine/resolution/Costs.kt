@@ -95,7 +95,7 @@ internal object Costs {
             is CostPart.ReturnToHand -> candidates(scope, payer, part.what, Zone.Battlefield).size >= count(scope, part.what)
             is CostPart.Reveal -> candidates(scope, payer, part.what, Zone.Hand).size >= count(scope, part.what)
             // CR 119.4: a player can pay life only if their life total is at least that much
-            is CostPart.PayLife -> state.player(payer).life >= scope.value(part.amount)
+            is CostPart.PayLife -> scope.value(part.amount).let { n -> state.player(payer).life >= n && (n == 0 || !Actions.cantLoseLife(scope.act, payer)) } // mh3: CR 119.8
             is CostPart.PayEnergy -> state.player(payer).counters(CounterKind.Energy) >= scope.value(part.amount)
             is CostPart.RemoveCounters -> candidates(scope, payer, part.from, Zone.Battlefield).any { id ->
                 val o = state.obj(id)!!

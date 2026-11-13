@@ -133,4 +133,49 @@ internal object Mh3 {
     val CHOOSES_TYPES_FROM_AMONG_SACRIFICES_REST = Regex("""Each (opponent|player) chooses ((?:an? \w+, )+and an? \w+) from among the (.+?) they control, then sacrifices the rest\.""")
     /** "Mill three cards. Then you may pay {1} and 3 life. If you do, put a card from among those cards into your hand." */
     val MILL_THEN_MAY_PAY_PUT_FROM_AMONG = Regex("""Mill (\w+) cards\. Then you may pay ([^.]+)\. If you do, put an? (.+?) from among (?:those cards|them) into your hand\.""")
+
+    // mh3 chunk 10
+    /** The memory key of a card exiled from the hand by an imprint ability ([Sentences] remembers it so). */
+    const val IMPRINTED = "imprinted"
+    val IMPRINT_FROM_HAND = Regex("""^Imprint — When .+?, you may exile an? .+ from your hand\.""")
+    /** "If you sacrificed an Angel this way, create a number of Blood tokens equal to its toughness instead." (CR 608.2h) */
+    val IF_YOU_SACRIFICED_THIS_WAY_INSTEAD = Regex("""If you sacrificed (an? .+?) this way, (.+) instead\.""")
+    val YOU_SACRIFICED_THIS_WAY = Regex("""\byou sacrificed an? .+? this way\b""")
+    /** "If the modified creature was sacrificed, draw a card." after "sacrifice a creature or sacrifice a modified creature" (CR 700.9, 608.2h) */
+    val IF_THE_X_WAS_SACRIFICED = Regex("""If the (.+?) was sacrificed, (.+)""")
+    /** "…, where X is that creature's power." after a sacrifice (CR 608.2h) */
+    val WHERE_X_IS_THAT_CREATURES = Regex(""", where X is that creature's (power|toughness|mana value)\.$""")
+    /** "Gain control of that spell and you may choose new targets for it." (CR 115.7) */
+    val GAIN_CONTROL_OF_THAT_SPELL = Regex("""[Gg]ain control of that spell( and you may choose new targets for it)?\.""")
+    /** "You may cast that card without paying its mana cost if the two spells have the same mana value." (CR 601.3, 608.2g) */
+    val MAY_CAST_FREE_IF_SAME_MANA_VALUE = Regex("""[Yy]ou may cast (?:that card|it) without paying its mana cost if the two spells have the same mana value\.""")
+    /** "Until end of turn, your life total can't change, and permanents you control gain hexproof and indestructible." (CR 119.7, 119.8) */
+    val UNTIL_EOT_LIFE_TOTAL_CANT_CHANGE_AND = Regex("""Until end of turn, your life total can't change(?:, and (.+?) gain ([a-z ,]+))?\.""")
+    /** "Target opponent exiles the top half of their library, rounded up." (CR 107.1a) */
+    val TARGET_OPPONENT_EXILES_TOP_HALF = Regex("""[Tt]arget opponent exiles the top half of their library, rounded (up|down)\.""")
+    /** "Ulamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile." (CR 614.1c) */
+    val ENTERS_WITH_COUNTERS_EQUAL_TO = Regex("""(.+?) enters with a number of (\S+) counters on it equal to (.+)\.""")
+    /** "the greatest mana value among cards in exile" */
+    val GREATEST_MANA_VALUE_AMONG = Regex("""the (greatest|least) (mana value|power|toughness) among (.+)""")
+    /** "Ulamog has annihilator X, where X is the number of +1/+1 counters on it." (CR 702.86a) */
+    /** "Create a number of Blood tokens equal to its toughness." */
+    val CREATE_NUMBER_OF_TOKENS_EQUAL_TO_ITS = Regex("""[Cc]reate a number of ([A-Z]\w+) tokens equal to its (power|toughness)\.""")
+    /** "Return each creature card from your graveyard to the battlefield with a finality counter on it. Those creatures are Vampires in addition to
+     * their other types." (as they enter) */
+    val RETURN_EACH_WITH_COUNTER_THOSE_ARE = Regex("""(Return each .+? to the battlefield)(?: with an? (\S+) counter on it)?\. Those creatures are ([A-Z]\w+?)s in addition to their other types\.""")
+    val NUMBER_OF_COUNTERS_ON_IT = Regex("""the number of (\S+) counters on it""")
+    val HAS_ANNIHILATOR_X = Regex("""(.+?) has annihilator X, where X is (.+)\.""")
+    /** "Look at the top seven cards of your library. Then you may sacrifice a creature. If you do, you may put a creature card with mana value X
+     * or less from among those cards onto the battlefield, where X is 1 plus the sacrificed creature's mana value. Put the rest on the bottom of
+     * your library in a random order." */
+    val LOOK_MAY_SACRIFICE_PUT_MV_PLUS = Regex("""Look at the top (\w+) cards of your library\. Then you may sacrifice (an? [^.]+?)\. If you do, you may put an? (.+?) with mana value X or less from among (?:those cards|them) onto the battlefield(?:, where X is (\d+) plus the sacrificed \w+'s mana value)?\. Put the rest on the bottom of your library in a random order\.""")
+    /** "a card is exiled with this land" (CR 607.2a) */
+    val A_CARD_IS_EXILED_WITH = Regex("""a card is exiled with (.+)""")
+    /** "If you would get one or more {E}, you get that many plus one {E} instead." (CR 614.1a) */
+    val GET_ENERGY_PLUS_INSTEAD = Regex("""If you would get one or more \{E\}, you get that many plus (\w+) \{E\} instead\.""")
+    /** "you've paid or lost four or more {E} this turn" (CR 107.14) */
+    val PAID_OR_LOST_ENERGY_THIS_TURN = Regex("""you've paid or lost (\w+) or more \{E\} this turn""")
+    /** "As this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, except it has haste."
+     * (CR 614.12, 707.9) */
+    val AS_ENTERS_MAY_BECOME_COPY_UNTIL_EOT = Regex("""As (.+?) enters, you may have it become a copy of any (.+?) on the battlefield until end of turn(?:, except (.+))?\.""")
 }

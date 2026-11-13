@@ -153,6 +153,7 @@ internal object Payment {
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            if (Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
             // CR 702.150a: compleated reads how many Phyrexian symbols of a spell were paid with life
             if (plan.isSpell) recorder.state.obj(plan.itemId)?.let { o ->
@@ -202,6 +203,7 @@ internal object Payment {
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            if (Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
@@ -426,6 +428,7 @@ internal object Payment {
                 // CR 119.4: a player can pay life only up to their life total
                 val n = eval.value(part.amount)
                 if (s.player(player).life < n) refuse("Not enough life to pay $n")
+                if (n > 0 && Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
                 if (n > 0) Actions.payLife(act, cause, player, n)
             }
             is CostPart.PayEnergy -> {

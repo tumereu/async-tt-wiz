@@ -437,6 +437,10 @@ sealed interface Mechanic {
 
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
+    // mh3
+    /** The affected player can't lose life (CR 119.8): damage dealt to them doesn't reduce their life total, and they can't pay more than 0
+     * life (CR 119.4b). With [CantGainLife]: "your life total can't change". */
+    @Serializable @SerialName("cant-lose-life") data object CantLoseLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
     /** The affected player can't win the game by an effect (CR 104.2b); being the last player left still wins (CR 104.2a). */
     @Serializable @SerialName("cant-win-game") data object CantWinGame : Mechanic
@@ -650,6 +654,10 @@ sealed interface Modification {
         // spm
         /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
         val bind: String? = null,
+        // mh3
+        /** How long the copy effect lasts ("As this artifact enters, you may have it become a copy of any creature on the battlefield until end
+         * of turn", CR 611.2a); null: for as long as it stays (CR 707.4). */
+        val duration: Duration? = null,
     ) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification

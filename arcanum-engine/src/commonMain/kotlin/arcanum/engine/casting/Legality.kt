@@ -287,6 +287,11 @@ internal object Legality {
             }
         }
 
+    /** rvr fixes, CR 601.2e: whether [Mechanic.CantCast] prohibits the player from casting the spell [plan] proposes, with what has been
+     * chosen for it so far (its announced X counting in its mana value, CR 202.3e), on the board with its provisional item. */
+    fun prohibitedAsProposed(plan: Plan): Boolean =
+        plan.isSpell && plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+
     /** [Mechanic.CantCast] on [player] for this spell (CR 101.2). */
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->

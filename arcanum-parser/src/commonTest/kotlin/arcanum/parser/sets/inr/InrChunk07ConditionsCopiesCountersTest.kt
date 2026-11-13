@@ -349,7 +349,8 @@ class InrChunk07ConditionsCopiesCountersTest {
             affects = Objects.Each(and(inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))))), Players.You))),
     )
 
-    // CR 614.1c (enters as a copy, with counters either way), 707.9b, 107.3m (X of the spell it was), 101.6 (can't be countered)
+    // CR 614.1c (enters as a copy), 707.9b, 707.9e (the counters are an exception of the copy effect: only when it copies), 107.3m (X of the
+    // spell it was), 101.6 (can't be countered)
     @Test
     fun mirroredSelf() = card(
         name = "Mirrored Self",
@@ -363,7 +364,6 @@ class InrChunk07ConditionsCopiesCountersTest {
     ) parsesTo abilities(
         static(Mechanic.CantBeCountered),
         static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(
-            Modification.EntersAsCopy(creature, optional = true),
-            Modification.EntersWithCounters(p1p1, Value.CastX(Objects.Self))))),
+            Modification.EntersAsCopy(creature, optional = true, withCounters = listOf(Modification.EntersWithCounters(p1p1, Value.CastX(Objects.Self))))))),
     )
 }

@@ -1,6 +1,7 @@
 package arcanum.engine.sets.rvr
 
 import arcanum.api.TurnStep
+import arcanum.engine.input.Input
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.scenario
@@ -8,6 +9,7 @@ import arcanum.engine.sets.blb.may
 import arcanum.engine.sets.blb.resolveAll
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /** Ravnica Remastered fix step: general engine fixes found during the set's chunks, in play. */
 class RvrFixesScenariosTest {
@@ -25,6 +27,11 @@ class RvrFixesScenariosTest {
     """)
     private val mossback = Cards.invent("Mossback Hound", "{1}{G}", "Creature — Dog", "", "2/2")
     private val fernhide = Cards.invent("Fernhide Recluse", "{1}{G}", "Creature — Elf", "", "2/2")
+    private val lawbound = Cards.invent("Lawbound Renegade", "{W}{U}", "Legendary Creature — Human Soldier", """
+        Each opponent can't cast noncreature spells with mana value greater than the number of lands that player controls.
+    """, "2/2")
+    private val spiteflare = Cards.invent("Spiteflare", "{X}{R}", "Sorcery", "This spell deals X damage to any target.")
+    private val emberPrism = Cards.invent("Ember Prism", "{2}", "Artifact", "{T}: Add {R}.")
     private val duskfen = Cards.invent("Duskfen Stag", "{1}{G}", "Creature — Elk", "", "2/2")
     private val bogstride = Cards.invent("Bogstride Elk", "{2}{G}", "Creature — Elk", "", "3/3")
 
@@ -107,5 +114,29 @@ class RvrFixesScenariosTest {
             alice.battlefield has thornbind
             mossback.power shouldBe 4
         }
+    }
+
+    // CR 601.2e, 202.3e: with X announced the spell's mana value is 3, more than Alice's two lands: the proposed spell is illegal and
+    // the cast is refused (CR 601.3a let her begin it, X = 0 making it legal)
+    @Test
+    fun manaValueLimitIsCheckedAfterXIsAnnounced() = scenario(players = 3) {
+        alice.battlefield("Mountain", "Mountain", emberPrism)
+        alice.hand(spiteflare)
+        bob.battlefield(lawbound)
+        assertFailsWith<IllegalArgumentException> { alice.casts(spiteflare, x = 2, target = "carol") }
+        // the refused answer leaves the cast open; taking it back returns the card
+        perform(Input.Cancel(alice.id))
+        expect { alice.hand has spiteflare }
+    }
+
+    // CR 601.2e: with X = 1 its mana value is 2, no more than her two lands
+    @Test
+    fun manaValueLimitAllowsASmallEnoughX() = scenario(players = 3) {
+        alice.battlefield("Mountain", "Mountain", emberPrism)
+        alice.hand(spiteflare)
+        bob.battlefield(lawbound)
+        alice.casts(spiteflare, x = 1, target = "carol")
+        resolveAll()
+        expect { carol.life shouldBe 19 }
     }
 }

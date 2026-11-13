@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 88
+    const val VERSION: Int = 89
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -663,6 +663,8 @@ object OracleParser {
                 "Ward", "ward" -> Keyword.Ward(cost)
                 // eoe chunk 09: "Warp—{B}, Pay 2 life." (CR 702.185a)
                 "Warp" -> Keyword.Warp(cost)
+                // dmr chunk 01: "Cycling—Pay 2 life." (CR 702.29a): a cost that isn't only mana
+                "Cycling" -> Keyword.Cycling(cost)
                 else -> Keyword.Escape(cost)
             }
         }
@@ -736,7 +738,7 @@ object OracleParser {
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
-    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp)—(.+?)\.?""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp|Cycling)—(.+?)\.?""")
     // dsk chunk 06
     private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
     // hob chunk 06

@@ -1362,6 +1362,7 @@ internal class Sentences(
         blbGaps2Static(line)?.let { return it } // blb gaps 2
         rtrStatic(line)?.let { return it } // rtr
         isdStatic(line)?.let { return it } // isd
+        dmrStatic(line)?.let { return it } // dmr
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -2184,6 +2185,11 @@ internal class Sentences(
         }
         ACTIVATE_ONLY_DURING_YOUR_TURN.find(text)?.let { m ->
             condition = arcanum.api.Condition.YourTurn
+            text = text.removeRange(m.range).trim()
+        }
+        // dmr chunk 01: "Activate only during your upkeep." (CR 602.5b): your turn's upkeep step
+        ACTIVATE_ONLY_DURING_YOUR_UPKEEP.find(text)?.let { m ->
+            condition = arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn, arcanum.api.Condition.StepIs(arcanum.api.TurnStep.Upkeep)))
             text = text.removeRange(m.range).trim()
         }
         // blb gaps 2: "For each mana in this ability's activation cost, you may tap an untapped creature you control rather than
@@ -4143,7 +4149,7 @@ internal class Sentences(
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         fraEffect(sentence, context)?.let { return it }
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) // fin
+        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) /* fin */ ?: dmrEffect(sentence, context) // dmr
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
@@ -5692,6 +5698,8 @@ internal class Sentences(
         }
         YOU_MAY.matchEntire(sentence)?.let { m ->
             effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context)?.let { return listOf(Step.May(it, player = Players.You)) }
+            // dmr chunk 01: "you may gain 2 life" is the "You gain 2 life." sentence, chosen (CR 608.2d)
+            effect("You ${m.groupValues[1]}.", context)?.let { return listOf(Step.May(it, player = Players.You)) }
         }
         // chunk 36
         if (sentence == "Discard your hand.") return listOf(Step.Do(Effect.Discard(Players.You, objects = Objects.Each(yourHand), count = Value.Fixed(1), filter = ObjectFilter.Any)))
@@ -11488,6 +11496,7 @@ internal class Sentences(
         val ENTERS_WITH_COUNTERS = Regex("""(.+) enters( tapped)? with (\w+) (\S+) counters? on it(?: if (.+))?\.""")
         val ACTIVATE_ONLY_AS_SORCERY = Regex("""Activate only as a sorcery\.""")
         val ACTIVATE_ONLY_DURING_YOUR_TURN = Regex("""Activate only during your turn\.""")
+        val ACTIVATE_ONLY_DURING_YOUR_UPKEEP = Regex("""Activate only during your upkeep\.""")
         val TRIGGERS_ONLY_ONCE = Regex("""This ability triggers only once each turn\.""")
         val CHOOSE_MODES = Regex("""choose (one|two)( that hasn't been chosen( this turn)?)?(?: —|\.)""") // tmt chunk 02: or a period
         val DURING_YOUR_TURN = Regex("""(.+) during your turn""")
@@ -15669,6 +15678,39 @@ internal class Sentences(
     // ---- isd
 
     /** isd: single-sentence effects. */
+    private fun dmrStatic(line: String): Ability? {
+        // dmr chunk 01: "This creature can't attack unless defending player controls an Island." (CR 508.1c): it can't attack a player who controls no
+        // such permanent, nor a planeswalker such a player controls (their defending player, CR 506.2)
+        Dmr.CANT_ATTACK_UNLESS_DEFENDER_CONTROLS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: m.groupValues[2].takeIf { it in RulesWords.subtypes }?.let { ObjectFilter.Sub(Subtype(it)) } ?: return@let
+            val without = PlayerFilter.Where(arcanum.api.Condition.Not(arcanum.api.Condition.Exists(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1)))
+            return Ability.Static(listOf(Mechanic.CantAttack(arcanum.api.Recipients(
+                objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(without))),
+                players = Players.Each(without)))), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
+    private fun dmrEffect(sentence: String, context: Context): List<Step>? {
+        // dmr chunk 01: "it becomes a 4/4 Serpent creature with "This creature can't attack unless …"": for as long as it stays on the battlefield
+        // (CR 611.2a); the new card type replaces the old one, a creature subtype replaces the old subtypes (CR 205.1a)
+        // (only in a triggered ability: an "If it isn't a creature, it becomes …" activated ability is the sos wording, and goes on "It's still a land")
+        Dmr.BECOMES_PT_CREATURE_WITH_QUOTED.matchEntire(sentence)?.takeIf { context.event != null }?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1].equals("it", ignoreCase = true) }?.let { m ->
+            val subtypes = m.groupValues[4].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
+            val granted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[5]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes, replaceTypes = true, replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.GainAbilities(listOf(granted))), Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
+        }
+        // dmr chunk 01: "the player with the most life gains control of this creature." (CR 701.12a, 119.1): control for as long as it stays, no duration
+        Dmr.PLAYER_WITH_MOST_LIFE_GAINS_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Dmr.playersWithMostLife)), Affected.Objects(Objects.Self),
+                arcanum.api.Duration.Indefinitely)))
+        }
+        return null
+    }
+
     private fun isdEffect(sentence: String, context: Context): List<Step>? {
         // isd chunk 07: "return an instant or sorcery card at random from your graveyard to your hand", "Return two cards at random from your
         // graveyard to your hand." (chosen at random as it resolves, no targets; fewer if there are fewer, CR 608.2c)

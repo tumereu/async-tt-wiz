@@ -1017,6 +1017,10 @@ internal object Conditions {
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
         IsdPhrases.condition(text, self)?.let { return it } // isd
+        // dmr chunk 01: "this permanent is an enchantment" (CR 205.2, 603.4): the permanent has the type right now
+        Dmr.SELF_IS_A.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, Filters.noun(m.groupValues[2]) ?: return@let)
+        }
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1031,6 +1035,9 @@ internal object Conditions {
         }
         if (text == "an opponent has more life than you")
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.Greater, Value.LifeOf(Players.You)))), atLeast = 1)
+        // dmr chunk 01: "a player has more life than each other player" (CR 102.1): exactly one player has the greatest life total
+        if (text == "a player has more life than each other player") return Condition.Compare(
+            Value.CountPlayers(Dmr.playersWithMostLife), Comparison.Equal, Value.Fixed(1))
         if (text == "an opponent has more cards in hand than you")
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.Compare(
                 Value.HandSize(Players.Tested), Comparison.Greater, Value.HandSize(Players.You))))), atLeast = 1)

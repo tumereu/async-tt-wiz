@@ -773,6 +773,12 @@ internal object Events {
         // fdn chunk 11c: "the beginning of each player's draw step" (every turn's step, CR 503.1)
         BEGINNING_OF_EACH_PLAYERS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         BEGINNING_OF_EACH_OPPONENTS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Opponent) }
+        // mh3 chunk 07: "the beginning of enchanted player's upkeep", "… of each of enchanted player's postcombat main phases" (an Aura enchanting a
+        // player, CR 303.4; every postcombat main phase of their turns, additional ones included, CR 505.1a)
+        BEGINNING_OF_ENCHANTED_PLAYERS.matchEntire(text)?.let { m ->
+            val step = STEPS[m.groupValues[1]] ?: if (m.groupValues[1] == "postcombat main phases") arcanum.api.TurnStep.PostcombatMain else return null
+            return EventPattern.StepBegins(step, whose = PlayerFilter.Is(Players.AttachedTo(Objects.Self)))
+        }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
@@ -986,6 +992,7 @@ internal object Events {
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
+    private val BEGINNING_OF_ENCHANTED_PLAYERS = Regex("""the beginning of (?:each of )?enchanted player's (upkeep|draw step|end step|postcombat main phases)""")
     private val BEGINNING_OF_EACH_PLAYERS = Regex("""the beginning of each player's (upkeep|draw step|end step)""")
     private val BECOMES_LEVEL = Regex("""(.+) becomes level (\d+)""")
     private val ONE_OR_MORE_DIE = Regex("""one or more (.+) die""")
@@ -1536,8 +1543,8 @@ internal object Values {
         }
         DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)),
-                from = Zone.Battlefield, to = Zone.Graveyard), arcanum.api.Measure.Objects)
+            val died = if (m.groupValues[2].isEmpty()) filter else Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return Value.EventsThisTurn(EventPattern.ZoneChange(died, from = Zone.Battlefield, to = Zone.Graveyard), arcanum.api.Measure.Objects)
         }
         CARDS_IN_YOUR_ZONE.matchEntire(text)?.let { m ->
             val zone = when (m.groupValues[1]) { "library" -> Zone.Library; "hand" -> Zone.Hand; else -> Zone.Graveyard }
@@ -1573,7 +1580,8 @@ internal object Values {
 
     // blb gaps 2
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
-    private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
+    // mh3 chunk 07: also anyone's ("the number of creatures that died this turn")
+    private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died( under your control)? this turn""")
     // rtr chunk 06; mh3 chunk 06: any sacrificed object ("the sacrificed artifact's mana value")
     private val SACRIFICED_PROPERTY = Regex("""the sacrificed \w+'s (power|toughness|mana value)""")
     private val HALF_ROUNDED = Regex("""half (.+), rounded (down|up)""")

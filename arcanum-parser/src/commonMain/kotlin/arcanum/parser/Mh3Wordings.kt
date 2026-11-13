@@ -84,4 +84,21 @@ internal object Mh3 {
     // mh3 chunk 06: "you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that's a copy of
     // that creature. If you didn't create a token this way, create a 1/1 green Insect creature token."
     val MAY_PAY_IF_ATTACHED_IF_YOU_DO_ELSE_TOKEN = Regex("""[Yy]ou may pay ((?:\{[^}]+\})+) if (.+?) is attached to (an? .+?)\. If you do, ([^.]+\.) If you didn't create a token this way, ([^.]+\.)""")
+
+    // mh3 chunk 07
+    /** "Target creature you control connives X", "it connives two": connive N (CR 701.50d). */
+    val CONNIVES_N = Regex("""(.+?) connives (X|one|two|three|four|five)\.""")
+    /** "Until end of turn, double target creature's power and it gains first strike.": two effects, both until end of turn. */
+    val UNTIL_EOT_AND_IT_GAINS = Regex("""Until end of turn, (.+?) and it (gains [a-z ,]+)\.""")
+    /** "target opponent exiles the top card of their library, a card at random from their graveyard, and a card at random from their hand." */
+    val TARGET_OPPONENT_EXILES_LIST = Regex("""[Tt]arget opponent exiles ((?:[^,]+, )+and [^,]+)\.""")
+    val LIST_ITEMS = Regex(""",(?: and)? """)
+    /** "You may cast a spell from among cards exiled this way without paying its mana cost." (CR 608.2g) */
+    val MAY_CAST_FROM_AMONG_EXILED_THIS_WAY = Regex("""You may cast a spell from among (?:the )?cards exiled this way without paying its mana cost\.""")
+    /** "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor." */
+    val AS_LONG_AS_CONTROLS_IT_OTHERWISE = Regex("""As long as (another player|an opponent|you) controls? (enchanted|equipped) creature, it ([^.]+)\. Otherwise, (.+\.)""")
+    /** "double the number of each kind of counter on it." (CR 701.10e) */
+    val DOUBLE_EACH_KIND_ON_IT = Regex("""[Dd]ouble the number of each kind of counter on (?:it|that creature)\.""")
+    /** "Then for each nontoken permanent attached to it, create a token that's a copy of that permanent attached to that creature." */
+    val FOR_EACH_ATTACHED_CREATE_COPY_ATTACHED = Regex("""(?:Then )?[Ff]or each (.+?) attached to (?:it|that creature), create a token that's a copy of that permanent attached to (?:it|that creature)\.""")
 }

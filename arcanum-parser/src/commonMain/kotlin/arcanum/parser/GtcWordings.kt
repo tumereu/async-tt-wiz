@@ -148,7 +148,7 @@ internal object Gtc {
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")
-    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness
+    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness|emerge)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness; mh3: emerge
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")

@@ -46,6 +46,9 @@ internal object Steps {
         TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup,
     )
 
+    /** The steps of the beginning phase (CR 501.1). */
+    private val BEGINNING: Set<TurnStep> = setOf(TurnStep.Untap, TurnStep.Upkeep, TurnStep.Draw)
+
     /** What a step's turn-based actions lead to. */
     private sealed interface Next {
         data object Priority : Next
@@ -100,13 +103,15 @@ internal object Steps {
 
     // gtc
     /**
-     * CR 500.8: as a phase ends (the end of combat step, a main phase), an additional phase begins: the first still to
-     * come; once they are all over, the turn's own order goes on where it was left. Null: no additional phase now.
+     * CR 500.8: as a phase ends (the end of combat step, a main phase, the beginning phase's last step), an additional phase begins: the
+     * first still to come; once they are all over, the turn's own order goes on where it was left. Null: no additional phase now.
      */
     private fun afterPhase(recorder: Recorder): TurnStep? {
         val s = recorder.state
         val step = s.turn.step
-        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain) return null
+        // mh3: the beginning phase ends after its draw step, or after its last step when the next is skipped (CR 501.1)
+        val beginningEnds = step in BEGINNING && nextStep(s) !in BEGINNING
+        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain && !beginningEnds) return null
         val extra = s.turn.extraPhases.firstOrNull()
         if (extra != null) {
             val resume = s.turn.resumeAt ?: nextStep(s)

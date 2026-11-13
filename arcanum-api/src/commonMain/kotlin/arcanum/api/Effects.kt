@@ -253,6 +253,10 @@ sealed interface Effect {
     @Serializable @SerialName("end-turn") data object EndTurn : Effect
     /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
     @Serializable @SerialName("additional-step") data class AdditionalStep(val step: TurnStep) : Effect
+    // mh3
+    /** "There is an additional beginning phase after this phase" (CR 500.8): an additional phase, named by its first step ([TurnStep.Untap]:
+     * a beginning phase), right after the phase under way, before phases added earlier. */
+    @Serializable @SerialName("additional-phase") data class AdditionalPhase(val firstStep: TurnStep) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
     @Serializable @SerialName("extra-combat") data class ExtraCombat(
         val untapAttackers: Boolean = false, val followedByMain: Boolean = false,

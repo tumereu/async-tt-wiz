@@ -508,12 +508,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** Where [id] is now. An object that left its zone is in none (CR 400.7): "if this card is in your graveyard" is false
      * for it, whatever its last known information says (CR 603.4); an object about to exist is where it would be. */
     // dsk gaps
-    /** With [Context.prospectiveCast]: the zones spells matching [filter]'s [ObjectFilter.WasCast] are being or could be
-     * cast from, and the Stack. */
+    /** With [Context.prospectiveCast]: the zones spells matching [filter]'s [ObjectFilter.WasCast] (or, without one, any spell:
+     * "creature spells you cast") are being or could be cast from, and the Stack. */
     private fun prospectiveZones(filter: ObjectFilter): Set<Zone> {
         if (!ctx.prospectiveCast) return emptySet()
         fun froms(f: ObjectFilter): List<Zone?> = when (f) {
             is ObjectFilter.WasCast -> listOf(f.from)
+            // mh3 chunk 07: "Each creature spell you cast has emerge": a spell, cast from wherever (CR 601.2a)
+            is ObjectFilter.Category -> if (f.category == arcanum.api.ObjectCategory.Spell) listOf(null) else emptyList()
             is ObjectFilter.And -> f.all.flatMap { froms(it) }
             is ObjectFilter.Or -> f.any.flatMap { froms(it) }
             else -> emptyList()

@@ -377,6 +377,8 @@ internal object Effects {
                         Duration.UntilStep(arcanum.api.TurnStep.PostcombatMain, arcanum.api.PlayerFilter.Any), null)
                 }
             }
+            // mh3: CR 500.8: an additional phase (a beginning phase: from its untap step) directly after this phase, before phases added earlier
+            is Effect.AdditionalPhase -> act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = listOf(effect.firstStep) + act.state.turn.extraPhases)))
             // fin: CR 500.9: an additional step right after this one, before those added earlier
             is Effect.AdditionalStep -> act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
             // fin: CR 724.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
@@ -1007,7 +1009,7 @@ internal object Effects {
                 // that player controls", CR 707.10c, 115.3, 601.2c)
                 val now = LinkedHashMap(targets)
                 for ((slot, chosen) in targets) {
-                    val s = slots.firstOrNull { it.name == slot } ?: continue
+                    val s = slots.firstOrNull { it.name == slot } ?: enchantSlotOf(act, id, slot) ?: continue
                     val names = now.entries.filter { it.key != slot }.fold(original.names) { b, (k, v) -> b.with(k, NamedValue.Targets(v)) }
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
@@ -1019,6 +1021,17 @@ internal object Effects {
             copies += addCopy(scope, id, original, copyId, ts, controller, targets, effect)
         }
         scope.bind(effect.bind, NamedValue.Objects(copies))
+    }
+
+    // mh3 chunk 07
+    /** The target slot of an Aura spell [id]'s enchant keyword (CR 303.4a, bestowed 702.103b) when [slot] is it: a copy of the Aura spell
+     * may get a new object or player to enchant (CR 707.10c). */
+    private fun enchantSlotOf(act: arcanum.engine.action.Act, id: ObjectId, slot: String): arcanum.api.TargetSlot? {
+        if (slot != arcanum.api.Keyword.Enchant.SLOT) return null
+        if (act.state.obj(id)?.bestowed == true)
+            return arcanum.api.TargetSlot(slot, arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(CardType.Creature)), Value.Fixed(1), Value.Fixed(1))
+        val enchant = act.view()[id]?.characteristics?.keywords?.filterIsInstance<arcanum.api.Keyword.Enchant>()?.firstOrNull() ?: return null
+        return arcanum.api.TargetSlot(slot, enchant.what, Value.Fixed(1), Value.Fixed(1))
     }
 
     /** Puts the copy [copyId] of [original] (the spell or ability [id]) with [targets] onto the Stack. */

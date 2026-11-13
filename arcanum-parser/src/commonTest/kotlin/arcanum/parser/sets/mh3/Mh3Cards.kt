@@ -253,3 +253,13 @@ fun mayPayEnergyWhenYouDo(amount: Int, reflexive: Instructions): List<Step> = li
 /** "[Do] unless you pay {E}" (CR 118.12a) */
 fun unlessYouPayEnergy(amount: Int, vararg steps: Step): List<Step> = listOf(
     Step.Pay(cost(payEnergy(amount)), payer = Players.You, bind = "paid"), ifThen(Condition.Not(Condition.Did("paid")), *steps))
+
+// mh3 chunk 07: connive, Auras
+/** "[It] connives [N]" (CR 701.50a, d) */
+fun connive(objects: Objects = Objects.Self, count: Value = n(1)): Step = Step.Do(Effect.Action(arcanum.api.KeywordAction.Connive(objects, count)))
+/** The permanent this Aura or Equipment is attached to. */
+val enchanted: Objects = Objects.AttachedTo(Objects.Self)
+/** "Enchant creature" (CR 303.4a) */
+val enchantCreature: Ability = Keyword.Enchant(arcanum.api.TargetKind.Objects(creature))
+/** "{T}: Add {B}." */
+fun addOne(symbol: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse(symbol)!!)), Players.You)))

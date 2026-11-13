@@ -55,6 +55,7 @@ internal class Sentences(
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
         mh2Multi(line)?.let { return it } // mh2
+        mh3Multi(line)?.let { return it } // mh3
         tdmMulti(line)?.let { return it } // tdm
         eoeMulti(line)?.let { return it } // eoe
         eclMulti(line)?.let { return it } // ecl
@@ -2083,6 +2084,9 @@ internal class Sentences(
                 else -> Value.Times(per, n)
             }
             Mechanic.ModifyPowerToughness(amount(m.groupValues[1].toInt()), amount(m.groupValues[2].toInt()))
+        // mh3 chunk 07: "has base power and toughness 1/1" (layer 7b, CR 613.4b)
+        } ?: BlbGaps.BASE_PT.matchEntire(predicate)?.let { m ->
+            Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))
         } ?: HAS_KEYWORDS.matchEntire(predicate)?.let { m ->
             Mechanic.GainAbilities(m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
         } ?: when (predicate) {
@@ -5924,10 +5928,17 @@ internal class Sentences(
         }
         // dgm: "Each creature card in your graveyard has scavenge. The scavenge cost is equal to its mana cost." (CR 702.97a)
         Gtc.CARDS_HAVE_SCAVENGE.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            // mh3 chunk 07: "Each creature spell you cast" (spells on the Stack you control)
+            val filter = Filters.noun(m.groupValues[1]) ?: m.groupValues[1].removeSuffix(" you cast").takeIf { it != m.groupValues[1] }
+                ?.let { Filters.noun(it) }?.let { Filters.all(it, ObjectFilter.ControlledBy(PlayerFilter.You)) } ?: return null
             // inr chunk 09: also madness, for cards in every zone but the battlefield (CR 702.35a)
             val cost = Cost(listOf(CostPart.ItsManaCost))
-            val keyword = if (m.groupValues[2] == "madness") arcanum.api.Keyword.Madness(cost) else arcanum.api.Keyword.Scavenge(cost)
+            // mh3 chunk 07: "Each creature spell you cast has emerge." (CR 702.119a)
+            val keyword = when (m.groupValues[2]) {
+                "madness" -> arcanum.api.Keyword.Madness(cost)
+                "emerge" -> arcanum.api.Keyword.Emerge(cost)
+                else -> arcanum.api.Keyword.Scavenge(cost)
+            }
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))),
                 affects = Affected.Objects(Objects.Each(filter)))
         }
@@ -15780,8 +15791,25 @@ internal class Sentences(
                 modes = arcanum.api.Modes(options, min = n, max = n, chooser = Players.You)))))))), triggersOnlyIf = onlyIf)
     }
 
+    /** mh3: lines that are more than one ability. */
+    private fun mh3Multi(line: String): List<Ability>? {
+        // mh3 chunk 07: "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor.": two
+        // static abilities, each applying while its side of the condition holds (CR 611.3a)
+        Mh3.AS_LONG_AS_CONTROLS_IT_OTHERWISE.matchEntire(line)?.let { m ->
+            val who = when (m.groupValues[1]) { "another player" -> PlayerFilter.Not(PlayerFilter.You); "an opponent" -> PlayerFilter.Opponent; else -> PlayerFilter.You }
+            val condition = arcanum.api.Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), ObjectFilter.ControlledBy(who))
+            val first = line("${m.groupValues[2].replaceFirstChar { it.uppercase() }} creature ${m.groupValues[3]}.") as? Ability.Static ?: return@let
+            val otherwise = line(m.groupValues[4].replaceFirstChar { it.uppercase() }) as? Ability.Static ?: return@let
+            if (first.condition != null || otherwise.condition != null) return@let
+            return listOf(first.copy(condition = condition), otherwise.copy(condition = arcanum.api.Condition.Not(condition)))
+        }
+        return null
+    }
+
     /** mh3: cost parts (energy). */
     private fun mh3CostPart(text: String): List<CostPart>? {
+        // mh3 chunk 07: "you may exile your hand. If you do, …" (as "discard your hand": all of it, an empty hand included, CR 118.3)
+        if (text == "Exile your hand") return listOf(CostPart.Exile(CostObjects.These(Objects.Each(yourHand)), from = Zone.Hand))
         // mh3 chunk 02: "Pay {E}{E}", "Pay X {E}" (CR 107.14; X announced as it is activated, CR 107.3a)
         Mh3.PAY_ENERGY.matchEntire(text)?.let { m ->
             val amount = if (m.groupValues[1].startsWith("X")) Value.Announced(name = "X") else Value.Fixed(m.groupValues[1].length / 3)
@@ -15811,6 +15839,59 @@ internal class Sentences(
 
     /** mh3: one-sentence effects, tried first. */
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
+        // mh3 chunk 07: "Until end of turn, double target creature's power and it gains first strike." (both last until end of turn, CR 611.2a)
+        Mh3.UNTIL_EOT_AND_IT_GAINS.matchEntire(sentence)?.let { m ->
+            val first = effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} until end of turn.", context) ?: return@let
+            return first + (effect("It ${m.groupValues[2]} until end of turn.", context) ?: return@let)
+        }
+        // mh3 chunk 07: "target opponent exiles the top card of their library, a card at random from their graveyard, and a card at random from
+        // their hand." (the player chooses nothing, CR 701.13a); "cards exiled this way" are all of them
+        Mh3.TARGET_OPPONENT_EXILES_LIST.matchEntire(sentence)?.let { m ->
+            val items = m.groupValues[1].split(Mh3.LIST_ITEMS)
+            val player = context.targetOpponent()
+            fun theirs(zone: Zone) = Objects.Each(Filters.all(ObjectFilter.InZone(zone), ObjectFilter.OwnedBy(PlayerFilter.Is(player))))
+            val moves = items.mapIndexed { i, item ->
+                val objects = when (item) {
+                    "the top card of their library" -> Objects.LibraryCards(player, Value.Fixed(1), fromTop = true)
+                    "a card at random from their graveyard" -> Objects.Random(theirs(Zone.Graveyard), Value.Fixed(1))
+                    "a card at random from their hand" -> Objects.Random(theirs(Zone.Hand), Value.Fixed(1))
+                    else -> return@let
+                }
+                Step.Do(Effect.Move(objects, Destination(Zone.Exile), postBind = "exiled $i"))
+            }
+            context.them = Objects.Union(items.indices.map { Objects.Bound("exiled $it") })
+            return moves
+        }
+        // mh3 chunk 07: "You may cast a spell from among cards exiled this way without paying its mana cost." (cast while this resolves, CR 608.2g)
+        if (Mh3.MAY_CAST_FROM_AMONG_EXILED_THIS_WAY.matches(sentence)) {
+            val exiled = context.them?.takeIf { it is Objects.Union || it is Objects.Bound } ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Not(ObjectFilter.Type(arcanum.api.CardType.Land)), min = Value.Fixed(0), max = Value.Fixed(1),
+                from = exiled), bind = "cast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("cast"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
+        }
+        // mh3 chunk 07: "there is an additional beginning phase after this phase." (CR 500.8; the beginning phase starts with its untap step, CR 501.1)
+        if (sentence == "There is an additional beginning phase after this phase." || sentence == "there is an additional beginning phase after this phase.")
+            return listOf(Step.Do(Effect.AdditionalPhase(arcanum.api.TurnStep.Untap)))
+        // mh3 chunk 07: "double the number of each kind of counter on it." (each kind it has, CR 701.10e)
+        if (Mh3.DOUBLE_EACH_KIND_ON_IT.matches(sentence)) {
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(it, null)))))
+        }
+        // mh3 chunk 07: "Then for each nontoken permanent attached to it, create a token that's a copy of that permanent attached to that creature."
+        // (each copy created attached to it, CR 707.2, 303.4f, 301.5c)
+        Mh3.FOR_EACH_ATTACHED_CREATE_COPY_ATTACHED.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return@let
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(Filters.all(noun, ObjectFilter.Attached(to = it)))), "attached", listOf(
+                Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("attached")), Value.Fixed(1), Players.You,
+                    attachedTo = Recipients(objects = it))))))
+        }
+        // mh3 chunk 07: "Target creature you control connives X, where X is …": draw N, discard N, a counter for each nonland card (CR 701.50d)
+        Mh3.CONNIVES_N.matchEntire(sentence)?.let { m ->
+            val count = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return@let)
+            val objects = mshObjects(m.groupValues[1], context) ?: return@let
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Connive(objects, count))))
+        }
         // mh3 chunk 05: "Target opponent exiles the top three cards of their library." (no choice is made in it); "those cards" are the exiled ones
         Mh3.TARGET_OPPONENT_EXILES_TOP.matchEntire(sentence)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return@let
@@ -17338,9 +17419,11 @@ internal class Sentences(
         // (CR 701.10e)
         Sos.PUT_COUNTER_THEN_DOUBLE.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
-            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            // mh3 chunk 07: "each creature you control" (overloaded, CR 702.96b): the creatures given the counter are the ones doubled
+            val noun = Filters.noun(m.groupValues[3]) ?: return null
+            val target = if (m.groupValues[2] == "each") Objects.Each(noun) else context.target(Filters.slotName(m.groupValues[3]), noun)
             return listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(1))),
-                Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(target, Counters.kind(m.groupValues[3]) ?: return null)))))
+                Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(target, Counters.kind(m.groupValues[4]) ?: return null)))))
         }
         // sos chunk 09: "create a 0/0 green and blue Fractal creature token, then put this creature's counters on that token" (counters it had
         // as it last existed, CR 608.2h)

@@ -804,8 +804,8 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "surge"; override val text: String get() = "Surge"; override val rule: String get() = "702.117" }
     }
-    /** Emerge (CR 702.119) */
-    @Serializable @SerialName("emerge") data class Emerge(override val cost: Cost) : Keyword, HasCost {
+    /** Emerge (CR 702.119); [from]: "Emerge from [quality]" (CR 702.119b), the permanent sacrificed is one of that quality (null: a creature). */
+    @Serializable @SerialName("emerge") data class Emerge(override val cost: Cost, val from: ObjectFilter? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "emerge"; override val text: String get() = "Emerge"; override val rule: String get() = "702.119" }
     }

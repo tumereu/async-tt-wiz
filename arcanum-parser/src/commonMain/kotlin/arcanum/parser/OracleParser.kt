@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 83
+    const val VERSION: Int = 84
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -123,6 +123,7 @@ object OracleParser {
     private fun meldPartner(text: String): String? =
         (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
 
+    private val EMERGE_FROM = Regex("""Emerge from (\w+) ((?:\{[^}]+\})+)""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
     private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
@@ -609,6 +610,11 @@ object OracleParser {
         SPLICE.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
+        }
+        // mh3 chunk 07: "Emerge from artifact {5}{B}{B}" (CR 702.119b): a permanent of that quality is sacrificed
+        EMERGE_FROM.matchEntire(part)?.let { m ->
+            val from = Filters.noun(m.groupValues[1]) ?: return null
+            return Keyword.Emerge(Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null), from = from)
         }
         // mh3 chunk 06: "Prototype {3}{R} — 2/2" (CR 702.160a): the prototype's mana cost, power and toughness
         PROTOTYPE.matchEntire(part)?.let { m ->

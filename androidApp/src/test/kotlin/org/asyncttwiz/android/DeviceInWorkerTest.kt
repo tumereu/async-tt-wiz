@@ -94,6 +94,71 @@ class DeviceInWorkerTest {
         assertEquals(shape(local.shown), shape(remote.shown))
     }
 
+    // SYS-072, TRN-027, web e2e (WebMixedTest, WebSmokeTest, 2026-11-13): the table gives the page its token pictures on its
+    // first composition, which with the device in the worker published from the page, where there is no device, and the
+    // table failed; then the starting player keeps, the server echoes it, the other player's keep arrives through the
+    // channel and her page reaches her first Main phase with the same boards as the device here
+    @Test fun theOtherPlayersKeepAfterTheOwnReachesThePageOnceTheTableSetItsTokenPictures() {
+        val (local, remote) = pair(otherKept = false)
+        val art = org.asyncttwiz.automatum.TokenArt { null }
+        local.tokenArt = art
+        remote.tokenArt = art
+        pump()
+        assertEquals(shape(local.shown), shape(remote.shown), "the token pictures set on both")
+        local.tick(1_000); remote.tick(1_000); pump()
+        val kept = assertIs<GameDevice.Acted.Sent>(local.keep())
+        var remoteKept: GameDevice.Acted? = null
+        remote.keep { remoteKept = it }
+        pump()
+        assertEquals(kept.event.id, assertIs<GameDevice.Acted.Sent>(remoteKept).event.id)
+        local.tick(2_000); remote.tick(2_000); pump()
+        local.take(2_000)
+        remote.takeNow(2_000) {}
+        pump()
+        assertIs<GameDevice.Status.Waiting>(remote.shown?.status, "she waits for Bob's keep")
+        assertEquals(shape(local.shown), shape(remote.shown), "kept")
+        // The server's echo of her keep, then Bob's keep on it, both through the channel
+        val echo = f.revision(kept.event, 2, mapOf(f.a to kept.event.id, f.b to f.start.id))
+        local.revision(echo); remote.revision(echo); pump()
+        val model = f.codec.decodeModel(f.snapshot().state).also { it.apply(kept.event) }
+        val bobKeep = org.asyncttwiz.protocol.game.EventBuilder(model, "bob-keeps", kept.event.id, f.b).run {
+            perform(arcanum.engine.input.Input.SetupAnswer(arcanum.engine.state.PlayerId(f.b), arcanum.engine.decision.Answer.Option("Keep")))
+            answerRandoms()
+            build()
+        }
+        val bobs = f.revision(bobKeep, 3, mapOf(f.a to kept.event.id, f.b to bobKeep.id))
+        local.revision(bobs); remote.revision(bobs); pump()
+        var now = 3_000L
+        repeat(10) {
+            if (local.shown?.engine?.turn?.step == arcanum.api.TurnStep.PrecombatMain && local.shown?.status == GameDevice.Status.YourMove) return@repeat
+            local.playToStop()
+            fun stepRemote() { remote.step { if (it != null) stepRemote() } }
+            stepRemote(); pump()
+            local.tick(now); remote.tick(now); pump()
+            now += 500
+        }
+        val shown = assertNotNull(remote.shown)
+        assertEquals(arcanum.api.TurnStep.PrecombatMain, shown.engine.turn.step, "her page in her Main 1")
+        assertEquals(f.a, shown.engine.turn.active.value)
+        assertEquals(GameDevice.Status.YourMove, shown.status)
+        assertEquals(shape(local.shown), shape(remote.shown), "her Main 1")
+    }
+
+    // SYS-072 across the boundary: a token picture the worker's device asks for before the table gave the page its card
+    // records' lookup waits for it (the worker asks each once), then goes back with the picture found
+    @Test fun aTokenPictureAskedBeforeTheTableSetItsLookupIsAnsweredOnceItDoes() {
+        val (_, remote) = pair()
+        val query = org.asyncttwiz.automatum.TokenArtQuery(org.asyncttwiz.protocol.DefinitionFace("t", "Ember Token", typeLine = "Token Creature — Elemental"))
+        channel.received(DeviceMessage.answer(f.game.id, org.asyncttwiz.automatum.boundary.DeviceAnswer.TokenArt(query)))
+        assertTrue(toWorker.isEmpty(), "not answered with no lookup yet")
+        remote.tokenArt = org.asyncttwiz.automatum.TokenArt { if (it == query) "scryfall-ember" else null }
+        val sent = toWorker.map { DeviceMessage.decode(it).request }
+        val found = assertIs<org.asyncttwiz.automatum.boundary.DeviceRequest.TokenArtFound>(sent.single())
+        assertEquals(query, found.query)
+        assertEquals("scryfall-ember", found.scryfallId)
+        pump()
+    }
+
     // SYS-011, SYS-012 across the boundary: a press made on a board the worker's device has moved on from (the page hadn't
     // shown its newer board yet) is checked against the board the page showed, and refused as stale with its note
     @Test fun aTapOnABoardTheDeviceMovedOnFromIsStale() {

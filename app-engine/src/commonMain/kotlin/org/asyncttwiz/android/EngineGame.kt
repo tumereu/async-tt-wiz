@@ -949,9 +949,17 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         runCatching { table(EngineProjection.project(base, model, viewer, at, null, null, tokenArt), model, at, viewer) }.getOrNull()
     }
 
-    /** The token pictures for the engine's tokens (SYS-072), from the device's card records. */
+    /** The token pictures for the engine's tokens (SYS-072), from the device's card records. With the device in the
+     * engine's worker ([inWorker]) the table sets it on the page, which has no device to publish from (web e2e, 2026-11-13:
+     * the table's first composition failed on it): it answers the worker's lookups ([RemoteDevice]), and the worker
+     * publishes its boards again with each picture found. */
     var tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None
-        set(value) { if (field !== value) { field = value; worker.run { publish() } } }
+        set(value) {
+            if (field === value) return
+            field = value
+            val r = remote
+            if (r != null) r.tokenArtSet() else worker.run { publish() }
+        }
     private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
 
     /** The player's own staging of a declaration made behind the head (at a decision stop in playback: their lanes and

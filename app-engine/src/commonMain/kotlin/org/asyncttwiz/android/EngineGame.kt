@@ -152,7 +152,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * (null when it failed) comes off the main thread. Null: none is asked (the device reaches only what it holds). */
     private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null,
     /** CR 707.12: the cards the device names for the engine ([GameDevice.namedCards]): the phone's card records. */
-    private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE) {
+    private val namedCards: org.asyncttwiz.protocol.game.NamedCards = org.asyncttwiz.protocol.game.NamedCards.NONE,
+    /** Web client step 4c part 3: the page's channel to the engine's Web Worker, where this game's device then lives (every
+     * action, server event and read goes there as a request, [RemoteDevice]); null: the device is here, on [worker]'s engine
+     * thread (Android, tests, the engine side in the worker itself). */
+    device: DeviceChannel? = null) {
     @Volatile var base: PlayState = base
         private set
     /** The device core: on the engine thread only. */
@@ -259,6 +263,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * game loading again from its stream (HIS-006: a live table stays live, [GameSession]). */
     fun load(snapshot: EngineSnapshot, base: PlayState = this.base, live: Boolean = false) {
         this.base = base
+        remote?.let { r ->
+            if (opened) r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Load(it, snapshot, base, live) }
+            else { opened = true; r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Open(it, me, base, snapshot, showPlays) } }
+            return
+        }
         worker.run {
             // HIS-106, HIS-108: opened for the first time, where another player's branch or undo took back what the player
             // had seen: the table shows where they left it until they tap (the take-back held, [hold])
@@ -582,11 +591,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** Runs [work] with the device on the engine thread and waits for it (tests; only where the engine side answers before
      * returning, [EngineWorker.await]). */
-    fun <T> read(work: (GameDevice) -> T): T = worker.await { work(device) }
+    fun <T> read(work: (GameDevice) -> T): T = worker.await { work(local("read")) }
 
     /** Web client step 4c: [work] with the device on the engine thread, [done] with its result on the caller's thread (on
      * Android before this returns, [EngineWorker.call]; in the browser when the engine side answers). */
-    fun <T> read(work: (GameDevice) -> T, done: (T) -> Unit) = worker.call({ work(device) }, done)
+    fun <T> read(work: (GameDevice) -> T, done: (T) -> Unit) = worker.call({ work(local("read")) }, done)
 
     /**
      * What the table animates between the board shown before and [play] (HIS-030, HIS-031): the events that led from
@@ -782,7 +791,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [reviewPlay] as a callback (web client step 4c): [done] gets the board on the caller's thread (on Android before this
      * returns). */
-    fun reviewPlay(id: String, done: (TableBoard?) -> Unit) = worker.call({ reviewBoard(id) }, done)
+    fun reviewPlay(id: String, done: (TableBoard?) -> Unit) = remote?.run {
+        request("review", { org.asyncttwiz.automatum.boundary.DeviceRequest.Review(it, id) }) { done(board((it as? org.asyncttwiz.automatum.boundary.DeviceResult.Board)?.board)) }
+    } ?: worker.call({ reviewBoard(id) }, done)
+
+    /** [reviewPlay]'s board on the engine side (the worker's device answering the page). */
+    internal fun reviewPlayOn(id: String): TableBoard? = reviewBoard(id)
 
     /** [reviewPlay]'s board, worked out on the engine thread. */
     private fun reviewBoard(id: String): TableBoard? {
@@ -827,7 +841,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // Done once the board with the page is published (its main-thread work queued first), so nothing in between
         // finds the point neither shown nor loading
         AppLog.info("history", "Older history: the page to ${through.take(8)} asked (${shown?.older?.size ?: 0} older events shown)")
-        val started = fetch(through) { page ->
+        val started = fetch(through) handler@{ page ->
+            remote?.let { r ->
+                r.request("page", { org.asyncttwiz.automatum.boundary.DeviceRequest.Page(it, through, page) }) { result ->
+                    val taken = (result as? org.asyncttwiz.automatum.boundary.DeviceResult.Flag)?.flag == true
+                    asked -= through; if (!taken) failedPages += through; historyLoadingNow = asked.isNotEmpty()
+                }
+                return@handler
+            }
             worker.run {
                 val held = device.olderEvents.size
                 val taken = page != null && device.addPage(page)
@@ -848,7 +869,31 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The timeline (or the Undo dialog's strip) came near the oldest event the device holds: the next older page is
      * asked for, unless there is nothing older (main thread). */
-    fun loadOlder() = worker.call({ device.olderThrough() }) { ask(it) }
+    fun loadOlder() = remote?.run { request("older", { org.asyncttwiz.automatum.boundary.DeviceRequest.OlderThrough(it) }) { ask(text(it)) } }
+        ?: worker.call({ device.olderThrough() }) { ask(it) }
+
+    /** [loadOlder]'s page on the engine side. */
+    internal fun olderThroughOn(): String? = device.olderThrough()
+
+    /** The page of older history [pageOn]'s board at [id] needs, on the engine side ([loadFor]). */
+    internal fun needsForOn(id: String): String? = (runCatching { device.reach(id) }.getOrNull() as? GameDevice.Reach.Needs)?.through
+
+    /** The page of older history the open undo request's preview needs, on the engine side ([loadForRequest]). */
+    internal fun requestNeedsOn(): String? = device.requestNeeds()
+
+    /** The page of older history ending at [through] (null: it failed) taken on the engine side: whether it was. */
+    internal fun pageOn(through: String, page: org.asyncttwiz.protocol.EngineHistoryPage?): Boolean {
+        val held = device.olderEvents.size
+        val taken = page != null && device.addPage(page)
+        AppLog.info("history", "Older history: the page to ${through.take(8)} " + when {
+            page == null -> "failed (asked again when timeline mode or the Undo dialog opens again)"
+            !taken -> "refused"
+            else -> "taken, ${page.events.size} events; older history $held → ${device.olderEvents.size} events, " +
+                "complete ${device.olderComplete}, line start ${device.session.lineStart.take(8)}"
+        })
+        if (taken) publish()
+        return taken
+    }
 
     /** The board at shown event [id] needs older history ([reviewPlay] and [undoPreview] gave none): its page is asked
      * for (main thread). False when none is needed or can be asked: the point can't be shown. */
@@ -856,11 +901,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [loadFor] as a callback (web client step 4c): [started] gets whether a page was asked for (on Android before this
      * returns). */
-    fun loadFor(id: String, started: (Boolean) -> Unit) =
+    fun loadFor(id: String, started: (Boolean) -> Unit) = remote?.run { request("needs", { org.asyncttwiz.automatum.boundary.DeviceRequest.NeedsFor(it, id) }) { started(ask(text(it))) } } ?:
         worker.call({ (runCatching { device.reach(id) }.getOrNull() as? GameDevice.Reach.Needs)?.through }) { started(ask(it)) }
 
     /** The open undo request's preview ([GameDevice.requestPreview]): null while it needs older history ([loadForRequest]). */
-    fun requestPreview(): GameDevice.Preview? = worker.await { device.requestPreview() }
+    fun requestPreview(): GameDevice.Preview? = worker.await { local("requestPreview").requestPreview() }
 
     /**
      * The incoming undo request's dialog (§10, HIS-099): its message, whether it takes back actions [viewer] hasn't seen,
@@ -868,7 +913,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * at [target] (the request's). [done] gets it on the caller's thread (on Android before this returns; web client step
      * 4c: in the browser when the engine side answers); null while it needs older history ([loadForRequest]).
      */
-    fun requestView(viewer: String, localHead: String, target: String, done: (RequestView?) -> Unit) = worker.call({
+    fun requestView(viewer: String, localHead: String, target: String, done: (RequestView?) -> Unit) = remote?.run {
+        request("requestView", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestView(it, viewer, localHead, target) }) { result ->
+            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.View)?.let { v -> RequestView(v.message, v.unseen, v.turn, board(v.board)) })
+        }
+    } ?: worker.call({ requestViewOn(viewer, localHead, target) }, done)
+
+    /** [requestView]'s view, worked out on the engine thread. */
+    internal fun requestViewOn(viewer: String, localHead: String, target: String): RequestView? = run {
         device.requestPreview()?.let { p ->
             val at = if (p.unseen) localHead else target
             // The same point's board as long as the request's state is the same one (as the dialog remembered it by it)
@@ -877,7 +929,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                     .getOrNull().also { requestBoard = RequestBoard(p.board, at, viewer, it) }
             RequestView(p.message, p.unseen, p.board.engine.turn, board)
         }
-    }, done)
+    }
 
     /** The request dialog's board last made (engine thread). */
     private class RequestBoard(val model: GameModel, val at: String, val viewer: String, val board: TableBoard?)
@@ -888,10 +940,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     class RequestView(val message: String, val unseen: Boolean, val turn: arcanum.engine.state.TurnState, val board: TableBoard?)
 
     /** Asks for the older history the open undo request's preview needs, if any (main thread). */
-    fun loadForRequest() = worker.call({ device.requestNeeds() }) { ask(it) }
+    fun loadForRequest() = remote?.run { request("requestNeeds", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestNeeds(it) }) { ask(text(it)) } }
+        ?: worker.call({ device.requestNeeds() }) { ask(it) }
 
     /** The board of [model] (the point an undo goes back to) as [viewer] sees it, for a view-only preview. */
     fun preview(model: GameModel, at: String, viewer: String): TableBoard? = worker.await {
+        local("preview")
         runCatching { table(EngineProjection.project(base, model, viewer, at, null, null, tokenArt), model, at, viewer) }.getOrNull()
     }
 
@@ -906,7 +960,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private var staging: EngineProjection.Staging? = null
 
     /** Stages [board]'s combat lanes and attack choices (a board the combat controls made from the shown one). */
-    fun stage(board: BoardState) = worker.call({
+    fun stage(board: BoardState) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Stage(it, board) } ?: worker.call({
         val records = board.engineRecords.filter { it.kind == org.asyncttwiz.protocol.EngineRecordKind.PreAnswer }
         staging = EngineProjection.Staging(EngineProjection.Staging.keyOf(device.model.engine), board.combat, records)
         publish()
@@ -914,11 +968,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }) {}
 
     /** Drops the device's own staging: the shared drafts of the table show (I-D54 §8). */
-    fun unstage() = worker.call({ if (staging != null) { staging = null; publish() }; Unit }) {}
+    fun unstage() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Unstage(it) } ?: worker.call({ if (staging != null) { staging = null; publish() }; Unit }) {}
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
     fun mulligan(): GameDevice.Acted? = answered { mulligan(it) }
-    fun mulligan(result: (GameDevice.Acted?) -> Unit) = acting(STALE, after = false, result = result) {
+    fun mulligan(result: (GameDevice.Acted?) -> Unit) = remote?.run { request("mulligan", { org.asyncttwiz.automatum.boundary.DeviceRequest.Mulligan(it, seen()) }, actedFailed) { result(actedOrNull(it)) } } ?:
+        acting(STALE, after = false, result = result) {
         val hand = openingHand()
         val input = setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))
         // TRN-062 (problem report 5DDSKK): the opening logged fully, with the cards
@@ -929,7 +984,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** TRN-062 (owner problem report 5DDSKK): the player keeps the hand as it is; the cards a mulligan puts on the bottom
      * were asked right after it ([bottom]), so keeping owes nothing. */
     fun keep(): GameDevice.Acted? = answered { keep(it) }
-    fun keep(result: (GameDevice.Acted?) -> Unit) = acting(STALE, after = false, result = result) {
+    fun keep(result: (GameDevice.Acted?) -> Unit) = remote?.run { request("keep", { org.asyncttwiz.automatum.boundary.DeviceRequest.Keep(it, seen()) }, actedFailed) { result(actedOrNull(it)) } } ?:
+        acting(STALE, after = false, result = result) {
         val hand = openingHand()
         val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
         val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")).takeIf { owed == 0 }
@@ -941,7 +997,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** TRN-062, CR 103.5: the player puts [bottom] (card ids) on the bottom of their library, right after a mulligan (the
      * Keep / Bottom screen, STK-043); null when no bottom is open for them. */
     fun bottom(bottom: List<String>): GameDevice.Acted? = answered { bottom(bottom, it) }
-    fun bottom(bottom: List<String>, result: (GameDevice.Acted?) -> Unit) = acting(STALE, after = false, result = result) {
+    fun bottom(bottom: List<String>, result: (GameDevice.Acted?) -> Unit) = remote?.run {
+        request("bottom", { org.asyncttwiz.automatum.boundary.DeviceRequest.Bottom(it, seen(), bottom) }, actedFailed) { result(actedOrNull(it)) } } ?:
+        acting(STALE, after = false, result = result) {
         val hand = device.model.engine.player(PlayerId(me)).hand
         val objects = bottom.mapNotNull { id -> hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
         val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
@@ -963,7 +1021,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
     fun pass(): GameDevice.Acted = answered { pass(it) }
-    fun pass(result: (GameDevice.Acted) -> Unit) = early("pass", result, done = { seen ->
+    fun pass(result: (GameDevice.Acted) -> Unit) = remote?.run { request("pass", { org.asyncttwiz.automatum.boundary.DeviceRequest.Pass(it, seen()) }, actedFailed) { result(acted(it)) } } ?:
+        early("pass", result, done = { seen ->
         val pass = Input.PassPriority(PlayerId(me))
         // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096); HIS-109
         // (owner problem report E48RDE): or as the player's own device passed there by itself (the same press)
@@ -1001,11 +1060,13 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** Holding Resolve (STK-029): the Resolve chain ([chain]). */
     fun holdResolve(): GameDevice.Acted = answered { holdResolve(it) }
-    fun holdResolve(result: (GameDevice.Acted) -> Unit) = chain({ pass(it) }, result)
+    fun holdResolve(result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("holdResolve", { org.asyncttwiz.automatum.boundary.DeviceRequest.HoldResolve(it, seen()) }, actedFailed) { result(acted(it)) } } ?: chain({ pass(it) }, result)
 
     /** Holding a Stack wait's Assume, "Assume resolves" (TRN-070): the Resolve chain ([chain]). */
     fun holdAssume(): GameDevice.Acted = answered { holdAssume(it) }
-    fun holdAssume(result: (GameDevice.Acted) -> Unit) = chain({ assume(result = it) }, result)
+    fun holdAssume(result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("holdAssume", { org.asyncttwiz.automatum.boundary.DeviceRequest.HoldAssume(it, seen()) }, actedFailed) { result(acted(it)) } } ?: chain({ assume(result = it) }, result)
 
     // ---- The server
 
@@ -1013,6 +1074,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * concession or accepted suggestion): what they hadn't watched shows at once and the result's dialog stays until their
      * own OK. [failed] (main thread) when the device can't show it. */
     fun holdEnd(message: GameRevision, failed: () -> Unit) {
+        remote?.let { r ->
+            revision = message.resultRevision
+            r.request("holdEnd", { org.asyncttwiz.automatum.boundary.DeviceRequest.HoldEnd(it, message) }) { if ((it as? org.asyncttwiz.automatum.boundary.DeviceResult.Flag)?.flag != true) failed() }
+            return
+        }
         revision(message)
         worker.run {
             val shownEnd = device.showToTheEnd()
@@ -1027,6 +1093,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val update = message.engine
         val texts = listOfNotNull(message.engineEvent) + update?.events.orEmpty()
         if (texts.isEmpty() && update == null) return
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Revision(it, message) }; return }
         worker.run {
             val events = texts.map(codec::decodeEvent)
             // HIS-106, HIS-108, HIS-035 (owner 2026-11-07): coming back to a branch or undo of what the player had seen,
@@ -1097,7 +1164,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
 
     /** The server refused [action] (outcome other than accepted) for [reason]. */
-    fun refused(action: GameAction, reason: String?) = worker.run {
+    fun refused(action: GameAction, reason: String?) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Refused(it, action, reason) } ?: worker.run {
         val tip = device.session.tip
         val local = device.session.localHead
         device.refused(action, reason ?: "refused")
@@ -1115,6 +1182,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun assumeReveals(value: AssumeReveals) {
         if (value == reveals) return
         reveals = value
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Reveals(it, value) }; return }
         worker.run {
             if (!this::device.isInitialized) return@run
             device.assumeReveals(value)
@@ -1125,7 +1193,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides
      * an assumption (HIS-096). */
-    fun tick(now: Long) = worker.run {
+    fun tick(now: Long) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Tick(it, now) } ?: worker.run {
         this.now = now
         val before = device.status
         val tip = device.session.tip
@@ -1154,7 +1222,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
 
     /** LOB-089 (report KX8GYS): the board shown and what the player can do on it, into the app log, just before a problem report. */
-    fun logBoard(done: () -> Unit = {}) = worker.call({ previous?.engine?.state?.let { state ->
+    fun logBoard(done: () -> Unit = {}) = remote?.run { request("logBoard", { org.asyncttwiz.automatum.boundary.DeviceRequest.LogBoard(it) }) { done() } } ?: worker.call({ previous?.engine?.state?.let { state ->
         AppLog.info("game", gameLog.board(state, GameLog.options(state, device.me)))
         // Problem report QVERHX: where playback stands and what holds the view (why the main button shows or not)
         AppLog.info("game", "View: ${device.viewState()}")
@@ -1219,7 +1287,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [repro] as a callback (web client step 4c): [done] gets the bundle on the caller's thread (on Android before this
      * returns). */
-    fun repro(done: (GameRepro?) -> Unit) = worker.call({ reproNow() }, done)
+    fun repro(done: (GameRepro?) -> Unit) = remote?.run { request("repro", { org.asyncttwiz.automatum.boundary.DeviceRequest.Repro(it) }) { done((it as? org.asyncttwiz.automatum.boundary.DeviceResult.Repro)?.repro) } }
+        ?: worker.call({ reproNow() }, done)
 
     /** [repro]'s bundle, made on the engine thread. */
     private fun reproNow(): GameRepro? = runCatching {
@@ -1240,14 +1309,16 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }.getOrNull()
 
     /** What to send now (drained), waiting for the engine thread. */
-    fun take(now: Long): List<GameAction> = worker.await { device.take(now) }
+    fun take(now: Long): List<GameAction> = worker.await { local("take").take(now) }
 
     /** Web client step 4c: what to send now (drained), given to [deliver] on the caller's thread (on Android before this
      * returns, as [take] gives it; in the browser when the engine side answers). */
-    fun takeNow(now: Long, deliver: (List<GameAction>) -> Unit) = worker.call({ device.take(now) }, deliver)
+    fun takeNow(now: Long, deliver: (List<GameAction>) -> Unit) = remote?.run { request("take", { org.asyncttwiz.automatum.boundary.DeviceRequest.Take(it, now) }) { deliver(actions(it)) } }
+        ?: worker.call({ device.take(now) }, deliver)
 
     /** What to send now (drained), given to [deliver] on the main thread without waiting for the engine thread. */
-    fun take(now: Long, deliver: (List<GameAction>) -> Unit) = worker.run {
+    fun take(now: Long, deliver: (List<GameAction>) -> Unit) = remote?.run {
+        request("take", { org.asyncttwiz.automatum.boundary.DeviceRequest.Take(it, now) }) { actions(it).takeIf { a -> a.isNotEmpty() }?.let(deliver) } } ?: worker.run {
         val actions = device.take(now)
         if (actions.isNotEmpty()) worker.main { deliver(actions) }
     }
@@ -1259,6 +1330,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted = answered { send(inputs, table, it) }
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList(), result: (GameDevice.Acted) -> Unit) {
         if (inputs.isEmpty()) return result(GameDevice.Acted.Refused("nothing"))
+        remote?.let { r -> r.request("send", { org.asyncttwiz.automatum.boundary.DeviceRequest.Send(it, seen(), inputs, table) }, r.actedFailed) { result(r.acted(it)) }; return }
         early("send", result, on = GameDevice.madeOn(inputs), inputs = inputs) { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
@@ -1278,18 +1350,20 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** One input of the player's own (a pass, a keep, a concession). */
     fun act(input: Input): GameDevice.Acted = answered { act(input, it) }
-    fun act(input: Input, result: (GameDevice.Acted) -> Unit) =
+    fun act(input: Input, result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("act", { org.asyncttwiz.automatum.boundary.DeviceRequest.Act(it, seen(), input) }, actedFailed) { result(acted(it)) } } ?:
         early("act", result, on = GameDevice.madeOn(listOf(input))) { performed -> device.act(input, performed = performed) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. SYS-011 (smoke
      * 2026-11-04): tapped on a board the device has moved on from within the player's own turn (its own steps after
      * their previous action), it ends that turn all the same ([GameDevice.sameEndTurn]). */
-    fun endTurn(result: (Unit) -> Unit = {}) =
+    fun endTurn(result: (Unit) -> Unit = {}) = remote?.run { request("endTurn", { org.asyncttwiz.automatum.boundary.DeviceRequest.EndTurn(it, seen()) }) { result(Unit) } } ?:
         acting(Unit, "endTurn", same = { seen, moved -> GameDevice.sameEndTurn(seen, moved, PlayerId(me)) }, result = result) { device.endTurn(now) }
 
     /** The waiting bar's Assume button (§4): the opponent's pass, or [blocks] (the Assume blockers screen's). */
     fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = answered { assume(blocks, it) }
-    fun assume(blocks: List<Block> = emptyList(), result: (GameDevice.Acted) -> Unit) =
+    fun assume(blocks: List<Block> = emptyList(), result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("assume", { org.asyncttwiz.automatum.boundary.DeviceRequest.Assume(it, seen(), blocks) }, actedFailed) { result(acted(it)) } } ?:
         acting(STALE, "assume", done = { seen ->
             // TRN-017: a tap is the player's own action: it ends a Resolve chain going on, also when it is that very press
             GameDevice.Acted.Confirmed.takeIf { answeredAsAssumed(seen, blocks) }?.also { device.endChain("own press") }
@@ -1317,26 +1391,33 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
 
     fun table(changes: List<TableChange>): GameDevice.Acted = answered { table(changes, it) }
-    fun table(changes: List<TableChange>, result: (GameDevice.Acted) -> Unit) = acting(STALE, "table", result = result) { device.table(changes) }
+    fun table(changes: List<TableChange>, result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("table", { org.asyncttwiz.automatum.boundary.DeviceRequest.Table(it, seen(), changes) }, actedFailed) { result(acted(it)) } } ?: acting(STALE, "table", result = result) { device.table(changes) }
     /** Conceding is taken at any time (CR 104.3a), whatever the table showed. */
     fun concede(): GameDevice.Acted = answered { concede(it) }
-    fun concede(result: (GameDevice.Acted) -> Unit) = worker.call({ device.concede() }) { after(); result(it) }
+    fun concede(result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("concede", { org.asyncttwiz.automatum.boundary.DeviceRequest.Concede(it, seen()) }, actedFailed) { result(acted(it)) } } ?: worker.call({ device.concede() }) { after(); result(it) }
     fun suggest(result: GameResult, note: String = ""): GameDevice.Acted = answered { suggest(result, note, it) }
-    fun suggest(result: GameResult, note: String = "", answer: (GameDevice.Acted) -> Unit) =
+    fun suggest(result: GameResult, note: String = "", answer: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("suggest", { org.asyncttwiz.automatum.boundary.DeviceRequest.Suggest(it, seen(), result, note) }, actedFailed) { answer(acted(it)) } } ?:
         acting(STALE, result = answer) { device.suggest(result, note) }
     fun answerSuggestion(accept: Boolean): GameDevice.Acted = answered { answerSuggestion(accept, it) }
-    fun answerSuggestion(accept: Boolean, result: (GameDevice.Acted) -> Unit) = acting(STALE, result = result) { device.answerSuggestion(accept) }
+    fun answerSuggestion(accept: Boolean, result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("answerSuggestion", { org.asyncttwiz.automatum.boundary.DeviceRequest.AnswerSuggestion(it, seen(), accept) }, actedFailed) { result(acted(it)) } } ?: acting(STALE, result = result) { device.answerSuggestion(accept) }
     /** TRN-065: the player's OK on the result the rules gave: they stay here until the other player's makes it final. */
     fun confirmResult(): GameDevice.Acted = answered { confirmResult(it) }
-    fun confirmResult(result: (GameDevice.Acted) -> Unit) = acting(STALE, result = result) { device.confirmResult() }
+    fun confirmResult(result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("confirmResult", { org.asyncttwiz.automatum.boundary.DeviceRequest.ConfirmResult(it, seen()) }, actedFailed) { result(acted(it)) } } ?: acting(STALE, result = result) { device.confirmResult() }
     /** TRN-065: the player's OK taken back, until it is final. */
     fun takeBackResult(): GameDevice.Acted = answered { takeBackResult(it) }
-    fun takeBackResult(result: (GameDevice.Acted) -> Unit) = acting(STALE, result = result) { device.takeBackResult() }
-    fun settings(settings: PlaySettings) = worker.call({ device.settings(settings) }) { after() }
+    fun takeBackResult(result: (GameDevice.Acted) -> Unit) = remote?.run {
+        request("takeBackResult", { org.asyncttwiz.automatum.boundary.DeviceRequest.TakeBackResult(it, seen()) }, actedFailed) { result(acted(it)) } } ?: acting(STALE, result = result) { device.takeBackResult() }
+    fun settings(settings: PlaySettings) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Settings(it, settings) } ?: worker.call({ device.settings(settings) }) { after() }
 
     /** HIS-035: the app left ([GameDevice.away]): playback pauses at once, and the return starts paused until Play. */
     fun away() {
         awayPaused = true
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Away(it) }; return }
         worker.run { device.away(); publish() }
     }
 
@@ -1344,6 +1425,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun returned() {
         if (!awayPaused) return
         awayPaused = false
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Returned(it) }; return }
         worker.run {
             val before = device.status
             device.returned()
@@ -1365,7 +1447,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * player's pause made, ends and playback goes on, its first step right away (HIS-023): the first board published
      * after it already shows the next event (owner playtest 2026-11-05: nothing waited for after the tap). Over a held
      * take-back ([Held]) the take-back plays first ([releaseHeld]). */
-    fun startPlayback() = worker.run {
+    fun startPlayback() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.StartPlayback(it) } ?: worker.run {
         AppLog.info("game", "Centre text tapped: ${device.viewState()}${if (heldWork != null) ", a take-back held" else ""}")
         if (heldWork != null) { releaseHeld(); return@run }
         // HIS-106 (owner 2026-11-08): from the stop at the branch point the other player's new events play back as a plain
@@ -1383,7 +1465,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * opens, or the held events play on. The table has closed the panel already (owner, 2026-11-12: OK dismissed late);
      * how long the engine thread took to get to it and to publish after it reaches the report.
      */
-    fun dismissReveal(reveal: GameDevice.Reveal, pressedAt: Long) = worker.run {
+    fun dismissReveal(reveal: GameDevice.Reveal, pressedAt: Long) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.DismissReveal(it, reveal, pressedAt) } ?: worker.run {
         val start = clock()
         val done = device.dismissReveal(reveal.event)
         val dismissed = clock()
@@ -1401,7 +1483,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     @Volatile private var showPlays = false
 
     /** HIS-112: the table shows plays ([on]) or not (0 s): turned off, the one showing ends and the view goes on. */
-    fun showPlays(on: Boolean) = worker.run {
+    fun showPlays(on: Boolean) = remote?.let { r -> if (showPlays != on) { showPlays = on; r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.ShowPlays(it, on) } } } ?: worker.run {
         if (showPlays == on) return@run
         showPlays = on
         if (!this::device.isInitialized) return@run
@@ -1412,7 +1494,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** HIS-112: the play shown [show] is done (its time is up, or the player tapped it): the next one shows, or the view
      * goes on. Nothing when it is no longer the one shown (taken back meanwhile). */
-    fun dismissShow(show: GameDevice.PlayShow) = worker.run {
+    fun dismissShow(show: GameDevice.PlayShow) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.DismissShow(it, show) } ?: worker.run {
         val start = clock()
         if (!device.dismissShow(show)) return@run
         val stepped = stepsAfterHold()
@@ -1425,7 +1507,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** HIS-113: the combat moment [hold] is done (its time is up, or the player tapped the table): the next moment comes, or
      * the view goes on. Nothing when it is no longer the one (taken back meanwhile). */
-    fun dismissCombatHold(hold: GameDevice.CombatHold, why: String = "its time") = worker.run {
+    fun dismissCombatHold(hold: GameDevice.CombatHold, why: String = "its time") = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.DismissCombatHold(it, hold, why) } ?: worker.run {
         val done = device.dismissCombatHold(hold)
         // Problem report QVERHX: each combat hold's end reaches the report, with what ended it
         AppLog.info("game", "Combat hold ${hold.kind::class.simpleName} in ${hold.event.take(8)} ${if (done) "done" else "already gone"}: $why")
@@ -1448,7 +1530,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
 
     /** HIS-112, HIS-113: every play shown and combat moment ends (timeline mode entered). */
-    fun dismissShows() = worker.run {
+    fun dismissShows() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.DismissShows(it) } ?: worker.run {
         var any = false
         while (device.dismissShow() || device.dismissCombatHold()) any = true
         if (any) stepsAfterHold()
@@ -1456,17 +1538,17 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */
-    fun pause() = worker.call({ device.pausing = true; publish(); Unit }) {}
+    fun pause() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Pause(it) } ?: worker.call({ device.pausing = true; publish(); Unit }) {}
 
     /** Timeline mode entered while playback runs (HIS-006): playback waits paused for the centre text. */
-    fun holdPlayback() = worker.call({ device.holdPlayback(); publish(); Unit }) {}
+    fun holdPlayback() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.HoldPlayback(it) } ?: worker.call({ device.holdPlayback(); publish(); Unit }) {}
 
     /** Playback: the next buffered event, unless it stops before it. */
     fun step(): GameEvent? = answered { step(it) }
-    fun step(result: (GameEvent?) -> Unit) = worker.call({ device.step() }) { if (it != null) after(); result(it) }
+    fun step(result: (GameEvent?) -> Unit) = remote?.run { request("step", { org.asyncttwiz.automatum.boundary.DeviceRequest.Step(it) }) { result(event(it)) } } ?: worker.call({ device.step() }) { if (it != null) after(); result(it) }
 
     /** Plays on at once to the next stop (tests and simulations). */
-    fun playToStop(): List<GameEvent> = worker.await { device.playToStop() }.also { after() }
+    fun playToStop(): List<GameEvent> = worker.await { local("playToStop").playToStop() }.also { after() }
 
     /**
      * Undo (HIS-084): the button's tap ([GameDevice.undoTap]: right after the player's own action, while it is still being
@@ -1476,8 +1558,13 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * player's input in between makes it stale unless the same decision waits there.
      */
     fun undo(target: String? = null): GameDevice.Undo = answered { undo(target, it) }
-    fun undo(target: String? = null, result: (GameDevice.Undo) -> Unit) =
-        acting<GameDevice.Undo>(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true, result = { undo ->
+    fun undo(target: String? = null, result: (GameDevice.Undo) -> Unit) = remote?.run {
+        request("undo", { org.asyncttwiz.automatum.boundary.DeviceRequest.Undo(it, seen(), target) }, { org.asyncttwiz.automatum.boundary.DeviceResult.Undo(GameDevice.Undo.Unavailable("failed")) }) { r ->
+            val undo = (r as? org.asyncttwiz.automatum.boundary.DeviceResult.Undo)?.undo ?: GameDevice.Undo.Unavailable("failed")
+            AppLog.info("undo", "Undo ${if (target == null) "tapped" else "to $target"}: $undo; tip ${shown?.tip} (the device in the worker)")
+            result(undo)
+        }
+    } ?: acting<GameDevice.Undo>(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true, result = { undo ->
             AppLog.info("undo", "Undo ${if (target == null) "tapped" else "to $target"}: $undo; tip ${shown?.tip}")
             result(undo)
         }) {
@@ -1493,7 +1580,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
     fun undoNeedsRequest(target: String): Boolean? = worker.await {
-        val session = device.session
+        val session = local("undoNeedsRequest").session
         if (session.drafting) return@await null
         val after = device.lineAfter(target) ?: return@await true
         if (after.isEmpty()) return@await null
@@ -1512,13 +1599,20 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [undoPreview] as a callback (web client step 4c): [done] gets it on the caller's thread (on Android before this
      * returns; in the browser when the engine side answers, and the dialog shows it then). */
-    fun undoPreview(target: String, done: (UndoPreview) -> Unit) = worker.call({ undoPreviewOn(target) }) { preview ->
+    fun undoPreview(target: String, done: (UndoPreview) -> Unit) = remote?.run {
+        request("undoPreview", { org.asyncttwiz.automatum.boundary.DeviceRequest.UndoPreview(it, target) }) { result ->
+            val p = result as? org.asyncttwiz.automatum.boundary.DeviceResult.Preview
+            val preview = if (p == null) UndoPreview(null, true) else UndoPreview(board(p.board), p.needsRequest, p.loading)
+            if (!preview.loading) done(preview)
+            else loadFor(target) { started -> done(if (started) preview else UndoPreview(null, true)) }
+        }
+    } ?: worker.call({ undoPreviewOn(target) }) { preview ->
         if (!preview.loading) done(preview)
         else loadFor(target) { started -> done(if (started) preview else UndoPreview(null, true)) }
     }
 
     /** [undoPreview]'s view, worked out on the engine thread (before any older history is asked for). */
-    private fun undoPreviewOn(target: String): UndoPreview {
+    internal fun undoPreviewOn(target: String): UndoPreview {
         val session = device.session
         if (session.drafting) return UndoPreview(null, null)
         val after = device.lineAfter(target) ?: return UndoPreview(null, true)
@@ -1536,14 +1630,17 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
     fun requestUndo(target: String, message: String) {
         AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}, with a message of ${message.length} characters")
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestUndo(it, target, message) }; return }
         worker.call({ device.requestUndo(target, message) }) { after() }
     }
     fun answerRequest(accept: Boolean) {
         AppLog.info("undo", "Undo request answered: ${if (accept) "accepted" else "denied"}")
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.AnswerRequest(it, accept) }; return }
         worker.call({ device.answerRequest(accept) }) { after() }
     }
     fun cancelRequest() {
         AppLog.info("undo", "Undo request cancelled")
+        remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.CancelRequest(it) }; return }
         worker.call({ device.cancelRequest() }) { after() }
     }
 
@@ -1568,7 +1665,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
         same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision,
         done: ((Shown) -> T?)? = null, own: Boolean = false, result: (T) -> Unit, work: () -> T) {
-        val board = shown
+        val board = hostSeen ?: shown
         val seen = board?.version
         var refused = false
         val timing = what?.let(::timing)
@@ -1603,7 +1700,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      */
     private fun early(what: String, answer: (GameDevice.Acted) -> Unit, done: ((Shown) -> GameDevice.Acted?)? = null,
         on: arcanum.engine.state.ObjectId? = null, inputs: List<Input> = emptyList(), work: (performed: () -> Unit) -> GameDevice.Acted) {
-        val board = shown
+        val board = hostSeen ?: shown
         val seen = board?.version
         val timing = timing(what)
         val result = AtomicReference<GameDevice.Acted?>(null)
@@ -1754,7 +1851,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** [work] with the device for the table's own actions worked out from the board shown now ([acting]: [stale] when
      * the device has moved on from it), e.g. a card's place and the combat staging. */
     fun <T> onShown(stale: T, work: (GameDevice) -> T): T = answered { onShown(stale, it, work) }
-    fun <T> onShown(stale: T, result: (T) -> Unit, work: (GameDevice) -> T) = acting(stale, after = false, result = result) { work(device) }
+    fun <T> onShown(stale: T, result: (T) -> Unit, work: (GameDevice) -> T) = remote?.let {
+        // Web client step 4c: the table's own work with the device (the combat staging) isn't across the boundary yet
+        AppLog.warn("engine", "Own work with the device asked of the device in the worker: not across the boundary yet, refused")
+        result(stale)
+    } ?: acting(stale, after = false, result = result) { work(device) }
 
     /** An own action's result returned, for callers that read it at once (tests, simulations, nested actions on the
      * engine thread): only where the engine side answers before the call returns ([EngineWorker.await]). */
@@ -1871,6 +1972,53 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** Tests and measurements: each own action's probe once reported, with every part that arrived (main thread). */
     var measured: ((OwnActionTiming) -> Unit)? = null
+
+    // ---- Web client step 4c part 3: the device in the engine's Web Worker
+
+    /** The device in the worker (the page's side of it), or null: the device is here. */
+    private val remote: RemoteDevice? = device?.open(this, snapshot)
+    /** Whether the worker's device was opened ([load]'s first call opens it, later ones load it again). */
+    private var opened = false
+
+    /** Whether this game's device lives in the engine's Web Worker (its [device] isn't here). */
+    val inWorker: Boolean get() = remote != null
+
+    /** The engine side in the worker: the board the page showed when the player acted ([DeviceHost]), which an own action
+     * is checked against instead of the newest published ([acting], [early]); null: the newest (Android: the main thread's). */
+    internal var hostSeen: Shown? = null
+
+    /** The cards the device names for the engine, as the page's card records find them ([RemoteDevice]'s lookups). */
+    internal val namedCardsOnPage: org.asyncttwiz.protocol.game.NamedCards get() = namedCards
+
+    /** The version of the board shown now, which an own action is made on (the worker checks it, SYS-011). */
+    private fun seen(): Long? = shown?.version
+
+    /** The device here, for what only works beside it ([read], the result-returning reads): fails loudly when the device is in
+     * the worker. */
+    private fun local(what: String): GameDevice {
+        check(remote == null) { "$what reads the device, which is in the engine's worker: use the request's callback form" }
+        return device
+    }
+
+    /** The page (main thread): a board the worker's device published, with the notes published with it, and its take-back
+     * count. */
+    internal fun remotePublished(shown: Shown, notes: List<GameDevice.Note>, takeBacks: Long, lastTakeBack: String) {
+        this.notes.addAll(notes)
+        this.takeBacks = takeBacks
+        this.lastTakeBack = lastTakeBack
+        this.shown = shown
+        observer?.shown(shown.version)
+        EngineShownProbe.listener?.invoke(me, shown)
+        EngineShownProbe.all?.invoke(me, shown, notes)
+        loadFailed = false
+        onShown()
+    }
+
+    /** The page (main thread): the worker's device couldn't load the game. */
+    internal fun remoteLoadFailed() { loadFailed = true; onShown() }
+
+    /** The page closes the game: its device in the worker is forgotten (nothing here when the device is here). */
+    fun close() { remote?.close() }
 
     // Last, once every property above is set
     init { load(snapshot, base) }

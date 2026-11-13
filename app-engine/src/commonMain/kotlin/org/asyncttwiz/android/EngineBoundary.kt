@@ -34,6 +34,20 @@ object EngineBoundary {
      * good and nothing is kept. */
     private val waits = LinkedHashMap<String, () -> Unit>()
 
+    /**
+     * Web client step 4c part 3: the browser's channel to the games' devices in the engine's Web Worker, installed when the
+     * page puts them there ([useDevices]); games opened then keep their device there ([EngineGame]'s `device`). Null on
+     * Android (each device on the engine thread, in-process) and on a page that keeps them on its own thread.
+     */
+    var devices: DeviceChannel? = null
+        private set
+
+    /** Installs the web page's channel to the devices in the worker. */
+    fun useDevices(channel: DeviceChannel) {
+        devices = channel
+        log.log(false, "Engine boundary: the games' devices go to the engine's Web Worker")
+    }
+
     /** Installs the web page's worker channel [channel]. */
     fun useRemote(channel: EngineChannel) {
         remote = channel
@@ -45,6 +59,7 @@ object EngineBoundary {
         if (remote == null) return
         remote = null
         log.log(true, "Engine boundary: the worker is lost ($why): planning in-process on the page from now on")
+        devices?.lost(why)
         val woken = waits.values.toList()
         waits.clear()
         woken.forEach { it() }
@@ -60,5 +75,5 @@ object EngineBoundary {
     internal fun stopWaiting(game: String, wake: () -> Unit) { if (waits[game] === wake) waits.remove(game) }
 
     /** Tests: back to no worker. */
-    fun reset() { remote = null; waits.clear() }
+    fun reset() { remote = null; devices = null; waits.clear() }
 }

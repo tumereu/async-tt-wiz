@@ -143,6 +143,19 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
         while (boards.size > KEEP) boards.remove(boards.keys.first())
     }
 
+    /** Web client step 4c part 3: [b], a board outside the published ones (timeline mode's, a preview's), with its engine
+     * state whole and the events and card data the page lacks; the page's mirror isn't moved by it. */
+    fun loose(b: TableBoard): org.asyncttwiz.automatum.boundary.LooseBoard {
+        val engine = b.engine
+        val values = b.values
+        val state = engine?.let { e -> shadow.whole(e.state, values?.shownTable ?: e.table) }
+        val seen = values?.shownVisible?.toList()
+        val wire = TableBoardWire(null, TableBoardWire.FRESH, b.gameId, b.playId, b.nodeId, states.wire(b.board), definitions.ref(b.definitions),
+            state, values?.viewer ?: engine?.viewer?.value, seen?.let { ListDelta.of(emptyList(), it) }, values?.computed?.wire(),
+            values?.handPlays, values?.cardPlays, values?.openingBottom ?: 0, b.damageDealt)
+        return org.asyncttwiz.automatum.boundary.LooseBoard(events.take(), definitions.take(), wire)
+    }
+
     /** The page loads the game anew (a new channel): everything is sent again. */
     fun clear() {
         events.clear(); states.clear(); shadow.clear(); boards.clear()
@@ -242,6 +255,26 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
         val values = EngineBoardValues(viewer, computed, EngineProjection.Board(board, defs), game, view.state, null, seen, engine, table,
             lines, number = number, bottom = w.openingBottom).also { it.restoredPlays(w.handPlays, w.cardPlays) }
         return TableBoard(game, playId, nodeId, board, defs, view, values, w.damageDealt).also { remember(number, it) }
+    }
+
+    /** Web client step 4c part 3: a board outside the published ones ([ShownEncoder.loose]), its engine state its own. */
+    fun loose(loose: org.asyncttwiz.automatum.boundary.LooseBoard): TableBoard {
+        events.add(loose.events)
+        definitions.add(loose.definitions)
+        val w = loose.board
+        val board = states.board(checkNotNull(w.board) { "A board without its cards" })
+        val defs = definitions.of(w.definitions)
+        val game = w.gameId ?: gameId
+        val ref = w.state
+        val viewer = w.viewer
+        if (ref == null || viewer == null) return TableBoard(game, checkNotNull(w.playId), checkNotNull(w.nodeId), board, defs, null, null, w.damageDealt)
+        val (state, table) = mirror.state(ref as StateRef.Whole, events::get)
+        val seen = (w.visible?.applied(emptyList()) ?: emptyList()).toSet()
+        val view = EngineView(state, table, PlayerId(viewer), seen)
+        val computed = w.computed?.let { ComputedBoard.restored(it, view.state) } ?: ComputedBoard.NONE
+        val values = EngineBoardValues(viewer, computed, EngineProjection.Board(board, defs), game, view.state, null, seen, engine, table,
+            null, bottom = w.openingBottom).also { it.restoredPlays(w.handPlays, w.cardPlays) }
+        return TableBoard(game, checkNotNull(w.playId), checkNotNull(w.nodeId), board, defs, view, values, w.damageDealt)
     }
 
     /** The walk a message's boards of one motion share ([StateRef.Steps]): its events and where it has got to. */

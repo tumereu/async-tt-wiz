@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.await
 import android.app.Activity
 import android.content.ContextWrapper
 import android.os.Handler
@@ -340,7 +341,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         // What the device did (its record, as a problem report's bundle holds it) and every short-lived text it showed
         runCatching {
             val open = game ?: last
-            val line = open?.let { g -> engineWorker.call { g.device.session.let { s -> s.events.takeLast(60) + s.pending } } }.orEmpty()
+            val line = open?.let { g -> engineWorker.await { g.device.session.let { s -> s.events.takeLast(60) + s.pending } } }.orEmpty()
                 .joinToString("\n") { e -> "${e.id.take(8)} on ${e.parentId.take(8)} by ${e.author.take(8)}${if (e.assumed != null) " (assumed)" else ""}: " +
                     e.engine?.steps?.mapNotNull { it.input }?.joinToString().orEmpty() + if (e.table.isNotEmpty()) " table ${e.table.map { it::class.simpleName }}" else "" }
             File(dir, "${account.name}-device.txt").writeText(open?.repro()?.log.orEmpty().joinToString("\n") + "\n\n-- line (last 60, then pending)\n" + line)

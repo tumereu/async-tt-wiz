@@ -40,6 +40,20 @@ class DeviceInWorkerTest {
         }
     }
 
+    /** A cast panel on [game]'s board as the table makes it: its flow session beside the game's device (web client step 4e: in
+     * the worker for a game whose device is there, its answers delivered by [pump]; here at once otherwise); [sent]: the
+     * complete cast's own inputs. */
+    private fun panel(game: EngineGame, viewer: String, sent: (List<arcanum.engine.input.Input>) -> Unit) =
+        CastController(viewer, { game.play() }, { }, engineSend = { inputs -> sent(inputs); null },
+            port = TableCastPort(LocalCastPort(viewer) { work, done -> done(work()) }) { game })
+
+    /** What the cast panel draws, compared across a session here and one in the worker, with the text ([codecOf]'s codec) of
+     * the flow's state (the flow's own here; the page's copy of its board with the flow's changes in the worker's case). */
+    private fun panelShape(c: CastController, codecOf: EngineGame) = listOf(c.flow?.value?.copy(changes = null), c.mana, c.paid,
+        c.payment, c.pick?.options, c.ways, c.hand, c.choosing, c.picked, c.notice, c.busy, c.listedAnswers(),
+        c.flow?.pending?.let { c.most(it) }, c.paySources(), c.payableSources(), c.targeting, c.open,
+        c.flow?.state?.let { codecOf.codec.encodeModel(org.asyncttwiz.protocol.game.GameModel(it, org.asyncttwiz.protocol.game.TableState())) })
+
     private fun pair(otherKept: Boolean = true): Pair<EngineGame, EngineGame> {
         val local = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = otherKept), ids = counter())
         val remote = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = otherKept), device = channel)
@@ -298,19 +312,25 @@ class DeviceInWorkerTest {
         val blocked = assertNotNull(blocker, "Bob blocked")
         assertEquals(GameDevice.Status.YourMove, local.shown?.status, "Alice holds priority after the block")
 
-        // Storm Spark at the blocker: the cast panel works its target and payment out on each side's board
+        // Storm Spark at the blocker: the cast panel's flow session works its target and payment out where each side's device
+        // is (web client step 4e: in the worker for the remote copy, its target bar drawn from the values it answers)
+        val shapes = mutableMapOf<EngineGame, List<Any?>>()
         fun castInputs(game: EngineGame): List<arcanum.engine.input.Input> {
             var sent: List<arcanum.engine.input.Input>? = null
-            val cast = CastController(a, { game.play() }, { }, engineSend = { inputs -> sent = inputs; null })
+            val cast = panel(game, a) { sent = it }
             val s = game.shown!!.engine
             val spark = sc.cards(s, me, s.player(me).hand, "Storm Spark").first()
             assertTrue(cast.begin((spark as arcanum.engine.state.ObjectId.Card).card.value, arcanum.engine.input.Input.Cast(me, spark)))
+            pump()
+            shapes[game] = panelShape(cast, local)
             val pick = assertNotNull(cast.pick, "Storm Spark asks for its target")
             cast.answer(pick.answer(listOf(arcanum.engine.state.TargetRef.Object(blocked))))
+            pump()
             return assertNotNull(sent, "the cast went out with its payment (Autotap)")
         }
         val inputs = castInputs(remote)
-        assertEquals(castInputs(local), inputs, "the cast worked out on the page's copy of the board is the same")
+        assertEquals(castInputs(local), inputs, "the cast worked out in the worker's session is the same")
+        assertEquals(shapes[local], shapes[remote], "the same target bar from the worker's values")
         assertTrue(local.send(inputs) !is GameDevice.Acted.Refused)
         var cast: GameDevice.Acted? = null
         remote.send(inputs) { cast = it }
@@ -370,5 +390,99 @@ class DeviceInWorkerTest {
         remote.repro { repro = it }
         pump()
         assertEquals(local.repro()?.events?.size, repro?.events?.size)
+    }
+
+    /** Alice's game in her Main 1 with a Mountain on the battlefield and [cards] for her deck, opened twice from the same
+     * snapshot: her device here and her device in the worker. */
+    private fun mainWith(vararg cards: String): Pair<EngineGame, EngineGame> {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = cards.toList())))
+        kit.opening()
+        kit.playLand()
+        val f = kit.scenario.f
+        val snapshot = kit.scenario.sim.snapshot(f.a)
+        val local = EngineGame(f.game.id, f.a, f.base, snapshot, ids = counter(), worker = HostWorker)
+        val remote = EngineGame(f.game.id, f.a, f.base, snapshot, device = channel)
+        pump()
+        assertEquals(shape(local.shown), shape(remote.shown), "both open in Alice's Main 1")
+        return local to remote
+    }
+
+    /** [steps] of a cast panel on [game] (its session in the worker when the device is there): each panel it showed and the
+     * cast's own inputs sent. */
+    private fun panelSteps(game: EngineGame, codecOf: EngineGame, steps: List<(CastController) -> Boolean>): Pair<List<List<Any?>>, List<arcanum.engine.input.Input>?> {
+        var sent: List<arcanum.engine.input.Input>? = null
+        val cast = panel(game, game.me) { sent = it }
+        val shown = mutableListOf<List<Any?>>()
+        for (step in steps) {
+            assertTrue(step(cast), "a step taken: ${cast.notice}")
+            pump()
+            shown += panelShape(cast, codecOf)
+        }
+        return shown to sent
+    }
+
+    private fun handCard(game: EngineGame, name: String): String {
+        val s = game.shown!!.engine
+        return s.player(arcanum.engine.state.PlayerId(game.me)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
+            .let { (it as arcanum.engine.state.ObjectId.Card).card.value }
+    }
+
+    // Web client step 4e, STK-023: Ember Burst ({X}: X damage to any target) cast through a flow session in the worker beside
+    // Alice's device: its X step with the most her one Mountain pays, its target bar, then its payment and send give the page
+    // the same panels (the values the worker answers, the page's copy of the board with the flow's changes) and the same inputs
+    // as a session here; the worker's session log reaches the page's app log
+    @Test fun anXSpellThroughTheWorkersSessionGivesTheSamePanels() {
+        val (local, remote) = mainWith(EngineGameFixture.Choices.BURST, "Mountain")
+        val bob = arcanum.engine.state.TargetRef.Player(arcanum.engine.state.PlayerId(f.b))
+        fun steps(game: EngineGame): List<(CastController) -> Boolean> = listOf(
+            { c -> c.start(handCard(game, EngineGameFixture.Choices.BURST)) },
+            { c -> c.answer(arcanum.engine.decision.Answer.Number(1)) },
+            { c -> c.answer(assertNotNull(c.pick, "X answered, the target is next").answer(listOf(bob))) })
+        val (localPanels, localSent) = panelSteps(local, local, steps(local))
+        val (remotePanels, remoteSent) = panelSteps(remote, local, steps(remote))
+        assertIs<arcanum.engine.decision.Decision.Announce>((localPanels.first()[0] as org.asyncttwiz.automatum.boundary.CastFlowValue).pending)
+        assertEquals(1, localPanels.first()[12], "X up to what one Mountain pays")
+        assertEquals(localPanels, remotePanels)
+        assertEquals(assertNotNull(localSent, "sent with its payment (Autotap)"), remoteSent)
+        val log = AppLog.text().takeLast(20_000)
+        assertTrue("[worker] Flow session" in log && "opened: cast" in log, "the worker's session log reached the page's log")
+    }
+
+    // Web client step 4e, STK-030: Cinder Charm (choose one: 1 damage to any target, or gain 2 life) cast through a flow
+    // session in the worker: its modes, then (life chosen) straight to the send, as a session here gives on the same board
+    @Test fun aModalSpellThroughTheWorkersSessionGivesTheSamePanels() {
+        val (local, remote) = mainWith(EngineGameFixture.Choices.CHARM, "Mountain")
+        fun steps(game: EngineGame): List<(CastController) -> Boolean> = listOf(
+            { c -> c.start(handCard(game, EngineGameFixture.Choices.CHARM)) },
+            { c -> c.answer(arcanum.engine.decision.Answer.Modes(listOf(1))) })
+        val (localPanels, localSent) = panelSteps(local, local, steps(local))
+        val (remotePanels, remoteSent) = panelSteps(remote, local, steps(remote))
+        assertIs<arcanum.engine.decision.Decision.Modes>((localPanels.first()[0] as org.asyncttwiz.automatum.boundary.CastFlowValue).pending)
+        assertEquals(localPanels, remotePanels)
+        assertEquals(assertNotNull(localSent, "life chosen: sent at once"), remoteSent)
+    }
+
+    // Web client step 4e: a step for a session the worker doesn't hold (closed, or never opened) is refused as stale, a step on a
+    // board it no longer holds drops the flow, and a closed session's step is refused; the page's cast stays as it was
+    @Test fun aStepForAFlowThePageNoLongerShowsIsRefused() {
+        val (_, remote) = mainWith(EngineGameFixture.Choices.CHARM, "Mountain")
+        val answers = mutableListOf<org.asyncttwiz.automatum.boundary.CastAnswer>()
+        val change = org.asyncttwiz.automatum.boundary.CastOp.Update(org.asyncttwiz.automatum.boundary.CastChange.Back(0),
+            org.asyncttwiz.automatum.boundary.CastChoices())
+        remote.castStep(org.asyncttwiz.automatum.boundary.CastRequest(424242, 1, null, change)) { answers += it }
+        remote.castStep(org.asyncttwiz.automatum.boundary.CastRequest(424243, null, 987654321,
+            org.asyncttwiz.automatum.boundary.CastOp.Start(handCard(remote, EngineGameFixture.Choices.CHARM)))) { answers += it }
+        pump()
+        assertEquals(org.asyncttwiz.automatum.boundary.CastAnswer.Refuse(org.asyncttwiz.automatum.boundary.FlowSessions.STALE), answers[0])
+        assertEquals(org.asyncttwiz.automatum.boundary.CastAnswer.Drop(CastController.TABLE_CHANGED), answers[1])
+        // A session opened and dropped by the page (Undo) ends in the worker too, logged there
+        val cast = panel(remote, f.a) { }
+        assertTrue(cast.start(handCard(remote, EngineGameFixture.Choices.CHARM)))
+        pump()
+        assertNotNull(cast.flow, "the modes asked")
+        cast.cancel("undone at 4e")
+        pump()
+        assertTrue(!cast.open)
+        assertTrue("closed: undone at 4e" in AppLog.text().takeLast(20_000), "the worker's session closed")
     }
 }

@@ -14,29 +14,12 @@ object TopmostSources {
      * [groups] made by the topmost members of that stack able to make the same use (the same ability and colour, offered in
      * [options]); [card] tells the table card of an engine object. Other uses stay as they are.
      */
-    fun of(uses: List<ManaUse>, options: List<ManaUse>, groups: List<BattlefieldGroup>, card: (ObjectId) -> String?): List<ManaUse> {
-        val stacks = groups.filter { it.kind == BattlefieldGroup.Kind.Stack }
-        if (stacks.isEmpty() || uses.none { it is ManaUse.Ability }) return uses
-        val stackOf = HashMap<String, BattlefieldGroup>()
-        for (stack in stacks) for (member in stack.members) stackOf[member] = stack
-        val offered = options.filterIsInstance<ManaUse.Ability>().toSet()
-        // The engine objects of the table cards the options name
-        val objects = HashMap<String, ObjectId>()
-        for (use in offered) card(use.source)?.let { objects.getOrPut(it) { use.source } }
-        val taken = HashSet<String>()
-        // Cards another way of paying uses (convoke, improvise) stay with it
-        for (use in uses) if (use is ManaUse.Special) use.objects.mapNotNullTo(taken, card)
-        return uses.map { use ->
-            if (use !is ManaUse.Ability) return@map use
-            val own = card(use.source)
-            val stack = own?.let(stackOf::get)
-            val swapped = stack?.members?.asReversed()?.firstNotNullOfOrNull { member ->
-                if (member in taken) null
-                else objects[member]?.let { use.copy(source = it) }?.takeIf { it in offered }
-            }
-            (swapped ?: use).also { chosen -> card((chosen as ManaUse.Ability).source)?.let(taken::add) }
-        }
-    }
+    fun of(uses: List<ManaUse>, options: List<ManaUse>, groups: List<BattlefieldGroup>, card: (ObjectId) -> String?): List<ManaUse> =
+        TopmostMana.of(uses, options, stacks(groups), card)
+
+    /** The members of each stack of [groups] (topmost last), as [TopmostMana] takes them. */
+    fun stacks(groups: List<BattlefieldGroup>): List<List<String>> =
+        groups.filter { it.kind == BattlefieldGroup.Kind.Stack }.map { it.members }
 
     /**
      * ZON-079: the table cards [sources] (the sources Autotap would tap, outlined) with each stack of [groups] outlined on

@@ -90,6 +90,8 @@ sealed interface DeviceRequest {
         val actions: List<org.asyncttwiz.protocol.PlayAction>, val requestId: String? = null) : Own
     @Serializable @SerialName("stage") data class Stage(override val id: Long, val board: BoardState) : DeviceRequest
     @Serializable @SerialName("unstage") data class Unstage(override val id: Long) : DeviceRequest
+    /** Web client step 4e: a step of a cast flow session where the device is ([CastRequest]): [DeviceResult.Cast]. */
+    @Serializable @SerialName("cast") data class Cast(override val id: Long, val request: CastRequest) : DeviceRequest
 
     // ---- Playback and the view's holds
     @Serializable @SerialName("start-playback") data class StartPlayback(override val id: Long) : DeviceRequest
@@ -162,6 +164,8 @@ sealed interface DeviceResult {
     @Serializable @SerialName("plays") data class Plays(
         @Serializable(with = HandPlaysSerializer::class) val hand: org.asyncttwiz.automatum.HandPlays? = null,
         @Serializable(with = CardPlaysSerializer::class) val card: org.asyncttwiz.automatum.CardPlays? = null) : DeviceResult
+    /** A cast flow session's step's answer ([DeviceRequest.Cast]). */
+    @Serializable @SerialName("cast") data class Cast(val answer: CastAnswer) : DeviceResult
 }
 
 /** A board sent outside a [ShownWire] (its own engine state, sent whole), with what the page lacks to read it. */

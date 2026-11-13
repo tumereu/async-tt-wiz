@@ -2921,8 +2921,11 @@ internal class Sentences(
                 context.previous = targetsFrom to stepsFrom
             }
         } finally { announcedX = outerX }
-        val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
-        return if (x == null) result else result.withX(x)
+        val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements).let { if (x == null) it else it.withX(x) }
+        // one fixes: a spell or activated ability has no event player: "that player" (read without context as the event's player, as in "where X
+        // is the number of artifacts that player controls") is the player the instructions named before ("Choose target opponent.", CR 608.2c)
+        val named = context.lastPlayer
+        return if (event == null && named != null) result.withThatPlayer(named) else result
     }
 
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
@@ -25354,6 +25357,29 @@ private fun Instructions.withX(x: Value): Instructions {
         else -> e
     }
     return json.decodeFromJsonElement(Instructions.serializer(), replace(json.encodeToJsonElement(Instructions.serializer(), this)))
+}
+
+/** Mechanic types, by serial name (a replacement's own "that player" is its replaced event's, CR 614.1). */
+private val mechanicTypes: Set<String> by lazy { Mechanic.serializer().descriptor.getElementDescriptor(1).let { kinds -> (0 until kinds.elementsCount).map(kinds::getElementName).toSet() } }
+
+/** one fixes: [player] in place of every [Players.EventPlayer] ("that player") of instructions read without an event (CR 608.2c), except inside
+ * what has its own event: a trigger the instructions create or grant, a replacement or other mechanic watching an event. */
+private fun Instructions.withThatPlayer(player: Players): Instructions {
+    val json = kotlinx.serialization.json.Json
+    val eventPlayer = json.encodeToJsonElement(Players.serializer(), Players.EventPlayer)
+    val replacement = json.encodeToJsonElement(Players.serializer(), player)
+    fun ownEvent(e: kotlinx.serialization.json.JsonObject) = "trigger" in e ||
+        ("event" in e && (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content in mechanicTypes)
+    fun replace(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when {
+        e == eventPlayer -> replacement
+        e is kotlinx.serialization.json.JsonObject && ownEvent(e) -> e
+        e is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { replace(it.value) })
+        e is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { replace(it) })
+        else -> e
+    }
+    val encoded = json.encodeToJsonElement(Instructions.serializer(), this)
+    val replaced = replace(encoded)
+    return if (replaced == encoded) this else json.decodeFromJsonElement(Instructions.serializer(), replaced)
 }
 
 /** "[steps] unless [payer] pays [cost]" (CR 118.12a): the payer may pay; if they didn't, [steps] happen (D52). The

@@ -168,4 +168,19 @@ class OneFixesScenariosTest {
             cub.power shouldBe 2
         }
     }
+
+    private val drove = Cards.invent("Inquisitive Drove", "{3}{G}", "Instant",
+        "Choose target opponent. You create X 3/3 green Beast creature tokens, where X is the number of artifacts that player controls.")
+
+    // CR 608.2c: "that player" is the chosen opponent: X counts Carol's two artifacts, not Bob's or Alice's
+    @Test
+    fun droveCountsTheChosenOpponentsArtifacts() = scenario(players = 3) {
+        alice.battlefield("Forest", "Forest", "Forest", "Forest", relic)
+        bob.battlefield(siphon)
+        carol.battlefield(ingot, vat)
+        alice.hand(drove)
+        alice.casts(drove, targets = listOf("carol"))
+        resolveAll()
+        expect { alice.battlefield.names.count { it == "Beast Token" } shouldBe 2 }
+    }
 }

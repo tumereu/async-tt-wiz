@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 93
+    const val VERSION: Int = 94
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -371,6 +371,9 @@ object OracleParser {
                 }
             }
         }
+        // one fixes: a target slot nothing reads (a rule declared it before giving up, and another reading took the text) would still have to be
+        // chosen (CR 115.1a, c, d: a target is something the ability affects): such a reading isn't one, the line stays unread
+        result.indices.forEach { i -> if (arcanum.api.DefinitionChecks.unusedTargetSlots(result[i]).isNotEmpty()) result[i] = Ability.Unparsed(raws[i]) }
         // A spell resolves as one object (CR 608.2b): if any of its lines can't be read, none of its spell text or
         // casting costs is automated; they stay as printed for the players.
         if (isSpell && result.any { it is Ability.Unparsed }) {

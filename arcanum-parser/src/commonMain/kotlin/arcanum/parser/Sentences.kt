@@ -5900,7 +5900,9 @@ internal class Sentences(
         Gtc.GETS_MINUS_X_CONTROLLERS_GRAVEYARD.matchEntire(line)?.let { m ->
             val subject = attachedSubject(m.groupValues[1]) ?: return null
             val owner = ObjectFilter.OwnedBy(if (m.groupValues[4] == "your") PlayerFilter.You else PlayerFilter.Is(Players.ControllerOf(subject)))
-            val type = if (m.groupValues[3].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card) else Filters.noun(m.groupValues[3]) ?: return null
+            // lci chunk 13: "permanent cards" is the card types of CR 110.4a: a card in a graveyard is no permanent (CR 110.1)
+            val type = if (m.groupValues[3].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+                else Filters.noun(if (m.groupValues[3] == "permanent") "permanent card" else m.groupValues[3]) ?: return null
             val count = Value.Count(Objects.Each(Filters.all(type, ObjectFilter.InZone(Zone.Graveyard), owner)))
             val minus = Value.Times(count, -1)
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(minus, if (m.groupValues[2] == "X") minus else Value.Fixed(0))), affects = Affected.Objects(subject))

@@ -51,12 +51,13 @@ class EngineOwnActionSequenceTest {
         }
 
         override fun run(work: () -> Unit) { engine.addLast(work) }
-        override fun <T> call(work: () -> T): T { if (!onEngine) calls++; return onEngine(work) }
+        override fun <T> call(work: () -> T, done: (T) -> Unit) { if (!onEngine) calls++; done(onEngine(work)) }
         override fun main(work: () -> Unit) { mains.addLast(work) }
         override fun frame(work: () -> Unit) { nextFrames.addLast(work) }
-        override fun early(work: (release: (() -> Unit)?) -> Unit) {
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) {
             val nested = onEngine
             onEngine { if (early && !nested) work {} else work(null) }
+            released()
         }
 
         fun runEngine() {
@@ -78,7 +79,7 @@ class EngineOwnActionSequenceTest {
 
     /** The early path: [EngineWorker.early] releases the caller at the performed point; the whole path: it doesn't. */
     private class WholeThreads(private val threads: Threads) : EngineWorker by threads {
-        override fun early(work: (release: (() -> Unit)?) -> Unit) { call { work(null) } }
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) { call({ work(null) }) { released() } }
     }
 
     /** Alice at her first main phase after her keep (Bob not live: his answers assumed), everything settled. */

@@ -7,6 +7,7 @@ import org.asyncttwiz.automatum.ReproBundle
 import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.game.GameRepro
 import kotlin.concurrent.Volatile
+import kotlin.coroutines.resume
 
 /**
  * I-D43: Automatum's log in the Android log (debug level) and, in problem and crash reports, the latest game's
@@ -27,18 +28,42 @@ object AutomatumReports {
      * one was opened last, else today's Automatum bundle; empty when nothing was recorded or it can't be made. Never
      * throws (also used while the app crashes). */
     fun text(maxChars: Int = CrashReport.MAX_AUTOMATUM): String = try {
-        engine?.invoke()?.let { fitEngine(it, maxChars) }
-            ?: AutomatumLog.bundle()?.let { fit(it, maxChars) }.orEmpty()
+        // Only where the engine side answers at once (Android, while the app crashes too); else today's bundle
+        val repro = engine?.let { ask -> runCatching { Answer<GameRepro?>().also { a -> ask(a::set) }.get() }.getOrNull() }
+        text(repro, maxChars)
     } catch (_: Throwable) { "" }
 
-    /** The latest game on engine state's device bundle ([EngineGame.repro]), set while one is open on this device. */
-    @Volatile var engine: (() -> GameRepro?)? = null
+    /** [text] for a report that can wait for the engine side (web client step 4c: in the browser the device answers from
+     * its Web Worker; on Android at once, as [text]). Never throws. */
+    suspend fun textNow(maxChars: Int = CrashReport.MAX_AUTOMATUM): String = try {
+        val ask = engine
+        val repro = if (ask == null) null else kotlinx.coroutines.suspendCancellableCoroutine<GameRepro?> { c ->
+            try { ask { c.resume(it) } } catch (failure: Throwable) { c.resume(null) }
+        }
+        text(repro, maxChars)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled } catch (_: Throwable) { "" }
 
-    /** The latest open game's [EngineGame.logBoard], set while one is open on this device. */
-    @Volatile var board: (() -> Unit)? = null
+    private fun text(repro: GameRepro?, maxChars: Int): String =
+        repro?.let { fitEngine(it, maxChars) } ?: AutomatumLog.bundle()?.let { fit(it, maxChars) }.orEmpty()
+
+    /** The latest game on engine state's device bundle ([EngineGame.repro]), given to its callback (on Android before it
+     * returns), set while one is open on this device. */
+    @Volatile var engine: ((done: (GameRepro?) -> Unit) -> Unit)? = null
+
+    /** The latest open game's [EngineGame.logBoard] (its callback once the lines are in the log), set while one is open on
+     * this device. */
+    @Volatile var board: ((done: () -> Unit) -> Unit)? = null
 
     /** LOB-089: writes the latest game's board into the app log before a problem report reads it. Never throws. */
-    fun logBoard() { try { board?.invoke() } catch (_: Throwable) {} }
+    fun logBoard() { try { board?.invoke {} } catch (_: Throwable) {} }
+
+    /** [logBoard] for a report that can wait for the engine side (web client step 4c; on Android at once). Never throws. */
+    suspend fun logBoardNow() {
+        try {
+            val ask = board ?: return
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { c -> try { ask { c.resume(Unit) } } catch (failure: Throwable) { c.resume(Unit) } }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled } catch (_: Throwable) {}
+    }
 
     /** [repro] as report text ([GameRepro.REPORT_HEADER] and gzip+base64), dropping its least useful parts until it
      * fits [maxChars]: older log entries, then the oldest events (the base can't be replayed past them then), then the

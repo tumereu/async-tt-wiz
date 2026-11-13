@@ -27,6 +27,11 @@ import androidx.compose.ui.window.PopupProperties
     androidx.activity.compose.BackHandler(enabled, onBack)
 }
 
+/** The screens' own Back handlers leave them on Android. */
+@Composable actual fun LeaveScreenBackHandler(enabled: Boolean, onBack: () -> Unit) {}
+
+actual val secondBackLeavesTable: Boolean = true
+
 @Composable actual fun screenWidthDp(): Int = LocalConfiguration.current.screenWidthDp
 
 @Composable actual fun screenHeightDp(): Int = LocalConfiguration.current.screenHeightDp

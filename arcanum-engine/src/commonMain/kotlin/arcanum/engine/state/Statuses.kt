@@ -52,6 +52,11 @@ sealed interface ObjectStatus {
         override val key: String get() = "gained-in-copying"
     }
 
+    /** isd: a token's [CopiableValues.createdBy]: the object whose ability created it, or that created the token it copies (CR 201.5a). */
+    @Serializable @SerialName("created-by") data class CreatedBy(val source: ObjectId) : ObjectStatus {
+        override val key: String get() = "created-by"
+    }
+
     /** The copiable values each static copy effect that applies to it fixed as it first started to apply (CR 707.2c), kept while
      * it applies ([arcanum.engine.view.StaticCopies]). */
     @Serializable @SerialName("fixed-copies") data class FixedCopies(val copies: List<FixedCopy>) : ObjectStatus {
@@ -196,6 +201,7 @@ internal val GameObject.mergedBelow: List<MergedPart> get() = statuses.status<Ob
 internal val GameObject.protector: PlayerId? get() = statuses.status<ObjectStatus.Protector>()?.player
 internal val GameObject.flippedStatus: Boolean get() = statuses.status<ObjectStatus.Flipped>() != null
 internal val GameObject.gainedInCopying: List<Ability> get() = statuses.status<ObjectStatus.GainedInCopying>()?.abilities.orEmpty()
+internal val GameObject.createdBy: ObjectId? get() = statuses.status<ObjectStatus.CreatedBy>()?.source
 internal val GameObject.fixedCopies: List<FixedCopy> get() = statuses.status<ObjectStatus.FixedCopies>()?.copies.orEmpty()
 internal val GameObject.dealtCombatDamage: Boolean get() = statuses.status<ObjectStatus.DealtCombatDamage>() != null
 internal val GameObject.dealtDamage: Boolean get() = statuses.status<ObjectStatus.DealtDamage>() != null

@@ -143,7 +143,7 @@ class EngineGameTest {
         private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "test-engine").also { thread = it } }
         private val main = java.util.concurrent.LinkedBlockingQueue<() -> Unit>()
         override fun run(work: () -> Unit) { executor.execute(work) }
-        override fun <T> call(work: () -> T): T = if (Thread.currentThread() === thread) work() else executor.submit<T> { work() }.get()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(if (Thread.currentThread() === thread) work() else executor.submit<T> { work() }.get())
         override fun main(work: () -> Unit) { main.add(work) }
         /** Waits until the engine thread is idle and runs what it posted, until neither has anything left. */
         fun drain() {

@@ -9,6 +9,11 @@
         /* No pull-to-refresh or long-press callouts over the app (docs/specs/web-client.md §8.5) */
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f7f8f9;
             overscroll-behavior: none; -webkit-touch-callout: none; }
+        /* WEB-011: on the table and the draft the app takes every touch (pan, pinch, hold, double tap): no browser
+           scrolling, zoom or text selection there (the web shell sets the class; its listeners take zoom and menus) */
+        html.atw-table, html.atw-table body, html.atw-table canvas { touch-action: none; -webkit-user-select: none; user-select: none;
+            -webkit-tap-highlight-color: transparent; }
+        html.atw-table input, html.atw-table textarea { -webkit-user-select: text; user-select: text; }
         /* WEB-005: the first load's loading screen, until the app draws (later visits load from the browser's cache) */
         #atw-loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 16px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #244c46; background: #f7f8f9;

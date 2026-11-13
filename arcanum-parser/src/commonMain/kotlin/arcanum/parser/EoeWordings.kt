@@ -111,10 +111,22 @@ internal object EoePhrases {
         }
         // eoe chunk 13: "you play a land or cast a spell" (CR 305.1, 601.2i)
         if (Eoe.PLAY_LAND_OR_CAST.matches(text)) return listOf(EventPattern.PlayLand(ObjectFilter.Any, PlayerFilter.You), EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You))
-        // eoe chunk 11: "this creature blocks a creature with flying" (CR 509.1)
+        // isd chunk 04: "equipped creature blocks or becomes blocked by a Vampire" (once for each such creature it blocks or that blocks it,
+        // CR 509.3b, 509.3d)
+        Isd.BLOCKS_OR_BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            val other = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(EventPattern.Block(subject, other, perAttacker = true), EventPattern.BecomesBlocked(subject, other, perBlocker = true))
+        }
+        // isd chunk 04: "this creature becomes blocked by a Vampire" (once for each such blocker, CR 509.3d)
+        Isd.BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            return listOf(EventPattern.BecomesBlocked(subject, Filters.noun(m.groupValues[2]) ?: return null, perBlocker = true))
+        }
+        // eoe chunk 11: "this creature blocks a creature with flying": once for each such attacker it blocks (CR 509.3b)
         Eoe.BLOCKS_A.matchEntire(text)?.let { m ->
-            if (m.groupValues[1] !in self) return@let
-            return listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null))
+            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
+            return listOf(EventPattern.Block(subject, Filters.noun(m.groupValues[2]) ?: return null, perAttacker = true))
         }
         // eoe chunk 09: "an opponent discards a card" (CR 701.9a)
         if (text == "an opponent discards a card") return listOf(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.Opponent))

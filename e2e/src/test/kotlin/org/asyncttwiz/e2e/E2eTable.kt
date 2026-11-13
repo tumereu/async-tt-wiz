@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.await
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -39,7 +40,7 @@ internal val E2ePlayer.status: GameDevice.Status get() = shown.status
 /** Reads the engine thread's game (the device's whole state) on the engine thread. */
 internal fun <T> E2ePlayer.engine(read: EngineGame.() -> T): T {
     val open = requireNotNull(game ?: last) { "$name has no game open" }
-    return engineWorker.call { open.read() }
+    return engineWorker.await { open.read() }
 }
 
 internal val E2ePlayer.me: PlayerId get() = PlayerId(id)

@@ -1,5 +1,7 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.timeline
+import org.asyncttwiz.android.historyLoading
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher

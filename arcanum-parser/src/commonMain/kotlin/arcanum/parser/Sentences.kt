@@ -5066,10 +5066,12 @@ internal class Sentences(
         }
         // chunk 35: "It deals damage equal to its power to any target." (the source's power, CR 113.7a)
         DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" }?.let { m ->
-            val amount = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
+            // rvr sweep: "Whenever a creature you control enters, it deals damage equal to its power …": the entering creature
+            val source = if (m.groupValues[1] == "It") itDealingDamage(context) else Objects.Self
+            val amount = Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single)
             val to = if (m.groupValues[2] == "any target") { context.anyTarget(); arcanum.api.Recipients(target = "any") }
                 else arcanum.api.Recipients(players = Filters.players(m.groupValues[2]) ?: return null)
-            return listOf(Step.Do(Effect.DealDamage(to, amount, source = Objects.Self)))
+            return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
         }
         // chunk 35: "Return to your hand target artifact card in your graveyard with lesser mana value." (lesser than the
         // object of the trigger event, as it last existed, CR 603.10a)
@@ -5737,8 +5739,10 @@ internal class Sentences(
             if (condition != null && then != null) {
                 // rvr fixes: a condition settled as the spell is cast ("If you cast this spell during your main phase, you may exile up to one
                 // other target …") decides whether the spell has the targets of its effect at all: the spell's text defines the number of targets
-                // as it is cast (CR 601.2c)
-                if (condition is arcanum.api.Condition.CastDuringMainPhase && condition.of == Objects.Self)
+                // as it is cast (CR 601.2c). rvr sweep: also its optional costs paid ("If this spell was kicked, destroy target enchantment.",
+                // CR 601.2b, 702.33d)
+                if (condition is arcanum.api.Condition.CastDuringMainPhase && condition.of == Objects.Self ||
+                    condition is arcanum.api.Condition.Paid && condition.of == Objects.Self)
                     for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
                 return listOf(Step.If(condition, then = then))
             }
@@ -7661,8 +7665,9 @@ internal class Sentences(
         }
         DAMAGE_EQUAL_TO_POWER.matchEntire(sentence)?.takeIf { it.groupValues[1] == "It" || isSelf(it.groupValues[1]) }?.let {
             context.anyTarget()
+            val source = if (it.groupValues[1] == "It") itDealingDamage(context) else Objects.Self // rvr sweep
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"),
-                Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), source = Objects.Self)))
+                Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source = source)))
         }
         OPPONENTS_CANT_CAST.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(Filters.noun(m.groupValues[1]) ?: return null)),
@@ -9499,10 +9504,8 @@ internal class Sentences(
         // existed, CR 608.2h)
         Rtr.IT_DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.let { m ->
             val to = rtrTarget(m.groupValues[1], context) ?: return null
-            // rvr chunk 13: "Whenever another creature you control dies, it deals damage equal to its power to …": "it" is the creature
-            // of the event, as it last existed (CR 603.10a, 608.2h), and it is the damage's source (CR 120.3)
-            val source = (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects != ObjectFilter.Is(Objects.Self) }
-                ?.let { Objects.EventObject(if (it.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before) } ?: Objects.Self
+            // rvr chunk 13: "Whenever another creature you control dies, it deals damage equal to its power to …"
+            val source = itDealingDamage(context)
             return listOf(Step.Do(Effect.DealDamage(to, Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source)))
         }
         // rtr chunk 08: "This creature deals 1 damage to target creature and each other creature with the same name as that creature."
@@ -16251,6 +16254,15 @@ internal class Sentences(
         }
         return null
     }
+
+    /**
+     * rvr sweep: "it" as the subject of "it deals damage equal to its power …": in a trigger on another object entering or leaving
+     * ("whenever a creature you control enters", "whenever another creature you control dies"), that object, as it is or as it last
+     * existed (CR 603.10a, 608.2h), and it is the damage's source (CR 120.3); otherwise this object.
+     */
+    private fun itDealingDamage(context: Context): Objects =
+        (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects != ObjectFilter.Is(Objects.Self) }
+            ?.let { Objects.EventObject(if (it.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before) } ?: Objects.Self
 
     private fun rvrEffect(sentence: String, context: Context): List<Step>? {
         // rvr fixes: Carom: "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead."

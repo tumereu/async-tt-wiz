@@ -17,6 +17,7 @@ import arcanum.engine.input.CastWay
 import arcanum.engine.input.Permission
 import arcanum.engine.mana.Mana
 import arcanum.engine.state.GameObject
+import arcanum.engine.state.castOrNone
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TurnCount
@@ -172,15 +173,14 @@ internal object Legality {
         val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
         // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
-        val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) || nextSpellFlash(snap, player, card) ||
-            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
-            chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
+        val instant = !asSorcery && during != null || !asSorcery && !faceDown && instantSpeed(snap, player, card, types, flash)
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         if (onlyAsSorcery(snap, player, card) && !sorceryTiming(snap, player)) return "$player can cast it only as a sorcery (CR 307.5)"
         legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
         restriction(snap, player, card)?.let { return it }
-        if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed the spell has other characteristics (CR 718.3b, 702.103b): the
+        // prohibition is tested on the spell as proposed ([prohibitedAsProposed]), not on the card as it is now
+        if (!changesCharacteristics(alternative(snap, card, way, player)?.second?.keyword) && cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
     }
 
@@ -289,8 +289,40 @@ internal object Legality {
 
     /** rvr fixes, CR 601.2e: whether [Mechanic.CantCast] prohibits the player from casting the spell [plan] proposes, with what has been
      * chosen for it so far (its announced X counting in its mana value, CR 202.3e), on the board with its provisional item. */
-    fun prohibitedAsProposed(plan: Plan): Boolean =
-        plan.isSpell && plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+    fun prohibitedAsProposed(plan: Plan): Boolean {
+        if (!plan.isSpell) return false
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed, it is tested with those characteristics (CR 718.3b, 702.103b)
+        val keyword = plan.alternative?.second?.keyword
+        if (changesCharacteristics(keyword)) {
+            val s = plan.snap.state.deepCopy()
+            val o = s.obj(plan.itemId) ?: return false
+            if (o.castOrNone.alternative?.keyword != keyword) s._objects[plan.itemId] = o.copy(cast = o.castOrNone.copy(alternative = arcanum.engine.state.PaidCost(keyword, 1)))
+            val proposed = Snapshot(s)
+            if (cantCastBy(proposed, plan.player, plan.itemId)) return true
+            // CR 601.3b: begun outside sorcery timing because an effect let it be cast as though it had flash, that effect must still
+            // apply to the spell as proposed ("creature spells" don't include a bestowed Aura spell)
+            val st = plan.snap.state
+            val sorceryTime = st.turn.active == plan.player && st.stack.all { it == plan.itemId } &&
+                (st.turn.step == TurnStep.PrecombatMain || st.turn.step == TurnStep.PostcombatMain)
+            val c = proposed.view[plan.itemId]?.characteristics
+            return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash))
+        }
+        return plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+    }
+
+    /** Whether [card] (of [types], [flash] when it has flash) may be cast any time [player] could cast an instant: an instant or with
+     * flash (CR 307.1, 702.8a), or an effect lets it be cast as though it had flash. */
+    private fun instantSpeed(snap: Snapshot, player: PlayerId, card: ObjectId, types: List<CardType>, flash: Boolean): Boolean =
+        CardType.Instant in types || flash ||
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) || nextSpellFlash(snap, player, card) ||
+            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
+            snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+                (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash }
+            }
+
+    /** An alternative cost that gives the spell other characteristics: prototype (CR 718.3b), bestow (CR 702.103b). */
+    private fun changesCharacteristics(keyword: arcanum.api.KeywordKind?): Boolean =
+        keyword == Keyword.Prototype.Kind || keyword == Keyword.Bestow.Kind
 
     /** [Mechanic.CantCast] on [player] for this spell (CR 101.2). */
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =

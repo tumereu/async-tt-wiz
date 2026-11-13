@@ -280,3 +280,15 @@ fun counterUnless(cost: String, slotName: String = "spell"): List<Step> = listOf
 // ---- chunk 12
 /** "{T}: Add {C}." */
 val addColorless: Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse("{C}")!!)), Players.You)))
+
+// ---- chunk 14: Equipment
+/** "equipped creature" (CR 301.5) */
+val equipped: Objects = Objects.AttachedTo(Objects.Self)
+fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))
+val isSelf: ObjectFilter = ObjectFilter.Is(Objects.Self)
+/** "As an additional cost to cast this spell, [parts]" (CR 601.2f). */
+fun additionalCost(vararg parts: CostPart, optional: Boolean = false): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = cost(*parts), optional = optional)), affects = Affected.Objects(Objects.Self))
+/** "As an additional cost to cast this spell, [a] or [b]". */
+fun additionalCostOneOf(vararg options: Cost): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = cost(CostPart.OneOf(options.toList())))), affects = Affected.Objects(Objects.Self))

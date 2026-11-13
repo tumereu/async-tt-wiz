@@ -109,7 +109,9 @@ internal object EventMatcher {
         is EventPattern.Discard -> moves(change).filter {
             Meaning.Discarded in it.meanings && e.matches(pattern.players, it.before.owner) && e.matches(pattern.cards, it.before.id)
         }.filter { causedBy(e, change, pattern.causedBy) }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
-        is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && e.matches(pattern.objects, it.before.id) }
+        // mkm chunk 14: the object is gone, so it is tested as it last existed, its controller too (CR 608.2h, 603.10a): "if you've
+        // sacrificed an artifact this turn" in a static ability's condition
+        is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && Evaluator(LastKnownBoard(e.board), e.ctx).matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         // mh2: a creature sacrificed as an exploit ability of an object matching [exploiter] resolves (CR 702.110b)
         is EventPattern.Exploits -> (change as? Change.ZoneChange)?.takeIf { c -> exploitedBy(e, c, pattern.exploiter) }?.let { c ->
@@ -118,7 +120,7 @@ internal object EventMatcher {
                 event.copy(objects = event.objects + RoleObjects(EventRole.Source, listOfNotNull(c.by?.source)))
             }
         }.orEmpty()
-        is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && e.matches(pattern.objects, it.before.id) }
+        is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && Evaluator(LastKnownBoard(e.board), e.ctx).matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         is EventPattern.Countered -> moves(change).filter { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Stack, EventRole.Before) } +

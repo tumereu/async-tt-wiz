@@ -2321,6 +2321,14 @@ internal class Sentences(
             else conditionWithAnd(it.groupValues[1]) ?: return null
         }
             .let { c ->
+                // one chunk 16: "Whenever a creature you control enters, if it has one or more oil counters on it": "it" is the creature that
+                // entered, not the permanent with the ability (CR 603.4)
+                val enteredOther = (trigger.events.singleOrNull() as? EventPattern.ZoneChange)
+                    ?.let { it.to == Zone.Battlefield && it.objects != ObjectFilter.Is(Objects.Self) } == true
+                if (enteredOther && conditional?.groupValues?.get(1)?.startsWith("it has ") == true && c is arcanum.api.Condition.ObjectMatches && c.objects == Objects.Self)
+                    c.copy(objects = Objects.EventObject(EventRole.After)) else c
+            }
+            .let { c ->
                 // tdm chunk 11: "Whenever a creature you control enters, if you cast it, …": it is the creature that entered (CR 603.4)
                 val enters = trigger.events.singleOrNull() as? EventPattern.ZoneChange
                 if (c == arcanum.api.Condition.CastFrom(null, Objects.Self) && enters != null && enters.to == Zone.Battlefield && enters.objects != ObjectFilter.Is(Objects.Self))

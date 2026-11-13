@@ -241,3 +241,5 @@ number	item	screenshot	catalog	decisions	sequence
 240	Desktop table: timeline mode, the strip under the hand and Previous / Auto / Next in the action area	desktop/table-timeline.png	WEB-021 HIS-008		Desktop table
 241	Desktop table: holding Alt over a card inspects it with its changes over the dimmed table	desktop/inspect-alt.png	WEB-024 WEB-025 TBL-131		Desktop table
 242	Desktop table: a hovered hand card's chips, faded, the one under the pointer solid with its Autotap source outlined	desktop/hover-chips.png	WEB-027 ZON-080		Desktop table
+243	Desktop table: ? shows the list of keyboard shortcuts over the table	desktop/hotkey-sheet.png	WEB-034 WEB-031 WEB-032 WEB-036		Desktop table
+244	Settings on the desktop layout: rebinding a key, the hotkey that lost it saying so	desktop/hotkey-settings.png	WEB-035 WEB-033 LOB-147		Desktop table

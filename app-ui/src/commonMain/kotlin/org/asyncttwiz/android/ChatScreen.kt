@@ -164,7 +164,7 @@ private fun GameChatBody(controller: LobbyController, game: GameSummary, account
     val input = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
-    LaunchedEffect(game.id, state.chatWrite) {
+    LaunchedEffect(game.id, state.chatWrite, controller.chatWrites) {
         if (!state.chatWrite) return@LaunchedEffect
         withTimeoutOrNull(WRITE_FOCUS_WAIT_MS) { snapshotFlow { window.isWindowFocused }.first { it } }
         input.requestFocus()

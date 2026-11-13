@@ -61,6 +61,11 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 CardSettings()
             }
             HorizontalDivider()
+            // WEB-035: the desktop layout's hotkeys, in a browser only (none on Android)
+            if (account != null && (org.asyncttwiz.appui.desktopLayoutOffered || LocalAppLayout.current == AppLayout.Desktop)) {
+                SettingsSection("Keyboard") { KeyboardShortcutsSetting(account, LocalKeyBindings.current) }
+                HorizontalDivider()
+            }
             SettingsSection("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false, plays = true) }
             HorizontalDivider()
             SettingsSection("Automatum") { AutomatumPauseSettings(accountId, account) }

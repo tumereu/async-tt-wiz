@@ -123,6 +123,8 @@ class DesktopFingerKey(private val tapMillis: Long = CardPeekHoldMillis) {
     private var card: String? = null
     private var interrupted = false
     private var closing = false
+    /** The Shift held is part of a chord (Shift+Space): no finger any more until it is released. */
+    private var chorded = false
     /** Whether an Inspect the key opened is pinned open. */
     var pinned: Boolean = false; private set
 
@@ -147,6 +149,7 @@ class DesktopFingerKey(private val tapMillis: Long = CardPeekHoldMillis) {
     fun release(key: String, time: Long): List<Effect> {
         if (key != down) return emptyList()
         down = null
+        if (chorded) { chorded = false; card = null; return emptyList() }
         val opened = card
         card = null
         if (closing) { closing = false; return listOf(Effect.Pause(false)) }
@@ -157,6 +160,22 @@ class DesktopFingerKey(private val tapMillis: Long = CardPeekHoldMillis) {
 
     /** Another key, a mouse button or the wheel while the finger key is held: its release is no tap. */
     fun interrupt() { if (down != null) interrupted = true }
+
+    /**
+     * WEB-031 (§6): another key pressed while the finger key is held. Alt stays the finger ([interrupt]). Shift, the fallback,
+     * becomes part of a chord (Shift+Space, Shift+G, "?"): the finger is lifted at once, so the Inspect it opened closes and
+     * the view goes on, and its release does nothing more.
+     */
+    fun chord(): List<Effect> {
+        if (down == null) return emptyList()
+        interrupted = true
+        if (down != "Shift" || chorded) return emptyList()
+        chorded = true
+        val opened = card != null
+        card = null
+        closing = false
+        return listOfNotNull(Effect.Close.takeIf { opened }, Effect.Pause(false))
+    }
 }
 
 /** WEB-026: how long the pointer rests on a card before its quick look shows. */

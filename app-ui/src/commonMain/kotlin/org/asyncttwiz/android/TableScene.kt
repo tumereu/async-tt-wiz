@@ -145,6 +145,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         mouse.interrupted = { fingerKey.interrupt() }
         mouse.moved = { clockEpoch++; preview = coordinator.preview }
         mouse.quickLookAllowed = { toolkit?.peek == null && toolkit?.popupItem == null }
+        // WEB-031: F zooms to fit, as a double click on the empty battlefield does
+        toolkit?.fitTable = if (desktopFrame == null) null else ({ coordinator.fit(); clockEpoch++; preview = coordinator.preview })
         mouse.chipTarget = { item ->
             val id = item.cardId
             when {
@@ -163,24 +165,35 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val group = presentation?.invoke()?.let { shown -> shown.groupOf(id)?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
         toolkit?.peek(id, group?.inspectOrder)
     }
-    DesktopKeyboard.Listen(desktopFrame != null) { key ->
-        if (key.key != "Alt" && key.key != "Shift") {
-            if (key.down && !key.repeat) fingerKey.interrupt()
-            return@Listen false
-        }
-        if (key.repeat) return@Listen fingerKey.held
-        if (key.down && key.textField) return@Listen false
-        // The card under the pointer, as a held finger would inspect it (a pile's shown card too; not a hand row's backing)
-        val card = mouse.hovered?.let { item -> item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
-        val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
-        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
-            effects.joinToString { it.toString() })
+    // WEB-024: the cards outside the scene the finger key inspects (the play shown, the dock's Stack entries)
+    val fingerTargets = remember(coordinator) { FingerTargets() }
+    fun applyFinger(effects: List<DesktopFingerKey.Effect>) {
         for (effect in effects) when (effect) {
             is DesktopFingerKey.Effect.Pause -> currentViewPause?.key = effect.on
             is DesktopFingerKey.Effect.Inspect -> keyInspect(effect.cardId)
             DesktopFingerKey.Effect.Pin -> peekSwipe.pinByKey()
             DesktopFingerKey.Effect.Close -> { peekSwipe.begin(); toolkit?.peek(null) }
         }
+    }
+    DesktopKeyboard.Listen(desktopFrame != null) { key ->
+        if (key.key != "Alt" && key.key != "Shift") {
+            // WEB-031: Shift with another key is a chord (Shift+Space), not the finger
+            if (key.down && !key.repeat) fingerKey.chord().takeIf { it.isNotEmpty() }?.let { effects ->
+                AppLog.info("table", "Finger key Shift lifted by ${key.key} (a chord): ${effects.joinToString()}")
+                applyFinger(effects)
+            }
+            return@Listen false
+        }
+        if (key.repeat) return@Listen fingerKey.held
+        if (key.down && key.textField) return@Listen false
+        // The card under the pointer, as a held finger would inspect it (a pile's shown card too; not a hand row's backing);
+        // the play shown and the dock's Stack entries first, which lie over the table
+        val card = fingerTargets.hovered ?: mouse.hovered?.let { item ->
+            item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
+        val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
+        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
+            effects.joinToString { it.toString() })
+        applyFinger(effects)
         effects.isNotEmpty() || fingerKey.held
     }
     DisposableEffect(viewPause) { onDispose { viewPause?.key = false } }
@@ -231,7 +244,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat,
-        LocalDockedPanels provides dockedPanels, LocalDesktopHover provides desktopHover.takeIf { desktopFrame != null }) {
+        LocalDockedPanels provides dockedPanels, LocalDesktopHover provides desktopHover.takeIf { desktopFrame != null },
+        LocalFingerTargets provides fingerTargets.takeIf { desktopFrame != null }) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {

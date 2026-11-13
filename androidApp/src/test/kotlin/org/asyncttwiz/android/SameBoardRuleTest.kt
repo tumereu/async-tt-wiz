@@ -38,7 +38,7 @@ class SameBoardRuleTest {
         var holding = false
         private val waiting = ArrayDeque<() -> Unit>()
         override fun run(work: () -> Unit) = work()
-        override fun <T> call(work: () -> T): T = work()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(work())
         override fun main(work: () -> Unit) { if (holding) waiting.add(work) else work() }
         fun release() { holding = false; while (waiting.isNotEmpty()) waiting.removeFirst()() }
     }

@@ -216,11 +216,13 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         val board = shown()?.board ?: return
         fun objectOf(card: String) = s.battlefield.firstOrNull { (it as? ObjectId.Card)?.card?.value == card }
         val chosen = placed.inputs(board).mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
-        when (val acted = g.assume(chosen)) {
-            is GameDevice.Acted.Refused -> tell("These blocks can't be assumed: ${acted.reason}")
-            else -> placed.clear()
+        g.assume(chosen) { acted ->
+            when (acted) {
+                is GameDevice.Acted.Refused -> tell("These blocks can't be assumed: ${acted.reason}")
+                else -> placed.clear()
+            }
+            pump()
         }
-        pump()
     }
 
     /** Whether the table is still animating a published board's steps (the motion queue), for the take-back's playback
@@ -240,24 +242,45 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     private fun done(acted: GameDevice.Acted?): Boolean { sent(); return acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Confirmed || acted == GameDevice.Acted.Made }
 
+    /**
+     * An own action on the engine game in its callback form ([EngineWorker.call], web client step 4c): [ask] starts it,
+     * [answered] reads its result on this thread. Android waits for the engine thread, so the result is in before this
+     * returns and the press's answer is that result, in the same frame as before; a page whose engine side answers later
+     * gets [asked] now (the action went out; its board and any refusal's note come with the board published after it).
+     * [what] names it in the log when its answer comes later (an undo's answer is logged with what it took back).
+     */
+    private inline fun <T, R> own(asked: R, what: String, ask: (result: (T) -> Unit) -> Unit, crossinline answered: (T) -> R): R {
+        val answer = Answer<R>()
+        var later = false
+        ask { result ->
+            if (later) AppLog.info("engine", "Own $what answered later: $result")
+            answer.set(answered(result))
+        }
+        if (answer.arrived) return answer.get()
+        later = true
+        AppLog.info("engine", "Own $what asked of the engine side; its answer comes later")
+        return asked
+    }
+
     override fun send(inputs: List<Input>): String? {
         val g = game() ?: return "unavailable"
         ownAction()
-        val acted = g.send(inputs)
-        if (acted is GameDevice.Acted.Refused) ownActionDropped()
-        sent()
-        return when (acted) {
-            is GameDevice.Acted.Sent, GameDevice.Acted.Confirmed, GameDevice.Acted.Kept, GameDevice.Acted.Made -> null
-            is GameDevice.Acted.Refused -> acted.reason
+        return own(null, "send", { g.send(inputs, result = it) }) { acted ->
+            if (acted is GameDevice.Acted.Refused) ownActionDropped()
+            sent()
+            when (acted) {
+                is GameDevice.Acted.Sent, GameDevice.Acted.Confirmed, GameDevice.Acted.Kept, GameDevice.Acted.Made -> null
+                is GameDevice.Acted.Refused -> acted.reason
+            }
         }
     }
-    override fun pass(): Boolean = done(game()?.pass())
+    override fun pass(): Boolean { val g = game() ?: return done(null); return own(true, "pass", { g.pass(it) }, ::done) }
     /** TRN-017, STK-029: holding Resolve, the Resolve chain. */
-    fun holdResolve(): Boolean = done(game()?.holdResolve())
-    override fun endTurn(): Boolean { val g = game() ?: return false; g.endTurn(); sent(); return true }
-    override fun mulligan(): Boolean = done(game()?.mulligan())
-    override fun keep(): Boolean = done(game()?.keep())
-    override fun bottom(cards: List<String>): Boolean = done(game()?.bottom(cards))
+    fun holdResolve(): Boolean { val g = game() ?: return done(null); return own(true, "holdResolve", { g.holdResolve(it) }, ::done) }
+    override fun endTurn(): Boolean { val g = game() ?: return false; return own(true, "endTurn", { g.endTurn(it) }) { sent(); true } }
+    override fun mulligan(): Boolean { val g = game() ?: return done(null); return own(true, "mulligan", { g.mulligan(it) }, ::done) }
+    override fun keep(): Boolean { val g = game() ?: return done(null); return own(true, "keep", { g.keep(it) }, ::done) }
+    override fun bottom(cards: List<String>): Boolean { val g = game() ?: return done(null); return own(true, "bottom", { g.bottom(cards, it) }, ::done) }
     override fun takeBacks(): Long = game()?.takeBacks ?: 0L
     override fun lastTakeBack(): String = game()?.lastTakeBack.orEmpty()
 
@@ -266,9 +289,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         val play = shown() ?: return false
         // The device is read on the engine thread (I-D56 step D2); what goes out is sent from here after. Not on a board the
         // device has moved on from (switchreview #6)
-        val done = g.onShown(false) { device -> local(g, device, play, actions, requestId) }
-        sent()
-        return done
+        return own(true, "onShown", { g.onShown(false, it) { device -> local(g, device, play, actions, requestId) } }) { done -> sent(); done }
     }
 
     private fun local(g: EngineGame, device: GameDevice, play: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
@@ -385,13 +406,15 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         // Owner problem report 2026-11-05: Attack is worked out off the main thread first; an Undo tapped meanwhile was
         // made before it (taking back what came before, then the attack refused)
         if (working()) { undoAfterWork = true; AppLog.info("engine", "Undo waits for the action being worked out"); return true }
-        return when (val u = g.undo()) {
-            is GameDevice.Undo.Free, is GameDevice.Undo.Queued -> { sent(); true }
-            is GameDevice.Undo.Request -> {
-                AppLog.info("undo", "Undo dialog opened at ${u.target}: it needs a request (${u.reason})")
-                sent(); rewind = RewindChoice(u.target); true
+        return own(true, "undo", { g.undo(result = it) }) { u ->
+            when (u) {
+                is GameDevice.Undo.Free, is GameDevice.Undo.Queued -> { sent(); true }
+                is GameDevice.Undo.Request -> {
+                    AppLog.info("undo", "Undo dialog opened at ${u.target}: it needs a request (${u.reason})")
+                    sent(); rewind = RewindChoice(u.target); true
+                }
+                is GameDevice.Undo.Unavailable -> { AppLog.info("engine", "Undo not taken: ${u.reason}"); undoShake++; false }
             }
-            is GameDevice.Undo.Unavailable -> { AppLog.info("engine", "Undo not taken: ${u.reason}"); undoShake++; false }
         }
     }
 
@@ -431,10 +454,10 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
             GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
                 WaitAction("Assume resolves", AssumeIcon,
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there",
-                    hold = { g.holdAssume(); pump() }, holdName = RESOLVE_CHAIN) { g.assume(); pump() }
+                    hold = { g.holdAssume { pump() } }, holdName = RESOLVE_CHAIN) { g.assume { pump() } }
                 else WaitAction("Assume no response", AssumeIcon,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there",
-                    hold = { g.assume(); pump() }, holdName = "Assume no response") { g.assume(); pump() }
+                    hold = { g.assume { pump() } }, holdName = "Assume no response") { g.assume { pump() } }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
                 if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", AssumeIcon,
@@ -816,12 +839,11 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
                 enabled = shown.request == null,
                 takeBack = if (status.ownOk && !ended) ({
                     AppLog.info("game", "Result OK taken back at the table: ${status.ending}")
-                    game.takeBackResult(); routes.pump()
+                    game.takeBackResult { routes.pump() }
                 }) else null,
                 ok = if (ended) null else ({
                     AppLog.info("game", "Result OK pressed at the table: ${status.ending}, final ${status.final}")
-                    if (status.final) routes.acknowledgeResult() else game.confirmResult()
-                    routes.pump()
+                    if (status.final) { routes.acknowledgeResult(); routes.pump() } else game.confirmResult { routes.pump() }
                 }))
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
@@ -1110,12 +1132,12 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         DialogCancelButton("Cancel", { AppLog.info("undo", "Undo dialog cancelled"); routes.rewind = null })
         DialogMainButton(if (needsRequest == true) "Ask $opponent" else "Undo", {
             val t = target ?: return@DialogMainButton
-            when (val u = game.undo(t)) {
-                is GameDevice.Undo.Request -> game.requestUndo(u.target, message.trim())
-                else -> {}
+            val text = message.trim()
+            game.undo(t) { u ->
+                if (u is GameDevice.Undo.Request) game.requestUndo(u.target, text)
+                routes.rewind = null
+                routes.pump()
             }
-            routes.rewind = null
-            routes.pump()
         }, Modifier.testTag("rewind-confirm"), enabled = target != null && current != null && !seeking && !published.needsReload,
             icon = if (needsRequest == true) "send" else "withdraw")
     }) {

@@ -38,10 +38,10 @@ class EngineOwnActionPartsTest {
         private val mains = ArrayDeque<() -> Unit>()
         private val nextFrames = ArrayDeque<() -> Unit>()
         override fun run(work: () -> Unit) = work()
-        override fun <T> call(work: () -> T): T = work()
+        override fun <T> call(work: () -> T, done: (T) -> Unit) = done(work())
         override fun main(work: () -> Unit) { mains.addLast(work) }
         override fun frame(work: () -> Unit) { nextFrames.addLast(work) }
-        override fun early(work: (release: (() -> Unit)?) -> Unit) { if (early) work {} else super.early(work) }
+        override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) { if (early) { work {}; released() } else super.early(work, released) }
         fun drain() { while (mains.isNotEmpty()) mains.removeFirst()() }
         fun frames() { drain(); while (nextFrames.isNotEmpty()) nextFrames.removeFirst()(); drain() }
     }

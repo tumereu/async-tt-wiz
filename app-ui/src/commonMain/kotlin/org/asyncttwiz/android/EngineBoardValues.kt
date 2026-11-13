@@ -57,16 +57,29 @@ class EngineBoardValues constructor(
     private val engine: EngineWorker,
     private val table: TableState? = null,
     private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null,
+    /** This board's number on the engine boundary ([EngineRequest.board]): a new one, or (web client step 4c, a board
+     * restored on the page, [ShownDecoder]) the engine side's. */
+    val number: Long = numbers.incrementAndGet(),
+    /** [openingBottom] as the engine side worked it out (a board restored on the page); null: worked out here. */
+    bottom: Int? = null,
 ) {
     /** TRN-062 (owner problem report 5DDSKK): the cards the viewer puts on the bottom of their library now, right after a
      * mulligan ([AutomatumOpening.bottomOwed]); worked out with the board, on the engine thread. */
-    val openingBottom: Int = try { AutomatumOpening.bottomOwed(state, viewer) } catch (problem: Exception) {
+    val openingBottom: Int = bottom ?: try { AutomatumOpening.bottomOwed(state, viewer) } catch (problem: Exception) {
         AppLog.warn("automatum", "Couldn't read the opening's bottom: ${simpleClassName(problem)}")
         0
     }
 
-    /** This board's number on the engine boundary ([EngineRequest.board]). */
-    val number: Long = numbers.incrementAndGet()
+    /** Web client step 4c: how the engine thread made this board's state, so the page's copy of it can follow
+     * ([ShownEncoder]); set on the engine thread before the board is published, null for a board made otherwise. */
+    @Volatile var origin: org.asyncttwiz.automatum.boundary.StateOrigin? = null
+
+    /** The table state beside the board and what its viewer may see, for its transfer to the page (web client step 4c). */
+    internal val shownTable: TableState? get() = table
+    internal val shownVisible: Set<ObjectId> get() = visible
+
+    /** Web client step 4c: a board restored on the page ([ShownDecoder]) with the plays the engine side had worked out. */
+    internal fun restoredPlays(hand: HandPlays?, card: CardPlays?) { if (hand != null) handPlays = hand; if (card != null) cardPlays = card }
 
     /** Engine thread: the planning request [request] on this board, through the engine boundary in-process ([EngineBoundary]). */
     private fun plan(request: (seq: Long) -> EngineRequest): EngineAnswer =

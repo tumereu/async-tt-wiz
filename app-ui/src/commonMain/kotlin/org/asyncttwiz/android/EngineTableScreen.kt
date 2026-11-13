@@ -73,8 +73,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     // I-D43: problem and crash reports carry this game's device bundle while it is the latest open
     DisposableEffect(controller, game.id) {
-        AutomatumReports.engine = { controller.engineGame()?.repro() }
-        AutomatumReports.board = { controller.engineGame()?.logBoard() }
+        AutomatumReports.engine = { done -> controller.engineGame()?.repro(done) ?: done(null) }
+        AutomatumReports.board = { done -> controller.engineGame()?.logBoard(done) ?: done() }
         onDispose { }
     }
     // SYS-072: the engine's tokens show the best matching token picture
@@ -102,14 +102,21 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val applied = remember(game.id, playId) { AppliedMarks() }
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
-    val reviewNow = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
+    // Web client step 4c: the board arrives through a callback (on Android at once, in the same composition)
+    val reviewAnswer = remember(reviewId, engine.version) {
+        AnsweredValue<TableBoard?>().also { answer -> if (reviewId == null) answer.set(null) else engine.reviewPlay(reviewId, answer::set) }
+    }
+    val reviewNow = reviewAnswer.value
     // HIS-005 (owner 2026-11-07: the timeline reaches the game's first event): a point whose board needs older history
-    // keeps the board shown before until its page is in; one that can't be shown leaves timeline mode
+    // keeps the board shown before until its page is in; one that can't be shown leaves timeline mode. In the browser the
+    // board shown before stays too until the engine side's answer arrives
     val reviewKept = remember(game.id) { ReviewKept() }
-    val reviewPlay = reviewNow ?: reviewKept.board.takeIf { reviewId != null && engine.historyLoading }
+    val reviewPlay = reviewNow ?: reviewKept.board.takeIf { reviewId != null && (engine.historyLoading || !reviewAnswer.arrived) }
     reviewKept.board = if (reviewId == null) null else reviewNow ?: reviewKept.board
-    LaunchedEffect(reviewId, reviewNow == null, engine.historyLoading) {
-        if (reviewId != null && reviewNow == null && !engine.historyLoading && !engine.loadFor(reviewId)) routes.leaveReview()
+    LaunchedEffect(reviewId, reviewAnswer.arrived, reviewNow == null, engine.historyLoading) {
+        if (reviewId != null && reviewAnswer.arrived && reviewNow == null && !engine.historyLoading) engine.loadFor(reviewId) { started ->
+            if (!started) routes.leaveReview()
+        }
     }
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }

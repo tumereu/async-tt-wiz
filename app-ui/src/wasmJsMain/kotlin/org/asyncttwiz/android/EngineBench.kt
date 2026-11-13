@@ -19,7 +19,39 @@ import arcanum.engine.setup.StartOptions
 import arcanum.engine.state.CardId
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.ObjectId
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import org.asyncttwiz.automatum.ComputedBoard
+import org.asyncttwiz.automatum.EngineProjection
+import org.asyncttwiz.automatum.boundary.BoardMirror
+import org.asyncttwiz.automatum.boundary.BoardStatesIn
+import org.asyncttwiz.automatum.boundary.BoardStatesOut
 import org.asyncttwiz.automatum.boundary.BoardTransfer
+import org.asyncttwiz.automatum.boundary.EngineMessages
+import org.asyncttwiz.automatum.boundary.ListDelta
+import org.asyncttwiz.automatum.boundary.MirrorShadow
+import org.asyncttwiz.automatum.boundary.StateOrigin
+import org.asyncttwiz.automatum.boundary.StateRef
+import org.asyncttwiz.automatum.boundary.TableBoardWire
+import org.asyncttwiz.automatum.boundary.WireDefinitionsIn
+import org.asyncttwiz.automatum.boundary.WireDefinitionsOut
+import org.asyncttwiz.automatum.boundary.WireEventsIn
+import org.asyncttwiz.automatum.boundary.WireEventsOut
+import org.asyncttwiz.protocol.BoardState
+import org.asyncttwiz.protocol.InitialStarter
+import org.asyncttwiz.protocol.PlayContainer
+import org.asyncttwiz.protocol.PlayPlayer
+import org.asyncttwiz.protocol.PlayRoot
+import org.asyncttwiz.protocol.PlayState
+import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.StarterChoice
+import org.asyncttwiz.protocol.SubmittedDefinition
+import org.asyncttwiz.protocol.game.EngineView
+import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.automatum.boundary.EngineAnswer
 import org.asyncttwiz.automatum.boundary.EngineRequest
 import org.asyncttwiz.automatum.boundary.MessageEngineChannel
@@ -80,8 +112,15 @@ fun runEngineBench(base: String) {
                         "${bench.second.snapshots} snapshots of it made)")
                     line("Page frames meanwhile: ${frames.count} frames, worst ${frames.worst.f()} ms, mean ${frames.mean().f()} ms")
                     line(channel.requests.let { "Answers awaited at the end: ${it.awaited}" })
+                    val boundary = try { BoundaryBench(bench) } catch (problem: Exception) {
+                        line("The boundary bench couldn't start: ${problem.stackTraceToString()}"); null
+                    }
+                    boundary?.let { line(it.board("The board now, first sent whole", emptyList())) }
                     onPage(frames, ::line, "A pass", bench::pass) {
+                        boundary?.let { line(it.board("The board after the pass", emptyList())) }
+                        val before = bench.line.size
                         onPage(frames, ::line, "End turn", bench::endTurn) {
+                            boundary?.let { line(it.board("The board after End turn, with its motion steps", bench.line.drop(before))) }
                             frames.stop()
                             jsBenchTitle("engine-bench: done")
                         }
@@ -104,6 +143,112 @@ private fun onPage(frames: Frames, line: (String) -> Unit, kind: String, work: (
             line("$kind worked out on the page: ${ms.f()} ms ($events events); worst frame meanwhile ${frames.worst.f()} ms")
             then()
         }
+    }
+}
+
+/**
+ * Web client step 4c: what a published board costs across the engine boundary once the device runs in the worker, timed
+ * on the page's thread in parts: the engine side building the board (its projection, computed values and state copy, as
+ * the device does today) and describing it for the page (its state as moves of the page's copy, [MirrorShadow], and the
+ * message); then the page taking it ([ShownDecoder]'s work: the message read, its copy moved, the board's state copied and
+ * its values made again). Only the page's part holds the page's frames; the rest runs in the worker.
+ */
+private class BoundaryBench(private val bench: BenchGame) {
+    private val viewer = bench.alice
+    private val json = EngineMessages.json
+    private val pageCodec = EngineJson(EngineJson.decodeDefinitions(bench.codec.encodeDefinitions()))
+    private val shadow = MirrorShadow(bench.codec)
+    private val mirror = BoardMirror(pageCodec)
+    private val eventsOut = WireEventsOut(bench.codec)
+    private val eventsIn = WireEventsIn(pageCodec)
+    private val statesOut = BoardStatesOut()
+    private val statesIn = BoardStatesIn()
+    private val definitionsOut = WireDefinitionsOut()
+    private val definitionsIn = WireDefinitionsIn()
+    private val definitionsMap = MapSerializer(String.serializer(), SubmittedDefinition.serializer())
+    private var visibleOut: List<ObjectId> = emptyList()
+    private var visibleIn: List<ObjectId> = emptyList()
+    private val base = run {
+        val containers = listOf(bench.alice, "bob").flatMap { p ->
+            PlayZone.entries.filter { it != PlayZone.STACK }.map { zone -> PlayContainer("$p/$zone", zone, p) }
+        } + PlayContainer("stack", PlayZone.STACK)
+        PlayState("bench", "play", "round", "start", PlayRoot("root", "branch"),
+            BoardState(listOf(PlayPlayer(bench.alice), PlayPlayer("bob")), emptyList(), containers, org.asyncttwiz.protocol.TurnState(bench.alice)),
+            emptyList(), emptyList(), InitialStarter(StarterChoice(bench.alice), bench.alice))
+    }
+    private var number = 0L
+
+    /** One board as the engine side builds it: its projection, computed values and its own copy of the state. */
+    private class Built(val board: BoardState, val definitions: List<SubmittedDefinition>, val state: GameState, val table: TableState,
+        val visible: Set<ObjectId>, val computed: ComputedBoard)
+
+    private fun build(model: GameModel): Built {
+        val projected = EngineProjection.project(base, model, viewer, "node")
+        val visible = model.visible(PlayerId(viewer))
+        val view = EngineView(model.engine, model.table, PlayerId(viewer), visible)
+        val computed = ComputedBoard.of(projected.board, projected.definitions, AutomatumBoards.definitions(projected.definitions), viewer,
+            view.state, model.view())
+        return Built(projected.board, projected.definitions, view.state, model.table, visible, computed)
+    }
+
+    private fun wire(built: Built, state: StateRef): JsonElement {
+        val seen = built.visible.toList()
+        val delta = ListDelta.of(visibleOut, seen).also { visibleOut = seen }
+        return json.encodeToJsonElement(TableBoardWire.serializer(), TableBoardWire(++number, TableBoardWire.FRESH, "bench", "play", "node",
+            statesOut.wire(built.board), definitionsOut.ref(built.definitions), state, viewer, delta, built.computed.wire()))
+    }
+
+    /** The bench game's board now and the boards after each of [steps]' events (a board's motion, at most eight), sent and
+     * taken: the times of each part. */
+    fun board(what: String, steps: List<GameEvent>): String {
+        val model = bench.model
+        val at0 = jsNow()
+        // The engine side: the board and its steps built as the device builds them
+        val main = build(model)
+        val forward = steps.takeLast(8)
+        val back = forward.asReversed()
+        val stepBuilt = forward.indices.map { i ->
+            val (state, table) = BoardMirror.walk(model, back, forward, i, forward[i].engine?.changes?.size ?: 0)
+            build(GameModel(state, table))
+        }
+        val at1 = jsNow()
+        // ... described for the page and written
+        val origin = StateOrigin.Line("root", bench.line.toList())
+        val boards = ArrayList<JsonElement>()
+        boards += wire(main, shadow.line(origin, main.state, main.table))
+        stepBuilt.forEachIndexed { i, b ->
+            boards += wire(b, shadow.steps(StateOrigin.Steps(origin, back, forward, i, forward[i].engine?.changes?.size ?: 0), b.state, b.table))
+        }
+        for (e in forward) eventsOut.ref(e)
+        for (e in bench.line) eventsOut.ref(e)
+        val text = JsonObject(mapOf("events" to JsonObject(eventsOut.take()),
+            "definitions" to json.encodeToJsonElement(definitionsMap, definitionsOut.take()), "boards" to JsonArray(boards))).toString()
+        val at2 = jsNow()
+        // The page: the message read, its copy moved and each board made again with its own state
+        val message = json.parseToJsonElement(text) as JsonObject
+        eventsIn.add(message.getValue("events") as JsonObject)
+        definitionsIn.add(json.decodeFromJsonElement(definitionsMap, message.getValue("definitions")))
+        var same = true
+        (message.getValue("boards") as JsonArray).forEachIndexed { i, element ->
+            val w = json.decodeFromJsonElement(TableBoardWire.serializer(), element)
+            val board = statesIn.board(checkNotNull(w.board))
+            val defs = definitionsIn.of(w.definitions)
+            val ref = checkNotNull(w.state)
+            mirror.move(ref, eventsIn::get)
+            val (state, table) = when (ref) {
+                is StateRef.Line, is StateRef.Load -> checkNotNull(mirror.model).let { it.engine to it.table }
+                else -> mirror.state(ref, eventsIn::get)
+            }
+            val seen = checkNotNull(w.visible).applied(visibleIn).also { visibleIn = it }.toSet()
+            val view = EngineView(state, table, PlayerId(viewer), seen)
+            ComputedBoard.restored(checkNotNull(w.computed), view.state)
+            val expected = if (i == 0) main else stepBuilt[i - 1]
+            if (board != expected.board || defs != expected.definitions || view.state != expected.state) same = false
+        }
+        val at3 = jsNow()
+        return "$what: built ${(at1 - at0).f()} ms (${1 + stepBuilt.size} boards), described and written ${(at2 - at1).f()} ms, " +
+            "${text.length} chars; the page took it in ${(at3 - at2).f()} ms${if (same) "" else " (DIFFERENT from the engine side's)"}; " +
+            "${shadow.loads} snapshots so far"
     }
 }
 
@@ -141,13 +286,17 @@ private class BenchGame {
     val encodeMs: Double
     val first: Transfer
     val second: Transfer
-    private val model: GameModel
+    val model: GameModel
+    val codec: EngineJson
+    /** Every event made, from the game's root on. */
+    val line = ArrayList<GameEvent>()
     private var made = 0
 
     /** The player holding priority passes it (an event as the device makes it). */
     private fun passOnce(): Boolean {
         val holder = model.engine.priority.holder ?: return false
-        EventBuilder(model, "bench-${made++}", "bench", holder.value).run { perform(Input.PassPriority(holder)); answerRandoms(); build() }
+        line += EventBuilder(model, "bench-${made++}", line.lastOrNull()?.id ?: "root", holder.value)
+            .run { perform(Input.PassPriority(holder)); answerRandoms(); build() }
         return true
     }
 
@@ -180,7 +329,7 @@ private class BenchGame {
         val model = GameModel(Engine.newGame(seats), TableState(secret = LineRandom.secret(ByteArray(32) { 5 })))
         this.model = model
         fun event(id: String, parent: String, author: String, input: (GameState) -> Input) =
-            EventBuilder(model, id, parent, author).run { perform(input(model.engine)); answerRandoms(); build() }
+            EventBuilder(model, id, parent, author).run { perform(input(model.engine)); answerRandoms(); build() }.also { line += it }
         // As GameDevice.openingInput: the open decision when it is the player's, else a declaration ahead of it
         fun keep(p: String): (GameState) -> Input = { s ->
             val d = s.pending?.decision
@@ -201,6 +350,7 @@ private class BenchGame {
             parent = "pass-${passes++}"
         }
         val codec = EngineJson(GameDefinitions.of(model.engine))
+        this.codec = codec
         val at = jsNow()
         val snapshot = BoardTransfer.Snapshot(codec.encodeDefinitions(), codec.encodeModel(model))
         encodeMs = jsNow() - at

@@ -48,6 +48,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.delay
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.first
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.AssumeResolves
@@ -900,16 +901,6 @@ private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.
     }
 }
 
-/**
- * HIS-099: a small view-only board of [model] (the point an undo goes back to) as [viewer] sees it: the table's own
- * drawing laid out at a phone's size and drawn smaller; nothing on it acts.
- */
-@Composable
-private fun EngineBoardPreview(game: EngineGame, summary: GameSummary, model: org.asyncttwiz.protocol.game.GameModel, at: String, viewer: String) {
-    val board = remember(model, at) { game.preview(model, at, viewer) } ?: return
-    BoardPreview(summary, board, viewer)
-}
-
 /** HIS-099: [board] drawn small and view-only: the whole table laid out at a phone's size ([landscape]: turned) and
  * scaled down to [height] (a small table would lay itself out differently); [dim] while a newer one is worked out. */
 @Composable
@@ -1044,20 +1035,27 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     val game = routes.engine ?: return
     game.shownVersion
     val shownGame = game.shown ?: return
-    // HIS-111: a point before what the device holds shows once its older history is in (the board is published again)
-    val preview = remember(game.version) { game.requestPreview() }
-    LaunchedEffect(game.version, preview == null) { if (preview == null) game.loadForRequest() }
+    // HIS-111: a point before what the device holds shows once its older history is in (the board is published again).
+    // Web client step 4c: the request's view arrives through a callback (on Android at once, in the same composition)
+    val answer = remember(game.version) {
+        AnsweredValue<EngineGame.RequestView?>().also { a ->
+            game.requestView(routes.viewer, shownGame.localHead, shownGame.request?.target ?: "", a::set)
+        }
+    }
+    val preview = answer.value
+    LaunchedEffect(game.version, answer.arrived && preview == null) { if (answer.arrived && preview == null) game.loadForRequest() }
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
         DialogCancelButton("Deny", { game.answerRequest(false); routes.pump() }, Modifier.testTag("request-deny"))
         DialogMainButton("Accept", { game.answerRequest(true); routes.pump() }, Modifier.testTag("request-accept"), icon = "ready")
     }) {
         val message = preview?.message.orEmpty()
         if (message.isNotBlank()) Text("“$message”", style = MaterialTheme.typography.bodyLarge)
-        val turn = preview?.board?.engine?.turn
+        val turn = preview?.turn
         Text("The game goes back to " + (turn?.let { if (it.number == 0) "the opening" else "turn ${it.number}, ${org.asyncttwiz.automatum.EngineProjection.position(it.step).label}" } ?: "an earlier point") +
             if (preview?.unseen == true) ", and actions you haven't seen yet are taken back." else ".", style = MaterialTheme.typography.bodyMedium)
-        // HIS-099: the board it goes back to, as far as the viewer has seen (their local head's when the target is past it)
-        preview?.let { EngineBoardPreview(game, summary, it.board, if (it.unseen) shownGame.localHead else shownGame.request?.target ?: "", routes.viewer) }
+        // HIS-099: the board it goes back to, as far as the viewer has seen (their local head's when the target is past it):
+        // the table's own drawing laid out at a phone's size and drawn smaller; nothing on it acts
+        preview?.board?.let { BoardPreview(summary, it, routes.viewer) }
         Text("The game waits until you answer.", style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -1117,7 +1115,8 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         if (preview != null) delay(UNDO_PREVIEW_DELAY_MS)
         // HIS-005: a point whose board needs older history keeps the last board, dimmed, until its page is in (the
         // board is published again then: this runs again)
-        val next = game.undoPreview(t)
+        // Web client step 4c: through a callback (on Android at once, without suspending)
+        val next = kotlinx.coroutines.suspendCancellableCoroutine<EngineGame.UndoPreview> { c -> game.undoPreview(t) { c.resume(it) } }
         preview = if (next.loading) t to EngineGame.UndoPreview(preview?.second?.board, null, loading = true) else t to next
     }
     // HIS-099 (owner 2026-11-07: back to the game's first event): a choice near the oldest point held asks for older history

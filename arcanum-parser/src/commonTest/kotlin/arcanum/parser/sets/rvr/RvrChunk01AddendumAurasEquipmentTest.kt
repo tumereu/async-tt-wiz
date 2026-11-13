@@ -332,7 +332,8 @@ class RvrChunk01AddendumAurasEquipmentTest {
         static(Mechanic.ControlledBy(Players.You), affects = attached),
     )
     // CR 115.3: "up to one other target artifact or enchantment" after "target artifact or enchantment" is a different object from the
-    // first target (a fix found in this chunk: "other" read as other than the spell itself); CR 505.1 for the main-phase condition
+    // first target (a fix found in this chunk: "other" read as other than the spell itself); CR 505.1 for the main-phase condition;
+    // CR 601.2c: the spell's text defines its number of targets as it is cast, so the second target exists only when cast in your main phase
     @Test
     fun dustwardRite() = card(
         name = "Dustward Rite",
@@ -345,7 +346,7 @@ class RvrChunk01AddendumAurasEquipmentTest {
             ifThen(addendum, Step.May(listOf(Step.Do(Effect.Move(target("second permanent"), Destination(Zone.Exile), postBind = "exiled"))), Players.You)),
             targets = listOf(
                 slot("permanent", artifactOrEnchantment),
-                TargetSlot("second permanent", TargetKind.Objects(artifactOrEnchantment), min = n(0), max = n(1), distinctFrom = listOf("permanent")),
+                TargetSlot("second permanent", TargetKind.Objects(artifactOrEnchantment), min = n(0), max = n(1), distinctFrom = listOf("permanent"), onlyIf = addendum),
             ),
         ),
     )

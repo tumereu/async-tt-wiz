@@ -351,6 +351,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times ||
             // CR 702.113b: the alternative cost chosen (awaken)
             (condition.keyword != null && alternative?.second?.keyword == condition.keyword && condition.times <= 1))
+        // rvr fixes: "if you cast this spell during your main phase" is known as it is cast (CR 601.2a, 601.2c), before the cast is recorded
+        is arcanum.api.Condition.CastDuringMainPhase -> if (condition.of == arcanum.api.Objects.Self) base.turn.active == player &&
+            (base.turn.step == arcanum.api.TurnStep.PrecombatMain || base.turn.step == arcanum.api.TurnStep.PostcombatMain) else eval.holds(condition)
         is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
         is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
         is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }

@@ -5732,8 +5732,16 @@ internal class Sentences(
         // chunks 52, 56: "If [condition], [effect]." (checked as it resolves)
         IF_CONDITION.matchEntire(sentence)?.let { m ->
             val condition = itCondition(m.groupValues[1], context) ?: Conditions.condition(m.groupValues[1], self)
+            val before = context.targets.size
             val then = condition?.let { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) }
-            if (condition != null && then != null) return listOf(Step.If(condition, then = then))
+            if (condition != null && then != null) {
+                // rvr fixes: a condition settled as the spell is cast ("If you cast this spell during your main phase, you may exile up to one
+                // other target …") decides whether the spell has the targets of its effect at all: the spell's text defines the number of targets
+                // as it is cast (CR 601.2c)
+                if (condition is arcanum.api.Condition.CastDuringMainPhase && condition.of == Objects.Self)
+                    for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
+                return listOf(Step.If(condition, then = then))
+            }
         }
         // chunk 21: "You may [do something]." with nothing depending on it (CR 608.2d)
         // chunk 51: "Target creature you control gains shroud until end of turn."
@@ -5775,10 +5783,11 @@ internal class Sentences(
         }
         YOU_MAY.matchEntire(sentence)?.let { m ->
             effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context)?.let { steps ->
-                // rvr chunk 07: "you may put two counters on a creature you control" is a choice of zero or one, not May (CR 701.3 pattern)
+                // rvr chunk 07: "you may put two counters on a creature you control" is a choice of zero or one, not May (CR 701.3 pattern).
+                // Only a choice you make: "you may have target opponent sacrifice a creature" stays May, the opponent then must choose (CR 608.2d, 701.21a).
                 val first = steps.firstOrNull() as? Step.Choose
                 val choice = first?.choice as? arcanum.api.Choice.Objects
-                if (first != null && choice != null && choice.min == Value.Fixed(1) && choice.max == Value.Fixed(1))
+                if (first != null && choice != null && first.chooser == Players.You && choice.min == Value.Fixed(1) && choice.max == Value.Fixed(1))
                     return listOf(first.copy(choice = choice.copy(min = Value.Fixed(0)))) + steps.drop(1)
                 return listOf(Step.May(steps, player = Players.You))
             }

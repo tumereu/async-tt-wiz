@@ -198,7 +198,11 @@ class PassesAndUndoTest : E2e() {
     // HIS-102 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:
     // on Alice's live table his pass shows at once (the Herald resolves), it never turns into playback
     @Test fun theOtherPlayersPassShowsAtOnceOnALiveTable() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+        // Every board her phone shows is looked at as it reaches the screen: the Herald on the Stack shows only on her cast's
+        // own board when her phone assumes his pass at once (his response mode passes there), and a test round could take
+        // that board and the next one together on a loaded machine (full run 2026-11-13)
+        val aliceEngine = HeldWorker()
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceWorker = aliceEngine,
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)
@@ -207,8 +211,10 @@ class PassesAndUndoTest : E2e() {
         val herald = atw(alice.hand("Ember Herald").first())
         var playback = false
         everyRun += { if (alice.game?.shown?.status is GameDevice.Status.Playing) playback = true }
+        var stacked = false
+        aliceEngine.observe = { if (alice.game?.shown?.let { where(it.board, herald) } == "STACK") stacked = true }
         alice.playFromHand("Ember Herald", this)
-        waitUntil("Alice's live phone waiting for Bob's answer") { where(alice.shown.board, herald) == "STACK" }
+        waitUntil("Alice's live phone waiting for Bob's answer") { stacked }
         // Bob's app passes (his own tap, or his phone by his response mode)
         waitUntil("the Herald resolving on Bob's pass", along = listOf(bob)) { where(alice.shown.board, herald) == "BATTLEFIELD" }
         val shown = alice.shown

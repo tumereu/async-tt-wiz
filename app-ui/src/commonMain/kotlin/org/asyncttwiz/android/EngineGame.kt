@@ -752,9 +752,18 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         historyLoading = true
         // Done once the board with the page is published (its main-thread work queued first), so nothing in between
         // finds the point neither shown nor loading
+        AppLog.info("history", "Older history: the page to ${through.take(8)} asked (${shown?.older?.size ?: 0} older events shown)")
         val started = fetch(through) { page ->
             worker.run {
+                val held = device.olderEvents.size
                 val taken = page != null && device.addPage(page)
+                // HIS-111: what came of it (a page kept for states only doesn't show more of the line)
+                AppLog.info("history", "Older history: the page to ${through.take(8)} " + when {
+                    page == null -> "failed (asked again when timeline mode or the Undo dialog opens again)"
+                    !taken -> "refused"
+                    else -> "taken, ${page.events.size} events; older history $held → ${device.olderEvents.size} events, " +
+                        "complete ${device.olderComplete}, line start ${device.session.lineStart.take(8)}"
+                })
                 if (taken) publish()
                 worker.main { asked -= through; if (!taken) failedPages += through; historyLoading = asked.isNotEmpty() }
             }

@@ -2507,7 +2507,14 @@ class GameDevice(
         val from = session.lineStart
         val moved = session.events.take(cut + 1)
         session.trim(session.events[cut].id)
-        older?.trimmed(from, moved)
+        older?.let { o ->
+            val held = o.events.size
+            o.trimmed(from, moved)
+            // HIS-111: what the trim did to the older history loaded (a first page on its way joins the line through these)
+            if (held > 0 || o.waitingTrimmed > 0) remember("trimmed ${moved.size} events, line start ${from.take(8)} → " +
+                "${session.lineStart.take(8)}: older history " +
+                if (held > 0) "$held → ${o.events.size} events" else "waits for its first page with ${o.waitingTrimmed} trimmed")
+        }
     }
 
     // ---- Older history (HIS-111, HIS-099: the timeline and Undo reach the game's first event)
@@ -2529,12 +2536,20 @@ class GameDevice(
     val olderComplete: Boolean get() = older?.complete == true || session.lineStart == rootId
 
     /** The event the next older page of the main line ends at, or null when there is nothing older (or no [older]). */
-    fun olderThrough(): String? = older?.through(session.lineStart, rootId)
+    fun olderThrough(): String? = older?.asking(session.lineStart, rootId)
 
     /** Takes in the server's [page] of older history ([OlderHistory.add]); false when it doesn't fit. */
     fun addPage(page: org.asyncttwiz.protocol.EngineHistoryPage): Boolean {
+        val before = older?.events?.size ?: 0
         val ok = older?.add(page, session.lineStart, rootId) == true
-        remember("older page to ${page.through}: ${if (ok) "taken" else "refused"}")
+        val now = older?.events?.size ?: 0
+        // HIS-111: whether it joined the line (the timeline and the Undo dialog show it) or is kept for states only
+        remember("older page to ${page.through}: " + when {
+            !ok -> "refused"
+            now > before -> "taken, older history $before → $now events" +
+                (older?.joined?.takeIf { it > 0 && before == 0 }?.let { ", joined through $it trimmed meanwhile" } ?: "")
+            else -> "taken, kept for states only (line start ${session.lineStart.take(8)})"
+        })
         return ok
     }
 

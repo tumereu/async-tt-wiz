@@ -43,4 +43,6 @@ internal object Woe {
     val BECOMES_WITH_QUOTED = Regex("""(Until end of turn, )?(.+?) becomes (an? [^"]+?) with "(.+)"\.""")
     // woe chunk 05: "If the token is an Aura, untap Yenna, then scry 2." (after "Create a token that's a copy of it, …")
     val IF_THE_TOKEN_IS = Regex("""If the token is an? (\w+), (.+)\.""")
+    // woe chunk 06: 'As long as …, Goddric is a Dragon with base power and toughness 4/4, flying, and "{R}: …."' (keywords, then a quoted ability)
+    val IS_SUBTYPE_WITH_BASE_PT = Regex("""(?:As long as (.+?), )?(.+?) is an? ([A-Z]\w+(?: [A-Z]\w+)*) with base power and toughness (\d+)/(\d+)((?:, [a-z ]+?)*),? and "(.+)"\.?""")
 }

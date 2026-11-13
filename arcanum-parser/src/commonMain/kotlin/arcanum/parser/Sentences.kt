@@ -1324,6 +1324,7 @@ internal class Sentences(
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
         mechanicStatic(line)?.let { return it }
+        woeStatic(line)?.let { return it } // woe
         ltrStatic(line)?.let { return it } // ltr
         mh2Static(line)?.let { return it } // mh2
         tdmStatic(line)?.let { return it } // tdm
@@ -5115,8 +5116,10 @@ internal class Sentences(
         // dsk chunk 13: "attach it to …" in this object's enters trigger
         ATTACH_SELF_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) ||
             it.groupValues[1] == "it" && context.event == EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield) }?.let { m ->
-            val noun = m.groupValues[2]
+            val noun = m.groupValues[3]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            // woe chunk 06: "attach this Equipment to up to one target creature you control" (zero targets allowed, CR 115.6)
+            if (m.groupValues[2].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(min = Value.Fixed(0))
             return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = target))))
         }
         // chunk 20: "Attach it to that creature."
@@ -11345,7 +11348,7 @@ internal class Sentences(
         val THAT_PLAYER_ADDS_ADDITIONAL = Regex("""That player adds an additional (\{.\})\.""")
         // chunk 20
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
-        val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
+        val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+?) to (up to one )?target (.+)\.""")
         val SACRIFICE_THAT = Regex("""Sacrifice that (\w+)\.""")
         val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
         val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to the sacrificed \w+'s (power|toughness)\.""")
@@ -15738,6 +15741,27 @@ internal class Sentences(
                     Value.Fixed(0), Value.Fixed(1), from = move.objects), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(chosen, Destination(Zone.Battlefield))),
                 Step.Do(move.copy(objects = Objects.Except(move.objects, chosen)))), otherwise = steps.takeLast(1))
+        }
+        return null
+    }
+
+    /** woe: static abilities. */
+    private fun woeStatic(line: String): Ability? {
+        // woe chunk 06: 'As long as …, Goddric is a Dragon with base power and toughness 4/4, flying, and "{R}: Dragons you control get +1/+0 until
+        // end of turn."' (the new creature type replaces the others, CR 205.1b; layers 4, 7b and 6, CR 613.1d, 613.4b, 613.1f; a granted
+        // ability isn't characteristic-defining, CR 604.3a)
+        Woe.IS_SUBTYPE_WITH_BASE_PT.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val condition = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null }
+            val subtypes = m.groupValues[3].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
+            val keywords = m.groupValues[6].split(", ").filter { it.isNotEmpty() }.map { OracleParser.keyword(it) ?: return null }
+            val read = Sentences(setOf("this creature")).line(m.groupValues[7]) ?: return null
+            if (read is Ability.Unparsed) return null
+            val granted = (read as? Ability.Static)?.copy(characteristicDefining = false) ?: read
+            return Ability.Static(listOf(
+                Mechanic.SetTypes(addSubtypes = subtypes, replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[4].toInt()), Value.Fixed(m.groupValues[5].toInt())),
+                Mechanic.GainAbilities(keywords + granted),
+            ), affects = Affected.Objects(Objects.Self), condition = condition)
         }
         return null
     }

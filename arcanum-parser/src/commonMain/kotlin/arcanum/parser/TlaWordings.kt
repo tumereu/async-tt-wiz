@@ -157,7 +157,7 @@ internal object Tla {
     val EXILE_UNTIL_NONLAND_CAST_IF = Regex("""Exile cards from the top of your library until you exile a (\w+) card\. You may cast that card without paying its mana cost if the spell's mana value is less than (.+?)\. If you don't cast that card this way, put it into your hand\.""")
     val EACH_GAINS_UNTIL_EOT = Regex("""Each (.+?) gains (.+) until end of turn\.""")
     val AS_LONG_AS_COUNTER_ARE_TYPE = Regex("""As long as (.+?) has an? (\S+) counter on (?:him|her|it|them), (.+) are ([A-Z]\w+)s\.""")
-    val EACH_DEAL_DAMAGE_POWER = Regex("""Up to two target (.+?) each deal damage equal to their power to target (.+)\.""")
+    val EACH_DEAL_DAMAGE_POWER = Regex("""Up to two target (.+?) each deal damage equal to their power to (another )?target (.+)\.""") // rvr chunk 04: another
     val ENCHANTED_GETS_FOR_EACH_AND_IS = Regex("""Enchanted creature gets \+1/\+1 for each (.+?) and is an? ([A-Z]\w+) in addition to its other types\.""")
     val MILL_POWER_RETURN_SELF_AND_ONE = Regex("""mill cards equal to its power\. Return this card to its owner's hand and up to one (.+?) milled this way to the battlefield under your control\.""")
     val CHOOSE_UP_TO_X_WHERE = Regex("""When (.+) enters, choose up to X, where X is (.+?)(?: —)?""")

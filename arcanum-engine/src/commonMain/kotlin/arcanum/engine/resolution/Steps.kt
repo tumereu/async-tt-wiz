@@ -408,13 +408,14 @@ internal object Steps {
         val e = scope.eval()
         scope.entering = when (modification) {
             Modification.EntersTapped -> m.copy(tapped = true)
-            is Modification.EntersWithCounters -> m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
+            is Modification.EntersWithCounters -> if (!arcanum.engine.action.Actions.entersAs(scope.act, m, modification.ifEntersAs, scope.actor)) m
+                else m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
             is Modification.EntersUnderControlOf -> m.copy(controller = e.players(modification.players).firstOrNull() ?: m.controller)
             is Modification.EntersWithAbilities -> m.copy(abilities = m.abilities + modification.abilities)
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")
-                    .firstOrNull()?.let { m.copy(copyOf = it to modification.except) } ?: m
+                    .firstOrNull()?.let { arcanum.engine.action.Actions.asCopy(scope.act, m, it, modification, e, scope.actor) } ?: m
             }
             is Modification.ChangeDestination -> m.copy(to = modification.to.zone)
             Modification.Skip -> null

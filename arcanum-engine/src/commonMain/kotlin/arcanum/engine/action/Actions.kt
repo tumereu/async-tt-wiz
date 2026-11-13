@@ -232,7 +232,7 @@ internal object Actions {
                     counters = move.counters + mod.to.counters.map { it.kind to e.value(it.amount) },
                 )
                 Modification.EntersTapped -> if (move.to == Zone.Battlefield) move.copy(tapped = true) else move
-                is Modification.EntersWithCounters -> if (move.to == Zone.Battlefield)
+                is Modification.EntersWithCounters -> if (move.to == Zone.Battlefield && entersAs(act, move, mod.ifEntersAs, r.controller))
                     move.copy(counters = move.counters + (mod.kind to e.value(mod.amount))) else move
                 is Modification.EntersUnderControlOf -> move.copy(controller = e.players(mod.players).firstOrNull() ?: move.controller)
                 is Modification.EntersWithAbilities -> move.copy(abilities = move.abilities + mod.abilities)
@@ -249,7 +249,7 @@ internal object Actions {
                         if (bind != null && then != null) linked += WaitingTrigger(controller = r.controller,
                             ability = arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), then), origin = null, source = r.source,
                             names = r.names.with(bind, NamedValue.Objects(listOf(of))))
-                        move.copy(copyOf = of to mod.except)
+                        asCopy(act, move, of, mod, e, r.controller)
                     } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
@@ -439,6 +439,24 @@ internal object Actions {
         if (m.to != Zone.Battlefield || m.faceDown) return null
         return m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
             ?: o.definition.faces.getOrNull(if (m.transformed && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld)) 1 else o.face)
+    }
+
+    /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy (CR 614.1c, 707.9b). */
+    fun asCopy(act: Act, m: PlannedMove, of: ObjectId, mod: Modification.EntersAsCopy, e: Evaluator, controller: PlayerId): PlannedMove {
+        val copy = m.copy(copyOf = of to mod.except)
+        val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) }
+        return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)
+    }
+
+    /** rvr chunk 04: whether [m] enters as an object matching [filter] (null: any): its face as it enters, after the copy effect and its
+     * exceptions it enters with (CR 614.12, 707.9b), on a board where it is already on the battlefield. */
+    fun entersAs(act: Act, m: PlannedMove, filter: arcanum.api.ObjectFilter?, controller: PlayerId): Boolean {
+        if (filter == null) return true
+        val o = act.state.objOrThrow(m.id)
+        val face = enteringFace(act, o, m)?.let { f -> m.copyOf?.let { arcanum.engine.view.Copiable.exceptions(f, it.second) } ?: f } ?: return false
+        val probe = o.copy(id = (m.id as ObjectId.Card).next(), zone = Zone.Battlefield, controller = m.controller ?: o.owner,
+            definition = arcanum.api.CardDefinition(Layout.Normal, listOf(face)), face = 0)
+        return Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)), Context(you = controller, self = probe.id)).matches(filter, probe.id)
     }
 
     private fun lockedEffect(

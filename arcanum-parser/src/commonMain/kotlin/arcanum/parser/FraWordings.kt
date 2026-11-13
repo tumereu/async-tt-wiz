@@ -106,7 +106,7 @@ internal object Fra {
     val IF_YOU_DONT = Regex("""If you don't, (.+)\.""")
     val COUNTER_FOR_EACH_DISCARDED_THIS_TURN = Regex("""Put an? (\S+) counter on that creature for each card you've discarded this turn\.""")
     val IF_THAT_LAND_IS_ADD = Regex("""If that land is an? (.+?), (add .+)\.""")
-    val DEALS_DAMAGE_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+?) deals (\d+) damage to that creature's controller\.""")
+    val DEALS_DAMAGE_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+?) deals (\d+) damage to that (creature|permanent)'s controller\.""") // rvr chunk 04: permanent
     val DEALS_DAMAGE_TO_UP_TO_ONE_AND_PLAYER = Regex("""(.+?) deals (\d+) damage to up to one target (.+?) and (\d+) damage to target player\.""")
     val SEARCH_UP_TO_X_DIFFERENT_NAMES = Regex("""Search your library for up to X (.+?) with different names, reveal them, put them into your hand, then shuffle\.""")
     val UNTAP_UP_TO = Regex("""Untap up to (\w+) target (.+)\.""")

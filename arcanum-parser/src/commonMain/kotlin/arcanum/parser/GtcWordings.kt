@@ -43,7 +43,7 @@ internal object Gtc {
 
     val REVEALS_THAT_MANY_FROM_HAND = Regex("""Target opponent reveals that many cards from their hand\.""")
     val THIS_TURN_ENTERS_WITH_ADDITIONAL = Regex("""This turn, each (.+) enters with an additional (\S+) counter on it\.""")
-    val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move any number of (\S+) counters from target (.+?) onto another target (.+?) with the same controller\.""")
+    val MOVE_ANY_NUMBER_OF_COUNTERS = Regex("""Move (any number of|an?) (\S+) counters? from target (.+?) onto another target (.+?) with the same controller\.""") // rvr chunk 04: a
     val REMOVE_COUNTERS_COST = Regex("""Remove (a|an|one|two|three|four|five|six|one or more) (\S+) counters? from (.+)""")
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
@@ -109,7 +109,7 @@ internal object Gtc {
     val EXILE_ALL_FROM_TARGET_PLAYERS_GRAVEYARD = Regex("""Exile all (.+?) cards from target player's graveyard\.""")
     val GAIN_LIFE_FOR_EACH_EXILED = Regex("""You gain (\d+) life for each card exiled this way\.""")
     val LOSES_LIFE_THEN_REVEALS_RANDOM = Regex("""Target opponent loses (\d+) life, then reveals a card at random from their hand\.""")
-    val DEALS_N_AND_N = Regex("""(.+?) deals (\d+) damage to (target .+?) and (\d+) damage to (target .+)\.""")
+    val DEALS_N_AND_N = Regex("""(.+?) deals (\d+) damage to (target .+?) and (\d+) damage to ((?:up to one )?target .+)\.""") // rvr chunk 04: up to one
     val TARGET_FIGHTS_TARGET = Regex("""Target (.+?) fights target (.+)\.""")
     val DEALS_DAMAGE_EQUAL_DISCARDED_TO_THAT = Regex("""(.+?) deals damage equal to the discarded card's mana value to that permanent or player\.""")
     val ATTACKS_OR_BLOCKS_AND_CANT = Regex("""Up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat\.""")

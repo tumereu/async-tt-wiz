@@ -50,6 +50,7 @@ internal object Filters {
         Mh2Phrases.noun(phrase)?.let { return it } // mh2
         DftPhrases.noun(phrase)?.let { return it } // dft
         FinPhrases.noun(phrase)?.let { return it } // fin
+        RvrPhrases.noun(phrase)?.let { return it } // rvr
         TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
@@ -361,6 +362,8 @@ internal object Filters {
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
+        // rvr chunk 04: "activated or triggered ability" (abilities on the Stack)
+        if (core == "activated or triggered ability") return "ability"
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
         if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()

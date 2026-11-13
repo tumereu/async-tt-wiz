@@ -450,7 +450,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             if (!e.matches(m.what, itemId)) return@forEach
             // "The next spell …" (CR 611.2f): only a spell it is still waiting for
             if (!NextSpells.appliesTo(snap.state, applied.effect, e, itemId)) return@forEach
-            val mana = Costs.expand(m.change, e)
+            // rvr chunk 04: the count may be about the spell itself ("for each of the chosen colors it is")
+            val mana = Costs.expand(m.change, e.with(e.ctx.copy(tested = itemId)))
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }
         // tmt backfill: "the next noncreature spell you cast this turn has affinity for artifacts": a keyword an effect

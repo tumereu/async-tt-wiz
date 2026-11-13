@@ -1370,6 +1370,7 @@ internal class Sentences(
         blbGapsStatic(line)?.let { return it } // blb gaps
         blbGaps2Static(line)?.let { return it } // blb gaps 2
         rtrStatic(line)?.let { return it } // rtr
+        rvrStatic(line)?.let { return it } // rvr
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -2822,6 +2823,7 @@ internal class Sentences(
                 ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
                 ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
+                ?: rvrWhole(body.replaceFirstChar { it.uppercase() }, context) // rvr
                 ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
@@ -6076,7 +6078,8 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), controller = Players.ControllerOf(of))))
         }
         // gtc chunk 04: "Move a +1/+1 counter from this creature onto target creature."
-        Gtc.MOVE_COUNTER.matchEntire(sentence)?.let { m ->
+        // (rvr chunk 04: "onto another target creature with the same controller" is MOVE_ANY_NUMBER_OF_COUNTERS)
+        Gtc.MOVE_COUNTER.matchEntire(sentence)?.takeUnless { it.groupValues[4].endsWith(" with the same controller") }?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             val from = gtcSubject(m.groupValues[3], context) ?: return null
             val to = gtcSubject(m.groupValues[4], context) ?: return null
@@ -6219,10 +6222,12 @@ internal class Sentences(
         // gtc chunk 04: "Move any number of +1/+1 counters from target creature onto another target creature with the same
         // controller."
         Gtc.MOVE_ANY_NUMBER_OF_COUNTERS.matchEntire(sentence)?.let { m ->
-            val kind = Counters.kind(m.groupValues[1]) ?: return null
-            val from = context.target("creature", Filters.noun(m.groupValues[2]) ?: return null)
-            val onto = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(from))))
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val from = context.target("creature", Filters.noun(m.groupValues[3]) ?: return null)
+            val onto = Filters.all(Filters.noun(m.groupValues[4]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(from))))
             context.targets += TargetSlot("other creature", TargetKind.Objects(onto), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf("creature"))
+            // rvr chunk 04: Simic Guildmage: "Move a +1/+1 counter from target creature onto another target creature with the same controller."
+            if (m.groupValues[1] != "any number of") return listOf(Step.Do(Effect.MoveCounters(from, Objects.Target("other creature"), kind, Value.Fixed(1))))
             return listOf(
                 Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.Of(arcanum.api.NumericProperty.Counters(kind), from, arcanum.api.Combine.Single)),
                     bind = "moved", chooser = Players.You),
@@ -6737,8 +6742,11 @@ internal class Sentences(
         // dgm: "[source] deals 3 damage to target player or planeswalker and 3 damage to target creature." (two targets)
         Gtc.DEALS_N_AND_N.matchEntire(sentence)?.let { m ->
             val source = gtcSource(m.groupValues[1], context) ?: return@let
-            val first = gtcRecipients(m.groupValues[3], context) ?: return@let
-            val second = gtcRecipients(m.groupValues[5], context) ?: return@let
+            // rvr chunk 04: a second recipient that doesn't read leaves no target slot of the first behind
+            val from = context.targets.size
+            fun undo() { while (context.targets.size > from) context.targets.removeAt(context.targets.lastIndex) }
+            val first = gtcRecipients(m.groupValues[3], context) ?: return@let undo()
+            val second = gtcRecipients(m.groupValues[5], context) ?: return@let undo()
             return listOf(Step.Do(Effect.DealDamage(first, Value.Fixed(m.groupValues[2].toInt()), source = source)),
                 Step.Do(Effect.DealDamage(second, Value.Fixed(m.groupValues[4].toInt()), source = source)))
         }
@@ -7111,6 +7119,13 @@ internal class Sentences(
         }
         "that player" -> Recipients(players = context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null } ?: return null)
         "each opponent" -> Recipients(players = Players.Each(PlayerFilter.Opponent))
+        // rvr chunk 04: Rakdos Firewheeler: "… and 2 damage to up to one target creature or planeswalker." (CR 115.1)
+        in Rvr.UpToOneTargetNoun -> {
+            val noun = text.removePrefix("up to one target ")
+            val name = Filters.slotName(noun).let { if (context.targets.any { t -> t.name == it }) nextTargetName(it, context.targets.map { t -> t.name }) else it }
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            Recipients(objects = Objects.Target(name))
+        }
         // inr chunk 08: "each creature that player controls"
         else -> (if (text.startsWith("each ")) Filters.noun(text.removePrefix("each "))?.let { Objects.Each(it) } else null)
             ?.let { Recipients(objects = it) } ?: gtcSubject(text, context)?.let { Recipients(objects = it) }
@@ -10621,7 +10636,10 @@ internal class Sentences(
         }
         // fra chunk 06: "Tetsuko Umezawa deals 1 damage to that creature's controller." (the blocking creature)
         Fra.DEALS_DAMAGE_TO_THAT_CREATURES_CONTROLLER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val that = context.that ?: context.event?.let { Objects.EventObject(EventRole.Object) } ?: return@let
+            // rvr chunk 04: Cindervines: "Destroy target artifact or enchantment. This enchantment deals 2 damage to that permanent's controller."
+            // (the target's controller as it last existed, CR 608.2h)
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects && it.min == Value.Fixed(1) }?.let { Objects.Target(it.name) }
+            val that = context.that ?: (if (m.groupValues[3] == "permanent") target else null) ?: context.event?.let { Objects.EventObject(EventRole.Object) } ?: return@let
             return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.ControllerOf(that)), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
         }
         // fra chunk 09: "This planeswalker deals 2 damage to up to one target creature or planeswalker and 2 damage to target player."
@@ -13641,7 +13659,9 @@ internal class Sentences(
         // "Up to two target creatures you control each deal damage equal to their power to target creature an opponent controls."
         Tla.EACH_DEAL_DAMAGE_POWER.matchEntire(sentence)?.let { m ->
             val dealers = tlaTarget("up to two target ${m.groupValues[1]}", context) ?: return null
-            val victim = tlaTarget("target ${m.groupValues[2]}", context) ?: return null
+            val victim = tlaTarget("target ${m.groupValues[3]}", context) ?: return null
+            // rvr chunk 04: Band Together: "another target creature" is none of the first targets (CR 115.3)
+            if (m.groupValues[2].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(distinctFrom = listOf((dealers as Objects.Target).slot))
             val dealer = Objects.Bound("dealer")
             return listOf(Step.ForEach(arcanum.api.Each.Objects(dealers), bind = "dealer", steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = victim),
                 Value.Of(arcanum.api.NumericProperty.Power, dealer, arcanum.api.Combine.Single), dealer)))))
@@ -14819,8 +14839,8 @@ internal class Sentences(
         // msh chunk 09: "Creatures with flying can't attack you or block creatures you control." (CR 508.1c, 509.1b)
         Msh.CANT_ATTACK_YOU_OR_BLOCK.matchEntire(line)?.let { m ->
             val objects = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
-            val attackers = Filters.noun(m.groupValues[2]) ?: return null
-            return Ability.Static(listOf(Mechanic.CantAttack(target = arcanum.api.Recipients(players = Players.You)), Mechanic.CantBlock(attackers)),
+            val attackers = if (m.groupValues[2].isEmpty()) null else Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOfNotNull(Mechanic.CantAttack(target = arcanum.api.Recipients(players = Players.You)), attackers?.let { Mechanic.CantBlock(it) }),
                 affects = Affected.Objects(Objects.Each(objects)))
         }
         // msh chunk 10: "Your maximum hand size is ten." (CR 402.2)
@@ -15634,6 +15654,75 @@ internal class Sentences(
         }
     }
 
+    /** rvr: wordings of several sentences read as one. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun rvrWhole(text: String, context: Context): List<Step>? {
+        // rvr chunk 04: Niv-Mizzet Reborn: "Reveal the top ten cards of your library. For each color pair, choose a card that's exactly those
+        // colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order." (ten
+        // pairs of the five colours, CR 105.1; a card is exactly two colours when it is both and none of the other three, CR 105.2)
+        Rvr.REVEAL_CHOOSE_EACH_COLOR_PAIR.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val revealed = Objects.Bound("revealed")
+            val colors = listOf(Color.White, Color.Blue, Color.Black, Color.Red, Color.Green)
+            val pairs = colors.indices.flatMap { i -> (i + 1 until colors.size).map { j -> colors[i] to colors[j] } }
+            val names = colors.zip(listOf("white", "blue", "black", "red", "green")).toMap()
+            val chosen = pairs.map { (a, b) -> "chosen ${names[a]} ${names[b]}" }
+            val picks = pairs.zip(chosen).map { (pair, bind) ->
+                val exactly = Filters.all(*colors.map { c -> if (c == pair.first || c == pair.second) ObjectFilter.OfColor(c) else ObjectFilter.Not(ObjectFilter.OfColor(c)) }.toTypedArray())
+                Step.Choose(arcanum.api.Choice.Objects(exactly, Value.Fixed(1), Value.Fixed(1), from = revealed), bind = bind, chooser = Players.You)
+            }
+            val all = Objects.Union(chosen.map { Objects.Bound(it) })
+            return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), bind = "revealed"))) + picks + listOf(
+                Step.Do(Effect.Move(all, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(revealed, all), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        return null
+    }
+
+    /** rvr: static abilities of one line. */
+    private fun rvrStatic(line: String): Ability? {
+        // rvr chunk 04: Lavinia, Azorius Renegade: "Each opponent can't cast noncreature spells with mana value greater than the number of lands
+        // that player controls." (each opponent counts their own lands, CR 101.2)
+        Rvr.CANT_CAST_MV_GREATER_THAN_THEIR.matchEntire(line)?.let { m ->
+            val players = Filters.players(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val spells = Filters.noun(m.groupValues[2] + " spell") ?: return null
+            val counted = Filters.noun(m.groupValues[3]) ?: Filters.noun(m.groupValues[3].removeSuffix("s")) ?: return null
+            val theirs = Value.Count(Objects.Each(Filters.all(counted, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Affected)))))
+            return Ability.Static(listOf(Mechanic.CantCast(Filters.all(spells, ObjectFilter.ManaValue(arcanum.api.Comparison.Greater, theirs)))),
+                affects = Affected.Players(players))
+        }
+        // rvr chunk 04: Spark Double: "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with
+        // an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it
+        // isn't legendary." (the counters only as a copy, tested on what it enters as, CR 614.1c, 614.12, 707.9b)
+        Rvr.MAY_ENTER_AS_COPY_EXCEPT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = Filters.noun(m.groupValues[2]) ?: return null
+            val except = mutableListOf<arcanum.api.CopyException>()
+            val counters = mutableListOf<Modification.EntersWithCounters>()
+            for (part in m.groupValues[3].split(Rvr.CLAUSE_LIST)) {
+                Rvr.ADDITIONAL_COUNTER_IF_ITS.matchEntire(part)?.let { c ->
+                    counters += Modification.EntersWithCounters(Counters.kind(c.groupValues[1]) ?: return null, Value.Fixed(1),
+                        ifEntersAs = Filters.noun(c.groupValues[2]) ?: return null)
+                } ?: if (part == "it isn't legendary") except += arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)) else return null
+            }
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersAsCopy(of, except, optional = true, withCounters = counters)))), affects = Affected.Objects(Objects.Self))
+        }
+        // rvr chunk 04: Teferi, Time Raveler: "Each opponent can cast spells only any time they could cast a sorcery." (CR 307.5)
+        Rvr.CAST_ONLY_AS_SORCERY.matchEntire(line)?.let { m ->
+            val players = Filters.players(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val spells = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.CastOnlyAsSorcery(spells)), affects = Affected.Players(players))
+        }
+        // rvr chunk 04: Seal of the Guildpact: "Each spell you cast costs {1} less to cast for each of the chosen colors it is." (CR 105.2, 601.2f)
+        Rvr.COSTS_LESS_FOR_EACH_CHOSEN_COLOR.matchEntire(line)?.let { m ->
+            val spells = Filters.noun((m.groupValues[1] + " spell").trim()) ?: return null
+            val per = Value.SharedColors(Objects.Tested, listOf(ColorRef.Remembered(CHOSEN_COLOR)))
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(spells, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, per))), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
     /** rvr: sentences that change the steps before them. */
     private fun rvrModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
         // rvr chunk 03: Woebringer Demon: "that player sacrifices a creature of their choice. If the player can't, sacrifice this creature."
@@ -15645,10 +15734,55 @@ internal class Sentences(
             val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
             return steps + Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty(chosen)), then = then)
         }
+        // rvr chunk 04: Plaguecrafter: "each player sacrifices a creature or planeswalker of their choice. Each player who can't discards a card."
+        // (in the same loop, after the sacrifices: a player who had nothing to choose discards, CR 701.21a, 101.4)
+        Rvr.EACH_PLAYER_WHO_CANT.matchEntire(sentence)?.let { m ->
+            val loop = steps.lastOrNull() as? Step.ForEach ?: return@let
+            val player = Players.Bound(loop.bind)
+            val sacrifice = (loop.steps.lastOrNull() as? Step.Do)?.effect as? Effect.Sacrifice ?: return@let
+            val chosen = (sacrifice.objects as? Objects.Bound)?.name ?: return@let
+            if ((loop.steps.getOrNull(loop.steps.size - 2) as? Step.Choose)?.bind != chosen) return@let
+            val n = Rvr.DISCARDS_N.matchEntire(m.groupValues[1])?.let { Numbers.count(it.groupValues[1]) } ?: return@let
+            val then = listOf(Step.Do(Effect.Discard(player, Value.Fixed(n), filter = ObjectFilter.Any)))
+            return steps.dropLast(1) + loop.copy(steps = loop.steps + Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty(chosen)), then = then))
+        }
         return null
     }
 
     private fun rvrEffect(sentence: String, context: Context): List<Step>? {
+        // rvr chunk 04: Compulsive Research: "Then that player discards two cards unless they discard a land card." (CR 118.12a)
+        Rvr.THAT_PLAYER_DISCARDS_UNLESS.matchEntire(sentence)?.let { m ->
+            val player = context.lastPlayer ?: return@let
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            val instead = Filters.noun(m.groupValues[2]) ?: return@let
+            return unlessPays(player, Cost(listOf(CostPart.Discard(CostObjects.Choose(instead, count = Value.Fixed(1))))),
+                listOf(Step.Do(Effect.Discard(player, Value.Fixed(n), filter = ObjectFilter.Any))))
+        }
+        // rvr chunk 04: Simic Guildmage: "Attach target Aura attached to a permanent to another permanent with the same controller." (the
+        // permanent is chosen on resolution, not targeted; CR 701.3a, b)
+        Rvr.ATTACH_AURA_TO_ANOTHER_SAME_CONTROLLER.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return@let
+            val aura = context.target("aura", Filters.all(ObjectFilter.Sub(Subtype("Aura")), ObjectFilter.Attached(to = Objects.Each(noun))))
+            val host = Objects.AttachedTo(aura)
+            val other = Filters.all(ObjectFilter.Not(ObjectFilter.Is(host)), noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(host))))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(other, Value.Fixed(1), Value.Fixed(1)), bind = "permanent", chooser = Players.You),
+                Step.Do(Effect.Attach(aura, Recipients(objects = Objects.Bound("permanent")))))
+        }
+        // rvr chunk 04: Quicken: "The next sorcery spell you cast this turn can be cast as though it had flash." (CR 611.2f, 702.8a)
+        Rvr.NEXT_SPELL_AS_THOUGH_FLASH.matchEntire(sentence)?.let { m ->
+            val spells = Filters.all(Filters.noun(m.groupValues[1] + " spell") ?: return@let, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.InstantSpeed), Affected.NextSpells(spells, 1), arcanum.api.Duration.EndOfTurn)))
+        }
+        // rvr chunk 04: Teferi, Time Raveler: "Until your next turn, you may cast sorcery spells as though they had flash." (a permission of
+        // the player, CR 702.8a, 611.2b)
+        Rvr.UNTIL_MAY_CAST_AS_THOUGH_FLASH.matchEntire(sentence)?.let { m ->
+            val duration = when (m.groupValues[1]) {
+                "Until your next turn" -> arcanum.api.Duration.UntilYourNextTurn
+                else -> arcanum.api.Duration.EndOfTurn
+            }
+            val spells = Filters.noun(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CastAsThoughFlash(spells)), Affected.Players(Players.You), duration)))
+        }
         // rvr chunk 03: Kaya, Orzhov Usurper: "Kaya deals damage to target player equal to … and you gain that much life." ("that much": the
         // damage dealt, after prevention, CR 120.3, 615)
         Rvr.DEALS_AND_GAIN_THAT_MUCH.matchEntire(sentence)?.let { m ->

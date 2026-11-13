@@ -24,7 +24,8 @@ internal object EoePhrases {
         Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.WasPaid(Keyword.Warp.Kind, times = 1), by = PlayerFilter.Any), atLeast = 1, measure = Measure.Objects)))
 
     // eoe chunk 07: "you've cast two or more spells this turn", "you've cast another spell this turn" (not the spell being cast)
-    private val CAST_N_OR_MORE = Regex("""you've cast (\w+) or more spells this turn""")
+    // rvr chunk 04: also of a kind, "you've cast three or more instant and sorcery spells this turn" (each spell either one)
+    private val CAST_N_OR_MORE = Regex("""you've cast (\w+) or more (?:(.+?) )?spells this turn""")
     // eoe chunk 07: "you've gained 3 or more life this turn"
     private val GAINED_N_OR_MORE = Regex("""you've gained (\d+) or more life this turn""")
     // eoe chunk 07: "your opponents control three or more creatures"
@@ -33,7 +34,8 @@ internal object EoePhrases {
     fun condition(text: String, self: Set<String>): Condition? {
         if (text == VOID) return void
         CAST_N_OR_MORE.matchEntire(text)?.let { m ->
-            return Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null,
+            val spells = if (m.groupValues[2].isEmpty()) ObjectFilter.Any else Filters.noun(m.groupValues[2].replace(" and ", " or ") + " spell") ?: return null
+            return Condition.HappenedThisTurn(EventPattern.Cast(spells, PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null,
                 measure = Measure.Events)
         }
         if (text == "you've cast another spell this turn")

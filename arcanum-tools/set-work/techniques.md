@@ -9,7 +9,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   hook); a wording of several sentences read as one in the set's `<set>Whole`, which sees only bodies with ". " inside;
   a static line that becomes several abilities in `Sentences.multi`. A new table line or slot beats a new rule.
 - "it" follows `context.it`: a rule that moves or exiles an object sets it (`Bound("exiled")`), so a later "it", "that
-  card" or "If it's a X" reads the new object (CR 400.7). In "When this enters", "it" is `EventObject(After)`.
+  card" or "If it's a X" reads the new object (CR 400.7). In "When this enters", "it" is `EventObject(After)`. After a
+  Move of a target, event object or this card to the battlefield, `Sentences.followTargetsToBattlefield` points later
+  steps at the new permanent (CR 400.7j): such a rule needs no own `postBind`.
+- "that many" binds the nearest amount an earlier part of the same ability defines (`context.thatMuch`, e.g. "sacrifice
+  any number of ..., then draw that many") before the trigger event's amount.
 - "If you do" after a step that can fail (a mandatory exile, move or sacrifice): bind the moved objects (`postBind`) and
   check `Condition.NonEmpty`. A mandatory `Step.Pay` counts as paid even when nothing moved, so `Did` is wrong there.
 - "You may pay/sacrifice/discard ... If you do" = `Step.Pay(mandatory = false, ...)` + `Step.If(Did)`; audits calling it
@@ -33,8 +37,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   names X announces X (`ADDITIONAL_COST_X`, CR 601.2b). "any number of target X" divided has min 0.
 - A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule.
   The parser leaves an ability with an unused target slot unread (`DefinitionChecks.unusedTargetSlots`, CR 115.1).
-- "becomes a [type] artifact creature" keeps the object's other subtypes (CR 205.1b); "Until your next turn, X." reads
-  as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
+- "Until your next turn, X." reads as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
 - "enchanted player" = `Players.AttachedTo(Objects.Self)`; "Curses attached to you" = `ObjectFilter.Attached(toPlayers =
   ...)`. "<cost part choosing one object> and pay its mana cost" = `CostPart.ManaCostOf(Bound)`; a token's text naming
   the card that made it = `Objects.Creator`, kept by copies (CR 201.5a).
@@ -57,8 +60,14 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
 - "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
   are `onlyIf` (CR 601.2c).
-- "It's still a <type>." keeps all prior types (no replaceTypes/replaceSubtypes); "[creature type] artifact creature"
-  still replaces creature types (CR 205.1b, last sentence).
+- Type-setting (CR 205.1a-b): "becomes a ... creature" replaces card types; "artifact creature", "still a <type>" and "in
+  addition to its other types" keep all prior types and subtypes; "[creature type] artifact creature" replaces creature
+  types only (`replaceSubtypes` is per kind), also beside "still a land"; a copy exception "it's a ... creature" sets types.
+- "other target" after an earlier target is `distinctFrom` that slot (CR 115.3), not `Not(Is(Self))`. A condition judged
+  "as you cast" is `Condition.AsCast` (copies aren't cast); a spell's own cost reduction may read its cast choices.
+- Replacements: "dealt damage this way would die this turn, exile it instead" covers only objects actually dealt damage
+  (prevented damage isn't dealt, CR 615.1a); "if you would pay life" is `EventPattern.PayLife` with a
+  `Replacement.condition`, payability stays CR 119.4; mana multipliers are a `Replacement` on `Tap(forMana = true)`.
 - A target "of an opponent's choice" is `TargetSlot.chosenBy`; "the next N damage ... is dealt to X instead" is
   `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
 - Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
@@ -112,6 +121,10 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   players and a control change.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
+- A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(
+  emptyList())`); a mana ability with a colour choice asks colour and payment in either order: answer what is pending.
+- An Adventure face: `casts("Face", way = CastWay(face = 1))`; a player target needs `target = "bob"` even with one
+  opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`.
 - A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
   controller the order one at a time: answer with `alice.chooses(name)`.
 

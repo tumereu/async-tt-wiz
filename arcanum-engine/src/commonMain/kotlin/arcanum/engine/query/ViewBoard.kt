@@ -51,6 +51,16 @@ internal object Lki {
         return null
     }
 
+    /** The zone change by which [id] left its zone (CR 400.7), once it has; null otherwise. */
+    fun move(state: GameState, id: ObjectId): arcanum.engine.change.Move? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            change.moves.firstOrNull { it.before.id == id }?.let { return it }
+        }
+        return null
+    }
+
     /**
      * The new object [id] became by its last zone change (CR 400.7), when it went to a public zone and is still there
      * ("this card" in the graveyard for an ability that triggered as it died, CR 603.6e); null otherwise.

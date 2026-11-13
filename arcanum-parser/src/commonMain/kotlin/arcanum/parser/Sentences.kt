@@ -16434,13 +16434,15 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You)) + then
         }
         // one chunk 04: Blade of Shared Souls, "for as long as this Equipment remains attached to it, you may have that creature become a copy of
-        // another target creature you control." ("another": other than the creature it is attached to; that creature is fixed as the ability resolves; the copy effect, layer 1,
-        // ends once this Equipment is no longer attached to that creature, CR 611.2a, 707.9)
-        One.WHILE_ATTACHED_MAY_BECOME_COPY.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // another target creature you control." ("it", "that creature", "another": the creature it became attached to, the trigger event's, CR 608.2h; the
+        // copy effect, layer 1, ends once this Equipment is no longer attached to that creature, and does nothing if it no longer is as it
+        // resolves, CR 611.2a, 611.2b, 707.9)
+        One.WHILE_ATTACHED_MAY_BECOME_COPY.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && context.event is EventPattern.Attach }?.let { m ->
             val noun = m.groupValues[2]
-            val target = context.target(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.AttachedTo(Objects.Self))), Filters.noun(noun) ?: return null))
+            val attachedTo = Objects.EventObject(EventRole.To)
+            val target = context.target(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(attachedTo)), Filters.noun(noun) ?: return null))
             val equipped = Objects.Bound("equipped")
-            return listOf(Step.Bind(Objects.AttachedTo(Objects.Self), "equipped"), Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)),
+            return listOf(Step.Bind(attachedTo, "equipped"), Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)),
                 arcanum.api.Affected.Objects(equipped), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = equipped)))))),
                 player = Players.You))
         }

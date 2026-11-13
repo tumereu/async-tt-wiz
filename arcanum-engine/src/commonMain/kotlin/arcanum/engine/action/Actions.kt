@@ -945,6 +945,28 @@ internal object Actions {
         return tokens.map { it.id }
     }
 
+    /** The values a token that's a copy of [id] gets (CR 707.2): as it is, or as it last existed if it has left its zone or the
+     * instructions being run moved it from the battlefield ("destroy it … create a token that's a copy of it", CR 608.2h). */
+    private fun copiedForToken(act: Act, id: ObjectId): arcanum.engine.state.CopiableValues? {
+        val copiable = arcanum.engine.view.Copiable(act.state)
+        if (act.state.obj(id) == null && id !in act.state.stackItems) return copiable.lastKnownForToken(id) ?: copiable.forToken(id)
+        val item = act.recorder.by?.item
+        if (item == null || act.state.obj(id)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return copiable.forToken(id)
+        // the move that made it, looked for only since the instructions' Stack item was put on the Stack
+        val log = act.state.log
+        for (i in log.indices.reversed()) {
+            when (val change = log[i].change) {
+                is Change.StackItemAdded -> if (change.item.id == item) break
+                is Change.ZoneChange -> change.moves.firstOrNull { it.after.id == id }?.let { move ->
+                    return if (move.from == Zone.Battlefield && change.by?.item == item) copiable.lastKnownForToken(move.before.id) ?: copiable.forToken(id)
+                        else copiable.forToken(id)
+                }
+                else -> Unit
+            }
+        }
+        return copiable.forToken(id)
+    }
+
     /** The copiable values of a token spec (CR 111.4, 111.10, 707.2): a copy's are its layout and all its faces (CR 707.8a, 709.5b). */
     fun tokenValues(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): arcanum.engine.state.CopiableValues = when (spec) {
         is arcanum.api.TokenSpec.Defined -> arcanum.engine.state.CopiableValues.of(spec.face.copy(
@@ -955,7 +977,7 @@ internal object Actions {
             ?: FaceDefinition("${spec.name} Token"))
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
-            val values = of?.let { arcanum.engine.view.Copiable(act.state).forToken(it)?.takeIf { v -> v.faces.isNotEmpty() } }
+            val values = of?.let { copiedForToken(act, it)?.takeIf { v -> v.faces.isNotEmpty() } }
                 ?: arcanum.engine.state.CopiableValues.of(of?.let { e.characteristics(it) }?.let { c -> FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors, c.supertypes, c.types,
                     c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) }) }
                     ?: FaceDefinition("Copy"))

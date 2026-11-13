@@ -9,6 +9,7 @@ import arcanum.api.CostChange
 import arcanum.api.Duration
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.EventRole
 import arcanum.api.Keyword
 import arcanum.api.Destination
 import arcanum.api.ManaCost
@@ -42,7 +43,8 @@ class OneChunk04EquipTest {
         text = "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\n$text",
     ) parsesTo abilities(Keyword.ForMirrodin, *abilities)
 
-    // CR 301.5c, 611.2a, 707.9: the copy lasts as long as this Equipment stays attached to that creature; "you may"
+    // CR 301.5c, 611.2a, 707.9: the copy lasts as long as this Equipment stays attached to that creature; "you may"; CR 608.2h, 611.2b: "it",
+    // "that creature" and "another" are the creature it became attached to (the trigger event's), not whatever it is attached to on resolution
     @Test
     fun bladeOfSharedSouls() = forMirrodinCard(
         name = "Blade of Mingled Souls",
@@ -53,10 +55,10 @@ class OneChunk04EquipTest {
         """,
         triggered(
             on(EventPattern.Attach(ObjectFilter.Is(Objects.Self), creature)),
-            Step.Bind(equipped, "equipped"),
+            Step.Bind(Objects.EventObject(EventRole.To), "equipped"),
             Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target("creature"))), Affected.Objects(Objects.Bound("equipped")),
                 Duration.AsLongAs(Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = Objects.Bound("equipped"))))))), player = Players.You),
-            targets = listOf(slot("creature", and(ObjectFilter.Not(ObjectFilter.Is(equipped)), creature, you))),
+            targets = listOf(slot("creature", and(ObjectFilter.Not(ObjectFilter.Is(Objects.EventObject(EventRole.To))), creature, you))),
         ),
         equip("{2}"),
     )

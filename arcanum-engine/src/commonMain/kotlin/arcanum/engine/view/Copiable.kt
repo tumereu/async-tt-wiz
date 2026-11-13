@@ -80,7 +80,19 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
      */
     fun forToken(id: ObjectId): CopiableValues? {
         val values = values(id) ?: return null
-        val o = state.obj(id)
+        return shapedForToken(state.obj(id), values)
+    }
+
+    /**
+     * The values of a token that's a copy of [id] as it last existed in the zone it left (CR 707.2, 608.2h): of a permanent that left the
+     * battlefield, what a copy effect or its face-down status made it there, not the card it is now. Null: it left no zone known.
+     */
+    fun lastKnownForToken(id: ObjectId): CopiableValues? {
+        val m = arcanum.engine.query.Lki.move(state, id) ?: return null
+        return shapedForToken(m.before, m.seen?.copiable ?: plain(m.before))
+    }
+
+    private fun shapedForToken(o: GameObject?, values: CopiableValues): CopiableValues {
         val printed = o?.definition?.takeIf { !o.faceDown && !o.merged && doubleFaced(it.layout) && it.faces.size > 1 }
         // A double-faced permanent under a copy effect: each of its faces has what the effect gives (CR 707.8a)
         if (printed != null && values.layout == Layout.Normal && values.faces.size == 1)
@@ -273,6 +285,12 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     }
 
     companion object {
+        /** [o]'s copiable values from its card alone (or its face-down values, CR 708.2a), before copy effects and the rest of layer 1:
+         * what [arcanum.engine.state.ObjectSnapshot.copiable] is compared with. */
+        fun plain(o: GameObject): CopiableValues =
+            if (o.faceDown) CopiableValues.of(faceDown(o))
+            else CopiableValues(o.definition.layout, o.definition.faces, o.face, o.gainedInCopying, o.createdBy)
+
         /** A merged permanent's [faces] as one face (CR 707.2): the first face, with the abilities of its other components (CR
          * 730.2a, 702.140e: they are part of its copiable values). */
         private fun copiedFace(faces: List<IndexedFace>): FaceDefinition? {
